@@ -1,3 +1,4 @@
+use bevy_text::TextPipeline;
 use thiserror::Error;
 
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
@@ -94,6 +95,7 @@ pub fn ui_layout_system(
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
+    #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
 ) {
     struct CameraLayoutInfo {
         size: UVec2,
@@ -214,13 +216,20 @@ pub fn ui_layout_system(
         }
     }
 
+    #[cfg(feature = "bevy_text")]
+    let font_system = text_pipeline.font_system_mut();
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     for (camera_id, camera) in &camera_layout_info {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
-        ui_surface.compute_camera_layout(*camera_id, camera.size);
+        ui_surface.compute_camera_layout(
+            *camera_id,
+            camera.size,
+            #[cfg(feature = "bevy_text")]
+            font_system,
+        );
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
                 *root,
@@ -399,6 +408,8 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::TextPipeline>();
 
         // spawn a dummy primary window and camera
         world.spawn((
@@ -1031,6 +1042,8 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::TextPipeline>();
 
         // spawn a dummy primary window and camera
         world.spawn((

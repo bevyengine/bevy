@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextStyle {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 100.0,
+                font_size: 80.0,
                 ..default()
             },
         ) // Set the justification of the Text
@@ -61,13 +61,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     // This font is loaded and will be used instead of the default font.
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 60.0,
+                    font_size: 50.0,
                     ..default()
                 },
             ),
             TextSection::from_style(if cfg!(feature = "default_font") {
                 TextStyle {
-                    font_size: 60.0,
+                    font_size: 40.0,
                     color: GOLD.into(),
                     // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
                     ..default()
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // "default_font" feature is unavailable, load a font to use instead.
                 TextStyle {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 60.0,
+                    font_size: 40.0,
                     color: GOLD.into(),
                 }
             }),

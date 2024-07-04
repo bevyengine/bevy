@@ -1,219 +1,397 @@
-use crate::{
-    compute_text_bounds, error::TextError, glyph_brush::GlyphBrush, scale_value, BreakLineOn, Font,
-    FontAtlasSets, JustifyText, PositionedGlyph, Text, TextSection, TextSettings, YAxisOrientation,
-};
-use ab_glyph::PxScale;
-use bevy_asset::{AssetId, Assets, Handle};
-use bevy_ecs::component::Component;
-use bevy_ecs::prelude::ReflectComponent;
-use bevy_ecs::system::Resource;
-use bevy_math::Vec2;
-use bevy_reflect::prelude::ReflectDefault;
-use bevy_reflect::Reflect;
+use std::sync::Arc;
+
+use bevy_asset::{AssetId, Assets};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource};
+use bevy_math::{UVec2, Vec2};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::HashMap;
-use glyph_brush_layout::{FontId, GlyphPositioner, SectionGeometry, SectionText, ToSectionText};
 
-#[derive(Default, Resource)]
-pub struct TextPipeline {
-    brush: GlyphBrush,
-    map_font_id: HashMap<AssetId<Font>, FontId>,
+use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
+
+use crate::{
+    error::TextError, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, PositionedGlyph,
+    TextBounds, TextSection, YAxisOrientation,
+};
+
+/// A wrapper around a [`cosmic_text::FontSystem`]
+struct CosmicFontSystem(cosmic_text::FontSystem);
+
+impl Default for CosmicFontSystem {
+    fn default() -> Self {
+        let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
+        let db = cosmic_text::fontdb::Database::new();
+        // TODO: consider using `cosmic_text::FontSystem::new()` (load system fonts by default)
+        Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
+    }
 }
 
-/// Render information for a corresponding [`Text`] component.
+/// A wrapper around a [`cosmic_text::SwashCache`]
+struct SwashCache(cosmic_text::SwashCache);
+
+impl Default for SwashCache {
+    fn default() -> Self {
+        Self(cosmic_text::SwashCache::new())
+    }
+}
+
+/// The `TextPipeline` is used to layout and render [`Text`](crate::Text).
 ///
-///  Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
-#[derive(Component, Clone, Default, Debug, Reflect)]
-#[reflect(Component, Default)]
-pub struct TextLayoutInfo {
-    pub glyphs: Vec<PositionedGlyph>,
-    pub logical_size: Vec2,
+/// See the [crate-level documentation](crate) for more information.
+#[derive(Default, Resource)]
+pub struct TextPipeline {
+    /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
+    map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
+    /// The font system is used to retrieve fonts and their information, including glyph outlines.
+    ///
+    /// See [`cosmic_text::FontSystem`] for more information.
+    font_system: CosmicFontSystem,
+    /// The swash cache rasterizer is used to rasterize glyphs
+    ///
+    /// See [`cosmic_text::SwashCache`] for more information.
+    swash_cache: SwashCache,
 }
 
 impl TextPipeline {
-    pub fn get_or_insert_font_id(&mut self, handle: &Handle<Font>, font: &Font) -> FontId {
-        let brush = &mut self.brush;
-        *self
-            .map_font_id
-            .entry(handle.id())
-            .or_insert_with(|| brush.add_font(handle.id(), font.font.clone()))
+    /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
+    ///
+    /// Negative or 0.0 font sizes will not be laid out.
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_buffer(
+        &mut self,
+        fonts: &Assets<Font>,
+        sections: &[TextSection],
+        linebreak_behavior: BreakLineOn,
+        bounds: TextBounds,
+        scale_factor: f64,
+        buffer: &mut CosmicBuffer,
+        alignment: JustifyText,
+    ) -> Result<(), TextError> {
+        let font_system = &mut self.font_system.0;
+
+        // return early if the fonts are not loaded yet
+        let mut font_size = 0.;
+        for section in sections {
+            if section.style.font_size > font_size {
+                font_size = section.style.font_size;
+            }
+            fonts
+                .get(section.style.font.id())
+                .ok_or(TextError::NoSuchFont)?;
+        }
+        let line_height = font_size * 1.2;
+        let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+
+        // Load Bevy fonts into cosmic-text's font system.
+        // This is done as as separate pre-pass to avoid borrow checker issues
+        for section in sections.iter() {
+            load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
+        }
+
+        // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
+        // since they cannot be rendered by cosmic-text.
+        //
+        // The section index is stored in the metadata of the spans, and could be used
+        // to look up the section the span came from and is not used internally
+        // in cosmic-text.
+        let spans: Vec<(&str, Attrs)> = sections
+            .iter()
+            .enumerate()
+            .filter(|(_section_index, section)| section.style.font_size > 0.0)
+            .map(|(section_index, section)| {
+                (
+                    &section.value[..],
+                    get_attrs(
+                        section,
+                        section_index,
+                        font_system,
+                        &self.map_handle_to_font_id,
+                        scale_factor,
+                    ),
+                )
+            })
+            .collect();
+
+        buffer.set_metrics(font_system, metrics);
+        buffer.set_size(font_system, bounds.width, bounds.height);
+
+        buffer.set_wrap(
+            font_system,
+            match linebreak_behavior {
+                BreakLineOn::WordBoundary => Wrap::Word,
+                BreakLineOn::AnyCharacter => Wrap::Glyph,
+                BreakLineOn::WordOrCharacter => Wrap::WordOrGlyph,
+                BreakLineOn::NoWrap => Wrap::None,
+            },
+        );
+
+        buffer.set_rich_text(font_system, spans, Attrs::new(), Shaping::Advanced);
+
+        // PERF: https://github.com/pop-os/cosmic-text/issues/166:
+        // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
+        for buffer_line in buffer.lines.iter_mut() {
+            buffer_line.set_align(Some(alignment.into()));
+        }
+        buffer.shape_until_scroll(font_system, false);
+
+        Ok(())
     }
 
+    /// Queues text for rendering
+    ///
+    /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
+    /// which contain information for rendering the text.
     #[allow(clippy::too_many_arguments)]
     pub fn queue_text(
         &mut self,
         fonts: &Assets<Font>,
         sections: &[TextSection],
-        scale_factor: f32,
+        scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
-        bounds: Vec2,
+        bounds: TextBounds,
         font_atlas_sets: &mut FontAtlasSets,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
-        text_settings: &TextSettings,
         y_axis_orientation: YAxisOrientation,
+        buffer: &mut CosmicBuffer,
     ) -> Result<TextLayoutInfo, TextError> {
-        let mut scaled_fonts = Vec::with_capacity(sections.len());
-        let sections = sections
-            .iter()
-            .map(|section| {
-                let font = fonts
-                    .get(&section.style.font)
-                    .ok_or(TextError::NoSuchFont)?;
-                let font_id = self.get_or_insert_font_id(&section.style.font, font);
-                let font_size = scale_value(section.style.font_size, scale_factor);
-
-                scaled_fonts.push(ab_glyph::Font::as_scaled(&font.font, font_size));
-
-                let section = SectionText {
-                    font_id,
-                    scale: PxScale::from(font_size),
-                    text: &section.value,
-                };
-
-                Ok(section)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let section_glyphs =
-            self.brush
-                .compute_glyphs(&sections, bounds, text_alignment, linebreak_behavior)?;
-
-        if section_glyphs.is_empty() {
+        if sections.is_empty() {
             return Ok(TextLayoutInfo::default());
         }
 
-        let size = compute_text_bounds(&section_glyphs, |index| scaled_fonts[index]).size();
-
-        let h_limit = if bounds.x.is_finite() {
-            bounds.x
-        } else {
-            size.x
-        };
-
-        let h_anchor = match text_alignment {
-            JustifyText::Left => 0.0,
-            JustifyText::Center => h_limit * 0.5,
-            JustifyText::Right => h_limit * 1.0,
-        }
-        .floor();
-
-        let glyphs = self.brush.process_glyphs(
-            section_glyphs,
-            &sections,
-            font_atlas_sets,
+        self.update_buffer(
             fonts,
-            texture_atlases,
-            textures,
-            text_settings,
-            y_axis_orientation,
-            h_anchor,
+            sections,
+            linebreak_behavior,
+            bounds,
+            scale_factor,
+            buffer,
+            text_alignment,
         )?;
+
+        let box_size = buffer_dimensions(buffer);
+        let font_system = &mut self.font_system.0;
+        let swash_cache = &mut self.swash_cache.0;
+
+        let glyphs = buffer
+            .layout_runs()
+            .flat_map(|run| {
+                run.glyphs
+                    .iter()
+                    .map(move |layout_glyph| (layout_glyph, run.line_y))
+            })
+            .map(|(layout_glyph, line_y)| {
+                let section_index = layout_glyph.metadata;
+
+                let font_handle = sections[section_index].style.font.clone_weak();
+                let font_atlas_set = font_atlas_sets.sets.entry(font_handle.id()).or_default();
+
+                let physical_glyph = layout_glyph.physical((0., 0.), 1.);
+
+                let atlas_info = font_atlas_set
+                    .get_glyph_atlas_info(physical_glyph.cache_key)
+                    .map(Ok)
+                    .unwrap_or_else(|| {
+                        font_atlas_set.add_glyph_to_atlas(
+                            texture_atlases,
+                            textures,
+                            font_system,
+                            swash_cache,
+                            layout_glyph,
+                        )
+                    })?;
+
+                let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                let location = atlas_info.location;
+                let glyph_rect = texture_atlas.textures[location.glyph_index];
+                let left = location.offset.x as f32;
+                let top = location.offset.y as f32;
+                let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
+
+                // offset by half the size because the origin is center
+                let x = glyph_size.x as f32 / 2.0 + left + physical_glyph.x as f32;
+                let y = line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
+                let y = match y_axis_orientation {
+                    YAxisOrientation::TopToBottom => y,
+                    YAxisOrientation::BottomToTop => box_size.y - y,
+                };
+
+                let position = Vec2::new(x, y);
+
+                // TODO: recreate the byte index, that keeps track of where a cursor is,
+                // when glyphs are not limited to single byte representation, relevant for #1319
+                let pos_glyph =
+                    PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, section_index);
+                Ok(pos_glyph)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(TextLayoutInfo {
             glyphs,
-            logical_size: size,
+            size: box_size,
         })
+    }
+
+    /// Queues text for measurement
+    ///
+    /// Produces a [`TextMeasureInfo`] which can be used by a layout system
+    /// to measure the text area on demand.
+    pub fn create_text_measure(
+        &mut self,
+        fonts: &Assets<Font>,
+        sections: &[TextSection],
+        scale_factor: f64,
+        linebreak_behavior: BreakLineOn,
+        buffer: &mut CosmicBuffer,
+        text_alignment: JustifyText,
+    ) -> Result<TextMeasureInfo, TextError> {
+        const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
+
+        self.update_buffer(
+            fonts,
+            sections,
+            linebreak_behavior,
+            MIN_WIDTH_CONTENT_BOUNDS,
+            scale_factor,
+            buffer,
+            text_alignment,
+        )?;
+
+        let min_width_content_size = buffer_dimensions(buffer);
+
+        let max_width_content_size = {
+            let font_system = &mut self.font_system.0;
+            buffer.set_size(font_system, None, None);
+            buffer_dimensions(buffer)
+        };
+
+        Ok(TextMeasureInfo {
+            min: min_width_content_size,
+            max: max_width_content_size,
+            // TODO: This clone feels wasteful, is there another way to structure TextMeasureInfo
+            // that it doesn't need to own a buffer? - bytemunch
+            buffer: buffer.0.clone(),
+        })
+    }
+
+    /// Get a mutable reference to the [`cosmic_text::FontSystem`].
+    ///
+    /// Used internally.
+    pub fn font_system_mut(&mut self) -> &mut cosmic_text::FontSystem {
+        &mut self.font_system.0
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct TextMeasureSection {
-    pub text: Box<str>,
-    pub scale: f32,
-    pub font_id: FontId,
+/// Render information for a corresponding [`Text`](crate::Text) component.
+///
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`].
+#[derive(Component, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default)]
+pub struct TextLayoutInfo {
+    /// Scaled and positioned glyphs in screenspace
+    pub glyphs: Vec<PositionedGlyph>,
+    /// The glyphs resulting size
+    pub size: Vec2,
 }
 
-#[derive(Debug, Clone, Default)]
+/// Size information for a corresponding [`Text`](crate::Text) component.
+///
+/// Generated via [`TextPipeline::create_text_measure`].
 pub struct TextMeasureInfo {
-    pub fonts: Box<[ab_glyph::FontArc]>,
-    pub sections: Box<[TextMeasureSection]>,
-    pub justification: JustifyText,
-    pub linebreak_behavior: glyph_brush_layout::BuiltInLineBreaker,
+    /// Minimum size for a text area in pixels, to be used when laying out widgets with taffy
     pub min: Vec2,
+    /// Maximum size for a text area in pixels, to be used when laying out widgets with taffy
     pub max: Vec2,
+    buffer: cosmic_text::Buffer,
+}
+
+impl std::fmt::Debug for TextMeasureInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TextMeasureInfo")
+            .field("min", &self.min)
+            .field("max", &self.max)
+            .field("buffer", &"_")
+            .field("font_system", &"_")
+            .finish()
+    }
 }
 
 impl TextMeasureInfo {
-    pub fn from_text(
-        text: &Text,
-        fonts: &Assets<Font>,
-        scale_factor: f32,
-    ) -> Result<TextMeasureInfo, TextError> {
-        let sections = &text.sections;
-        let mut auto_fonts = Vec::with_capacity(sections.len());
-        let mut out_sections = Vec::with_capacity(sections.len());
-        for (i, section) in sections.iter().enumerate() {
-            match fonts.get(&section.style.font) {
-                Some(font) => {
-                    auto_fonts.push(font.font.clone());
-                    out_sections.push(TextMeasureSection {
-                        font_id: FontId(i),
-                        scale: scale_value(section.style.font_size, scale_factor),
-                        text: section.value.clone().into_boxed_str(),
-                    });
-                }
-                None => return Err(TextError::NoSuchFont),
-            }
-        }
-
-        Ok(Self::new(
-            auto_fonts,
-            out_sections,
-            text.justify,
-            text.linebreak_behavior.into(),
-        ))
-    }
-    fn new(
-        fonts: Vec<ab_glyph::FontArc>,
-        sections: Vec<TextMeasureSection>,
-        justification: JustifyText,
-        linebreak_behavior: glyph_brush_layout::BuiltInLineBreaker,
-    ) -> Self {
-        let mut info = Self {
-            fonts: fonts.into_boxed_slice(),
-            sections: sections.into_boxed_slice(),
-            justification,
-            linebreak_behavior,
-            min: Vec2::ZERO,
-            max: Vec2::ZERO,
-        };
-
-        let min = info.compute_size(Vec2::new(0.0, f32::INFINITY));
-        let max = info.compute_size(Vec2::INFINITY);
-        info.min = min;
-        info.max = max;
-        info
-    }
-
-    pub fn compute_size(&self, bounds: Vec2) -> Vec2 {
-        let sections = &self.sections;
-        let geom = SectionGeometry {
-            bounds: (bounds.x, bounds.y),
-            ..Default::default()
-        };
-        let section_glyphs = glyph_brush_layout::Layout::default()
-            .h_align(self.justification.into())
-            .line_breaker(self.linebreak_behavior)
-            .calculate_glyphs(&self.fonts, &geom, sections);
-
-        compute_text_bounds(&section_glyphs, |index| {
-            let font = &self.fonts[index];
-            let font_size = self.sections[index].scale;
-            ab_glyph::Font::into_scaled(font, font_size)
-        })
-        .size()
+    /// Computes the size of the text area within the provided bounds.
+    pub fn compute_size(
+        &mut self,
+        bounds: TextBounds,
+        font_system: &mut cosmic_text::FontSystem,
+    ) -> Vec2 {
+        self.buffer
+            .set_size(font_system, bounds.width, bounds.height);
+        buffer_dimensions(&self.buffer)
     }
 }
-impl ToSectionText for TextMeasureSection {
-    #[inline(always)]
-    fn to_section_text(&self) -> SectionText<'_> {
-        SectionText {
-            text: &self.text,
-            scale: PxScale::from(self.scale),
-            font_id: self.font_id,
-        }
-    }
+
+fn load_font_to_fontdb(
+    section: &TextSection,
+    font_system: &mut cosmic_text::FontSystem,
+    map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
+    fonts: &Assets<Font>,
+) {
+    let font_handle = section.style.font.clone();
+    map_handle_to_font_id
+        .entry(font_handle.id())
+        .or_insert_with(|| {
+            let font = fonts.get(font_handle.id()).expect(
+                "Tried getting a font that was not available, probably due to not being loaded yet",
+            );
+            let data = Arc::clone(&font.data);
+            let ids = font_system
+                .db_mut()
+                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+
+            // TODO: it is assumed this is the right font face
+            let face_id = *ids.last().unwrap();
+            let face = font_system.db().face(face_id).unwrap();
+            let family_name = face.families[0].0.to_owned();
+
+            (face_id, family_name)
+        });
+}
+
+/// Translates [`TextSection`] to [`Attrs`](cosmic_text::attrs::Attrs),
+/// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
+fn get_attrs<'a>(
+    section: &TextSection,
+    section_index: usize,
+    font_system: &mut cosmic_text::FontSystem,
+    map_handle_to_font_id: &'a HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
+    scale_factor: f64,
+) -> Attrs<'a> {
+    let (face_id, family_name) = map_handle_to_font_id
+        .get(&section.style.font.id())
+        .expect("Already loaded with load_font_to_fontdb");
+    let face = font_system.db().face(*face_id).unwrap();
+
+    let attrs = Attrs::new()
+        .metadata(section_index)
+        .family(Family::Name(family_name))
+        .stretch(face.stretch)
+        .style(face.style)
+        .weight(face.weight)
+        .metrics(Metrics::relative(section.style.font_size, 1.2).scale(scale_factor as f32))
+        .color(cosmic_text::Color(section.style.color.to_linear().as_u32()));
+    attrs
+}
+
+/// Calculate the size of the text area for the given buffer.
+fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
+    let width = buffer
+        .layout_runs()
+        .map(|run| run.line_w)
+        .reduce(f32::max)
+        .unwrap_or(0.0);
+    let line_height = buffer.metrics().line_height.ceil();
+    let height = buffer.layout_runs().count() as f32 * line_height;
+
+    Vec2::new(width.ceil(), height).ceil()
 }
