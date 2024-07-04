@@ -1,5 +1,5 @@
 use crate::Font;
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use thiserror::Error;
 
 #[derive(Default)]
@@ -24,7 +24,7 @@ impl AssetLoader for FontLoader {
     type Error = FontLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Font, Self::Error> {

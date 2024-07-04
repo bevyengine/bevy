@@ -48,7 +48,7 @@ impl ViewNode for UpscalingNode {
             ClearColorConfig::Custom(color) => Some(color),
             ClearColorConfig::None => None,
         };
-        let converted_clear_color = clear_color.map(|color| color.into());
+        let converted_clear_color = clear_color.map(Into::into);
         let upscaled_texture = target.main_texture_view();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();

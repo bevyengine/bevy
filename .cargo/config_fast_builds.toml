@@ -136,7 +136,7 @@ rustflags = [
 linker = "rust-lld.exe"
 rustflags = [
   # Nightly
-  # "-Zshare-generics=y",
+  # "-Zshare-generics=n", # This needs to be off if you use dynamic linking on Windows.
   # "-Zthreads=0",
 ]
 

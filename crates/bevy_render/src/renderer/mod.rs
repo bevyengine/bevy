@@ -190,7 +190,7 @@ pub async fn initialize_renderer(
 
     if adapter_info.device_type == DeviceType::Cpu {
         warn!(
-            "The selected adapter is using the a driver that only supports software rendering. \
+            "The selected adapter is using a driver that only supports software rendering. \
              This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/"
         );
     }
@@ -352,7 +352,7 @@ pub async fn initialize_renderer(
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                label: options.device_label.as_ref().map(AsRef::as_ref),
                 required_features: features,
                 required_limits: limits,
             },

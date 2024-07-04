@@ -119,7 +119,7 @@ pub fn update_image_content_size_system(
     for (mut content_size, image, mut image_size, atlas_image) in &mut query {
         if let Some(size) = match atlas_image {
             Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
-            None => textures.get(&image.texture).map(|t| t.size()),
+            None => textures.get(&image.texture).map(Image::size),
         } {
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size

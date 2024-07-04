@@ -8,6 +8,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
@@ -334,7 +335,10 @@ pub fn extract_uinode_images(
         };
 
         // Skip invisible images
-        if !view_visibility.get() || image.color.is_fully_transparent() {
+        if !view_visibility.get()
+            || image.color.is_fully_transparent()
+            || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             continue;
         }
 
