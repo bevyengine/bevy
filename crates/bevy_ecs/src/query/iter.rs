@@ -1116,61 +1116,57 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     }
 
     /// Safety:
+    /// All arguments must stem from the same valid `QueryManyIter`.
+    ///
     /// The lifetime here is not restrictive enough for Fetch with &mut access,
     /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
     /// references to the same component, leading to unique reference aliasing.
     ///
     /// It is always safe for shared access.
     #[inline(always)]
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<D::Item<'w>> {
-        for entity in self.entity_iter.by_ref() {
+    unsafe fn fetch_next_aliased_unchecked(
+        entity_iter: &mut impl Iterator<Item: Borrow<Entity>>,
+        entities: &'w Entities,
+        tables: &'w Tables,
+        archetypes: &'w Archetypes,
+        fetch: &mut D::Fetch<'w>,
+        filter: &mut F::Fetch<'w>,
+        query_state: &'s QueryState<D, F>,
+    ) -> Option<D::Item<'w>> {
+        for entity in entity_iter {
             let entity = *entity.borrow();
-            let Some(location) = self.entities.get(entity) else {
+            let Some(location) = entities.get(entity) else {
                 continue;
             };
 
-            if !self
-                .query_state
+            if !query_state
                 .matched_archetypes
                 .contains(location.archetype_id.index())
             {
                 continue;
             }
 
-            let archetype = self
-                .archetypes
-                .get(location.archetype_id)
-                .debug_checked_unwrap();
-            let table = self.tables.get(location.table_id).debug_checked_unwrap();
+            let archetype = archetypes.get(location.archetype_id).debug_checked_unwrap();
+            let table = tables.get(location.table_id).debug_checked_unwrap();
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
             unsafe {
-                D::set_archetype(
-                    &mut self.fetch,
-                    &self.query_state.fetch_state,
-                    archetype,
-                    table,
-                );
+                D::set_archetype(fetch, &query_state.fetch_state, archetype, table);
             }
             // SAFETY: `table` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
             unsafe {
-                F::set_archetype(
-                    &mut self.filter,
-                    &self.query_state.filter_state,
-                    archetype,
-                    table,
-                );
+                F::set_archetype(filter, &query_state.filter_state, archetype, table);
             }
 
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if unsafe { F::filter_fetch(&mut self.filter, entity, location.table_row) } {
+            if unsafe { F::filter_fetch(filter, entity, location.table_row) } {
                 // SAFETY:
                 // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
                 // - fetch is only called once for each entity.
-                return Some(unsafe { D::fetch(&mut self.fetch, entity, location.table_row) });
+                return Some(unsafe { D::fetch(fetch, entity, location.table_row) });
             }
         }
         None
@@ -1179,10 +1175,49 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
     /// Get next result from the query
     #[inline(always)]
     pub fn fetch_next(&mut self) -> Option<D::Item<'_>> {
-        // SAFETY: we are limiting the returned reference to self,
+        // SAFETY:
+        // All arguments stem from self.
+        // We are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
-        unsafe { self.fetch_next_aliased_unchecked().map(D::shrink) }
+        unsafe {
+            Self::fetch_next_aliased_unchecked(
+                &mut self.entity_iter,
+                &self.entities,
+                &self.tables,
+                &self.archetypes,
+                &mut self.fetch,
+                &mut self.filter,
+                &self.query_state,
+            )
+            .map(D::shrink)
+        }
+    }
+}
+
+impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: Borrow<Entity>>>
+    QueryManyIter<'w, 's, D, F, I>
+{
+    /// Get next result from the back of the query
+    #[inline(always)]
+    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_>> {
+        // SAFETY:
+        // All arguments stem from self.
+        // We are limiting the returned reference to self,
+        // making sure this method cannot be called multiple times without getting rid
+        // of any previously returned unique references first, thus preventing aliasing.
+        unsafe {
+            Self::fetch_next_aliased_unchecked(
+                self.entity_iter.by_ref().rev().by_ref(),
+                &self.entities,
+                &self.tables,
+                &self.archetypes,
+                &mut self.fetch,
+                &mut self.filter,
+                &self.query_state,
+            )
+            .map(D::shrink)
+        }
     }
 }
 
@@ -1193,13 +1228,52 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Enti
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        // SAFETY: It is safe to alias for ReadOnlyWorldQuery.
-        unsafe { self.fetch_next_aliased_unchecked() }
+        // SAFETY:
+        // All arguments stem from self.
+        // It is safe to alias for ReadOnlyWorldQuery.
+        unsafe {
+            Self::fetch_next_aliased_unchecked(
+                &mut self.entity_iter,
+                &self.entities,
+                &self.tables,
+                &self.archetypes,
+                &mut self.fetch,
+                &mut self.filter,
+                &self.query_state,
+            )
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (_, max_size) = self.entity_iter.size_hint();
         (0, max_size)
+    }
+}
+
+impl<
+        'w,
+        's,
+        D: ReadOnlyQueryData,
+        F: QueryFilter,
+        I: DoubleEndedIterator<Item: Borrow<Entity>>,
+    > DoubleEndedIterator for QueryManyIter<'w, 's, D, F, I>
+{
+    #[inline(always)]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        // SAFETY:
+        // All arguments stem from self.
+        // It is safe to alias for ReadOnlyWorldQuery.
+        unsafe {
+            Self::fetch_next_aliased_unchecked(
+                self.entity_iter.by_ref().rev().by_ref(),
+                &self.entities,
+                &self.tables,
+                &self.archetypes,
+                &mut self.fetch,
+                &mut self.filter,
+                &self.query_state,
+            )
+        }
     }
 }
 
