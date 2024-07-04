@@ -109,21 +109,21 @@ use std::{
 /// # use bevy_ecs::component::ComponentId;
 /// #
 /// #[derive(Component)]
-/// #[component(on_add = on_add)]
-/// #[component(on_insert = on_insert)]
+/// #[component(on_add = my_on_add_hook)]
+/// #[component(on_insert = my_on_insert_hook)]
 /// // Another possible way of configuring hooks:
-/// // #[component(on_add = on_add, on_insert = on_insert)]
+/// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
 /// //
 /// // We don't have a remove hook, so we can leave it out:
-/// // #[component(on_remove = on_remove)]
+/// // #[component(on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
-/// fn on_add(world: DeferredWorld, entity: Entity, id: ComponentId) {
+/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
 ///     // ...
 /// }
 ///
 /// // You can also emit writing some types using generics.
-/// fn on_insert<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
 ///     // ...
 /// }
 ///
