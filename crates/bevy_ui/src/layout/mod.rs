@@ -254,11 +254,11 @@ pub fn ui_layout_system(
 
             absolute_location += layout_location;
 
-            let rounded_size = round_layout_coords(absolute_location + layout_size)
-                - round_layout_coords(absolute_location);
+            let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
+                - approx_round_layout_coords(absolute_location);
 
             let rounded_location =
-                round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+                approx_round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
@@ -293,7 +293,7 @@ pub fn resolve_outlines_system(
 ) {
     let viewport_size = primary_window
         .get_single()
-        .map(|window| window.size())
+        .map(Window::size)
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0;
 
@@ -315,15 +315,8 @@ pub fn resolve_outlines_system(
 
 #[inline]
 /// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
-fn round_ties_up(value: f32) -> f32 {
-    if value.fract() != -0.5 {
-        // The `round` function rounds ties away from zero. For positive numbers "away from zero" is towards positive infinity.
-        // So for all positive values, and negative values with a fractional part not equal to 0.5, `round` returns the correct result.
-        value.round()
-    } else {
-        // In the remaining cases, where `value` is negative and its fractional part is equal to 0.5, we use `ceil` to round it up towards positive infinity.
-        value.ceil()
-    }
+fn approx_round_ties_up(value: f32) -> f32 {
+    (value + 0.5).floor()
 }
 
 #[inline]
@@ -334,10 +327,10 @@ fn round_ties_up(value: f32) -> f32 {
 /// Example: The width between bounds of -50.5 and 49.5 before rounding is 100, using:
 /// - `f32::round`: width becomes 101 (rounds to -51 and 50).
 /// - `round_ties_up`: width is 100 (rounds to -50 and 50).
-fn round_layout_coords(value: Vec2) -> Vec2 {
+fn approx_round_layout_coords(value: Vec2) -> Vec2 {
     Vec2 {
-        x: round_ties_up(value.x),
-        y: round_ties_up(value.y),
+        x: approx_round_ties_up(value.x),
+        y: approx_round_ties_up(value.y),
     }
 }
 
@@ -357,7 +350,9 @@ mod tests {
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
-    use bevy_hierarchy::{despawn_with_children_recursive, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::{
+        despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
+    };
     use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
@@ -374,7 +369,7 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
-    use crate::layout::round_layout_coords;
+    use crate::layout::approx_round_layout_coords;
     use crate::layout::ui_surface::UiSurface;
     use crate::prelude::*;
     use crate::ui_layout_system;
@@ -383,7 +378,10 @@ mod tests {
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
-        assert_eq!(round_layout_coords(vec2(-50.5, 49.5)), vec2(-50., 50.));
+        assert_eq!(
+            approx_round_layout_coords(vec2(-50.5, 49.5)),
+            vec2(-50., 50.)
+        );
     }
 
     // these window dimensions are easy to convert to and from percentage values

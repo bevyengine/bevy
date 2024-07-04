@@ -125,7 +125,7 @@ impl<'a> std::fmt::Display for DebugNameItem<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self.name {
             Some(name) => std::fmt::Display::fmt(name, f),
-            None => write!(f, "{}v{}", self.entity.index(), self.entity.generation()),
+            None => std::fmt::Display::fmt(&self.entity, f),
         }
     }
 }

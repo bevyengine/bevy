@@ -463,7 +463,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
 }
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct Material2dBindGroupId(Option<BindGroupId>);
+pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {

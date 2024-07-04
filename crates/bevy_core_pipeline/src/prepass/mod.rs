@@ -29,12 +29,11 @@ pub mod node;
 
 use std::ops::Range;
 
-use bevy_asset::AssetId;
+use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    mesh::Mesh,
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
         PhaseItemExtraIndex,
@@ -147,7 +146,7 @@ pub struct Opaque3dPrepass {
 }
 
 // TODO: Try interning these.
-/// The data used to bin each opaque 3D mesh in the prepass and deferred pass.
+/// The data used to bin each opaque 3D object in the prepass and deferred pass.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OpaqueNoLightmap3dBinKey {
     /// The ID of the GPU pipeline.
@@ -156,8 +155,8 @@ pub struct OpaqueNoLightmap3dBinKey {
     /// The function used to draw the mesh.
     pub draw_function: DrawFunctionId,
 
-    /// The ID of the mesh.
-    pub asset_id: AssetId<Mesh>,
+    /// The ID of the asset.
+    pub asset_id: UntypedAssetId,
 
     /// The ID of a bind group specific to the material.
     ///

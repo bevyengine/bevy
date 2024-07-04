@@ -48,6 +48,9 @@ zstd = ["bevy_render/zstd"]
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
 
+# Include SMAA LUT KTX2 Files
+smaa_luts = ["bevy_core_pipeline/smaa_luts"]
+
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
@@ -106,6 +109,12 @@ pbr_transmission_textures = [
 pbr_multi_layer_material_textures = [
   "bevy_pbr?/pbr_multi_layer_material_textures",
   "bevy_gltf?/pbr_multi_layer_material_textures",
+]
+
+# Anisotropy texture in `StandardMaterial`:
+pbr_anisotropy_texture = [
+  "bevy_pbr?/pbr_anisotropy_texture",
+  "bevy_gltf?/pbr_anisotropy_texture",
 ]
 
 # Optimise for WebGL2
