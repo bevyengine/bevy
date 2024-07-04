@@ -1,12 +1,12 @@
 //! Reflection-based dynamic functions.
 //!
 //! This module provides a way to pass around and call functions dynamically
-//! using the [`DynamicFunction`] type.
+//! using the [`DynamicFunction`] and [`DynamicClosure`] types.
 //!
-//! Many simple functions and closures can be automatically converted to [`DynamicFunction`]
-//! using the [`IntoFunction`] trait.
+//! Many simple functions can be automatically converted to [`DynamicFunction`] or [`DynamicClosure`]
+//! using the [`IntoFunction`] or [`IntoClosure`] traits.
 //!
-//! Once the [`DynamicFunction`] is created, it can be called with a set of arguments provided
+//! Once this dynamic representation is created, it can be called with a set of arguments provided
 //! via an [`ArgList`].
 //!
 //! This returns a [`FunctionResult`] containing the [`Return`] value,
@@ -34,22 +34,81 @@
 //! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&100));
 //! ```
 //!
+//! # Function vs Closure
+//!
+//! In Rust, a "function" is any callable that does not capture its environment.
+//! These are typically defined with the `fn` keyword, but may also use anonymous function syntax.
+//!
+//! Rust also has the concept of "closures", which are functions that capture their environment.
+//! These are always defined with anonymous function syntax.
+//!
+//! For the purposes of reflection, this module alters those definitions a bit.
+//! Rather than placing the distinction on whether the callable _captures_ its environment,
+//! we place it on whether it _references_ its environment.
+//!
+//! This means that a "reflected function" is a function or closure that either does not
+//! capture any variables or takes ownership of all captured variables.
+//! In other words, it has a `'static` lifetime.
+//!
+//! A "reflected closure", on the other hand, is a closure that captures references to its environment.
+//!
+//! This difference from the Rust definitions exists in order to make reflected functions more flexible.
+//!
+//! An example of where this might be useful is creating a [`DynamicFunction`] for a scripting language,
+//! where you want to inject some runtime state into the function without changing its signature for consumers.
+//! By Rust's definitions, this would only be possible for closures.
+//! And while this would still be defined as a closure at compile time,
+//! it would be seen by users of the scripting language as a function at runtime.
+//!
+//! # Valid Signatures
+//!
+//! Many of the traits in this module have default blanket implementations over a specific set of function signatures.
+//!
+//! These signatures are:
+//! - `fn(...) -> R`
+//! - `fn<'a>(&'a arg, ...) -> &'a R`
+//! - `fn<'a>(&'a mut arg, ...) -> &'a R`
+//! - `fn<'a>(&'a mut arg, ...) -> &'a mut R`
+//!
+//! Where `...` represents 0 to 15 arguments (inclusive) of the form `T`, `&T`, or `&mut T`.
+//! The lifetime of any reference to the return type `R`, must be tied to a "receiver" argument
+//! (i.e. the first argument in the signature, normally `self`).
+//!
+//! Each trait will also have its own requirements for what traits are required for both arguments and return types,
+//! but a good rule-of-thumb is that all types should derive [`Reflect`].
+//!
+//! The reason for such a small subset of valid signatures is due to limitations in Rust—
+//! namely the [lack of variadic generics] and certain [coherence issues].
+//!
+//! For other functions that don't conform to one of the above signatures,
+//! [`DynamicFunction`] and [`DynamicClosure`] can instead be created manually.
+//!
 //! [`Reflect`]: crate::Reflect
+//! [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
+//! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
 
+pub use closure::*;
 pub use error::*;
 pub use function::*;
 pub use info::*;
+pub use into_closure::*;
 pub use into_function::*;
+pub use reflect_fn::*;
+pub use reflect_fn_mut::*;
 pub use return_type::*;
 
 pub use args::{Arg, ArgError, ArgList};
 
 pub mod args;
+mod closure;
 mod error;
 mod function;
 mod info;
+mod into_closure;
 mod into_function;
 pub(crate) mod macros;
+mod reflect_fn;
+mod reflect_fn_mut;
 mod return_type;
 
 #[cfg(test)]
@@ -66,18 +125,48 @@ mod tests {
             a + b
         }
 
-        let mut func = add.into_function();
+        let func = add.into_function();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<i32>(), Some(&100));
     }
 
     #[test]
+    fn should_create_dynamic_function_from_closure() {
+        let c = 23;
+        let func = (move |a: i32, b: i32| a + b + c).into_function();
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.downcast_ref::<i32>(), Some(&123));
+    }
+
+    #[test]
     fn should_create_dynamic_closure() {
-        let mut func = (|a: i32, b: i32| a + b).into_function();
+        let mut func = (|a: i32, b: i32| a + b).into_closure();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+    }
+
+    #[test]
+    fn should_create_dynamic_closure_from_function() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let mut func = add.into_closure();
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+    }
+
+    #[test]
+    fn should_create_dynamic_closure_with_capture() {
+        let mut total = 0;
+        let func = (|a: i32, b: i32| total = a + b).into_closure();
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        func.call_once(args).unwrap();
+        assert_eq!(total, 100);
     }
 
     #[test]
@@ -94,7 +183,7 @@ mod tests {
         let foo_a = Foo(25);
         let foo_b = Foo(75);
 
-        let mut func = Foo::add.into_function();
+        let func = Foo::add.into_function();
         let args = ArgList::new().push_ref(&foo_a).push_ref(&foo_b);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.downcast_ref::<Foo>(), Some(&Foo(100)));
@@ -106,7 +195,7 @@ mod tests {
             String::from("Hello, World!")
         }
 
-        let mut func = foo.into_function();
+        let func = foo.into_function();
         let args = ArgList::new();
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(
@@ -119,7 +208,7 @@ mod tests {
     fn should_allow_unit_return() {
         fn foo(_: i32) {}
 
-        let mut func = foo.into_function();
+        let func = foo.into_function();
         let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args).unwrap();
         assert!(result.is_unit());
@@ -132,7 +221,7 @@ mod tests {
         }
 
         let value: i32 = 123;
-        let mut func = foo.into_function();
+        let func = foo.into_function();
         let args = ArgList::new()
             .push_ref(&value)
             .push_owned(String::from("Hello, World!"))
@@ -148,7 +237,7 @@ mod tests {
         }
 
         let mut value: i32 = 123;
-        let mut func = foo.into_function();
+        let func = foo.into_function();
         let args = ArgList::new()
             .push_mut(&mut value)
             .push_owned(String::from("Hello, World!"))
@@ -191,7 +280,7 @@ mod tests {
     fn should_error_on_missing_args() {
         fn foo(_: i32) {}
 
-        let mut func = foo.into_function();
+        let func = foo.into_function();
         let args = ArgList::new();
         let result = func.call(args);
         assert_eq!(
@@ -207,7 +296,7 @@ mod tests {
     fn should_error_on_too_many_args() {
         fn foo() {}
 
-        let mut func = foo.into_function();
+        let func = foo.into_function();
         let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
@@ -223,7 +312,7 @@ mod tests {
     fn should_error_on_invalid_arg_type() {
         fn foo(_: i32) {}
 
-        let mut func = foo.into_function();
+        let func = foo.into_function();
         let args = ArgList::new().push_owned(123_u32);
         let result = func.call(args);
         assert_eq!(
@@ -240,7 +329,7 @@ mod tests {
     fn should_error_on_invalid_arg_ownership() {
         fn foo(_: &i32) {}
 
-        let mut func = foo.into_function();
+        let func = foo.into_function();
         let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
@@ -255,7 +344,7 @@ mod tests {
 
     #[test]
     fn should_convert_dynamic_function_with_into_function() {
-        fn make_function<'a, F: IntoFunction<'a, M>, M>(f: F) -> DynamicFunction<'a> {
+        fn make_function<F: IntoFunction<M>, M>(f: F) -> DynamicFunction {
             f.into_function()
         }
 

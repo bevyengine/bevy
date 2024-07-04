@@ -1,11 +1,12 @@
+use alloc::borrow::Cow;
+use core::fmt::{Debug, Formatter};
+use std::sync::Arc;
+
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::error::FunctionError;
 use crate::func::info::FunctionInfo;
 use crate::func::return_type::Return;
 use crate::func::{IntoFunction, ReturnInfo};
-use alloc::borrow::Cow;
-use core::fmt::{Debug, Formatter};
-use std::ops::DerefMut;
 
 /// The result of calling a dynamic [`DynamicFunction`].
 ///
@@ -15,7 +16,16 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 
 /// A dynamic representation of a Rust function.
 ///
-/// Internally this stores a function pointer and associated info.
+/// For our purposes, a "function" is just a callable that may not reference its environment.
+///
+/// This includes:
+/// - Functions and methods defined with the `fn` keyword
+/// - Closures that do not capture their environment
+/// - Closures that take ownership of captured variables
+///
+/// To handle closures that capture references to their environment, see [`DynamicClosure`].
+///
+/// See the [module-level documentation] for more information.
 ///
 /// You will generally not need to construct this manually.
 /// Instead, many functions and closures can be automatically converted using the [`IntoFunction`] trait.
@@ -90,25 +100,28 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 /// // Check the result:
 /// assert_eq!(list, vec!["Hello, World!!!"]);
 /// ```
-pub struct DynamicFunction<'env> {
+///
+/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [module-level documentation]: crate::func
+pub struct DynamicFunction {
     info: FunctionInfo,
-    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
+    func: Arc<dyn for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>,
 }
 
-impl<'env> DynamicFunction<'env> {
+impl DynamicFunction {
     /// Create a new dynamic [`DynamicFunction`].
     ///
     /// The given function can be used to call out to a regular function, closure, or method.
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>(
+    pub fn new<F: for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
         Self {
             info,
-            func: Box::new(func),
+            func: Arc::new(func),
         }
     }
 
@@ -144,41 +157,17 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// ```
     /// # use bevy_reflect::func::{IntoFunction, ArgList};
-    /// fn add(left: i32, right: i32) -> i32 {
-    ///   left + right
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///   a + b
     /// }
     ///
-    /// let mut func = add.into_function();
+    /// let func = add.into_function();
     /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.take::<i32>().unwrap(), 100);
     /// ```
-    pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func.deref_mut())(args, &self.info)
-    }
-
-    /// Call the function with the given arguments and consume the function.
-    ///
-    /// This is useful for closures that capture their environment because otherwise
-    /// any captured variables would still be borrowed by this function.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_reflect::func::{IntoFunction, ArgList};
-    /// let mut count = 0;
-    /// let increment = |amount: i32| {
-    ///   count += amount;
-    /// };
-    /// let increment_function = increment.into_function();
-    /// let args = ArgList::new().push_owned(5_i32);
-    /// // We need to drop `increment_function` here so that we
-    /// // can regain access to `count`.
-    /// increment_function.call_once(args).unwrap();
-    /// assert_eq!(count, 5);
-    /// ```
-    pub fn call_once(mut self, args: ArgList) -> FunctionResult {
-        (self.func.deref_mut())(args, &self.info)
+    pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
+        (self.func)(args, &self.info)
     }
 
     /// Returns the function info.
@@ -192,7 +181,7 @@ impl<'env> DynamicFunction<'env> {
 /// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
-impl<'env> Debug for DynamicFunction<'env> {
+impl Debug for DynamicFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.info.name().unwrap_or("_");
         write!(f, "DynamicFunction(fn {name}(")?;
@@ -212,9 +201,18 @@ impl<'env> Debug for DynamicFunction<'env> {
     }
 }
 
-impl<'env> IntoFunction<'env, ()> for DynamicFunction<'env> {
+impl Clone for DynamicFunction {
+    fn clone(&self) -> Self {
+        Self {
+            info: self.info.clone(),
+            func: Arc::clone(&self.func),
+        }
+    }
+}
+
+impl IntoFunction<()> for DynamicFunction {
     #[inline]
-    fn into_function(self) -> DynamicFunction<'env> {
+    fn into_function(self) -> DynamicFunction {
         self
     }
 }
