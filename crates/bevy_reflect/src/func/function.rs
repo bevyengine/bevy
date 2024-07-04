@@ -3,16 +3,8 @@ use core::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use crate::func::args::{ArgInfo, ArgList};
-use crate::func::error::FunctionError;
 use crate::func::info::FunctionInfo;
-use crate::func::return_type::Return;
-use crate::func::{IntoFunction, ReturnInfo};
-
-/// The result of calling a dynamic [`DynamicFunction`].
-///
-/// Returns `Ok(value)` if the function was called successfully,
-/// where `value` is the [`Return`] value of the function.
-pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
+use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 
 /// A dynamic representation of a Rust function.
 ///

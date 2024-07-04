@@ -5,9 +5,13 @@ use bevy_utils::all_tuples;
 use crate::func::args::{ArgInfo, GetOwnership, Ownership};
 use crate::TypePath;
 
-/// Type information for a [`DynamicFunction`].
+/// Type information for a [`DynamicFunction`] or [`DynamicClosure`].
+///
+/// This information can be retrieved from certain functions and closures
+/// using the [`TypedFunction`] trait.
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicClosure`]: crate::func::DynamicClosure
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
@@ -63,11 +67,13 @@ impl FunctionInfo {
 
     /// The name of the function, if it was given one.
     ///
-    /// For [`DynamicFunctions`] created using [`IntoFunction`],
+    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicClosures`] created using [`IntoClosure`],
     /// the name will always be the full path to the function as returned by [`std::any::type_name`].
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction
+    /// [`DynamicClosures`]: crate::func::DynamicClosure
+    /// [`IntoClosure`]: crate::func::IntoClosure
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
@@ -94,9 +100,10 @@ impl Default for FunctionInfo {
     }
 }
 
-/// Information about the return type of a [`DynamicFunction`].
+/// Information about the return type of a [`DynamicFunction`] or [`DynamicClosure`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicClosure`]: crate::func::DynamicClosure
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
     type_path: &'static str,

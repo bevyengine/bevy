@@ -1,8 +1,9 @@
 use crate::Reflect;
 
-/// The return type of a [`DynamicFunction`].
+/// The return type of a [`DynamicFunction`] or [`DynamicClosure`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicClosure`]: crate::func::DynamicClosure
 #[derive(Debug)]
 pub enum Return<'a> {
     /// The function returns nothing (i.e. it returns `()`).
