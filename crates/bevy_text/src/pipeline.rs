@@ -388,7 +388,7 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     let width = buffer
         .layout_runs()
         .map(|run| run.line_w)
-        .reduce(|max_w, w| max_w.max(w))
+        .reduce(f32::max)
         .unwrap_or(0.0);
     let line_height = buffer.metrics().line_height.ceil();
     let height = buffer.layout_runs().count() as f32 * line_height;
