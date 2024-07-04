@@ -35,7 +35,6 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
@@ -47,8 +46,6 @@ use bevy_render::{
     view::ViewVisibility, Extract, ExtractSchedule, RenderApp,
 };
 use bevy_utils::HashSet;
-
-use crate::{ExtractMeshesSet, RenderMeshInstances};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
@@ -134,7 +131,7 @@ impl Plugin for LightmapPlugin {
 
         render_app
             .init_resource::<RenderLightmaps>()
-            .add_systems(ExtractSchedule, extract_lightmaps.after(ExtractMeshesSet));
+            .add_systems(ExtractSchedule, extract_lightmaps);
     }
 }
 
@@ -142,8 +139,7 @@ impl Plugin for LightmapPlugin {
 /// resource.
 fn extract_lightmaps(
     mut render_lightmaps: ResMut<RenderLightmaps>,
-    lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap)>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
+    lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap, &Handle<Mesh>)>>,
     images: Res<RenderAssets<GpuImage>>,
     meshes: Res<RenderAssets<GpuMesh>>,
 ) {
@@ -152,14 +148,13 @@ fn extract_lightmaps(
     render_lightmaps.all_lightmap_images.clear();
 
     // Loop over each entity.
-    for (entity, view_visibility, lightmap) in lightmaps.iter() {
+    for (entity, view_visibility, lightmap, mesh) in lightmaps.iter() {
         // Only process visible entities for which the mesh and lightmap are
         // both loaded.
         if !view_visibility.get()
             || images.get(&lightmap.image).is_none()
-            || !render_mesh_instances
-                .mesh_asset_id(entity)
-                .and_then(|mesh_asset_id| meshes.get(mesh_asset_id))
+            || !meshes
+                .get(mesh.id())
                 .is_some_and(|mesh| mesh.layout.0.contains(Mesh::ATTRIBUTE_UV_1.id))
         {
             continue;

@@ -112,6 +112,8 @@ pub enum RenderSet {
     PrepareAssets,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
+    /// Collect meshes and produce any per-mesh data the GPU will need
+    CollectMeshes,
     /// Queue drawable entities as phase items in render phases ready for
     /// sorting (if necessary)
     Queue,
@@ -171,6 +173,7 @@ impl Render {
                 .chain()
                 .in_set(Prepare),
         );
+        schedule.configure_sets((PrepareAssets, CollectMeshes, Queue).chain());
 
         schedule
     }

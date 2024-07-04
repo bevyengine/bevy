@@ -187,6 +187,7 @@ impl Plugin for MeshRenderPlugin {
                 render_app
                     .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>(
                     )
+                    .init_resource::<RenderMeshInstanceGpuQueues>()
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
@@ -194,6 +195,7 @@ impl Plugin for MeshRenderPlugin {
                     .add_systems(
                         Render,
                         (
+                            collect_meshes_for_gpu_building.in_set(RenderSet::CollectMeshes),
                             gpu_preprocessing::write_batched_instance_buffers::<MeshPipeline>
                                 .in_set(RenderSet::PrepareResourcesFlush),
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
@@ -491,7 +493,8 @@ pub struct RenderMeshInstanceGpuBuilder {
     pub mesh_flags: MeshFlags,
 }
 
-/// The per-thread queues used during [`extract_meshes_for_gpu_building`].
+/// One per-thread queue produced during [`extract_meshes_for_gpu_building`] and
+/// consumed during [`collect_meshes_for_gpu_building`].
 ///
 /// There are two varieties of these: one for when culling happens on CPU and
 /// one for when culling happens on GPU. Having the two varieties avoids wasting
@@ -891,6 +894,16 @@ pub fn extract_meshes_for_cpu_building(
     }
 }
 
+/// Holds all per-thread queues produced during
+/// [`extract_meshes_for_gpu_building`] and consumed during
+/// [`collect_meshes_for_gpu_building`].
+///
+/// There are two varieties of these: one for when culling happens on CPU and
+/// one for when culling happens on GPU. Having the two varieties avoids wasting
+/// space if GPU culling is disabled.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
+
 /// Extracts meshes from the main world into the render world and queues
 /// [`MeshInputUniform`]s to be uploaded to the GPU.
 ///
@@ -899,11 +912,7 @@ pub fn extract_meshes_for_cpu_building(
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    mut batched_instance_buffers: ResMut<
-        gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
-    >,
-    mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
-    mut render_mesh_instance_queues: Local<Parallel<RenderMeshInstanceGpuQueue>>,
+    mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -1003,13 +1012,6 @@ pub fn extract_meshes_for_gpu_building(
             queue.push(entity, gpu_mesh_instance_builder, gpu_mesh_culling_data);
         },
     );
-
-    collect_meshes_for_gpu_building(
-        render_mesh_instances,
-        &mut batched_instance_buffers,
-        &mut mesh_culling_data_buffer,
-        &mut render_mesh_instance_queues,
-    );
 }
 
 /// A system that sets the [`RenderMeshInstanceFlags`] for each mesh based on
@@ -1043,22 +1045,29 @@ fn set_mesh_motion_vector_flags(
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 /// mesh uniforms are built.
-fn collect_meshes_for_gpu_building(
-    render_mesh_instances: &mut RenderMeshInstancesGpu,
-    batched_instance_buffers: &mut gpu_preprocessing::BatchedInstanceBuffers<
-        MeshUniform,
-        MeshInputUniform,
+pub fn collect_meshes_for_gpu_building(
+    mut render_mesh_instances: ResMut<RenderMeshInstances>,
+    batched_instance_buffers: ResMut<
+        gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
-    mesh_culling_data_buffer: &mut MeshCullingDataBuffer,
-    render_mesh_instance_queues: &mut Parallel<RenderMeshInstanceGpuQueue>,
+    mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
+    mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
 ) {
     // Collect render mesh instances. Build up the uniform buffer.
+
+    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) = *render_mesh_instances
+    else {
+        panic!(
+            "`collect_meshes_for_gpu_building` should only be called if we're \
+            using GPU `MeshUniform` building"
+        );
+    };
 
     let gpu_preprocessing::BatchedInstanceBuffers {
         ref mut current_input_buffer,
         ref mut previous_input_buffer,
         ..
-    } = batched_instance_buffers;
+    } = batched_instance_buffers.into_inner();
 
     // Swap buffers.
     mem::swap(current_input_buffer, previous_input_buffer);
@@ -1087,7 +1096,8 @@ fn collect_meshes_for_gpu_building(
                         render_mesh_instances,
                         current_input_buffer,
                     );
-                    let culling_data_index = mesh_culling_builder.add_to(mesh_culling_data_buffer);
+                    let culling_data_index =
+                        mesh_culling_builder.add_to(&mut *mesh_culling_data_buffer);
                     debug_assert_eq!(instance_data_index, culling_data_index);
                 }
             }
