@@ -186,30 +186,20 @@ pub enum ErrorAction {
     None
 }
 
-impl ErrorAction {
-    pub fn is_drop(&self) -> bool {
-        *self == ErrorAction::Drop
-    }
-
-    pub fn is_none(&self) -> bool {
-        *self == ErrorAction::None
-    }
-}
-
 pub trait Buffer: Sized {
-    type InnerSocket;
     
-    type ConstructionError;
+    /// Read upto `target` bytes from the io source and return how many were read, return an error
+    /// if all currently available bytes have been read, or the another issue occurred.
+    fn read_from_io(&mut self, target: usize) -> impl Future<Output = Result<usize, ()>> + Send;
 
-    type DiagnosticData: Default;
+    /// Write upto `target` bytes to the io source and return how many were written, return an error
+    /// if there isn't enough available space to write to, or the another issue occurred.
+    fn write_to_io(&mut self, target: usize) -> impl Future<Output = Result<usize, ()>> + Send;
     
-    fn build(socket: &Self::InnerSocket) -> Result<Self, Self::ConstructionError>;
-
-    async fn fill_read_bufs(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult;
-
-    async fn flush_write_bufs(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult;
-    
-    async fn additional_updates(&mut self, socket: &mut Self::InnerSocket, data: &mut Self::DiagnosticData) -> UpdateResult;
+    /// Called exactly once per frame only after all the reads and writes for 
+    /// this socket have been performed for this frame. This functions as a utility 
+    /// for any additional state updates.
+    fn additional_updates(&mut self) -> impl Future<Output = ()> + Send;
 }
 
 
