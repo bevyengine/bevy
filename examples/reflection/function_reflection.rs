@@ -8,7 +8,8 @@
 
 use bevy::reflect::func::args::ArgInfo;
 use bevy::reflect::func::{
-    ArgList, DynamicFunction, FunctionInfo, IntoFunction, Return, ReturnInfo,
+    ArgList, DynamicClosure, DynamicFunction, FunctionInfo, IntoClosure, IntoFunction, Return,
+    ReturnInfo,
 };
 use bevy::reflect::Reflect;
 
@@ -37,7 +38,7 @@ fn main() {
     // Luckily, Bevy's reflection crate comes with a set of tools for doing just that!
     // We do this by first converting our function into the reflection-based `DynamicFunction` type
     // using the `IntoFunction` trait.
-    let mut function: DynamicFunction = dbg!(add.into_function());
+    let function: DynamicFunction = dbg!(add.into_function());
 
     // This time, you'll notice that `DynamicFunction` doesn't take any information about the function's arguments or return value.
     // This is because `DynamicFunction` checks the types of the arguments and return value at runtime.
@@ -55,22 +56,34 @@ fn main() {
     let value: Box<dyn Reflect> = return_value.unwrap_owned();
     assert_eq!(value.take::<i32>().unwrap(), 4);
 
-    // The same can also be done for closures.
+    // The same can also be done for closures that capture references to their environment
+    // using the `IntoClosure` trait.
     let mut count = 0;
-    let increment = |amount: i32| {
-        count += amount;
-    };
-    let increment_function: DynamicFunction = dbg!(increment.into_function());
+    let increment = |amount: i32| count += amount;
+
+    let closure: DynamicClosure = dbg!(increment.into_closure());
     let args = dbg!(ArgList::new().push_owned(5_i32));
-    // `DynamicFunction`s containing closures that capture their environment like this one
+    // `DynamicClosure`s that mutably capture their environment like this one
     // may need to be dropped before those captured variables may be used again.
-    // This can be done manually with `drop` or by using the `Function::call_once` method.
-    dbg!(increment_function.call_once(args).unwrap());
+    // This can be done manually with `drop(closure)` or by using the `DynamicClosure::call_once` method.
+    dbg!(closure.call_once(args).unwrap());
     assert_eq!(count, 5);
+
+    // Note that `DynamicFunction` just requires a `'static` lifetime.
+    // This means that closures that capture variables by taking ownership of them
+    // can still be converted to a `DynamicFunction`.
+    let minimum = 5;
+    let clamp = move |value: i32| value.max(minimum);
+
+    let function: DynamicFunction = dbg!(clamp.into_function());
+    let args = dbg!(ArgList::new().push_owned(2_i32));
+    let return_value = dbg!(function.call(args).unwrap());
+    let value: Box<dyn Reflect> = return_value.unwrap_owned();
+    assert_eq!(value.take::<i32>().unwrap(), 5);
 
     // As stated before, this works for many kinds of simple functions.
     // Functions with non-reflectable arguments or return values may not be able to be converted.
-    // Generic functions are also not supported.
+    // Generic functions are also not supported (unless manually monomorphized like `foo::<i32>.into_function()`).
     // Additionally, the lifetime of the return value is tied to the lifetime of the first argument.
     // However, this means that many methods (i.e. functions with a `self` parameter) are also supported:
     #[derive(Reflect, Default)]
@@ -92,12 +105,12 @@ fn main() {
 
     let mut data = Data::default();
 
-    let mut set_value = dbg!(Data::set_value.into_function());
+    let set_value = dbg!(Data::set_value.into_function());
     let args = dbg!(ArgList::new().push_mut(&mut data)).push_owned(String::from("Hello, world!"));
     dbg!(set_value.call(args).unwrap());
     assert_eq!(data.value, "Hello, world!");
 
-    let mut get_value = dbg!(Data::get_value.into_function());
+    let get_value = dbg!(Data::get_value.into_function());
     let args = dbg!(ArgList::new().push_ref(&data));
     let return_value = dbg!(get_value.call(args).unwrap());
     let value: &dyn Reflect = return_value.unwrap_ref();
@@ -115,7 +128,7 @@ fn main() {
         container.as_ref().unwrap()
     }
 
-    let mut get_or_insert_function = dbg!(DynamicFunction::new(
+    let get_or_insert_function = dbg!(DynamicFunction::new(
         |mut args, info| {
             let container_info = &info.args()[1];
             let value_info = &info.args()[0];
