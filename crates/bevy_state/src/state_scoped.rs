@@ -6,7 +6,6 @@ use bevy_ecs::{
 };
 #[cfg(feature = "bevy_hierarchy")]
 use bevy_hierarchy::DespawnRecursiveExt;
-use bevy_reflect::Reflect;
 
 use crate::state::{StateTransitionEvent, States};
 
@@ -53,7 +52,9 @@ use crate::state::{StateTransitionEvent, States};
 /// app.enable_state_scoped_entities::<GameState>();
 /// app.add_systems(OnEnter(GameState::InGame), spawn_player);
 /// ```
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Clone)]
+#[cfg_attr(feature = "reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(feature = "reflect", reflect(Component))]
 pub struct StateScoped<S: States>(pub S);
 
 /// Removes entities marked with [`StateScoped<S>`]
