@@ -892,7 +892,7 @@ pub enum CommonScreenResolution {
 
 impl CommonScreenResolution {
     /// Iterates through all [`CommonScreenResolution`] variants.
-    pub fn iter() -> impl Iterator<Item =CommonScreenResolution> {
+    pub fn iter() -> impl Iterator<Item = CommonScreenResolution> {
         [
             CommonScreenResolution::R360p,
             CommonScreenResolution::R720p,
