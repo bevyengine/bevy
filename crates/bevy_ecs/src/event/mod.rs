@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_events_clear_and_read() {
-        events_clear_and_read_impl(|events| events.clear());
+        events_clear_and_read_impl(Events::clear);
     }
 
     #[test]
@@ -393,6 +393,24 @@ mod tests {
         assert!(events.get_cursor().is_empty(&events));
     }
 
+    #[test]
+    fn test_event_registry_can_add_and_remove_events_to_world() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        EventRegistry::register_event::<TestEvent>(&mut world);
+
+        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+
+        assert!(has_events, "Should have the events resource");
+
+        EventRegistry::deregister_events::<TestEvent>(&mut world);
+
+        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+
+        assert!(!has_events, "Should not have the events resource");
+    }
+    
     #[test]
     fn test_event_cursor_len_filled() {
         let mut events = Events::<TestEvent>::default();

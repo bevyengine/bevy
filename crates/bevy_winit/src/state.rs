@@ -58,6 +58,8 @@ struct WinitAppRunnerState<T: Event> {
     user_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
     redraw_requested: bool,
+    /// Is `true` if the app has already updated since the last redraw.
+    ran_update_since_last_redraw: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
     wait_elapsed: bool,
     /// Number of "forced" updates to trigger on application start
@@ -104,6 +106,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             device_event_received: false,
             user_event_received: false,
             redraw_requested: false,
+            ran_update_since_last_redraw: false,
             wait_elapsed: false,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
@@ -369,6 +372,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::Destroyed => {
                 self.winit_events.send(WindowDestroyed { window });
             }
+            WindowEvent::RedrawRequested => {
+                self.ran_update_since_last_redraw = false;
+            }
             _ => {}
         }
 
@@ -499,7 +505,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         if should_update {
             // Not redrawing, but the timeout elapsed.
-            self.run_app_update();
+            if !self.ran_update_since_last_redraw {
+                self.run_app_update();
+                self.ran_update_since_last_redraw = true;
+            } else {
+                self.redraw_requested = true;
+            }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());

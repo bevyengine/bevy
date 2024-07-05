@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::Resource,
     world::{Command, Mut, World},
 };
-use bevy_hierarchy::{BuildWorldChildren, DespawnRecursiveExt, Parent, PushChild};
+use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent, PushChild};
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
