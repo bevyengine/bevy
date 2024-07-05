@@ -1,12 +1,13 @@
 //! This example illustrates how to resize windows, and how to respond to a window being resized.
 use bevy::{prelude::*, window::WindowResized};
+use bevy::window::CommonScreenResolution;
 
 fn main() {
     App::new()
         .insert_resource(ResolutionSettings {
-            large: Vec2::new(1920.0, 1080.0),
+            large: CommonScreenResolution::R1080p.into(),
             medium: Vec2::new(800.0, 600.0),
-            small: Vec2::new(640.0, 360.0),
+            small: CommonScreenResolution::R360p.into(),
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_ui))
