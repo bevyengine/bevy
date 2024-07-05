@@ -279,7 +279,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort<L: ReadOnlyQueryData + 'w>(
+    pub fn sort<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -287,10 +287,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    >
-    where
-        L::Item<'w>: Ord,
-    {
+    > {
         // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
         // will be set to a non-zero value. The correctness of this method relies on this.
         // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
@@ -376,7 +373,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_unstable<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_unstable<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -384,10 +381,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    >
-    where
-        L::Item<'w>: Ord,
-    {
+    > {
         // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
         // will be set to a non-zero value. The correctness of this method relies on this.
         // I.e. this sort method will execute if and only if `next` on `QueryIterationCursor` of a
@@ -945,7 +939,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
 ///
 /// This struct is created by the [`QueryIter::sort`], [`QueryIter::sort_unstable`],
 /// [`QueryIter::sort_by`], [`QueryIter::sort_unstable_by`], [`QueryIter::sort_by_key`],
-/// and [`QueryIter::sort_by_cached_key`] methods.
+/// [`QueryIter::sort_unstable_by_key`], and [`QueryIter::sort_by_cached_key`] methods.
 pub struct QuerySortedIter<'w, 's, D: QueryData, F: QueryFilter, I>
 where
     I: Iterator<Item = Entity>,
@@ -1083,10 +1077,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
 /// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator>
-where
-    I::Item: Borrow<Entity>,
-{
+pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> {
     entity_iter: I,
     entities: &'w Entities,
     tables: &'w Tables,
@@ -1096,9 +1087,8 @@ where
     query_state: &'s QueryState<D, F>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> QueryManyIter<'w, 's, D, F, I>
-where
-    I::Item: Borrow<Entity>,
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
+    QueryManyIter<'w, 's, D, F, I>
 {
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
@@ -1196,10 +1186,8 @@ where
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> Iterator
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Iterator
     for QueryManyIter<'w, 's, D, F, I>
-where
-    I::Item: Borrow<Entity>,
 {
     type Item = D::Item<'w>;
 
@@ -1216,16 +1204,13 @@ where
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator> FusedIterator
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> FusedIterator
     for QueryManyIter<'w, 's, D, F, I>
-where
-    I::Item: Borrow<Entity>,
 {
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Debug for QueryManyIter<'w, 's, D, F, I>
-where
-    I::Item: Borrow<Entity>,
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> Debug
+    for QueryManyIter<'w, 's, D, F, I>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryManyIter").finish()
@@ -1739,12 +1724,12 @@ mod tests {
 
         let sort_by = query
             .iter(&world)
-            .sort_by::<Entity>(|e1, e2| e1.cmp(e2))
+            .sort_by::<Entity>(Ord::cmp)
             .collect::<Vec<_>>();
 
         let sort_unstable_by = query
             .iter(&world)
-            .sort_unstable_by::<Entity>(|e1, e2| e1.cmp(e2))
+            .sort_unstable_by::<Entity>(Ord::cmp)
             .collect::<Vec<_>>();
 
         let sort_by_key = query
@@ -1769,10 +1754,10 @@ mod tests {
         sort_unstable_v2.sort_unstable();
 
         let mut sort_by_v2 = query.iter(&world).collect::<Vec<_>>();
-        sort_by_v2.sort_by(|e1, e2| e1.cmp(e2));
+        sort_by_v2.sort_by(Ord::cmp);
 
         let mut sort_unstable_by_v2 = query.iter(&world).collect::<Vec<_>>();
-        sort_unstable_by_v2.sort_unstable_by(|e1, e2| e1.cmp(e2));
+        sort_unstable_by_v2.sort_unstable_by(Ord::cmp);
 
         let mut sort_by_key_v2 = query.iter(&world).collect::<Vec<_>>();
         sort_by_key_v2.sort_by_key(|&e| e);

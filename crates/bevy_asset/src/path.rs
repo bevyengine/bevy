@@ -320,7 +320,7 @@ impl<'a> AssetPath<'a> {
         AssetPath {
             source: self.source.into_owned(),
             path: self.path.into_owned(),
-            label: self.label.map(|l| l.into_owned()),
+            label: self.label.map(CowArc::into_owned),
         }
     }
 

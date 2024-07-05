@@ -282,7 +282,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_struct(
             struct_info.type_path_table().ident().unwrap(),
             self.struct_value.field_len() - ignored_len,
@@ -335,7 +335,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_tuple_struct(
             tuple_struct_info.type_path_table().ident().unwrap(),
             self.tuple_struct.field_len() - ignored_len,

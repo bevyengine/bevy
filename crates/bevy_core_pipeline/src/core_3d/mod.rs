@@ -49,7 +49,7 @@ pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 /// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
 /// disable depth of field and screen space reflections entirely on WebGL 2.
-#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+#[cfg(not(any(feature = "webgpu", not(target_arch = "wasm32"))))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 
 /// True if multisampled depth textures are supported on this platform.

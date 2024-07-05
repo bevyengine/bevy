@@ -1,4 +1,5 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, ApplyError, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -102,7 +103,7 @@ impl StructInfo {
             .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let field_names = fields.iter().map(|field| field.name()).collect();
+        let field_names = fields.iter().map(NamedField::name).collect();
 
         Self {
             type_path: TypePathTable::of::<T>(),
@@ -368,7 +369,7 @@ impl Struct for DynamicStruct {
 
     #[inline]
     fn name_at(&self, index: usize) -> Option<&str> {
-        self.field_names.get(index).map(|name| name.as_ref())
+        self.field_names.get(index).map(AsRef::as_ref)
     }
 
     #[inline]
@@ -499,6 +500,7 @@ impl Reflect for DynamicStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicStruct);
+impl_function_traits!(DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -564,7 +566,7 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt:
     let mut debug = f.debug_struct(
         dyn_struct
             .get_represented_type_info()
-            .map(|s| s.type_path())
+            .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );
     for field_index in 0..dyn_struct.field_len() {

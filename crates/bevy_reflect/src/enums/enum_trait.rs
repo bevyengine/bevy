@@ -159,7 +159,7 @@ impl EnumInfo {
             .map(|(index, variant)| (variant.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let variant_names = variants.iter().map(|variant| variant.name()).collect();
+        let variant_names = variants.iter().map(VariantInfo::name).collect();
 
         Self {
             type_path: TypePathTable::of::<TEnum>(),

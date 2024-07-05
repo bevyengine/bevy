@@ -96,9 +96,6 @@ async-io = ["bevy_tasks/async-io"]
 wayland = ["bevy_winit/wayland"]
 x11 = ["bevy_winit/x11"]
 
-# enable rendering of font glyphs using subpixel accuracy
-subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
-
 # Transmission textures in `StandardMaterial`:
 pbr_transmission_textures = [
   "bevy_pbr?/pbr_transmission_textures",
@@ -109,6 +106,12 @@ pbr_transmission_textures = [
 pbr_multi_layer_material_textures = [
   "bevy_pbr?/pbr_multi_layer_material_textures",
   "bevy_gltf?/pbr_multi_layer_material_textures",
+]
+
+# Anisotropy texture in `StandardMaterial`:
+pbr_anisotropy_texture = [
+  "bevy_pbr?/pbr_anisotropy_texture",
+  "bevy_gltf?/pbr_anisotropy_texture",
 ]
 
 # Optimise for WebGL2
