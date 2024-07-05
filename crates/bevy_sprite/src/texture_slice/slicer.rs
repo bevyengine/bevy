@@ -127,7 +127,7 @@ impl TextureSlicer {
                 },
                 draw_size: vec2(
                     tl_corner.draw_size.x,
-                    render_size.y - tl_corner.draw_size.y - bl_corner.draw_size.y,
+                    render_size.y - (tl_corner.draw_size.y + bl_corner.draw_size.y),
                 ),
                 offset: vec2(
                     tl_corner.draw_size.x - render_size.x,
@@ -145,7 +145,7 @@ impl TextureSlicer {
                 },
                 draw_size: vec2(
                     tr_corner.draw_size.x,
-                    render_size.y - tr_corner.draw_size.y - br_corner.draw_size.y,
+                    render_size.y - (tr_corner.draw_size.y + br_corner.draw_size.y),
                 ),
                 offset: vec2(
                     render_size.x - tr_corner.draw_size.x,
@@ -174,7 +174,7 @@ impl TextureSlicer {
                     ),
                 },
                 draw_size: vec2(
-                    render_size.x - tl_corner.draw_size.x - tr_corner.draw_size.x,
+                    render_size.x - (tl_corner.draw_size.x + tr_corner.draw_size.x),
                     tl_corner.draw_size.y,
                 ),
                 offset: vec2(
@@ -192,7 +192,7 @@ impl TextureSlicer {
                     max: base_rect.max - vec2(self.border.right, 0.0),
                 },
                 draw_size: vec2(
-                    render_size.x - bl_corner.draw_size.x - br_corner.draw_size.x,
+                    render_size.x - (bl_corner.draw_size.x + br_corner.draw_size.x),
                     bl_corner.draw_size.y,
                 ),
                 offset: vec2(
