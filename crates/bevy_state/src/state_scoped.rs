@@ -1,3 +1,5 @@
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -8,8 +10,6 @@ use bevy_ecs::{
 use bevy_hierarchy::DespawnRecursiveExt;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::ReflectComponent;
 
 use crate::state::{StateTransitionEvent, States};
 
