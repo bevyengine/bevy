@@ -714,6 +714,7 @@ impl Default for WindowResolution {
             scale_factor: 1.0,
         }
     }
+
 }
 
 impl WindowResolution {
@@ -866,6 +867,37 @@ impl From<Vec2> for WindowResolution {
 impl From<DVec2> for WindowResolution {
     fn from(res: DVec2) -> WindowResolution {
         WindowResolution::new(res.x as f32, res.y as f32)
+    }
+}
+
+/// Creates and defines a Resolution Enum to expose common resolutions.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum Resolution{
+    R360p,
+    R720p,
+    R1080p,
+    R2k,
+}
+
+impl Resolution {
+    pub fn iter() -> impl Iterator<Item = Resolution> {
+        [
+            Resolution::R360p,
+            Resolution::R720p,
+            Resolution::R1080p,
+            Resolution::R2k,
+        ].into_iter()
+    }
+}
+
+impl From<Resolution> for UVec2 {
+    fn from(resolution: Resolution) -> Self {
+        match resolution {
+            Resolution::R360p => Self::new(640, 360),
+            Resolution::R720p => Self::new(1280, 720),
+            Resolution::R1080p => Self::new(1920, 1080),
+            Resolution::R2k => Self::new(2560, 1440),
+        }
     }
 }
 
