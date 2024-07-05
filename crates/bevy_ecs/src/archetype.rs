@@ -568,10 +568,6 @@ impl Archetype {
         self.entities.is_empty()
     }
 
-    // TODO:
-    //  - either do this in O(n) right now (iterate through components)
-    //  - add a map from ComponentId to index in self.components
-    //  - add an extra argument to this function that is the ComponentIndex
     /// Checks if the archetype contains a specific component. This runs in `O(1)` time.
     #[inline]
     pub fn contains(&self, component_id: ComponentId) -> bool {
@@ -710,8 +706,8 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 }
 
-/// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain it,
-/// along with the index of the column in the [`Table`](crate::storage::table::Table) where the component is stored.
+/// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
+/// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
 pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
 
 /// The backing store of all [`Archetype`]s within a [`World`].

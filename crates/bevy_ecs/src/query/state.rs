@@ -74,7 +74,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     par_iter_span: Span,
 }
 
-/// View into a [`QueryState`] to get around split-borrow issues.
+/// View into a [`QueryState`] to avoid split-borrow issues when using [`QueryState`]
 pub struct QueryStateView<'me, D: QueryData, F: QueryFilter = ()> {
     archetype_generation: &'me mut ArchetypeGeneration,
     /// Metadata about the [`Table`](crate::storage::Table)s matched by this query.
@@ -152,7 +152,8 @@ impl<'me, D: QueryData, F: QueryFilter> QueryStateView<'me, D, F> {
                         .get(&component_id)
                         .map(|index| index.keys())
                 })
-                .min_by_key(|archetypes| archetypes.len());
+                // select the component with the fewest archetypes
+                .min_by_key(std::iter::ExactSizeIterator::len);
             if let Some(archetypes) = potential_archetypes {
                 for archetype_id in archetypes {
                     // exclude archetypes that have already been processed
@@ -525,11 +526,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
-        self.update_archetypes_unsafe_world_cell_with(world, |state, archetype| {
+        self.update_archetypes_unsafe_world_cell_with(world, |view, archetype| {
             // SAFETY: The validate_world call ensures that the world is the same the QueryState
             // was initialized from.
             unsafe {
-                state.new_archetype_internal(archetype);
+                view.new_archetype_internal(archetype);
             }
         });
     }
