@@ -1,6 +1,6 @@
 //! This example illustrates how to resize windows, and how to respond to a window being resized.
-use bevy::{prelude::*, window::WindowResized};
 use bevy::window::CommonScreenResolution;
+use bevy::{prelude::*, window::WindowResized};
 
 fn main() {
     App::new()

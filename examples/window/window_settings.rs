@@ -1,13 +1,13 @@
 //! Illustrates how to change window settings and shows how to affect
 //! the mouse pointer in various ways.
 
+use bevy::window::{CommonScreenResolution, WindowResolution};
 use bevy::{
     core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
-use bevy::window::{CommonScreenResolution, WindowResolution};
 
 fn main() {
     App::new()
@@ -129,12 +129,17 @@ fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&
 fn toggle_resolutions(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
     if input.just_pressed(KeyCode::KeyR) {
         let mut window = windows.single_mut();
-        let current_resolution = CommonScreenResolution::iter().find(|&r| WindowResolution::from(r) == window.resolution);
+        let current_resolution = CommonScreenResolution::iter()
+            .find(|&r| WindowResolution::from(r) == window.resolution);
         window.resolution = if current_resolution.is_none() {
             CommonScreenResolution::R360p.into()
         } else {
-            let resolutions = CommonScreenResolution::iter().map(|r| r.into()).collect::<Vec<CommonScreenResolution>>();
-            let current_resolution_index = CommonScreenResolution::iter().position(|r| r == current_resolution.unwrap()).unwrap();
+            let resolutions = CommonScreenResolution::iter()
+                .map(|r| r.into())
+                .collect::<Vec<CommonScreenResolution>>();
+            let current_resolution_index = CommonScreenResolution::iter()
+                .position(|r| r == current_resolution.unwrap())
+                .unwrap();
 
             if current_resolution_index + 1 >= resolutions.len() {
                 resolutions[0].into()
