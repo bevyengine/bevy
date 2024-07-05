@@ -19,6 +19,7 @@ mod compass;
 pub mod cubic_splines;
 mod direction;
 mod float_ord;
+pub mod isometry;
 pub mod primitives;
 mod ray;
 mod rects;
