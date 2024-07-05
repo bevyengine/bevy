@@ -421,6 +421,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
+        let all_invisible = windows.iter().all(|w| !w.1.visible);
 
         let mut update_mode = config.update_mode(focused);
         let mut should_update = self.should_update(update_mode);
@@ -505,7 +506,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         if should_update {
             // Not redrawing, but the timeout elapsed.
-            if !self.ran_update_since_last_redraw {
+            // NOTE: Additional condition for WindowsOS.
+            // If no windows are visible, redraw calls will never succeed, which results in no app update calls being performed.
+            if !self.ran_update_since_last_redraw || all_invisible {
                 self.run_app_update();
                 self.ran_update_since_last_redraw = true;
             } else {
