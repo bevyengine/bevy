@@ -913,6 +913,17 @@ impl From<CommonScreenResolution> for UVec2 {
     }
 }
 
+impl From<CommonScreenResolution> for WindowResolution {
+    fn from(resolution: CommonScreenResolution) -> Self {
+        match resolution {
+            CommonScreenResolution::R360p => Self::new(640., 360.),
+            CommonScreenResolution::R720p => Self::new(1280., 720.),
+            CommonScreenResolution::R1080p => Self::new(1920., 1080.),
+            CommonScreenResolution::R2k => Self::new(2560., 1440.),
+        }
+    }
+}
+
 /// Defines if and how the [`Cursor`] is grabbed by a [`Window`].
 ///
 /// ## Platform-specific
