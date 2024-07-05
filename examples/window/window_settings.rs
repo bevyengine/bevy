@@ -135,7 +135,7 @@ fn toggle_resolutions(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut 
             CommonScreenResolution::R360p.into()
         } else {
             let resolutions = CommonScreenResolution::iter()
-                .map(|r| r.into())
+                .map(std::convert::Into::into)
                 .collect::<Vec<CommonScreenResolution>>();
             let current_resolution_index = CommonScreenResolution::iter()
                 .position(|r| r == current_resolution.unwrap())
