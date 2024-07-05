@@ -709,8 +709,8 @@ pub struct WindowResolution {
 impl Default for WindowResolution {
     fn default() -> Self {
         WindowResolution {
-            physical_width: 1280,
-            physical_height: 720,
+            physical_width: UVec2::from(CommonScreenResolution::R720p).x,
+            physical_height: UVec2::from(CommonScreenResolution::R720p).y,
             scale_factor_override: None,
             scale_factor: 1.0,
         }
@@ -927,7 +927,12 @@ impl From<CommonScreenResolution> for WindowResolution {
 
 impl Display for CommonScreenResolution {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} x {}", UVec2::from(self).x, UVec2::from(self).y)
+        match self {
+            CommonScreenResolution::R360p => write!(f, "{} x {}", 640, 360),
+            CommonScreenResolution::R720p => write!(f, "{} x {}", 1280, 720),
+            CommonScreenResolution::R1080p => write!(f, "{} x {}", 1920, 1080),
+            CommonScreenResolution::R2k => write!(f, "{} x {}", 2560, 1440),
+        }
     }
 }
 
