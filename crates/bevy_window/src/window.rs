@@ -714,7 +714,6 @@ impl Default for WindowResolution {
             scale_factor: 1.0,
         }
     }
-
 }
 
 impl WindowResolution {
@@ -870,9 +869,9 @@ impl From<DVec2> for WindowResolution {
     }
 }
 
-/// Creates and defines a Resolution Enum to expose common resolutions.
+// Common screen resolutions.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum Resolution{
+pub enum Resolution {
     /// 640 x 360
     R360p,
 
@@ -887,14 +886,15 @@ pub enum Resolution{
 }
 
 impl Resolution {
-    /// Gets all the available resolutions as an iterator.
+    // Iterates through all [`Resolution`] variants.
     pub fn iter() -> impl Iterator<Item = Resolution> {
         [
             Resolution::R360p,
             Resolution::R720p,
             Resolution::R1080p,
             Resolution::R2k,
-        ].into_iter()
+        ]
+        .into_iter()
     }
 }
 
