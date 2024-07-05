@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::num::NonZeroU32;
 
 use bevy_ecs::{
@@ -921,6 +922,12 @@ impl From<CommonScreenResolution> for WindowResolution {
             CommonScreenResolution::R1080p => Self::new(1920., 1080.),
             CommonScreenResolution::R2k => Self::new(2560., 1440.),
         }
+    }
+}
+
+impl Display for CommonScreenResolution {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} x {}", UVec2::from(self).x, UVec2::from(self).y)
     }
 }
 
