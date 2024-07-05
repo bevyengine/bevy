@@ -871,7 +871,7 @@ impl From<DVec2> for WindowResolution {
 
 /// Common screen resolutions.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum Resolution {
+pub enum CommonScreenResolution {
     /// 640 x 360
     R360p,
 
@@ -885,26 +885,26 @@ pub enum Resolution {
     R2k,
 }
 
-impl Resolution {
-    /// Iterates through all [`Resolution`] variants.
-    pub fn iter() -> impl Iterator<Item = Resolution> {
+impl CommonScreenResolution {
+    /// Iterates through all [`CommonScreenResolution`] variants.
+    pub fn iter() -> impl Iterator<Item =CommonScreenResolution> {
         [
-            Resolution::R360p,
-            Resolution::R720p,
-            Resolution::R1080p,
-            Resolution::R2k,
+            CommonScreenResolution::R360p,
+            CommonScreenResolution::R720p,
+            CommonScreenResolution::R1080p,
+            CommonScreenResolution::R2k,
         ]
         .into_iter()
     }
 }
 
-impl From<Resolution> for UVec2 {
-    fn from(resolution: Resolution) -> Self {
+impl From<CommonScreenResolution> for UVec2 {
+    fn from(resolution: CommonScreenResolution) -> Self {
         match resolution {
-            Resolution::R360p => Self::new(640, 360),
-            Resolution::R720p => Self::new(1280, 720),
-            Resolution::R1080p => Self::new(1920, 1080),
-            Resolution::R2k => Self::new(2560, 1440),
+            CommonScreenResolution::R360p => Self::new(640, 360),
+            CommonScreenResolution::R720p => Self::new(1280, 720),
+            CommonScreenResolution::R1080p => Self::new(1920, 1080),
+            CommonScreenResolution::R2k => Self::new(2560, 1440),
         }
     }
 }
