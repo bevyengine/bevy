@@ -181,13 +181,13 @@ impl ShapeSample for Sphere {
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        let theta = rng.gen_range(0.0..TAU);
-        let phi = rng.gen_range(-1.0_f32..1.0).acos();
-        Vec3 {
-            x: self.radius * phi.sin() * theta.cos(),
-            y: self.radius * phi.sin() * theta.sin(),
-            z: self.radius * phi.cos(),
-        }
+        let z = rng.gen_range(-1f32..=1f32);
+        let (a_sin, a_cos) = rng.gen_range(-PI..=PI).sin_cos();
+        let c = (1f32 - z * z).sqrt();
+        let x = a_sin * c;
+        let y = a_cos * c;
+
+        Vec3::new(x * self.radius, y * self.radius, z * self.radius)
     }
 }
 
