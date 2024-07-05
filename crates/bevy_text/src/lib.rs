@@ -77,7 +77,7 @@ use bevy_sprite::SpriteSystem;
 /// plugin is included by default in the `DefaultPlugins`.
 #[derive(Default)]
 pub struct TextPlugin {
-    /// If [false], some characters (esspecially Unicode emojies) might not load properly due to unsupported font
+    /// If [false], some characters (especially Unicode emojies) might not load properly due to unsupported font
     /// Caution: this can be relatively slow
     pub load_system_fonts: bool,
 }
