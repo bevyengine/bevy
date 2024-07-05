@@ -870,6 +870,10 @@ impl From<DVec2> for WindowResolution {
 }
 
 /// Common screen resolutions.
+///
+/// These resolutions are common resolutions that are more than likely going to be used, using the
+/// common name. This keeps developers from having to remember each resolution they wish to use, along
+/// with makes things simpler for implementing menus.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum CommonScreenResolution {
     /// 640 x 360
