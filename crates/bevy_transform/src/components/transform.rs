@@ -222,7 +222,7 @@ impl Transform {
     /// Get the unit vector in the local `X` direction.
     #[inline]
     pub fn local_x(&self) -> Dir3 {
-        // The passed vector is guaranteed to be unit length
+        // Quat * unit vector is length 1
         Dir3::new_unchecked(self.rotation * Vec3::X)
     }
 
@@ -241,7 +241,7 @@ impl Transform {
     /// Get the unit vector in the local `Y` direction.
     #[inline]
     pub fn local_y(&self) -> Dir3 {
-        // The passed vector is guaranteed to be unit length
+        // Quat * unit vector is length 1
         Dir3::new_unchecked(self.rotation * Vec3::Y)
     }
 
@@ -260,7 +260,7 @@ impl Transform {
     /// Get the unit vector in the local `Z` direction.
     #[inline]
     pub fn local_z(&self) -> Dir3 {
-        // The passed vector is guaranteed to be unit length
+        // Quat * unit vector is length 1
         Dir3::new_unchecked(self.rotation * Vec3::Z)
     }
 
