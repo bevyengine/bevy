@@ -1,18 +1,19 @@
 //! A module for rendering each of the 3D [`bevy_math::primitives`] with [`Gizmos`].
 
 use super::helpers::*;
-use std::f32::consts::TAU;
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use bevy_color::Color;
 use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
-    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus,
+    Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
 };
 use bevy_math::{Dir3, Quat, Vec3};
 
+use crate::circles::SphereBuilder;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
-const DEFAULT_RESOLUTION: usize = 5;
+const DEFAULT_RESOLUTION: u32 = 5;
 // length used to simulate infinite lines
 const INFINITE_LEN: f32 = 10_000.0;
 
@@ -26,7 +27,7 @@ pub trait GizmoPrimitive3d<P: Primitive3d> {
     /// Renders a 3D primitive with its associated details.
     fn primitive_3d(
         &mut self,
-        primitive: P,
+        primitive: &P,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -44,51 +45,16 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Dir3,
+        primitive: &Dir3,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        self.arrow(position, position + (rotation * *primitive), color);
+        self.arrow(position, position + (rotation * **primitive), color);
     }
 }
 
 // sphere
-
-/// Builder for configuring the drawing options of [`Sphere`].
-pub struct SphereBuilder<'a, 'w, 's, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-
-    // Radius of the sphere
-    radius: f32,
-
-    // Rotation of the sphere around the origin in 3D space
-    rotation: Quat,
-    // Center position of the sphere in 3D space
-    position: Vec3,
-    // Color of the sphere
-    color: Color,
-
-    // Resolution of the gizmos used to approximate the sphere geometry
-    // The number of vertices used to approximate the sphere geometry.
-    resolution: usize,
-}
-
-impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    /// Set the number of lines used to approximate the sphere geometry.
-    pub fn resolution(mut self, resolution: usize) -> Self {
-        self.resolution = resolution;
-        self
-    }
-}
 
 impl<'w, 's, Config, Clear> GizmoPrimitive3d<Sphere> for Gizmos<'w, 's, Config, Clear>
 where
@@ -99,64 +65,12 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Sphere,
+        primitive: &Sphere,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
-        SphereBuilder {
-            gizmos: self,
-            radius: primitive.radius,
-            position,
-            rotation,
-            color: color.into(),
-            resolution: DEFAULT_RESOLUTION,
-        }
-    }
-}
-
-impl<Config, Clear> Drop for SphereBuilder<'_, '_, '_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    fn drop(&mut self) {
-        if !self.gizmos.enabled {
-            return;
-        }
-
-        let SphereBuilder {
-            radius,
-            position: center,
-            rotation,
-            color,
-            resolution,
-            ..
-        } = self;
-
-        // draws the upper and lower semi spheres
-        [-1.0, 1.0].into_iter().for_each(|sign| {
-            let top = *center + (*rotation * Vec3::Y) * sign * *radius;
-            draw_semi_sphere(
-                self.gizmos,
-                *radius,
-                *resolution,
-                *rotation,
-                *center,
-                top,
-                *color,
-            );
-        });
-
-        // draws one great circle of the sphere
-        draw_circle_3d(
-            self.gizmos,
-            *radius,
-            *resolution,
-            *rotation,
-            *center,
-            *color,
-        );
+        self.sphere(position, rotation, primitive.radius, color)
     }
 }
 
@@ -181,9 +95,9 @@ where
     color: Color,
 
     // Number of axis to hint the plane
-    axis_count: usize,
+    axis_count: u32,
     // Number of segments used to hint the plane
-    segment_count: usize,
+    segment_count: u32,
     // Length of segments used to hint the plane
     segment_length: f32,
 }
@@ -194,7 +108,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of segments used to hint the plane.
-    pub fn segment_count(mut self, count: usize) -> Self {
+    pub fn segment_count(mut self, count: u32) -> Self {
         self.segment_count = count;
         self
     }
@@ -206,7 +120,7 @@ where
     }
 
     /// Set the number of axis used to hint the plane.
-    pub fn axis_count(mut self, count: usize) -> Self {
+    pub fn axis_count(mut self, count: u32) -> Self {
         self.axis_count = count;
         self
     }
@@ -221,7 +135,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Plane3d,
+        primitive: &Plane3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -252,7 +166,7 @@ where
         // draws the normal
         let normal = self.rotation * *self.normal;
         self.gizmos
-            .primitive_3d(self.normal, self.position, self.rotation, self.color);
+            .primitive_3d(&self.normal, self.position, self.rotation, self.color);
         let normals_normal = self.rotation * self.normal.any_orthonormal_vector();
 
         // draws the axes
@@ -269,10 +183,10 @@ where
                     .filter(|i| i % 2 != 0)
                     .map(|percent| (percent as f32 + 0.5) * self.segment_length * axis_direction)
                     .map(|position| position + self.position)
-                    .take(self.segment_count)
+                    .take(self.segment_count as usize)
                     .for_each(|position| {
                         self.gizmos.primitive_3d(
-                            Segment3d {
+                            &Segment3d {
                                 direction,
                                 half_length: self.segment_length * 0.5,
                             },
@@ -296,7 +210,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Line3d,
+        primitive: &Line3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -328,7 +242,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Segment3d,
+        primitive: &Segment3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -356,7 +270,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Polyline3d<N>,
+        primitive: &Polyline3d<N>,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -385,7 +299,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: BoxedPolyline3d,
+        primitive: &BoxedPolyline3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -405,6 +319,34 @@ where
     }
 }
 
+// triangle 3d
+
+impl<'w, 's, Config, Clear> GizmoPrimitive3d<Triangle3d> for Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a> = () where Self: 'a;
+
+    fn primitive_3d(
+        &mut self,
+        primitive: &Triangle3d,
+        position: Vec3,
+        rotation: Quat,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let [a, b, c] = primitive.vertices;
+        self.linestrip(
+            [a, b, c, a].map(rotate_then_translate_3d(rotation, position)),
+            color,
+        );
+    }
+}
+
 // cuboid
 
 impl<'w, 's, Config, Clear> GizmoPrimitive3d<Cuboid> for Gizmos<'w, 's, Config, Clear>
@@ -416,7 +358,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Cuboid,
+        primitive: &Cuboid,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -489,7 +431,7 @@ where
     color: Color,
 
     // Number of lines used to approximate the cylinder geometry
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> Cylinder3dBuilder<'_, '_, '_, Config, Clear>
@@ -498,7 +440,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the top an bottom of the cylinder geometry.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -513,7 +455,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Cylinder,
+        primitive: &Cylinder,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -550,30 +492,27 @@ where
             resolution,
         } = self;
 
-        let normal = *rotation * Vec3::Y;
+        let normal = Dir3::new_unchecked(*rotation * Vec3::Y);
+        let up = normal.as_vec3() * *half_height;
 
         // draw upper and lower circle of the cylinder
         [-1.0, 1.0].into_iter().for_each(|sign| {
-            draw_circle_3d(
-                gizmos,
-                *radius,
-                *resolution,
-                *rotation,
-                *position + sign * *half_height * normal,
-                *color,
-            );
+            gizmos
+                .circle(*position + sign * up, normal, *radius, *color)
+                .resolution(*resolution);
         });
 
         // draw lines connecting the two cylinder circles
-        draw_cylinder_vertical_lines(
-            gizmos,
-            *radius,
-            *resolution,
-            *half_height,
-            *rotation,
-            *position,
-            *color,
-        );
+        [Vec3::NEG_X, Vec3::NEG_Z, Vec3::X, Vec3::Z]
+            .into_iter()
+            .for_each(|axis| {
+                let axis = *rotation * axis;
+                gizmos.line(
+                    *position + up + axis * *radius,
+                    *position - up + axis * *radius,
+                    *color,
+                );
+            });
     }
 }
 
@@ -602,7 +541,7 @@ where
     color: Color,
 
     // Number of lines used to approximate the capsule geometry
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> Capsule3dBuilder<'_, '_, '_, Config, Clear>
@@ -611,7 +550,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the capsule geometry.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -626,7 +565,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Capsule3d,
+        primitive: &Capsule3d,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -663,26 +602,57 @@ where
             resolution,
         } = self;
 
-        let normal = *rotation * Vec3::Y;
+        // Draw the circles at the top and bottom of the cylinder
+        let y_offset = *rotation * Vec3::Y;
+        gizmos
+            .circle(
+                *position + y_offset * *half_length,
+                Dir3::new_unchecked(y_offset),
+                *radius,
+                *color,
+            )
+            .resolution(*resolution);
+        gizmos
+            .circle(
+                *position - y_offset * *half_length,
+                Dir3::new_unchecked(y_offset),
+                *radius,
+                *color,
+            )
+            .resolution(*resolution);
+        let y_offset = y_offset * *half_length;
 
-        // draw two semi spheres for the capsule
-        [1.0, -1.0].into_iter().for_each(|sign| {
-            let center = *position + sign * *half_length * normal;
-            let top = center + sign * *radius * normal;
-            draw_semi_sphere(gizmos, *radius, *resolution, *rotation, center, top, *color);
-            draw_circle_3d(gizmos, *radius, *resolution, *rotation, center, *color);
+        // Draw the vertical lines and the cap semicircles
+        [Vec3::X, Vec3::Z].into_iter().for_each(|axis| {
+            let normal = *rotation * axis;
+
+            gizmos.line(
+                *position + normal * *radius + y_offset,
+                *position + normal * *radius - y_offset,
+                *color,
+            );
+            gizmos.line(
+                *position - normal * *radius + y_offset,
+                *position - normal * *radius - y_offset,
+                *color,
+            );
+
+            let rotation = *rotation
+                * Quat::from_euler(bevy_math::EulerRot::ZYX, 0., axis.z * FRAC_PI_2, FRAC_PI_2);
+
+            gizmos
+                .arc_3d(PI, *radius, *position + y_offset, rotation, *color)
+                .resolution(*resolution / 2);
+            gizmos
+                .arc_3d(
+                    PI,
+                    *radius,
+                    *position - y_offset,
+                    rotation * Quat::from_rotation_y(PI),
+                    *color,
+                )
+                .resolution(*resolution / 2);
         });
-
-        // connect the two semi spheres with lines
-        draw_cylinder_vertical_lines(
-            gizmos,
-            *radius,
-            *resolution,
-            *half_length,
-            *rotation,
-            *position,
-            *color,
-        );
     }
 }
 
@@ -711,10 +681,10 @@ where
     color: Color,
 
     // Number of lines used to approximate the cone base geometry
-    base_resolution: usize,
+    base_resolution: u32,
 
     // Number of lines used to approximate the cone height geometry
-    height_resolution: usize,
+    height_resolution: u32,
 }
 
 impl<Config, Clear> Cone3dBuilder<'_, '_, '_, Config, Clear>
@@ -723,7 +693,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the cone geometry for its base and height.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.base_resolution = resolution;
         self.height_resolution = resolution;
         self
@@ -733,7 +703,7 @@ where
     ///
     /// `resolution` should be a multiple of the value passed to [`Self::height_resolution`]
     /// for the height to connect properly with the base.
-    pub fn base_resolution(mut self, resolution: usize) -> Self {
+    pub fn base_resolution(mut self, resolution: u32) -> Self {
         self.base_resolution = resolution;
         self
     }
@@ -742,7 +712,7 @@ where
     ///
     /// `resolution` should be a divisor of the value passed to [`Self::base_resolution`]
     /// for the height to connect properly with the base.
-    pub fn height_resolution(mut self, resolution: usize) -> Self {
+    pub fn height_resolution(mut self, resolution: u32) -> Self {
         self.height_resolution = resolution;
         self
     }
@@ -757,7 +727,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Cone,
+        primitive: &Cone,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -847,7 +817,7 @@ where
     color: Color,
 
     // Number of lines used to approximate the curved surfaces
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> ConicalFrustum3dBuilder<'_, '_, '_, Config, Clear>
@@ -856,7 +826,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the curved surfaces.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -871,7 +841,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: ConicalFrustum,
+        primitive: &ConicalFrustum,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -967,9 +937,9 @@ where
     color: Color,
 
     // Number of lines in the minor (tube) direction
-    minor_resolution: usize,
+    minor_resolution: u32,
     // Number of lines in the major (ring) direction
-    major_resolution: usize,
+    major_resolution: u32,
 }
 
 impl<Config, Clear> Torus3dBuilder<'_, '_, '_, Config, Clear>
@@ -978,13 +948,13 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines in the minor (tube) direction.
-    pub fn minor_resolution(mut self, minor_resolution: usize) -> Self {
+    pub fn minor_resolution(mut self, minor_resolution: u32) -> Self {
         self.minor_resolution = minor_resolution;
         self
     }
 
     /// Set the number of lines in the major (ring) direction.
-    pub fn major_resolution(mut self, major_resolution: usize) -> Self {
+    pub fn major_resolution(mut self, major_resolution: u32) -> Self {
         self.major_resolution = major_resolution;
         self
     }
@@ -999,7 +969,7 @@ where
 
     fn primitive_3d(
         &mut self,
-        primitive: Torus,
+        primitive: &Torus,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,
@@ -1094,7 +1064,7 @@ impl<'w, 's, T: GizmoConfigGroup> GizmoPrimitive3d<Tetrahedron> for Gizmos<'w, '
 
     fn primitive_3d(
         &mut self,
-        primitive: Tetrahedron,
+        primitive: &Tetrahedron,
         position: Vec3,
         rotation: Quat,
         color: impl Into<Color>,

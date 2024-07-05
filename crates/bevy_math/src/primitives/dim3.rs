@@ -3,9 +3,23 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
 use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
-/// A sphere primitive
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
+/// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
@@ -69,6 +83,15 @@ impl Measured3d for Sphere {
 /// A bounded plane in 3D space. It forms a surface starting from the origin with a defined height and width.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
@@ -132,6 +155,15 @@ impl Plane3d {
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct InfinitePlane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
@@ -184,21 +216,31 @@ impl InfinitePlane3d {
     }
 }
 
-/// An infinite line along a direction in 3D space.
+/// An infinite line going through the origin along a direction in 3D space.
 ///
 /// For a finite line: [`Segment3d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Line3d {
     /// The direction of the line
     pub direction: Dir3,
 }
 impl Primitive3d for Line3d {}
 
-/// A segment of a line along a direction in 3D space.
+/// A segment of a line going through the origin along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Segment3d {
     /// The direction of the line
     pub direction: Dir3,
@@ -253,6 +295,11 @@ impl Segment3d {
 /// For a version without generics: [`BoxedPolyline3d`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -306,9 +353,19 @@ impl BoxedPolyline3d {
     }
 }
 
-/// A cuboid primitive, more commonly known as a box.
+/// A cuboid primitive, which is like a cube, except that the x, y, and z dimensions are not
+/// required to be the same.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
@@ -389,9 +446,18 @@ impl Measured3d for Cuboid {
     }
 }
 
-/// A cylinder primitive
+/// A cylinder primitive centered on the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cylinder {
     /// The radius of the cylinder
     pub radius: f32,
@@ -457,10 +523,19 @@ impl Measured3d for Cylinder {
     }
 }
 
-/// A 3D capsule primitive.
+/// A 3D capsule primitive centered on the origin
 /// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Capsule3d {
     /// The radius of the capsule
     pub radius: f32,
@@ -517,9 +592,20 @@ impl Measured3d for Capsule3d {
     }
 }
 
-/// A cone primitive.
+/// A cone primitive centered on the midpoint between the tip of the cone and the center of its base.
+///
+/// The cone is oriented with its tip pointing towards the Y axis.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Cone {
     /// The radius of the base
     pub radius: f32,
@@ -589,6 +675,15 @@ impl Measured3d for Cone {
 /// by slicing off a section of a cone.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct ConicalFrustum {
     /// The radius of the top of the frustum
     pub radius_top: f32,
@@ -598,6 +693,17 @@ pub struct ConicalFrustum {
     pub height: f32,
 }
 impl Primitive3d for ConicalFrustum {}
+
+impl Default for ConicalFrustum {
+    /// Returns the default [`ConicalFrustum`] with a top radius of `0.25`, bottom radius of `0.5`, and a height of `0.5`.
+    fn default() -> Self {
+        Self {
+            radius_top: 0.25,
+            radius_bottom: 0.5,
+            height: 0.5,
+        }
+    }
+}
 
 /// The type of torus determined by the minor and major radii
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -618,8 +724,18 @@ pub enum TorusKind {
 }
 
 /// A torus primitive, often representing a ring or donut shape
+/// The set of points some distance from a circle centered at the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Torus {
     /// The radius of the tube of the torus
     #[doc(
@@ -722,6 +838,15 @@ impl Measured3d for Torus {
 /// A 3D triangle primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Triangle3d {
     /// The vertices of the triangle.
     pub vertices: [Vec3; 3],
@@ -778,6 +903,42 @@ impl Triangle3d {
         let ab = b - a;
         let ac = c - a;
         ab.cross(ac).length() < 10e-7
+    }
+
+    /// Checks if the triangle is acute, meaning all angles are less than 90 degrees
+    #[inline(always)]
+    pub fn is_acute(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 < c^2 for an acute triangle
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0] + side_lengths[1] > side_lengths[2]
+    }
+
+    /// Checks if the triangle is obtuse, meaning one angle is greater than 90 degrees
+    #[inline(always)]
+    pub fn is_obtuse(&self) -> bool {
+        let [a, b, c] = self.vertices;
+        let ab = b - a;
+        let bc = c - b;
+        let ca = a - c;
+
+        // a^2 + b^2 > c^2 for an obtuse triangle
+        let mut side_lengths = [
+            ab.length_squared(),
+            bc.length_squared(),
+            ca.length_squared(),
+        ];
+        side_lengths.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        side_lengths[0] + side_lengths[1] < side_lengths[2]
     }
 
     /// Reverse the triangle by swapping the first and last vertices.
@@ -870,6 +1031,15 @@ impl Measured2d for Triangle3d {
 /// A tetrahedron primitive.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Tetrahedron {
     /// The vertices of the tetrahedron.
     pub vertices: [Vec3; 4],
@@ -1010,7 +1180,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use crate::Quat;
+    use crate::{InvalidDirectionError, Quat};
     use approx::assert_relative_eq;
 
     #[test]
@@ -1211,7 +1381,90 @@ mod tests {
     }
 
     #[test]
+    fn extrusion_math() {
+        let circle = Circle::new(0.75);
+        let cylinder = Extrusion::new(circle, 2.5);
+        assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
+        assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
+
+        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
+        let tube = Extrusion::new(annulus, 0.333);
+        assert_eq!(tube.area(), 14.886437, "incorrect surface area");
+        assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
+
+        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
+        let regular_prism = Extrusion::new(polygon, 1.25);
+        assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
+        assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
+    }
+
+    #[test]
     fn triangle_math() {
+        // Default triangle tests
+        let mut default_triangle = Triangle3d::default();
+        let reverse_default_triangle = Triangle3d::new(
+            Vec3::new(0.5, -0.5, 0.0),
+            Vec3::new(-0.5, -0.5, 0.0),
+            Vec3::new(0.0, 0.5, 0.0),
+        );
+        assert_eq!(default_triangle.area(), 0.5, "incorrect area");
+        assert_relative_eq!(
+            default_triangle.perimeter(),
+            1.0 + 2.0 * 1.25_f32.sqrt(),
+            epsilon = 10e-9
+        );
+        assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");
+        assert!(
+            !default_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            default_triangle.centroid(),
+            Vec3::new(0.0, -0.16666667, 0.0),
+            "incorrect centroid"
+        );
+        assert_eq!(
+            default_triangle.largest_side(),
+            (Vec3::new(0.0, 0.5, 0.0), Vec3::new(-0.5, -0.5, 0.0))
+        );
+        default_triangle.reverse();
+        assert_eq!(
+            default_triangle, reverse_default_triangle,
+            "incorrect reverse"
+        );
+        assert_eq!(
+            default_triangle.circumcenter(),
+            Vec3::new(0.0, -0.125, 0.0),
+            "incorrect circumcenter"
+        );
+
+        // Custom triangle tests
+        let right_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::Y);
+        let obtuse_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::X, Vec3::new(0.0, 0.1, 0.0));
+        let acute_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::new(0.5, 5.0, 0.0));
+
+        assert_eq!(
+            right_triangle.circumcenter(),
+            Vec3::new(0.5, 0.5, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            obtuse_triangle.circumcenter(),
+            Vec3::new(0.0, -4.95, 0.0),
+            "incorrect circumcenter"
+        );
+        assert_eq!(
+            acute_triangle.circumcenter(),
+            Vec3::new(0.5, 2.475, 0.0),
+            "incorrect circumcenter"
+        );
+
+        assert!(acute_triangle.is_acute());
+        assert!(!acute_triangle.is_obtuse());
+        assert!(!obtuse_triangle.is_acute());
+        assert!(obtuse_triangle.is_obtuse());
+
+        // Arbitrary triangle tests
         let [a, b, c] = [Vec3::ZERO, Vec3::new(1., 1., 0.5), Vec3::new(-3., 2.5, 1.)];
         let triangle = Triangle3d::new(a, b, c);
 
@@ -1233,25 +1486,53 @@ mod tests {
             "incorrect normal"
         );
 
-        let degenerate = Triangle3d::new(Vec3::NEG_ONE, Vec3::ZERO, Vec3::ONE);
-        assert!(degenerate.is_degenerate(), "did not find degenerate");
-    }
+        // Degenerate triangle tests
+        let zero_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        assert!(
+            zero_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            zero_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::ZERO),
+            "incorrect largest side"
+        );
 
-    #[test]
-    fn extrusion_math() {
-        let circle = Circle::new(0.75);
-        let cylinder = Extrusion::new(circle, 2.5);
-        assert_eq!(cylinder.area(), 15.315264, "incorrect surface area");
-        assert_eq!(cylinder.volume(), 4.417865, "incorrect volume");
+        let dup_degenerate_triangle = Triangle3d::new(Vec3::ZERO, Vec3::X, Vec3::X);
+        assert!(
+            dup_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            dup_degenerate_triangle.largest_side(),
+            (Vec3::ZERO, Vec3::X),
+            "incorrect largest side"
+        );
 
-        let annulus = crate::primitives::Annulus::new(0.25, 1.375);
-        let tube = Extrusion::new(annulus, 0.333);
-        assert_eq!(tube.area(), 14.886437, "incorrect surface area");
-        assert_eq!(tube.volume(), 1.9124937, "incorrect volume");
-
-        let polygon = crate::primitives::RegularPolygon::new(3.8, 7);
-        let regular_prism = Extrusion::new(polygon, 1.25);
-        assert_eq!(regular_prism.area(), 107.8808, "incorrect surface area");
-        assert_eq!(regular_prism.volume(), 49.392204, "incorrect volume");
+        let collinear_degenerate_triangle = Triangle3d::new(Vec3::NEG_X, Vec3::ZERO, Vec3::X);
+        assert!(
+            collinear_degenerate_triangle.is_degenerate(),
+            "incorrect degenerate check"
+        );
+        assert_eq!(
+            collinear_degenerate_triangle.normal(),
+            Err(InvalidDirectionError::Zero),
+            "incorrect normal"
+        );
+        assert_eq!(
+            collinear_degenerate_triangle.largest_side(),
+            (Vec3::NEG_X, Vec3::X),
+            "incorrect largest side"
+        );
     }
 }

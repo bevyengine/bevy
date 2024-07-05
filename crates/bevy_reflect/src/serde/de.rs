@@ -620,7 +620,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             TypeInfo::Value(_) => {
                 // This case should already be handled
                 Err(Error::custom(format_args!(
-                    "the TypeRegistration for {type_path} doesn't have ReflectDeserialize",
+                    "Type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
                 )))
             }
         }
@@ -920,7 +920,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
                 E: Error,
             {
                 self.0.variant(variant_name).ok_or_else(|| {
-                    let names = self.0.iter().map(|variant| variant.name());
+                    let names = self.0.iter().map(VariantInfo::name);
                     Error::custom(format_args!(
                         "unknown variant `{}`, expected one of {:?}",
                         variant_name,
@@ -1046,7 +1046,7 @@ where
     let mut dynamic_struct = DynamicStruct::default();
     while let Some(Ident(key)) = map.next_key::<Ident>()? {
         let field = info.get_field(&key).ok_or_else(|| {
-            let fields = info.iter_fields().map(|field| field.name());
+            let fields = info.iter_fields().map(NamedField::name);
             Error::custom(format_args!(
                 "unknown field `{}`, expected one of {:?}",
                 key,
@@ -1174,6 +1174,7 @@ mod tests {
     use bincode::Options;
     use std::any::TypeId;
     use std::f32::consts::PI;
+    use std::ops::RangeInclusive;
 
     use serde::de::DeserializeSeed;
     use serde::Deserialize;
@@ -1631,5 +1632,19 @@ mod tests {
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_return_error_if_missing_type_data() {
+        let mut registry = TypeRegistry::new();
+        registry.register::<RangeInclusive<f32>>();
+
+        let input = r#"{"core::ops::RangeInclusive<f32>":(start:0.0,end:1.0)}"#;
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let error = reflect_deserializer
+            .deserialize(&mut deserializer)
+            .unwrap_err();
+        assert_eq!(error, ron::Error::Message("Type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
     }
 }

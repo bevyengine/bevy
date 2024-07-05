@@ -2,12 +2,13 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
-use bevy_color::{Alpha, LinearRgba};
+use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
@@ -199,8 +200,11 @@ pub fn extract_uinode_background_colors(
             Option<&TargetCamera>,
             &BackgroundColor,
             Option<&BorderRadius>,
+            &Style,
+            Option<&Parent>,
         )>,
     >,
+    node_query: Extract<Query<&Node>>,
 ) {
     for (
         entity,
@@ -211,6 +215,8 @@ pub fn extract_uinode_background_colors(
         camera,
         background_color,
         border_radius,
+        style,
+        parent,
     ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -231,6 +237,23 @@ pub fn extract_uinode_background_colors(
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
+
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
+
+        let border = [left, top, right, bottom];
 
         let border_radius = if let Some(border_radius) = border_radius {
             resolve_border_radius(
@@ -259,7 +282,7 @@ pub fn extract_uinode_background_colors(
                 flip_x: false,
                 flip_y: false,
                 camera_entity,
-                border: [0.; 4],
+                border,
                 border_radius,
                 node_type: NodeType::Rect,
             },
@@ -267,6 +290,7 @@ pub fn extract_uinode_background_colors(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -285,11 +309,25 @@ pub fn extract_uinode_images(
             Option<&TextureAtlas>,
             Option<&ComputedTextureSlices>,
             Option<&BorderRadius>,
+            Option<&Parent>,
+            &Style,
         )>,
     >,
+    node_query: Extract<Query<&Node>>,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, atlas, slices, border_radius) in
-        &uinode_query
+    for (
+        uinode,
+        transform,
+        view_visibility,
+        clip,
+        camera,
+        image,
+        atlas,
+        slices,
+        border_radius,
+        parent,
+        style,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -297,7 +335,10 @@ pub fn extract_uinode_images(
         };
 
         // Skip invisible images
-        if !view_visibility.get() || image.color.is_fully_transparent() {
+        if !view_visibility.get()
+            || image.color.is_fully_transparent()
+            || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             continue;
         }
 
@@ -342,6 +383,23 @@ pub fn extract_uinode_images(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
+
+        let border = [left, top, right, bottom];
+
         let border_radius = if let Some(border_radius) = border_radius {
             resolve_border_radius(
                 border_radius,
@@ -366,7 +424,7 @@ pub fn extract_uinode_images(
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity,
-                border: [0.; 4],
+                border,
                 border_radius,
                 node_type: NodeType::Rect,
             },
@@ -513,6 +571,11 @@ pub fn extract_uinode_borders(
 
         let border = [left, top, right, bottom];
 
+        // don't extract border if no border
+        if left == 0.0 && top == 0.0 && right == 0.0 && bottom == 0.0 {
+            continue;
+        }
+
         let border_radius = resolve_border_radius(
             border_radius,
             node.size(),
@@ -612,7 +675,7 @@ pub fn extract_uinode_outlines(
             ),
         ];
 
-        let transform = global_transform.compute_matrix();
+        let world_from_local = global_transform.compute_matrix();
         for edge in outline_edges {
             if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
                 extracted_uinodes.uinodes.insert(
@@ -620,7 +683,8 @@ pub fn extract_uinode_outlines(
                     ExtractedUiNode {
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
-                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        transform: world_from_local
+                            * Mat4::from_translation(edge.center().extend(0.)),
                         color: outline.color.into(),
                         rect: Rect {
                             max: edge.size(),
@@ -696,13 +760,13 @@ pub fn extract_default_ui_camera_view(
             );
             let default_camera_view = commands
                 .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
+                    clip_from_view: projection_matrix,
+                    world_from_view: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
-                    view_projection: None,
+                    clip_from_world: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         physical_origin.x,
@@ -797,7 +861,7 @@ pub fn extract_uinode_text(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let mut rect = atlas.textures[atlas_info.glyph_index].as_rect();
+            let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
             extracted_uinodes.uinodes.insert(

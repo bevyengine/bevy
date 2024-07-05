@@ -1,8 +1,9 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ColorToComponents, Hsla, Hsva, Hue, Hwba, Laba,
-    Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
+    Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
 use bevy_math::{Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// Color in Oklch color space, with alpha
@@ -10,11 +11,11 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Oklcha {
@@ -117,6 +118,11 @@ impl Mix for Oklcha {
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
+}
+
+impl Gray for Oklcha {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(1.0, 0.000000059604645, 90.0, 1.0);
 }
 
 impl Alpha for Oklcha {

@@ -4,6 +4,7 @@ use std::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
+use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
     TypeInfo, TypePath, TypePathTable,
@@ -194,7 +195,30 @@ impl MapInfo {
     }
 }
 
-const HASH_ERROR: &str = "the given key does not support hashing";
+#[macro_export]
+macro_rules! hash_error {
+    ( $key:expr ) => {{
+        let type_path = (*$key).reflect_type_path();
+        if !$key.is_dynamic() {
+            format!(
+                "the given key of type `{}` does not support hashing",
+                type_path
+            )
+        } else {
+            match (*$key).get_represented_type_info() {
+                // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
+                None => format!("the dynamic type `{}` does not support hashing", type_path),
+                // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
+                Some(s) => format!(
+                    "the dynamic type `{}` (representing `{}`) does not support hashing",
+                    type_path,
+                    s.type_path()
+                ),
+            }
+        }
+        .as_str()
+    }}
+}
 
 /// An ordered mapping between reflected values.
 #[derive(Default)]
@@ -233,13 +257,13 @@ impl DynamicMap {
 impl Map for DynamicMap {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         self.indices
-            .get(&key.reflect_hash().expect(HASH_ERROR))
+            .get(&key.reflect_hash().expect(hash_error!(key)))
             .map(|index| &*self.values.get(*index).unwrap().1)
     }
 
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
         self.indices
-            .get(&key.reflect_hash().expect(HASH_ERROR))
+            .get(&key.reflect_hash().expect(hash_error!(key)))
             .cloned()
             .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
     }
@@ -285,7 +309,10 @@ impl Map for DynamicMap {
         key: Box<dyn Reflect>,
         mut value: Box<dyn Reflect>,
     ) -> Option<Box<dyn Reflect>> {
-        match self.indices.entry(key.reflect_hash().expect(HASH_ERROR)) {
+        match self
+            .indices
+            .entry(key.reflect_hash().expect(hash_error!(key)))
+        {
             Entry::Occupied(entry) => {
                 let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
                 std::mem::swap(old_value, &mut value);
@@ -302,7 +329,7 @@ impl Map for DynamicMap {
     fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
         let index = self
             .indices
-            .remove(&key.reflect_hash().expect(HASH_ERROR))?;
+            .remove(&key.reflect_hash().expect(hash_error!(key)))?;
         let (_key, value) = self.values.remove(index);
         Some(value)
     }
@@ -391,6 +418,7 @@ impl Reflect for DynamicMap {
 }
 
 impl_type_path!((in bevy_reflect) DynamicMap);
+impl_function_traits!(DynamicMap);
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

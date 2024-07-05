@@ -27,6 +27,7 @@ mod folder;
 mod handle;
 mod id;
 mod loader;
+mod loader_builders;
 mod path;
 mod reflect;
 mod server;
@@ -40,6 +41,9 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
+pub use loader_builders::{
+    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+};
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
@@ -223,6 +227,11 @@ impl Plugin for AssetPlugin {
     }
 }
 
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `Asset`",
+    label = "invalid `Asset`",
+    note = "consider annotating `{Self}` with `#[derive(Asset)]`"
+)]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
 pub trait VisitAssetDependencies {
@@ -297,8 +306,8 @@ pub trait AssetApp {
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
     /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    /// mutable access to this resource this causes a conflict, but they rarely actually
-    /// modify the same underlying asset.
+    ///     mutable access to this resource this causes a conflict, but they rarely actually
+    ///     modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -451,7 +460,6 @@ mod tests {
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
     use bevy_utils::{Duration, HashMap};
-    use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::{path::Path, sync::Arc};
     use thiserror::Error;
@@ -501,7 +509,7 @@ mod tests {
 
         async fn load<'a>(
             &'a self,
-            reader: &'a mut Reader<'_>,
+            reader: &'a mut dyn Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
@@ -511,7 +519,9 @@ mod tests {
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
                 let loaded = load_context
-                    .load_direct::<CoolText>(&dep)
+                    .loader()
+                    .direct()
+                    .load::<CoolText>(&dep)
                     .await
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
@@ -573,13 +583,13 @@ mod tests {
         async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError> {
+        ) -> Result<impl bevy_asset::io::Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
         async fn read<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
+        ) -> Result<impl bevy_asset::io::Reader + 'a, bevy_asset::io::AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -1500,6 +1510,7 @@ mod tests {
         Empty,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1508,6 +1519,7 @@ mod tests {
         embedded: TestAsset,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

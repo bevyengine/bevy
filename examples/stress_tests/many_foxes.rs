@@ -118,9 +118,9 @@ fn setup(
 
     // Insert a resource with the current scene information
     let animation_clips = [
-        asset_server.load("models/animated/Fox.glb#Animation2"),
-        asset_server.load("models/animated/Fox.glb#Animation1"),
-        asset_server.load("models/animated/Fox.glb#Animation0"),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
     ];
     let mut animation_graph = AnimationGraph::new();
     let node_indices = animation_graph
@@ -136,7 +136,8 @@ fn setup(
     // The foxes in each ring are spaced at least 2m apart around its circumference.'
 
     // NOTE: This fox model faces +z
-    let fox_handle = asset_server.load("models/animated/Fox.glb#Scene0");
+    let fox_handle =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
 
     let ring_directions = [
         (

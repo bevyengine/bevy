@@ -35,7 +35,7 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 use std::ops::Range;
-use wgpu::{BlendState, LoadOp, TextureFormat, TextureUsages};
+use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
 
@@ -82,7 +82,7 @@ pub struct RenderTargetInfo {
 /// Holds internally computed [`Camera`] values.
 #[derive(Default, Debug, Clone)]
 pub struct ComputedCameraValues {
-    projection_matrix: Mat4,
+    clip_from_view: Mat4,
     target_info: Option<RenderTargetInfo>,
     // size of the `Viewport`
     old_viewport_size: Option<UVec2>,
@@ -340,8 +340,8 @@ impl Camera {
 
     /// The projection matrix computed using this camera's [`CameraProjection`].
     #[inline]
-    pub fn projection_matrix(&self) -> Mat4 {
-        self.computed.projection_matrix
+    pub fn clip_from_view(&self) -> Mat4 {
+        self.computed.clip_from_view
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
@@ -353,7 +353,7 @@ impl Camera {
     /// - The computed coordinates are beyond the near or far plane
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The world coordinates cannot be mapped to the Normalized Device Coordinates. See [`world_to_ndc`](Camera::world_to_ndc)
-    /// May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
+    ///     May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
@@ -386,7 +386,7 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The near or far plane cannot be computed. This can happen if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
-    /// Panics if the projection matrix is null and `glam_assert` is enabled.
+    ///     Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
@@ -398,7 +398,7 @@ impl Camera {
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
         let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
         let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
@@ -422,7 +422,7 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The viewport position cannot be mapped to the world. See [`ndc_to_world`](Camera::ndc_to_world)
-    /// May panic. See [`ndc_to_world`](Camera::ndc_to_world).
+    ///     May panic. See [`ndc_to_world`](Camera::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
@@ -453,9 +453,9 @@ impl Camera {
         world_position: Vec3,
     ) -> Option<Vec3> {
         // Build a transformation matrix to convert from world space to NDC using camera data
-        let world_to_ndc: Mat4 =
-            self.computed.projection_matrix * camera_transform.compute_matrix().inverse();
-        let ndc_space_coords: Vec3 = world_to_ndc.project_point3(world_position);
+        let clip_from_world: Mat4 =
+            self.computed.clip_from_view * camera_transform.compute_matrix().inverse();
+        let ndc_space_coords: Vec3 = clip_from_world.project_point3(world_position);
 
         (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
     }
@@ -473,7 +473,7 @@ impl Camera {
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
-            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+            camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
 
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
@@ -488,9 +488,8 @@ pub enum CameraOutputMode {
     Write {
         /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
         blend_state: Option<BlendState>,
-        /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
-        /// target texture.
-        color_attachment_load_op: LoadOp<wgpu::Color>,
+        /// The clear color operation to perform on the final render target texture.
+        clear_color: ClearColorConfig,
     },
     /// Skips writing the camera output to the configured render target. The output will remain in the
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
@@ -505,7 +504,7 @@ impl Default for CameraOutputMode {
     fn default() -> Self {
         CameraOutputMode::Write {
             blend_state: None,
-            color_attachment_load_op: LoadOp::Clear(Default::default()),
+            clear_color: ClearColorConfig::Default,
         }
     }
 }
@@ -786,7 +785,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                 camera.computed.target_info = new_computed_target_info;
                 if let Some(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
-                    camera.computed.projection_matrix = camera_projection.get_projection_matrix();
+                    camera.computed.clip_from_view = camera_projection.get_clip_from_view();
                 }
             }
         }
@@ -824,6 +823,7 @@ pub struct ExtractedCamera {
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
+    pub hdr: bool,
 }
 
 pub fn extract_cameras(
@@ -897,17 +897,18 @@ pub fn extract_cameras(
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
-                    clear_color: camera.clear_color.clone(),
+                    clear_color: camera.clear_color,
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
                     exposure: exposure
-                        .map(|e| e.exposure())
+                        .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
+                    hdr: camera.hdr,
                 },
                 ExtractedView {
-                    projection: camera.projection_matrix(),
-                    transform: *transform,
-                    view_projection: None,
+                    clip_from_view: camera.clip_from_view(),
+                    world_from_view: *transform,
+                    clip_from_world: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
@@ -954,6 +955,7 @@ pub struct SortedCamera {
     pub entity: Entity,
     pub order: isize,
     pub target: Option<NormalizedRenderTarget>,
+    pub hdr: bool,
 }
 
 pub fn sort_cameras(
@@ -966,6 +968,7 @@ pub fn sort_cameras(
             entity,
             order: camera.order,
             target: camera.target.clone(),
+            hdr: camera.hdr,
         });
     }
     // sort by order and ensure within an order, RenderTargets of the same type are packed together
@@ -986,7 +989,9 @@ pub fn sort_cameras(
             }
         }
         if let Some(target) = &sorted_camera.target {
-            let count = target_counts.entry(target.clone()).or_insert(0usize);
+            let count = target_counts
+                .entry((target.clone(), sorted_camera.hdr))
+                .or_insert(0usize);
             let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
             camera.sorted_camera_index_for_target = *count;
             *count += 1;
@@ -1021,8 +1026,8 @@ pub struct TemporalJitter {
 }
 
 impl TemporalJitter {
-    pub fn jitter_projection(&self, projection: &mut Mat4, view_size: Vec2) {
-        if projection.w_axis.w == 1.0 {
+    pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
+        if clip_from_view.w_axis.w == 1.0 {
             warn!(
                 "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
             );
@@ -1032,8 +1037,8 @@ impl TemporalJitter {
         // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
         let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
 
-        projection.z_axis.x += jitter.x;
-        projection.z_axis.y += jitter.y;
+        clip_from_view.z_axis.x += jitter.x;
+        clip_from_view.z_axis.y += jitter.y;
     }
 }
 

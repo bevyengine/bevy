@@ -142,10 +142,7 @@ fn setup(
     commands.spawn(TextBundle {
         text: Text::from_section(
             "Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         ),
         style: Style {
             position_type: PositionType::Absolute,
