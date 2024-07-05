@@ -75,18 +75,11 @@ use bevy_sprite::SpriteSystem;
 ///
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
 /// plugin is included by default in the `DefaultPlugins`.
+#[derive(Default)]
 pub struct TextPlugin {
     /// If [false], some characters (esspecially Unicode emojies) might not load properly due to unsupported font
     /// Caution: this can be relatively slow
     pub load_system_fonts: bool,
-}
-
-impl Default for TextPlugin {
-    fn default() -> Self {
-        Self {
-            load_system_fonts: false,
-        }
-    }
 }
 
 /// Text is rendered for two different view projections;
