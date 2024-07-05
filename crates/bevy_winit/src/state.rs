@@ -421,6 +421,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
+        // If no windows exist, this will evaluate to `true`.
         let all_invisible = windows.iter().all(|w| !w.1.visible);
 
         let mut update_mode = config.update_mode(focused);
