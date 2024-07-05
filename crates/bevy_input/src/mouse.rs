@@ -2,13 +2,15 @@
 
 use crate::{ButtonInput, ButtonState};
 use bevy_ecs::entity::Entity;
+use bevy_ecs::reflect::ReflectResource;
+use bevy_ecs::system::Resource;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     event::{Event, EventReader},
     system::ResMut,
 };
 use bevy_math::Vec2;
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -154,4 +156,82 @@ pub fn mouse_button_input_system(
             ButtonState::Released => mouse_button_input.release(event.button),
         }
     }
+}
+
+/// Tracks how much the mouse has moved every frame.
+///
+/// This resource is reset to zero every frame.
+///
+/// This resource sums the total [`MouseMotion`] events received this frame.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect, Default)]
+#[reflect(Debug, Default, Resource, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct AccumulatedMouseMotion {
+    /// The change in mouse position.
+    pub delta: Vec2,
+}
+
+/// Tracks how much the mouse has scrolled every frame.
+///
+/// This resource is reset to zero every frame.
+///
+/// This resource sums the total [`MouseWheel`] events received this frame.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Debug, Default, Resource, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct AccumulatedMouseScroll {
+    /// The mouse scroll unit.
+    /// If this value changes while scrolling, then the
+    /// result of the accumulation could be incorrect
+    pub unit: MouseScrollUnit,
+    /// The change in scroll position.
+    pub delta: Vec2,
+}
+
+impl Default for AccumulatedMouseScroll {
+    fn default() -> Self {
+        Self {
+            unit: MouseScrollUnit::Line,
+            delta: Vec2::ZERO,
+        }
+    }
+}
+
+/// Updates the [`AccumulatedMouseMotion`] resource using the [`MouseMotion`] event.
+/// The value of [`AccumulatedMouseMotion`] is reset to zero every frame
+pub fn accumulate_mouse_motion_system(
+    mut mouse_motion_event: EventReader<MouseMotion>,
+    mut accumulated_mouse_motion: ResMut<AccumulatedMouseMotion>,
+) {
+    let mut delta = Vec2::ZERO;
+    for event in mouse_motion_event.read() {
+        delta += event.delta;
+    }
+    accumulated_mouse_motion.delta = delta;
+}
+
+/// Updates the [`AccumulatedMouseScroll`] resource using the [`MouseWheel`] event.
+/// The value of [`AccumulatedMouseScroll`] is reset to zero every frame
+pub fn accumulate_mouse_scroll_system(
+    mut mouse_scroll_event: EventReader<MouseWheel>,
+    mut accumulated_mouse_scroll: ResMut<AccumulatedMouseScroll>,
+) {
+    let mut delta = Vec2::ZERO;
+    let mut unit = MouseScrollUnit::Line;
+    for event in mouse_scroll_event.read() {
+        if event.unit != unit {
+            unit = event.unit;
+        }
+        delta += Vec2::new(event.x, event.y);
+    }
+    accumulated_mouse_scroll.delta = delta;
+    accumulated_mouse_scroll.unit = unit;
 }

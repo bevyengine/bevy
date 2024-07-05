@@ -612,7 +612,7 @@ impl AnimationPlayer {
     pub fn all_finished(&self) -> bool {
         self.active_animations
             .values()
-            .all(|playing_animation| playing_animation.is_finished())
+            .all(ActiveAnimation::is_finished)
     }
 
     /// Check if all playing animations are paused.
@@ -620,7 +620,7 @@ impl AnimationPlayer {
     pub fn all_paused(&self) -> bool {
         self.active_animations
             .values()
-            .all(|playing_animation| playing_animation.is_paused())
+            .all(ActiveAnimation::is_paused)
     }
 
     /// Resume all playing animations.

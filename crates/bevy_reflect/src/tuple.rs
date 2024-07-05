@@ -710,6 +710,31 @@ macro_rules! impl_type_path_tuple {
 
 all_tuples!(impl_type_path_tuple, 0, 12, P);
 
+macro_rules! impl_get_ownership_tuple {
+    ($($name: ident),*) => {
+        $crate::func::args::impl_get_ownership!(($($name,)*); <$($name),*>);
+    };
+}
+
+all_tuples!(impl_get_ownership_tuple, 0, 12, P);
+
+macro_rules! impl_from_arg_tuple {
+    ($($name: ident),*) => {
+        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + TypePath + GetTypeRegistration),*>);
+    };
+}
+
+all_tuples!(impl_from_arg_tuple, 0, 12, P);
+
+macro_rules! impl_into_return_tuple {
+    ($($name: ident),+) => {
+        $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + TypePath + GetTypeRegistration),*>);
+    };
+}
+
+// The unit type (i.e. `()`) is special-cased, so we skip implementing it here.
+all_tuples!(impl_into_return_tuple, 1, 12, P);
+
 #[cfg(test)]
 mod tests {
     use super::Tuple;

@@ -245,7 +245,7 @@ fn spawn_button(
                     margin: UiRect::horizontal(Val::Px(2.)),
                     ..Default::default()
                 },
-                background_color: if active {
+                border_color: if active {
                     ACTIVE_BORDER_COLOR
                 } else {
                     INACTIVE_BORDER_COLOR
@@ -359,7 +359,7 @@ fn update_buttons(
 fn update_radio_buttons_colors(
     mut event_reader: EventReader<ButtonActivatedEvent>,
     button_query: Query<(Entity, &Constraint, &Interaction)>,
-    mut image_query: Query<&mut UiImage>,
+    mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut Text>,
     children_query: Query<&Children>,
@@ -382,7 +382,7 @@ fn update_radio_buttons_colors(
                     )
                 };
 
-                image_query.get_mut(id).unwrap().color = border_color;
+                border_query.get_mut(id).unwrap().0 = border_color;
                 for &child in children_query.get(id).into_iter().flatten() {
                     color_query.get_mut(child).unwrap().0 = inner_color;
                     for &grandchild in children_query.get(child).into_iter().flatten() {

@@ -12,6 +12,7 @@ keywords = ["bevy"]
 dds = ["bevy_render/dds"]
 pbr_transmission_textures = ["bevy_pbr/pbr_transmission_textures"]
 pbr_multi_layer_material_textures = []
+pbr_anisotropy_texture = []
 
 [dependencies]
 # bevy
@@ -56,6 +57,9 @@ percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"
 smallvec = "1.11"
+
+[dev-dependencies]
+bevy_log = { path = "../bevy_log", version = "0.14.0-dev" }
 
 [lints]
 workspace = true

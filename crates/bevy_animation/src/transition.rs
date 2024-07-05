@@ -93,6 +93,11 @@ impl AnimationTransitions {
         self.main_animation = Some(new_animation);
         player.start(new_animation)
     }
+
+    /// Obtain the currently playing main animation.
+    pub fn get_main_animation(&self) -> Option<AnimationNodeIndex> {
+        self.main_animation
+    }
 }
 
 /// A system that alters the weight of currently-playing transitions based on
