@@ -278,9 +278,6 @@ android-native-activity = ["bevy_internal/android-native-activity"]
 # Android game activity support (pick one between this and native activity)
 android-game-activity = ["bevy_internal/android-game-activity"]
 
-# Enable rendering of font glyphs using subpixel accuracy
-subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
-
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
