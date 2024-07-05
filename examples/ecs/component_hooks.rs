@@ -18,6 +18,12 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 #[derive(Debug)]
+/// Hooks can also be registered during component initialisation by
+/// using [`Component`] derive macro:
+/// ```no_run
+/// #[derive(Component)]
+/// #[component(on_add = ..., on_insert = ..., on_remove = ...)]
+/// ```
 struct MyComponent(KeyCode);
 
 impl Component for MyComponent {

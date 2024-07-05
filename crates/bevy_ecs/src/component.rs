@@ -238,7 +238,7 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 /// There is two ways of configuring hooks for a component:
 /// 1. Defining the [`Component::register_component_hooks`] method (see [`Component`])
 /// 2. Using the [`World::register_component_hooks`] method
-/// 
+///
 /// # Example 2
 ///
 /// ```
