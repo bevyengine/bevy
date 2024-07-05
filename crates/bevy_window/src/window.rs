@@ -886,7 +886,7 @@ pub enum Resolution {
 }
 
 impl Resolution {
-    // Iterates through all [`Resolution`] variants.
+    /// Iterates through all [`Resolution`] variants.
     pub fn iter() -> impl Iterator<Item = Resolution> {
         [
             Resolution::R360p,
