@@ -869,7 +869,7 @@ impl From<DVec2> for WindowResolution {
     }
 }
 
-// Common screen resolutions.
+/// Common screen resolutions.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Resolution {
     /// 640 x 360
