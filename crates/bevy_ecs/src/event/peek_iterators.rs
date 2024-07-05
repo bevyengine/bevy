@@ -202,7 +202,7 @@ impl<'a, E: Event> EventPeekParIter<'a, E> {
                 .batching_strategy
                 .calc_batch_size(|| self.len(), thread_count);
             let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
-            let remainders = chunks.each_ref().map(|c| c.remainder());
+            let remainders = chunks.each_ref().map(std::slice::ChunksExact::remainder);
 
             pool.scope(|scope| {
                 for batch in chunks.into_iter().flatten().chain(remainders) {
