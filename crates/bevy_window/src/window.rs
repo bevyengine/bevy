@@ -873,13 +873,21 @@ impl From<DVec2> for WindowResolution {
 /// Creates and defines a Resolution Enum to expose common resolutions.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Resolution{
+    /// 640 x 360
     R360p,
+
+    /// 1280 x 720
     R720p,
+
+    /// 1920 x 1080
     R1080p,
+
+    /// 2560 x 1440
     R2k,
 }
 
 impl Resolution {
+    /// Gets all the available resolutions as an iterator.
     pub fn iter() -> impl Iterator<Item = Resolution> {
         [
             Resolution::R360p,
