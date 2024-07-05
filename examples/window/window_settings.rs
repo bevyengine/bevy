@@ -7,6 +7,7 @@ use bevy::{
     prelude::*,
     window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
 };
+use bevy::window::{CommonScreenResolution, WindowResolution};
 
 fn main() {
     App::new()
@@ -15,7 +16,7 @@ fn main() {
                 primary_window: Some(Window {
                     title: "I am a window!".into(),
                     name: Some("bevy.app".into()),
-                    resolution: (500., 300.).into(),
+                    resolution: CommonScreenResolution::R360p.into(),
                     present_mode: PresentMode::AutoVsync,
                     // Tells wasm to resize the window according to the available canvas
                     fit_canvas_to_parent: true,
@@ -45,6 +46,7 @@ fn main() {
                 toggle_cursor,
                 toggle_vsync,
                 toggle_window_controls,
+                toggle_resolutions,
                 cycle_cursor_icon,
                 switch_level,
                 make_visible,
@@ -120,6 +122,25 @@ fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&
         }
         if toggle_close {
             window.enabled_buttons.close = !window.enabled_buttons.close;
+        }
+    }
+}
+
+fn toggle_resolutions(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    if input.just_pressed(KeyCode::KeyR) {
+        let mut window = windows.single_mut();
+        let current_resolution = CommonScreenResolution::iter().find(|&r| WindowResolution::from(r) == window.resolution);
+        window.resolution = if current_resolution.is_none() {
+            CommonScreenResolution::R360p.into()
+        } else {
+            let resolutions = CommonScreenResolution::iter().map(|r| r.into()).collect::<Vec<CommonScreenResolution>>();
+            let current_resolution_index = CommonScreenResolution::iter().position(|r| r == current_resolution.unwrap()).unwrap();
+
+            if current_resolution_index + 1 >= resolutions.len() {
+                resolutions[0].into()
+            } else {
+                resolutions[current_resolution_index + 1].into()
+            }
         }
     }
 }
