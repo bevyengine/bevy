@@ -864,39 +864,40 @@ impl Archetypes {
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
         let component_index = &mut self.by_component;
-        let archetype_id =
-            *self
-                .by_components
-                .entry(archetype_identity)
-                .or_insert_with_key(move |identity| {
+        let archetype_id = *self
+            .by_components
+            .entry(archetype_identity)
+            .or_insert_with_key(move |identity| {
                 let ArchetypeComponents {
                     table_components,
                     sparse_set_components,
                 } = identity;
-                    let id = ArchetypeId::new(archetypes.len());
-                    let table_start = *archetype_component_count;
-                    *archetype_component_count += table_components.len();
-                    let table_archetype_components =
-                        (table_start..*archetype_component_count).map(ArchetypeComponentId);
-                    let sparse_start = *archetype_component_count;
-                    *archetype_component_count += sparse_set_components.len();
-                    let sparse_set_archetype_components =
-                        (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
-                    archetypes.push(Archetype::new(
-                        components,
-                        component_index,
-                        observers,
-                        id,
-                        table_id,
-                        table_components.iter()
-                        .copied().zip(table_archetype_components),
-                        sparse_set_components
-                            .iter()
+                let id = ArchetypeId::new(archetypes.len());
+                let table_start = *archetype_component_count;
+                *archetype_component_count += table_components.len();
+                let table_archetype_components =
+                    (table_start..*archetype_component_count).map(ArchetypeComponentId);
+                let sparse_start = *archetype_component_count;
+                *archetype_component_count += sparse_set_components.len();
+                let sparse_set_archetype_components =
+                    (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
+                archetypes.push(Archetype::new(
+                    components,
+                    component_index,
+                    observers,
+                    id,
+                    table_id,
+                    table_components
+                        .iter()
                         .copied()
-                            .zip(sparse_set_archetype_components),
-                    ));
-                    id
-                });
+                        .zip(table_archetype_components),
+                    sparse_set_components
+                        .iter()
+                        .copied()
+                        .zip(sparse_set_archetype_components),
+                ));
+                id
+            });
         archetype_id
     }
 
