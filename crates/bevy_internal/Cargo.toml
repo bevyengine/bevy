@@ -100,9 +100,6 @@ x11 = ["bevy_winit/x11"]
 android-native-activity = ["bevy_winit/android-native-activity"]
 android-game-activity = ["bevy_winit/android-game-activity"]
 
-# enable rendering of font glyphs using subpixel accuracy
-subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
-
 # Transmission textures in `StandardMaterial`:
 pbr_transmission_textures = [
   "bevy_pbr?/pbr_transmission_textures",
