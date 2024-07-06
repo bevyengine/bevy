@@ -1,20 +1,21 @@
 use crate::Font;
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use thiserror::Error;
 
 #[derive(Default)]
+/// An [`AssetLoader`] for [`Font`]s, for use by the [`AssetServer`]
 pub struct FontLoader;
 
 /// Possible errors that can be produced by [`FontLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum FontLoaderError {
+    /// The contents that could not be parsed
+    #[error(transparent)]
+    Content(#[from] cosmic_text::ttf_parser::FaceParsingError),
     /// An [IO](std::io) Error
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    /// An [`InvalidFont`](ab_glyph::InvalidFont) Error
-    #[error(transparent)]
-    FontInvalid(#[from] ab_glyph::InvalidFont),
 }
 
 impl AssetLoader for FontLoader {
@@ -23,13 +24,14 @@ impl AssetLoader for FontLoader {
     type Error = FontLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Font, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        Ok(Font::try_from_bytes(bytes)?)
+        let font = Font::try_from_bytes(bytes)?;
+        Ok(font)
     }
 
     fn extensions(&self) -> &[&str] {

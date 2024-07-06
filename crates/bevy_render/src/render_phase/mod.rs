@@ -760,7 +760,7 @@ where
     /// An [`Iterator`] through the associated [`Entity`] for each [`PhaseItem`] in order.
     #[inline]
     pub fn iter_entities(&'_ self) -> impl Iterator<Item = Entity> + '_ {
-        self.items.iter().map(|item| item.entity())
+        self.items.iter().map(PhaseItem::entity)
     }
 
     /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
@@ -1045,7 +1045,7 @@ pub trait SortedPhaseItem: PhaseItem {
     /// It's advised to always profile for performance changes when changing this implementation.
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(|item| item.sort_key());
+        items.sort_unstable_by_key(Self::sort_key);
     }
 }
 

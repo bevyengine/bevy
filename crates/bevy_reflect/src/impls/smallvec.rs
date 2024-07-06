@@ -1,8 +1,9 @@
 use bevy_reflect_derive::impl_type_path;
-use smallvec::SmallVec;
+use smallvec::{Array as SmallArray, SmallVec};
 
 use std::any::Any;
 
+use crate::func::macros::impl_function_traits;
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
@@ -10,7 +11,7 @@ use crate::{
     TypePath, TypeRegistration, Typed,
 };
 
-impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
 where
     T::Item: FromReflect + TypePath,
 {
@@ -32,7 +33,7 @@ where
 
     fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to insert invalid value of type {}.",
                     value.reflect_type_path()
@@ -48,7 +49,7 @@ where
 
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
                     value.reflect_type_path()
@@ -77,7 +78,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + TypePath + Send + Sync> Reflect for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> Reflect for SmallVec<T>
 where
     T::Item: FromReflect + TypePath,
 {
@@ -147,7 +148,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
 where
     T::Item: FromReflect + TypePath,
 {
@@ -157,9 +158,9 @@ where
     }
 }
 
-impl_type_path!(::smallvec::SmallVec<T: smallvec::Array>);
+impl_type_path!(::smallvec::SmallVec<T: SmallArray>);
 
-impl<T: smallvec::Array + TypePath + Send + Sync> FromReflect for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect + TypePath,
 {
@@ -167,7 +168,7 @@ where
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut new_list = Self::with_capacity(ref_list.len());
             for field in ref_list.iter() {
-                new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
+                new_list.push(<T as SmallArray>::Item::from_reflect(field)?);
             }
             Some(new_list)
         } else {
@@ -176,7 +177,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
 where
     T::Item: FromReflect + TypePath,
 {
@@ -186,3 +187,5 @@ where
         registration
     }
 }
+
+impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + TypePath);
