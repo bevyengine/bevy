@@ -1077,7 +1077,7 @@ impl Mesh {
         }
     }
 
-    /// Get a list of this Mesh's triangles as an iterator if possible.
+    /// Get a list of this Mesh's [triangles] as an iterator if possible.
     ///
     /// Returns an error if any of the following conditions are met (see [`MeshTrianglesError`]):
     /// * The Mesh's [primitive topology] is not `TriangleList` or `TriangleStrip`.
@@ -1085,6 +1085,7 @@ impl Mesh {
     /// * The Mesh's position data has the wrong format (not `Float32x3`).
     ///
     /// [primitive topology]: PrimitiveTopology
+    /// [triangles]: Triangle3d
     pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
         let Some(position_data) = self.attribute(Mesh::ATTRIBUTE_POSITION) else {
             return Err(MeshTrianglesError::MissingPositions);

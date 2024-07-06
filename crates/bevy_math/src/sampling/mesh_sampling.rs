@@ -5,8 +5,7 @@ use crate::{
     ShapeSample, Vec3,
 };
 use rand::Rng;
-use rand_distr::{Distribution, WeightedAliasIndex};
-use thiserror::Error;
+use rand_distr::{Distribution, WeightedAliasIndex, WeightedError};
 
 /// A [distribution] that caches data to allow fast sampling from a collection of triangles.
 /// Generally used through [`sample`] or [`sample_iter`].
@@ -38,27 +37,20 @@ impl Distribution<Vec3> for UniformMeshSampler {
     }
 }
 
-/// An error that indicates that a [`UniformMeshSampler`] could not be constructed
-/// because its input data had a total area of zero.
-#[derive(Debug, Error)]
-#[error("Failed to form distribution: provided triangles have zero area")]
-pub struct ZeroAreaMeshError;
-
 impl UniformMeshSampler {
-    /// Construct a new [`UniformMeshSampler`] from a list of triangles.
+    /// Construct a new [`UniformMeshSampler`] from a list of [triangles].
     ///
-    /// Returns an error if the collection of triangles would have zero surface area.
+    /// Returns an error if the distribution of areas for the collection of triangles could not be formed
+    /// (most notably if the collection has zero surface area).
+    ///
+    /// [triangles]: Triangle3d
     pub fn try_new<T: IntoIterator<Item = Triangle3d>>(
         triangles: T,
-    ) -> Result<Self, ZeroAreaMeshError> {
+    ) -> Result<Self, WeightedError> {
         let triangles: Vec<Triangle3d> = triangles.into_iter().collect();
         let areas = triangles.iter().map(Measured2d::area).collect();
 
-        let Ok(face_distribution) = WeightedAliasIndex::new(areas) else {
-            return Err(ZeroAreaMeshError);
-        };
-
-        Ok(Self {
+        WeightedAliasIndex::new(areas).map(|face_distribution| Self {
             triangles,
             face_distribution,
         })
