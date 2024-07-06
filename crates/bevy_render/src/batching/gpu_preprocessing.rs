@@ -226,8 +226,11 @@ impl FromWorld for GpuPreprocessingSupport {
         let device = world.resource::<RenderDevice>();
 
         if device.limits().max_compute_workgroup_size_x == 0 ||
-            // filter lower end / older devices on Android as they crash when using GPU preprocessing
-            (cfg!(target_os = "android") && adapter.get_info().name.starts_with("Adreno (TM) 6"))
+            // filter some Qualcomm devices on Android as they crash when using GPU preprocessing
+            (cfg!(target_os = "android") && {
+                let name = adapter.get_info().name;
+                name.starts_with("Adreno (TM) 6") || name.starts_with("Adreno (TM) 7")
+            })
         {
             GpuPreprocessingSupport::None
         } else if !device
