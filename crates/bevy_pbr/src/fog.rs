@@ -144,11 +144,11 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility()`] convenience method to create an exponential falloff with the proper
-    /// density for a desired visibility distance in world units;
+    ///     density for a desired visibility distance in world units;
     /// - It's not _unusual_ to have very large or very small values for the density, depending on the scene
-    /// scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
-    /// in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
-    /// density;
+    ///     scale. Typically, for scenes with objects in the scale of thousands of units, you might want density values
+    ///     in the ballpark of `0.001`. Conversely, for really small scale scenes you might want really high values of
+    ///     density;
     /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
@@ -196,7 +196,7 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility_squared()`] convenience method to create an exponential squared falloff
-    /// with the proper density for a desired visibility distance in world units;
+    ///     with the proper density for a desired visibility distance in world units;
     /// - Combine the `density` parameter with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula
@@ -242,8 +242,8 @@ pub enum FogFalloff {
     /// ## Tips
     ///
     /// - Use the [`FogFalloff::from_visibility_colors()`] or [`FogFalloff::from_visibility_color()`] convenience methods
-    /// to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
-    /// extinction and inscattering colors;
+    ///     to create an atmospheric falloff with the proper densities for a desired visibility distance in world units and
+    ///     extinction and inscattering colors;
     /// - Combine the atmospheric fog parameters with the [`FogSettings`] `color`'s alpha channel for easier artistic control.
     ///
     /// ## Formula

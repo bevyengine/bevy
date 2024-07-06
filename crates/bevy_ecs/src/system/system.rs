@@ -4,6 +4,7 @@ use core::fmt::Debug;
 use crate::component::Tick;
 use crate::schedule::InternedSystemSet;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
+use crate::world::DeferredWorld;
 use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Access, world::World};
 
 use std::any::TypeId;
@@ -88,6 +89,10 @@ pub trait System: Send + Sync + 'static {
     ///
     /// This is where [`Commands`](crate::system::Commands) get applied.
     fn apply_deferred(&mut self, world: &mut World);
+
+    /// Enqueues any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers)
+    /// of this system into the world's command buffer.
+    fn queue_deferred(&mut self, world: DeferredWorld);
 
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);

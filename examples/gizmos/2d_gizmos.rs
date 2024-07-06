@@ -68,6 +68,8 @@ fn draw_example_collection(
 
     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::splat(650.), BLACK);
 
+    gizmos.cross_2d(Vec2::new(-160., 120.), 0., 12., FUCHSIA);
+
     my_gizmos
         .rounded_rect_2d(Vec2::ZERO, 0., Vec2::splat(630.), BLACK)
         .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);

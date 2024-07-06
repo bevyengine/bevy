@@ -246,6 +246,7 @@ Example | Description
 Example | Description
 --- | ---
 [2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
+[First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
 
 ## Dev tools
 
@@ -276,6 +277,7 @@ Example | Description
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
+[Observers](../examples/ecs/observers.rs) | Demonstrates observers that react to events (both built-in life-cycle events and custom events)
 [One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
@@ -341,6 +343,7 @@ Example | Description
 --- | ---
 [Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
+[Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
@@ -366,6 +369,7 @@ Example | Description
 [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
+[Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call

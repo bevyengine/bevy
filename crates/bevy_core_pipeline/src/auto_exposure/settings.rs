@@ -67,6 +67,7 @@ pub struct AutoExposureSettings {
     /// The mask to apply when metering. The mask will cover the entire screen, where:
     /// * `(0.0, 0.0)` is the top-left corner,
     /// * `(1.0, 1.0)` is the bottom-right corner.
+    ///
     /// Only the red channel of the texture is used.
     /// The sample at the current screen position will be used to weight the contribution
     /// of each pixel to the histogram:

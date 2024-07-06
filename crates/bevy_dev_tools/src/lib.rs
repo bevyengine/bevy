@@ -30,7 +30,7 @@ pub mod states;
 /// To enable developer tools, you can either:
 ///
 /// - Create a custom crate feature (e.g "`dev_mode`"), which enables the `bevy_dev_tools` feature
-/// along with any other development tools you might be using:
+///     along with any other development tools you might be using:
 ///
 /// ```toml
 /// [feature]

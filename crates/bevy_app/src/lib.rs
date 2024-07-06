@@ -14,6 +14,8 @@ mod plugin;
 mod plugin_group;
 mod schedule_runner;
 mod sub_app;
+#[cfg(not(target_arch = "wasm32"))]
+mod terminal_ctrl_c_handler;
 
 pub use app::*;
 pub use bevy_derive::DynamicPlugin;
@@ -23,6 +25,8 @@ pub use plugin::*;
 pub use plugin_group::*;
 pub use schedule_runner::*;
 pub use sub_app::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use terminal_ctrl_c_handler::*;
 
 #[allow(missing_docs)]
 pub mod prelude {

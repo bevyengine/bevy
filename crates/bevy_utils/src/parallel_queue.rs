@@ -13,7 +13,7 @@ pub struct Parallel<T: Send> {
 impl<T: Send> Parallel<T> {
     /// Gets a mutable iterator over all of the per-thread queues.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
-        self.locals.iter_mut().map(|cell| cell.get_mut())
+        self.locals.iter_mut().map(RefCell::get_mut)
     }
 
     /// Clears all of the stored thread local values.
