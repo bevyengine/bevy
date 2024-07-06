@@ -229,6 +229,7 @@ impl FromWorld for GpuPreprocessingSupport {
             // filter some Qualcomm devices on Android as they crash when using GPU preprocessing
             (cfg!(target_os = "android") && {
                 let name = adapter.get_info().name;
+                // filter out Adreno 730 and earlier GPUs (except 720, it's newer than 730)
                 name.strip_prefix("Adreno (TM) ").is_some_and(|version|
                     version != "720" && version.parse::<u16>().unwrap() <= 730
                 )
