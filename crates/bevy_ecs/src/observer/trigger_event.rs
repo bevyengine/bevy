@@ -2,7 +2,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::Event,
-    world::{Command, DeferredWorld, World},
+    world::{Command, World},
 };
 
 /// A [`Command`] that emits a given trigger for a given set of targets.
@@ -15,9 +15,8 @@ pub struct TriggerEvent<E, Targets: TriggerTargets = ()> {
 }
 
 impl<E: Event, Targets: TriggerTargets> Command for TriggerEvent<E, Targets> {
-    fn apply(mut self, world: &mut World) {
-        let event_type = world.init_component::<E>();
-        trigger_event(world, event_type, &mut self.event, self.targets);
+    fn apply(self, world: &mut World) {
+        world.trigger_targets(self.event, self.targets);
     }
 }
 
@@ -43,40 +42,8 @@ impl<E, Targets: TriggerTargets> EmitDynamicTrigger<E, Targets> {
 
 impl<E: Event, Targets: TriggerTargets> Command for EmitDynamicTrigger<E, Targets> {
     fn apply(mut self, world: &mut World) {
-        trigger_event(world, self.event_type, &mut self.event_data, self.targets);
-    }
-}
-
-#[inline]
-fn trigger_event<E, Targets: TriggerTargets>(
-    world: &mut World,
-    event_type: ComponentId,
-    event_data: &mut E,
-    targets: Targets,
-) {
-    let mut world = DeferredWorld::from(world);
-    if targets.entities().len() == 0 {
-        // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
-        unsafe {
-            world.trigger_observers_with_data(
-                event_type,
-                Entity::PLACEHOLDER,
-                targets.components(),
-                event_data,
-            );
-        };
-    } else {
-        for target in targets.entities() {
-            // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
-            unsafe {
-                world.trigger_observers_with_data(
-                    event_type,
-                    target,
-                    targets.components(),
-                    event_data,
-                );
-            };
-        }
+        // SAFETY: caller has checked that 'event_data' matches `event_type` during construction
+        unsafe { world.trigger_unsafe(self.event_type, &mut self.event_data, self.targets) };
     }
 }
 

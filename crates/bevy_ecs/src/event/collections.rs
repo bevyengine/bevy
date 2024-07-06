@@ -1,7 +1,8 @@
-use crate as bevy_ecs;
-use bevy_ecs::{
+use crate::{
+    self as bevy_ecs,
     event::{Event, EventId, EventInstance, ManualEventReader},
     system::Resource,
+    world::World,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -90,6 +91,7 @@ pub struct Events<E: Event> {
     /// Holds the newer events.
     pub(crate) events_b: EventSequence<E>,
     pub(crate) event_count: usize,
+    pub(crate) triggered_event_cursor: usize,
 }
 
 // Derived Default impl would incorrectly require E: Default
@@ -99,6 +101,7 @@ impl<E: Event> Default for Events<E> {
             events_a: Default::default(),
             events_b: Default::default(),
             event_count: Default::default(),
+            triggered_event_cursor: Default::default(),
         }
     }
 }
@@ -262,6 +265,51 @@ impl<E: Event> Events<E> {
     /// Oldest id still in the events buffer.
     pub fn oldest_id(&self) -> usize {
         self.events_a.start_event_count
+    }
+
+    /// Trigger stored events that have not been triggered yet.
+    pub fn trigger_events(&mut self, world: &mut World) {
+        if self.triggered_event_cursor >= self.event_count {
+            return;
+        }
+
+        let event_type = world.init_component::<E>();
+        self.triggered_event_cursor = self
+            .triggered_event_cursor
+            .max(self.events_a.start_event_count);
+        if self.triggered_event_cursor < self.events_b.start_event_count {
+            let offset = self
+                .triggered_event_cursor
+                .saturating_sub(self.events_a.start_event_count);
+            for e in self.events_a.iter_mut().skip(offset) {
+                // Increment triggered event cursor to ensure that if this trigger panics,
+                // we can recover starting at the next event on the next attempt.
+                self.triggered_event_cursor += 1;
+                // We do use the unsafe variant here to avoid re-looking up the event_type
+                // for every trigger
+                // SAFETY: the `event_type` has been looked up above and therefore matches
+                // the passed in event data.
+                unsafe { world.trigger_unsafe(event_type, &mut e.event, ()) };
+            }
+        }
+
+        if self.triggered_event_cursor
+            < self.events_b.start_event_count + self.events_b.events.len()
+        {
+            let offset = self
+                .triggered_event_cursor
+                .saturating_sub(self.events_b.start_event_count);
+            for e in self.events_b.iter_mut().skip(offset) {
+                // Increment triggered event cursor to ensure that if this trigger panics,
+                // we can recover starting at the next event on the next attempt.
+                self.triggered_event_cursor += 1;
+                // We do use the unsafe variant here to avoid re-looking up the event_type
+                // for every trigger
+                // SAFETY: the `event_type` has been looked up above and therefore matches
+                // the passed in event data.
+                unsafe { world.trigger_unsafe(event_type, &mut e.event, ()) };
+            }
+        }
     }
 
     /// Which event buffer is this event id a part of.
