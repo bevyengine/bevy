@@ -47,7 +47,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBezier<P: VectorSpace> {
-    /// The control points of the Bezier curve
+    /// The control points of the Bezier curve.
     pub control_points: Vec<[P; 4]>,
 }
 
@@ -99,6 +99,11 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// The curve is at minimum C1 continuous, meaning that it has no holes or jumps and the tangent vector also
 /// has no sudden jumps.
 ///
+/// ### Parametrization
+/// The first segment of the curve connects the first two control points, the second connects the second and
+/// third, and so on. This remains true when a cyclic curve is formed with [`to_curve_cyclic`], in which case
+/// the final curve segment connects the last control point to the first.
+///
 /// ### Usage
 ///
 /// ```
@@ -118,6 +123,8 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
+///
+/// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicHermite<P: VectorSpace> {
@@ -194,6 +201,11 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
 /// The curve is at minimum C1, meaning that it is continuous (it has no holes or jumps), and its tangent
 /// vector is also well-defined everywhere, without sudden jumps.
 ///
+/// ### Parametrization
+/// The first segment of the curve connects the first two control points, the second connects the second and
+/// third, and so on. This remains true when a cyclic curve is formed with [`to_curve_cyclic`], in which case
+/// the final curve segment connects the last control point to the first.
+///
 /// ### Usage
 ///
 /// ```
@@ -207,6 +219,8 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
 /// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
+///
+/// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
@@ -279,23 +293,36 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
     #[inline]
     fn to_curve_cyclic(&self) -> CubicCurve<P> {
-        // Unlike in `to_curve`, here we don't augment the control points at all, instead just reusing the
-        // "wrapped" control points. Note that this guarantees that the differentiability guarantees are
-        // satisfied automatically; the curve passes through every pair of adjacent control points, including
-        // the start and end, and wraps with an end -> start segment.
-        let mut segments: Vec<CubicSegment<P>> = self
+        let len = self.control_points.len();
+
+        if len == 0 {
+            return CubicCurve { segments: vec![] };
+        }
+
+        // This would ordinarily be the last segment, but we pick it out so that we can make it first
+        // in order to get a desirable parametrization where the first segment connects the first two
+        // control points instead of the second and third.
+        let first_segment = {
+            // We take the indices mod `len` in case `len` is very small.
+            let p0 = self.control_points[len - 1];
+            let p1 = self.control_points[0];
+            let p2 = self.control_points[1 % len];
+            let p3 = self.control_points[2 % len];
+            CubicSegment::coefficients([p0, p1, p2, p3], self.char_matrix())
+        };
+
+        let later_segments = self
             .control_points
             .iter()
             .circular_tuple_windows()
             .map(|(&p0, &p1, &p2, &p3)| {
                 CubicSegment::coefficients([p0, p1, p2, p3], self.char_matrix())
             })
-            .collect();
+            .take(len - 1);
 
-        // Rotate the list of segments so that the curve has the expected parametrization — i.e., we want
-        // the first curve segment to be the one connecting the first two control points, but to begin with
-        // it was the segment connecting the second and third.
-        segments.rotate_left(1);
+        let mut segments = Vec::with_capacity(len);
+        segments.push(first_segment);
+        segments.extend(later_segments);
 
         CubicCurve { segments }
     }
@@ -315,6 +342,10 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 /// the entire curve, and the acceleration also varies continuously. The acceleration continuity of this
 /// spline makes it useful for camera paths.
 ///
+/// ### Parametrization
+/// Each curve segment is defined by a window of four control points taken in sequence. When [`to_curve_cyclic`]
+/// is used to form a cyclic curve, the three additional segments used to close the curve come last.
+///
 /// ### Usage
 ///
 /// ```
@@ -328,6 +359,8 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 /// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
+///
+/// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBSpline<P: VectorSpace> {
@@ -682,6 +715,12 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 ///
 /// ### Continuity
 /// The curve is C0 continuous, meaning it has no holes or jumps.
+///
+/// ### Parametrization
+/// Each curve segment connects two adjacent control points in sequence. When a cyclic curve is
+/// formed with [`to_curve_cyclic`], the final segment connects the last control point with the first.
+///
+/// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct LinearSpline<P: VectorSpace> {
@@ -689,7 +728,7 @@ pub struct LinearSpline<P: VectorSpace> {
     pub points: Vec<P>,
 }
 impl<P: VectorSpace> LinearSpline<P> {
-    /// Create a new linear spline from a set of points to be interpolated.
+    /// Create a new linear spline from a list of points to be interpolated.
     pub fn new(points: impl Into<Vec<P>>) -> Self {
         Self {
             points: points.into(),
