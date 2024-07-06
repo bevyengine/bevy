@@ -1,8 +1,14 @@
 //! Isometry types for expressing rigid motions in two and three dimensions.
-
-use std::ops::Mul;
+//!
+//! In context, these are often used to express the relative positions of two entities (e.g. primitive shapes).
+//! For example, in determining whether a sphere intersects a cube, one needs to know how the two are
+//! positioned relative to one another in addition to their sizes.
+//! If the two had absolute positions and orientations described by isometries `cube_iso` and `sphere_iso`,
+//! then `cube_iso.inverse() * sphere_iso` would describe the relative orientation, which is sufficient for
+//! answering this query.
 
 use crate::{Affine2, Affine3, Affine3A, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
+use std::ops::Mul;
 
 /// An isometry in two dimensions.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -20,8 +26,9 @@ impl Isometry2d {
         translation: Vec2::ZERO,
     };
 
-    /// Create a two-dimensional isometry from a translation and rotation.
-    pub fn new(translation: Vec2, rotation: Rot2) -> Self {
+    /// Create a two-dimensional isometry from a rotation and a translation.
+    #[inline]
+    pub fn from_rotation_translation(rotation: Rot2, translation: Vec2) -> Self {
         Isometry2d {
             rotation,
             translation,
@@ -29,6 +36,7 @@ impl Isometry2d {
     }
 
     /// Create a two-dimensional isometry from a rotation.
+    #[inline]
     pub fn from_rotation(rotation: Rot2) -> Self {
         Isometry2d {
             rotation,
@@ -37,6 +45,7 @@ impl Isometry2d {
     }
 
     /// Create a two-dimensional isometry from a translation.
+    #[inline]
     pub fn from_translation(translation: Vec2) -> Self {
         Isometry2d {
             rotation: Rot2::IDENTITY,
@@ -45,16 +54,24 @@ impl Isometry2d {
     }
 
     /// The inverse isometry that undoes this one.
-    pub fn inverse(self) -> Self {
+    #[inline]
+    pub fn inverse(&self) -> Self {
         let inv_rot = self.rotation.inverse();
         Isometry2d {
             rotation: inv_rot,
             translation: inv_rot * -self.translation,
         }
     }
+
+    /// Transform a point by rotating and translating it using this isometry.
+    #[inline]
+    pub fn transform_point2(&self, point: Vec2) -> Vec2 {
+        self.rotation * point + self.translation
+    }
 }
 
 impl From<Isometry2d> for Affine2 {
+    #[inline]
     fn from(iso: Isometry2d) -> Self {
         Affine2 {
             matrix2: iso.rotation.into(),
@@ -66,6 +83,7 @@ impl From<Isometry2d> for Affine2 {
 impl Mul for Isometry2d {
     type Output = Self;
 
+    #[inline]
     fn mul(self, rhs: Self) -> Self::Output {
         Isometry2d {
             rotation: self.rotation * rhs.rotation,
@@ -89,8 +107,9 @@ impl Isometry3d {
         translation: Vec3A::ZERO,
     };
 
-    /// Create a three-dimensional isometry from a translation and rotation.
-    pub fn new(translation: Vec3, rotation: Quat) -> Self {
+    /// Create a three-dimensional isometry from a rotation and a translation.
+    #[inline]
+    pub fn from_rotation_translation(rotation: Quat, translation: impl Into<Vec3A>) -> Self {
         Isometry3d {
             rotation,
             translation: translation.into(),
@@ -98,6 +117,7 @@ impl Isometry3d {
     }
 
     /// Create a three-dimensional isometry from a rotation.
+    #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
         Isometry3d {
             rotation,
@@ -106,6 +126,7 @@ impl Isometry3d {
     }
 
     /// Create a three-dimensional isometry from a translation.
+    #[inline]
     pub fn from_translation(translation: impl Into<Vec3A>) -> Self {
         Isometry3d {
             rotation: Quat::IDENTITY,
@@ -114,12 +135,25 @@ impl Isometry3d {
     }
 
     /// The inverse isometry that undoes this one.
-    pub fn inverse(self) -> Self {
+    #[inline]
+    pub fn inverse(&self) -> Self {
         let inv_rot = self.rotation.inverse();
         Isometry3d {
             rotation: inv_rot,
             translation: inv_rot * -self.translation,
         }
+    }
+
+    /// Transform a point by rotating and translating it using this isometry.
+    #[inline]
+    pub fn transform_point3(&self, point: Vec3) -> Vec3 {
+        self.rotation * point + Into::<Vec3>::into(self.translation)
+    }
+
+    /// Transform a point by rotating and translating it using this isometry.
+    #[inline]
+    pub fn transform_point3a(&self, point: Vec3A) -> Vec3A {
+        self.rotation * point + self.translation
     }
 }
 
