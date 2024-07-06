@@ -30,7 +30,7 @@ pub(crate) use self::{
     },
 };
 
-pub use self::asset::*;
+pub use self::asset::{MeshletMesh, MeshletMeshSaverLoader};
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
@@ -168,7 +168,7 @@ impl Plugin for MeshletPlugin {
         );
 
         app.init_asset::<MeshletMesh>()
-            .register_asset_loader(MeshletMeshSaverLoad)
+            .register_asset_loader(MeshletMeshSaverLoader)
             .insert_resource(Msaa::Off)
             .add_systems(
                 PostUpdate,

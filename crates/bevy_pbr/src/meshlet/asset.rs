@@ -7,11 +7,13 @@ use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bytemuck::{Pod, Zeroable};
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
-use serde::{Deserialize, Serialize};
-use std::{io::Cursor, sync::Arc};
+use std::{
+    io::{Cursor, Read, Write},
+    sync::Arc,
+};
 
 /// The current version of the [`MeshletMesh`] asset format.
-pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
+pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 
 /// A mesh that has been pre-processed into multiple small clusters of triangles called meshlets.
 ///
@@ -27,24 +29,24 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 0;
 /// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
 ///
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
-#[derive(Asset, TypePath, Serialize, Deserialize, Clone)]
+#[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
     /// The total amount of triangles summed across all LOD 0 meshlets in the mesh.
-    pub worst_case_meshlet_triangles: u64,
+    pub(crate) worst_case_meshlet_triangles: u64,
     /// Raw vertex data bytes for the overall mesh.
-    pub vertex_data: Arc<[u8]>,
+    pub(crate) vertex_data: Arc<[u8]>,
     /// Indices into `vertex_data`.
-    pub vertex_ids: Arc<[u32]>,
+    pub(crate) vertex_ids: Arc<[u32]>,
     /// Indices into `vertex_ids`.
-    pub indices: Arc<[u8]>,
+    pub(crate) indices: Arc<[u8]>,
     /// The list of meshlets making up this mesh.
-    pub meshlets: Arc<[Meshlet]>,
+    pub(crate) meshlets: Arc<[Meshlet]>,
     /// Spherical bounding volumes.
-    pub bounding_spheres: Arc<[MeshletBoundingSpheres]>,
+    pub(crate) bounding_spheres: Arc<[MeshletBoundingSpheres]>,
 }
 
 /// A single meshlet within a [`MeshletMesh`].
-#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct Meshlet {
     /// The offset within the parent mesh's [`MeshletMesh::vertex_ids`] buffer where the indices for this meshlet begin.
@@ -56,7 +58,7 @@ pub struct Meshlet {
 }
 
 /// Bounding spheres used for culling and choosing level of detail for a [`Meshlet`].
-#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletBoundingSpheres {
     /// The bounding sphere used for frustum and occlusion culling for this meshlet.
@@ -68,7 +70,7 @@ pub struct MeshletBoundingSpheres {
 }
 
 /// A spherical bounding volume used for a [`Meshlet`].
-#[derive(Serialize, Deserialize, Copy, Clone, Pod, Zeroable)]
+#[derive(Copy, Clone, Pod, Zeroable)]
 #[repr(C)]
 pub struct MeshletBoundingSphere {
     pub center: Vec3,
@@ -76,37 +78,9 @@ pub struct MeshletBoundingSphere {
 }
 
 /// An [`AssetLoader`] and [`AssetSaver`] for `.meshlet_mesh` [`MeshletMesh`] assets.
-pub struct MeshletMeshSaverLoad;
+pub struct MeshletMeshSaverLoader;
 
-impl AssetLoader for MeshletMeshSaverLoad {
-    type Asset = MeshletMesh;
-    type Settings = ();
-    type Error = MeshletMeshSaveOrLoadError;
-
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut dyn Reader,
-        _settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let version = read_u64(reader).await?;
-        if version != MESHLET_MESH_ASSET_VERSION {
-            return Err(MeshletMeshSaveOrLoadError::WrongVersion { found: version });
-        }
-
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-        let asset = bincode::deserialize_from(FrameDecoder::new(Cursor::new(bytes)))?;
-
-        Ok(asset)
-    }
-
-    fn extensions(&self) -> &[&str] {
-        &["meshlet_mesh"]
-    }
-}
-
-impl AssetSaver for MeshletMeshSaverLoad {
+impl AssetSaver for MeshletMeshSaverLoader {
     type Asset = MeshletMesh;
     type Settings = ();
     type OutputLoader = Self;
@@ -115,20 +89,82 @@ impl AssetSaver for MeshletMeshSaverLoad {
     async fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
-        asset: SavedAsset<'a, Self::Asset>,
-        _settings: &'a Self::Settings,
-    ) -> Result<(), Self::Error> {
+        asset: SavedAsset<'a, MeshletMesh>,
+        _settings: &'a (),
+    ) -> Result<(), MeshletMeshSaveOrLoadError> {
+        // Compress asset data
+        let mut compressed_asset_data = Vec::new();
+        let mut compressor = FrameEncoder::new(&mut compressed_asset_data);
+        write_slice(&asset.vertex_data, &mut compressor)?;
+        write_slice(&asset.vertex_ids, &mut compressor)?;
+        write_slice(&asset.indices, &mut compressor)?;
+        write_slice(&asset.meshlets, &mut compressor)?;
+        write_slice(&asset.bounding_spheres, &mut compressor)?;
+        compressor.finish()?;
+
+        // Write asset metadata
         writer
             .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
             .await?;
+        writer
+            .write_all(&asset.worst_case_meshlet_triangles.to_le_bytes())
+            .await?;
+        writer
+            .write_all(&(compressed_asset_data.len() as u64).to_le_bytes())
+            .await?;
 
-        let mut bytes = Vec::new();
-        let mut sync_writer = FrameEncoder::new(&mut bytes);
-        bincode::serialize_into(&mut sync_writer, asset.get())?;
-        sync_writer.finish()?;
-        writer.write_all(&bytes).await?;
+        // Write compressed asset data
+        writer.write_all(&compressed_asset_data).await?;
 
         Ok(())
+    }
+}
+
+impl AssetLoader for MeshletMeshSaverLoader {
+    type Asset = MeshletMesh;
+    type Settings = ();
+    type Error = MeshletMeshSaveOrLoadError;
+
+    async fn load<'a>(
+        &'a self,
+        reader: &'a mut dyn Reader,
+        _settings: &'a (),
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<MeshletMesh, MeshletMeshSaveOrLoadError> {
+        // Load and check asset version
+        let version = async_read_u64(reader).await?;
+        if version != MESHLET_MESH_ASSET_VERSION {
+            return Err(MeshletMeshSaveOrLoadError::WrongVersion { found: version });
+        }
+
+        // Load asset metadata
+        let worst_case_meshlet_triangles = async_read_u64(reader).await?;
+        let compressed_asset_data_len = async_read_u64(reader).await? as usize;
+
+        // Load compressed asset data
+        let mut compressed_asset_data = Vec::with_capacity(compressed_asset_data_len);
+        reader.read_to_end(&mut compressed_asset_data).await?;
+
+        // Convert compressed data back to an asset
+        let reader = &mut FrameDecoder::new(Cursor::new(compressed_asset_data));
+        let vertex_data = read_slice(reader)?;
+        let vertex_ids = read_slice(reader)?;
+        let indices = read_slice(reader)?;
+        let meshlets = read_slice(reader)?;
+        let bounding_spheres = read_slice(reader)?;
+
+        Ok(MeshletMesh {
+            worst_case_meshlet_triangles,
+            vertex_data,
+            vertex_ids,
+            indices,
+            meshlets,
+            bounding_spheres,
+        })
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["meshlet_mesh"]
     }
 }
 
@@ -136,16 +172,37 @@ impl AssetSaver for MeshletMeshSaverLoad {
 pub enum MeshletMeshSaveOrLoadError {
     #[error("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
     WrongVersion { found: u64 },
-    #[error("failed to serialize or deserialize asset data")]
-    SerializationOrDeserialization(#[from] bincode::Error),
     #[error("failed to compress or decompress asset data")]
     CompressionOrDecompression(#[from] lz4_flex::frame::Error),
     #[error("failed to read or write asset data")]
     Io(#[from] std::io::Error),
 }
 
-async fn read_u64(reader: &mut dyn Reader) -> Result<u64, bincode::Error> {
+async fn async_read_u64(reader: &mut dyn Reader) -> Result<u64, std::io::Error> {
     let mut bytes = [0u8; 8];
     reader.read_exact(&mut bytes).await?;
     Ok(u64::from_le_bytes(bytes))
+}
+
+fn read_u64(reader: &mut dyn Read) -> Result<u64, std::io::Error> {
+    let mut bytes = [0u8; 8];
+    reader.read_exact(&mut bytes)?;
+    Ok(u64::from_le_bytes(bytes))
+}
+
+fn write_slice<T: Pod>(
+    field: &[T],
+    writer: &mut dyn Write,
+) -> Result<(), MeshletMeshSaveOrLoadError> {
+    writer.write_all(&(field.len() as u64).to_le_bytes())?;
+    writer.write_all(bytemuck::cast_slice(field))?;
+    Ok(())
+}
+
+// TODO: Use https://github.com/rust-lang/rust/issues/63291 to write directly to an Arc and avoid the Vec -> Arc copy
+fn read_slice<T: Pod>(reader: &mut dyn Read) -> Result<Arc<[T]>, std::io::Error> {
+    let len = read_u64(reader)? as usize;
+    let mut bytes = vec![T::zeroed(); len];
+    reader.read_exact(bytemuck::cast_slice_mut(&mut bytes))?;
+    Ok(Arc::from(bytes))
 }
