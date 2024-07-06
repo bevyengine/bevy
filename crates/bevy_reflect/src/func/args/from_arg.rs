@@ -1,4 +1,4 @@
-use crate::func::args::{Arg, ArgError, ArgInfo};
+use crate::func::args::{Arg, ArgError};
 
 /// A trait for types that can be created from an [`Arg`].
 ///
@@ -17,7 +17,7 @@ pub trait FromArg {
     /// Creates an item from an argument.
     ///
     /// The argument must be of the expected type and ownership.
-    fn from_arg<'a>(arg: Arg<'a>, info: &ArgInfo) -> Result<Self::Item<'a>, ArgError>;
+    fn from_arg(arg: Arg) -> Result<Self::Item<'_>, ArgError>;
 }
 
 /// Implements the [`FromArg`] trait for the given type.
@@ -55,11 +55,8 @@ macro_rules! impl_from_arg {
         )?
         {
             type Item<'from_arg> = $ty;
-            fn from_arg<'from_arg>(
-                arg: $crate::func::args::Arg<'from_arg>,
-                info: &$crate::func::args::ArgInfo,
-            ) -> Result<Self::Item<'from_arg>, $crate::func::args::ArgError> {
-                arg.take_owned(info)
+            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::Item<'_>, $crate::func::args::ArgError> {
+                arg.take_owned()
             }
         }
 
@@ -73,11 +70,8 @@ macro_rules! impl_from_arg {
         )?
         {
             type Item<'from_arg> = &'from_arg $ty;
-            fn from_arg<'from_arg>(
-                arg: $crate::func::args::Arg<'from_arg>,
-                info: &$crate::func::args::ArgInfo,
-            ) -> Result<Self::Item<'from_arg>, $crate::func::args::ArgError> {
-                arg.take_ref(info)
+            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::Item<'_>, $crate::func::args::ArgError> {
+                arg.take_ref()
             }
         }
 
@@ -91,11 +85,8 @@ macro_rules! impl_from_arg {
         )?
         {
             type Item<'from_arg> = &'from_arg mut $ty;
-            fn from_arg<'from_arg>(
-                arg: $crate::func::args::Arg<'from_arg>,
-                info: &$crate::func::args::ArgInfo,
-            ) -> Result<Self::Item<'from_arg>, $crate::func::args::ArgError> {
-                arg.take_mut(info)
+            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::Item<'_>, $crate::func::args::ArgError> {
+                arg.take_mut()
             }
         }
     };

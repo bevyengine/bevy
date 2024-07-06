@@ -3,11 +3,13 @@ use alloc::borrow::Cow;
 use crate::func::args::{GetOwnership, Ownership};
 use crate::TypePath;
 
-/// Type information for an [`Arg`] used in a [`DynamicFunction`] or [`DynamicClosure`].
+/// Type information for an [`Arg`] used in a [`DynamicFunction`], [`DynamicClosure`],
+/// or [`DynamicClosureMut`].
 ///
 /// [`Arg`]: crate::func::args::Arg
 /// [`DynamicFunction`]: crate::func::function::DynamicFunction
 /// [`DynamicClosure`]: crate::func::closures::DynamicClosure
+/// [`DynamicClosureMut`]: crate::func::closures::DynamicClosureMut
 #[derive(Debug, Clone)]
 pub struct ArgInfo {
     /// The index of the argument within its function.

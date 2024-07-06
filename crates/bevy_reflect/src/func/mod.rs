@@ -99,7 +99,7 @@
 //! [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
 
-pub use args::{Arg, ArgError, ArgList};
+pub use args::{ArgError, ArgList, ArgValue};
 pub use closures::*;
 pub use error::*;
 pub use function::*;
@@ -124,7 +124,7 @@ mod return_type;
 mod tests {
     use alloc::borrow::Cow;
 
-    use crate::func::args::{ArgError, ArgId, ArgList, Ownership};
+    use crate::func::args::{ArgError, ArgList, Ownership};
     use crate::TypePath;
 
     use super::*;
@@ -171,7 +171,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::ArgError(ArgError::UnexpectedType {
-                id: ArgId::Index(0),
+                index: 0,
                 expected: Cow::Borrowed(i32::type_path()),
                 received: Cow::Borrowed(u32::type_path())
             })
@@ -188,7 +188,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::ArgError(ArgError::InvalidOwnership {
-                id: ArgId::Index(0),
+                index: 0,
                 expected: Ownership::Ref,
                 received: Ownership::Owned
             })

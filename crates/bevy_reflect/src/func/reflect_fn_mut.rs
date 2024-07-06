@@ -3,7 +3,7 @@ use bevy_utils::all_tuples;
 use crate::func::args::FromArg;
 use crate::func::macros::count_tokens;
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionResult, IntoReturn};
-use crate::Reflect;
+use crate::{Reflect, TypePath};
 
 /// A reflection-based version of the [`FnMut`] trait.
 ///
@@ -104,14 +104,11 @@ macro_rules! impl_reflect_fn_mut {
                     });
                 }
 
+                // Extract all arguments (in order)
                 let [$($arg,)*] = args.take().try_into().expect("invalid number of arguments");
 
-                #[allow(unused_mut)]
-                let mut _index = 0;
-                let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                    _index += 1;
-                    _info.args().get(_index - 1).expect("argument index out of bounds")
-                })?,)*);
+                // Convert each argument into its concrete type
+                let ($($arg,)*) = ($($Arg::from_arg($arg)?,)*);
 
                 Ok((self)($($arg,)*).into_return())
             }
@@ -120,7 +117,7 @@ macro_rules! impl_reflect_fn_mut {
         // === (&self, ...) -> &ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&Receiver, $($Arg),*) -> &ReturnType> for Function
         where
-            Receiver: Reflect,
+            Receiver: Reflect + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&ReturnType` into `Return`
@@ -139,16 +136,14 @@ macro_rules! impl_reflect_fn_mut {
                     });
                 }
 
+                // Extract all arguments (in order)
                 let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
 
-                let receiver = receiver.take_ref::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
+                // Convert receiver argument into its concrete type
+                let receiver = receiver.take_ref::<Receiver>()?;
 
-                #[allow(unused_mut)]
-                let mut _index = 1;
-                let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                    _index += 1;
-                    _info.args().get(_index - 1).expect("argument index out of bounds")
-                })?,)*);
+                // Convert each argument into its concrete type
+                let ($($arg,)*) = ($($Arg::from_arg($arg)?,)*);
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
@@ -157,7 +152,7 @@ macro_rules! impl_reflect_fn_mut {
         // === (&mut self, ...) -> &mut ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&mut Receiver, $($Arg),*) -> &mut ReturnType> for Function
         where
-            Receiver: Reflect,
+            Receiver: Reflect + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&mut ReturnType` into `Return`
@@ -176,16 +171,14 @@ macro_rules! impl_reflect_fn_mut {
                     });
                 }
 
+                // Extract all arguments (in order)
                 let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
 
-                let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
+                // Convert receiver argument into its concrete type
+                let receiver = receiver.take_mut::<Receiver>()?;
 
-                #[allow(unused_mut)]
-                let mut _index = 1;
-                let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                    _index += 1;
-                    _info.args().get(_index - 1).expect("argument index out of bounds")
-                })?,)*);
+                // Convert each argument into its concrete type
+                let ($($arg,)*) = ($($Arg::from_arg($arg)?,)*);
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
@@ -194,7 +187,7 @@ macro_rules! impl_reflect_fn_mut {
         // === (&mut self, ...) -> &ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&mut Receiver, $($Arg),*) -> &ReturnType> for Function
         where
-            Receiver: Reflect,
+            Receiver: Reflect + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&ReturnType` into `Return`
@@ -213,16 +206,14 @@ macro_rules! impl_reflect_fn_mut {
                     });
                 }
 
+                // Extract all arguments (in order)
                 let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
 
-                let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
+                // Convert receiver argument into its concrete type
+                let receiver = receiver.take_mut::<Receiver>()?;
 
-                #[allow(unused_mut)]
-                let mut _index = 1;
-                let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                    _index += 1;
-                    _info.args().get(_index - 1).expect("argument index out of bounds")
-                })?,)*);
+                // Convert each argument into its concrete type
+                let ($($arg,)*) = ($($Arg::from_arg($arg)?,)*);
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }

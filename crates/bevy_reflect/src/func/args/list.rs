@@ -1,12 +1,14 @@
-use crate::func::args::Arg;
-use crate::Reflect;
+use crate::func::args::{Arg, ArgValue};
+use crate::func::ArgError;
+use crate::{Reflect, TypePath};
 
-/// A list of arguments that can be passed to a [`DynamicFunction`] or [`DynamicClosure`].
+/// A list of arguments that can be passed to a [`DynamicFunction`], [`DynamicClosure`],
+/// or [`DynamicClosureMut`].
 ///
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::func::{Arg, ArgList};
+/// # use bevy_reflect::func::{ArgValue, ArgList};
 /// let foo = 123;
 /// let bar = 456;
 /// let mut baz = 789;
@@ -20,11 +22,13 @@ use crate::Reflect;
 ///   // Push a mutable reference argument
 ///   .push_mut(&mut baz)
 ///   // Push a manually constructed argument
-///   .push(Arg::Ref(&3.14));
+///   .push_arg(ArgValue::Ref(&3.14));
 /// ```
 ///
+/// [arguments]: Arg
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 /// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
 #[derive(Default, Debug)]
 pub struct ArgList<'a>(Vec<Arg<'a>>);
 
@@ -34,35 +38,48 @@ impl<'a> ArgList<'a> {
         Self(Vec::new())
     }
 
-    /// Push an [`Arg`] onto the list.
-    pub fn push(mut self, arg: Arg<'a>) -> Self {
-        self.0.push(arg);
+    /// Push an [`ArgValue`] onto the list.
+    pub fn push_arg(mut self, arg: ArgValue<'a>) -> Self {
+        let index = self.0.len();
+        self.0.push(Arg::new(index, arg));
         self
     }
 
-    /// Push an [`Arg::Ref`] onto the list with the given reference.
+    /// Push an [`ArgValue::Ref`] onto the list with the given reference.
     pub fn push_ref(self, arg: &'a dyn Reflect) -> Self {
-        self.push(Arg::Ref(arg))
+        self.push_arg(ArgValue::Ref(arg))
     }
 
-    /// Push an [`Arg::Mut`] onto the list with the given mutable reference.
+    /// Push an [`ArgValue::Mut`] onto the list with the given mutable reference.
     pub fn push_mut(self, arg: &'a mut dyn Reflect) -> Self {
-        self.push(Arg::Mut(arg))
+        self.push_arg(ArgValue::Mut(arg))
     }
 
-    /// Push an [`Arg::Owned`] onto the list with the given owned value.
+    /// Push an [`ArgValue::Owned`] onto the list with the given owned value.
     pub fn push_owned(self, arg: impl Reflect) -> Self {
-        self.push(Arg::Owned(Box::new(arg)))
+        self.push_arg(ArgValue::Owned(Box::new(arg)))
     }
 
-    /// Push an [`Arg::Owned`] onto the list with the given boxed value.
+    /// Push an [`ArgValue::Owned`] onto the list with the given boxed value.
     pub fn push_boxed(self, arg: Box<dyn Reflect>) -> Self {
-        self.push(Arg::Owned(arg))
+        self.push_arg(ArgValue::Owned(arg))
     }
 
-    /// Pop the last argument from the list, if there is one.
-    pub fn pop(&mut self) -> Option<Arg<'a>> {
+    /// Pop the last argument, if any, from the list.
+    pub fn pop_arg(&mut self) -> Option<Arg<'a>> {
         self.0.pop()
+    }
+
+    pub fn pop_owned<T: Reflect + TypePath>(&mut self) -> Option<Result<T, ArgError>> {
+        self.pop_arg().map(Arg::take_owned)
+    }
+
+    pub fn pop_ref<T: Reflect + TypePath>(&mut self) -> Option<Result<&'a T, ArgError>> {
+        self.pop_arg().map(Arg::take_ref)
+    }
+
+    pub fn pop_mut<T: Reflect + TypePath>(&mut self) -> Option<Result<&'a mut T, ArgError>> {
+        self.pop_arg().map(Arg::take_mut)
     }
 
     /// Returns the number of arguments in the list.

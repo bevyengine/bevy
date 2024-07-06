@@ -73,8 +73,8 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// // Then we define the dynamic function, which will be used to call our `append` function:
 /// let mut func = DynamicFunction::new(|mut args, info| {
 ///   // Arguments are popped from the list in reverse order:
-///   let arg1 = args.pop().unwrap().take_mut::<Vec<String>>(&info.args()[1]).unwrap();
-///   let arg0 = args.pop().unwrap().take_owned::<String>(&info.args()[0]).unwrap();
+///   let arg1 = args.pop_mut::<Vec<String>>().unwrap()?;
+///   let arg0 = args.pop_owned::<String>().unwrap()?;
 ///
 ///   // Then we can call our function and return the result:
 ///   Ok(Return::Mut(append(arg0, arg1)))

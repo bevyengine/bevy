@@ -16,31 +16,22 @@ pub(crate) fn impl_from_arg(
     quote! {
         impl #impl_generics #bevy_reflect::func::args::FromArg for #type_path #ty_generics #where_reflect_clause {
             type Item<'from_arg> = #type_path #ty_generics;
-            fn from_arg<'from_arg>(
-                arg: #bevy_reflect::func::args::Arg<'from_arg>,
-                info: &#bevy_reflect::func::args::ArgInfo,
-            ) -> #FQResult<Self::Item<'from_arg>, #bevy_reflect::func::args::ArgError> {
-                arg.take_owned(info)
+            fn from_arg(arg: #bevy_reflect::func::args::Arg) -> #FQResult<Self::Item<'_>, #bevy_reflect::func::args::ArgError> {
+                arg.take_owned()
             }
         }
 
         impl #impl_generics #bevy_reflect::func::args::FromArg for &'static #type_path #ty_generics #where_reflect_clause {
             type Item<'from_arg> = &'from_arg #type_path #ty_generics;
-            fn from_arg<'from_arg>(
-                arg: #bevy_reflect::func::args::Arg<'from_arg>,
-                info: &#bevy_reflect::func::args::ArgInfo,
-            ) -> #FQResult<Self::Item<'from_arg>, #bevy_reflect::func::args::ArgError> {
-                arg.take_ref(info)
+            fn from_arg(arg: #bevy_reflect::func::args::Arg) -> #FQResult<Self::Item<'_>, #bevy_reflect::func::args::ArgError> {
+                arg.take_ref()
             }
         }
 
         impl #impl_generics #bevy_reflect::func::args::FromArg for &'static mut #type_path #ty_generics #where_reflect_clause {
             type Item<'from_arg> = &'from_arg mut #type_path #ty_generics;
-            fn from_arg<'from_arg>(
-                arg: #bevy_reflect::func::args::Arg<'from_arg>,
-                info: &#bevy_reflect::func::args::ArgInfo,
-            ) -> #FQResult<Self::Item<'from_arg>, #bevy_reflect::func::args::ArgError> {
-                arg.take_mut(info)
+            fn from_arg(arg: #bevy_reflect::func::args::Arg) -> #FQResult<Self::Item<'_>, #bevy_reflect::func::args::ArgError> {
+                arg.take_mut()
             }
         }
     }
