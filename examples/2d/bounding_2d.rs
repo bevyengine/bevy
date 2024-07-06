@@ -53,7 +53,7 @@ fn update_test_state(
     cur_state: Res<State<Test>>,
     mut state: ResMut<NextState<Test>>,
 ) {
-    if !keycode.just_pressed(KeyCode::Space) {
+    if !keycode.just_pressed(&KeyCode::Space) {
         return;
     }
 

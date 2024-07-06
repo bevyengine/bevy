@@ -103,7 +103,7 @@ fn update_emitters(
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for (mut emitter_transform, mut emitter) in emitters.iter_mut() {
-        if keyboard.just_pressed(KeyCode::Space) {
+        if keyboard.just_pressed(&KeyCode::Space) {
             emitter.stopped = !emitter.stopped;
         }
 
@@ -122,16 +122,16 @@ fn update_listener(
 
     let speed = 200.;
 
-    if keyboard.pressed(KeyCode::ArrowRight) {
+    if keyboard.pressed(&KeyCode::ArrowRight) {
         transform.translation.x += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::ArrowLeft) {
+    if keyboard.pressed(&KeyCode::ArrowLeft) {
         transform.translation.x -= speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::ArrowUp) {
+    if keyboard.pressed(&KeyCode::ArrowUp) {
         transform.translation.y += speed * time.delta_seconds();
     }
-    if keyboard.pressed(KeyCode::ArrowDown) {
+    if keyboard.pressed(&KeyCode::ArrowDown) {
         transform.translation.y -= speed * time.delta_seconds();
     }
 }

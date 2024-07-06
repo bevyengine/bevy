@@ -436,43 +436,43 @@ fn example_control_system(
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
-    if input.pressed(KeyCode::Digit2) {
+    if input.pressed(&KeyCode::Digit2) {
         state.diffuse_transmission = (state.diffuse_transmission + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::Digit1) {
+    } else if input.pressed(&KeyCode::Digit1) {
         state.diffuse_transmission = (state.diffuse_transmission - time.delta_seconds()).max(0.0);
     }
 
-    if input.pressed(KeyCode::KeyW) {
+    if input.pressed(&KeyCode::KeyW) {
         state.specular_transmission = (state.specular_transmission + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::KeyQ) {
+    } else if input.pressed(&KeyCode::KeyQ) {
         state.specular_transmission = (state.specular_transmission - time.delta_seconds()).max(0.0);
     }
 
-    if input.pressed(KeyCode::KeyS) {
+    if input.pressed(&KeyCode::KeyS) {
         state.thickness = (state.thickness + time.delta_seconds()).min(5.0);
-    } else if input.pressed(KeyCode::KeyA) {
+    } else if input.pressed(&KeyCode::KeyA) {
         state.thickness = (state.thickness - time.delta_seconds()).max(0.0);
     }
 
-    if input.pressed(KeyCode::KeyX) {
+    if input.pressed(&KeyCode::KeyX) {
         state.ior = (state.ior + time.delta_seconds()).min(3.0);
-    } else if input.pressed(KeyCode::KeyZ) {
+    } else if input.pressed(&KeyCode::KeyZ) {
         state.ior = (state.ior - time.delta_seconds()).max(1.0);
     }
 
-    if input.pressed(KeyCode::KeyI) {
+    if input.pressed(&KeyCode::KeyI) {
         state.reflectance = (state.reflectance + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::KeyU) {
+    } else if input.pressed(&KeyCode::KeyU) {
         state.reflectance = (state.reflectance - time.delta_seconds()).max(0.0);
     }
 
-    if input.pressed(KeyCode::KeyR) {
+    if input.pressed(&KeyCode::KeyR) {
         state.perceptual_roughness = (state.perceptual_roughness + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::KeyE) {
+    } else if input.pressed(&KeyCode::KeyE) {
         state.perceptual_roughness = (state.perceptual_roughness - time.delta_seconds()).max(0.0);
     }
 
-    let randomize_colors = input.just_pressed(KeyCode::KeyC);
+    let randomize_colors = input.just_pressed(&KeyCode::KeyC);
 
     for (material_handle, controls) in &controllable {
         let material = materials.get_mut(material_handle).unwrap();
@@ -503,12 +503,12 @@ fn example_control_system(
         temporal_jitter,
     ) = camera.single_mut();
 
-    if input.just_pressed(KeyCode::KeyH) {
+    if input.just_pressed(&KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
     }
 
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-    if input.just_pressed(KeyCode::KeyD) {
+    if input.just_pressed(&KeyCode::KeyD) {
         if depth_prepass.is_none() {
             commands.entity(camera_entity).insert(DepthPrepass);
         } else {
@@ -517,7 +517,7 @@ fn example_control_system(
     }
 
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-    if input.just_pressed(KeyCode::KeyT) {
+    if input.just_pressed(&KeyCode::KeyT) {
         if temporal_jitter.is_none() {
             commands.entity(camera_entity).insert((
                 TemporalJitter::default(),
@@ -530,36 +530,38 @@ fn example_control_system(
         }
     }
 
-    if input.just_pressed(KeyCode::KeyO) && camera_3d.screen_space_specular_transmission_steps > 0 {
+    if input.just_pressed(&KeyCode::KeyO) && camera_3d.screen_space_specular_transmission_steps > 0
+    {
         camera_3d.screen_space_specular_transmission_steps -= 1;
     }
 
-    if input.just_pressed(KeyCode::KeyP) && camera_3d.screen_space_specular_transmission_steps < 4 {
+    if input.just_pressed(&KeyCode::KeyP) && camera_3d.screen_space_specular_transmission_steps < 4
+    {
         camera_3d.screen_space_specular_transmission_steps += 1;
     }
 
-    if input.just_pressed(KeyCode::KeyJ) {
+    if input.just_pressed(&KeyCode::KeyJ) {
         camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::Low;
     }
 
-    if input.just_pressed(KeyCode::KeyK) {
+    if input.just_pressed(&KeyCode::KeyK) {
         camera_3d.screen_space_specular_transmission_quality =
             ScreenSpaceTransmissionQuality::Medium;
     }
 
-    if input.just_pressed(KeyCode::KeyL) {
+    if input.just_pressed(&KeyCode::KeyL) {
         camera_3d.screen_space_specular_transmission_quality = ScreenSpaceTransmissionQuality::High;
     }
 
-    if input.just_pressed(KeyCode::Semicolon) {
+    if input.just_pressed(&KeyCode::Semicolon) {
         camera_3d.screen_space_specular_transmission_quality =
             ScreenSpaceTransmissionQuality::Ultra;
     }
 
-    let rotation = if input.pressed(KeyCode::ArrowRight) {
+    let rotation = if input.pressed(&KeyCode::ArrowRight) {
         state.auto_camera = false;
         time.delta_seconds()
-    } else if input.pressed(KeyCode::ArrowLeft) {
+    } else if input.pressed(&KeyCode::ArrowLeft) {
         state.auto_camera = false;
         -time.delta_seconds()
     } else if state.auto_camera {
@@ -569,9 +571,9 @@ fn example_control_system(
     };
 
     let distance_change =
-        if input.pressed(KeyCode::ArrowDown) && camera_transform.translation.length() < 25.0 {
+        if input.pressed(&KeyCode::ArrowDown) && camera_transform.translation.length() < 25.0 {
             time.delta_seconds()
-        } else if input.pressed(KeyCode::ArrowUp) && camera_transform.translation.length() > 2.0 {
+        } else if input.pressed(&KeyCode::ArrowUp) && camera_transform.translation.length() > 2.0 {
             -time.delta_seconds()
         } else {
             0.0

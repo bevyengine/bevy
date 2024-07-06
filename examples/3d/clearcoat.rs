@@ -280,7 +280,7 @@ fn handle_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut light_mode: ResMut<LightMode>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Space) {
+    if !keyboard.just_pressed(&KeyCode::Space) {
         return;
     }
 

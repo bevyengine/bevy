@@ -33,7 +33,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn panic_on_p(keys: Res<ButtonInput<KeyCode>>) {
-    if keys.just_pressed(KeyCode::KeyP) {
+    if keys.just_pressed(&KeyCode::KeyP) {
         panic!("P pressed, panicking");
     }
 }

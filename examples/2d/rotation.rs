@@ -124,15 +124,15 @@ fn player_movement_system(
     let mut rotation_factor = 0.0;
     let mut movement_factor = 0.0;
 
-    if keyboard_input.pressed(KeyCode::ArrowLeft) {
+    if keyboard_input.pressed(&KeyCode::ArrowLeft) {
         rotation_factor += 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::ArrowRight) {
+    if keyboard_input.pressed(&KeyCode::ArrowRight) {
         rotation_factor -= 1.0;
     }
 
-    if keyboard_input.pressed(KeyCode::ArrowUp) {
+    if keyboard_input.pressed(&KeyCode::ArrowUp) {
         movement_factor += 1.0;
     }
 

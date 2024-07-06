@@ -278,24 +278,24 @@ fn keyboard_animation_control(
     mut current_animation: Local<usize>,
     mut foxes: ResMut<Foxes>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(&KeyCode::Space) {
         foxes.moving = !foxes.moving;
     }
 
-    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+    if keyboard_input.just_pressed(&KeyCode::ArrowUp) {
         foxes.speed *= 1.25;
     }
 
-    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+    if keyboard_input.just_pressed(&KeyCode::ArrowDown) {
         foxes.speed *= 0.8;
     }
 
-    if keyboard_input.just_pressed(KeyCode::Enter) {
+    if keyboard_input.just_pressed(&KeyCode::Enter) {
         *current_animation = (*current_animation + 1) % animations.node_indices.len();
     }
 
     for (mut player, mut transitions) in &mut animation_player {
-        if keyboard_input.just_pressed(KeyCode::Space) {
+        if keyboard_input.just_pressed(&KeyCode::Space) {
             if player.all_paused() {
                 player.resume_all();
             } else {
@@ -303,23 +303,23 @@ fn keyboard_animation_control(
             }
         }
 
-        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+        if keyboard_input.just_pressed(&KeyCode::ArrowUp) {
             player.adjust_speeds(1.25);
         }
 
-        if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+        if keyboard_input.just_pressed(&KeyCode::ArrowDown) {
             player.adjust_speeds(0.8);
         }
 
-        if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+        if keyboard_input.just_pressed(&KeyCode::ArrowLeft) {
             player.seek_all_by(-0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+        if keyboard_input.just_pressed(&KeyCode::ArrowRight) {
             player.seek_all_by(0.1);
         }
 
-        if keyboard_input.just_pressed(KeyCode::Enter) {
+        if keyboard_input.just_pressed(&KeyCode::Enter) {
             transitions
                 .play(
                     &mut player,

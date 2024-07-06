@@ -82,12 +82,12 @@ fn update_parallax_depth_scale(
     mut depth_update: Local<bool>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Digit1) {
+    if input.just_pressed(&KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.max(0.0);
         *depth_update = true;
     }
-    if input.just_pressed(KeyCode::Digit2) {
+    if input.just_pressed(&KeyCode::Digit2) {
         target_depth.0 += DEPTH_UPDATE_STEP;
         target_depth.0 = target_depth.0.min(MAX_DEPTH);
         *depth_update = true;
@@ -112,7 +112,7 @@ fn switch_method(
     mut text: Query<&mut Text>,
     mut current: Local<CurrentMethod>,
 ) {
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(&KeyCode::Space) {
         current.next_method();
     } else {
         return;
@@ -131,10 +131,10 @@ fn update_parallax_layers(
     mut target_layers: Local<TargetLayers>,
     mut text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::Digit3) {
+    if input.just_pressed(&KeyCode::Digit3) {
         target_layers.0 -= 1.0;
         target_layers.0 = target_layers.0.max(0.0);
-    } else if input.just_pressed(KeyCode::Digit4) {
+    } else if input.just_pressed(&KeyCode::Digit4) {
         target_layers.0 += 1.0;
     } else {
         return;
@@ -186,7 +186,7 @@ fn move_camera(
     button: Res<ButtonInput<MouseButton>>,
 ) {
     let mut camera = camera.single_mut();
-    if button.just_pressed(MouseButton::Left) {
+    if button.just_pressed(&MouseButton::Left) {
         *current_view = (*current_view + 1) % CAMERA_POSITIONS.len();
     }
     let target = CAMERA_POSITIONS[*current_view];

@@ -201,7 +201,7 @@ fn change_reflection_type(
     cubemaps: Res<Cubemaps>,
 ) {
     // Only do anything if space was pressed.
-    if !keyboard.just_pressed(KeyCode::Space) {
+    if !keyboard.just_pressed(&KeyCode::Space) {
         return;
     }
 
@@ -235,7 +235,7 @@ fn change_reflection_type(
 
 // A system that handles enabling and disabling rotation.
 fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
-    if keyboard.just_pressed(KeyCode::Enter) {
+    if keyboard.just_pressed(&KeyCode::Enter) {
         app_status.rotating = !app_status.rotating;
     }
 }

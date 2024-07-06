@@ -58,7 +58,7 @@ where
 {
     let mut active = default;
     move |inputs: Res<ButtonInput<T>>| {
-        active ^= inputs.just_pressed(input);
+        active ^= inputs.just_pressed(&input);
         active
     }
 }
@@ -68,7 +68,7 @@ pub fn input_pressed<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> bool + C
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.pressed(input)
+    move |inputs: Res<ButtonInput<T>>| inputs.pressed(&input)
 }
 
 /// Run condition that is active if [`ButtonInput::just_pressed`] is true for the given input.
@@ -90,7 +90,7 @@ pub fn input_just_pressed<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> boo
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.just_pressed(input)
+    move |inputs: Res<ButtonInput<T>>| inputs.just_pressed(&input)
 }
 
 /// Run condition that is active if [`ButtonInput::just_released`] is true for the given input.
@@ -98,7 +98,7 @@ pub fn input_just_released<T>(input: T) -> impl FnMut(Res<ButtonInput<T>>) -> bo
 where
     T: Copy + Eq + Hash + Send + Sync + 'static,
 {
-    move |inputs: Res<ButtonInput<T>>| inputs.just_released(input)
+    move |inputs: Res<ButtonInput<T>>| inputs.just_released(&input)
 }
 
 #[cfg(test)]
@@ -115,7 +115,7 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(input_toggle_active(false, KeyCode::Escape))
-                .distributive_run_if(input_pressed(KeyCode::Escape))
+                .distributive_run_if(input_pressed(&KeyCode::Escape))
                 .distributive_run_if(input_just_pressed(KeyCode::Escape))
                 .distributive_run_if(input_just_released(KeyCode::Escape)),
         );

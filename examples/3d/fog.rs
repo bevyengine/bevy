@@ -162,7 +162,7 @@ fn update_system(
         .value
         .push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");
 
-    if keycode.pressed(KeyCode::Digit1) {
+    if keycode.pressed(&KeyCode::Digit1) {
         if let FogFalloff::Linear { .. } = fog.falloff {
             // No change
         } else {
@@ -173,7 +173,7 @@ fn update_system(
         };
     }
 
-    if keycode.pressed(KeyCode::Digit2) {
+    if keycode.pressed(&KeyCode::Digit2) {
         if let FogFalloff::Exponential { .. } = fog.falloff {
             // No change
         } else if let FogFalloff::ExponentialSquared { density } = fog.falloff {
@@ -183,7 +183,7 @@ fn update_system(
         };
     }
 
-    if keycode.pressed(KeyCode::Digit3) {
+    if keycode.pressed(&KeyCode::Digit3) {
         if let FogFalloff::Exponential { density } = fog.falloff {
             fog.falloff = FogFalloff::ExponentialSquared { density };
         } else if let FogFalloff::ExponentialSquared { .. } = fog.falloff {
@@ -203,16 +203,16 @@ fn update_system(
             .value
             .push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
-        if keycode.pressed(KeyCode::KeyA) {
+        if keycode.pressed(&KeyCode::KeyA) {
             *start -= delta * 3.0;
         }
-        if keycode.pressed(KeyCode::KeyS) {
+        if keycode.pressed(&KeyCode::KeyS) {
             *start += delta * 3.0;
         }
-        if keycode.pressed(KeyCode::KeyZ) {
+        if keycode.pressed(&KeyCode::KeyZ) {
             *end -= delta * 3.0;
         }
-        if keycode.pressed(KeyCode::KeyX) {
+        if keycode.pressed(&KeyCode::KeyX) {
             *end += delta * 3.0;
         }
     }
@@ -221,13 +221,13 @@ fn update_system(
     if let FogFalloff::Exponential { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
-        if keycode.pressed(KeyCode::KeyA) {
+        if keycode.pressed(&KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
                 *density = 0.0;
             }
         }
-        if keycode.pressed(KeyCode::KeyS) {
+        if keycode.pressed(&KeyCode::KeyS) {
             *density += delta * 0.5 * *density;
         }
     }
@@ -236,13 +236,13 @@ fn update_system(
     if let FogFalloff::ExponentialSquared { ref mut density } = &mut fog.falloff {
         text.sections[0].value.push_str("\nA / S - Change Density");
 
-        if keycode.pressed(KeyCode::KeyA) {
+        if keycode.pressed(&KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
             if *density < 0.0 {
                 *density = 0.0;
             }
         }
-        if keycode.pressed(KeyCode::KeyS) {
+        if keycode.pressed(&KeyCode::KeyS) {
             *density += delta * 0.5 * *density;
         }
     }
@@ -256,35 +256,35 @@ fn update_system(
     // so we convert the fog color to sRGB here, then modify it,
     // and finally when we're done we can convert it back and set it.
     let mut fog_color = Srgba::from(fog.color);
-    if keycode.pressed(KeyCode::Minus) {
+    if keycode.pressed(&KeyCode::Minus) {
         fog_color.red = (fog_color.red - 0.1 * delta).max(0.0);
     }
 
-    if keycode.any_pressed([KeyCode::Equal, KeyCode::NumpadEqual]) {
+    if keycode.any_pressed([&KeyCode::Equal, &KeyCode::NumpadEqual]) {
         fog_color.red = (fog_color.red + 0.1 * delta).min(1.0);
     }
 
-    if keycode.pressed(KeyCode::BracketLeft) {
+    if keycode.pressed(&KeyCode::BracketLeft) {
         fog_color.green = (fog_color.green - 0.1 * delta).max(0.0);
     }
 
-    if keycode.pressed(KeyCode::BracketRight) {
+    if keycode.pressed(&KeyCode::BracketRight) {
         fog_color.green = (fog_color.green + 0.1 * delta).min(1.0);
     }
 
-    if keycode.pressed(KeyCode::Semicolon) {
+    if keycode.pressed(&KeyCode::Semicolon) {
         fog_color.blue = (fog_color.blue - 0.1 * delta).max(0.0);
     }
 
-    if keycode.pressed(KeyCode::Quote) {
+    if keycode.pressed(&KeyCode::Quote) {
         fog_color.blue = (fog_color.blue + 0.1 * delta).min(1.0);
     }
 
-    if keycode.pressed(KeyCode::Period) {
+    if keycode.pressed(&KeyCode::Period) {
         fog_color.alpha = (fog_color.alpha - 0.1 * delta).max(0.0);
     }
 
-    if keycode.pressed(KeyCode::Slash) {
+    if keycode.pressed(&KeyCode::Slash) {
         fog_color.alpha = (fog_color.alpha + 0.1 * delta).min(1.0);
     }
 

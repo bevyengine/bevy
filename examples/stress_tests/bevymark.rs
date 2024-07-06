@@ -314,11 +314,11 @@ fn mouse_handler(
     let rng = rng.as_mut().unwrap();
     let window = windows.single();
 
-    if mouse_button_input.just_released(MouseButton::Left) {
+    if mouse_button_input.just_released(&MouseButton::Left) {
         counter.color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
     }
 
-    if mouse_button_input.pressed(MouseButton::Left) {
+    if mouse_button_input.pressed(&MouseButton::Left) {
         let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as usize;
         spawn_birds(
             &mut commands,

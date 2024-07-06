@@ -130,12 +130,12 @@ Color: {:?}",
     );
 
     // Toggle showing a wireframe on all meshes
-    if keyboard_input.just_pressed(KeyCode::KeyZ) {
+    if keyboard_input.just_pressed(&KeyCode::KeyZ) {
         config.global = !config.global;
     }
 
     // Toggle the global wireframe color
-    if keyboard_input.just_pressed(KeyCode::KeyX) {
+    if keyboard_input.just_pressed(&KeyCode::KeyX) {
         config.default_color = if config.default_color == WHITE {
             RED
         } else {
@@ -144,7 +144,7 @@ Color: {:?}",
     }
 
     // Toggle the color of a wireframe using `Wireframe2dColor` and not the global color
-    if keyboard_input.just_pressed(KeyCode::KeyC) {
+    if keyboard_input.just_pressed(&KeyCode::KeyC) {
         for mut color in &mut wireframe_colors {
             color.color = if color.color == GREEN { RED } else { GREEN };
         }

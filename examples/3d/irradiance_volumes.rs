@@ -392,7 +392,7 @@ fn change_main_object(
     >,
     mut fox_query: Query<&mut Visibility, (With<MainObject>, With<Handle<Scene>>)>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Tab) {
+    if !keyboard.just_pressed(&KeyCode::Tab) {
         return;
     }
     let Some(mut sphere_visibility) = sphere_query.iter_mut().next() else {
@@ -436,7 +436,7 @@ fn toggle_irradiance_volumes(
     assets: Res<ExampleAssets>,
     mut ambient_light: ResMut<AmbientLight>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Space) {
+    if !keyboard.just_pressed(&KeyCode::Space) {
         return;
     };
 
@@ -459,7 +459,7 @@ fn toggle_irradiance_volumes(
 }
 
 fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
-    if keyboard.just_pressed(KeyCode::Enter) {
+    if keyboard.just_pressed(&KeyCode::Enter) {
         app_status.rotating = !app_status.rotating;
     }
 }
@@ -471,7 +471,7 @@ fn handle_mouse_clicks(
     cameras: Query<(&Camera, &GlobalTransform)>,
     mut main_objects: Query<&mut Transform, With<MainObject>>,
 ) {
-    if !buttons.pressed(MouseButton::Left) {
+    if !buttons.pressed(&MouseButton::Left) {
         return;
     }
     let Some(mouse_position) = windows.iter().next().and_then(Window::cursor_position) else {
@@ -632,7 +632,7 @@ fn toggle_voxel_visibility(
     mut app_status: ResMut<AppStatus>,
     mut voxel_cube_parent_query: Query<&mut Visibility, With<VoxelCubeParent>>,
 ) {
-    if !keyboard.just_pressed(KeyCode::Backspace) {
+    if !keyboard.just_pressed(&KeyCode::Backspace) {
         return;
     }
 

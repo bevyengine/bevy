@@ -243,11 +243,11 @@ fn change_fov(
         );
     };
 
-    if input.pressed(KeyCode::ArrowUp) {
+    if input.pressed(&KeyCode::ArrowUp) {
         perspective.fov -= 1.0_f32.to_radians();
         perspective.fov = perspective.fov.max(20.0_f32.to_radians());
     }
-    if input.pressed(KeyCode::ArrowDown) {
+    if input.pressed(&KeyCode::ArrowDown) {
         perspective.fov += 1.0_f32.to_radians();
         perspective.fov = perspective.fov.min(160.0_f32.to_radians());
     }

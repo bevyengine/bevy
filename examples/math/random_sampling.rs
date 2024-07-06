@@ -150,14 +150,14 @@ fn handle_keypress(
     samples: Query<Entity, With<SamplePoint>>,
 ) {
     // R => restart, deleting all samples
-    if keyboard.just_pressed(KeyCode::KeyR) {
+    if keyboard.just_pressed(&KeyCode::KeyR) {
         for entity in &samples {
             commands.entity(entity).despawn();
         }
     }
 
     // S => sample once
-    if keyboard.just_pressed(KeyCode::KeyS) {
+    if keyboard.just_pressed(&KeyCode::KeyS) {
         let rng = &mut random_source.0;
 
         // Get a single random Vec3:
@@ -187,7 +187,7 @@ fn handle_keypress(
     }
 
     // D => generate many samples
-    if keyboard.just_pressed(KeyCode::KeyD) {
+    if keyboard.just_pressed(&KeyCode::KeyD) {
         let mut rng = &mut random_source.0;
 
         // Get 100 random Vec3s:
@@ -220,7 +220,7 @@ fn handle_keypress(
     }
 
     // M => toggle mode between interior and boundary.
-    if keyboard.just_pressed(KeyCode::KeyM) {
+    if keyboard.just_pressed(&KeyCode::KeyM) {
         match *mode {
             Mode::Interior => *mode = Mode::Boundary,
             Mode::Boundary => *mode = Mode::Interior,

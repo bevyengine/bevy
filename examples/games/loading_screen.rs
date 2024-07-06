@@ -108,10 +108,10 @@ fn level_selection(
 ) {
     // Only trigger a load if the current level is fully loaded.
     if let LoadingState::LevelReady = loading_state.as_ref() {
-        if keyboard.just_pressed(KeyCode::Digit1) {
+        if keyboard.just_pressed(&KeyCode::Digit1) {
             commands.run_system(level_data.unload_level_id);
             commands.run_system(level_data.level_1_id);
-        } else if keyboard.just_pressed(KeyCode::Digit2) {
+        } else if keyboard.just_pressed(&KeyCode::Digit2) {
             commands.run_system(level_data.unload_level_id);
             commands.run_system(level_data.level_2_id);
         }

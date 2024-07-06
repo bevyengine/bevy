@@ -169,23 +169,23 @@ fn movement(
     let mut translation = Vec3::ZERO;
 
     // Horizontal forward and backward movement
-    if input.pressed(KeyCode::KeyW) {
+    if input.pressed(&KeyCode::KeyW) {
         translation.z += 1.0;
-    } else if input.pressed(KeyCode::KeyS) {
+    } else if input.pressed(&KeyCode::KeyS) {
         translation.z -= 1.0;
     }
 
     // Horizontal left and right movement
-    if input.pressed(KeyCode::KeyA) {
+    if input.pressed(&KeyCode::KeyA) {
         translation.x += 1.0;
-    } else if input.pressed(KeyCode::KeyD) {
+    } else if input.pressed(&KeyCode::KeyD) {
         translation.x -= 1.0;
     }
 
     // Vertical movement
-    if input.pressed(KeyCode::ShiftLeft) {
+    if input.pressed(&KeyCode::ShiftLeft) {
         translation.y += 1.0;
-    } else if input.pressed(KeyCode::Space) {
+    } else if input.pressed(&KeyCode::Space) {
         translation.y -= 1.0;
     }
 
@@ -205,9 +205,9 @@ fn rotation(
     let mut transform = query.single_mut();
     let delta = time.delta_seconds();
 
-    if input.pressed(KeyCode::ArrowLeft) {
+    if input.pressed(&KeyCode::ArrowLeft) {
         transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(delta));
-    } else if input.pressed(KeyCode::ArrowRight) {
+    } else if input.pressed(&KeyCode::ArrowRight) {
         transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-delta));
     }
 }

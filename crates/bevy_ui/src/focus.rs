@@ -173,7 +173,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
+        mouse_button_input.just_released(&MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for node in &mut node_query {
             if let Some(mut interaction) = node.interaction {
@@ -185,7 +185,7 @@ pub fn ui_focus_system(
     }
 
     let mouse_clicked =
-        mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
+        mouse_button_input.just_pressed(&MouseButton::Left) || touches_input.any_just_pressed();
 
     let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
         .iter()
