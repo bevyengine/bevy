@@ -32,7 +32,7 @@ jobs:
             echo "Invalid version (not in 0.X.Y-dev format): ${current_version}"
             exit 1
           fi
-          minor_version=$(sed 's/^0\.\([0-9]*\)\..*/\1/' <<< "${current_version}")
+          minor_version=$(sed 's/^0\.\([0-9]\+\).*/\1/' <<< "${current_version}")
           next_version=0.$((minor_version + 1)).0-dev
           echo "Bumping version to ${next_version}"
           # See release.yml for meaning of these arguments
