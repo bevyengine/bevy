@@ -17,7 +17,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
 
 # other
-gilrs = "0.10.1"
+gilrs = "0.10.8"
 thiserror = "1.0"
 
 [lints]
