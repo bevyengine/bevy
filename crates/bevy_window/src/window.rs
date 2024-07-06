@@ -542,7 +542,7 @@ impl WindowResizeConstraints {
 }
 
 /// Cursor data for a [`Window`].
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -585,7 +585,7 @@ pub struct Cursor {
 impl Default for Cursor {
     fn default() -> Self {
         Cursor {
-            icon: CursorIcon::Default,
+            icon: crate::SystemCursor::Default.into(),
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,

@@ -75,6 +75,64 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// The icon to display for a [`Window`](crate::window::Window)'s [`Cursor`](crate::window::Cursor).
 ///
+/// Bevy supports two types of cursors, system cursors and custom ones.
+///
+/// See the [`window_settings`] example for usage.
+///
+/// [`window_settings`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Reflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
+pub enum CursorIcon {
+    /// Represents a system cursor.
+    System(SystemCursor),
+    /// Represents a custom cursor image.
+    Custom(CustomCursor),
+}
+
+impl Default for CursorIcon {
+    fn default() -> Self {
+        Self::System(SystemCursor::default())
+    }
+}
+
+impl From<SystemCursor> for CursorIcon {
+    fn from(system: SystemCursor) -> Self {
+        Self::System(system)
+    }
+}
+
+impl From<CustomCursor> for CursorIcon {
+    fn from(custom: CustomCursor) -> Self {
+        Self::Custom(custom)
+    }
+}
+
+/// Represents a custom cursor image.
+///
+/// This `struct` matches the arguments to [`winit`'s `CustomCursor::from_rgba`](https://docs.rs/winit/latest/winit/window/struct.CustomCursor.html#method.from_rgba).
+///
+/// See the [`window_settings`] example for usage.
+///
+/// [`window_settings`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Reflect)]
+pub struct CustomCursor {
+    /// RGBA values for custom cursor
+    pub rgba: Vec<u8>,
+    /// Width of the cursor image
+    pub width: u16,
+    /// Height of the cursor image
+    pub height: u16,
+    /// The hotspot of the cursor is where the user is pointing, relative to the top-left of the cursor
+    pub hotspot: (u16, u16),
+}
+
+/// Represents a system cursor.
+///
 /// Examples of all of these cursors can be found [here](https://www.w3schools.com/cssref/playit.php?filename=playcss_cursor&preval=crosshair).
 /// This `enum` is simply a copy of a similar `enum` found in [`winit`](https://docs.rs/winit/latest/winit/window/enum.CursorIcon.html).
 /// `winit`, in turn, is based upon the [CSS3 UI spec](https://www.w3.org/TR/css-ui-3/#cursor).
@@ -83,13 +141,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// [`window_settings`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
 #[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, PartialEq, Default)]
-pub enum CursorIcon {
+pub enum SystemCursor {
     /// The platform-dependent default cursor. Often rendered as arrow.
     #[default]
     Default,

@@ -6,7 +6,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorIcon, EnabledButtons, WindowLevel, WindowTheme};
+use bevy_window::{CursorIcon, EnabledButtons, SystemCursor, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 pub fn convert_keyboard_input(
@@ -627,43 +627,60 @@ pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::Nativ
     }
 }
 
-pub fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon {
-    match cursor_icon {
-        CursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,
-        CursorIcon::Pointer => winit::window::CursorIcon::Pointer,
-        CursorIcon::Move => winit::window::CursorIcon::Move,
-        CursorIcon::Text => winit::window::CursorIcon::Text,
-        CursorIcon::Wait => winit::window::CursorIcon::Wait,
-        CursorIcon::Help => winit::window::CursorIcon::Help,
-        CursorIcon::Progress => winit::window::CursorIcon::Progress,
-        CursorIcon::NotAllowed => winit::window::CursorIcon::NotAllowed,
-        CursorIcon::ContextMenu => winit::window::CursorIcon::ContextMenu,
-        CursorIcon::Cell => winit::window::CursorIcon::Cell,
-        CursorIcon::VerticalText => winit::window::CursorIcon::VerticalText,
-        CursorIcon::Alias => winit::window::CursorIcon::Alias,
-        CursorIcon::Copy => winit::window::CursorIcon::Copy,
-        CursorIcon::NoDrop => winit::window::CursorIcon::NoDrop,
-        CursorIcon::Grab => winit::window::CursorIcon::Grab,
-        CursorIcon::Grabbing => winit::window::CursorIcon::Grabbing,
-        CursorIcon::AllScroll => winit::window::CursorIcon::AllScroll,
-        CursorIcon::ZoomIn => winit::window::CursorIcon::ZoomIn,
-        CursorIcon::ZoomOut => winit::window::CursorIcon::ZoomOut,
-        CursorIcon::EResize => winit::window::CursorIcon::EResize,
-        CursorIcon::NResize => winit::window::CursorIcon::NResize,
-        CursorIcon::NeResize => winit::window::CursorIcon::NeResize,
-        CursorIcon::NwResize => winit::window::CursorIcon::NwResize,
-        CursorIcon::SResize => winit::window::CursorIcon::SResize,
-        CursorIcon::SeResize => winit::window::CursorIcon::SeResize,
-        CursorIcon::SwResize => winit::window::CursorIcon::SwResize,
-        CursorIcon::WResize => winit::window::CursorIcon::WResize,
-        CursorIcon::EwResize => winit::window::CursorIcon::EwResize,
-        CursorIcon::NsResize => winit::window::CursorIcon::NsResize,
-        CursorIcon::NeswResize => winit::window::CursorIcon::NeswResize,
-        CursorIcon::NwseResize => winit::window::CursorIcon::NwseResize,
-        CursorIcon::ColResize => winit::window::CursorIcon::ColResize,
-        CursorIcon::RowResize => winit::window::CursorIcon::RowResize,
-        _ => winit::window::CursorIcon::Default,
-    }
+pub fn convert_cursor_icon(
+    cursor_icon: CursorIcon,
+    event_loop: &winit::event_loop::ActiveEventLoop,
+) -> impl Into<winit::window::Cursor> {
+    let cursor: winit::window::Cursor = match cursor_icon {
+        CursorIcon::System(system) => match system {
+            SystemCursor::Crosshair => winit::window::CursorIcon::Crosshair.into(),
+            SystemCursor::Pointer => winit::window::CursorIcon::Pointer.into(),
+            SystemCursor::Move => winit::window::CursorIcon::Move.into(),
+            SystemCursor::Text => winit::window::CursorIcon::Text.into(),
+            SystemCursor::Wait => winit::window::CursorIcon::Wait.into(),
+            SystemCursor::Help => winit::window::CursorIcon::Help.into(),
+            SystemCursor::Progress => winit::window::CursorIcon::Progress.into(),
+            SystemCursor::NotAllowed => winit::window::CursorIcon::NotAllowed.into(),
+            SystemCursor::ContextMenu => winit::window::CursorIcon::ContextMenu.into(),
+            SystemCursor::Cell => winit::window::CursorIcon::Cell.into(),
+            SystemCursor::VerticalText => winit::window::CursorIcon::VerticalText.into(),
+            SystemCursor::Alias => winit::window::CursorIcon::Alias.into(),
+            SystemCursor::Copy => winit::window::CursorIcon::Copy.into(),
+            SystemCursor::NoDrop => winit::window::CursorIcon::NoDrop.into(),
+            SystemCursor::Grab => winit::window::CursorIcon::Grab.into(),
+            SystemCursor::Grabbing => winit::window::CursorIcon::Grabbing.into(),
+            SystemCursor::AllScroll => winit::window::CursorIcon::AllScroll.into(),
+            SystemCursor::ZoomIn => winit::window::CursorIcon::ZoomIn.into(),
+            SystemCursor::ZoomOut => winit::window::CursorIcon::ZoomOut.into(),
+            SystemCursor::EResize => winit::window::CursorIcon::EResize.into(),
+            SystemCursor::NResize => winit::window::CursorIcon::NResize.into(),
+            SystemCursor::NeResize => winit::window::CursorIcon::NeResize.into(),
+            SystemCursor::NwResize => winit::window::CursorIcon::NwResize.into(),
+            SystemCursor::SResize => winit::window::CursorIcon::SResize.into(),
+            SystemCursor::SeResize => winit::window::CursorIcon::SeResize.into(),
+            SystemCursor::SwResize => winit::window::CursorIcon::SwResize.into(),
+            SystemCursor::WResize => winit::window::CursorIcon::WResize.into(),
+            SystemCursor::EwResize => winit::window::CursorIcon::EwResize.into(),
+            SystemCursor::NsResize => winit::window::CursorIcon::NsResize.into(),
+            SystemCursor::NeswResize => winit::window::CursorIcon::NeswResize.into(),
+            SystemCursor::NwseResize => winit::window::CursorIcon::NwseResize.into(),
+            SystemCursor::ColResize => winit::window::CursorIcon::ColResize.into(),
+            SystemCursor::RowResize => winit::window::CursorIcon::RowResize.into(),
+            _ => winit::window::CursorIcon::Default.into(),
+        },
+        CursorIcon::Custom(custom) => {
+            let source = winit::window::CustomCursor::from_rgba(
+                custom.rgba,
+                custom.width,
+                custom.height,
+                custom.hotspot.0,
+                custom.hotspot.1,
+            );
+            let custom_cursor = event_loop.create_custom_cursor(source.unwrap());
+            custom_cursor.into()
+        }
+    };
+    cursor
 }
 
 pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowLevel {
