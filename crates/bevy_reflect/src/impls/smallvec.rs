@@ -3,7 +3,6 @@ use smallvec::{Array as SmallArray, SmallVec};
 
 use std::any::Any;
 
-use crate::func::macros::impl_function_traits;
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
@@ -188,4 +187,5 @@ where
     }
 }
 
-impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + TypePath);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + TypePath);
