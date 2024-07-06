@@ -229,7 +229,7 @@ impl FromWorld for GpuPreprocessingSupport {
             // filter some Qualcomm devices on Android as they crash when using GPU preprocessing
             (cfg!(target_os = "android") && {
                 let name = adapter.get_info().name;
-                name.starts_with("Adreno (TM) 6") || name.starts_with("Adreno (TM) 7")
+                name.starts_with("Adreno (TM) 6") || name.starts_with("Adreno (TM) 730")
             })
         {
             GpuPreprocessingSupport::None
