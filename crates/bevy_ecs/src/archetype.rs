@@ -27,6 +27,7 @@ use crate::{
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use bevy_utils::HashMap;
+use std::collections::hash_map::Keys;
 use std::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
@@ -922,10 +923,14 @@ impl Archetypes {
         flags: ArchetypeFlags,
         set: bool,
     ) {
-        // TODO: Refactor component index to speed this up.
-        for archetype in &mut self.archetypes {
-            if archetype.contains(component_id) {
-                archetype.flags.set(flags, set);
+        if let Some(archetypes) = self.by_component.get(&component_id) {
+            for archetype_id in archetypes.keys() {
+                // SAFETY: the component index only contains valid archetype ids
+                self.archetypes
+                    .get_mut(archetype_id.index())
+                    .unwrap()
+                    .flags
+                    .set(flags, set);
             }
         }
     }

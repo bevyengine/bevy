@@ -476,6 +476,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
     }
 
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// Uses a custom `f` function on each newly matched archetype.
     fn update_archetypes_with(
         &mut self,
         world: &World,
@@ -484,6 +488,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.update_archetypes_unsafe_world_cell_with(world.as_unsafe_world_cell_readonly(), f);
     }
 
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// Uses a custom `f` function on each newly matched archetype.
     fn update_archetypes_unsafe_world_cell_with(
         &mut self,
         world: UnsafeWorldCell,
@@ -527,8 +535,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.update_archetypes_unsafe_world_cell_with(world, |view, archetype| {
-            // SAFETY: The validate_world call ensures that the world is the same the QueryState
-            // was initialized from.
+            // SAFETY: The validate_world call in `update_archetypes_unsafe_world_cell_with` ensures that the world is the same the QueryState was initialized from.
             unsafe {
                 view.new_archetype_internal(archetype);
             }
