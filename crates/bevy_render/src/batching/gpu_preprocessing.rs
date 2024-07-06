@@ -230,7 +230,7 @@ impl FromWorld for GpuPreprocessingSupport {
             (cfg!(target_os = "android") && {
                 let name = adapter.get_info().name;
                 name.strip_prefix("Adreno (TM) ").is_some_and(|version|
-                    version.parse::<u16>().unwrap() <= 730
+                    version != "720" && version.parse::<u16>().unwrap() <= 730
                 )
             })
         {
