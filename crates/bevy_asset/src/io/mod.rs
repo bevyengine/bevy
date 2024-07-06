@@ -22,9 +22,8 @@ pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
-use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
+use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::{ready, Stream};
-use std::io::SeekFrom;
 use std::task::Context;
 use std::{
     path::{Path, PathBuf},
@@ -81,13 +80,49 @@ pub const STACK_FUTURE_SIZE: usize = 10 * std::mem::size_of::<&()>();
 
 pub use stackfuture::StackFuture;
 
+/// Asynchronously advances the cursor position by a specified number of bytes.
+///
+/// This trait is similar to the `futures_io::AsyncSeek` trait, but it only supports
+/// the `SeekFrom::Current` variant, allowing for relative seeking from the current cursor position.
+pub trait AsyncSeekForward {
+    /// Attempt to seek to an offset, in bytes, in a stream from the current cursor position.
+    ///
+    /// A seek beyond the end of a stream is allowed, but behavior is defined
+    /// by the implementation.
+    ///
+    /// If the seek operation completed successfully,
+    /// this method returns the new position from the start of the stream.
+    ///
+    /// # Implementation
+    ///
+    /// This function may not return errors of kind `WouldBlock` or
+    /// `Interrupted`.  Implementations must convert `WouldBlock` into
+    /// `Poll::Pending` and either internally retry or convert
+    /// `Interrupted` into another error kind.
+    fn poll_seek_forward(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        offset: u64,
+    ) -> Poll<futures_io::Result<u64>>;
+}
+
+impl<T: ?Sized + AsyncSeekForward + Unpin> AsyncSeekForward for Box<T> {
+    fn poll_seek_forward(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        offset: u64,
+    ) -> Poll<futures_io::Result<u64>> {
+        Pin::new(&mut **self).poll_seek_forward(cx, offset)
+    }
+}
+
 /// A type returned from [`AssetReader::read`], which is used to read the contents of a file
 /// (or virtual file) corresponding to an asset.
 ///
-/// This is essentially a trait alias for types implementing  [`AsyncRead`] and [`AsyncSeek`].
+/// This is essentially a trait alias for types implementing  [`AsyncRead`] and [`AsyncForwardSeek`].
 /// The only reason a blanket implementation is not provided for applicable types is to allow
 /// implementors to override the provided implementation of [`Reader::read_to_end`].
-pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
+pub trait Reader: AsyncRead + AsyncSeekForward + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
     /// # Note for implementors
@@ -533,32 +568,20 @@ impl AsyncRead for VecReader {
     }
 }
 
-impl AsyncSeek for VecReader {
-    fn poll_seek(
+impl AsyncSeekForward for VecReader {
+    fn poll_seek_forward(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
-        pos: SeekFrom,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
-        let result = match pos {
-            SeekFrom::Start(offset) => offset.try_into(),
-            SeekFrom::End(offset) => self.bytes.len().try_into().map(|len: i64| len - offset),
-            SeekFrom::Current(offset) => self
-                .bytes_read
-                .try_into()
-                .map(|bytes_read: i64| bytes_read + offset),
-        };
+        let result = self
+            .bytes_read
+            .try_into()
+            .map(|bytes_read: u64| bytes_read + offset);
 
         if let Ok(new_pos) = result {
-            if new_pos < 0 {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "seek position is out of range",
-                )))
-            } else {
-                self.bytes_read = new_pos as _;
-
-                Poll::Ready(Ok(new_pos as _))
-            }
+            self.bytes_read = new_pos as _;
+            Poll::Ready(Ok(new_pos as _))
         } else {
             Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -618,32 +641,21 @@ impl<'a> AsyncRead for SliceReader<'a> {
     }
 }
 
-impl<'a> AsyncSeek for SliceReader<'a> {
-    fn poll_seek(
+impl<'a> AsyncSeekForward for SliceReader<'a> {
+    fn poll_seek_forward(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
-        pos: SeekFrom,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
-        let result = match pos {
-            SeekFrom::Start(offset) => offset.try_into(),
-            SeekFrom::End(offset) => self.bytes.len().try_into().map(|len: i64| len - offset),
-            SeekFrom::Current(offset) => self
-                .bytes_read
-                .try_into()
-                .map(|bytes_read: i64| bytes_read + offset),
-        };
+        let result = self
+            .bytes_read
+            .try_into()
+            .map(|bytes_read: u64| bytes_read + offset);
 
         if let Ok(new_pos) = result {
-            if new_pos < 0 {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "seek position is out of range",
-                )))
-            } else {
-                self.bytes_read = new_pos as _;
+            self.bytes_read = new_pos as _;
 
-                Poll::Ready(Ok(new_pos as _))
-            }
+            Poll::Ready(Ok(new_pos as _))
         } else {
             Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
