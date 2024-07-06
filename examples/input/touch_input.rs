@@ -33,6 +33,6 @@ fn touch_system(touches: Res<Touches>) {
     // you can also iterate all current touches and retrieve their state like this:
     for touch in touches.iter() {
         info!("active touch: {:?}", touch);
-        info!("  just_pressed: {}", touches.just_pressed(touch.id()));
+        info!("  just_pressed: {}", touches.just_pressed(&touch.id()));
     }
 }
