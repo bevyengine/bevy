@@ -110,7 +110,7 @@ impl<'me, D: QueryData, F: QueryFilter> QueryStateView<'me, D, F> {
     /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
     /// the results may not accurately reflect what is in the `world`.
     ///
-    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// This is only required if a `manual` method (such as [`QueryState::get_manual`]) is being called, and it only needs to
     /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
     /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
     ///
