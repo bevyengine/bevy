@@ -44,7 +44,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{Has, QueryItem, With},
+    query::{Changed, Has, QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
@@ -68,6 +68,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::BevyDefault,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    world_sync::RenderWorldSyncEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::prelude::default;
@@ -376,7 +377,9 @@ impl FromWorld for VolumetricFogPipeline {
 /// world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(Entity, &VolumetricFogSettings)>>,
+    view_targets: Extract<
+        Query<(&RenderWorldSyncEntity, &VolumetricFogSettings), Changed<VolumetricFogSettings>>,
+    >,
     volumetric_lights: Extract<Query<(Entity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
@@ -384,9 +387,11 @@ pub fn extract_volumetric_fog(
     }
 
     for (view_target, volumetric_fog_settings) in view_targets.iter() {
-        commands
-            .get_or_spawn(view_target)
-            .insert(*volumetric_fog_settings);
+        if let Some(entity) = view_target.entity() {
+            commands
+                .get_or_spawn(entity)
+                .insert(*volumetric_fog_settings);
+        }
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {

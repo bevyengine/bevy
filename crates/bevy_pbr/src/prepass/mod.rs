@@ -3,6 +3,7 @@ mod prepass_bindings;
 use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
 use bevy_render::render_resource::binding_types::uniform_buffer;
 use bevy_render::view::WithMesh;
+use bevy_render::world_sync::RenderWorldSyncEntity;
 pub use prepass_bindings::*;
 
 use bevy_asset::{load_internal_asset, AssetServer};
@@ -577,14 +578,18 @@ where
 // Extract the render phases for the prepass
 pub fn extract_camera_previous_view_data(
     mut commands: Commands,
-    cameras_3d: Extract<Query<(Entity, &Camera, Option<&PreviousViewData>), With<Camera3d>>>,
+    cameras_3d: Extract<
+        Query<(&RenderWorldSyncEntity, &Camera, Option<&PreviousViewData>), With<Camera3d>>,
+    >,
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
-            let mut entity = commands.get_or_spawn(entity);
+            if let Some(entity) = entity.entity() {
+                let mut entity = commands.get_or_spawn(entity);
 
-            if let Some(previous_view_data) = maybe_previous_view_data {
-                entity.insert(previous_view_data.clone());
+                if let Some(previous_view_data) = maybe_previous_view_data {
+                    entity.insert(previous_view_data.clone());
+                }
             }
         }
     }

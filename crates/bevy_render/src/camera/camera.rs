@@ -10,6 +10,7 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
     },
+    world_sync::RenderWorldSyncEntity,
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -830,12 +831,12 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
-            Entity,
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
+            &RenderWorldSyncEntity,
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
@@ -846,15 +847,22 @@ pub fn extract_cameras(
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mut render_query: Query<(
+        Entity,
+        &mut ExtractedCamera,
+        &mut ExtractedView,
+        &mut VisibleEntities,
+        &mut Frustum,
+    )>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
-        entity,
         camera,
         camera_render_graph,
         transform,
         visible_entities,
         frustum,
+        rw_entity,
         color_grading,
         exposure,
         temporal_jitter,
@@ -863,11 +871,10 @@ pub fn extract_cameras(
         gpu_culling,
     ) in query.iter()
     {
-        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
-
         if !camera.is_active {
             continue;
         }
+        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if let (
             Some(URect {
@@ -885,10 +892,10 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let mut commands = commands.get_or_spawn(entity);
-
-            commands.insert((
-                ExtractedCamera {
+            if let Ok((e, mut extract_camera, mut extracted_view, mut entities, mut fru)) =
+                render_query.get_mut(rw_entity.unwrap())
+            {
+                *extract_camera = ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
@@ -904,8 +911,8 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr: camera.hdr,
-                },
-                ExtractedView {
+                };
+                *extracted_view = ExtractedView {
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
@@ -917,30 +924,30 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
-                },
-                visible_entities.clone(),
-                *frustum,
-            ));
+                };
+                *entities = visible_entities.clone();
+                *fru = *frustum;
 
-            if let Some(temporal_jitter) = temporal_jitter {
-                commands.insert(temporal_jitter.clone());
-            }
+                let mut commands = commands.entity(e);
+                if let Some(temporal_jitter) = temporal_jitter {
+                    commands.insert(temporal_jitter.clone());
+                }
 
-            if let Some(render_layers) = render_layers {
-                commands.insert(render_layers.clone());
-            }
+                if let Some(render_layers) = render_layers {
+                    commands.insert(render_layers.clone());
+                }
 
-            if let Some(perspective) = projection {
-                commands.insert(perspective.clone());
-            }
-
-            if gpu_culling {
-                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
-                    commands.insert(GpuCulling);
-                } else {
-                    warn_once!(
-                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
-                    );
+                if let Some(perspective) = projection {
+                    commands.insert(perspective.clone());
+                }
+                if gpu_culling {
+                    if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
+                        commands.insert(GpuCulling);
+                    } else {
+                        warn_once!(
+                            "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
+                        );
+                    }
                 }
             }
         }

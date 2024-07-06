@@ -27,7 +27,7 @@ pub mod graph {
     }
 }
 
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
 pub use camera_2d::*;
 pub use main_transparent_pass_2d_node::*;
@@ -44,6 +44,7 @@ use bevy_render::{
         PhaseItemExtraIndex, SortedPhaseItem, ViewSortedRenderPhases,
     },
     render_resource::CachedRenderPipelineId,
+    world_sync::RenderWorldSyncEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -159,9 +160,8 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 }
 
 pub fn extract_core_2d_camera_phases(
-    mut commands: Commands,
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    cameras_2d: Extract<Query<(&RenderWorldSyncEntity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -170,11 +170,10 @@ pub fn extract_core_2d_camera_phases(
         if !camera.is_active {
             continue;
         }
-
-        commands.get_or_spawn(entity);
-        transparent_2d_phases.insert_or_clear(entity);
-
-        live_entities.insert(entity);
+        if let Some(entity) = entity.entity() {
+            transparent_2d_phases.insert_or_clear(entity);
+            live_entities.insert(entity);
+        }
     }
 
     // Clear out all dead views.

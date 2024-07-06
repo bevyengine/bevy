@@ -23,6 +23,7 @@ use bevy_render::{
     settings::WgpuFeatures,
     texture::{FallbackImage, GpuImage, Image},
     view::ExtractedView,
+    world_sync::RenderWorldSyncEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -344,7 +345,17 @@ impl Plugin for LightProbePlugin {
 fn gather_light_probes<C>(
     image_assets: Res<RenderAssets<GpuImage>>,
     light_probe_query: Extract<Query<(&GlobalTransform, &C), With<LightProbe>>>,
-    view_query: Extract<Query<(Entity, &GlobalTransform, &Frustum, Option<&C>), With<Camera3d>>>,
+    view_query: Extract<
+        Query<
+            (
+                &RenderWorldSyncEntity,
+                &GlobalTransform,
+                &Frustum,
+                Option<&C>,
+            ),
+            With<Camera3d>,
+        >,
+    >,
     mut reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut view_reflection_probes: Local<Vec<LightProbeInfo<C>>>,
     mut commands: Commands,
@@ -382,15 +393,17 @@ fn gather_light_probes<C>(
         // Gather up the light probes in the list.
         render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes);
 
-        // Record the per-view light probes.
-        if render_view_light_probes.is_empty() {
-            commands
-                .get_or_spawn(view_entity)
-                .remove::<RenderViewLightProbes<C>>();
-        } else {
-            commands
-                .get_or_spawn(view_entity)
-                .insert(render_view_light_probes);
+        if let Some(entity) = view_entity.entity() {
+            // Record the per-view light probes.
+            if render_view_light_probes.is_empty() {
+                commands
+                    .get_or_spawn(entity)
+                    .remove::<RenderViewLightProbes<C>>();
+            } else {
+                commands
+                    .get_or_spawn(entity)
+                    .insert(render_view_light_probes);
+            }
         }
     }
 }

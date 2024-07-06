@@ -62,7 +62,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
 use bevy_asset::{AssetId, UntypedAssetId};
 use bevy_color::LinearRgba;
@@ -71,7 +71,10 @@ pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_ecs::{
+    entity::{self, EntityHashSet},
+    prelude::*,
+};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -90,6 +93,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{BevyDefault, ColorAttachment, Image, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    world_sync::RenderWorldSyncEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
@@ -503,29 +507,28 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 }
 
 pub fn extract_core_3d_camera_phases(
-    mut commands: Commands,
     mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(&RenderWorldSyncEntity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
 
-    for (entity, camera) in &cameras_3d {
+    for (render_entity, camera) in &cameras_3d {
         if !camera.is_active {
             continue;
         }
 
-        commands.get_or_spawn(entity);
+        if let Some(entity) = render_entity.entity() {
+            opaque_3d_phases.insert_or_clear(entity);
+            alpha_mask_3d_phases.insert_or_clear(entity);
+            transmissive_3d_phases.insert_or_clear(entity);
+            transparent_3d_phases.insert_or_clear(entity);
 
-        opaque_3d_phases.insert_or_clear(entity);
-        alpha_mask_3d_phases.insert_or_clear(entity);
-        transmissive_3d_phases.insert_or_clear(entity);
-        transparent_3d_phases.insert_or_clear(entity);
-
-        live_entities.insert(entity);
+            live_entities.insert(entity);
+        };
     }
 
     opaque_3d_phases.retain(|entity, _| live_entities.contains(entity));
@@ -544,7 +547,7 @@ pub fn extract_camera_prepass_phase(
     cameras_3d: Extract<
         Query<
             (
-                Entity,
+                &RenderWorldSyncEntity,
                 &Camera,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
@@ -558,44 +561,51 @@ pub fn extract_camera_prepass_phase(
 ) {
     live_entities.clear();
 
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        cameras_3d.iter()
+    for (
+        render_entity,
+        camera,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in cameras_3d.iter()
     {
         if !camera.is_active {
             continue;
         }
 
-        if depth_prepass || normal_prepass || motion_vector_prepass {
-            opaque_3d_prepass_phases.insert_or_clear(entity);
-            alpha_mask_3d_prepass_phases.insert_or_clear(entity);
-        } else {
-            opaque_3d_prepass_phases.remove(&entity);
-            alpha_mask_3d_prepass_phases.remove(&entity);
-        }
+        if let Some(entity) = render_entity.entity() {
+            if depth_prepass || normal_prepass || motion_vector_prepass {
+                opaque_3d_prepass_phases.insert_or_clear(entity);
+                alpha_mask_3d_prepass_phases.insert_or_clear(entity);
+            } else {
+                opaque_3d_prepass_phases.remove(&entity);
+                alpha_mask_3d_prepass_phases.remove(&entity);
+            }
 
-        if deferred_prepass {
-            opaque_3d_deferred_phases.insert_or_clear(entity);
-            alpha_mask_3d_deferred_phases.insert_or_clear(entity);
-        } else {
-            opaque_3d_deferred_phases.remove(&entity);
-            alpha_mask_3d_deferred_phases.remove(&entity);
-        }
+            if deferred_prepass {
+                opaque_3d_deferred_phases.insert_or_clear(entity);
+                alpha_mask_3d_deferred_phases.insert_or_clear(entity);
+            } else {
+                opaque_3d_deferred_phases.remove(&entity);
+                alpha_mask_3d_deferred_phases.remove(&entity);
+            }
+            live_entities.insert(entity);
 
-        live_entities.insert(entity);
+            let mut entity = commands.get_or_spawn(entity);
 
-        let mut entity = commands.get_or_spawn(entity);
-
-        if depth_prepass {
-            entity.insert(DepthPrepass);
-        }
-        if normal_prepass {
-            entity.insert(NormalPrepass);
-        }
-        if motion_vector_prepass {
-            entity.insert(MotionVectorPrepass);
-        }
-        if deferred_prepass {
-            entity.insert(DeferredPrepass);
+            if depth_prepass {
+                entity.insert(DepthPrepass);
+            }
+            if normal_prepass {
+                entity.insert(NormalPrepass);
+            }
+            if motion_vector_prepass {
+                entity.insert(MotionVectorPrepass);
+            }
+            if deferred_prepass {
+                entity.insert(DeferredPrepass);
+            }
         }
     }
 

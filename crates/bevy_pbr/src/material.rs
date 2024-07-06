@@ -572,6 +572,7 @@ pub fn queue_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
+    println!("queue view :{}",views.iter().count());
     for (
         view_entity,
         view,
