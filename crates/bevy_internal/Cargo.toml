@@ -196,7 +196,7 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 bevy_state = ["dep:bevy_state"]
 
 # Enable function reflection
-function_reflection = ["bevy_reflect/functions"]
+reflect_functions = ["bevy_reflect/functions"]
 
 [dependencies]
 # bevy
