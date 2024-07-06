@@ -199,10 +199,12 @@ fn write_slice<T: Pod>(
     Ok(())
 }
 
-// TODO: Use https://github.com/rust-lang/rust/issues/63291 to write directly to an Arc and avoid the Vec -> Arc copy
 fn read_slice<T: Pod>(reader: &mut dyn Read) -> Result<Arc<[T]>, std::io::Error> {
     let len = read_u64(reader)? as usize;
-    let mut bytes = vec![T::zeroed(); len];
-    reader.read_exact(bytemuck::cast_slice_mut(&mut bytes))?;
-    Ok(Arc::from(bytes))
+
+    let mut data: Arc<[T]> = std::iter::repeat_with(T::zeroed).take(len).collect();
+    let slice = Arc::get_mut(&mut data).unwrap();
+    reader.read_exact(bytemuck::cast_slice_mut(slice))?;
+
+    Ok(data)
 }
