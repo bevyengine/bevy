@@ -115,7 +115,7 @@ mod tests {
         Schedule::default().add_systems(
             (test_system, test_system)
                 .distributive_run_if(input_toggle_active(false, KeyCode::Escape))
-                .distributive_run_if(input_pressed(&KeyCode::Escape))
+                .distributive_run_if(input_pressed(KeyCode::Escape))
                 .distributive_run_if(input_just_pressed(KeyCode::Escape))
                 .distributive_run_if(input_just_released(KeyCode::Escape)),
         );
