@@ -231,7 +231,7 @@ impl FromWorld for GpuPreprocessingSupport {
                 let name = adapter.get_info().name;
                 // filter out Adreno 730 and earlier GPUs (except 720, it's newer than 730)
                 name.strip_prefix("Adreno (TM) ").is_some_and(|version|
-                    version != "720" && version.parse::<u16>().unwrap() <= 730
+                    version != "720" && version.parse::<u16>().is_ok_and(|version| version <= 730)
                 )
             })
         {
