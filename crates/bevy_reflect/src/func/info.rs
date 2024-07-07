@@ -49,11 +49,6 @@ impl FunctionInfo {
     }
 
     /// Set the arguments of the function.
-    ///
-    /// Arguments passed to the function will be validated against the info provided here.
-    /// Mismatched arguments may result in the function call returning an [error].
-    ///
-    /// [error]: crate::func::FunctionError
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.args = args;
         self

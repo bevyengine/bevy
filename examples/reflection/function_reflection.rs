@@ -142,16 +142,17 @@ fn main() {
             Ok(Return::Ref(get_or_insert(value, container)))
         },
         FunctionInfo::new()
-            // We can optionally provide a name for the function
+            // We can optionally provide a name for the function.
             .with_name("get_or_insert")
-            // Since our function takes arguments, we MUST provide that argument information.
-            // The arguments should be provided in the order they are defined in the function.
-            // This is used to validate any arguments given at runtime.
+            // Since our function takes arguments, we should provide that argument information.
+            // This helps ensure that consumers of the function can validate the arguments they
+            // pass into the function and helps for debugging.
+            // Arguments should be provided in the order they are defined in the function.
             .with_args(vec![
                 ArgInfo::new::<i32>(0).with_name("value"),
                 ArgInfo::new::<&mut Option<i32>>(1).with_name("container"),
             ])
-            // We can optionally provide return information as well.
+            // We can provide return information as well.
             .with_return_info(ReturnInfo::new::<&i32>()),
     ));
 

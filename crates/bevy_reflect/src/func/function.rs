@@ -106,7 +106,7 @@ impl DynamicFunction {
     /// The given function can be used to call out to a regular function, closure, or method.
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
-    /// This info is used to validate the arguments and return value.
+    /// This info may be used by consumers of the function for validation and debugging.
     pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>(
         func: F,
         info: FunctionInfo,
@@ -130,8 +130,8 @@ impl DynamicFunction {
 
     /// Set the arguments of the function.
     ///
-    /// It is very important that the arguments match the intended function signature,
-    /// as this is used to validate arguments passed to the function.
+    /// It's important that the arguments match the intended function signature,
+    /// as this can be used by consumers of the function for validation and debugging.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.info = self.info.with_args(args);
         self
