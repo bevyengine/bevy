@@ -3,10 +3,10 @@ use crate::{
     StandardMaterial,
 };
 use bevy_asset::Handle;
-use bevy_ecs::entity::EntityHashMap;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
-use bevy_render::view::VisibleMeshEntities;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
@@ -44,6 +44,16 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
             view_visibility: Default::default(),
         }
     }
+}
+
+/// Collection of mesh entities visible for 3D lighting.
+/// This component contains all mesh entities visible from the current light view.
+/// The collection is updated automatically by  [`SimulationLightSystems::CheckLightVisibility`].
+#[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct VisibleMeshEntities {
+    #[reflect(ignore)]
+    pub entities: Vec<Entity>,
 }
 
 #[derive(Component, Clone, Debug, Default, Reflect)]

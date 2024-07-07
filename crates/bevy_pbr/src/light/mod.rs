@@ -12,7 +12,6 @@ use bevy_render::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
         InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntityRanges,
-        VisibleMeshEntities,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};

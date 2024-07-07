@@ -8,7 +8,7 @@ pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::{Assets, Handle};
-use bevy_derive::{Deref, DerefMut};
+use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryFilter};
 use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -228,13 +228,6 @@ impl VisibleEntities {
     {
         self.get_mut::<QF>().push(entity);
     }
-}
-
-#[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
-#[reflect(Component)]
-pub struct VisibleMeshEntities {
-    #[reflect(ignore)]
-    pub entities: Vec<Entity>,
 }
 
 /// A convenient alias for `With<Handle<Mesh>>`, for use with

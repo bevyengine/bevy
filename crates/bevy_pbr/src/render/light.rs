@@ -5,7 +5,6 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::view::VisibleMeshEntities;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::GpuMesh,
