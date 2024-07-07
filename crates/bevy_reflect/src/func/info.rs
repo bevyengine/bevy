@@ -72,7 +72,23 @@ impl FunctionInfo {
         self
     }
 
-    /// Set the return information of the function.
+    /// Set the [return information] of the function.
+    ///
+    /// To manually set the [`ReturnInfo`] of the function, see [`Self::with_return_info`].
+    ///
+    /// [return information]: ReturnInfo
+    pub fn with_return<T: TypePath + GetOwnership>(mut self) -> Self {
+        self.return_info = ReturnInfo::new::<T>();
+        self
+    }
+
+    /// Set the [return information] of the function.
+    ///
+    /// This will completely replace any existing return information.
+    ///
+    /// For a simpler, static version of this method, see [`Self::with_return`].
+    ///
+    /// [return information]: ReturnInfo
     pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
         self.return_info = return_info;
         self

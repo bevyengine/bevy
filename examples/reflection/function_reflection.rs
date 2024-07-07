@@ -151,7 +151,7 @@ fn main() {
             .with_arg::<i32>("value")
             .with_arg::<&mut Option<i32>>("container")
             // We can provide return information as well.
-            .with_return_info(ReturnInfo::new::<&i32>()),
+            .with_return::<&i32>(),
     ));
 
     let mut container: Option<i32> = None;
