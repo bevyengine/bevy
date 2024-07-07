@@ -329,7 +329,7 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`)
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed
     ///
     /// This is a fallible version of [`Self::on_replace`].
     ///
