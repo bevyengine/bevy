@@ -60,7 +60,8 @@ pub mod prelude {
             SystemParamFunction,
         },
         world::{
-            EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove, World,
+            EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove, OnReplace,
+            World,
         },
     };
 }
