@@ -62,10 +62,8 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// // We start by defining the shape of the function:
 /// let info = FunctionInfo::new()
 ///   .with_name("append")
-///   .with_args(vec![
-///     ArgInfo::new::<String>(0).with_name("value"),
-///     ArgInfo::new::<&mut Vec<String>>(1).with_name("list"),
-///   ])
+///   .with_arg::<String>("value")
+///   .with_arg::<&mut Vec<String>>("list")
 ///   .with_return_info(
 ///     ReturnInfo::new::<&mut String>()
 ///   );

@@ -48,7 +48,25 @@ impl FunctionInfo {
         self
     }
 
+    /// Push an argument onto the function's argument list.
+    ///
+    /// The order in which this method is called matters as it will determine the index of the argument
+    /// based on the current number of arguments.
+    pub fn with_arg<T: TypePath + GetOwnership>(
+        mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        let index = self.args.len();
+        self.args.push(ArgInfo::new::<T>(index).with_name(name));
+        self
+    }
+
     /// Set the arguments of the function.
+    ///
+    /// This will completely replace any existing arguments.
+    ///
+    /// It's preferable to use [`Self::with_arg`] to add arguments to the function
+    /// as it will automatically set the index of the argument.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.args = args;
         self

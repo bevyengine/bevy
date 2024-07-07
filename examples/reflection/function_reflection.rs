@@ -148,10 +148,8 @@ fn main() {
             // This helps ensure that consumers of the function can validate the arguments they
             // pass into the function and helps for debugging.
             // Arguments should be provided in the order they are defined in the function.
-            .with_args(vec![
-                ArgInfo::new::<i32>(0).with_name("value"),
-                ArgInfo::new::<&mut Option<i32>>(1).with_name("container"),
-            ])
+            .with_arg::<i32>("value")
+            .with_arg::<&mut Option<i32>>("container")
             // We can provide return information as well.
             .with_return_info(ReturnInfo::new::<&i32>()),
     ));
