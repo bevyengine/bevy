@@ -22,7 +22,7 @@ fn main() {
 // In this example, we spawn a goblin wearing different pieces of armor. Each piece of armor
 // is represented as a child entity, with an `Armor` component.
 //
-// We're going to model how attack damage can be partally blocked by the goblin's armor using
+// We're going to model how attack damage can be partially blocked by the goblin's armor using
 // event bubbling. Our events will target the armor, and if the armor isn't strong enough to block
 // the attack it will continue up and hit the goblin.
 fn setup(mut commands: Commands) {
