@@ -1179,15 +1179,14 @@ mod tests {
         world.init_resource::<R>();
         world
             .register_component_hooks::<A>()
-            .on_add(|mut world, _, _| {
-                world.resource_mut::<R>().assert_order(0);
-            })
+            .on_add(|mut world, _, _| world.resource_mut::<R>().assert_order(0))
             .on_insert(|mut world, _, _| world.resource_mut::<R>().assert_order(1))
-            .on_remove(|mut world, _, _| world.resource_mut::<R>().assert_order(2));
+            .on_replace(|mut world, _, _| world.resource_mut::<R>().assert_order(2))
+            .on_remove(|mut world, _, _| world.resource_mut::<R>().assert_order(3));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(4, world.resource::<R>().0);
     }
 
     #[test]
@@ -1196,21 +1195,36 @@ mod tests {
         world.init_resource::<R>();
         world
             .register_component_hooks::<A>()
-            .on_add(|mut world, _, _| {
-                world.resource_mut::<R>().assert_order(0);
-            })
-            .on_insert(|mut world, _, _| {
-                world.resource_mut::<R>().assert_order(1);
-            })
-            .on_remove(|mut world, _, _| {
-                world.resource_mut::<R>().assert_order(2);
-            });
+            .on_add(|mut world, _, _| world.resource_mut::<R>().assert_order(0))
+            .on_insert(|mut world, _, _| world.resource_mut::<R>().assert_order(1))
+            .on_replace(|mut world, _, _| world.resource_mut::<R>().assert_order(2))
+            .on_remove(|mut world, _, _| world.resource_mut::<R>().assert_order(3));
 
         let mut entity = world.spawn_empty();
         entity.insert(A);
         entity.remove::<A>();
         entity.flush();
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(4, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn component_hook_order_replace() {
+        let mut world = World::new();
+        world
+            .register_component_hooks::<A>()
+            .on_replace(|mut world, _, _| world.resource_mut::<R>().assert_order(0))
+            .on_insert(|mut world, _, _| {
+                if let Some(mut r) = world.get_resource_mut::<R>() {
+                    r.assert_order(1);
+                }
+            });
+
+        let entity = world.spawn(A).id();
+        world.init_resource::<R>();
+        let mut entity = world.entity_mut(entity);
+        entity.insert(A);
+        entity.flush();
+        assert_eq!(2, world.resource::<R>().0);
     }
 
     #[test]
