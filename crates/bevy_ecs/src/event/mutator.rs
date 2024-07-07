@@ -29,7 +29,7 @@ use bevy_ecs::{
 /// # Concurrency
 ///
 /// Multiple systems with `EventMutator<T>` of the same event type can not run concurrently.
-/// They also can not be executed in parallel with [`EventReader`] and [`EventWriter`].
+/// They also can not be executed in parallel with [`EventReader`] or [`EventWriter`].
 ///
 /// # Clearing, Reading, and Peeking
 ///
