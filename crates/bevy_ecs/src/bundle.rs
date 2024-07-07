@@ -17,7 +17,7 @@ use crate::{
     prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT},
+    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };
 
 use bevy_ptr::{ConstNonNull, OwningPtr};
@@ -666,6 +666,30 @@ impl<'w> BundleInserter<'w> {
         let add_bundle = self.add_bundle.as_ref();
         let table = self.table.as_mut();
         let archetype = self.archetype.as_mut();
+
+        // SAFETY: All components in the bundle are guaranteed to exist in the World
+        // as they must be initialized before creating the BundleInfo.
+        unsafe {
+            // SAFETY: Mutable references do not alias and will be dropped after this block
+            let mut deferred_world = self.world.into_deferred();
+
+            deferred_world.trigger_on_replace(
+                archetype,
+                entity,
+                bundle_info
+                    .iter_components()
+                    .filter(|component_id| !add_bundle.added.contains(component_id)),
+            );
+            if archetype.has_replace_observer() {
+                deferred_world.trigger_observers(
+                    ON_REPLACE,
+                    entity,
+                    bundle_info
+                        .iter_components()
+                        .filter(|component_id| !add_bundle.added.contains(component_id)),
+                );
+            }
+        }
 
         let (new_archetype, new_location) = match &mut self.result {
             InsertBundleResult::SameArchetype => {
