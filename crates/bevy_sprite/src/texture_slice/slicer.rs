@@ -390,7 +390,7 @@ mod test {
             }
         );
         assert_eq!(
-            vertical_sides[1], /* top */
+            vertical_sides[0], /* top */
             TextureSlice {
                 texture_rect: Rect {
                     min: Vec2::new(5.0, 0.0),
