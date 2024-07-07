@@ -405,7 +405,9 @@ mod tests {
     use bevy_ptr::OwningPtr;
 
     use crate as bevy_ecs;
-    use crate::observer::{EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState};
+    use crate::observer::{
+        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+    };
     use crate::prelude::*;
 
     #[derive(Component)]
@@ -442,11 +444,12 @@ mod tests {
 
         world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.assert_order(0));
         world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
-        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.assert_order(2));
+        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<R>| res.assert_order(2));
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.assert_order(3));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(4, world.resource::<R>().0);
     }
 
     #[test]
@@ -456,13 +459,14 @@ mod tests {
 
         world.observe(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.assert_order(0));
         world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
-        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.assert_order(2));
+        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<R>| res.assert_order(2));
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.assert_order(3));
 
         let mut entity = world.spawn_empty();
         entity.insert(A);
         entity.remove::<A>();
         entity.flush();
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(4, world.resource::<R>().0);
     }
 
     #[test]
@@ -472,13 +476,34 @@ mod tests {
 
         world.observe(|_: Trigger<OnAdd, S>, mut res: ResMut<R>| res.assert_order(0));
         world.observe(|_: Trigger<OnInsert, S>, mut res: ResMut<R>| res.assert_order(1));
-        world.observe(|_: Trigger<OnRemove, S>, mut res: ResMut<R>| res.assert_order(2));
+        world.observe(|_: Trigger<OnReplace, S>, mut res: ResMut<R>| res.assert_order(2));
+        world.observe(|_: Trigger<OnRemove, S>, mut res: ResMut<R>| res.assert_order(3));
 
         let mut entity = world.spawn_empty();
         entity.insert(S);
         entity.remove::<S>();
         entity.flush();
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(4, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_order_replace() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        let entity = world.spawn(A).id();
+
+        world.observe(|_: Trigger<OnReplace, A>, mut res: ResMut<R>| res.assert_order(0));
+        world.observe(|_: Trigger<OnInsert, A>, mut res: ResMut<R>| res.assert_order(1));
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+
+        let mut entity = world.entity_mut(entity);
+        entity.insert(A);
+        entity.flush();
+        assert_eq!(2, world.resource::<R>().0);
     }
 
     #[test]
