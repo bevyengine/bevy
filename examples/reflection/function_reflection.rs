@@ -139,10 +139,10 @@ fn main() {
 
             // The `ArgList` contains the arguments in the order they were pushed.
             // Therefore, we need to pop them in reverse order.
-            let container = args.pop_mut::<Option<i32>>()?;
-            let value = args.pop_owned::<i32>()?;
+            let container = args.pop::<&mut Option<i32>>()?;
+            let value = args.pop::<i32>()?;
 
-            // Note that type inference could make this a bit cleaner:
+            // Note that we could also do the following to make use of type inference:
             // let container = args.pop_mut()?;
             // let value = args.pop_owned()?;
 
