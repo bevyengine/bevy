@@ -869,7 +869,7 @@ impl FromWorld for MeshletGpuScene {
             visibility_buffer_raster_bind_group_layout: render_device.create_bind_group_layout(
                 "meshlet_visibility_buffer_raster_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
-                    ShaderStages::VERTEX_FRAGMENT,
+                    ShaderStages::all(),
                     (
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),

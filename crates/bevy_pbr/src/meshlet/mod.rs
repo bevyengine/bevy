@@ -47,11 +47,7 @@ use self::{
     material_shade_nodes::{
         MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
-    pipelines::{
-        MeshletPipelines, MESHLET_CULLING_SHADER_HANDLE, MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-        MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE, MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
-        MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
-    },
+    pipelines::*,
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
 use crate::{graph::NodePbr, Material};
@@ -156,6 +152,12 @@ impl Plugin for MeshletPlugin {
             app,
             MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
             "downsample_depth.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
+            "visibility_buffer_software_raster.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
