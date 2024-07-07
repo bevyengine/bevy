@@ -797,7 +797,7 @@ pub fn check_dir_light_mesh_visibility(
         for (_, cascade_view_entities) in &mut visible_entities.entities {
             cascade_view_entities
                 .iter_mut()
-                .map(|v| v.deref_mut())
+                .map(DerefMut::deref_mut)
                 .for_each(shrink_entities);
         }
     }
