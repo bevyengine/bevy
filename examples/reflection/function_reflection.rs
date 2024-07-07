@@ -6,10 +6,9 @@
 //! This can be used for things like adding scripting support to your application,
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
-use bevy::reflect::func::args::ArgInfo;
 use bevy::reflect::func::{
-    ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionInfo, IntoClosure,
-    IntoClosureMut, IntoFunction, Return, ReturnInfo,
+    ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionError, FunctionInfo,
+    IntoClosure, IntoClosureMut, IntoFunction, Return,
 };
 use bevy::reflect::Reflect;
 
@@ -130,6 +129,14 @@ fn main() {
 
     let get_or_insert_function = dbg!(DynamicFunction::new(
         |mut args| {
+            // We can optionally add a check to ensure we were given the correct number of arguments.
+            if args.len() != 2 {
+                return Err(FunctionError::ArgCountMismatch {
+                    expected: 2,
+                    received: args.len(),
+                });
+            }
+
             // The `ArgList` contains the arguments in the order they were pushed.
             // Therefore, we need to pop them in reverse order.
             let container = args.pop_mut::<Option<i32>>()?;
