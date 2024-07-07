@@ -381,7 +381,7 @@ impl<'w> DeferredWorld<'w> {
                 self.reborrow(),
                 event,
                 entity,
-                components.iter().cloned(),
+                components.iter().copied(),
                 data,
                 &mut propagation,
             );

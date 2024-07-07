@@ -19,11 +19,11 @@ fn main() {
         .run();
 }
 
-// In this example, we spawn a goblin wearing different pecies of armor. Each piece of armor
+// In this example, we spawn a goblin wearing different pieces of armor. Each piece of armor
 // is represented as a child entity, with an `Armor` component.
 //
 // We're going to model how attack damage can be partally blocked by the goblin's armor using
-// event bubling. Our events will target the armor, and if the armor isn't strong enough to block
+// event bubbling. Our events will target the armor, and if the armor isn't strong enough to block
 // the attack it will continue up and hit the goblin.
 fn setup(mut commands: Commands) {
     commands
@@ -42,7 +42,7 @@ fn setup(mut commands: Commands) {
         });
 }
 
-// This event represents an attack we want to "bubble" up from the armor to the goblin .
+// This event represents an attack we want to "bubble" up from the armor to the goblin.
 #[derive(Clone, Component)]
 struct Attack {
     damage: u16,
@@ -53,7 +53,7 @@ struct Attack {
 impl Event for Attack {
     // 1. Which component we want to propagate along. In this case, we want to "bubble" (meaning propagate
     //    from child to parent) so we use the `Parent` component for propagation. The component supplied
-    //    must implement the `Traversal` type.
+    //    must implement the `Traversal` trait.
     type Traverse = Parent;
     // 2. We can also choose whether or not this event will propagate by default when triggered. If this is
     //    false, it will only propagate following a call to `Trigger::propagate(true)`.
