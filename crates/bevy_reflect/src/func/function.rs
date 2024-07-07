@@ -208,6 +208,7 @@ impl IntoFunction<()> for DynamicFunction {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::func::Return;
 
     #[test]
     fn should_overwrite_function_name() {
@@ -225,5 +226,35 @@ mod tests {
 
         let function: DynamicFunction = make_function(|| {});
         let _: DynamicFunction = make_function(function);
+    }
+
+    #[test]
+    fn should_allow_manual_function_construction() {
+        #[allow(clippy::ptr_arg)]
+        fn get(index: usize, list: &Vec<String>) -> &String {
+            &list[index]
+        }
+
+        let func = DynamicFunction::new(
+            |mut args| {
+                let list = args.pop_ref::<Vec<String>>()?;
+                let index = args.pop_owned::<usize>()?;
+                Ok(Return::Ref(get(index, list)))
+            },
+            FunctionInfo::new()
+                .with_name("get")
+                .with_arg::<usize>("index")
+                .with_arg::<&Vec<String>>("list")
+                .with_return::<&String>(),
+        );
+
+        let list = vec![String::from("foo")];
+        let value = func
+            .call(ArgList::new().push_owned(0_usize).push_ref(&list))
+            .unwrap()
+            .unwrap_ref()
+            .downcast_ref::<String>()
+            .unwrap();
+        assert_eq!(value, "foo");
     }
 }
