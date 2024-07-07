@@ -70,14 +70,29 @@ impl<'a> ArgList<'a> {
         self.0.pop().ok_or(ArgError::EmptyArgList)
     }
 
+    /// Pop the last argument, if any, from the list and downcast it to `T`.
+    ///
+    /// Returns `Ok(T)` if the argument is [`ArgValue::Owned`].
+    ///
+    /// If the list is empty or the argument is not owned, returns an error.
     pub fn pop_owned<T: Reflect + TypePath>(&mut self) -> Result<T, ArgError> {
         self.pop_arg()?.take_owned()
     }
 
+    /// Pop the last argument, if any, from the list and downcast it to `&T`.
+    ///
+    /// Returns `Ok(&T)` if the argument is [`ArgValue::Ref`].
+    ///
+    /// If the list is empty or the argument is not a reference, returns an error.
     pub fn pop_ref<T: Reflect + TypePath>(&mut self) -> Result<&'a T, ArgError> {
         self.pop_arg()?.take_ref()
     }
 
+    /// Pop the last argument, if any, from the list and downcast it to `&mut T`.
+    ///
+    /// Returns `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
+    ///
+    /// If the list is empty or the argument is not a mutable reference, returns an error.
     pub fn pop_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
         self.pop_arg()?.take_mut()
     }

@@ -15,39 +15,22 @@ pub struct Arg<'a> {
 }
 
 impl<'a> Arg<'a> {
-    pub fn new(index: usize, value: ArgValue<'a>) -> Self {
+    /// Create a new [`Arg`] with the given index and value.
+    pub(crate) fn new(index: usize, value: ArgValue<'a>) -> Self {
         Self { index, value }
     }
 
-    pub fn new_owned(index: usize, arg: impl Reflect) -> Self {
-        Self {
-            index,
-            value: ArgValue::Owned(Box::new(arg)),
-        }
-    }
-
-    pub fn new_ref(index: usize, arg: &'a dyn Reflect) -> Self {
-        Self {
-            index,
-            value: ArgValue::Ref(arg),
-        }
-    }
-
-    pub fn new_mut(index: usize, arg: &'a mut dyn Reflect) -> Self {
-        Self {
-            index,
-            value: ArgValue::Mut(arg),
-        }
-    }
-
+    /// The index of the argument.
     pub fn index(&self) -> usize {
         self.index
     }
 
+    /// The value of the argument.
     pub fn value(&self) -> &ArgValue<'a> {
         &self.value
     }
 
+    /// Take the value of the argument.
     pub fn take(self) -> ArgValue<'a> {
         self.value
     }
