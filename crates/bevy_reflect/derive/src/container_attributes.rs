@@ -90,7 +90,7 @@ impl FromReflectAttrs {
     pub fn should_auto_derive(&self) -> bool {
         self.auto_derive
             .as_ref()
-            .map(|lit| lit.value())
+            .map(LitBool::value)
             .unwrap_or(true)
     }
 }
@@ -113,7 +113,7 @@ impl TypePathAttrs {
     pub fn should_auto_derive(&self) -> bool {
         self.auto_derive
             .as_ref()
-            .map(|lit| lit.value())
+            .map(LitBool::value)
             .unwrap_or(true)
     }
 }
