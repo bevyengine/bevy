@@ -2,9 +2,7 @@ use std::{marker::PhantomData, mem};
 
 use bevy_ecs::{
     event::{Event, EventReader, EventWriter},
-    schedule::{
-        InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel, Schedules, SystemSet,
-    },
+    schedule::{IntoSystemSetConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
     system::{Commands, In, ResMut},
     world::World,
 };
@@ -181,10 +179,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
 ///
 /// Runs automatically when using `App` to insert states, but needs to
 /// be added manually in other situations.
-pub fn setup_state_transitions_in_world(
-    world: &mut World,
-    startup_label: Option<InternedScheduleLabel>,
-) {
+pub fn setup_state_transitions_in_world(world: &mut World) {
     let mut schedules = world.get_resource_or_insert_with(Schedules::default);
     if schedules.contains(StateTransition) {
         return;
@@ -200,12 +195,6 @@ pub fn setup_state_transitions_in_world(
             .chain(),
     );
     schedules.insert(schedule);
-
-    if let Some(startup) = startup_label {
-        schedules.add_systems(startup, |world: &mut World| {
-            let _ = world.try_run_schedule(StateTransition);
-        });
-    }
 }
 
 /// Returns the latest state transition event of type `S`, if any are available.
