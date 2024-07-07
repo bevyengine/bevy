@@ -1,11 +1,11 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_render::camera::{ClearColor, ClearColorConfig};
 use bevy_render::{
     camera::{CameraOutputMode, ExtractedCamera},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
-        BindGroup, BindGroupEntries, LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
-        RenderPassDescriptor, StoreOp, TextureViewId,
+        BindGroup, BindGroupEntries, PipelineCache, RenderPassDescriptor, TextureViewId,
     },
     renderer::RenderContext,
     view::ViewTarget,
@@ -33,19 +33,22 @@ impl ViewNode for UpscalingNode {
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
         let blit_pipeline = world.get_resource::<BlitPipeline>().unwrap();
+        let clear_color_global = world.get_resource::<ClearColor>().unwrap();
 
-        let color_attachment_load_op = if let Some(camera) = camera {
+        let clear_color = if let Some(camera) = camera {
             match camera.output_mode {
-                CameraOutputMode::Write {
-                    color_attachment_load_op,
-                    ..
-                } => color_attachment_load_op,
+                CameraOutputMode::Write { clear_color, .. } => clear_color,
                 CameraOutputMode::Skip => return Ok(()),
             }
         } else {
-            LoadOp::Clear(Default::default())
+            ClearColorConfig::Default
         };
-
+        let clear_color = match clear_color {
+            ClearColorConfig::Default => Some(clear_color_global.0),
+            ClearColorConfig::Custom(color) => Some(color),
+            ClearColorConfig::None => None,
+        };
+        let converted_clear_color = clear_color.map(Into::into);
         let upscaled_texture = target.main_texture_view();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
@@ -69,14 +72,9 @@ impl ViewNode for UpscalingNode {
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("upscaling_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: target.out_texture(),
-                resolve_target: None,
-                ops: Operations {
-                    load: color_attachment_load_op,
-                    store: StoreOp::Store,
-                },
-            })],
+            color_attachments: &[Some(
+                target.out_texture_color_attachment(converted_clear_color),
+            )],
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,

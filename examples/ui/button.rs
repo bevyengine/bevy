@@ -19,27 +19,32 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage, &mut BorderColor, &Children),
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut image, mut border_color, children) in &mut interaction_query {
+    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 text.sections[0].value = "Press".to_string();
-                image.color = PRESSED_BUTTON;
+                *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
             }
             Interaction::Hovered => {
                 text.sections[0].value = "Hover".to_string();
-                image.color = HOVERED_BUTTON;
+                *color = HOVERED_BUTTON.into();
                 border_color.0 = Color::WHITE;
             }
             Interaction::None => {
                 text.sections[0].value = "Button".to_string();
-                image.color = NORMAL_BUTTON;
+                *color = NORMAL_BUTTON.into();
                 border_color.0 = Color::BLACK;
             }
         }
@@ -75,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     border_color: BorderColor(Color::BLACK),
                     border_radius: BorderRadius::MAX,
-                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                    background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })
                 .with_children(|parent| {

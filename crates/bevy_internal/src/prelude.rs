@@ -66,3 +66,7 @@ pub use crate::gilrs::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_state")]
 pub use crate::state::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_gltf")]
+pub use crate::gltf::prelude::*;

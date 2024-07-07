@@ -16,10 +16,10 @@ mod button_input;
 /// Common run conditions
 pub mod common_conditions;
 pub mod gamepad;
+pub mod gestures;
 pub mod keyboard;
 pub mod mouse;
 pub mod touch;
-pub mod touchpad;
 
 pub use axis::*;
 pub use button_input::*;
@@ -41,10 +41,14 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
-use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
+use gestures::*;
+use keyboard::{keyboard_input_system, KeyCode, KeyboardFocusLost, KeyboardInput};
+use mouse::{
+    accumulate_mouse_motion_system, accumulate_mouse_scroll_system, mouse_button_input_system,
+    AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion,
+    MouseWheel,
+};
 use touch::{touch_screen_input_system, TouchInput, Touches};
-use touchpad::{TouchpadMagnify, TouchpadRotate};
 
 use gamepad::{
     gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
@@ -69,6 +73,7 @@ impl Plugin for InputPlugin {
         app
             // keyboard
             .add_event::<KeyboardInput>()
+            .add_event::<KeyboardFocusLost>()
             .init_resource::<ButtonInput<KeyCode>>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystem))
             // mouse
@@ -76,9 +81,19 @@ impl Plugin for InputPlugin {
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<ButtonInput<MouseButton>>()
-            .add_systems(PreUpdate, mouse_button_input_system.in_set(InputSystem))
-            .add_event::<TouchpadMagnify>()
-            .add_event::<TouchpadRotate>()
+            .add_systems(
+                PreUpdate,
+                (
+                    mouse_button_input_system,
+                    accumulate_mouse_motion_system,
+                    accumulate_mouse_scroll_system,
+                )
+                    .in_set(InputSystem),
+            )
+            .add_event::<PinchGesture>()
+            .add_event::<RotationGesture>()
+            .add_event::<DoubleTapGesture>()
+            .add_event::<PanGesture>()
             // gamepad
             .add_event::<GamepadConnectionEvent>()
             .add_event::<GamepadButtonChangedEvent>()
@@ -91,6 +106,8 @@ impl Plugin for InputPlugin {
             .init_resource::<ButtonInput<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
+            .init_resource::<AccumulatedMouseMotion>()
+            .init_resource::<AccumulatedMouseScroll>()
             .add_systems(
                 PreUpdate,
                 (
@@ -114,12 +131,16 @@ impl Plugin for InputPlugin {
         app.register_type::<ButtonState>()
             .register_type::<KeyboardInput>()
             .register_type::<MouseButtonInput>()
-            .register_type::<TouchpadMagnify>()
-            .register_type::<TouchpadRotate>()
+            .register_type::<PinchGesture>()
+            .register_type::<RotationGesture>()
+            .register_type::<DoubleTapGesture>()
+            .register_type::<PanGesture>()
             .register_type::<TouchInput>()
             .register_type::<GamepadEvent>()
             .register_type::<GamepadButtonInput>()
-            .register_type::<GamepadSettings>();
+            .register_type::<GamepadSettings>()
+            .register_type::<AccumulatedMouseMotion>()
+            .register_type::<AccumulatedMouseScroll>();
     }
 }
 

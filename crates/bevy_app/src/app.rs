@@ -8,10 +8,8 @@ use bevy_ecs::{
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::SystemId,
+    system::{IntoObserverSystem, SystemId},
 };
-#[cfg(feature = "bevy_state")]
-use bevy_state::{prelude::*, state::FreelyMutableState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};
@@ -244,7 +242,7 @@ impl App {
         let main = self.main_mut();
         main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Finished;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.finish());
+        self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
@@ -258,65 +256,12 @@ impl App {
         let main = self.main_mut();
         main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Cleaned;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.cleanup());
+        self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
     }
 
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
-        self.sub_apps.iter().any(|s| s.is_building_plugins())
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Initializes a [`State`] with standard starting values.
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        self.main_mut().init_state::<S>();
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
-    /// added of the same type.
-    ///
-    /// Adds [`State<S>`] and [`NextState<S>`] resources, and enables use of the [`OnEnter`], [`OnTransition`] and [`OnExit`] schedules.
-    /// These schedules are triggered before [`Update`](crate::Update) and at startup.
-    ///
-    /// If you would like to control how other systems run based on the current state, you can
-    /// emulate this behavior using the [`in_state`] [`Condition`].
-    ///
-    /// Note that you can also apply state transitions at other points in the schedule
-    /// by triggering the [`StateTransition`](`bevy_ecs::schedule::StateTransition`) schedule manually.
-    pub fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        self.main_mut().insert_state::<S>(state);
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Sets up a type implementing [`ComputedStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    pub fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        self.main_mut().add_computed_state::<S>();
-        self
-    }
-
-    #[cfg(feature = "bevy_state")]
-    /// Sets up a type implementing [`SubStates`].
-    ///
-    /// This method is idempotent: it has no effect when called again using the same generic type.
-    pub fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        self.main_mut().add_sub_state::<S>();
-        self
+        self.sub_apps.iter().any(SubApp::is_building_plugins)
     }
 
     /// Adds one or more systems to the given schedule in this app's [`Schedules`].
@@ -479,9 +424,12 @@ impl App {
         self
     }
 
-    /// Inserts the [`!Send`](Send) resource into the app, initialized with its default value,
-    /// if there is no existing instance of `R`.
-    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
+    /// Inserts the [`!Send`](Send) resource into the app if there is no existing instance of `R`.
+    ///
+    /// `R` must implement [`FromWorld`].
+    /// If `R` implements [`Default`], [`FromWorld`] will be automatically implemented and
+    /// initialize the [`Resource`] with [`Default::default`].
+    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
         self.world_mut().init_non_send_resource::<R>();
         self
     }
@@ -491,12 +439,7 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique()
-            && !self
-                .main_mut()
-                .plugin_names
-                .insert(plugin.name().to_string())
-        {
+        if plugin.is_unique() && self.main_mut().plugin_names.contains(plugin.name()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -511,6 +454,9 @@ impl App {
 
         self.main_mut().plugin_build_depth += 1;
         let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
+        self.main_mut()
+            .plugin_names
+            .insert(plugin.name().to_string());
         self.main_mut().plugin_build_depth -= 1;
 
         if let Err(payload) = result {
@@ -717,6 +663,11 @@ impl App {
         self.sub_apps.sub_apps.remove(&label.intern())
     }
 
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_sub_app_by_label(&mut self, label: impl AppLabel) {
+        self.sub_apps.update_subapp_by_label(label);
+    }
+
     /// Inserts a new `schedule` under the provided `label`, overwriting any existing
     /// schedule with the same label.
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
@@ -883,6 +834,15 @@ impl App {
 
         None
     }
+
+    /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
+    pub fn observe<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+    ) -> &mut Self {
+        self.world_mut().observe(observer);
+        self
+    }
 }
 
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
@@ -897,17 +857,7 @@ fn run_once(mut app: App) -> AppExit {
 
     app.update();
 
-    let mut exit_code_reader = ManualEventReader::default();
-    if let Some(app_exit_events) = app.world().get_resource::<Events<AppExit>>() {
-        if exit_code_reader
-            .read(app_exit_events)
-            .any(AppExit::is_error)
-        {
-            return AppExit::error();
-        }
-    }
-
-    AppExit::Success
+    app.should_exit().unwrap_or(AppExit::Success)
 }
 
 /// An event that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
@@ -981,11 +931,21 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{marker::PhantomData, mem};
+    use std::{iter, marker::PhantomData, mem, sync::Mutex};
 
-    use bevy_ecs::{schedule::ScheduleLabel, system::Commands};
+    use bevy_ecs::{
+        change_detection::{DetectChanges, ResMut},
+        component::Component,
+        entity::Entity,
+        event::{Event, EventWriter, Events},
+        query::With,
+        removal_detection::RemovedComponents,
+        schedule::{IntoSystemConfigs, ScheduleLabel},
+        system::{Commands, Query, Resource},
+        world::{FromWorld, World},
+    };
 
-    use crate::{App, AppExit, Plugin};
+    use crate::{App, AppExit, Plugin, SubApp, Update};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -1188,6 +1148,77 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_update_clears_trackers_once() {
+        #[derive(Component, Copy, Clone)]
+        struct Foo;
+
+        let mut app = App::new();
+        app.world_mut().spawn_batch(iter::repeat(Foo).take(5));
+
+        fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
+            if let Some(e) = foos.iter().next() {
+                commands.entity(e).despawn();
+            };
+        }
+        fn check_despawns(mut removed_foos: RemovedComponents<Foo>) {
+            let mut despawn_count = 0;
+            for _ in removed_foos.read() {
+                despawn_count += 1;
+            }
+
+            assert_eq!(despawn_count, 2);
+        }
+
+        app.add_systems(Update, despawn_one_foo);
+        app.update(); // Frame 0
+        app.update(); // Frame 1
+        app.add_systems(Update, check_despawns.after(despawn_one_foo));
+        app.update(); // Should see despawns from frames 1 & 2, but not frame 0
+    }
+
+    #[test]
+    fn test_extract_sees_changes() {
+        use super::AppLabel;
+        use crate::{self as bevy_app};
+
+        #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+        struct MySubApp;
+
+        #[derive(Resource)]
+        struct Foo(usize);
+
+        let mut app = App::new();
+        app.world_mut().insert_resource(Foo(0));
+        app.add_systems(Update, |mut foo: ResMut<Foo>| {
+            foo.0 += 1;
+        });
+
+        let mut sub_app = SubApp::new();
+        sub_app.set_extract(|main_world, _sub_world| {
+            assert!(main_world.get_resource_ref::<Foo>().unwrap().is_changed());
+        });
+
+        app.insert_sub_app(MySubApp, sub_app);
+
+        app.update();
+    }
+
+    #[test]
+    fn runner_returns_correct_exit_code() {
+        fn raise_exits(mut exits: EventWriter<AppExit>) {
+            // Exit codes chosen by a fair dice roll.
+            // Unlikely to overlap with default values.
+            exits.send(AppExit::Success);
+            exits.send(AppExit::from_code(4));
+            exits.send(AppExit::from_code(73));
+        }
+
+        let exit = App::new().add_systems(Update, raise_exits).run();
+
+        assert_eq!(exit, AppExit::from_code(4));
+    }
+
     /// Custom runners should be in charge of when `app::update` gets called as they may need to
     /// coordinate some state.
     /// bug: <https://github.com/bevyengine/bevy/issues/10385>
@@ -1227,5 +1258,84 @@ mod tests {
         // There wont be many of them so the size isn't a issue but
         // it's nice they're so small let's keep it that way.
         assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
+    }
+
+    #[test]
+    fn initializing_resources_from_world() {
+        #[derive(Resource)]
+        struct TestResource;
+        impl FromWorld for TestResource {
+            fn from_world(_world: &mut World) -> Self {
+                TestResource
+            }
+        }
+
+        #[derive(Resource)]
+        struct NonSendTestResource {
+            _marker: PhantomData<Mutex<()>>,
+        }
+        impl FromWorld for NonSendTestResource {
+            fn from_world(_world: &mut World) -> Self {
+                NonSendTestResource {
+                    _marker: PhantomData,
+                }
+            }
+        }
+
+        App::new()
+            .init_non_send_resource::<NonSendTestResource>()
+            .init_resource::<TestResource>();
+    }
+
+    #[test]
+    /// Plugin should not be considered inserted while it's being built
+    ///
+    /// bug: <https://github.com/bevyengine/bevy/issues/13815>
+    fn plugin_should_not_be_added_during_build_time() {
+        pub struct Foo;
+
+        impl Plugin for Foo {
+            fn build(&self, app: &mut App) {
+                assert!(!app.is_plugin_added::<Self>());
+            }
+        }
+
+        App::new().add_plugins(Foo);
+    }
+    #[test]
+    fn events_should_be_updated_once_per_update() {
+        #[derive(Event, Clone)]
+        struct TestEvent;
+
+        let mut app = App::new();
+        app.add_event::<TestEvent>();
+
+        // Starts empty
+        let test_events = app.world().resource::<Events<TestEvent>>();
+        assert_eq!(test_events.len(), 0);
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        app.update();
+
+        // Sending one event
+        app.world_mut().send_event(TestEvent);
+
+        let test_events = app.world().resource::<Events<TestEvent>>();
+        assert_eq!(test_events.len(), 1);
+        assert_eq!(test_events.iter_current_update_events().count(), 1);
+        app.update();
+
+        // Sending two events on the next frame
+        app.world_mut().send_event(TestEvent);
+        app.world_mut().send_event(TestEvent);
+
+        let test_events = app.world().resource::<Events<TestEvent>>();
+        assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
+        assert_eq!(test_events.iter_current_update_events().count(), 2);
+        app.update();
+
+        // Sending zero events
+        let test_events = app.world().resource::<Events<TestEvent>>();
+        assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
     }
 }
