@@ -53,7 +53,7 @@ fn setup(world: &mut World) {
     // This is to prevent overriding hooks defined in plugins and other crates as well as keeping things fast
     world
         .register_component_hooks::<MyComponent>()
-        // There are 3 component lifecycle hooks: `on_add`, `on_insert` and `on_remove`
+        // There are 4 component lifecycle hooks: `on_add`, `on_insert`, `on_replace` and `on_remove`
         // A hook has 3 arguments:
         // - a `DeferredWorld`, this allows access to resource and component data as well as `Commands`
         // - the entity that triggered the hook
@@ -79,6 +79,13 @@ fn setup(world: &mut World) {
         .on_insert(|world, _, _| {
             println!("Current Index: {:?}", world.resource::<MyComponentIndex>());
         })
+        // `on_replace` will trigger when a component is inserted onto an entity that already had it,
+        // and runs before the value is replaced.
+        // Also triggers when a component is removed from an entity, and runs before `on_remove`
+        .on_replace(|mut world, entity, _| {
+            let value = world.get::<MyComponent>(entity).unwrap().0;
+            world.resource_mut::<MyComponentIndex>().remove(&value);
+        })
         // `on_remove` will trigger when a component is removed from an entity,
         // since it runs before the component is removed you can still access the component data
         .on_remove(|mut world, entity, component_id| {
@@ -87,7 +94,6 @@ fn setup(world: &mut World) {
                 "Component: {:?} removed from: {:?} with value {:?}",
                 component_id, entity, value
             );
-            world.resource_mut::<MyComponentIndex>().remove(&value);
             // You can also issue commands through `.commands()`
             world.commands().entity(entity).despawn();
         });
