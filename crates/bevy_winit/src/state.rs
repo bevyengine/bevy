@@ -421,8 +421,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
-        // If no windows exist, this will evaluate to `true`.
-        let all_invisible = windows.iter().all(|w| !w.1.visible);
 
         let mut update_mode = config.update_mode(focused);
         let mut should_update = self.should_update(update_mode);
@@ -506,9 +504,15 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         let begin_frame_time = Instant::now();
 
         if should_update {
+            let (_, windows) = focused_windows_state.get(self.world());
+            // If no windows exist, this will evaluate to `true`.
+            let all_invisible = windows.iter().all(|w| !w.1.visible);
+
             // Not redrawing, but the timeout elapsed.
-            // NOTE: Additional condition for WindowsOS.
+            //
+            // Additional condition for Windows OS.
             // If no windows are visible, redraw calls will never succeed, which results in no app update calls being performed.
+            // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
             if !self.ran_update_since_last_redraw || all_invisible {
                 self.run_app_update();
                 self.ran_update_since_last_redraw = true;
