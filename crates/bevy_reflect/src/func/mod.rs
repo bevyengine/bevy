@@ -138,7 +138,7 @@ mod tests {
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
-            FunctionError::InvalidArgCount {
+            FunctionError::ArgCountMismatch {
                 expected: 1,
                 received: 0
             }
@@ -154,7 +154,7 @@ mod tests {
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
-            FunctionError::InvalidArgCount {
+            FunctionError::ArgCountMismatch {
                 expected: 0,
                 received: 1
             }

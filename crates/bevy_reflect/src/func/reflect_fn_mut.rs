@@ -93,7 +93,7 @@ macro_rules! impl_reflect_fn_mut {
                 const COUNT: usize = count_tokens!($($Arg)*);
 
                 if args.len() != COUNT {
-                    return Err(FunctionError::InvalidArgCount {
+                    return Err(FunctionError::ArgCountMismatch {
                         expected: COUNT,
                         received: args.len(),
                     });
@@ -125,7 +125,7 @@ macro_rules! impl_reflect_fn_mut {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
-                    return Err(FunctionError::InvalidArgCount {
+                    return Err(FunctionError::ArgCountMismatch {
                         expected: COUNT,
                         received: args.len(),
                     });
@@ -160,7 +160,7 @@ macro_rules! impl_reflect_fn_mut {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
-                    return Err(FunctionError::InvalidArgCount {
+                    return Err(FunctionError::ArgCountMismatch {
                         expected: COUNT,
                         received: args.len(),
                     });
@@ -195,7 +195,7 @@ macro_rules! impl_reflect_fn_mut {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
-                    return Err(FunctionError::InvalidArgCount {
+                    return Err(FunctionError::ArgCountMismatch {
                         expected: COUNT,
                         received: args.len(),
                     });
