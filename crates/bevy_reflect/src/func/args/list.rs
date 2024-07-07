@@ -66,20 +66,20 @@ impl<'a> ArgList<'a> {
     }
 
     /// Pop the last argument, if any, from the list.
-    pub fn pop_arg(&mut self) -> Option<Arg<'a>> {
-        self.0.pop()
+    pub fn pop_arg(&mut self) -> Result<Arg<'a>, ArgError> {
+        self.0.pop().ok_or(ArgError::EmptyArgList)
     }
 
-    pub fn pop_owned<T: Reflect + TypePath>(&mut self) -> Option<Result<T, ArgError>> {
-        self.pop_arg().map(Arg::take_owned)
+    pub fn pop_owned<T: Reflect + TypePath>(&mut self) -> Result<T, ArgError> {
+        self.pop_arg()?.take_owned()
     }
 
-    pub fn pop_ref<T: Reflect + TypePath>(&mut self) -> Option<Result<&'a T, ArgError>> {
-        self.pop_arg().map(Arg::take_ref)
+    pub fn pop_ref<T: Reflect + TypePath>(&mut self) -> Result<&'a T, ArgError> {
+        self.pop_arg()?.take_ref()
     }
 
-    pub fn pop_mut<T: Reflect + TypePath>(&mut self) -> Option<Result<&'a mut T, ArgError>> {
-        self.pop_arg().map(Arg::take_mut)
+    pub fn pop_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
+        self.pop_arg()?.take_mut()
     }
 
     /// Returns the number of arguments in the list.

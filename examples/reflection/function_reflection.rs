@@ -132,8 +132,12 @@ fn main() {
         |mut args, _info| {
             // The `ArgList` contains the arguments in the order they were pushed.
             // Therefore, we need to pop them in reverse order.
-            let container = args.pop_mut::<Option<i32>>().unwrap()?;
-            let value = args.pop_owned::<i32>().unwrap()?;
+            let container = args.pop_mut::<Option<i32>>()?;
+            let value = args.pop_owned::<i32>()?;
+
+            // Note that type inference could make this a bit cleaner:
+            // let container = args.pop_mut()?;
+            // let value = args.pop_owned()?;
 
             Ok(Return::Ref(get_or_insert(value, container)))
         },

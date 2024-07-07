@@ -23,4 +23,9 @@ pub enum ArgError {
         expected: Ownership,
         received: Ownership,
     },
+    /// Occurs when attempting to access an argument from an empty [`ArgList`].
+    ///
+    /// [`ArgList`]: crate::func::args::ArgList
+    #[error("expected an argument but received none")]
+    EmptyArgList,
 }
