@@ -37,8 +37,6 @@ fn main() {
             (
                 setup,
                 #[cfg(target_arch = "wasm32")]
-                wasm::expose_event_loop_proxy,
-                #[cfg(target_arch = "wasm32")]
                 wasm::setup_js_closure,
             ),
         )
@@ -83,27 +81,19 @@ fn handle_event(mut events: EventReader<CustomEvent>) {
 pub(crate) mod wasm {
     use super::*;
     use bevy::winit::EventLoopProxy;
-    use std::sync::OnceLock;
     use wasm_bindgen::prelude::*;
     use wasm_bindgen::JsCast;
     use web_sys::KeyboardEvent;
 
-    static EVENT_LOOP_PROXY: OnceLock<EventLoopProxy<CustomEvent>> = OnceLock::new();
-
-    pub(crate) fn expose_event_loop_proxy(
-        event_loop_proxy: NonSend<EventLoopProxyWrapper<CustomEvent>>,
-    ) {
-        EVENT_LOOP_PROXY.set((*event_loop_proxy).clone()).unwrap();
-    }
-
-    pub(crate) fn setup_js_closure() {
+    pub(crate) fn setup_js_closure(event_loop: Res<EventLoopProxyWrapper<CustomEvent>>) {
         let window = web_sys::window().unwrap();
         let document = window.document().unwrap();
 
+        let event_loop = event_loop.clone();
         let closure = Closure::wrap(Box::new(move |event: KeyboardEvent| {
             let key = event.key();
             if key == "e" {
-                send_custom_event('e').unwrap();
+                send_custom_event('e', &event_loop).unwrap();
             }
         }) as Box<dyn FnMut(KeyboardEvent)>);
 
@@ -114,13 +104,9 @@ pub(crate) mod wasm {
         closure.forget();
     }
 
-    fn send_custom_event(ch: char) -> Result<(), String> {
-        if let Some(proxy) = EVENT_LOOP_PROXY.get() {
-            proxy
-                .send_event(CustomEvent::Key(ch))
-                .map_err(|_| "Failed to send event".to_string())
-        } else {
-            Err("Event loop proxy not found".to_string())
-        }
+    fn send_custom_event(ch: char, proxy: &EventLoopProxy<CustomEvent>) -> Result<(), String> {
+        proxy
+            .send_event(CustomEvent::Key(ch))
+            .map_err(|_| "Failed to send event".to_string())
     }
 }
