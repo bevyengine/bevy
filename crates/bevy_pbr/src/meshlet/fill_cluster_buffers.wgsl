@@ -17,7 +17,7 @@ fn fill_cluster_buffers(
 ) {
     // Calculate the cluster ID for this thread
     let cluster_id = local_invocation_id.x + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
-    if cluster_id >= cluster_count { return; }
+    if cluster_id >= cluster_count { return; } // TODO: Could be an arrayLength?
 
     // Binary search to find the instance this cluster belongs to
     var left = 0u;
