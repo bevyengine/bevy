@@ -118,6 +118,9 @@ pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_endian = "big")]
+        compile_error!("MeshletPlugin is only supported on little-endian processors.");
+
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
