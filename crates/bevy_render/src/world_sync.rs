@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::DespawnRecursiveExt;
 
-#[derive(Component, Deref, Default, Clone)]
+#[derive(Component, Deref, Default, Clone, Debug)]
 #[component(storage = "SparseSet")]
 pub struct RenderWorldSyncEntity(Option<Entity>);
 

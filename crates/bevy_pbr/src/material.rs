@@ -572,7 +572,6 @@ pub fn queue_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    println!("queue view :{}",views.iter().count());
     for (
         view_entity,
         view,
@@ -677,6 +676,10 @@ pub fn queue_material_meshes<M: Material>(
         }
 
         let rangefinder = view.rangefinder3d();
+        println!(
+            "visible_entities:{}",
+            visible_entities.iter::<WithMesh>().count()
+        );
         for visible_entity in visible_entities.iter::<WithMesh>() {
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;

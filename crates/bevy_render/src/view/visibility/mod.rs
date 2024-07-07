@@ -412,7 +412,6 @@ pub fn check_visibility<QF>(
             Option<&RenderLayers>,
             Option<&Aabb>,
             &GlobalTransform,
-            &RenderWorldSyncEntity,
             Has<NoFrustumCulling>,
             Has<VisibilityRange>,
         ),
@@ -443,7 +442,6 @@ pub fn check_visibility<QF>(
                     maybe_entity_mask,
                     maybe_model_aabb,
                     transform,
-                    render_entity,
                     no_frustum_culling,
                     has_visibility_range,
                 ) = query_item;
@@ -468,29 +466,27 @@ pub fn check_visibility<QF>(
                     return;
                 }
 
-                if let Some(entity) = render_entity.deref() {
-                    // If we have an aabb, do frustum culling
-                    if !no_frustum_culling && !no_cpu_culling {
-                        if let Some(model_aabb) = maybe_model_aabb {
-                            let world_from_local = transform.affine();
-                            let model_sphere = Sphere {
-                                center: world_from_local.transform_point3a(model_aabb.center),
-                                radius: transform.radius_vec3a(model_aabb.half_extents),
-                            };
-                            // Do quick sphere-based frustum culling
-                            if !frustum.intersects_sphere(&model_sphere, false) {
-                                return;
-                            }
-                            // Do aabb-based frustum culling
-                            if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
-                                return;
-                            }
+                // If we have an aabb, do frustum culling
+                if !no_frustum_culling && !no_cpu_culling {
+                    if let Some(model_aabb) = maybe_model_aabb {
+                        let world_from_local = transform.affine();
+                        let model_sphere = Sphere {
+                            center: world_from_local.transform_point3a(model_aabb.center),
+                            radius: transform.radius_vec3a(model_aabb.half_extents),
+                        };
+                        // Do quick sphere-based frustum culling
+                        if !frustum.intersects_sphere(&model_sphere, false) {
+                            return;
+                        }
+                        // Do aabb-based frustum culling
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                            return;
                         }
                     }
-
-                    view_visibility.set();
-                    queue.push(*entity);
                 }
+
+                view_visibility.set();
+                queue.push(entity);
             },
         );
 

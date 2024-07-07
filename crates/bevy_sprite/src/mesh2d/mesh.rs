@@ -209,8 +209,6 @@ pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 pub struct Mesh2d;
 
 pub fn extract_mesh2d(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     query: Extract<
         Query<(
@@ -223,7 +221,6 @@ pub fn extract_mesh2d(
     >,
 ) {
     render_mesh_instances.clear();
-    // let mut entities = Vec::with_capacity(*previous_len);
 
     for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
         if !view_visibility.get() {
@@ -231,7 +228,6 @@ pub fn extract_mesh2d(
         }
         // FIXME: Remove this - it is just a workaround to enable rendering to work as
         // render commands require an entity to exist at the moment.
-        // entities.push((entity, Mesh2d));
         render_mesh_instances.insert(
             entity,
             RenderMesh2dInstance {
@@ -245,8 +241,6 @@ pub fn extract_mesh2d(
             },
         );
     }
-    // *previous_len = entities.len();
-    // commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]

@@ -9,6 +9,7 @@ use crate::{
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
+        WithMesh,
     },
     world_sync::RenderWorldSyncEntity,
     Extract,
@@ -847,13 +848,6 @@ pub fn extract_cameras(
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-    mut render_query: Query<(
-        Entity,
-        &mut ExtractedCamera,
-        &mut ExtractedView,
-        &mut VisibleEntities,
-        &mut Frustum,
-    )>,
 ) {
     let primary_window = primary_window.iter().next();
     for (
@@ -862,7 +856,7 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         frustum,
-        rw_entity,
+        render_entity,
         color_grading,
         exposure,
         temporal_jitter,
@@ -892,43 +886,44 @@ pub fn extract_cameras(
                 continue;
             }
 
-            if let Ok((e, mut extract_camera, mut extracted_view, mut entities, mut fru)) =
-                render_query.get_mut(rw_entity.unwrap())
-            {
-                *extract_camera = ExtractedCamera {
-                    target: camera.target.normalize(primary_window),
-                    viewport: camera.viewport.clone(),
-                    physical_viewport_size: Some(viewport_size),
-                    physical_target_size: Some(target_size),
-                    render_graph: camera_render_graph.0,
-                    order: camera.order,
-                    output_mode: camera.output_mode,
-                    msaa_writeback: camera.msaa_writeback,
-                    clear_color: camera.clear_color,
-                    // this will be set in sort_cameras
-                    sorted_camera_index_for_target: 0,
-                    exposure: exposure
-                        .map(Exposure::exposure)
-                        .unwrap_or_else(|| Exposure::default().exposure()),
-                    hdr: camera.hdr,
-                };
-                *extracted_view = ExtractedView {
-                    clip_from_view: camera.clip_from_view(),
-                    world_from_view: *transform,
-                    clip_from_world: None,
-                    hdr: camera.hdr,
-                    viewport: UVec4::new(
-                        viewport_origin.x,
-                        viewport_origin.y,
-                        viewport_size.x,
-                        viewport_size.y,
-                    ),
-                    color_grading,
-                };
-                *entities = visible_entities.clone();
-                *fru = *frustum;
+            if let Some(entity) = render_entity.entity() {
+                let mut commands = commands.entity(entity);
+                println!("camera:{}", visible_entities.get::<WithMesh>().len());
+                commands.insert((
+                    ExtractedCamera {
+                        target: camera.target.normalize(primary_window),
+                        viewport: camera.viewport.clone(),
+                        physical_viewport_size: Some(viewport_size),
+                        physical_target_size: Some(target_size),
+                        render_graph: camera_render_graph.0,
+                        order: camera.order,
+                        output_mode: camera.output_mode,
+                        msaa_writeback: camera.msaa_writeback,
+                        clear_color: camera.clear_color,
+                        // this will be set in sort_cameras
+                        sorted_camera_index_for_target: 0,
+                        exposure: exposure
+                            .map(Exposure::exposure)
+                            .unwrap_or_else(|| Exposure::default().exposure()),
+                        hdr: camera.hdr,
+                    },
+                    ExtractedView {
+                        clip_from_view: camera.clip_from_view(),
+                        world_from_view: *transform,
+                        clip_from_world: None,
+                        hdr: camera.hdr,
+                        viewport: UVec4::new(
+                            viewport_origin.x,
+                            viewport_origin.y,
+                            viewport_size.x,
+                            viewport_size.y,
+                        ),
+                        color_grading,
+                    },
+                    visible_entities.clone(),
+                    *frustum,
+                ));
 
-                let mut commands = commands.entity(e);
                 if let Some(temporal_jitter) = temporal_jitter {
                     commands.insert(temporal_jitter.clone());
                 }
@@ -949,7 +944,7 @@ pub fn extract_cameras(
                         );
                     }
                 }
-            }
+            };
         }
     }
 }

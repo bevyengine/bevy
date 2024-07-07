@@ -5,6 +5,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_render::world_sync::RenderWorldSyncEntity;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::GpuMesh,
@@ -176,6 +177,7 @@ pub fn extract_lights(
     global_point_lights: Extract<Res<GlobalVisibleClusterableObjects>>,
     point_lights: Extract<
         Query<(
+            &RenderWorldSyncEntity,
             &PointLight,
             &CubemapVisibleEntities,
             &GlobalTransform,
@@ -185,6 +187,7 @@ pub fn extract_lights(
     >,
     spot_lights: Extract<
         Query<(
+            &RenderWorldSyncEntity,
             &SpotLight,
             &VisibleEntities,
             &GlobalTransform,
@@ -195,7 +198,7 @@ pub fn extract_lights(
     directional_lights: Extract<
         Query<
             (
-                Entity,
+                &RenderWorldSyncEntity,
                 &DirectionalLight,
                 &CascadesVisibleEntities,
                 &Cascades,
@@ -231,8 +234,14 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        let Ok((point_light, cubemap_visible_entities, transform, view_visibility, frusta)) =
-            point_lights.get(entity)
+        let Ok((
+            render_entity,
+            point_light,
+            cubemap_visible_entities,
+            transform,
+            view_visibility,
+            frusta,
+        )) = point_lights.get(entity)
         else {
             continue;
         };
@@ -259,22 +268,30 @@ pub fn extract_lights(
                 * std::f32::consts::SQRT_2,
             spot_light_angles: None,
         };
-        point_lights_values.push((
-            entity,
-            (
-                extracted_point_light,
-                render_cubemap_visible_entities,
-                (*frusta).clone(),
-            ),
-        ));
+        if let Some(entity) = render_entity.entity() {
+            point_lights_values.push((
+                entity,
+                (
+                    extracted_point_light,
+                    render_cubemap_visible_entities,
+                    (*frusta).clone(),
+                ),
+            ));
+        }
     }
     *previous_point_lights_len = point_lights_values.len();
     commands.insert_or_spawn_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform, view_visibility, frustum)) =
-            spot_lights.get(entity)
+        if let Ok((
+            render_entity,
+            spot_light,
+            visible_entities,
+            transform,
+            view_visibility,
+            frustum,
+        )) = spot_lights.get(entity)
         {
             if !view_visibility.get() {
                 continue;
@@ -285,40 +302,45 @@ pub fn extract_lights(
             let texel_size =
                 2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
 
-            spot_lights_values.push((
-                entity,
-                (
-                    ExtractedPointLight {
-                        color: spot_light.color.into(),
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                        // for details.
-                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
-                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
-                        // which seems least surprising for users
-                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
-                        range: spot_light.range,
-                        radius: spot_light.radius,
-                        transform: *transform,
-                        shadows_enabled: spot_light.shadows_enabled,
-                        shadow_depth_bias: spot_light.shadow_depth_bias,
-                        // The factor of SQRT_2 is for the worst-case diagonal offset
-                        shadow_normal_bias: spot_light.shadow_normal_bias
-                            * texel_size
-                            * std::f32::consts::SQRT_2,
-                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
-                    },
-                    render_visible_entities,
-                    *frustum,
-                ),
-            ));
+            if let Some(entity) = render_entity.entity() {
+                spot_lights_values.push((
+                    entity,
+                    (
+                        ExtractedPointLight {
+                            color: spot_light.color.into(),
+                            // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                            // for details.
+                            // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+                            // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+                            // which seems least surprising for users
+                            intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                            range: spot_light.range,
+                            radius: spot_light.radius,
+                            transform: *transform,
+                            shadows_enabled: spot_light.shadows_enabled,
+                            shadow_depth_bias: spot_light.shadow_depth_bias,
+                            // The factor of SQRT_2 is for the worst-case diagonal offset
+                            shadow_normal_bias: spot_light.shadow_normal_bias
+                                * texel_size
+                                * std::f32::consts::SQRT_2,
+                            spot_light_angles: Some((
+                                spot_light.inner_angle,
+                                spot_light.outer_angle,
+                            )),
+                        },
+                        render_visible_entities,
+                        *frustum,
+                    ),
+                ));
+            }
         }
     }
     *previous_spot_lights_len = spot_lights_values.len();
     commands.insert_or_spawn_batch(spot_lights_values);
 
     for (
-        entity,
+        render_entity,
         directional_light,
         visible_entities,
         cascades,
@@ -336,23 +358,26 @@ pub fn extract_lights(
 
         // TODO: As above
         let render_visible_entities = visible_entities.clone();
-        commands.get_or_spawn(entity).insert((
-            ExtractedDirectionalLight {
-                color: directional_light.color.into(),
-                illuminance: directional_light.illuminance,
-                transform: *transform,
-                volumetric: volumetric_light.is_some(),
-                shadows_enabled: directional_light.shadows_enabled,
-                shadow_depth_bias: directional_light.shadow_depth_bias,
-                // The factor of SQRT_2 is for the worst-case diagonal offset
-                shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
-                cascade_shadow_config: cascade_config.clone(),
-                cascades: cascades.cascades.clone(),
-                frusta: frusta.frusta.clone(),
-                render_layers: maybe_layers.unwrap_or_default().clone(),
-            },
-            render_visible_entities,
-        ));
+        if let Some(entity) = render_entity.entity() {
+            commands.get_or_spawn(entity).insert((
+                ExtractedDirectionalLight {
+                    color: directional_light.color.into(),
+                    illuminance: directional_light.illuminance,
+                    transform: *transform,
+                    volumetric: volumetric_light.is_some(),
+                    shadows_enabled: directional_light.shadows_enabled,
+                    shadow_depth_bias: directional_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: directional_light.shadow_normal_bias
+                        * std::f32::consts::SQRT_2,
+                    cascade_shadow_config: cascade_config.clone(),
+                    cascades: cascades.cascades.clone(),
+                    frusta: frusta.frusta.clone(),
+                    render_layers: maybe_layers.unwrap_or_default().clone(),
+                },
+                render_visible_entities,
+            ));
+        }
     }
 }
 
