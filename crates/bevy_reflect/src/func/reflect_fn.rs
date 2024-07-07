@@ -2,7 +2,7 @@ use bevy_utils::all_tuples;
 
 use crate::func::args::FromArg;
 use crate::func::macros::count_tokens;
-use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionResult, IntoReturn, ReflectFnMut};
+use crate::func::{ArgList, FunctionError, FunctionResult, IntoReturn, ReflectFnMut};
 use crate::{Reflect, TypePath};
 
 /// A reflection-based version of the [`Fn`] trait.
@@ -33,16 +33,15 @@ use crate::{Reflect, TypePath};
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::func::{ArgList, FunctionInfo, ReflectFn, TypedFunction};
+/// # use bevy_reflect::func::{ArgList, FunctionInfo, ReflectFn};
 /// #
 /// fn add(a: i32, b: i32) -> i32 {
 ///   a + b
 /// }
 ///
 /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
-/// let info = add.get_function_info();
 ///
-/// let value = add.reflect_call(args, &info).unwrap().unwrap_owned();
+/// let value = add.reflect_call(args).unwrap().unwrap_owned();
 /// assert_eq!(value.take::<i32>().unwrap(), 100);
 /// ```
 ///
@@ -62,7 +61,7 @@ use crate::{Reflect, TypePath};
 /// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait ReflectFn<'env, Marker>: ReflectFnMut<'env, Marker> {
     /// Call the function with the given arguments and return the result.
-    fn reflect_call<'a>(&self, args: ArgList<'a>, info: &FunctionInfo) -> FunctionResult<'a>;
+    fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;
 }
 
 /// Helper macro for implementing [`ReflectFn`] on Rust closures.
@@ -84,7 +83,7 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> Fn($($Arg::Item<'a>),*) -> ReturnType + 'env,
         {
-            fn reflect_call<'a>(&self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!($($Arg)*);
 
                 if args.len() != COUNT {
@@ -116,7 +115,7 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> Fn(&'a Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
         {
-            fn reflect_call<'a>(&self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
@@ -151,7 +150,7 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> Fn(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut ReturnType + 'env,
         {
-            fn reflect_call<'a>(&self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
@@ -186,7 +185,7 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> Fn(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
         {
-            fn reflect_call<'a>(&self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {

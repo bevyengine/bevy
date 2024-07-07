@@ -56,7 +56,7 @@ use crate::func::{FunctionResult, IntoClosureMut, ReturnInfo};
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 pub struct DynamicClosureMut<'env> {
     info: FunctionInfo,
-    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
+    func: Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>,
 }
 
 impl<'env> DynamicClosureMut<'env> {
@@ -66,7 +66,7 @@ impl<'env> DynamicClosureMut<'env> {
     ///
     /// It's important that the closure signature matches the provided [`FunctionInfo`].
     /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>(
+    pub fn new<F: for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
@@ -130,7 +130,7 @@ impl<'env> DynamicClosureMut<'env> {
     ///
     /// [`call_once`]: DynamicClosureMut::call_once
     pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func)(args, &self.info)
+        (self.func)(args)
     }
 
     /// Call the closure with the given arguments and consume the closure.
@@ -155,7 +155,7 @@ impl<'env> DynamicClosureMut<'env> {
     /// assert_eq!(count, 5);
     /// ```
     pub fn call_once(mut self, args: ArgList) -> FunctionResult {
-        (self.func)(args, &self.info)
+        (self.func)(args)
     }
 
     /// Returns the closure info.

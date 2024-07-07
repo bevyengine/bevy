@@ -2,7 +2,7 @@ use bevy_utils::all_tuples;
 
 use crate::func::args::FromArg;
 use crate::func::macros::count_tokens;
-use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionResult, IntoReturn};
+use crate::func::{ArgList, FunctionError, FunctionResult, IntoReturn};
 use crate::{Reflect, TypePath};
 
 /// A reflection-based version of the [`FnMut`] trait.
@@ -35,7 +35,7 @@ use crate::{Reflect, TypePath};
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::func::{ArgList, FunctionInfo, ReflectFnMut, TypedFunction};
+/// # use bevy_reflect::func::{ArgList, FunctionInfo, ReflectFnMut};
 /// #
 /// let mut list: Vec<i32> = vec![1, 3];
 ///
@@ -45,9 +45,8 @@ use crate::{Reflect, TypePath};
 /// };
 ///
 /// let args = ArgList::new().push_owned(1_usize).push_owned(2_i32);
-/// let info = insert.get_function_info();
 ///
-/// insert.reflect_call_mut(args, &info).unwrap();
+/// insert.reflect_call_mut(args).unwrap();
 /// assert_eq!(list, vec![1, 2, 3]);
 /// ```
 ///
@@ -68,11 +67,7 @@ use crate::{Reflect, TypePath};
 /// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait ReflectFnMut<'env, Marker> {
     /// Call the function with the given arguments and return the result.
-    fn reflect_call_mut<'a>(
-        &mut self,
-        args: ArgList<'a>,
-        info: &FunctionInfo,
-    ) -> FunctionResult<'a>;
+    fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a>;
 }
 
 /// Helper macro for implementing [`ReflectFnMut`] on Rust closures.
@@ -94,7 +89,7 @@ macro_rules! impl_reflect_fn_mut {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> FnMut($($Arg::Item<'a>),*) -> ReturnType + 'env,
         {
-            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!($($Arg)*);
 
                 if args.len() != COUNT {
@@ -126,7 +121,7 @@ macro_rules! impl_reflect_fn_mut {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
         {
-            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
@@ -161,7 +156,7 @@ macro_rules! impl_reflect_fn_mut {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut ReturnType + 'env,
         {
-            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
@@ -196,7 +191,7 @@ macro_rules! impl_reflect_fn_mut {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
         {
-            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {

@@ -129,7 +129,7 @@ fn main() {
     }
 
     let get_or_insert_function = dbg!(DynamicFunction::new(
-        |mut args, _info| {
+        |mut args| {
             // The `ArgList` contains the arguments in the order they were pushed.
             // Therefore, we need to pop them in reverse order.
             let container = args.pop_mut::<Option<i32>>()?;

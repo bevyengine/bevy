@@ -71,7 +71,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 ///   );
 ///
 /// // Then we define the dynamic function, which will be used to call our `append` function:
-/// let mut func = DynamicFunction::new(|mut args, info| {
+/// let mut func = DynamicFunction::new(|mut args| {
 ///   // Arguments are popped from the list in reverse order:
 ///   let arg1 = args.pop_mut::<Vec<String>>()?;
 ///   let arg0 = args.pop_owned::<String>()?;
@@ -97,7 +97,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// [module-level documentation]: crate::func
 pub struct DynamicFunction {
     info: FunctionInfo,
-    func: Arc<dyn for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>,
+    func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>,
 }
 
 impl DynamicFunction {
@@ -107,7 +107,7 @@ impl DynamicFunction {
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>(
+    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
@@ -159,7 +159,7 @@ impl DynamicFunction {
     /// assert_eq!(result.take::<i32>().unwrap(), 100);
     /// ```
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func)(args, &self.info)
+        (self.func)(args)
     }
 
     /// Returns the function info.
