@@ -155,7 +155,7 @@ impl TextureSlicer {
         ]
     }
 
-    /// Computes the 2 vertical side slices (bottom and top borders)
+    /// Computes the 2 vertical side slices (top and bottom borders)
     #[must_use]
     fn vertical_side_slices(
         &self,
@@ -231,7 +231,7 @@ impl TextureSlicer {
         let mut slices = Vec::with_capacity(9);
         // Corners are in this order: [TL, TR, BL, BR]
         let corners = self.corner_slices(rect, render_size);
-        // Vertical Sides: [B, T]
+        // Vertical Sides: [T, B]
         let vertical_sides = self.vertical_side_slices(&corners, rect, render_size);
         // Horizontal Sides: [L, R]
         let horizontal_sides = self.horizontal_side_slices(&corners, rect, render_size);
