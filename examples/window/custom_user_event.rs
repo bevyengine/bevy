@@ -1,9 +1,8 @@
 //! Shows how to create a custom event that can be handled by `winit`'s event loop.
 
 use bevy::prelude::*;
-use bevy::winit::{EventLoopProxy, WakeUp, WinitPlugin};
+use bevy::winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin};
 use std::fmt::Formatter;
-use std::sync::OnceLock;
 
 #[derive(Default, Debug, Event)]
 enum CustomEvent {
@@ -21,8 +20,6 @@ impl std::fmt::Display for CustomEvent {
     }
 }
 
-static EVENT_LOOP_PROXY: OnceLock<EventLoopProxy<CustomEvent>> = OnceLock::new();
-
 fn main() {
     let winit_plugin = WinitPlugin::<CustomEvent>::default();
 
@@ -39,7 +36,8 @@ fn main() {
             Startup,
             (
                 setup,
-                expose_event_loop_proxy,
+                #[cfg(target_arch = "wasm32")]
+                wasm::expose_event_loop_proxy,
                 #[cfg(target_arch = "wasm32")]
                 wasm::setup_js_closure,
             ),
@@ -52,11 +50,10 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn send_event(input: Res<ButtonInput<KeyCode>>) {
-    let Some(event_loop_proxy) = EVENT_LOOP_PROXY.get() else {
-        return;
-    };
-
+fn send_event(
+    input: Res<ButtonInput<KeyCode>>,
+    event_loop_proxy: Res<EventLoopProxyWrapper<CustomEvent>>,
+) {
     if input.just_pressed(KeyCode::Space) {
         let _ = event_loop_proxy.send_event(CustomEvent::WakeUp);
     }
@@ -64,16 +61,13 @@ fn send_event(input: Res<ButtonInput<KeyCode>>) {
     // This simulates sending a custom event through an external thread.
     #[cfg(not(target_arch = "wasm32"))]
     if input.just_pressed(KeyCode::KeyE) {
-        let handler = std::thread::spawn(|| {
-            let _ = event_loop_proxy.send_event(CustomEvent::Key('e'));
+        let event_loop_proxy = event_loop_proxy.clone();
+        let handler = std::thread::spawn(move || {
+            let _ = event_loop_proxy.clone().send_event(CustomEvent::Key('e'));
         });
 
         handler.join().unwrap();
     }
-}
-
-fn expose_event_loop_proxy(event_loop_proxy: NonSend<EventLoopProxy<CustomEvent>>) {
-    EVENT_LOOP_PROXY.set((*event_loop_proxy).clone()).unwrap();
 }
 
 fn handle_event(mut events: EventReader<CustomEvent>) {
@@ -87,10 +81,20 @@ fn handle_event(mut events: EventReader<CustomEvent>) {
 /// the loop if that's currently waiting for a timeout or a user event.
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm {
-    use crate::{CustomEvent, EVENT_LOOP_PROXY};
+    use super::*;
+    use bevy::winit::EventLoopProxy;
+    use std::sync::OnceLock;
     use wasm_bindgen::prelude::*;
     use wasm_bindgen::JsCast;
     use web_sys::KeyboardEvent;
+
+    static EVENT_LOOP_PROXY: OnceLock<EventLoopProxy<CustomEvent>> = OnceLock::new();
+
+    pub(crate) fn expose_event_loop_proxy(
+        event_loop_proxy: NonSend<EventLoopProxyWrapper<CustomEvent>>,
+    ) {
+        EVENT_LOOP_PROXY.set((*event_loop_proxy).clone()).unwrap();
+    }
 
     pub(crate) fn setup_js_closure() {
         let window = web_sys::window().unwrap();
