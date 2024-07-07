@@ -12,6 +12,7 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
+use bevy_derive::Deref;
 use bevy_window::RawHandleWrapperHolder;
 use std::marker::PhantomData;
 use winit::event_loop::EventLoop;
@@ -25,6 +26,7 @@ use bevy_ecs::prelude::*;
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
 pub use system::create_windows;
 use system::{changed_windows, despawn_windows};
+pub use winit::event_loop::EventLoopProxy;
 pub use winit_config::*;
 pub use winit_event::*;
 pub use winit_windows::*;
@@ -142,12 +144,14 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 #[derive(Debug, Default, Clone, Copy, Event)]
 pub struct WakeUp;
 
-/// The [`winit::event_loop::EventLoopProxy`] with the specific [`winit::event::Event::UserEvent`] used in the [`winit_runner`].
+/// A wrapper type around [`winit::event_loop::EventLoopProxy`] with the specific
+/// [`winit::event::Event::UserEvent`] used in the [`winit_runner`].
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///
 /// Use `NonSend<EventLoopProxy>` to receive this resource.
-pub type EventLoopProxy<T> = winit::event_loop::EventLoopProxy<T>;
+#[derive(Resource, Deref)]
+pub struct EventLoopProxyWrapper<T: 'static>(winit::event_loop::EventLoopProxy<T>);
 
 trait AppSendEvent {
     fn send(&mut self, event: impl Into<WinitEvent>);
