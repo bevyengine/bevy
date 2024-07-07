@@ -240,6 +240,7 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
     pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_replace: Option<ComponentHook>,
     pub(crate) on_remove: Option<ComponentHook>,
 }
 
@@ -272,6 +273,23 @@ impl ComponentHooks {
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_insert(hook)
             .expect("Component id: {:?}, already has an on_insert hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed.
+    ///
+    /// An `on_replace` hook always runs before any `on_remove` hooks (if the component is being removed from the entity).
+    ///
+    /// # Warning
+    ///
+    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
+    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has an `on_replace` hook
+    pub fn on_replace(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_replace(hook)
+            .expect("Component id: {:?}, already has an on_replace hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
@@ -308,6 +326,19 @@ impl ComponentHooks {
             return None;
         }
         self.on_insert = Some(hook);
+        Some(self)
+    }
+
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`)
+    ///
+    /// This is a fallible version of [`Self::on_replace`].
+    ///
+    /// Returns `None` if the component already has an `on_replace` hook.
+    pub fn try_on_replace(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_replace.is_some() {
+            return None;
+        }
+        self.on_replace = Some(hook);
         Some(self)
     }
 
