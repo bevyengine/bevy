@@ -284,7 +284,7 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
 
 impl<K, A: Asset> VisitAssetDependencies for HashMap<K, Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for (_, dependency) in self {
+        for dependency in self.values() {
             visit(dependency.id().untyped());
         }
     }
@@ -292,7 +292,7 @@ impl<K, A: Asset> VisitAssetDependencies for HashMap<K, Handle<A>> {
 
 impl<K> VisitAssetDependencies for HashMap<K, UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        for (_, dependency) in self {
+        for dependency in self.values() {
             visit(dependency.id());
         }
     }
