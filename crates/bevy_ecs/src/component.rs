@@ -93,6 +93,42 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Adding component's hooks
+///
+/// See [`ComponentHooks`] for a detailed explanation of component's hooks.
+///
+/// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
+/// - `#[component(on_add = on_add_function)]`
+/// - `#[component(on_insert = on_insert_function)]`
+/// - `#[component(on_remove = on_remove_function)]`
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::world::DeferredWorld;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::component::ComponentId;
+/// #
+/// #[derive(Component)]
+/// #[component(on_add = my_on_add_hook)]
+/// #[component(on_insert = my_on_insert_hook)]
+/// // Another possible way of configuring hooks:
+/// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
+/// //
+/// // We don't have a remove hook, so we can leave it out:
+/// // #[component(on_remove = my_on_remove_hook)]
+/// struct ComponentA;
+///
+/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
+///     // ...
+/// }
+///
+/// // You can also omit writing some types using generics.
+/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+///     // ...
+/// }
+///
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
@@ -199,7 +235,11 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 ///
 /// This information is stored in the [`ComponentInfo`] of the associated component.
 ///
-/// # Example
+/// There is two ways of configuring hooks for a component:
+/// 1. Defining the [`Component::register_component_hooks`] method (see [`Component`])
+/// 2. Using the [`World::register_component_hooks`] method
+///
+/// # Example 2
 ///
 /// ```
 /// use bevy_ecs::prelude::*;

@@ -588,9 +588,10 @@ impl AssetInfos {
 
     pub(crate) fn process_asset_fail(&mut self, failed_id: UntypedAssetId, error: AssetLoadError) {
         let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
-            let info = self
-                .get_mut(failed_id)
-                .expect("Asset info should always exist at this point");
+            let Some(info) = self.get_mut(failed_id) else {
+                // The asset was already dropped.
+                return;
+            };
             info.load_state = LoadState::Failed(Box::new(error));
             info.dep_load_state = DependencyLoadState::Failed;
             info.rec_dep_load_state = RecursiveDependencyLoadState::Failed;
