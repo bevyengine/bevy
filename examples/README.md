@@ -342,7 +342,7 @@ Example | Description
 
 Example | Description
 --- | ---
-[Physics in Fixed Timestep](../examples/movement/physics_in_fixed_timestep.rs) | Handles input, physics, and rendering in an industry-standard way by using a fixed timestep.
+[Run physics in a fixed timestep](../examples/movement/physics_in_fixed_timestep.rs) | Handles input, physics, and rendering in an industry-standard way by using a fixed timestep
 
 ## Reflection
 
