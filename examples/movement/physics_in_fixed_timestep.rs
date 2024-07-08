@@ -3,6 +3,8 @@
 //!
 //! The classic source for how and why this is done is Glenn Fiedler's article
 //! [Fix Your Timestep!](https://gafferongames.com/post/fix_your_timestep/).
+//! For a more Bevy-centric source, see the 
+//! [cheatbook entry on Fixed Timestep](https://bevy-cheatbook.github.io/fundamentals/fixed-timestep.html).
 //!
 //! ## Motivation
 //!
