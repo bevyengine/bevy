@@ -43,9 +43,11 @@
 //! This is why we need to separate the player's position in the physics simulation from the player's position in the visual representation.
 //! The visual representation can then be interpolated smoothly based on the previous and current actual player position in the physics simulation.
 //!
-//! There are other ways to handle the visual representation of the player, such as extrapolation.
+//! This is a tradeoff: every visual frame is now slightly lagging behind the actual physical frame,
+//! but in return, the player's movement will appear smooth.
+//! There are other ways to compute the visual representation of the player, such as extrapolation.
 //! See the [documentation of the lightyear crate](https://cbournhonesque.github.io/lightyear/book/concepts/advanced_replication/visual_interpolation.html)
-//! for a nice overview of the different methods.
+//! for a nice overview of the different methods and their respective tradeoffs.
 //!
 //! ## Implementation
 //!
