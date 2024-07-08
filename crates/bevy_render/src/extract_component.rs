@@ -16,6 +16,9 @@ use std::{marker::PhantomData, ops::Deref};
 
 pub use bevy_render_macros::ExtractComponent;
 
+#[derive(Component)]
+pub struct MainWorldEntity(Entity);
+
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
 #[derive(Component)]
 pub struct DynamicUniformIndex<C: Component> {
@@ -209,32 +212,32 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(Entity, C::QueryData), (C::QueryFilter, Added<C>)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
-            values.push((entity, component));
+            values.push((component, MainWorldEntity(entity)));
         }
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.spawn_batch(values);
 }
 
 /// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(Entity, &ViewVisibility, C::QueryData), (C::QueryFilter, Added<C>)>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
-                values.push((entity, component));
+                values.push((component, MainWorldEntity(entity)));
             }
         }
     }
     *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
+    commands.spawn_batch(values);
 }
