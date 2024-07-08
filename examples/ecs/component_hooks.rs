@@ -22,7 +22,7 @@ use std::collections::HashMap;
 /// using [`Component`] derive macro:
 /// ```no_run
 /// #[derive(Component)]
-/// #[component(on_add = ..., on_insert = ..., on_remove = ...)]
+/// #[component(on_add = ..., on_insert = ..., on_replace = ..., on_remove = ...)]
 /// ```
 struct MyComponent(KeyCode);
 

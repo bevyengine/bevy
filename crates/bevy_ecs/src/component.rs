@@ -100,6 +100,7 @@ use std::{
 /// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
 /// - `#[component(on_add = on_add_function)]`
 /// - `#[component(on_insert = on_insert_function)]`
+/// - `#[component(on_replace = on_replace_function)]`
 /// - `#[component(on_remove = on_remove_function)]`
 ///
 /// ```
@@ -114,8 +115,8 @@ use std::{
 /// // Another possible way of configuring hooks:
 /// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
 /// //
-/// // We don't have a remove hook, so we can leave it out:
-/// // #[component(on_remove = my_on_remove_hook)]
+/// // We don't have a replace or remove hook, so we can leave them out:
+/// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
 /// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {

@@ -1156,7 +1156,7 @@ mod tests {
     struct A;
 
     #[derive(Component)]
-    #[component(on_add = a_on_add, on_insert = a_on_insert, on_remove = a_on_remove)]
+    #[component(on_add = a_on_add, on_insert = a_on_insert, on_replace = a_on_replace, on_remove = a_on_remove)]
     struct AMacroHooks;
 
     fn a_on_add(mut world: DeferredWorld, _: Entity, _: ComponentId) {
@@ -1167,8 +1167,12 @@ mod tests {
         world.resource_mut::<R>().assert_order(1);
     }
 
-    fn a_on_remove<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+    fn a_on_replace<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
         world.resource_mut::<R>().assert_order(2);
+    }
+
+    fn a_on_remove<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+        world.resource_mut::<R>().assert_order(3);
     }
 
     #[derive(Component)]
@@ -1215,7 +1219,7 @@ mod tests {
         let entity = world.spawn(AMacroHooks).id();
         world.despawn(entity);
 
-        assert_eq!(3, world.resource::<R>().0);
+        assert_eq!(4, world.resource::<R>().0);
     }
 
     #[test]
