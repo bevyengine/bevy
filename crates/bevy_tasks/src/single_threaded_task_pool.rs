@@ -1,14 +1,7 @@
 use std::sync::Arc;
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
-#[cfg(target_arch = "wasm32")]
-use std::{
-    any::Any,
-    cell::Cell,
-    panic::{AssertUnwindSafe, UnwindSafe},
-    task::Poll,
-    task::Waker,
-};
+use crate::Task;
 
 thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = const { async_executor::LocalExecutor::new() };
@@ -160,29 +153,12 @@ impl TaskPool {
     /// end-user.
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
-    pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> LocalTask<T>
+    pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
     {
         #[cfg(target_arch = "wasm32")]
-        {
-            let task = LocalTask::new();
-            let sender = task.0.clone();
-            wasm_bindgen_futures::spawn_local(async move {
-                // Catch any panics that occur when polling the future so they can
-                // be propagated back to the task handle.
-                let value = CatchUnwind(AssertUnwindSafe(future)).await;
-                // Store the value in the task. If the task handle has been dropped,
-                // then the value will also get dropped at the end of the scope when the
-                // inner task's reference count drops to zero.
-                sender.value.set(Some(value));
-                // Wake up any tasks waiting on this future
-                if let Some(waker) = sender.waker.take() {
-                    waker.wake();
-                }
-            });
-            return task;
-        }
+        return Task::wrap_future(future);
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -191,13 +167,13 @@ impl TaskPool {
                 // Loop until all tasks are done
                 while executor.try_tick() {}
 
-                LocalTask::new(task)
+                Task::new(task)
             })
         }
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
-    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> LocalTask<T>
+    pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
     {
@@ -220,94 +196,6 @@ impl TaskPool {
         F: FnOnce(&async_executor::LocalExecutor) -> R,
     {
         LOCAL_EXECUTOR.with(f)
-    }
-}
-
-/// A handle to a task running on this thread. Can be awaited to obtain the output of the task.
-#[cfg(not(target_arch = "wasm32"))]
-pub type LocalTask<T> = crate::Task<T>;
-
-/// A handle to a task running on this thread. Can be awaited to obtain the output of the task.
-#[cfg(target_arch = "wasm32")]
-pub struct LocalTask<T>(Rc<InnerTask<T>>);
-
-#[cfg(target_arch = "wasm32")]
-type Panic = Box<dyn Any + Send>;
-
-#[cfg(target_arch = "wasm32")]
-struct InnerTask<T> {
-    value: Cell<Option<Result<T, Panic>>>,
-    waker: Cell<Option<Waker>>,
-}
-
-#[cfg(target_arch = "wasm32")]
-impl<T> LocalTask<T> {
-    fn new() -> Self {
-        let task = InnerTask {
-            value: Cell::new(None),
-            waker: Cell::new(None),
-        };
-        Self(Rc::new(task))
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-impl<T> LocalTask<T> {
-    /// Allows the task to continue running independently of the current context.
-    /// This is a no-op.
-    pub fn detach(self) {}
-
-    /// Waits for the task to stop running.
-    ///
-    /// In single-threaded contexts, cancellation does not work, so this method is
-    /// identical to just awaiting the task. This method only exists for parity with
-    /// the multi-threaded variant of the task pool.
-    pub async fn cancel(self) -> Option<T> {
-        Some(self.await)
-    }
-
-    /// Returns `true` if the current task is finished.
-    ///
-    /// Unlike poll, it doesn't resolve the final value, it just checks if the task has finished.
-    pub fn is_finished(&self) -> bool {
-        let value = self.0.value.take();
-        let is_finished = value.is_some();
-        self.0.value.set(value);
-        is_finished
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-impl<T> Future for LocalTask<T> {
-    type Output = T;
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> Poll<Self::Output> {
-        match self.0.value.take() {
-            Some(Ok(value)) => Poll::Ready(value),
-            None => {
-                self.0.waker.set(Some(cx.waker().clone()));
-                Poll::Pending
-            }
-            Some(Err(panic)) => std::panic::resume_unwind(panic),
-        }
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-impl<T> Drop for LocalTask<T> {
-    fn drop(&mut self) {
-        let _ = self.0.waker.take();
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-#[pin_project::pin_project]
-struct CatchUnwind<F: UnwindSafe>(#[pin] F);
-
-#[cfg(target_arch = "wasm32")]
-impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
-    type Output = Result<F::Output, Panic>;
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context) -> Poll<Self::Output> {
-        std::panic::catch_unwind(AssertUnwindSafe(|| self.project().0.poll(cx)))?.map(Ok)
     }
 }
 
