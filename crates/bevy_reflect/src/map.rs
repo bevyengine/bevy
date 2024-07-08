@@ -4,6 +4,7 @@ use std::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
+use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
     TypeInfo, TypePath, TypePathTable,
@@ -417,6 +418,7 @@ impl Reflect for DynamicMap {
 }
 
 impl_type_path!((in bevy_reflect) DynamicMap);
+impl_function_traits!(DynamicMap);
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -108,6 +108,7 @@ mod commands;
 mod exclusive_function_system;
 mod exclusive_system_param;
 mod function_system;
+mod observer_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
@@ -124,6 +125,7 @@ pub use commands::*;
 pub use exclusive_function_system::*;
 pub use exclusive_system_param::*;
 pub use function_system::*;
+pub use observer_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_name::*;
@@ -555,9 +557,69 @@ mod tests {
     }
 
     #[test]
+    fn any_of_working() {
+        fn sys(_: Query<AnyOf<(&mut A, &B)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn any_of_with_and_without_common() {
+        fn sys(_: Query<(&mut D, &C, AnyOf<(&A, &B)>)>, _: Query<&mut D, Without<C>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_mut_and_ref() {
+        fn sys(_: Query<AnyOf<(&mut A, &A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_ref_and_mut() {
+        fn sys(_: Query<AnyOf<(&A, &mut A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_mut_and_option() {
+        fn sys(_: Query<AnyOf<(&mut A, Option<&A>)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn any_of_with_entity_and_mut() {
+        fn sys(_: Query<AnyOf<(Entity, &mut A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn any_of_with_empty_and_mut() {
+        fn sys(_: Query<AnyOf<((), &mut A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     #[should_panic = "error[B0001]"]
     fn any_of_has_no_filter_with() {
         fn sys(_: Query<(AnyOf<(&A, ())>, &mut B)>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_conflicting() {
+        fn sys(_: Query<AnyOf<(&mut A, &mut A)>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
     }

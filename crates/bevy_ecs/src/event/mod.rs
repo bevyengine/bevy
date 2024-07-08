@@ -11,7 +11,9 @@ pub(crate) use base::EventInstance;
 pub use base::{Event, EventId};
 pub use bevy_ecs_macros::Event;
 pub use collections::{Events, SendBatchIds};
-pub use iterators::{EventIterator, EventIteratorWithId, EventParIter};
+#[cfg(feature = "multi_threaded")]
+pub use iterators::EventParIter;
+pub use iterators::{EventIterator, EventIteratorWithId};
 pub use reader::{EventReader, ManualEventReader};
 pub use registry::{EventRegistry, ShouldUpdateEvents};
 pub use update::{
@@ -154,7 +156,7 @@ mod tests {
 
     #[test]
     fn test_events_clear_and_read() {
-        events_clear_and_read_impl(|events| events.clear());
+        events_clear_and_read_impl(Events::clear);
     }
 
     #[test]
@@ -276,6 +278,24 @@ mod tests {
         assert!(!is_empty, "EventReader should not be empty");
         let is_empty = reader.run((), &mut world);
         assert!(is_empty, "EventReader should be empty");
+    }
+
+    #[test]
+    fn test_event_registry_can_add_and_remove_events_to_world() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        EventRegistry::register_event::<TestEvent>(&mut world);
+
+        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+
+        assert!(has_events, "Should have the events resource");
+
+        EventRegistry::deregister_events::<TestEvent>(&mut world);
+
+        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+
+        assert!(!has_events, "Should not have the events resource");
     }
 
     #[test]
@@ -421,30 +441,33 @@ mod tests {
     #[cfg(feature = "multi_threaded")]
     #[test]
     fn test_events_par_iter() {
-        use std::{collections::HashSet, sync::mpsc};
-
         use crate::prelude::*;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        #[derive(Resource)]
+        struct Counter(AtomicUsize);
 
         let mut world = World::new();
         world.init_resource::<Events<TestEvent>>();
-        for i in 0..100 {
-            world.send_event(TestEvent { i });
+        for _ in 0..100 {
+            world.send_event(TestEvent { i: 1 });
         }
-
         let mut schedule = Schedule::default();
-
-        schedule.add_systems(|mut events: EventReader<TestEvent>| {
-            let (tx, rx) = mpsc::channel();
-            events.par_read().for_each(|event| {
-                tx.send(event.i).unwrap();
-            });
-            drop(tx);
-
-            let observed: HashSet<_> = rx.into_iter().collect();
-            assert_eq!(observed, HashSet::from_iter(0..100));
-        });
+        schedule.add_systems(
+            |mut events: EventReader<TestEvent>, counter: ResMut<Counter>| {
+                events.par_read().for_each(|event| {
+                    counter.0.fetch_add(event.i, Ordering::Relaxed);
+                });
+            },
+        );
+        world.insert_resource(Counter(AtomicUsize::new(0)));
         schedule.run(&mut world);
-    }
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(counter.0.into_inner(), 100);
 
-    // Peak tests
+        world.insert_resource(Counter(AtomicUsize::new(0)));
+        schedule.run(&mut world);
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(counter.0.into_inner(), 0);
+    }
 }

@@ -413,7 +413,7 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] of [`Resource`] within a
+/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -689,7 +689,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_name(&self, id: ComponentId) -> Option<&str> {
-        self.get_info(id).map(|descriptor| descriptor.name())
+        self.get_info(id).map(ComponentInfo::name)
     }
 
     /// Gets the metadata associated with the given component.

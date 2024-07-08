@@ -96,7 +96,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// In comparison to Bevy's standard renderer:
 /// * Much more efficient culling. Meshlets can be culled individually, instead of all or nothing culling for entire meshes at a time.
-/// Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
+///     Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
 /// * Much more efficient batching. All geometry can be rasterized in a single indirect draw.
 /// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will bottleneck sooner.
 /// * Near-seamless level of detail (LOD).
@@ -108,6 +108,10 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
 /// This plugin does not work on WASM.
+///
+/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
+/// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
+/// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
@@ -206,18 +210,18 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // TODO: Meshlet VisibilityBufferRaster should be after main pass when not using depth prepass
+                    // Non-meshlet shading passes _must_ come before meshlet shading passes
                     NodePbr::ShadowPass,
-                    Node3d::Prepass,
-                    Node3d::DeferredPrepass,
                     NodeMeshlet::VisibilityBufferRasterPass,
                     NodeMeshlet::Prepass,
+                    Node3d::Prepass,
                     NodeMeshlet::DeferredPrepass,
+                    Node3d::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
-                    Node3d::MainOpaquePass,
                     NodeMeshlet::MainOpaquePass,
+                    Node3d::MainOpaquePass,
                     Node3d::EndMainPass,
                 ),
             )

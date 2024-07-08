@@ -48,10 +48,9 @@ In one terminal, run:
 `./capture-release -o my_capture.tracy`
 This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing. 
 
-Note that on Windows, the capture tool is called `capture.exe`. On macOS, it is `tracy-capture` — e.g. `tracy-capture -o my_capture.tracy`. 
+The name and location of the Tracy command line tool will vary depending on how you installed it - the default executable names are `capture-release` on Linux, `tracy` on macOS and `capture.exe` on Windows. In one terminal, run this tool: `./capture-release -o my_capture.tracy`. This will sit and wait for a tracy-instrumented application to start, and when it does, it will automatically connect and start capturing.
 
-Then run your application, enabling the `trace_tracy` feature:
-`cargo run --release --features bevy/trace_tracy`
+Then run your application, enabling the `trace_tracy` feature: `cargo run --release --features bevy/trace_tracy`. If you also want to track memory allocations, at the cost of increased runtime overhead, then enable the `trace_tracy_memory` feature instead: `cargo run --release --features bevy/trace_tracy_memory`.
 
 After running your app, you can open the captured profile file (`my_capture.tracy` in the example above) in the Tracy GUI application to see a timeline of the executed spans.
 
@@ -68,6 +67,12 @@ There is a button to display statistics of mean time per call (MTPC) for all sys
 Or you can select an individual system and inspect its statistics (available through the "statistics" button in the top menu) to see things like the distribution of execution times in a graph, or statistical aggregates such as mean, median, standard deviation, etc. It will look something like this:
 
 ![A graph and statistics in the Tracy GUI showing the distribution of execution times of an instrumented span in the application](https://user-images.githubusercontent.com/302146/163988464-86e1a3ee-e97b-49ae-9f7e-4ff2b8b761ad.png)
+
+If you enabled memory tracing then the Zone Info window will also show the allocation events which occurred during a span:
+
+![A table in the Tracy GUI showing details of the allocations which occurred during a span](https://user-images.githubusercontent.com/8672791/228987498-77b26178-ef60-4e37-8356-dd07320ee159.png)
+
+Note that the `Bottom-up call stack tree` and `Top-down call stack tree` views reached by clicking the `Memory` button at the top of the UI will not show a usable backtrace even if memory tracking is enabled, as backtraces are not fully supported yet.
 
 If you save more than one trace, you can compare the spans between both of them by clicking the `Compare` button at the top of the UI. This will open a dialog box asking to load a second trace. From there, it's possible to select any family of spans to more closely compare the timing and distribution of a particular span.
 

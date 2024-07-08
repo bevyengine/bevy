@@ -44,7 +44,7 @@ pub enum SliceScaleMode {
 }
 
 impl TextureSlicer {
-    /// Computes the 4 corner slices
+    /// Computes the 4 corner slices: top left, top right, bottom left, bottom right.
     #[must_use]
     fn corner_slices(&self, base_rect: Rect, render_size: Vec2) -> [TextureSlice; 4] {
         let coef = render_size / base_rect.size();
@@ -116,7 +116,7 @@ impl TextureSlicer {
         render_size: Vec2,
     ) -> [TextureSlice; 2] {
         [
-            // left
+            // Left
             TextureSlice {
                 texture_rect: Rect {
                     min: base_rect.min + vec2(0.0, self.border.top),
@@ -127,24 +127,30 @@ impl TextureSlicer {
                 },
                 draw_size: vec2(
                     bl_corner.draw_size.x,
-                    render_size.y - bl_corner.draw_size.y - tl_corner.draw_size.y,
+                    render_size.y - (bl_corner.draw_size.y + tl_corner.draw_size.y),
                 ),
-                offset: vec2(-render_size.x + bl_corner.draw_size.x, 0.0) / 2.0,
+                offset: vec2(
+                    -render_size.x + bl_corner.draw_size.x,
+                    bl_corner.draw_size.y - tl_corner.draw_size.y,
+                ) / 2.0,
             },
-            // right
+            // Right
             TextureSlice {
                 texture_rect: Rect {
                     min: vec2(
                         base_rect.max.x - self.border.right,
-                        base_rect.min.y + self.border.bottom,
+                        base_rect.min.y + self.border.top,
                     ),
-                    max: vec2(base_rect.max.x, base_rect.max.y - self.border.top),
+                    max: vec2(base_rect.max.x, base_rect.max.y - self.border.bottom),
                 },
                 draw_size: vec2(
                     br_corner.draw_size.x,
                     render_size.y - (br_corner.draw_size.y + tr_corner.draw_size.y),
                 ),
-                offset: vec2(render_size.x - br_corner.draw_size.x, 0.0) / 2.0,
+                offset: vec2(
+                    render_size.x - br_corner.draw_size.x,
+                    br_corner.draw_size.y - tr_corner.draw_size.y,
+                ) / 2.0,
             },
         ]
     }
@@ -171,7 +177,10 @@ impl TextureSlicer {
                     render_size.x - (bl_corner.draw_size.x + br_corner.draw_size.x),
                     bl_corner.draw_size.y,
                 ),
-                offset: vec2(0.0, bl_corner.offset.y),
+                offset: vec2(
+                    (bl_corner.draw_size.x - br_corner.draw_size.x) / 2.0,
+                    bl_corner.offset.y,
+                ),
             },
             // Top
             TextureSlice {
@@ -186,7 +195,10 @@ impl TextureSlicer {
                     render_size.x - (tl_corner.draw_size.x + tr_corner.draw_size.x),
                     tl_corner.draw_size.y,
                 ),
-                offset: vec2(0.0, tl_corner.offset.y),
+                offset: vec2(
+                    (tl_corner.draw_size.x - tr_corner.draw_size.x) / 2.0,
+                    tl_corner.offset.y,
+                ),
             },
         ]
     }
@@ -220,22 +232,29 @@ impl TextureSlicer {
             }];
         }
         let mut slices = Vec::with_capacity(9);
-        // Corners
+        // Corners are in this order: [TL, TR, BL, BR]
         let corners = self.corner_slices(rect, render_size);
-        // Sides
+        // Vertical Sides: [B, T]
         let vertical_sides = self.vertical_side_slices(&corners, rect, render_size);
+        // Horizontal Sides: [L, R]
         let horizontal_sides = self.horizontal_side_slices(&corners, rect, render_size);
         // Center
         let center = TextureSlice {
             texture_rect: Rect {
-                min: rect.min + vec2(self.border.left, self.border.bottom),
-                max: vec2(rect.max.x - self.border.right, rect.max.y - self.border.top),
+                min: rect.min + vec2(self.border.left, self.border.top),
+                max: vec2(
+                    rect.max.x - self.border.right,
+                    rect.max.y - self.border.bottom,
+                ),
             },
             draw_size: vec2(
                 render_size.x - (corners[2].draw_size.x + corners[3].draw_size.x),
                 render_size.y - (corners[2].draw_size.y + corners[0].draw_size.y),
             ),
-            offset: Vec2::ZERO,
+            offset: Vec2::new(
+                (corners[0].draw_size.x - corners[3].draw_size.x) / 2.0,
+                (corners[2].draw_size.y - corners[0].draw_size.y) / 2.0,
+            ),
         };
 
         slices.extend(corners);
@@ -277,5 +296,150 @@ impl Default for TextureSlicer {
             sides_scale_mode: Default::default(),
             max_corner_scale: 1.0,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_horizontal_sizes_uniform() {
+        let slicer = TextureSlicer {
+            border: BorderRect {
+                left: 10.,
+                right: 10.,
+                top: 10.,
+                bottom: 10.,
+            },
+            center_scale_mode: SliceScaleMode::Stretch,
+            sides_scale_mode: SliceScaleMode::Stretch,
+            max_corner_scale: 1.0,
+        };
+        let base_rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::splat(50.),
+        };
+        let render_rect = Vec2::splat(100.);
+        let slices = slicer.corner_slices(base_rect, render_rect);
+        assert_eq!(
+            slices[0],
+            TextureSlice {
+                texture_rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::splat(10.0)
+                },
+                draw_size: Vec2::new(10.0, 10.0),
+                offset: Vec2::new(-45.0, 45.0),
+            }
+        );
+    }
+
+    #[test]
+    fn test_horizontal_sizes_non_uniform_bigger() {
+        let slicer = TextureSlicer {
+            border: BorderRect {
+                left: 20.,
+                right: 10.,
+                top: 10.,
+                bottom: 10.,
+            },
+            center_scale_mode: SliceScaleMode::Stretch,
+            sides_scale_mode: SliceScaleMode::Stretch,
+            max_corner_scale: 1.0,
+        };
+        let base_rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::splat(50.),
+        };
+        let render_rect = Vec2::splat(100.);
+        let slices = slicer.corner_slices(base_rect, render_rect);
+        assert_eq!(
+            slices[0],
+            TextureSlice {
+                texture_rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::new(20.0, 10.0)
+                },
+                draw_size: Vec2::new(20.0, 10.0),
+                offset: Vec2::new(-40.0, 45.0),
+            }
+        );
+    }
+
+    #[test]
+    fn test_horizontal_sizes_non_uniform_smaller() {
+        let slicer = TextureSlicer {
+            border: BorderRect {
+                left: 5.,
+                right: 10.,
+                top: 10.,
+                bottom: 10.,
+            },
+            center_scale_mode: SliceScaleMode::Stretch,
+            sides_scale_mode: SliceScaleMode::Stretch,
+            max_corner_scale: 1.0,
+        };
+        let rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::splat(50.),
+        };
+        let render_size = Vec2::splat(100.);
+        let corners = slicer.corner_slices(rect, render_size);
+
+        let vertical_sides = slicer.vertical_side_slices(&corners, rect, render_size);
+        assert_eq!(
+            corners[0],
+            TextureSlice {
+                texture_rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::new(5.0, 10.0)
+                },
+                draw_size: Vec2::new(5.0, 10.0),
+                offset: Vec2::new(-47.5, 45.0),
+            }
+        );
+        assert_eq!(
+            vertical_sides[1], /* top */
+            TextureSlice {
+                texture_rect: Rect {
+                    min: Vec2::new(5.0, 0.0),
+                    max: Vec2::new(40.0, 10.0)
+                },
+                draw_size: Vec2::new(85.0, 10.0),
+                offset: Vec2::new(-2.5, 45.0),
+            }
+        );
+    }
+
+    #[test]
+    fn test_horizontal_sizes_non_uniform_zero() {
+        let slicer = TextureSlicer {
+            border: BorderRect {
+                left: 0.,
+                right: 10.,
+                top: 10.,
+                bottom: 10.,
+            },
+            center_scale_mode: SliceScaleMode::Stretch,
+            sides_scale_mode: SliceScaleMode::Stretch,
+            max_corner_scale: 1.0,
+        };
+        let base_rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::splat(50.),
+        };
+        let render_rect = Vec2::splat(100.);
+        let slices = slicer.corner_slices(base_rect, render_rect);
+        assert_eq!(
+            slices[0],
+            TextureSlice {
+                texture_rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::new(0.0, 10.0)
+                },
+                draw_size: Vec2::new(0.0, 10.0),
+                offset: Vec2::new(-50.0, 45.0),
+            }
+        );
     }
 }

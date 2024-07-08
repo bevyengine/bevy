@@ -1190,7 +1190,7 @@ impl<P: VectorSpace> RationalCurve<P> {
         }
     }
 
-    /// Returns the length of of the domain of the parametric curve.
+    /// Returns the length of the domain of the parametric curve.
     #[inline]
     pub fn domain(&self) -> f32 {
         self.segments.iter().map(|segment| segment.knot_span).sum()

@@ -218,8 +218,6 @@ impl Plugin for MeshRenderPlugin {
                     );
             };
 
-            let indirect_parameters_buffer = IndirectParametersBuffer::new();
-
             let render_device = render_app.world().resource::<RenderDevice>();
             if let Some(per_object_buffer_batch_size) =
                 GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
@@ -231,7 +229,6 @@ impl Plugin for MeshRenderPlugin {
             }
 
             render_app
-                .insert_resource(indirect_parameters_buffer)
                 .init_resource::<MeshPipelineViewLayouts>()
                 .init_resource::<MeshPipeline>();
         }
@@ -1644,6 +1641,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
         if cfg!(feature = "pbr_multi_layer_material_textures") {
             shader_defs.push("PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED".into());
+        }
+        if cfg!(feature = "pbr_anisotropy_texture") {
+            shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
         }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];

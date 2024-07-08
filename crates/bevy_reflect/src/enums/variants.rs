@@ -112,7 +112,7 @@ impl StructVariantInfo {
     /// Create a new [`StructVariantInfo`].
     pub fn new(name: &'static str, fields: &[NamedField]) -> Self {
         let field_indices = Self::collect_field_indices(fields);
-        let field_names = fields.iter().map(|field| field.name()).collect();
+        let field_names = fields.iter().map(NamedField::name).collect();
         Self {
             name,
             fields: fields.to_vec().into_boxed_slice(),

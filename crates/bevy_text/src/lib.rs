@@ -1,32 +1,61 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
-#![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
-)]
+//! This crate provides the tools for positioning and rendering text in Bevy.
+//!
+//! # `Font`
+//!
+//! Fonts contain information for drawing glyphs, which are shapes that typically represent a single character,
+//! but in some cases part of a "character" (grapheme clusters) or more than one character (ligatures).
+//!
+//! A font *face* is part of a font family,
+//! and is distinguished by its style (e.g. italic), its weight (e.g. bold) and its stretch (e.g. condensed).
+//!
+//! In Bevy, [`Font`]s are loaded by the [`FontLoader`] as [assets](bevy_asset::AssetPlugin).
+//!
+//! # `TextPipeline`
+//!
+//! The [`TextPipeline`] resource does all of the heavy lifting for rendering text.
+//!
+//! [`Text`] is first measured by creating a [`TextMeasureInfo`] in [`TextPipeline::create_text_measure`],
+//! which is called by the `measure_text_system` system of `bevy_ui`.
+//!
+//! Note that text measurement is only relevant in a UI context.
+//!
+//! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
+//! or [`bevy_text::text2d::update_text2d_layout`] system (in a 2d world space context)
+//! passes it into [`TextPipeline::queue_text`], which:
+//!
+//! 1. creates a [`Buffer`](cosmic_text::Buffer) from the [`TextSection`]s, generating new [`FontAtlasSet`]s if necessary.
+//! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
+//!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
+//! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
+//!    which contains all the information that downstream systems need for rendering.
 
+#![allow(clippy::type_complexity)]
+
+mod bounds;
 mod error;
 mod font;
 mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
-mod glyph_brush;
+mod glyph;
 mod pipeline;
 mod text;
 mod text2d;
 
+pub use cosmic_text;
+
+pub use bounds::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
-pub use glyph_brush::*;
+pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 
+/// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};
@@ -41,7 +70,6 @@ use bevy_render::{
     camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
 };
 use bevy_sprite::SpriteSystem;
-use std::num::NonZeroUsize;
 
 /// Adds text rendering support to an app.
 ///
@@ -50,31 +78,15 @@ use std::num::NonZeroUsize;
 #[derive(Default)]
 pub struct TextPlugin;
 
-/// Settings used to configure the [`TextPlugin`].
-#[derive(Resource)]
-pub struct TextSettings {
-    /// Soft maximum number of font atlases supported in a [`FontAtlasSet`]. When this is exceeded,
-    /// a warning will be emitted a single time.
-    pub soft_max_font_atlases: NonZeroUsize,
-    /// Allows font size to be set dynamically exceeding the amount set in `soft_max_font_atlases`.
-    /// Note each font size has to be generated which can have a strong performance impact.
-    pub allow_dynamic_font_size: bool,
-}
-
-impl Default for TextSettings {
-    fn default() -> Self {
-        Self {
-            soft_max_font_atlases: NonZeroUsize::new(16).unwrap(),
-            allow_dynamic_font_size: false,
-        }
-    }
-}
-
-/// Text is rendered for two different view projections, a [`Text2dBundle`] is rendered with a
-/// `BottomToTop` y axis, while UI is rendered with a `TopToBottom` y axis. This matters for text because
-/// the glyph positioning is different in either layout.
+/// Text is rendered for two different view projections;
+/// 2-dimensional text ([`Text2dBundle`]) is rendered in "world space" with a `BottomToTop` Y-axis,
+/// while UI is rendered with a `TopToBottom` Y-axis.
+/// This matters for text because the glyph positioning is different in either layout.
+/// For `TopToBottom`, 0 is the top of the text, while for `BottomToTop` 0 is the bottom.
 pub enum YAxisOrientation {
+    /// Top to bottom Y-axis orientation, for UI
     TopToBottom,
+    /// Bottom to top Y-axis orientation, for 2d world space
     BottomToTop,
 }
 
@@ -86,9 +98,8 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .register_type::<Text>()
-            .register_type::<Text2dBounds>()
+            .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
-            .init_resource::<TextSettings>()
             .init_resource::<FontAtlasSets>()
             .insert_resource(TextPipeline::default())
             .add_systems(
