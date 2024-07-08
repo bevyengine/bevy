@@ -74,7 +74,7 @@ impl<'a> ArgList<'a> {
         self.0.pop_front().ok_or(ArgError::EmptyArgList)
     }
 
-    /// Remove the first argument in the list and return `Ok(T::Item)`.
+    /// Remove the first argument in the list and return `Ok(T::This)`.
     ///
     /// If the list is empty or the [`FromArg::from_arg`] call fails, returns an error.
     ///
@@ -96,7 +96,7 @@ impl<'a> ArgList<'a> {
     /// let c = args.next::<&mut u32>().unwrap();
     /// assert_eq!(*c, 3);
     /// ```
-    pub fn next<T: FromArg>(&mut self) -> Result<T::Item<'a>, ArgError> {
+    pub fn next<T: FromArg>(&mut self) -> Result<T::This<'a>, ArgError> {
         self.next_arg()?.take::<T>()
     }
 
@@ -165,7 +165,7 @@ impl<'a> ArgList<'a> {
         self.0.pop_back().ok_or(ArgError::EmptyArgList)
     }
 
-    /// Remove the last argument in the list and return `Ok(T::Item)`.
+    /// Remove the last argument in the list and return `Ok(T::This)`.
     ///
     /// If the list is empty or the [`FromArg::from_arg`] call fails, returns an error.
     ///
@@ -187,7 +187,7 @@ impl<'a> ArgList<'a> {
     /// let a = args.pop::<u32>().unwrap();
     /// assert_eq!(a, 1);
     /// ```
-    pub fn pop<T: FromArg>(&mut self) -> Result<T::Item<'a>, ArgError> {
+    pub fn pop<T: FromArg>(&mut self) -> Result<T::This<'a>, ArgError> {
         self.pop_arg()?.take::<T>()
     }
 

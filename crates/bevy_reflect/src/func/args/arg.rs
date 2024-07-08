@@ -57,7 +57,7 @@ impl<'a> Arg<'a> {
     /// let a = args.pop::<u32>().unwrap();
     /// assert_eq!(a, 1);
     /// ```
-    pub fn take<T: FromArg>(self) -> Result<T::Item<'a>, ArgError> {
+    pub fn take<T: FromArg>(self) -> Result<T::This<'a>, ArgError> {
         T::from_arg(self)
     }
 

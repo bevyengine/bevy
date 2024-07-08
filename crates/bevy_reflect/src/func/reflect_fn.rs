@@ -80,8 +80,8 @@ macro_rules! impl_reflect_fn {
             // This clause allows us to convert `ReturnType` into `Return`
             ReturnType: IntoReturn + Reflect,
             Function: Fn($($Arg),*) -> ReturnType + 'env,
-            // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
-            Function: for<'a> Fn($($Arg::Item<'a>),*) -> ReturnType + 'env,
+            // This clause essentially asserts that `Arg::This` is the same type as `Arg`
+            Function: for<'a> Fn($($Arg::This<'a>),*) -> ReturnType + 'env,
         {
             #[allow(unused_mut)]
             fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
@@ -110,8 +110,8 @@ macro_rules! impl_reflect_fn {
             // This clause allows us to convert `&ReturnType` into `Return`
             for<'a> &'a ReturnType: IntoReturn,
             Function: for<'a> Fn(&'a Receiver, $($Arg),*) -> &'a ReturnType + 'env,
-            // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
-            Function: for<'a> Fn(&'a Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
+            // This clause essentially asserts that `Arg::This` is the same type as `Arg`
+            Function: for<'a> Fn(&'a Receiver, $($Arg::This<'a>),*) -> &'a ReturnType + 'env,
         {
             fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
@@ -140,8 +140,8 @@ macro_rules! impl_reflect_fn {
             // This clause allows us to convert `&mut ReturnType` into `Return`
             for<'a> &'a mut ReturnType: IntoReturn,
             Function: for<'a> Fn(&'a mut Receiver, $($Arg),*) -> &'a mut ReturnType + 'env,
-            // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
-            Function: for<'a> Fn(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut ReturnType + 'env,
+            // This clause essentially asserts that `Arg::This` is the same type as `Arg`
+            Function: for<'a> Fn(&'a mut Receiver, $($Arg::This<'a>),*) -> &'a mut ReturnType + 'env,
         {
             fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
@@ -170,8 +170,8 @@ macro_rules! impl_reflect_fn {
             // This clause allows us to convert `&ReturnType` into `Return`
             for<'a> &'a ReturnType: IntoReturn,
             Function: for<'a> Fn(&'a mut Receiver, $($Arg),*) -> &'a ReturnType + 'env,
-            // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
-            Function: for<'a> Fn(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
+            // This clause essentially asserts that `Arg::This` is the same type as `Arg`
+            Function: for<'a> Fn(&'a mut Receiver, $($Arg::This<'a>),*) -> &'a ReturnType + 'env,
         {
             fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
