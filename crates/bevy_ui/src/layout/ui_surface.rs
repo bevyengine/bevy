@@ -119,7 +119,7 @@ impl UiSurface {
                 taffy_children.push(*taffy_node);
             } else {
                 warn!(
-                    "Unstyled child in a UI entity hierarchy. You are using an entity \
+                    "Unstyled child `{child}` in a UI entity hierarchy. You are using an entity \
 without UI components as a child of an entity with UI components, results may be unexpected."
                 );
             }
