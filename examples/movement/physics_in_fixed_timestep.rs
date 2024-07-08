@@ -143,16 +143,16 @@ fn handle_input(keyboard_input: Res<ButtonInput<KeyCode>>, mut query: Query<&mut
         velocity.0 = Vec3::ZERO;
 
         if keyboard_input.pressed(KeyCode::KeyW) {
-            velocity.y += SPEED;
+            velocity.y += 1.0;
         }
         if keyboard_input.pressed(KeyCode::KeyS) {
-            velocity.y -= SPEED;
+            velocity.y -= 1.0;
         }
         if keyboard_input.pressed(KeyCode::KeyA) {
-            velocity.x -= SPEED;
+            velocity.x -= 1.0;
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
-            velocity.x += SPEED;
+            velocity.x += 1.0;
         }
 
         // Need to normalize and scale because otherwise
