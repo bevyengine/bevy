@@ -2,7 +2,7 @@ use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
 use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
 use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{EventWriter, ManualEventReader};
+use bevy_ecs::event::{EventCursor, EventWriter};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::FromWorld;
@@ -408,7 +408,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         create_windows(event_loop, create_window.get_mut(self.world_mut()));
         create_window.apply(self.world_mut());
 
-        let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
+        let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
