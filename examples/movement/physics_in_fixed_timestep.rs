@@ -41,7 +41,7 @@
 //! This is physically correct, but visually jarring. Imagine a player moving in a straight line, but depending on the frame rate,
 //! they may sometimes advance by a large amount and sometimes not at all. Visually, we want the player to move smoothly.
 //! This is why we need to separate the player's position in the physics simulation from the player's position in the visual representation.
-//! The visual representation can then be interpolated smoothly based on the last displayed position and
+//! The visual representation can then be interpolated smoothly based on the last rendered position and
 //! the player's actual position in the physics simulation.
 //!
 //! There are other ways to handle the visual representation of the player, such as extrapolation.
@@ -56,8 +56,8 @@
 //! - Every frame, we go through the following steps:
 //!    - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
 //!        This is run in the `FixedUpdate` schedule, which runs before the `Update` schedule.
-//!    - Update the player's visual representation in the `update_displayed_transform` system.
-//!        This interpolates between the last displayed position and the actual position in the physics simulation.
+//!    - Update the player's visual representation in the `update_rendered_transform` system.
+//!        This interpolates between the last rendered position and the actual position in the physics simulation.
 //!    - Update the player's velocity based on the player's input in the `handle_input` system.
 //!
 //!
@@ -78,7 +78,7 @@ fn main() {
         .add_systems(Startup, (spawn_text, spawn_player))
         // `FixedUpdate` runs before `Update`, so the physics simulation is advanced before the player's visual representation is updated.
         .add_systems(FixedUpdate, advance_physics)
-        .add_systems(Update, (update_displayed_transform, handle_input).chain())
+        .add_systems(Update, (update_rendered_transform, handle_input).chain())
         .run();
 }
 
@@ -174,18 +174,18 @@ fn advance_physics(
     }
 }
 
-fn update_displayed_transform(
+fn update_rendered_transform(
     fixed_time: Res<Time<Fixed>>,
     mut query: Query<(&mut Transform, &PhysicalTranslation)>,
 ) {
     for (mut transform, physical_translation) in query.iter_mut() {
-        let last_displayed_translation = transform.translation;
+        let last_rendered_translation = transform.translation;
         // The overstep fraction is a value between 0 and 1 that tells us how far we are between two fixed timesteps.
         let alpha = fixed_time.overstep_fraction();
 
-        let next_displayed_translation =
-            last_displayed_translation.lerp(physical_translation.0, alpha);
+        let next_rendered_translation =
+            last_rendered_translation.lerp(physical_translation.0, alpha);
 
-        transform.translation = next_displayed_translation;
+        transform.translation = next_rendered_translation;
     }
 }
