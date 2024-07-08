@@ -147,8 +147,8 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     UiSystem::Prepare.before(UiSystem::Stack),
-                    UiSystem::Layout.before(UiSystem::PostLayout),
-                    UiSystem::Outlines,
+                    UiSystem::Layout,
+                    (UiSystem::PostLayout, UiSystem::Outlines),
                 )
                     .chain(),
             )
