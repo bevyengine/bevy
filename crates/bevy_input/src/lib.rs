@@ -40,6 +40,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use gestures::*;
 use keyboard::{keyboard_input_system, KeyCode, KeyboardFocusLost, KeyboardInput};
@@ -53,7 +54,7 @@ use gamepad::{
     GamepadRumbleRequest, GamepadSettings, Gamepads,
 };
 
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Adds keyboard and mouse input to an App
@@ -113,27 +114,34 @@ impl Plugin for InputPlugin {
             .init_resource::<Touches>()
             .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystem));
 
-        // Register common types
-        app.register_type::<ButtonState>()
-            .register_type::<KeyboardInput>()
-            .register_type::<MouseButtonInput>()
-            .register_type::<PinchGesture>()
-            .register_type::<RotationGesture>()
-            .register_type::<DoubleTapGesture>()
-            .register_type::<PanGesture>()
-            .register_type::<TouchInput>()
-            .register_type::<GamepadEvent>()
-            .register_type::<GamepadButtonInput>()
-            .register_type::<GamepadSettings>();
+        #[cfg(feature = "bevy_reflect")]
+        {
+            // Register common types
+            app.register_type::<ButtonState>()
+                .register_type::<KeyboardInput>()
+                .register_type::<MouseButtonInput>()
+                .register_type::<PinchGesture>()
+                .register_type::<RotationGesture>()
+                .register_type::<DoubleTapGesture>()
+                .register_type::<PanGesture>()
+                .register_type::<TouchInput>()
+                .register_type::<GamepadEvent>()
+                .register_type::<GamepadButtonInput>()
+                .register_type::<GamepadSettings>();
+        }
     }
 }
 
 /// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum ButtonState {

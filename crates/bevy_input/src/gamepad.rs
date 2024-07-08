@@ -6,6 +6,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
 };
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::Duration;
 use bevy_utils::{tracing::info, HashMap};
@@ -66,7 +67,7 @@ pub enum ButtonSettingsError {
     },
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A gamepad with an associated `ID`.
@@ -80,11 +81,15 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Note
 ///
 /// The `ID` of a gamepad is fixed until the gamepad disconnects or the app is restarted.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Gamepad {
@@ -100,11 +105,11 @@ impl Gamepad {
 }
 
 /// Metadata associated with a [`Gamepad`].
-#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadInfo {
@@ -167,11 +172,15 @@ impl Gamepads {
 /// [`GamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
 /// which in turn is used to create the [`ButtonInput<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, PartialOrd, Ord)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadButtonType {
@@ -232,11 +241,15 @@ pub enum GamepadButtonType {
 /// ## Updating
 ///
 /// The gamepad button resources are updated inside of the [`gamepad_button_event_system`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButton {
@@ -268,11 +281,11 @@ impl GamepadButton {
 }
 
 /// A gamepad button input event.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButtonInput {
@@ -289,11 +302,11 @@ pub struct GamepadButtonInput {
 /// This is used to determine which axis has changed its value when receiving a
 /// [`GamepadAxisChangedEvent`]. It is also used in the [`GamepadAxis`]
 /// which in turn is used to create the [`Axis<GamepadAxis>`] `bevy` resource.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadAxisType {
@@ -325,11 +338,11 @@ pub enum GamepadAxisType {
 /// ## Updating
 ///
 /// The gamepad axes resources are updated inside of the [`gamepad_axis_event_system`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadAxis {
@@ -370,8 +383,9 @@ impl GamepadAxis {
 /// The [`GamepadSettings`] are used inside of `bevy_gilrs` to determine when raw gamepad events from `gilrs`,
 /// should register as a [`GamepadEvent`]. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding resource.
-#[derive(Resource, Default, Debug, Reflect)]
-#[reflect(Debug, Default)]
+#[derive(Resource, Default, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -453,8 +467,8 @@ impl GamepadSettings {
 /// value is surpassed and released if the `release_threshold` value is undercut.
 ///
 /// Allowed values: `0.0 <= ``release_threshold`` <= ``press_threshold`` <= 1.0`
-#[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, Default)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct ButtonSettings {
     press_threshold: f32,
     release_threshold: f32,
@@ -613,8 +627,8 @@ impl ButtonSettings {
 /// Otherwise, values will not be rounded.
 ///
 /// The valid range is `[-1.0, 1.0]`.
-#[derive(Debug, Clone, Reflect, PartialEq)]
-#[reflect(Debug, Default)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
     livezone_upperbound: f32,
@@ -945,8 +959,8 @@ impl AxisSettings {
 /// ## Updating
 ///
 /// The current value of a button is received through the [`GamepadButtonChangedEvent`].
-#[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, Default)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct ButtonAxisSettings {
     /// The high value at which to apply rounding.
     pub high: f32,
@@ -1055,11 +1069,11 @@ pub fn gamepad_connection_system(
 }
 
 /// The connection status of a gamepad.
-#[derive(Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadConnection {
@@ -1071,11 +1085,11 @@ pub enum GamepadConnection {
 
 /// A Gamepad connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadConnectionEvent {
@@ -1107,11 +1121,11 @@ impl GamepadConnectionEvent {
 
 /// Gamepad event for when the "value" on the axis changes
 /// by an amount larger than the threshold defined in [`GamepadSettings`].
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadAxisChangedEvent {
@@ -1136,11 +1150,11 @@ impl GamepadAxisChangedEvent {
 
 /// Gamepad event for when the "value" (amount of pressure) on the button
 /// changes by an amount larger than the threshold defined in [`GamepadSettings`].
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButtonChangedEvent {
@@ -1215,11 +1229,11 @@ pub fn gamepad_button_event_system(
 /// This event type is used over the [`GamepadConnectionEvent`],
 /// [`GamepadButtonChangedEvent`] and [`GamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum GamepadEvent {

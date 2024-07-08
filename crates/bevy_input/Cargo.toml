@@ -9,19 +9,30 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = []
-serialize = ["serde"]
+default = ["bevy_reflect"]
+bevy_reflect = [
+  "dep:bevy_reflect",
+  "bevy_app/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_math/bevy_reflect",
+]
+serialize = ["serde", "smol_str/serde"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.14.0" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0" }
-bevy_math = { path = "../bevy_math", version = "0.14.0" }
+bevy_app = { path = "../bevy_app", version = "0.14.0", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.14.0", default-features = false, features = [
+  "serialize",
+] }
+bevy_math = { path = "../bevy_math", version = "0.14.0", default-features = false, features = [
+  "rand",
+  "serialize",
+] }
 bevy_utils = { path = "../bevy_utils", version = "0.14.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0", features = [
   "glam",
   "smol_str",
-] }
+], optional = true }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
