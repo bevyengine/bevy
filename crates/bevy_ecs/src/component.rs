@@ -275,7 +275,12 @@ impl ComponentHooks {
             .expect("Component id: {:?}, already has an on_insert hook")
     }
 
-    /// Register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed.
+    /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
+    /// such as being replaced (with `.insert`) or removed.
+    ///
+    /// If this component is inserted onto an entity that already has it, this hook will run before the value is replaced,
+    /// allowing access to the previous data just before it is dropped.
+    /// This hook does *not* run if the entity did not already have this component.
     ///
     /// An `on_replace` hook always runs before any `on_remove` hooks (if the component is being removed from the entity).
     ///
