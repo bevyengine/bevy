@@ -10,6 +10,10 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
+const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -132,10 +136,7 @@ fn setup(
         ..default()
     });
 
-    let style = TextStyle {
-        font_size: 18.0,
-        ..default()
-    };
+    let style = TextStyle::default();
 
     commands.spawn(
         TextBundle::from_sections(vec![
@@ -147,8 +148,8 @@ fn setup(
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -169,7 +170,7 @@ struct CustomMaterial {
 /// function will also be used by the prepass
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.wgsl".into()
+        MATERIAL_SHADER_ASSET_PATH.into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {
@@ -211,7 +212,7 @@ struct PrepassOutputMaterial {
 
 impl Material for PrepassOutputMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/show_prepass.wgsl".into()
+        PREPASS_SHADER_ASSET_PATH.into()
     }
 
     // This needs to be transparent in order to show the scene behind the mesh

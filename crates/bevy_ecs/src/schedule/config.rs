@@ -48,9 +48,15 @@ impl IntoSystemConfigs<()> for BoxedSystem<(), ()> {
     }
 }
 
-/// Stores configuration for a single generic node.
+/// Stores configuration for a single generic node (a system or a system set)
+///
+/// The configuration includes the node itself, scheduling metadata
+/// (hierarchy: in which sets is the node contained,
+/// dependencies: before/after which other nodes should this node run)
+/// and the run conditions associated with this node.
 pub struct NodeConfig<T> {
     pub(crate) node: T,
+    /// Hierarchy and dependency metadata for this node
     pub(crate) graph_info: GraphInfo,
     pub(crate) conditions: Vec<BoxedCondition>,
 }
@@ -83,7 +89,7 @@ impl SystemConfigs {
         Self::NodeConfig(SystemConfig {
             node: system,
             graph_info: GraphInfo {
-                sets,
+                hierarchy: sets,
                 ..Default::default()
             },
             conditions: Vec::new(),
@@ -96,7 +102,7 @@ impl<T> NodeConfigs<T> {
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
             Self::NodeConfig(config) => {
-                config.graph_info.sets.push(set);
+                config.graph_info.hierarchy.push(set);
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -282,6 +288,10 @@ impl<T> NodeConfigs<T> {
 ///     )
 /// );
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not describe a valid system configuration",
+    label = "invalid system configuration"
+)]
 pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
@@ -556,6 +566,10 @@ impl SystemSetConfig {
 pub type SystemSetConfigs = NodeConfigs<InternedSystemSet>;
 
 /// Types that can convert into a [`SystemSetConfigs`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not describe a valid system set configuration",
+    label = "invalid system set configuration"
+)]
 pub trait IntoSystemSetConfigs
 where
     Self: Sized,
@@ -636,7 +650,7 @@ where
     /// Ordering constraints will be applied between the successive elements.
     ///
     /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
-    fn chain_ignore_deferred(self) -> SystemConfigs {
+    fn chain_ignore_deferred(self) -> SystemSetConfigs {
         self.into_configs().chain_ignore_deferred()
     }
 }
@@ -706,6 +720,10 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
     fn chain(self) -> Self {
         self.chain_inner()
+    }
+
+    fn chain_ignore_deferred(self) -> Self {
+        self.chain_ignore_deferred_inner()
     }
 }
 

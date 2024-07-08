@@ -5,7 +5,7 @@ use argh::FromArgs;
 /// Alias for running the `doc-test` and `doc-check` subcommands.
 #[derive(FromArgs, Default)]
 #[argh(subcommand, name = "doc")]
-pub(crate) struct DocCommand {}
+pub struct DocCommand {}
 
 impl Prepare for DocCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {

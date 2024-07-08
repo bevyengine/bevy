@@ -152,9 +152,9 @@ impl AssetProcessor {
 
     /// Starts the processor in a background thread.
     pub fn start(_processor: Res<Self>) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         error!("Cannot run AssetProcessor in single threaded mode (or WASM) yet.");
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
             let processor = _processor.clone();
             std::thread::spawn(move || {
@@ -170,8 +170,8 @@ impl AssetProcessor {
     /// * Scan the processed [`AssetReader`] to build the current view of already processed assets.
     /// * Scan the unprocessed [`AssetReader`] and remove any final processed assets that are invalid or no longer exist.
     /// * For each asset in the unprocessed [`AssetReader`], kick off a new "process job", which will process the asset
-    /// (if the latest version of the asset has not been processed).
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+    ///     (if the latest version of the asset has not been processed).
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
         debug!("Processing Assets");
@@ -322,9 +322,9 @@ impl AssetProcessor {
             "Folder {} was added. Attempting to re-process",
             AssetPath::from_path(&path).with_source(source.id())
         );
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         error!("AddFolder event cannot be handled in single threaded mode (or WASM) yet.");
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {
                 self.process_assets_internal(scope, source, path)
@@ -439,7 +439,7 @@ impl AssetProcessor {
     }
 
     #[allow(unused)]
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     async fn process_assets_internal<'scope>(
         &'scope self,
         scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
@@ -1098,6 +1098,7 @@ pub(crate) struct ProcessorAssetInfo {
     /// * when the processor is running in parallel with an app
     /// * when processing assets in parallel, the processor might read an asset's `process_dependencies` when processing new versions of those dependencies
     ///     * this second scenario almost certainly isn't possible with the current implementation, but its worth protecting against
+    ///
     /// This lock defends against those scenarios by ensuring readers don't read while processed files are being written. And it ensures
     /// Because this lock is shared across meta and asset bytes, readers can ensure they don't read "old" versions of metadata with "new" asset data.
     pub(crate) file_transaction_lock: Arc<async_lock::RwLock<()>>,

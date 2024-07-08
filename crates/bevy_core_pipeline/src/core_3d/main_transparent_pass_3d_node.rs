@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::SortedRenderPhase,
+    render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
@@ -20,7 +20,6 @@ pub struct MainTransparentPass3dNode;
 impl ViewNode for MainTransparentPass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static SortedRenderPhase<Transparent3d>,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
@@ -28,10 +27,20 @@ impl ViewNode for MainTransparentPass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
+        (camera, target, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
+
+        let Some(transparent_phases) =
+            world.get_resource::<ViewSortedRenderPhases<Transparent3d>>()
+        else {
+            return Ok(());
+        };
+
+        let Some(transparent_phase) = transparent_phases.get(&view_entity) else {
+            return Ok(());
+        };
 
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front

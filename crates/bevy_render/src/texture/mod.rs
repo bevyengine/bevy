@@ -43,6 +43,14 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
+/// A handle to a 1 x 1 transparent white image.
+///
+/// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
+/// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x 1 white image.
+// Number randomly selected by fair WolframAlpha query. Totally arbitrary.
+pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
+    Handle::weak_from_u128(154728948001857810431816125397303024160);
+
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin {
@@ -89,9 +97,11 @@ impl Plugin for ImagePlugin {
             .init_asset::<Image>()
             .register_asset_reflect::<Image>();
 
-        app.world_mut()
-            .resource_mut::<Assets<Image>>()
-            .insert(&Handle::default(), Image::default());
+        let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
+
+        image_assets.insert(&Handle::default(), Image::default());
+        image_assets.insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent());
+
         #[cfg(feature = "basis-universal")]
         if let Some(processor) = app
             .world()

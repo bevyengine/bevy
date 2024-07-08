@@ -15,8 +15,8 @@ use bevy::{
         mesh::{GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-            SetItemPipeline, SortedRenderPhase, TrackedRenderPass,
+            AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
+            RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
         },
         render_resource::*,
         renderer::RenderDevice,
@@ -25,6 +25,9 @@ use bevy::{
     },
 };
 use bytemuck::{Pod, Zeroable};
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/instancing.wgsl";
 
 fn main() {
     App::new()
@@ -117,13 +120,18 @@ fn queue_custom(
     meshes: Res<RenderAssets<GpuMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
-    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<Transparent3d>)>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    mut views: Query<(Entity, &ExtractedView)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
 
-    for (view, mut transparent_phase) in &mut views {
+    for (view_entity, view) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for entity in &material_meshes {
@@ -144,7 +152,7 @@ fn queue_custom(
                 draw_function: draw_custom,
                 distance: rangefinder.distance_translation(&mesh_instance.translation),
                 batch_range: 0..1,
-                dynamic_offset: None,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
@@ -185,7 +193,7 @@ impl FromWorld for CustomPipeline {
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
         CustomPipeline {
-            shader: world.load_asset("shaders/instancing.wgsl"),
+            shader: world.load_asset(SHADER_ASSET_PATH),
             mesh_pipeline: mesh_pipeline.clone(),
         }
     }

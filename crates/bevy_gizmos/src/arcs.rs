@@ -3,7 +3,7 @@
 //! Includes the implementation of [`Gizmos::arc_2d`],
 //! and assorted support items.
 
-use crate::circles::DEFAULT_CIRCLE_SEGMENTS;
+use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
 use bevy_math::{Quat, Vec2, Vec3};
@@ -22,8 +22,8 @@ where
     ///
     /// # Arguments
     /// - `position` sets the center of this circle.
-    /// - `direction_angle` sets the clockwise  angle in radians between `Vec2::Y` and
-    /// the vector from `position` to the midpoint of the arc.
+    /// - `direction_angle` sets the counter-clockwise  angle in radians between `Vec2::Y` and
+    ///     the vector from `position` to the midpoint of the arc.
     /// - `arc_angle` sets the length of this arc, in radians.
     /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
     /// - `color` sets the color to draw the arc.
@@ -42,7 +42,7 @@ where
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
     ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
-    ///         .segments(64);
+    ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -62,7 +62,7 @@ where
             arc_angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 }
@@ -79,7 +79,7 @@ where
     arc_angle: f32,
     radius: f32,
     color: Color,
-    segments: Option<usize>,
+    resolution: Option<u32>,
 }
 
 impl<Config, Clear> Arc2dBuilder<'_, '_, '_, Config, Clear>
@@ -87,9 +87,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of line-segments for this arc.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments.replace(segments);
+    /// Set the number of lines used to approximate the geometry of this arc.
+    pub fn resolution(mut self, resolution: u32) -> Self {
+        self.resolution.replace(resolution);
         self
     }
 }
@@ -104,12 +104,17 @@ where
             return;
         }
 
-        let segments = self
-            .segments
-            .unwrap_or_else(|| segments_from_angle(self.arc_angle));
+        let resolution = self
+            .resolution
+            .unwrap_or_else(|| resolution_from_angle(self.arc_angle));
 
-        let positions = arc_2d_inner(self.direction_angle, self.arc_angle, self.radius, segments)
-            .map(|vec2| (vec2 + self.position));
+        let positions = arc_2d_inner(
+            self.direction_angle,
+            self.arc_angle,
+            self.radius,
+            resolution,
+        )
+        .map(|vec2| (vec2 + self.position));
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
@@ -118,13 +123,15 @@ fn arc_2d_inner(
     direction_angle: f32,
     arc_angle: f32,
     radius: f32,
-    segments: usize,
+    resolution: u32,
 ) -> impl Iterator<Item = Vec2> {
-    (0..segments + 1).map(move |i| {
+    (0..resolution + 1).map(move |i| {
         let start = direction_angle - arc_angle / 2.;
 
-        let angle = start + (i as f32 * (arc_angle / segments as f32));
-        Vec2::from(angle.sin_cos()) * radius
+        let angle =
+            start + (i as f32 * (arc_angle / resolution as f32)) + std::f32::consts::FRAC_PI_2;
+
+        Vec2::new(angle.cos(), angle.sin()) * radius
     })
 }
 
@@ -147,16 +154,16 @@ where
     ///
     /// # Arguments
     /// - `angle`: sets how much of a circle circumference is passed, e.g. PI is half a circle. This
-    /// value should be in the range (-2 * PI..=2 * PI)
+    ///     value should be in the range (-2 * PI..=2 * PI)
     /// - `radius`: distance between the arc and its center point
     /// - `position`: position of the arcs center point
     /// - `rotation`: defines orientation of the arc, by default we assume the arc is contained in a
-    /// plane parallel to the XZ plane and the default starting point is (`position + Vec3::X`)
+    ///     plane parallel to the XZ plane and the default starting point is (`position + Vec3::X`)
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Example
     /// ```
@@ -177,7 +184,7 @@ where
     ///          rotation,
     ///          ORANGE
     ///          )
-    ///          .segments(100);
+    ///          .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -198,7 +205,7 @@ where
             angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 
@@ -212,8 +219,8 @@ where
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Examples
     /// ```
@@ -228,17 +235,17 @@ where
     ///        Vec3::ZERO,
     ///        ORANGE
     ///        )
-    ///        .segments(100);
+    ///        .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     ///
     /// # Notes
     /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
-    /// the points is coincident with `center`, nothing is rendered.
+    ///     the points is coincident with `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
-    /// `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
-    /// the results will behave as if this were the case
+    ///     `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
+    ///     the results will behave as if this were the case
     #[inline]
     pub fn short_arc_3d_between(
         &mut self,
@@ -259,8 +266,8 @@ where
     /// - `color`: color of the arc
     ///
     /// # Builder methods
-    /// The number of segments of the arc (i.e. the level of detail) can be adjusted with the
-    /// `.segments(...)` method.
+    /// The resolution of the arc (i.e. the level of detail) can be adjusted with the
+    /// `.resolution(...)` method.
     ///
     /// # Examples
     /// ```
@@ -275,17 +282,17 @@ where
     ///        Vec3::ZERO,
     ///        ORANGE
     ///        )
-    ///        .segments(100);
+    ///        .resolution(100);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     ///
     /// # Notes
     /// - This method assumes that the points `from` and `to` are distinct from `center`. If one of
-    /// the points is coincident with `center`, nothing is rendered.
+    ///     the points is coincident with `center`, nothing is rendered.
     /// - The arc is drawn as a portion of a circle with a radius equal to the distance from the
-    /// `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
-    /// the results will behave as if this were the case.
+    ///     `center` to `from`. If the distance from `center` to `to` is not equal to the radius, then
+    ///     the results will behave as if this were the case.
     #[inline]
     pub fn long_arc_3d_between(
         &mut self,
@@ -334,7 +341,7 @@ where
             angle,
             radius,
             color: color.into(),
-            segments: None,
+            resolution: None,
         }
     }
 }
@@ -361,7 +368,7 @@ where
     angle: f32,
     radius: f32,
     color: Color,
-    segments: Option<usize>,
+    resolution: Option<u32>,
 }
 
 impl<Config, Clear> Arc3dBuilder<'_, '_, '_, Config, Clear>
@@ -369,9 +376,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of line-segments for this arc.
-    pub fn segments(mut self, segments: usize) -> Self {
-        self.segments.replace(segments);
+    /// Set the number of lines for this arc.
+    pub fn resolution(mut self, resolution: u32) -> Self {
+        self.resolution.replace(resolution);
         self
     }
 }
@@ -386,9 +393,9 @@ where
             return;
         }
 
-        let segments = self
-            .segments
-            .unwrap_or_else(|| segments_from_angle(self.angle));
+        let resolution = self
+            .resolution
+            .unwrap_or_else(|| resolution_from_angle(self.angle));
 
         let positions = arc_3d_inner(
             self.start_vertex,
@@ -396,7 +403,7 @@ where
             self.rotation,
             self.angle,
             self.radius,
-            segments,
+            resolution,
         );
         self.gizmos.linestrip(positions, self.color);
     }
@@ -408,20 +415,20 @@ fn arc_3d_inner(
     rotation: Quat,
     angle: f32,
     radius: f32,
-    segments: usize,
+    resolution: u32,
 ) -> impl Iterator<Item = Vec3> {
     // drawing arcs bigger than TAU degrees or smaller than -TAU degrees makes no sense since
-    // we won't see the overlap and we would just decrease the level of details since the segments
+    // we won't see the overlap and we would just decrease the level of details since the resolution
     // would be larger
     let angle = angle.clamp(-TAU, TAU);
-    (0..=segments)
-        .map(move |frac| frac as f32 / segments as f32)
+    (0..=resolution)
+        .map(move |frac| frac as f32 / resolution as f32)
         .map(move |percentage| angle * percentage)
         .map(move |frac_angle| Quat::from_axis_angle(Vec3::Y, frac_angle) * start_vertex)
         .map(move |p| rotation * (p * radius) + center)
 }
 
-// helper function for getting a default value for the segments parameter
-fn segments_from_angle(angle: f32) -> usize {
-    ((angle.abs() / TAU) * DEFAULT_CIRCLE_SEGMENTS as f32).ceil() as usize
+// helper function for getting a default value for the resolution parameter
+fn resolution_from_angle(angle: f32) -> u32 {
+    ((angle.abs() / TAU) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as u32
 }

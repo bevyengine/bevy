@@ -1,5 +1,7 @@
+use bevy_text::TextPipeline;
 use thiserror::Error;
 
+use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -17,8 +19,6 @@ use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use ui_surface::UiSurface;
-
-use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 
 mod convert;
 pub mod debug;
@@ -60,7 +60,7 @@ pub enum LayoutError {
     #[error("Invalid hierarchy")]
     InvalidHierarchy,
     #[error("Taffy error: {0}")]
-    TaffyError(#[from] taffy::error::TaffyError),
+    TaffyError(#[from] taffy::TaffyError),
 }
 
 #[derive(SystemParam)]
@@ -82,12 +82,20 @@ pub fn ui_layout_system(
     mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
     root_node_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Without<Parent>)>,
-    style_query: Query<(Entity, Ref<Style>, Option<&TargetCamera>), With<Node>>,
-    mut measure_query: Query<(Entity, &mut ContentSize)>,
+    mut style_query: Query<
+        (
+            Entity,
+            Ref<Style>,
+            Option<&mut ContentSize>,
+            Option<&TargetCamera>,
+        ),
+        With<Node>,
+    >,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
+    #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
 ) {
     struct CameraLayoutInfo {
         size: UVec2,
@@ -96,10 +104,9 @@ pub fn ui_layout_system(
         root_nodes: Vec<Entity>,
     }
 
+    let default_camera = default_ui_camera.get();
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
-        target_camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+        target_camera.map(TargetCamera::entity).or(default_camera)
     };
 
     let resized_windows: HashSet<Entity> = resize_events.read().map(|event| event.window).collect();
@@ -122,7 +129,7 @@ pub fn ui_layout_system(
 
     // Precalculate the layout info for each camera, so we have fast access to it for each node
     let mut camera_layout_info: HashMap<Entity, CameraLayoutInfo> = HashMap::new();
-    for (entity, target_camera) in &root_node_query {
+    root_node_query.iter().for_each(|(entity,target_camera)|{
         match camera_with_default(target_camera) {
             Some(camera_entity) => {
                 let Ok((_, camera)) = cameras.get(camera_entity) else {
@@ -130,7 +137,7 @@ pub fn ui_layout_system(
                         "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
                         camera_entity
                     );
-                    continue;
+                    return;
                 };
                 let layout_info = camera_layout_info
                     .entry(camera_entity)
@@ -147,45 +154,44 @@ pub fn ui_layout_system(
                         entity
                     );
                 }
-                continue;
             }
         }
-    }
 
-    // Resize all nodes
-    for (entity, style, target_camera) in style_query.iter() {
-        if let Some(camera) =
-            camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
-        {
-            if camera.resized
-                || !scale_factor_events.is_empty()
-                || ui_scale.is_changed()
-                || style.is_changed()
-            {
-                let layout_context = LayoutContext::new(
-                    camera.scale_factor,
-                    [camera.size.x as f32, camera.size.y as f32].into(),
-                );
-                ui_surface.upsert_node(entity, &style, &layout_context);
-            }
-        } else {
-            ui_surface.upsert_node(entity, &Style::default(), &LayoutContext::default());
-        }
-    }
-    scale_factor_events.clear();
+    });
 
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
-        ui_surface.try_remove_measure(entity);
-    }
-    for (entity, mut content_size) in &mut measure_query {
-        if let Some(measure_func) = content_size.measure_func.take() {
-            ui_surface.try_update_measure(entity, measure_func);
-        }
+        ui_surface.try_remove_node_context(entity);
     }
 
-    // clean up removed nodes
-    ui_surface.remove_entities(removed_components.removed_nodes.read());
+    // Sync Style and ContentSize to Taffy for all nodes
+    style_query
+        .iter_mut()
+        .for_each(|(entity, style, content_size, target_camera)| {
+            if let Some(camera) =
+                camera_with_default(target_camera).and_then(|c| camera_layout_info.get(&c))
+            {
+                if camera.resized
+                    || !scale_factor_events.is_empty()
+                    || ui_scale.is_changed()
+                    || style.is_changed()
+                    || content_size
+                        .as_ref()
+                        .map(|c| c.measure.is_some())
+                        .unwrap_or(false)
+                {
+                    let layout_context = LayoutContext::new(
+                        camera.scale_factor,
+                        [camera.size.x as f32, camera.size.y as f32].into(),
+                    );
+                    let measure = content_size.and_then(|mut c| c.measure.take());
+                    ui_surface.upsert_node(&layout_context, entity, &style, measure);
+                }
+            } else {
+                ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Style::default(), None);
+            }
+        });
+    scale_factor_events.clear();
 
     // clean up removed cameras
     ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
@@ -205,16 +211,26 @@ pub fn ui_layout_system(
     for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
-    for (entity, children) in &children_query {
+    children_query.iter().for_each(|(entity, children)| {
         if children.is_changed() {
             ui_surface.update_children(entity, &children);
         }
-    }
+    });
+
+    #[cfg(feature = "bevy_text")]
+    let font_system = text_pipeline.font_system_mut();
+    // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
+    ui_surface.remove_entities(removed_components.removed_nodes.read());
 
     for (camera_id, camera) in &camera_layout_info {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
-        ui_surface.compute_camera_layout(*camera_id, camera.size);
+        ui_surface.compute_camera_layout(
+            *camera_id,
+            camera.size,
+            #[cfg(feature = "bevy_text")]
+            font_system,
+        );
         for root in &camera.root_nodes {
             update_uinode_geometry_recursive(
                 *root,
@@ -248,11 +264,11 @@ pub fn ui_layout_system(
 
             absolute_location += layout_location;
 
-            let rounded_size = round_layout_coords(absolute_location + layout_size)
-                - round_layout_coords(absolute_location);
+            let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
+                - approx_round_layout_coords(absolute_location);
 
             let rounded_location =
-                round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+                approx_round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
@@ -287,7 +303,7 @@ pub fn resolve_outlines_system(
 ) {
     let viewport_size = primary_window
         .get_single()
-        .map(|window| window.size())
+        .map(Window::size)
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0;
 
@@ -309,15 +325,8 @@ pub fn resolve_outlines_system(
 
 #[inline]
 /// Round `value` to the nearest whole integer, with ties (values with a fractional part equal to 0.5) rounded towards positive infinity.
-fn round_ties_up(value: f32) -> f32 {
-    if value.fract() != -0.5 {
-        // The `round` function rounds ties away from zero. For positive numbers "away from zero" is towards positive infinity.
-        // So for all positive values, and negative values with a fractional part not equal to 0.5, `round` returns the correct result.
-        value.round()
-    } else {
-        // In the remaining cases, where `value` is negative and its fractional part is equal to 0.5, we use `ceil` to round it up towards positive infinity.
-        value.ceil()
-    }
+fn approx_round_ties_up(value: f32) -> f32 {
+    (value + 0.5).floor()
 }
 
 #[inline]
@@ -328,16 +337,16 @@ fn round_ties_up(value: f32) -> f32 {
 /// Example: The width between bounds of -50.5 and 49.5 before rounding is 100, using:
 /// - `f32::round`: width becomes 101 (rounds to -51 and 50).
 /// - `round_ties_up`: width is 100 (rounds to -50 and 50).
-fn round_layout_coords(value: Vec2) -> Vec2 {
+fn approx_round_layout_coords(value: Vec2) -> Vec2 {
     Vec2 {
-        x: round_ties_up(value.x),
-        y: round_ties_up(value.y),
+        x: approx_round_ties_up(value.x),
+        y: approx_round_ties_up(value.y),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use taffy::tree::LayoutTree;
+    use taffy::TraversePartialTree;
 
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
@@ -351,7 +360,9 @@ mod tests {
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::system::RunSystemOnce;
     use bevy_ecs::world::World;
-    use bevy_hierarchy::{despawn_with_children_recursive, BuildWorldChildren, Children, Parent};
+    use bevy_hierarchy::{
+        despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
+    };
     use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;
@@ -368,7 +379,7 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
-    use crate::layout::round_layout_coords;
+    use crate::layout::approx_round_layout_coords;
     use crate::layout::ui_surface::UiSurface;
     use crate::prelude::*;
     use crate::ui_layout_system;
@@ -377,7 +388,10 @@ mod tests {
 
     #[test]
     fn round_layout_coords_must_round_ties_up() {
-        assert_eq!(round_layout_coords(vec2(-50.5, 49.5)), vec2(-50., 50.));
+        assert_eq!(
+            approx_round_layout_coords(vec2(-50.5, 49.5)),
+            vec2(-50., 50.)
+        );
     }
 
     // these window dimensions are easy to convert to and from percentage values
@@ -395,6 +409,8 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::TextPipeline>();
 
         // spawn a dummy primary window and camera
         world.spawn((
@@ -578,7 +594,7 @@ mod tests {
         let ui_parent_node = ui_surface.entity_to_taffy[&ui_parent_entity];
 
         // `ui_parent_node` shouldn't have any children yet
-        assert_eq!(ui_surface.taffy.child_count(ui_parent_node).unwrap(), 0);
+        assert_eq!(ui_surface.taffy.child_count(ui_parent_node), 0);
 
         let mut ui_child_entities = (0..10)
             .map(|_| {
@@ -597,7 +613,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node).unwrap(),
+            ui_surface.taffy.child_count(ui_parent_node),
             ui_child_entities.len()
         );
 
@@ -628,7 +644,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node).unwrap(),
+            ui_surface.taffy.child_count(ui_parent_node),
             ui_child_entities.len()
         );
 
@@ -941,8 +957,8 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
         let ui_node = ui_surface.entity_to_taffy[&ui_entity];
 
-        // a node with a content size needs to be measured
-        assert!(ui_surface.taffy.needs_measure(ui_node));
+        // a node with a content size should have taffy context
+        assert!(ui_surface.taffy.get_node_context(ui_node).is_some());
         let layout = ui_surface.get_layout(ui_entity).unwrap();
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
@@ -952,8 +968,8 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let ui_surface = world.resource::<UiSurface>();
-        // a node without a content size does not need to be measured
-        assert!(!ui_surface.taffy.needs_measure(ui_node));
+        // a node without a content size should not have taffy context
+        assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
         let layout = ui_surface.get_layout(ui_entity).unwrap();
@@ -1027,6 +1043,8 @@ mod tests {
         world.init_resource::<Events<AssetEvent<Image>>>();
         world.init_resource::<Assets<Image>>();
         world.init_resource::<ManualTextureViews>();
+        #[cfg(feature = "bevy_text")]
+        world.init_resource::<bevy_text::TextPipeline>();
 
         // spawn a dummy primary window and camera
         world.spawn((
