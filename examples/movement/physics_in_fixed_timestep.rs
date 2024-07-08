@@ -1,4 +1,12 @@
 //! TODO
+//! ## Controls
+//!
+//! | Key Binding          | Action        |
+//! |:---------------------|:--------------|
+//! | `W`                  | Move up       |
+//! | `S`                  | Move down     |
+//! | `A`                  | Move left     |
+//! | `D`                  | Move right    |
 
 use bevy::prelude::*;
 
