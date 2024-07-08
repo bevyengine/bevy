@@ -155,7 +155,7 @@ impl TaskPool {
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future, which can be polled
-    /// to retrieve the output of the original future. Dropped the task will attempt to cancel it.
+    /// to retrieve the output of the original future. Dropping the task will attempt to cancel it.
     /// It can also be "detached", allowing it to continue running without having to be polled by the
     /// end-user.
     ///
