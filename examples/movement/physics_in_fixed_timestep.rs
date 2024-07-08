@@ -13,7 +13,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (spawn_text, spawn_player))
         .add_systems(FixedUpdate, advance_physics)
         .add_systems(
             Update,
@@ -28,7 +28,7 @@ struct Velocity(Vec2);
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
 struct PhysicalTranslation(Vec2);
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         Name::new("Player"),
@@ -40,6 +40,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Velocity::default(),
         PhysicalTranslation::default(),
     ));
+}
+
+fn spawn_text(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Move the player with WASD",
+                TextStyle {
+                    font_size: 25.0,
+                    ..default()
+                },
+            ));
+        });
 }
 
 ///
@@ -55,7 +77,7 @@ fn handle_input(keyboard_input: Res<ButtonInput<KeyCode>>, mut query: Query<&mut
     /// Since Bevy's default 2D camera setup is scaled such that
     /// one unit is one pixel, you can think of this as
     /// "How many pixels per second should the player move?"
-    const SPEED: f32 = 180.0;
+    const SPEED: f32 = 210.0;
     for mut velocity in query.iter_mut() {
         if keyboard_input.pressed(KeyCode::KeyW) {
             velocity.y += SPEED;
