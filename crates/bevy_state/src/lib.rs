@@ -4,15 +4,15 @@
 //!
 //! - Standard [`States`](state::States) can only be changed by manually setting the [`NextState<S>`](state::NextState) resource.
 //!   These states are the baseline on which the other state types are built, and can be used on
-//!   their own for many simple patterns. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/state.rs)
+//!   their own for many simple patterns. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/state/state.rs)
 //!   for a simple use case.
 //! - [`SubStates`](state::SubStates) are children of other states - they can be changed manually using [`NextState<S>`](state::NextState),
-//!   but are removed from the [`World`](bevy_ecs::prelude::World) if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/sub_states.rs)
+//!   but are removed from the [`World`](bevy_ecs::prelude::World) if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/state/sub_states.rs)
 //!   for a simple use case based on the derive macro, or read the trait docs for more complex scenarios.
 //! - [`ComputedStates`](state::ComputedStates) are fully derived from other states - they provide a [`compute`](state::ComputedStates::compute) method
 //!   that takes in the source states and returns their derived value. They are particularly useful for situations
 //!   where a simplified view of the source states is necessary - such as having an `InAMenu` computed state, derived
-//!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/computed_states.rs)
+//!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/state/computed_states.rs)
 //!   to see usage samples for these states.
 //!
 //! Most of the utilities around state involve running systems during transitions between states, or

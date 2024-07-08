@@ -1308,7 +1308,7 @@ fn log_components(entity: Entity, world: &mut World) {
         .inspect_entity(entity)
         .map(ComponentInfo::name)
         .collect();
-    info!("Entity {:?}: {:?}", entity, debug_infos);
+    info!("Entity {entity}: {debug_infos:?}");
 }
 
 fn observe<E: Event, B: Bundle, M>(

@@ -51,10 +51,7 @@ where
     /// chunk will be dropped, and the rest of the undrained elements will remain.
     ///
     /// The ordering is not guaranteed.
-    pub fn drain<B>(&mut self) -> impl Iterator<Item = T> + '_
-    where
-        B: FromIterator<T>,
-    {
+    pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
         self.locals.iter_mut().flat_map(|item| item.take())
     }
 }

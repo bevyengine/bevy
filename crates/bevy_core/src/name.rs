@@ -1,7 +1,11 @@
 use bevy_ecs::query::QueryData;
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectComponent;
+use bevy_ecs::{component::Component, entity::Entity};
 
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::AHasher;
 use std::{
@@ -10,7 +14,7 @@ use std::{
     ops::Deref,
 };
 
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Component used to identify an entity. Stores a hash for faster comparisons.
@@ -20,9 +24,16 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// [`Name`] should not be treated as a globally unique identifier for entities,
 /// as multiple entities can have the same name.  [`Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Reflect, Component, Clone)]
-#[reflect(Component, Default, Debug)]
-#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
+#[derive(Component, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, Debug)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Deserialize, Serialize)
+)]
 pub struct Name {
     hash: u64, // Won't be serialized (see: `bevy_core::serde` module)
     name: Cow<'static, str>,
