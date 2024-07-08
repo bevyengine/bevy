@@ -66,7 +66,7 @@ impl<'a> ArgList<'a> {
         self.push_arg(ArgValue::Owned(arg))
     }
 
-    /// Take the next argument, if any, from the list.
+    /// Remove the first argument in the list and return it.
     ///
     /// It's generally preferred to use [`Self::next`] instead of this method
     /// as it provides a more ergonomic way to immediately downcast the argument.
@@ -74,9 +74,9 @@ impl<'a> ArgList<'a> {
         self.0.pop_front().ok_or(ArgError::EmptyArgList)
     }
 
-    /// Take the next argument, if any, from the list and downcast it to a concrete value, `T`.
+    /// Remove the first argument in the list and return `Ok(T::Item)`.
     ///
-    /// This is a convenience method for calling [`FromArg::from_arg`] on the argument.
+    /// If the list is empty or the [`FromArg::from_arg`] call fails, returns an error.
     ///
     /// # Example
     ///
@@ -100,9 +100,7 @@ impl<'a> ArgList<'a> {
         self.next_arg()?.take::<T>()
     }
 
-    /// Take the next argument, if any, from the list and downcast it to `T`.
-    ///
-    /// Returns `Ok(T)` if the argument is [`ArgValue::Owned`].
+    /// Remove the first argument in the list and return `Ok(T)` if the argument is [`ArgValue::Owned`].
     ///
     /// If the list is empty or the argument is not owned, returns an error.
     ///
@@ -121,9 +119,7 @@ impl<'a> ArgList<'a> {
         self.next_arg()?.take_owned()
     }
 
-    /// Take the next argument, if any, from the list and downcast it to `&T`.
-    ///
-    /// Returns `Ok(&T)` if the argument is [`ArgValue::Ref`].
+    /// Remove the first argument in the list and return `Ok(&T)` if the argument is [`ArgValue::Ref`].
     ///
     /// If the list is empty or the argument is not a reference, returns an error.
     ///
@@ -142,9 +138,7 @@ impl<'a> ArgList<'a> {
         self.next_arg()?.take_ref()
     }
 
-    /// Take the next argument, if any, from the list and downcast it to `&mut T`.
-    ///
-    /// Returns `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
+    /// Remove the first argument in the list and return `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
     ///
     /// If the list is empty or the argument is not a mutable reference, returns an error.
     ///
@@ -163,7 +157,7 @@ impl<'a> ArgList<'a> {
         self.next_arg()?.take_mut()
     }
 
-    /// Pop the last argument, if any, from the list.
+    /// Remove the last argument in the list and return it.
     ///
     /// It's generally preferred to use [`Self::pop`] instead of this method
     /// as it provides a more ergonomic way to immediately downcast the argument.
@@ -171,9 +165,9 @@ impl<'a> ArgList<'a> {
         self.0.pop_back().ok_or(ArgError::EmptyArgList)
     }
 
-    /// Pop the last argument, if any, from the list and downcast it to a concrete value, `T`.
+    /// Remove the last argument in the list and return `Ok(T::Item)`.
     ///
-    /// This is a convenience method for calling [`FromArg::from_arg`] on the argument.
+    /// If the list is empty or the [`FromArg::from_arg`] call fails, returns an error.
     ///
     /// # Example
     ///
@@ -197,9 +191,7 @@ impl<'a> ArgList<'a> {
         self.pop_arg()?.take::<T>()
     }
 
-    /// Pop the last argument, if any, from the list and downcast it to `T`.
-    ///
-    /// Returns `Ok(T)` if the argument is [`ArgValue::Owned`].
+    /// Remove the last argument in the list and return `Ok(T)` if the argument is [`ArgValue::Owned`].
     ///
     /// If the list is empty or the argument is not owned, returns an error.
     ///
@@ -218,9 +210,7 @@ impl<'a> ArgList<'a> {
         self.pop_arg()?.take_owned()
     }
 
-    /// Pop the last argument, if any, from the list and downcast it to `&T`.
-    ///
-    /// Returns `Ok(&T)` if the argument is [`ArgValue::Ref`].
+    /// Remove the last argument in the list and return `Ok(&T)` if the argument is [`ArgValue::Ref`].
     ///
     /// If the list is empty or the argument is not a reference, returns an error.
     ///
@@ -239,9 +229,7 @@ impl<'a> ArgList<'a> {
         self.pop_arg()?.take_ref()
     }
 
-    /// Pop the last argument, if any, from the list and downcast it to `&mut T`.
-    ///
-    /// Returns `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
+    /// Remove the last argument in the list and return `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
     ///
     /// If the list is empty or the argument is not a mutable reference, returns an error.
     ///
