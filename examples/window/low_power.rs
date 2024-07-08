@@ -181,26 +181,20 @@ pub(crate) mod test_setup {
             TextBundle::from_sections([
                 TextSection::new(
                     "Press space bar to cycle modes\n",
-                    TextStyle {
-                        font_size: 50.0,
-                        ..default()
-                    },
+                    TextStyle { ..default() },
                 ),
                 TextSection::from_style(TextStyle {
-                    font_size: 50.0,
                     color: LIME.into(),
                     ..default()
                 }),
                 TextSection::new(
                     "\nFrame: ",
                     TextStyle {
-                        font_size: 50.0,
                         color: YELLOW.into(),
                         ..default()
                     },
                 ),
                 TextSection::from_style(TextStyle {
-                    font_size: 50.0,
                     color: YELLOW.into(),
                     ..default()
                 }),
@@ -208,8 +202,8 @@ pub(crate) mod test_setup {
             .with_style(Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
                 ..default()
             }),
             ModeText,
