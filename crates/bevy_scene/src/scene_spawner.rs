@@ -3,7 +3,7 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     entity::Entity,
-    event::{Event, Events, ManualEventReader},
+    event::{Event, EventCursor, Events},
     reflect::AppTypeRegistry,
     system::Resource,
     world::{Command, Mut, World},
@@ -64,7 +64,7 @@ impl InstanceId {
 pub struct SceneSpawner {
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     pub(crate) spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
+    scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId, Option<Entity>)>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId, Option<Entity>)>,
     scenes_to_despawn: Vec<AssetId<DynamicScene>>,
