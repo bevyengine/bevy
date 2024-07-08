@@ -1,6 +1,7 @@
 use crate::func::args::{Arg, ArgValue, FromArg};
 use crate::func::ArgError;
 use crate::{Reflect, TypePath};
+use std::collections::VecDeque;
 
 /// A list of arguments that can be passed to a [`DynamicFunction`], [`DynamicClosure`],
 /// or [`DynamicClosureMut`].
@@ -30,18 +31,18 @@ use crate::{Reflect, TypePath};
 /// [`DynamicClosure`]: crate::func::DynamicClosure
 /// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
 #[derive(Default, Debug)]
-pub struct ArgList<'a>(Vec<Arg<'a>>);
+pub struct ArgList<'a>(VecDeque<Arg<'a>>);
 
 impl<'a> ArgList<'a> {
     /// Create a new empty list of arguments.
     pub fn new() -> Self {
-        Self(Vec::new())
+        Self(VecDeque::new())
     }
 
     /// Push an [`ArgValue`] onto the list.
     pub fn push_arg(mut self, arg: ArgValue<'a>) -> Self {
         let index = self.0.len();
-        self.0.push(Arg::new(index, arg));
+        self.0.push_back(Arg::new(index, arg));
         self
     }
 
@@ -65,9 +66,109 @@ impl<'a> ArgList<'a> {
         self.push_arg(ArgValue::Owned(arg))
     }
 
+    /// Take the next argument, if any, from the list.
+    ///
+    /// It's generally preferred to use [`Self::next`] instead of this method
+    /// as it provides a more ergonomic way to immediately downcast the argument.
+    pub fn next_arg(&mut self) -> Result<Arg<'a>, ArgError> {
+        self.0.pop_front().ok_or(ArgError::EmptyArgList)
+    }
+
+    /// Take the next argument, if any, from the list and downcast it to a concrete value, `T`.
+    ///
+    /// This is a convenience method for calling [`FromArg::from_arg`] on the argument.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::ArgList;
+    /// let a = 1u32;
+    /// let b = 2u32;
+    /// let mut c = 3u32;
+    /// let mut args = ArgList::new().push_owned(a).push_ref(&b).push_mut(&mut c);
+    ///
+    /// let a = args.next::<u32>().unwrap();
+    /// assert_eq!(a, 1);
+    ///
+    /// let b = args.next::<&u32>().unwrap();
+    /// assert_eq!(*b, 2);
+    ///
+    /// let c = args.next::<&mut u32>().unwrap();
+    /// assert_eq!(*c, 3);
+    /// ```
+    pub fn next<T: FromArg>(&mut self) -> Result<T::Item<'a>, ArgError> {
+        self.next_arg()?.take::<T>()
+    }
+
+    /// Take the next argument, if any, from the list and downcast it to `T`.
+    ///
+    /// Returns `Ok(T)` if the argument is [`ArgValue::Owned`].
+    ///
+    /// If the list is empty or the argument is not owned, returns an error.
+    ///
+    /// It's generally preferred to use [`Self::next`] instead of this method.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::ArgList;
+    /// let value = 123u32;
+    /// let mut args = ArgList::new().push_owned(value);
+    /// let value = args.next_owned::<u32>().unwrap();
+    /// assert_eq!(value, 123);
+    /// ```
+    pub fn next_owned<T: Reflect + TypePath>(&mut self) -> Result<T, ArgError> {
+        self.next_arg()?.take_owned()
+    }
+
+    /// Take the next argument, if any, from the list and downcast it to `&T`.
+    ///
+    /// Returns `Ok(&T)` if the argument is [`ArgValue::Ref`].
+    ///
+    /// If the list is empty or the argument is not a reference, returns an error.
+    ///
+    /// It's generally preferred to use [`Self::next`] instead of this method.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::ArgList;
+    /// let value = 123u32;
+    /// let mut args = ArgList::new().push_ref(&value);
+    /// let value = args.next_ref::<u32>().unwrap();
+    /// assert_eq!(*value, 123);
+    /// ```
+    pub fn next_ref<T: Reflect + TypePath>(&mut self) -> Result<&'a T, ArgError> {
+        self.next_arg()?.take_ref()
+    }
+
+    /// Take the next argument, if any, from the list and downcast it to `&mut T`.
+    ///
+    /// Returns `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
+    ///
+    /// If the list is empty or the argument is not a mutable reference, returns an error.
+    ///
+    /// It's generally preferred to use [`Self::next`] instead of this method.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::ArgList;
+    /// let mut value = 123u32;
+    /// let mut args = ArgList::new().push_mut(&mut value);
+    /// let value = args.next_mut::<u32>().unwrap();
+    /// assert_eq!(*value, 123);
+    /// ```
+    pub fn next_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
+        self.next_arg()?.take_mut()
+    }
+
     /// Pop the last argument, if any, from the list.
+    ///
+    /// It's generally preferred to use [`Self::pop`] instead of this method
+    /// as it provides a more ergonomic way to immediately downcast the argument.
     pub fn pop_arg(&mut self) -> Result<Arg<'a>, ArgError> {
-        self.0.pop().ok_or(ArgError::EmptyArgList)
+        self.0.pop_back().ok_or(ArgError::EmptyArgList)
     }
 
     /// Pop the last argument, if any, from the list and downcast it to a concrete value, `T`.
@@ -167,10 +268,5 @@ impl<'a> ArgList<'a> {
     /// Returns `true` if the list of arguments is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
-    }
-
-    /// Take ownership of the list of arguments.
-    pub fn take(self) -> Vec<Arg<'a>> {
-        self.0
     }
 }

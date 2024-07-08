@@ -83,7 +83,8 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> Fn($($Arg::Item<'a>),*) -> ReturnType + 'env,
         {
-            fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
+            #[allow(unused_mut)]
+            fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!($($Arg)*);
 
                 if args.len() != COUNT {
@@ -94,10 +95,7 @@ macro_rules! impl_reflect_fn {
                 }
 
                 // Extract all arguments (in order)
-                let [$($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                // Convert each argument into its concrete type
-                let ($($arg,)*) = ($($Arg::from_arg($arg)?,)*);
+                $(let $arg = args.next::<$Arg>()?;)*
 
                 Ok((self)($($arg,)*).into_return())
             }
@@ -115,7 +113,7 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> Fn(&'a Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
         {
-            fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
+            fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
@@ -126,13 +124,8 @@ macro_rules! impl_reflect_fn {
                 }
 
                 // Extract all arguments (in order)
-                let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                // Convert receiver argument into its concrete type
-                let receiver = receiver.take_ref::<Receiver>()?;
-
-                // Convert each argument into its concrete type
-                let ($($arg,)*) = ($($Arg::from_arg($arg)?,)*);
+                let receiver = args.next_ref::<Receiver>()?;
+                $(let $arg = args.next::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
@@ -150,7 +143,7 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> Fn(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut ReturnType + 'env,
         {
-            fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
+            fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
@@ -161,13 +154,8 @@ macro_rules! impl_reflect_fn {
                 }
 
                 // Extract all arguments (in order)
-                let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                // Convert receiver argument into its concrete type
-                let receiver = receiver.take_mut::<Receiver>()?;
-
-                // Convert each argument into its concrete type
-                let ($($arg,)*) = ($($Arg::from_arg($arg)?,)*);
+                let receiver = args.next_mut::<Receiver>()?;
+                $(let $arg = args.next::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
@@ -185,7 +173,7 @@ macro_rules! impl_reflect_fn {
             // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
             Function: for<'a> Fn(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
         {
-            fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
+            fn reflect_call<'a>(&self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
@@ -196,13 +184,8 @@ macro_rules! impl_reflect_fn {
                 }
 
                 // Extract all arguments (in order)
-                let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                // Convert receiver argument into its concrete type
-                let receiver = receiver.take_mut::<Receiver>()?;
-
-                // Convert each argument into its concrete type
-                let ($($arg,)*) = ($($Arg::from_arg($arg)?,)*);
+                let receiver = args.next_mut::<Receiver>()?;
+                $(let $arg = args.next::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
