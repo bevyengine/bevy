@@ -2,6 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
     Luminance, Mix, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
 };
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// An enumerated type that can represent any of the color types in this crate.
@@ -39,11 +40,11 @@ use bevy_reflect::prelude::*;
 /// due to its perceptual uniformity and broad support for Bevy's color operations.
 /// To avoid the cost of repeated conversion, and ensure consistent results where that is desired,
 /// first convert this [`Color`] into your desired color space.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum Color {

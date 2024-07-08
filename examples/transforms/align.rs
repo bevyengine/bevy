@@ -10,24 +10,24 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (draw_cube_axes, draw_random_axes))
-        .add_systems(Update, (handle_keypress, handle_mouse, rotate_cube).chain())
+        .add_systems(Update, (draw_ship_axes, draw_random_axes))
+        .add_systems(Update, (handle_keypress, handle_mouse, rotate_ship).chain())
         .run();
 }
 
-/// This struct stores metadata for a single rotational move of the cube
+/// This struct stores metadata for a single rotational move of the ship
 #[derive(Component, Default)]
-struct Cube {
-    /// The initial transform of the cube move, the starting point of interpolation
+struct Ship {
+    /// The initial transform of the ship move, the starting point of interpolation
     initial_transform: Transform,
 
-    /// The target transform of the cube move, the endpoint of interpolation
+    /// The target transform of the ship move, the endpoint of interpolation
     target_transform: Transform,
 
-    /// The progress of the cube move in percentage points
+    /// The progress of the ship move in percentage points
     progress: u16,
 
-    /// Whether the cube is currently in motion; allows motion to be paused
+    /// Whether the ship is currently in motion; allows motion to be paused
     in_motion: bool,
 }
 
@@ -49,6 +49,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -83,14 +84,14 @@ fn setup(
     let second = seeded_rng.gen();
     commands.spawn(RandomAxes(first, second));
 
-    // Finally, our cube that is going to rotate
+    // Finally, our ship that is going to rotate
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: materials.add(Color::srgb(0.5, 0.5, 0.5)),
+        SceneBundle {
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
             ..default()
         },
-        Cube {
+        Ship {
             initial_transform: Transform::IDENTITY,
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
             ..default()
@@ -105,7 +106,7 @@ fn setup(
             The fainter red axis is the secondary alignment axis, and it is made to\n\
             line up with the secondary target direction (gray) as closely as possible.\n\
             Press 'R' to generate random target directions.\n\
-            Press 'T' to align the cube to those directions.\n\
+            Press 'T' to align the ship to those directions.\n\
             Click and drag the mouse to rotate the camera.\n\
             Press 'H' to hide/show these instructions.",
             TextStyle::default(),
@@ -125,17 +126,17 @@ fn setup(
 
 // Update systems
 
-// Draw the main and secondary axes on the rotating cube
-fn draw_cube_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Cube>>) {
-    let cube_transform = query.single();
+// Draw the main and secondary axes on the rotating ship
+fn draw_ship_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Ship>>) {
+    let ship_transform = query.single();
 
-    // Local X-axis arrow
-    let x_ends = arrow_ends(cube_transform, Vec3::X, 1.5);
-    gizmos.arrow(x_ends.0, x_ends.1, RED);
+    // Local Z-axis arrow, negative direction
+    let z_ends = arrow_ends(ship_transform, Vec3::NEG_Z, 1.5);
+    gizmos.arrow(z_ends.0, z_ends.1, RED);
 
-    // local Y-axis arrow
-    let y_ends = arrow_ends(cube_transform, Vec3::Y, 1.5);
-    gizmos.arrow(y_ends.0, y_ends.1, Color::srgb(0.65, 0., 0.));
+    // local X-axis arrow
+    let x_ends = arrow_ends(ship_transform, Vec3::X, 1.5);
+    gizmos.arrow(x_ends.0, x_ends.1, Color::srgb(0.65, 0., 0.));
 }
 
 // Draw the randomly generated axes
@@ -145,38 +146,38 @@ fn draw_random_axes(mut gizmos: Gizmos, query: Query<&RandomAxes>) {
     gizmos.arrow(Vec3::ZERO, 1.5 * *v2, GRAY);
 }
 
-// Actually update the cube's transform according to its initial source and target
-fn rotate_cube(mut cube: Query<(&mut Cube, &mut Transform)>) {
-    let (mut cube, mut cube_transform) = cube.single_mut();
+// Actually update the ship's transform according to its initial source and target
+fn rotate_ship(mut ship: Query<(&mut Ship, &mut Transform)>) {
+    let (mut ship, mut ship_transform) = ship.single_mut();
 
-    if !cube.in_motion {
+    if !ship.in_motion {
         return;
     }
 
-    let start = cube.initial_transform.rotation;
-    let end = cube.target_transform.rotation;
+    let start = ship.initial_transform.rotation;
+    let end = ship.target_transform.rotation;
 
-    let p: f32 = cube.progress.into();
+    let p: f32 = ship.progress.into();
     let t = p / 100.;
 
-    *cube_transform = Transform::from_rotation(start.slerp(end, t));
+    *ship_transform = Transform::from_rotation(start.slerp(end, t));
 
-    if cube.progress == 100 {
-        cube.in_motion = false;
+    if ship.progress == 100 {
+        ship.in_motion = false;
     } else {
-        cube.progress += 1;
+        ship.progress += 1;
     }
 }
 
 // Handle user inputs from the keyboard for dynamically altering the scenario
 fn handle_keypress(
-    mut cube: Query<(&mut Cube, &Transform)>,
+    mut ship: Query<(&mut Ship, &Transform)>,
     mut random_axes: Query<&mut RandomAxes>,
     mut instructions: Query<&mut Visibility, With<Instructions>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
-    let (mut cube, cube_transform) = cube.single_mut();
+    let (mut ship, ship_transform) = ship.single_mut();
     let mut random_axes = random_axes.single_mut();
 
     if keyboard.just_pressed(KeyCode::KeyR) {
@@ -185,15 +186,15 @@ fn handle_keypress(
         let second = seeded_rng.0.gen();
         *random_axes = RandomAxes(first, second);
 
-        // Stop the cube and set it up to transform from its present orientation to the new one
-        cube.in_motion = false;
-        cube.initial_transform = *cube_transform;
-        cube.target_transform = random_axes_target_alignment(&random_axes);
-        cube.progress = 0;
+        // Stop the ship and set it up to transform from its present orientation to the new one
+        ship.in_motion = false;
+        ship.initial_transform = *ship_transform;
+        ship.target_transform = random_axes_target_alignment(&random_axes);
+        ship.progress = 0;
     }
 
     if keyboard.just_pressed(KeyCode::KeyT) {
-        cube.in_motion ^= true;
+        ship.in_motion ^= true;
     }
 
     if keyboard.just_pressed(KeyCode::KeyH) {
@@ -240,8 +241,8 @@ fn arrow_ends(transform: &Transform, axis: Vec3, length: f32) -> (Vec3, Vec3) {
 }
 
 // This is where `Transform::align` is actually used!
-// Note that the choice of `Vec3::X` and `Vec3::Y` here matches the use of those in `draw_cube_axes`.
+// Note that the choice of `Vec3::X` and `Vec3::Y` here matches the use of those in `draw_ship_axes`.
 fn random_axes_target_alignment(random_axes: &RandomAxes) -> Transform {
     let RandomAxes(first, second) = random_axes;
-    Transform::IDENTITY.aligned_by(Vec3::X, *first, Vec3::Y, *second)
+    Transform::IDENTITY.aligned_by(Vec3::NEG_Z, *first, Vec3::X, *second)
 }

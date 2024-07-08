@@ -324,7 +324,7 @@ impl BundleInfo {
         id: BundleId,
     ) -> BundleInfo {
         let mut deduped = component_ids.clone();
-        deduped.sort();
+        deduped.sort_unstable();
         deduped.dedup();
 
         if deduped.len() != component_ids.len() {
@@ -492,7 +492,7 @@ impl BundleInfo {
                 } else {
                     new_table_components.extend(current_archetype.table_components());
                     // sort to ignore order while hashing
-                    new_table_components.sort();
+                    new_table_components.sort_unstable();
                     // SAFETY: all component ids in `new_table_components` exist
                     table_id = unsafe {
                         storages
@@ -508,7 +508,7 @@ impl BundleInfo {
                 } else {
                     new_sparse_set_components.extend(current_archetype.sparse_set_components());
                     // sort to ignore order while hashing
-                    new_sparse_set_components.sort();
+                    new_sparse_set_components.sort_unstable();
                     new_sparse_set_components
                 };
             };
@@ -1124,10 +1124,28 @@ fn initialize_dynamic_bundle(
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::component::ComponentId;
     use crate::prelude::*;
+    use crate::world::DeferredWorld;
 
     #[derive(Component)]
     struct A;
+
+    #[derive(Component)]
+    #[component(on_add = a_on_add, on_insert = a_on_insert, on_remove = a_on_remove)]
+    struct AMacroHooks;
+
+    fn a_on_add(mut world: DeferredWorld, _: Entity, _: ComponentId) {
+        world.resource_mut::<R>().assert_order(0);
+    }
+
+    fn a_on_insert<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+        world.resource_mut::<R>().assert_order(1);
+    }
+
+    fn a_on_remove<T1, T2>(mut world: DeferredWorld, _: T1, _: T2) {
+        world.resource_mut::<R>().assert_order(2);
+    }
 
     #[derive(Component)]
     struct B;
@@ -1163,6 +1181,17 @@ mod tests {
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
+        assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn component_hook_order_spawn_despawn_with_macro_hooks() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        let entity = world.spawn(AMacroHooks).id();
+        world.despawn(entity);
+
         assert_eq!(3, world.resource::<R>().0);
     }
 

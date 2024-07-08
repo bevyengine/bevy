@@ -59,6 +59,11 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_window::WindowPlugin::default())
             .add(bevy_a11y::AccessibilityPlugin);
 
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            group = group.add(bevy_app::TerminalCtrlCHandlerPlugin);
+        }
+
         #[cfg(feature = "bevy_asset")]
         {
             group = group.add(bevy_asset::AssetPlugin::default());

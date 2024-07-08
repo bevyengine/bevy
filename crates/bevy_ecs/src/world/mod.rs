@@ -479,7 +479,7 @@ impl World {
 
     /// Returns the components of an [`Entity`] through [`ComponentInfo`].
     #[inline]
-    pub fn inspect_entity(&self, entity: Entity) -> Vec<&ComponentInfo> {
+    pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = &ComponentInfo> {
         let entity_location = self
             .entities()
             .get(entity)
@@ -498,7 +498,6 @@ impl World {
         archetype
             .components()
             .filter_map(|id| self.components().get_info(id))
-            .collect()
     }
 
     /// Returns an [`EntityWorldMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
@@ -1263,7 +1262,7 @@ impl World {
             .map(|removed| removed.iter_current_update_events().cloned())
             .into_iter()
             .flatten()
-            .map(|e| e.into())
+            .map(Into::into)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -1398,7 +1397,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
-            .map(|info| info.is_present())
+            .map(ResourceData::is_present)
             .unwrap_or(false)
     }
 
@@ -1408,7 +1407,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
-            .map(|info| info.is_present())
+            .map(ResourceData::is_present)
             .unwrap_or(false)
     }
 
@@ -1495,7 +1494,7 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| resource.get_ticks())
+            .and_then(ResourceData::get_ticks)
     }
 
     /// Gets a reference to the resource of the given type
@@ -1869,7 +1868,7 @@ impl World {
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(|info| info.remove())
+            .and_then(ResourceData::remove)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
@@ -3154,7 +3153,7 @@ mod tests {
         fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(|component_info| component_info.type_id())
+                .map(ComponentInfo::type_id)
                 .collect()
         }
 
@@ -3162,31 +3161,31 @@ mod tests {
         let bar_id = TypeId::of::<Bar>();
         let baz_id = TypeId::of::<Baz>();
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent0)),
+            to_type_ids(world.inspect_entity(ent0).collect()),
             [Some(foo_id), Some(bar_id), Some(baz_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent1)),
+            to_type_ids(world.inspect_entity(ent1).collect()),
             [Some(foo_id), Some(bar_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent2)),
+            to_type_ids(world.inspect_entity(ent2).collect()),
             [Some(bar_id), Some(baz_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent3)),
+            to_type_ids(world.inspect_entity(ent3).collect()),
             [Some(foo_id), Some(baz_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent4)),
+            to_type_ids(world.inspect_entity(ent4).collect()),
             [Some(foo_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent5)),
+            to_type_ids(world.inspect_entity(ent5).collect()),
             [Some(bar_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent6)),
+            to_type_ids(world.inspect_entity(ent6).collect()),
             [Some(baz_id)].into()
         );
     }

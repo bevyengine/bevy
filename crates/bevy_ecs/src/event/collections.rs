@@ -1,6 +1,6 @@
 use crate as bevy_ecs;
 use bevy_ecs::{
-    event::{Event, EventId, EventInstance, ManualEventReader},
+    event::{Event, EventCursor, EventId, EventInstance},
     system::Resource,
 };
 #[cfg(feature = "bevy_reflect")]
@@ -68,7 +68,7 @@ use std::ops::{Deref, DerefMut};
 /// - [`EventReader`]s that read at least once per update will never drop events.
 /// - [`EventReader`]s that read once within two updates might still receive some events
 /// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
-/// before those updates.
+///     before those updates.
 ///
 /// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
@@ -153,15 +153,37 @@ impl<E: Event> Events<E> {
         self.send(Default::default())
     }
 
-    /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> ManualEventReader<E> {
-        ManualEventReader::default()
+    /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
+    pub fn get_cursor(&self) -> EventCursor<E> {
+        EventCursor::default()
     }
 
-    /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
+    /// Gets a new [`EventCursor`]. This will ignore all events already in the event buffers.
     /// It will read all future events.
-    pub fn get_reader_current(&self) -> ManualEventReader<E> {
-        ManualEventReader {
+    pub fn get_cursor_current(&self) -> EventCursor<E> {
+        EventCursor {
+            last_event_count: self.event_count,
+            ..Default::default()
+        }
+    }
+
+    #[deprecated(
+        since = "0.14.0",
+        note = "`get_reader` has been deprecated. Please use `get_cursor` instead."
+    )]
+    /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
+    pub fn get_reader(&self) -> EventCursor<E> {
+        EventCursor::default()
+    }
+
+    #[deprecated(
+        since = "0.14.0",
+        note = "`get_reader_current` has been replaced. Please use `get_cursor_current` instead."
+    )]
+    /// Gets a new [`EventCursor`]. This will ignore all events already in the event buffers.
+    /// It will read all future events.
+    pub fn get_reader_current(&self) -> EventCursor<E> {
+        EventCursor {
             last_event_count: self.event_count,
             ..Default::default()
         }
