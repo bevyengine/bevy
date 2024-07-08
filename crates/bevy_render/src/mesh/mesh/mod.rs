@@ -8,8 +8,7 @@ use crate::{
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
-    render_resource::{Buffer, TextureView, VertexBufferLayout},
-    renderer::RenderDevice,
+    render_resource::{TextureView, VertexBufferLayout},
     texture::GpuImage,
 };
 use bevy_asset::{Asset, Handle};
@@ -24,10 +23,7 @@ use bevy_utils::tracing::{error, warn};
 use bytemuck::cast_slice;
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
-use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
-    VertexStepMode,
-};
+use wgpu::{IndexFormat, VertexAttribute, VertexFormat, VertexStepMode};
 
 use super::{MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 
@@ -1665,7 +1661,6 @@ impl BaseMeshPipelineKey {
 #[derive(Debug, Clone)]
 pub struct GpuMesh {
     /// Contains all attribute data for each vertex.
-    pub vertex_buffer: Buffer,
     pub vertex_count: u32,
     pub morph_targets: Option<TextureView>,
     pub buffer_info: GpuBufferInfo,
@@ -1684,8 +1679,6 @@ impl GpuMesh {
 #[derive(Debug, Clone)]
 pub enum GpuBufferInfo {
     Indexed {
-        /// Contains all index data of a mesh.
-        buffer: Buffer,
         count: u32,
         index_format: IndexFormat,
     },
@@ -1695,7 +1688,6 @@ pub enum GpuBufferInfo {
 impl RenderAsset for GpuMesh {
     type SourceAsset = Mesh;
     type Param = (
-        SRes<RenderDevice>,
         SRes<RenderAssets<GpuImage>>,
         SResMut<MeshVertexBufferLayouts>,
     );
@@ -1717,12 +1709,10 @@ impl RenderAsset for GpuMesh {
         Some(vertex_size * vertex_count + index_bytes)
     }
 
-    /// Converts the extracted mesh a into [`GpuMesh`].
+    /// Converts the extracted mesh into a [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::SourceAsset,
-        (render_device, images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<
-            Self::Param,
-        >,
+        (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets.as_ref() {
             Some(mt) => {
@@ -1734,25 +1724,12 @@ impl RenderAsset for GpuMesh {
             None => None,
         };
 
-        let vertex_buffer_data = mesh.get_vertex_buffer_data();
-        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            usage: BufferUsages::VERTEX,
-            label: Some("Mesh Vertex Buffer"),
-            contents: &vertex_buffer_data,
-        });
-
-        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
-            GpuBufferInfo::Indexed {
-                buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                    usage: BufferUsages::INDEX,
-                    contents: data,
-                    label: Some("Mesh Index Buffer"),
-                }),
-                count: mesh.indices().unwrap().len() as u32,
-                index_format: mesh.indices().unwrap().into(),
-            }
-        } else {
-            GpuBufferInfo::NonIndexed
+        let buffer_info = match mesh.indices() {
+            Some(indices) => GpuBufferInfo::Indexed {
+                count: indices.len() as u32,
+                index_format: indices.into(),
+            },
+            None => GpuBufferInfo::NonIndexed,
         };
 
         let mesh_vertex_buffer_layout =
@@ -1765,7 +1742,6 @@ impl RenderAsset for GpuMesh {
         );
 
         Ok(GpuMesh {
-            vertex_buffer,
             vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,

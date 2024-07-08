@@ -1,8 +1,11 @@
 #[allow(clippy::module_inception)]
 mod mesh;
+
+pub mod allocator;
 pub mod morph;
 pub mod primitives;
 
+use allocator::MeshAllocatorPlugin;
 use bevy_utils::HashSet;
 pub use mesh::*;
 pub use primitives::*;
@@ -27,7 +30,8 @@ impl Plugin for MeshPlugin {
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
-            .add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default());
+            .add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default())
+            .add_plugins(MeshAllocatorPlugin);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
