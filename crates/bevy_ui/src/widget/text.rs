@@ -1,5 +1,6 @@
 use crate::{
-    ContentSize, DefaultUiCamera, FixedMeasure, Measure, Node, NodeMeasure, TargetCamera, UiScale,
+    ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
+    TargetCamera, UiScale,
 };
 use bevy_asset::Assets;
 use bevy_ecs::{
@@ -15,8 +16,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
-    scale_value, BreakLineOn, Font, FontAtlasSets, Text, TextError, TextLayoutInfo,
-    TextMeasureInfo, TextPipeline, TextSettings, YAxisOrientation,
+    scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, TextBounds,
+    TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
 use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
@@ -42,20 +43,19 @@ impl Default for TextFlags {
     }
 }
 
-#[derive(Clone)]
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
 }
 
 impl Measure for TextMeasure {
-    fn measure(
-        &self,
-        width: Option<f32>,
-        height: Option<f32>,
-        available_width: AvailableSpace,
-        _available_height: AvailableSpace,
-        _style: &taffy::Style,
-    ) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
+        let MeasureArgs {
+            width,
+            height,
+            available_width,
+            font_system,
+            ..
+        } = measure_args;
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => {
                 // It is possible for the "min content width" to be larger than
@@ -71,7 +71,9 @@ impl Measure for TextMeasure {
         height
             .map_or_else(
                 || match available_width {
-                    AvailableSpace::Definite(_) => self.info.compute_size(Vec2::new(x, f32::MAX)),
+                    AvailableSpace::Definite(_) => self
+                        .info
+                        .compute_size(TextBounds::new_horizontal(x), font_system),
                     AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
                     AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
@@ -81,15 +83,26 @@ impl Measure for TextMeasure {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[inline]
 fn create_text_measure(
     fonts: &Assets<Font>,
-    scale_factor: f32,
+    scale_factor: f64,
     text: Ref<Text>,
+    text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
+    buffer: &mut CosmicBuffer,
+    text_alignment: JustifyText,
 ) {
-    match TextMeasureInfo::from_text(&text, fonts, scale_factor) {
+    match text_pipeline.create_text_measure(
+        fonts,
+        &text.sections,
+        scale_factor,
+        text.linebreak_behavior,
+        buffer,
+        text_alignment,
+    ) {
         Ok(measure) => {
             if text.linebreak_behavior == BreakLineOn::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
@@ -105,7 +118,7 @@ fn create_text_measure(
             // Try again next frame
             text_flags.needs_new_measure_func = true;
         }
-        Err(e @ TextError::FailedToAddGlyph(_)) => {
+        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -132,13 +145,15 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextFlags,
             Option<&TargetCamera>,
+            &mut CosmicBuffer,
         ),
         With<Node>,
     >,
+    mut text_pipeline: ResMut<TextPipeline>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (text, content_size, text_flags, camera) in &mut text_query {
+    for (text, content_size, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -159,7 +174,17 @@ pub fn measure_text_system(
             || text_flags.needs_new_measure_func
             || content_size.is_added()
         {
-            create_text_measure(&fonts, scale_factor, text, content_size, text_flags);
+            let text_alignment = text.justify;
+            create_text_measure(
+                &fonts,
+                scale_factor.into(),
+                text,
+                &mut text_pipeline,
+                content_size,
+                text_flags,
+                buffer.as_mut(),
+                text_alignment,
+            );
         }
     }
     *last_scale_factors = scale_factors;
@@ -173,22 +198,22 @@ fn queue_text(
     font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
-    text_settings: &TextSettings,
     scale_factor: f32,
     inverse_scale_factor: f32,
     text: &Text,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
+    buffer: &mut CosmicBuffer,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if !text_flags.needs_new_measure_func {
         let physical_node_size = if text.linebreak_behavior == BreakLineOn::NoWrap {
             // With `NoWrap` set, no constraints are placed on the width of the text.
-            Vec2::splat(f32::INFINITY)
+            TextBounds::UNBOUNDED
         } else {
             // `scale_factor` is already multiplied by `UiScale`
-            Vec2::new(
+            TextBounds::new(
                 node.unrounded_size.x * scale_factor,
                 node.unrounded_size.y * scale_factor,
             )
@@ -197,26 +222,26 @@ fn queue_text(
         match text_pipeline.queue_text(
             fonts,
             &text.sections,
-            scale_factor,
+            scale_factor.into(),
             text.justify,
             text.linebreak_behavior,
             physical_node_size,
             font_atlas_sets,
             texture_atlases,
             textures,
-            text_settings,
             YAxisOrientation::TopToBottom,
+            buffer,
         ) {
             Err(TextError::NoSuchFont) => {
                 // There was an error processing the text layout, try again next frame
                 text_flags.needs_recompute = true;
             }
-            Err(e @ TextError::FailedToAddGlyph(_)) => {
+            Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
                 panic!("Fatal error when processing text: {e}.");
             }
             Ok(mut info) => {
-                info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
-                info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
+                info.size.x = scale_value(info.size.x, inverse_scale_factor);
+                info.size.y = scale_value(info.size.y, inverse_scale_factor);
                 *text_layout_info = info;
                 text_flags.needs_recompute = false;
             }
@@ -239,7 +264,6 @@ pub fn text_system(
     fonts: Res<Assets<Font>>,
     camera_query: Query<(Entity, &Camera)>,
     default_ui_camera: DefaultUiCamera,
-    text_settings: Res<TextSettings>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
@@ -250,11 +274,12 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextFlags,
         Option<&TargetCamera>,
+        &mut CosmicBuffer,
     )>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (node, text, text_layout_info, text_flags, camera) in &mut text_query {
+    for (node, text, text_layout_info, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -282,13 +307,13 @@ pub fn text_system(
                 &mut font_atlas_sets,
                 &mut texture_atlases,
                 &mut textures,
-                &text_settings,
                 scale_factor,
                 inverse_scale_factor,
                 text,
                 node,
                 text_flags,
                 text_layout_info,
+                buffer.as_mut(),
             );
         }
     }
