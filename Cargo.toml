@@ -3265,7 +3265,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.physics_in_fixed_timestep]
 name = "Run physics in a fixed timestep"
-description = "Handles input, physics, and rendering in an industry-standard way"
+description = "Handles input, physics, and rendering in an industry-standard way by using a fixed timestep"
 category = "Movement"
 wasm = true
 
