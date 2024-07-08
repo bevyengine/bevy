@@ -3258,6 +3258,17 @@ description = "Demonstrates how to enqueue custom draw commands in a render phas
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "physics_in_fixed_timestep"
+path = "examples/movement/physics_in_fixed_timestep.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.physics_in_fixed_timestep]
+name = "Run physics in a fixed timestep"
+description = "Handles input, physics, and rendering in an industry-standard way"
+category = "Movement"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
