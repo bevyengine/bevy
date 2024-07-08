@@ -41,7 +41,7 @@
 //! This is physically correct, but visually jarring. Imagine a player moving in a straight line, but depending on the frame rate,
 //! they may sometimes advance by a large amount and sometimes not at all. Visually, we want the player to move smoothly.
 //! This is why we need to separate the player's position in the physics simulation from the player's position in the visual representation.
-//! The visual representation can then be interpolated smoothly based on the last and current actual player position in the physics simulation.
+//! The visual representation can then be interpolated smoothly based on the previous and current actual player position in the physics simulation.
 //!
 //! There are other ways to handle the visual representation of the player, such as extrapolation.
 //! See the [documentation of the lightyear crate](https://cbournhonesque.github.io/lightyear/book/concepts/advanced_replication/visual_interpolation.html)
@@ -51,13 +51,13 @@
 //!
 //! - The player's velocity is stored in a `Velocity` component. This is the speed in units per second.
 //! - The player's current position in the physics simulation is stored in a `PhysicalTranslation` component.
-//! - The player's last position in the physics simulation is stored in a `LastPhysicalTranslation` component.
+//! - The player's previous position in the physics simulation is stored in a `PreviousPhysicalTranslation` component.
 //! - The player's visual representation is stored in Bevy's regular `Transform` component.
 //! - Every frame, we go through the following steps:
 //!    - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
 //!        This is run in the `FixedUpdate` schedule, which runs before the `Update` schedule.
 //!    - Update the player's visual representation in the `update_rendered_transform` system.
-//!        This interpolates between the last rendered position and the actual position in the physics simulation.
+//!        This interpolates between the player's previous and current position in the physics simulation.
 //!    - Update the player's velocity based on the player's input in the `handle_input` system.
 //!
 //!
@@ -98,7 +98,7 @@ struct PhysicalTranslation(Vec3);
 /// The value [`PhysicalTranslation`] had in the last fixed timestep.
 /// Used for interpolation in the `update_rendered_transform` system.
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
-struct LastPhysicalTranslation(Vec3);
+struct PreviousPhysicalTranslation(Vec3);
 
 /// Spawn the player sprite and a 2D camera.
 fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -112,7 +112,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Velocity::default(),
         PhysicalTranslation::default(),
-        LastPhysicalTranslation::default(),
+        PreviousPhysicalTranslation::default(),
     ));
 }
 
@@ -175,14 +175,14 @@ fn advance_physics(
     fixed_time: Res<Time<Fixed>>,
     mut query: Query<(
         &mut PhysicalTranslation,
-        &mut LastPhysicalTranslation,
+        &mut PreviousPhysicalTranslation,
         &Velocity,
     )>,
 ) {
-    for (mut current_physical_translation, mut last_physical_translation, velocity) in
+    for (mut current_physical_translation, mut previous_physical_translation, velocity) in
         query.iter_mut()
     {
-        last_physical_translation.0 = current_physical_translation.0;
+        previous_physical_translation.0 = current_physical_translation.0;
         current_physical_translation.0 += velocity.0 * fixed_time.delta_seconds();
     }
 }
@@ -192,18 +192,18 @@ fn update_rendered_transform(
     mut query: Query<(
         &mut Transform,
         &PhysicalTranslation,
-        &LastPhysicalTranslation,
+        &PreviousPhysicalTranslation,
     )>,
 ) {
-    for (mut transform, current_physical_translation, last_physical_translation) in query.iter_mut()
+    for (mut transform, current_physical_translation, previous_physical_translation) in
+        query.iter_mut()
     {
+        let previous = previous_physical_translation.0;
+        let current = current_physical_translation.0;
         // The overstep fraction is a value between 0 and 1 that tells us how far we are between two fixed timesteps.
         let alpha = fixed_time.overstep_fraction();
 
-        let next_rendered_translation = last_physical_translation
-            .0
-            .lerp(current_physical_translation.0, alpha);
-
-        transform.translation = next_rendered_translation;
+        let rendered_translation = previous.lerp(current, alpha);
+        transform.translation = rendered_translation;
     }
 }
