@@ -84,12 +84,16 @@ fn main() {
 
 /// How many units per second the player should move.
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
-struct Velocity(Vec2);
+struct Velocity(Vec3);
 
 /// The actual position of the player in the physics simulation.
 /// This is separate from the `Transform`, which is merely a visual representation.
+///
+/// If you want to make sure that this component is always initialized
+/// with the same value as the `Transform`'s translation, you can
+/// use a [component lifecycle hook](https://docs.rs/bevy/0.14.0/bevy/ecs/component/struct.ComponentHooks.html)
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
-struct PhysicalTranslation(Vec2);
+struct PhysicalTranslation(Vec3);
 
 /// Spawn the player sprite and a 2D camera.
 fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -98,7 +102,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
         Name::new("Player"),
         SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
-            transform: Transform::from_xyz(100., 0., 0.).with_scale(Vec3::splat(0.3)),
+            transform: Transform::from_scale(Vec3::splat(0.3)),
             ..default()
         },
         Velocity::default(),
@@ -136,7 +140,7 @@ fn handle_input(keyboard_input: Res<ButtonInput<KeyCode>>, mut query: Query<&mut
     /// "How many pixels per second should the player move?"
     const SPEED: f32 = 210.0;
     for mut velocity in query.iter_mut() {
-        velocity.0 = Vec2::ZERO;
+        velocity.0 = Vec3::ZERO;
 
         if keyboard_input.pressed(KeyCode::KeyW) {
             velocity.y += SPEED;
@@ -176,11 +180,11 @@ fn update_displayed_transform(
 ) {
     for (mut transform, physical_translation) in query.iter_mut() {
         let last_displayed_translation = transform.translation;
-        let actual_translation = physical_translation.0.extend(0.0);
         // The overstep fraction is a value between 0 and 1 that tells us how far we are between two fixed timesteps.
         let alpha = fixed_time.overstep_fraction();
 
-        let next_displayed_translation = last_displayed_translation.lerp(actual_translation, alpha);
+        let next_displayed_translation =
+            last_displayed_translation.lerp(physical_translation.0, alpha);
 
         transform.translation = next_displayed_translation;
     }
