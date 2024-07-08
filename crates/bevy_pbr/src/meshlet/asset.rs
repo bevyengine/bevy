@@ -5,10 +5,11 @@ use bevy_asset::{
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
+use bevy_tasks::block_on;
 use bytemuck::{Pod, Zeroable};
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use std::{
-    io::{Cursor, Read, Write},
+    io::{Read, Write},
     sync::Arc,
 };
 
@@ -92,29 +93,22 @@ impl AssetSaver for MeshletMeshSaverLoader {
         asset: SavedAsset<'a, MeshletMesh>,
         _settings: &'a (),
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
-        // Compress asset data
-        let mut compressed_asset_data = Vec::new();
-        let mut compressor = FrameEncoder::new(&mut compressed_asset_data);
-        write_slice(&asset.vertex_data, &mut compressor)?;
-        write_slice(&asset.vertex_ids, &mut compressor)?;
-        write_slice(&asset.indices, &mut compressor)?;
-        write_slice(&asset.meshlets, &mut compressor)?;
-        write_slice(&asset.bounding_spheres, &mut compressor)?;
-        compressor.finish()?;
-
-        // Write asset metadata
+        // Write asset version
         writer
             .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
             .await?;
+
+        // Compress and write asset data
         writer
             .write_all(&asset.worst_case_meshlet_triangles.to_le_bytes())
             .await?;
-        writer
-            .write_all(&(compressed_asset_data.len() as u64).to_le_bytes())
-            .await?;
-
-        // Write compressed asset data
-        writer.write_all(&compressed_asset_data).await?;
+        let mut writer = FrameEncoder::new(AsyncWriteSyncAdapter(writer));
+        write_slice(&asset.vertex_data, &mut writer)?;
+        write_slice(&asset.vertex_ids, &mut writer)?;
+        write_slice(&asset.indices, &mut writer)?;
+        write_slice(&asset.meshlets, &mut writer)?;
+        write_slice(&asset.bounding_spheres, &mut writer)?;
+        writer.finish()?;
 
         Ok(())
     }
@@ -137,16 +131,9 @@ impl AssetLoader for MeshletMeshSaverLoader {
             return Err(MeshletMeshSaveOrLoadError::WrongVersion { found: version });
         }
 
-        // Load asset metadata
+        // Load and decompress asset data
         let worst_case_meshlet_triangles = async_read_u64(reader).await?;
-        let compressed_asset_data_len = async_read_u64(reader).await? as usize;
-
-        // Load compressed asset data
-        let mut compressed_asset_data = Vec::with_capacity(compressed_asset_data_len);
-        reader.read_to_end(&mut compressed_asset_data).await?;
-
-        // Convert compressed data back to an asset
-        let reader = &mut FrameDecoder::new(Cursor::new(compressed_asset_data));
+        let reader = &mut FrameDecoder::new(AsyncReadSyncAdapter(reader));
         let vertex_data = read_slice(reader)?;
         let vertex_ids = read_slice(reader)?;
         let indices = read_slice(reader)?;
@@ -207,4 +194,24 @@ fn read_slice<T: Pod>(reader: &mut dyn Read) -> Result<Arc<[T]>, std::io::Error>
     reader.read_exact(bytemuck::cast_slice_mut(slice))?;
 
     Ok(data)
+}
+
+struct AsyncWriteSyncAdapter<'a>(&'a mut Writer);
+
+impl Write for AsyncWriteSyncAdapter<'_> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        block_on(self.0.write(buf))
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        block_on(self.0.flush())
+    }
+}
+
+struct AsyncReadSyncAdapter<'a>(&'a mut dyn Reader);
+
+impl Read for AsyncReadSyncAdapter<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        block_on(self.0.read(buf))
+    }
 }
