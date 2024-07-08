@@ -3,12 +3,11 @@
 //! This is useful for making desktop applications, or any other program that doesn't need to be
 //! running the event loop non-stop.
 
-use bevy::winit::WakeUp;
 use bevy::{
     prelude::*,
     utils::Duration,
-    window::{PresentMode, WindowPlugin},
-    winit::{EventLoopProxy, WinitSettings},
+    window::{PresentMode, RequestRedraw, WindowPlugin},
+    winit::{EventLoopProxy, WakeUp, WinitSettings},
 };
 
 fn main() {
@@ -48,7 +47,8 @@ fn main() {
 enum ExampleMode {
     Game,
     Application,
-    ApplicationWithRedraw,
+    ApplicationWithRequestRedraw,
+    ApplicationWithWakeUp,
 }
 
 /// Update winit based on the current `ExampleMode`
@@ -56,6 +56,7 @@ fn update_winit(
     mode: Res<ExampleMode>,
     mut winit_config: ResMut<WinitSettings>,
     event_loop_proxy: NonSend<EventLoopProxy<WakeUp>>,
+    mut redraw_request_events: EventWriter<RequestRedraw>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {
@@ -77,16 +78,22 @@ fn update_winit(
             //     (e.g. the mouse hovers over a visible part of the out of focus window), a
             //     [`RequestRedraw`] event is received, or one minute has passed without the app
             //     updating.
-            WinitSettings {
-                focused_mode: bevy::winit::UpdateMode::reactive(Duration::from_secs(1)),
-                unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_secs(5)),
-            }
+            WinitSettings::desktop_app()
         }
-        ApplicationWithRedraw => {
+        ApplicationWithRequestRedraw => {
             // Sending a `RequestRedraw` event is useful when you want the app to update the next
             // frame regardless of any user input. For example, your application might use
             // `WinitSettings::desktop_app()` to reduce power use, but UI animations need to play even
             // when there are no inputs, so you send redraw requests while the animation is playing.
+            // Note that in this example the RequestRedraw winit event will make the app run in the same
+            // way as continuous
+            let _ = redraw_request_events.send(RequestRedraw);
+            WinitSettings::desktop_app()
+        }
+        ApplicationWithWakeUp => {
+            // Sending a `WakeUp` event is useful when you want the app to update the next
+            // frame regardless of any user input. This can be used from outside Bevy, see example
+            // `window/custom_user_event.rs` for an example usage from outside.
             // Note that in this example the RequestRedraw winit event will make the app run in the same
             // way as continuous
             let _ = event_loop_proxy.send_event(WakeUp);
@@ -113,8 +120,9 @@ pub(crate) mod test_setup {
         if button_input.just_pressed(KeyCode::Space) {
             *mode = match *mode {
                 ExampleMode::Game => ExampleMode::Application,
-                ExampleMode::Application => ExampleMode::ApplicationWithRedraw,
-                ExampleMode::ApplicationWithRedraw => ExampleMode::Game,
+                ExampleMode::Application => ExampleMode::ApplicationWithRequestRedraw,
+                ExampleMode::ApplicationWithRequestRedraw => ExampleMode::ApplicationWithWakeUp,
+                ExampleMode::ApplicationWithWakeUp => ExampleMode::Game,
             };
         }
     }
@@ -145,7 +153,10 @@ pub(crate) mod test_setup {
         let mode = match *mode {
             ExampleMode::Game => "game(), continuous, default",
             ExampleMode::Application => "desktop_app(), reactive",
-            ExampleMode::ApplicationWithRedraw => "desktop_app(), reactive, RequestRedraw sent",
+            ExampleMode::ApplicationWithRequestRedraw => {
+                "desktop_app(), reactive, RequestRedraw sent"
+            }
+            ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
         let mut text = query.single_mut();
         text.sections[1].value = mode.to_string();
