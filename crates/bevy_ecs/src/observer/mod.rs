@@ -15,24 +15,21 @@ use bevy_utils::{EntityHashMap, HashMap};
 use std::marker::PhantomData;
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
-/// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well.
+/// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
+/// contains event propagation information. See [`Trigger::propagate`] for more information.
 pub struct Trigger<'w, E, B: Bundle = ()> {
     event: &'w mut E,
-    propagation: &'w mut Propagation,
+    propagate: &'w mut bool,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
 impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// Creates a new trigger for the given event and observer information.
-    pub fn new(
-        event: &'w mut E,
-        propagation: &'w mut Propagation,
-        trigger: ObserverTrigger,
-    ) -> Self {
+    pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
             event,
-            propagation,
+            propagate,
             trigger,
             _marker: PhantomData,
         }
@@ -69,26 +66,19 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// use `TraverseNone` which ends the path immediately and prevents propagation.
     ///
     /// To enable propagation, you must:
-    /// + Set [`Event::Traverse`] to the component you want to propagate along.
+    /// + Set [`Event::Traversal`] to the component you want to propagate along.
     /// + Either call `propagate(true)` in the first observer or set [`Event::AUTO_PROPAGATE`] to `true`.
     ///
     /// You can prevent an event from propagating further using `propagate(false)`.
+    ///
+    /// [`Traversal`]: crate::traversal::Traversal
     pub fn propagate(&mut self, should_propagate: bool) {
-        *self.propagation = if should_propagate {
-            Propagation::Continue
-        } else {
-            Propagation::Halt
-        };
+        *self.propagate = should_propagate;
     }
 
-    /// Returns a reference to the flag that controls event propagation. See [`propagate`] for more information.
-    pub fn get_propagation(&self) -> &Propagation {
-        self.propagation
-    }
-
-    /// Returns a mutable reference to the flag that controls event propagation. See [`propagate`] for more information.
-    pub fn get_propagation_mut(&mut self) -> &mut Propagation {
-        self.propagation
+    /// Returns the value of the  flag that controls event propagation. See [`propagate`] for more information.
+    pub fn get_propagate(&self) -> bool {
+        *self.propagate
     }
 }
 
@@ -146,15 +136,6 @@ pub struct ObserverTrigger {
 
     /// The entity the trigger targeted.
     pub entity: Entity,
-}
-
-/// Determines if the event should propagate to other entities.
-#[derive(Eq, PartialEq, Copy, Clone, Debug)]
-pub enum Propagation {
-    /// Allows propagation to continue.
-    Continue,
-    /// Halts propagation.
-    Halt,
 }
 
 // Map between an observer entity and its runner
@@ -217,7 +198,7 @@ impl Observers {
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
         data: &mut T,
-        propagation: &mut Propagation,
+        propagate: &mut bool,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
@@ -241,7 +222,7 @@ impl Observers {
                     entity,
                 },
                 data.into(),
-                propagation,
+                propagate,
             );
         };
         // Trigger observers listening for any kind of this trigger
@@ -479,7 +460,7 @@ mod tests {
     struct EventPropagating;
 
     impl Event for EventPropagating {
-        type Traverse = Parent;
+        type Traversal = Parent;
 
         const AUTO_PROPAGATE: bool = true;
     }
@@ -712,7 +693,7 @@ mod tests {
         world.spawn(ObserverState {
             // SAFETY: we registered `event_a` above and it matches the type of TriggerA
             descriptor: unsafe { ObserverDescriptor::default().with_events(vec![event_a]) },
-            runner: |mut world, _trigger, _ptr, _propagation| {
+            runner: |mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<R>().0 += 1;
             },
             ..Default::default()
@@ -784,12 +765,10 @@ mod tests {
 
         let child = world
             .spawn(Parent(parent))
-            .observe(
-                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
-                    res.0 += 1;
-                    trigger.propagate(false);
-                },
-            )
+            .observe(|trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
+                res.0 += 1;
+                *trigger.propagate = false;
+            })
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -862,12 +841,10 @@ mod tests {
 
         let child_a = world
             .spawn(Parent(parent_a))
-            .observe(
-                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
-                    res.0 += 1;
-                    trigger.propagate(false);
-                },
-            )
+            .observe(|trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
+                res.0 += 1;
+                *trigger.propagate = false;
+            })
             .id();
 
         let parent_b = world

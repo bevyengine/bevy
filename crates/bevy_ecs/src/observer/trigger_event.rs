@@ -2,7 +2,6 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::Event,
-    observer::Propagation,
     world::{Command, DeferredWorld, World},
 };
 
@@ -59,30 +58,24 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
     if targets.entities().is_empty() {
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
-            world.trigger_observers_with_data::<_, E::Traverse>(
+            world.trigger_observers_with_data::<_, E::Traversal>(
                 event_type,
                 Entity::PLACEHOLDER,
                 targets.components(),
                 event_data,
-                Propagation::Halt,
+                false,
             );
         };
     } else {
         for target in targets.entities() {
             // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
             unsafe {
-                world.trigger_observers_with_data::<_, E::Traverse>(
+                world.trigger_observers_with_data::<_, E::Traversal>(
                     event_type,
                     *target,
                     targets.components(),
                     event_data,
-                    const {
-                        if E::AUTO_PROPAGATE {
-                            Propagation::Continue
-                        } else {
-                            Propagation::Halt
-                        }
-                    },
+                    E::AUTO_PROPAGATE,
                 );
             };
         }

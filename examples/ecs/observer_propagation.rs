@@ -7,8 +7,7 @@ use rand::{seq::IteratorRandom, thread_rng, Rng};
 
 fn main() {
     App::new()
-        .add_plugins(MinimalPlugins)
-        .add_plugins(LogPlugin::default())
+        .add_plugins((MinimalPlugins, LogPlugin::default()))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -54,7 +53,7 @@ impl Event for Attack {
     // 1. Which component we want to propagate along. In this case, we want to "bubble" (meaning propagate
     //    from child to parent) so we use the `Parent` component for propagation. The component supplied
     //    must implement the `Traversal` trait.
-    type Traverse = Parent;
+    type Traversal = Parent;
     // 2. We can also choose whether or not this event will propagate by default when triggered. If this is
     //    false, it will only propagate following a call to `Trigger::propagate(true)`.
     const AUTO_PROPAGATE: bool = true;

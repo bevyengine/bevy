@@ -6,7 +6,7 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    observer::{Observers, Propagation, TriggerTargets},
+    observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
@@ -357,7 +357,7 @@ impl<'w> DeferredWorld<'w> {
             entity,
             components,
             &mut (),
-            &mut Propagation::Halt,
+            &mut false,
         );
     }
 
@@ -372,7 +372,7 @@ impl<'w> DeferredWorld<'w> {
         mut entity: Entity,
         components: &[ComponentId],
         data: &mut E,
-        mut propagation: Propagation,
+        mut propagate: bool,
     ) where
         C: Traversal,
     {
@@ -383,9 +383,9 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 components.iter().copied(),
                 data,
-                &mut propagation,
+                &mut propagate,
             );
-            if propagation == Propagation::Halt {
+            if !propagate {
                 break;
             }
             if let Some(next) = self.get::<C>(entity).and_then(|t| t.next()) {

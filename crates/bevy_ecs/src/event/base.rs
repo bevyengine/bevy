@@ -34,14 +34,14 @@ use std::{
 pub trait Event: Component {
     /// The component that describes which Entity to propagate this event to next, when [propagation] is enabled.
     ///
-    /// [propagation]: crate::observers::Trigger::enable_propagation
-    type Traverse: Traversal;
+    /// [propagation]: crate::observer::Trigger::propagate
+    type Traversal: Traversal;
 
     /// When true, this event will always attempt to propagate when [triggered], without requiring a call
-    /// to [`Trigger::enable_propagation`].
+    /// to [`Trigger::propagate`].
     ///
-    /// [triggered]: crate::commands::Commands::trigger_targets
-    /// [`Trigger::enable_propagation`]: crate::observers::Trigger::enable_propagation
+    /// [triggered]: crate::system::Commands::trigger_targets
+    /// [`Trigger::propagate`]: crate::observer::Trigger::propagate
     const AUTO_PROPAGATE: bool = false;
 }
 

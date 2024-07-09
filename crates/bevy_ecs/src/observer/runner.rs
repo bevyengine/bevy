@@ -1,6 +1,6 @@
 use crate::{
     component::{ComponentHooks, ComponentId, StorageType},
-    observer::{ObserverDescriptor, ObserverTrigger, Propagation},
+    observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{IntoObserverSystem, ObserverSystem},
@@ -86,7 +86,7 @@ impl Component for ObserverState {
 /// Type for function that is run when an observer is triggered.
 /// Typically refers to the default runner that runs the system stored in the associated [`ObserverSystemComponent`],
 /// but can be overridden for custom behaviour.
-pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, &mut Propagation);
+pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
@@ -358,7 +358,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     mut world: DeferredWorld,
     observer_trigger: ObserverTrigger,
     ptr: PtrMut,
-    propagation: &mut Propagation,
+    propagate: &mut bool,
 ) {
     let world = world.as_unsafe_world_cell();
     // SAFETY: Observer was triggered so must still exist in world
@@ -385,7 +385,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     let trigger: Trigger<E, B> = Trigger::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
         unsafe { ptr.deref_mut() },
-        propagation,
+        propagate,
         observer_trigger,
     );
     // SAFETY: the static lifetime is encapsulated in Trigger / cannot leak out.

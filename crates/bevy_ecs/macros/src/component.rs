@@ -17,7 +17,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
-            type Traverse = #bevy_ecs_path::traversal::TraverseNone;
+            type Traversal = #bevy_ecs_path::traversal::TraverseNone;
             const AUTO_PROPAGATE: bool = false;
         }
 
