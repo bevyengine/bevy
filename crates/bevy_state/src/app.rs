@@ -4,7 +4,7 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, ScheduleLabel},
     world::FromWorld,
 };
-use bevy_utils::{tracing::warn, warn_once};
+use bevy_utils::tracing::warn;
 
 use crate::state::{
     setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
@@ -60,15 +60,15 @@ pub trait AppExtStates {
 }
 
 /// Separate function to only warn once for all state installation methods.
-fn warn_if_no_states_plugin_installed(app: &SubApp) {
+fn panic_if_no_states_plugin_installed(app: &SubApp) {
     if !app.is_plugin_added::<StatesPlugin>() {
-        warn_once!("States were added to the app, but `StatesPlugin` is not installed.");
+        panic!("States were added to the app, but `StatesPlugin` is not installed.");
     }
 }
 
 impl AppExtStates for SubApp {
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        warn_if_no_states_plugin_installed(self);
+        panic_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
@@ -89,7 +89,7 @@ impl AppExtStates for SubApp {
     }
 
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        warn_if_no_states_plugin_installed(self);
+        panic_if_no_states_plugin_installed(self);
         if !self.world().contains_resource::<State<S>>() {
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
@@ -116,7 +116,7 @@ impl AppExtStates for SubApp {
     }
 
     fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        warn_if_no_states_plugin_installed(self);
+        panic_if_no_states_plugin_installed(self);
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
@@ -141,7 +141,7 @@ impl AppExtStates for SubApp {
     }
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        warn_if_no_states_plugin_installed(self);
+        panic_if_no_states_plugin_installed(self);
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
