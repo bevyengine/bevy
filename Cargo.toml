@@ -3080,7 +3080,7 @@ wasm = true
 
 [[example]]
 name = "smooth_follow"
-path = "examples/math/smooth_follow.rs"
+path = "examples/movement/smooth_follow.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.smooth_follow]
