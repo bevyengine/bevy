@@ -17,7 +17,7 @@ fn fragment(
 ) -> @location(0) vec4<f32> {
     let emissive_intensity = 20.0;
     let fresnel_color = vec3(0.5, 1.0, 1.0);
-    var interesection_color = fresnel_color;
+    var intersection_color = fresnel_color;
     let offset = 0.92;
     let fresnel_exp = 5.0;
     let intersection_intensity = 10.0;
@@ -50,7 +50,7 @@ fn fragment(
         a += fresnel;
     }
 
-    var color = intersection * interesection_color;
+    var color = intersection * intersection_color;
     if is_front {
         color += fresnel * fresnel_color;
     }
