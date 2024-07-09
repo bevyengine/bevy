@@ -509,6 +509,8 @@ impl Debug for DynamicStruct {
 }
 
 impl FromIterator<(String, Box<dyn Reflect>)> for DynamicStruct {
+    /// Create a dynmic struct that doesn't represent a type from the
+    /// field name, field value pairs.
     fn from_iter<I: IntoIterator<Item = (String, Box<dyn Reflect>)>>(fields: I) -> Self {
         let mut dynamic_struct = Self::default();
         for (name, value) in fields.into_iter() {
@@ -519,6 +521,8 @@ impl FromIterator<(String, Box<dyn Reflect>)> for DynamicStruct {
 }
 
 impl<V: Reflect> FromIterator<(String, V)> for DynamicStruct {
+    /// Create a dynmic struct that doesn't represent a type from the
+    /// field name, field value pairs.
     fn from_iter<I: IntoIterator<Item = (String, V)>>(fields: I) -> Self {
         let mut dynamic_struct = Self::default();
         for (name, value) in fields.into_iter() {
