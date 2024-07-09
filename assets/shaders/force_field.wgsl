@@ -105,8 +105,7 @@ fn simplexNoise2(v: vec2<f32>) -> f32 {
 
     var p = permute3(permute3(i.y + vec3(0., i1.y, 1.)) + i.x + vec3(0., i1.x, 1.));
     var m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), vec3(0.));
-    m *= m;
-    m *= m;
+    m = pow(m, vec3(4.));
 
     // Gradients: 41 points uniformly over a line, mapped onto a diamond.
     // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
