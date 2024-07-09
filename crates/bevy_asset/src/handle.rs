@@ -2,7 +2,10 @@ use crate::{
     meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
     UntypedAssetId,
 };
-use bevy_ecs::prelude::*;
+use bevy_ecs::{
+    component::{ComponentHooks, StorageType},
+    prelude::*,
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::get_short_name;
 use crossbeam_channel::{Receiver, Sender};
@@ -122,7 +125,7 @@ impl std::fmt::Debug for StrongHandle {
 /// of the [`Handle`] are dropped.
 ///
 /// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
-#[derive(Component, Reflect)]
+#[derive(Reflect)]
 #[reflect(Default, Component, Debug, Hash, PartialEq)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
@@ -131,6 +134,14 @@ pub enum Handle<A: Asset> {
     /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
     /// nor will it keep assets alive.
     Weak(AssetId<A>),
+}
+
+impl<T: Asset> Component for Handle<T> {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        T::register_component_hooks(hooks);
+    }
 }
 
 impl<T: Asset> Clone for Handle<T> {
