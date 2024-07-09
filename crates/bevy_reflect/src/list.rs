@@ -378,12 +378,42 @@ impl Debug for DynamicList {
     }
 }
 
+impl FromIterator<Box<dyn Reflect>> for DynamicList {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(values: I) -> Self {
+        Self {
+            represented_type: None,
+            values: values.into_iter().collect(),
+        }
+    }
+}
+
+impl<T: Reflect> FromIterator<T> for DynamicList {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
+        Self {
+            represented_type: None,
+            values: values
+                .into_iter()
+                .map(|field| Box::new(field) as Box<dyn Reflect>)
+                .collect(),
+        }
+    }
+}
+
 impl IntoIterator for DynamicList {
     type Item = Box<dyn Reflect>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicList {
+    type Item = &'a dyn Reflect;
+    type IntoIter = ListIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

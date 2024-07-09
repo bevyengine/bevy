@@ -508,6 +508,44 @@ impl Debug for DynamicStruct {
     }
 }
 
+impl FromIterator<(String, Box<dyn Reflect>)> for DynamicStruct {
+    fn from_iter<I: IntoIterator<Item = (String, Box<dyn Reflect>)>>(fields: I) -> Self {
+        let mut dynamic_struct = Self::default();
+        for (name, value) in fields.into_iter() {
+            dynamic_struct.insert_boxed(name, value);
+        }
+        dynamic_struct
+    }
+}
+
+impl<V: Reflect> FromIterator<(String, V)> for DynamicStruct {
+    fn from_iter<I: IntoIterator<Item = (String, V)>>(fields: I) -> Self {
+        let mut dynamic_struct = Self::default();
+        for (name, value) in fields.into_iter() {
+            dynamic_struct.insert(name, value);
+        }
+        dynamic_struct
+    }
+}
+
+impl IntoIterator for DynamicStruct {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicStruct {
+    type Item = &'a dyn Reflect;
+    type IntoIter = FieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
+    }
+}
+
 /// Compares a [`Struct`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:

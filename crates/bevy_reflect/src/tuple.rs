@@ -391,6 +391,45 @@ impl Reflect for DynamicTuple {
 
 impl_type_path!((in bevy_reflect) DynamicTuple);
 
+impl FromIterator<Box<dyn Reflect>> for DynamicTuple {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(fields: I) -> Self {
+        Self {
+            represented_type: None,
+            fields: fields.into_iter().collect(),
+        }
+    }
+}
+
+impl<T: Reflect> FromIterator<T> for DynamicTuple {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
+        Self {
+            represented_type: None,
+            fields: values
+                .into_iter()
+                .map(|field| Box::new(field) as Box<dyn Reflect>)
+                .collect(),
+        }
+    }
+}
+
+impl IntoIterator for DynamicTuple {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicTuple {
+    type Item = &'a dyn Reflect;
+    type IntoIter = TupleFieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
+    }
+}
+
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
 /// # Panics

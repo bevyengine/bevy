@@ -455,12 +455,41 @@ impl<'a> Iterator for MapIter<'a> {
     }
 }
 
+impl FromIterator<(Box<dyn Reflect>, Box<dyn Reflect>)> for DynamicMap {
+    fn from_iter<I: IntoIterator<Item = (Box<dyn Reflect>, Box<dyn Reflect>)>>(items: I) -> Self {
+        let mut dynamic_map = Self::default();
+        for (key, value) in items.into_iter() {
+            dynamic_map.insert_boxed(key, value);
+        }
+        dynamic_map
+    }
+}
+
+impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(items: I) -> Self {
+        let mut map = Self::default();
+        for (key, value) in items.into_iter() {
+            map.insert(key, value);
+        }
+        map
+    }
+}
+
 impl IntoIterator for DynamicMap {
     type Item = (Box<dyn Reflect>, Box<dyn Reflect>);
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicMap {
+    type Item = (&'a dyn Reflect, &'a dyn Reflect);
+    type IntoIter = MapIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

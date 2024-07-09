@@ -167,7 +167,7 @@ fn main() {
 
     // 2. `DynamicArray`
     {
-        let dynamic_array = DynamicArray::from_values([1u32, 2u32, 3u32]);
+        let dynamic_array = DynamicArray::from_iter([1u32, 2u32, 3u32]);
 
         let mut my_array = [0u32; 3];
         my_array.apply(&dynamic_array);
