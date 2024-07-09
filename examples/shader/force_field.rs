@@ -4,6 +4,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
+    color::palettes::css::MEDIUM_SEA_GREEN,
     core_pipeline::{
         bloom::BloomSettings,
         prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
@@ -42,7 +43,7 @@ fn setup(
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Rectangle::from_size(Vec2::splat(5.0))),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+        material: materials.add(Color::from(MEDIUM_SEA_GREEN)),
         transform: Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
         ..default()
     });
