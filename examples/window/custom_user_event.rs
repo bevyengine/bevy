@@ -72,7 +72,7 @@ fn send_event(input: Res<ButtonInput<KeyCode>>) {
     }
 }
 
-fn expose_event_loop_proxy(event_loop_proxy: NonSend<EventLoopProxy<CustomEvent>>) {
+fn expose_event_loop_proxy(event_loop_proxy: NonSendRes<EventLoopProxy<CustomEvent>>) {
     EVENT_LOOP_PROXY.set((*event_loop_proxy).clone()).unwrap();
 }
 

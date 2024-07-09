@@ -2,7 +2,7 @@
 use crate::Gilrs;
 use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 #[cfg(target_arch = "wasm32")]
-use bevy_ecs::system::NonSendMut;
+use bevy_ecs::system::NonSendResMut;
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_time::{Real, Time};
 use bevy_utils::tracing::{debug, warn};
@@ -124,7 +124,7 @@ fn handle_rumble_request(
 }
 pub(crate) fn play_gilrs_rumble(
     time: Res<Time<Real>>,
-    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendResMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut requests: EventReader<GamepadRumbleRequest>,
     mut running_rumbles: ResMut<RunningRumbleEffects>,

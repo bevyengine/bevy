@@ -4,7 +4,7 @@ use bevy_ecs::{
     prelude::{Changed, Component},
     query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{Local, NonSendMut, Query, SystemParamItem},
+    system::{Local, NonSendResMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
@@ -125,7 +125,7 @@ pub(crate) fn despawn_windows(
     window_entities: Query<Entity, With<Window>>,
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
-    mut winit_windows: NonSendMut<WinitWindows>,
+    mut winit_windows: NonSendResMut<WinitWindows>,
     mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
     mut exit_events: EventReader<AppExit>,
 ) {
@@ -177,7 +177,7 @@ pub struct CachedWindow {
 /// - [`Window::focused`] cannot be manually changed to `false` after the window is created.
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
-    winit_windows: NonSendMut<WinitWindows>,
+    winit_windows: NonSendResMut<WinitWindows>,
     mut window_resized: EventWriter<WindowResized>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {

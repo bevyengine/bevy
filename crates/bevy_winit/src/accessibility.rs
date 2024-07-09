@@ -19,7 +19,7 @@ use bevy_ecs::{
     prelude::{DetectChanges, Entity, EventReader, EventWriter},
     query::With,
     schedule::IntoSystemConfigs,
-    system::{NonSendMut, Query, Res, ResMut, Resource},
+    system::{NonSendResMut, Query, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
@@ -148,7 +148,7 @@ pub(crate) fn prepare_accessibility_for_window(
 }
 
 fn window_closed(
-    mut adapters: NonSendMut<AccessKitAdapters>,
+    mut adapters: NonSendResMut<AccessKitAdapters>,
     mut handlers: ResMut<WinitActionRequestHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
@@ -178,7 +178,7 @@ fn should_update_accessibility_nodes(
 }
 
 fn update_accessibility_nodes(
-    mut adapters: NonSendMut<AccessKitAdapters>,
+    mut adapters: NonSendResMut<AccessKitAdapters>,
     focus: Res<Focus>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
