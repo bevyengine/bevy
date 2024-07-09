@@ -7,6 +7,7 @@ use bevy_reflect::Reflect;
 /// significant performance impact. Convert to `glam::Affine3A` to do
 /// non-trivial calculations.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Affine3 {
     /// Scaling, rotation, shears, and other non-translation affine transforms
     pub matrix3: Mat3,

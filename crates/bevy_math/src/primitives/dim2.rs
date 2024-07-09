@@ -20,6 +20,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Circle {
     /// The radius of the circle
     pub radius: f32,
@@ -107,6 +108,7 @@ impl Measured2d for Circle {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Arc2d {
     /// The radius of the circle
     pub radius: f32,
@@ -274,6 +276,7 @@ impl Arc2d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct CircularSector {
     /// The arc defining the sector
     #[cfg_attr(feature = "serialize", serde(flatten))]
@@ -413,6 +416,7 @@ impl CircularSector {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct CircularSegment {
     /// The arc defining the segment
     #[cfg_attr(feature = "serialize", serde(flatten))]

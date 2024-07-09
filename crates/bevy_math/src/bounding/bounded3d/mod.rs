@@ -35,6 +35,7 @@ pub trait Bounded3d {
 /// A 3D axis-aligned bounding box
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Aabb3d {
     /// The minimum point of the box
     pub min: Vec3A,
@@ -232,7 +233,7 @@ impl BoundingVolume for Aabb3d {
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
-        let rot_mat = Mat3::from_quat(rotation.into());
+        let rot_mat = Into::<Quat>::into(rotation).to_mat3();
         let abs_rot_mat = Mat3::from_cols(
             rot_mat.x_axis.abs(),
             rot_mat.y_axis.abs(),

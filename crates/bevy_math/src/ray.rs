@@ -16,6 +16,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Ray2d {
     /// The origin of the ray.
     pub origin: Vec2,
@@ -65,6 +66,7 @@ impl Ray2d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Ray3d {
     /// The origin of the ray.
     pub origin: Vec3,

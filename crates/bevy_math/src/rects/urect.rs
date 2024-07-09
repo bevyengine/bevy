@@ -25,6 +25,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct URect {
     /// The minimum corner point of the rect.
     pub min: UVec2,

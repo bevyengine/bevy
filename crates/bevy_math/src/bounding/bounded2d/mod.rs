@@ -32,6 +32,7 @@ pub trait Bounded2d {
 #[doc(alias = "BoundingRectangle")]
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Aabb2d {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,

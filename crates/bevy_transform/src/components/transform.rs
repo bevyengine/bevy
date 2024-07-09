@@ -40,6 +40,7 @@ use std::ops::Mul;
     derive(Component, Reflect),
     reflect(Component, Default, PartialEq)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
@@ -81,8 +82,7 @@ impl Transform {
     /// transformation matrix.
     #[inline]
     pub fn from_matrix(world_from_local: Mat4) -> Self {
-        let (scale, rotation, translation) = world_from_local.to_scale_rotation_translation();
-
+        let (scale, rotation, translation) = Quat::mat4_to_scale_rotation_translation(world_from_local);
         Transform {
             translation,
             rotation,
@@ -209,14 +209,14 @@ impl Transform {
     /// rotation, and scale.
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
-        Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
+        Quat::scale_rotation_translation_to_mat4(self.scale, self.rotation, self.translation)
     }
 
     /// Returns the 3d affine transformation matrix from this transforms translation,
     /// rotation, and scale.
     #[inline]
     pub fn compute_affine(&self) -> Affine3A {
-        Affine3A::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
+        Quat::scale_rotation_translation_to_affine3a(self.scale, self.rotation, self.translation)
     }
 
     /// Get the unit vector in the local `X` direction.

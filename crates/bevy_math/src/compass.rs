@@ -23,6 +23,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub enum CompassQuadrant {
     /// Corresponds to [`Dir2::Y`] and [`Dir2::NORTH`]
     North,

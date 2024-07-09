@@ -5,7 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Mat2, Mat3, Quat, Vec2, Vec3};
+use bevy_math::{Mat2, Quat, Vec2, Vec3};
 
 impl<Config> Gizmos<'_, '_, Config>
 where
@@ -33,7 +33,7 @@ where
         half_size: f32,
         color: impl Into<Color>,
     ) {
-        let axes = half_size * Mat3::from_quat(rotation);
+        let axes = half_size * rotation.to_mat3();
         let local_x = axes.col(0);
         let local_y = axes.col(1);
         let local_z = axes.col(2);

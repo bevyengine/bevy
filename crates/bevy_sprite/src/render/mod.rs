@@ -699,11 +699,11 @@ pub fn prepare_sprite_image_bind_groups(
                 quad_size = custom_size;
             }
             let transform = extracted_sprite.transform.affine()
-                * Affine3A::from_scale_rotation_translation(
-                    quad_size.extend(1.0),
-                    Quat::IDENTITY,
-                    (quad_size * (-extracted_sprite.anchor - Vec2::splat(0.5))).extend(0.0),
-                );
+                * Quat::scale_rotation_translation_to_affine3a(
+                quad_size.extend(1.0),
+                Quat::IDENTITY,
+                (quad_size * (-extracted_sprite.anchor - Vec2::splat(0.5))).extend(0.0)
+            );
 
             // Store the vertex data and add the item to the render phase
             sprite_meta

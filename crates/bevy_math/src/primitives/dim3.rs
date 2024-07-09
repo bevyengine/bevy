@@ -20,6 +20,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
@@ -92,6 +93,7 @@ impl Measured3d for Sphere {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Plane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
@@ -164,6 +166,7 @@ impl Plane3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct InfinitePlane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
@@ -226,6 +229,7 @@ impl InfinitePlane3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Line3d {
     /// The direction of the line
     pub direction: Dir3,
@@ -241,6 +245,7 @@ impl Primitive3d for Line3d {}
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Segment3d {
     /// The direction of the line
     pub direction: Dir3,
@@ -300,6 +305,7 @@ impl Segment3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Polyline3d<const N: usize> {
     /// The vertices of the polyline
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
@@ -331,6 +337,7 @@ impl<const N: usize> Polyline3d<N> {
 /// For a version without alloc: [`Polyline3d`]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct BoxedPolyline3d {
     /// The vertices of the polyline
     pub vertices: Box<[Vec3]>,
@@ -366,6 +373,7 @@ impl BoxedPolyline3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
@@ -458,6 +466,7 @@ impl Measured3d for Cuboid {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Cylinder {
     /// The radius of the cylinder
     pub radius: f32,
@@ -536,6 +545,7 @@ impl Measured3d for Cylinder {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Capsule3d {
     /// The radius of the capsule
     pub radius: f32,
@@ -606,6 +616,7 @@ impl Measured3d for Capsule3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Cone {
     /// The radius of the base
     pub radius: f32,
@@ -684,6 +695,7 @@ impl Measured3d for Cone {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct ConicalFrustum {
     /// The radius of the top of the frustum
     pub radius_top: f32,
@@ -736,6 +748,7 @@ pub enum TorusKind {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Torus {
     /// The radius of the tube of the torus
     #[doc(
@@ -847,6 +860,7 @@ impl Measured3d for Torus {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Triangle3d {
     /// The vertices of the triangle.
     pub vertices: [Vec3; 3],
@@ -1040,6 +1054,7 @@ impl Measured2d for Triangle3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Tetrahedron {
     /// The vertices of the tetrahedron.
     pub vertices: [Vec3; 4],

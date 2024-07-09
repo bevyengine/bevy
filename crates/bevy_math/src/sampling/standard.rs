@@ -25,12 +25,13 @@ use std::f32::consts::TAU;
 
 use crate::{
     primitives::{Circle, Sphere},
-    Dir2, Dir3, Dir3A, Quat, Rot2, ShapeSample, Vec3A,
+    Dir2, Dir3, Dir3A, Rot2, ShapeSample, Vec3A,
 };
 use rand::{
     distributions::{Distribution, Standard},
     Rng,
 };
+use crate::prelude::Quat;
 
 /// Ergonomics trait for a type with a [`Standard`] distribution, allowing values to be generated
 /// uniformly from an [`Rng`] by a method in its own namespace.
@@ -95,5 +96,27 @@ impl Distribution<Rot2> for Standard {
 }
 
 impl FromRng for Rot2 {}
+
+impl Distribution<Quat> for Standard {
+    #[inline]
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Quat {
+        let u1 = rng.gen::<f32>();
+        let u2 = rng.gen::<f32>();
+        let u3 = rng.gen::<f32>();
+
+        let sq1 = (1.0 - u1).sqrt();
+        let sq2 = u1.sqrt();
+
+        let theta1 = TAU * u2;
+        let theta2 = TAU * u3;
+
+        let x = sq1 * theta1.cos();
+        let y = sq1 * theta1.sin();
+        let z = sq2 * theta2.cos();
+        let w = sq2 * theta2.sin();
+
+        Quat::from_xyzw(x, y, z, w)
+    }
+}
 
 impl FromRng for Quat {}

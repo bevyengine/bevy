@@ -22,6 +22,7 @@ use bevy_reflect::Reflect;
     derive(Reflect),
     reflect(Debug, PartialEq, Hash)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct FloatOrd(pub f32);
 
 impl PartialOrd for FloatOrd {

@@ -42,6 +42,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Serialize, Deserialize)
 )]
 #[doc(alias = "rotation", alias = "rotation2d", alias = "rotation_2d")]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Rot2 {
     /// The cosine of the rotation angle in radians.
     ///

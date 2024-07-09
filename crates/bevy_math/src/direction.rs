@@ -92,6 +92,7 @@ pub type Direction3d = Dir3;
     reflect(Serialize, Deserialize)
 )]
 #[doc(alias = "Direction2d")]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Dir2(Vec2);
 impl Primitive2d for Dir2 {}
 
@@ -345,6 +346,7 @@ impl approx::UlpsEq for Dir2 {
     reflect(Serialize, Deserialize)
 )]
 #[doc(alias = "Direction3d")]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Dir3(Vec3);
 impl Primitive3d for Dir3 {}
 
@@ -551,6 +553,7 @@ impl approx::UlpsEq for Dir3 {
     reflect(Serialize, Deserialize)
 )]
 #[doc(alias = "Direction3dA")]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct Dir3A(Vec3A);
 impl Primitive3d for Dir3A {}
 

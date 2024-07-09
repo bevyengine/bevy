@@ -42,6 +42,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
     derive(Component, Reflect),
     reflect(Component, Default, PartialEq)
 )]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub struct GlobalTransform(Affine3A);
 
 macro_rules! impl_local_axis {
@@ -79,7 +80,7 @@ impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
-        GlobalTransform(Affine3A::from_rotation_translation(rotation, Vec3::ZERO))
+        GlobalTransform(Quat::rotation_translation_to_affine3a(rotation, Vec3::ZERO))
     }
 
     #[doc(hidden)]
@@ -106,7 +107,7 @@ impl GlobalTransform {
     /// will be invalid.
     #[inline]
     pub fn compute_transform(&self) -> Transform {
-        let (scale, rotation, translation) = self.0.to_scale_rotation_translation();
+        let (scale, rotation, translation) = Quat::affine3a_to_scale_rotation_translation(self.0);
         Transform {
             translation,
             rotation,
@@ -150,7 +151,7 @@ impl GlobalTransform {
     #[inline]
     pub fn reparented_to(&self, parent: &GlobalTransform) -> Transform {
         let relative_affine = parent.affine().inverse() * self.affine();
-        let (scale, rotation, translation) = relative_affine.to_scale_rotation_translation();
+        let (scale, rotation, translation) = Quat::affine3a_to_scale_rotation_translation(relative_affine);
         Transform {
             translation,
             rotation,
@@ -164,7 +165,7 @@ impl GlobalTransform {
     /// will be invalid.
     #[inline]
     pub fn to_scale_rotation_translation(&self) -> (Vec3, Quat, Vec3) {
-        self.0.to_scale_rotation_translation()
+        Quat::affine3a_to_scale_rotation_translation(self.0)
     }
 
     impl_local_axis!(right, left, X);

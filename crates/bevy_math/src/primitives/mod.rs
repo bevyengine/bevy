@@ -18,6 +18,7 @@ pub trait Primitive3d {}
 /// The winding order for a set of points
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[doc(alias = "Orientation")]
+#[cfg_attr(feature = "repr_c", repr(C))]
 pub enum WindingOrder {
     /// A clockwise winding order
     Clockwise,

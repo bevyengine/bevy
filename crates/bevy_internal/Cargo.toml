@@ -195,6 +195,12 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["dep:bevy_state"]
 
+# Enable C style struct representation to allow passing built-in types over FFI
+repr_c = [
+  "bevy_transform/repr_c",
+  "bevy_math/repr_c"
+]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }

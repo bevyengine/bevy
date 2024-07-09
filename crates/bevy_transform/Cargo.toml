@@ -48,6 +48,8 @@ default = ["bevy-support"]
 
 serialize = ["dep:serde", "bevy_math/serialize"]
 
+repr_c = []
+
 [lints]
 workspace = true
 
