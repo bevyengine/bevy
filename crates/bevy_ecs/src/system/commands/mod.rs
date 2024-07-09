@@ -9,8 +9,10 @@ use crate::{
     event::Event,
     observer::{Observer, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
-    world::command_queue::RawCommandQueue,
-    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
+    traits::Spawn,
+    world::{
+        command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld, World,
+    },
 };
 use bevy_utils::tracing::{error, info};
 pub use parallel_scope::*;
@@ -155,6 +157,111 @@ enum InternalQueue<'s> {
     RawCommandQueue(RawCommandQueue),
 }
 
+impl<'w, 's> Spawn for Commands<'w, 's> {
+    type SpawnOutput<'a> = EntityCommands<'a>
+    where
+        Self: 'a;
+
+    /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
+    /// and returns its corresponding [`EntityCommands`].
+    ///
+    /// See [`World::spawn_empty`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new empty entity and retrieve its id.
+    ///     let empty_entity = commands.spawn_empty().id();
+    ///
+    ///     // Create another empty entity, then add some component to it
+    ///     commands.spawn_empty()
+    ///         // adds a new component bundle to the entity
+    ///         .insert((Strength(1), Agility(2)))
+    ///         // adds a single component to the entity
+    ///         .insert(Label("hello world"));
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
+    /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
+    fn spawn_empty(&mut self) -> Self::SpawnOutput<'_> {
+        let entity = self.entities.reserve_entity();
+        EntityCommands {
+            entity,
+            commands: self.reborrow(),
+        }
+    }
+
+    /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
+    /// and returns its corresponding [`EntityCommands`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Component1;
+    /// #[derive(Component)]
+    /// struct Component2;
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Agility(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct ExampleBundle {
+    ///     a: Component1,
+    ///     b: Component2,
+    /// }
+    ///
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new entity with a single component.
+    ///     commands.spawn(Component1);
+    ///
+    ///     // Create a new entity with a component bundle.
+    ///     commands.spawn(ExampleBundle {
+    ///         a: Component1,
+    ///         b: Component2,
+    ///     });
+    ///
+    ///     commands
+    ///         // Create a new entity with two components using a "tuple bundle".
+    ///         .spawn((Component1, Component2))
+    ///         // `spawn returns a builder, so you can insert more bundles like this:
+    ///         .insert((Strength(1), Agility(2)))
+    ///         // or insert single components like this:
+    ///         .insert(Label("hello world"));
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
+    /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
+    fn spawn<B: Bundle>(&mut self, bundle: B) -> Self::SpawnOutput<'_> {
+        let mut e = self.spawn_empty();
+        e.insert(bundle);
+        e
+    }
+}
+
 impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`CommandQueue`] and a [`World`].
     ///
@@ -235,49 +342,6 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
-    /// and returns its corresponding [`EntityCommands`].
-    ///
-    /// See [`World::spawn_empty`] for more details.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Label(&'static str);
-    /// #[derive(Component)]
-    /// struct Strength(u32);
-    /// #[derive(Component)]
-    /// struct Agility(u32);
-    ///
-    /// fn example_system(mut commands: Commands) {
-    ///     // Create a new empty entity and retrieve its id.
-    ///     let empty_entity = commands.spawn_empty().id();
-    ///
-    ///     // Create another empty entity, then add some component to it
-    ///     commands.spawn_empty()
-    ///         // adds a new component bundle to the entity
-    ///         .insert((Strength(1), Agility(2)))
-    ///         // adds a single component to the entity
-    ///         .insert(Label("hello world"));
-    /// }
-    /// # bevy_ecs::system::assert_is_system(example_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
-    /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn_empty(&mut self) -> EntityCommands {
-        let entity = self.entities.reserve_entity();
-        EntityCommands {
-            entity,
-            commands: self.reborrow(),
-        }
-    }
-
     /// Pushes a [`Command`] to the queue for creating a new [`Entity`] if the given one does not exists,
     /// and returns its corresponding [`EntityCommands`].
     ///
@@ -300,62 +364,6 @@ impl<'w, 's> Commands<'w, 's> {
             entity,
             commands: self.reborrow(),
         }
-    }
-
-    /// Pushes a [`Command`] to the queue for creating a new entity with the given [`Bundle`]'s components,
-    /// and returns its corresponding [`EntityCommands`].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// #[derive(Component)]
-    /// struct Component1;
-    /// #[derive(Component)]
-    /// struct Component2;
-    /// #[derive(Component)]
-    /// struct Label(&'static str);
-    /// #[derive(Component)]
-    /// struct Strength(u32);
-    /// #[derive(Component)]
-    /// struct Agility(u32);
-    ///
-    /// #[derive(Bundle)]
-    /// struct ExampleBundle {
-    ///     a: Component1,
-    ///     b: Component2,
-    /// }
-    ///
-    /// fn example_system(mut commands: Commands) {
-    ///     // Create a new entity with a single component.
-    ///     commands.spawn(Component1);
-    ///
-    ///     // Create a new entity with a component bundle.
-    ///     commands.spawn(ExampleBundle {
-    ///         a: Component1,
-    ///         b: Component2,
-    ///     });
-    ///
-    ///     commands
-    ///         // Create a new entity with two components using a "tuple bundle".
-    ///         .spawn((Component1, Component2))
-    ///         // `spawn returns a builder, so you can insert more bundles like this:
-    ///         .insert((Strength(1), Agility(2)))
-    ///         // or insert single components like this:
-    ///         .insert(Label("hello world"));
-    /// }
-    /// # bevy_ecs::system::assert_is_system(example_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
-    /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
-    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
-        let mut e = self.spawn_empty();
-        e.insert(bundle);
-        e
     }
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
@@ -1328,6 +1336,7 @@ mod tests {
         self as bevy_ecs,
         component::Component,
         system::{Commands, Resource},
+        traits::Spawn,
         world::{CommandQueue, World},
     };
     use std::{

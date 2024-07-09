@@ -1,9 +1,5 @@
 use bevy_ecs::{
-    bundle::Bundle,
-    component::Component,
-    entity::Entity,
-    system::{Query, SystemState},
-    world::World,
+    bundle::Bundle, component::Component, entity::Entity, system::{Query, SystemState}, traits::Spawn, world::World
 };
 use criterion::{black_box, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};

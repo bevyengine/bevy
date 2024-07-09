@@ -158,6 +158,7 @@ mod tests {
     use bevy_ecs::{
         prelude::Component,
         system::{Query, SystemState},
+        traits::Spawn,
         world::World,
     };
 

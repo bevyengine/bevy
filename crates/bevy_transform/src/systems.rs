@@ -190,7 +190,7 @@ mod test {
 
     use crate::bundles::TransformBundle;
     use crate::systems::*;
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
+    use bevy_hierarchy::BuildChildren;
 
     #[test]
     fn correct_parent_removed() {

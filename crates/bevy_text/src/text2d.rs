@@ -12,6 +12,7 @@ use bevy_ecs::{
     prelude::With,
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
+    traits::Spawn,
 };
 use bevy_math::Vec2;
 use bevy_render::{

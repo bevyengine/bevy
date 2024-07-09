@@ -219,7 +219,7 @@ impl Deref for Name {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{traits::Spawn, world::World};
 
     #[test]
     fn test_display_of_debug_name() {

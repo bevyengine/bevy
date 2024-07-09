@@ -362,6 +362,7 @@ mod tests {
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
             Resource, StaticSystemParam, System, SystemState,
         },
+        traits::Spawn,
         world::{FromWorld, World},
     };
 

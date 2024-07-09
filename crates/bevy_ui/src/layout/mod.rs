@@ -359,10 +359,9 @@ mod tests {
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::system::RunSystemOnce;
+    use bevy_ecs::traits::Spawn;
     use bevy_ecs::world::World;
-    use bevy_hierarchy::{
-        despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
-    };
+    use bevy_hierarchy::{despawn_with_children_recursive, BuildChildren, Children, Parent};
     use bevy_math::{vec2, Rect, UVec2, Vec2};
     use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::OrthographicProjection;

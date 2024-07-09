@@ -10,6 +10,7 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::IntoObserverSystem,
+    traits::Spawn,
     world::{DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};

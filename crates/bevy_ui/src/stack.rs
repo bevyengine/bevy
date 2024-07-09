@@ -156,9 +156,10 @@ mod tests {
         component::Component,
         schedule::Schedule,
         system::Commands,
+        traits::Spawn,
         world::{CommandQueue, World},
     };
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
+    use bevy_hierarchy::BuildChildren;
 
     use crate::{Node, UiStack, ZIndex};
 

@@ -1,8 +1,5 @@
 use bevy_ecs::{
-    component::Component,
-    prelude::EntityWorldMut,
-    schedule::{ExecutorKind, Schedule},
-    world::World,
+    component::Component, prelude::EntityWorldMut, schedule::{ExecutorKind, Schedule}, traits::Spawn, world::World
 };
 use criterion::{BenchmarkId, Criterion};
 

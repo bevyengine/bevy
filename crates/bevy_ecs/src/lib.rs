@@ -29,6 +29,7 @@ pub mod removal_detection;
 pub mod schedule;
 pub mod storage;
 pub mod system;
+pub mod traits;
 pub mod world;
 
 pub use bevy_ptr as ptr;
@@ -59,6 +60,7 @@ pub mod prelude {
             ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemBuilder,
             SystemParamFunction,
         },
+        traits::Spawn,
         world::{
             EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove, World,
         },
@@ -67,8 +69,8 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::{self as bevy_ecs, traits::Spawn};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,

@@ -351,8 +351,11 @@ impl<'w> DynamicSceneBuilder<'w> {
 #[cfg(test)]
 mod tests {
     use bevy_ecs::{
-        component::Component, prelude::Entity, prelude::Resource, query::With,
-        reflect::AppTypeRegistry, reflect::ReflectComponent, reflect::ReflectResource,
+        component::Component,
+        prelude::{Entity, Resource},
+        query::With,
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+        traits::Spawn,
         world::World,
     };
 

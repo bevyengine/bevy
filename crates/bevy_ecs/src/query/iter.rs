@@ -1699,6 +1699,7 @@ impl<T> Ord for NeutralOrd<T> {
 
 #[cfg(test)]
 mod tests {
+    use crate::traits::Spawn;
     #[allow(unused_imports)]
     use crate::{self as bevy_ecs, component::Component, entity::Entity, prelude::World};
 

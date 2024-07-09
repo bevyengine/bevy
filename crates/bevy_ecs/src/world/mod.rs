@@ -38,8 +38,8 @@ use crate::{
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Commands, Res, Resource},
-    world::command_queue::RawCommandQueue,
-    world::error::TryRunScheduleError,
+    traits::Spawn,
+    world::{command_queue::RawCommandQueue, error::TryRunScheduleError},
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
@@ -154,6 +154,117 @@ impl Drop for World {
         drop(unsafe { Box::from_raw(self.command_queue.bytes.as_ptr()) });
         // SAFETY: Pointers in internal command queue are only invalidated here
         drop(unsafe { Box::from_raw(self.command_queue.cursor.as_ptr()) });
+    }
+}
+
+impl Spawn for World {
+    type SpawnOutput<'a> = EntityWorldMut<'a>
+    where
+        Self: 'a;
+
+    /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
+    /// to add components to the entity or retrieve its id.
+    ///
+    /// ```
+    /// use bevy_ecs::{component::Component, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// #[derive(Component)]
+    /// struct Num(u32);
+    ///
+    /// let mut world = World::new();
+    /// let entity = world.spawn_empty()
+    ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
+    ///     .insert((Num(1), Label("hello"))) // add a bundle of components
+    ///     .id();
+    ///
+    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// assert_eq!(position.x, 0.0);
+    /// ```
+    fn spawn_empty(&mut self) -> Self::SpawnOutput<'_> {
+        self.flush();
+        let entity = self.entities.alloc();
+        // SAFETY: entity was just allocated
+        unsafe { self.spawn_at_empty_internal(entity) }
+    }
+
+    /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
+    /// a corresponding [`EntityWorldMut`], which can be used to add components to the entity or
+    /// retrieve its id.
+    ///
+    /// ```
+    /// use bevy_ecs::{bundle::Bundle, component::Component, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Velocity {
+    ///     x: f32,
+    ///     y: f32,
+    /// };
+    ///
+    /// #[derive(Component)]
+    /// struct Name(&'static str);
+    ///
+    /// #[derive(Bundle)]
+    /// struct PhysicsBundle {
+    ///     position: Position,
+    ///     velocity: Velocity,
+    /// }
+    ///
+    /// let mut world = World::new();
+    ///
+    /// // `spawn` can accept a single component:
+    /// world.spawn(Position { x: 0.0, y: 0.0 });
+
+    /// // It can also accept a tuple of components:
+    /// world.spawn((
+    ///     Position { x: 0.0, y: 0.0 },
+    ///     Velocity { x: 1.0, y: 1.0 },
+    /// ));
+
+    /// // Or it can accept a pre-defined Bundle of components:
+    /// world.spawn(PhysicsBundle {
+    ///     position: Position { x: 2.0, y: 2.0 },
+    ///     velocity: Velocity { x: 0.0, y: 4.0 },
+    /// });
+    ///
+    /// let entity = world
+    ///     // Tuples can also mix Bundles and Components
+    ///     .spawn((
+    ///         PhysicsBundle {
+    ///             position: Position { x: 2.0, y: 2.0 },
+    ///             velocity: Velocity { x: 0.0, y: 4.0 },
+    ///         },
+    ///         Name("Elaina Proctor"),
+    ///     ))
+    ///     // Calling id() will return the unique identifier for the spawned entity
+    ///     .id();
+    /// let position = world.entity(entity).get::<Position>().unwrap();
+    /// assert_eq!(position.x, 2.0);
+    /// ```
+    fn spawn<B: Bundle>(&mut self, bundle: B) -> Self::SpawnOutput<'_> {
+        self.flush();
+        let change_tick = self.change_tick();
+        let entity = self.entities.alloc();
+        let entity_location = {
+            let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+            // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+            unsafe { bundle_spawner.spawn_non_existent(entity, bundle) }
+        };
+
+        // SAFETY: entity and location are valid, as they were just created above
+        unsafe { EntityWorldMut::new(self, entity, entity_location) }
     }
 }
 
@@ -874,111 +985,6 @@ impl World {
             .collect();
 
         Ok(borrows)
-    }
-
-    /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
-    /// to add components to the entity or retrieve its id.
-    ///
-    /// ```
-    /// use bevy_ecs::{component::Component, world::World};
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    /// #[derive(Component)]
-    /// struct Label(&'static str);
-    /// #[derive(Component)]
-    /// struct Num(u32);
-    ///
-    /// let mut world = World::new();
-    /// let entity = world.spawn_empty()
-    ///     .insert(Position { x: 0.0, y: 0.0 }) // add a single component
-    ///     .insert((Num(1), Label("hello"))) // add a bundle of components
-    ///     .id();
-    ///
-    /// let position = world.entity(entity).get::<Position>().unwrap();
-    /// assert_eq!(position.x, 0.0);
-    /// ```
-    pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush();
-        let entity = self.entities.alloc();
-        // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_empty_internal(entity) }
-    }
-
-    /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
-    /// a corresponding [`EntityWorldMut`], which can be used to add components to the entity or
-    /// retrieve its id.
-    ///
-    /// ```
-    /// use bevy_ecs::{bundle::Bundle, component::Component, world::World};
-    ///
-    /// #[derive(Component)]
-    /// struct Position {
-    ///   x: f32,
-    ///   y: f32,
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct Velocity {
-    ///     x: f32,
-    ///     y: f32,
-    /// };
-    ///
-    /// #[derive(Component)]
-    /// struct Name(&'static str);
-    ///
-    /// #[derive(Bundle)]
-    /// struct PhysicsBundle {
-    ///     position: Position,
-    ///     velocity: Velocity,
-    /// }
-    ///
-    /// let mut world = World::new();
-    ///
-    /// // `spawn` can accept a single component:
-    /// world.spawn(Position { x: 0.0, y: 0.0 });
-
-    /// // It can also accept a tuple of components:
-    /// world.spawn((
-    ///     Position { x: 0.0, y: 0.0 },
-    ///     Velocity { x: 1.0, y: 1.0 },
-    /// ));
-
-    /// // Or it can accept a pre-defined Bundle of components:
-    /// world.spawn(PhysicsBundle {
-    ///     position: Position { x: 2.0, y: 2.0 },
-    ///     velocity: Velocity { x: 0.0, y: 4.0 },
-    /// });
-    ///
-    /// let entity = world
-    ///     // Tuples can also mix Bundles and Components
-    ///     .spawn((
-    ///         PhysicsBundle {
-    ///             position: Position { x: 2.0, y: 2.0 },
-    ///             velocity: Velocity { x: 0.0, y: 4.0 },
-    ///         },
-    ///         Name("Elaina Proctor"),
-    ///     ))
-    ///     // Calling id() will return the unique identifier for the spawned entity
-    ///     .id();
-    /// let position = world.entity(entity).get::<Position>().unwrap();
-    /// assert_eq!(position.x, 2.0);
-    /// ```
-    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
-        self.flush();
-        let change_tick = self.change_tick();
-        let entity = self.entities.alloc();
-        let entity_location = {
-            let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-            // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle) }
-        };
-
-        // SAFETY: entity and location are valid, as they were just created above
-        unsafe { EntityWorldMut::new(self, entity, entity_location) }
     }
 
     /// # Safety
@@ -2813,6 +2819,7 @@ mod tests {
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         ptr::OwningPtr,
         system::Resource,
+        traits::Spawn,
     };
     use bevy_ecs_macros::Component;
     use bevy_utils::{HashMap, HashSet};

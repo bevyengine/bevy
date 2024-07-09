@@ -336,8 +336,8 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_ecs;
     use crate::system::Resource;
+    use crate::{self as bevy_ecs, traits::Spawn};
     use std::{
         panic::AssertUnwindSafe,
         sync::{

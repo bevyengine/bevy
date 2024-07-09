@@ -83,7 +83,7 @@ mod tests {
     use std::f32::consts::TAU;
 
     use bevy_app::App;
-    use bevy_ecs::system::SystemState;
+    use bevy_ecs::{system::SystemState, traits::Spawn};
     use bevy_hierarchy::BuildChildren;
     use bevy_math::{Quat, Vec3};
 

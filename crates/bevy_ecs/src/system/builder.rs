@@ -146,9 +146,9 @@ all_tuples!(impl_system_builder, 0, 15, P);
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::prelude::{Component, Query};
     use crate::system::{Local, RunSystemOnce};
+    use crate::{self as bevy_ecs, traits::Spawn};
 
     use super::*;
 

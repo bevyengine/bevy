@@ -4,6 +4,7 @@ use bevy_ecs::{
     entity::Entity,
     prelude::Events,
     system::{Commands, EntityCommands},
+    traits::Spawn,
     world::{Command, EntityWorldMut, World},
 };
 use smallvec::{smallvec, SmallVec};
@@ -283,24 +284,7 @@ pub struct ChildBuilder<'a> {
 /// implementations of [`BuildChildren`] as a bound on the [`Builder`](BuildChildren::Builder)
 /// associated type. The closure passed to [`BuildChildren::with_children`] accepts an
 /// implementation of `ChildBuild` so that children can be spawned via [`ChildBuild::spawn`].
-pub trait ChildBuild {
-    /// Spawn output type. Both [`spawn`](Self::spawn) and [`spawn_empty`](Self::spawn_empty) return
-    /// an implementation of this type so that children can be operated on via method-chaining.
-    /// Implementations of `ChildBuild` reborrow `self` when spawning entities (see
-    /// [`Commands::spawn_empty`] and [`World::get_entity_mut`]). Lifetime `'a` corresponds to this
-    /// reborrowed self, and `Self` outlives it.
-    type SpawnOutput<'a>: BuildChildren
-    where
-        Self: 'a;
-
-    /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
-    /// Also adds [`Parent`] component to the created entity.
-    fn spawn(&mut self, bundle: impl Bundle) -> Self::SpawnOutput<'_>;
-
-    /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
-    /// Also adds [`Parent`] component to the created entity.
-    fn spawn_empty(&mut self) -> Self::SpawnOutput<'_>;
-
+pub trait ChildBuild: Spawn {
     /// Returns the parent entity.
     fn parent_entity(&self) -> Entity;
 
@@ -308,21 +292,28 @@ pub trait ChildBuild {
     fn add_command<C: Command>(&mut self, command: C) -> &mut Self;
 }
 
-impl ChildBuild for ChildBuilder<'_> {
+impl Spawn for ChildBuilder<'_> {
+    /// Spawn output type. Both [`spawn`](Self::spawn) and [`spawn_empty`](Self::spawn_empty) return
+    /// an implementation of this type so that children can be operated on via method-chaining.
+    /// Implementations of `ChildBuild` reborrow `self` when spawning entities (see
+    /// [`Commands::spawn_empty`] and [`World::get_entity_mut`]). Lifetime `'a` corresponds to this
+    /// reborrowed self, and `Self` outlives it.
     type SpawnOutput<'a> = EntityCommands<'a> where Self: 'a;
 
-    fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands {
-        let e = self.commands.spawn(bundle);
-        self.push_children.children.push(e.id());
-        e
-    }
-
-    fn spawn_empty(&mut self) -> EntityCommands {
+    fn spawn_empty(&mut self) -> Self::SpawnOutput<'_> {
         let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
         e
     }
 
+    fn spawn<B: Bundle>(&mut self, bundle: B) -> Self::SpawnOutput<'_> {
+        let e = self.commands.spawn(bundle);
+        self.push_children.children.push(e.id());
+        e
+    }
+}
+
+impl ChildBuild for ChildBuilder<'_> {
     fn parent_entity(&self) -> Entity {
         self.push_children.parent
     }
@@ -516,23 +507,17 @@ pub struct WorldChildBuilder<'w> {
     parent: Entity,
 }
 
-impl ChildBuild for WorldChildBuilder<'_> {
+impl Spawn for WorldChildBuilder<'_> {
+    /// Spawn output type. Both [`spawn`](Self::spawn) and [`spawn_empty`](Self::spawn_empty) return
+    /// an implementation of this type so that children can be operated on via method-chaining.
+    /// Implementations of `ChildBuild` reborrow `self` when spawning entities (see
+    /// [`Commands::spawn_empty`] and [`World::get_entity_mut`]). Lifetime `'a` corresponds to this
+    /// reborrowed self, and `Self` outlives it.
     type SpawnOutput<'a> = EntityWorldMut<'a> where Self: 'a;
 
-    fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut {
-        let entity = self.world.spawn((bundle, Parent(self.parent))).id();
-        push_child_unchecked(self.world, self.parent, entity);
-        push_events(
-            self.world,
-            [HierarchyEvent::ChildAdded {
-                child: entity,
-                parent: self.parent,
-            }],
-        );
-        self.world.entity_mut(entity)
-    }
-
-    fn spawn_empty(&mut self) -> EntityWorldMut {
+    /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
+    /// Also adds [`Parent`] component to the created entity.
+    fn spawn_empty(&mut self) -> Self::SpawnOutput<'_> {
         let entity = self.world.spawn(Parent(self.parent)).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -545,6 +530,23 @@ impl ChildBuild for WorldChildBuilder<'_> {
         self.world.entity_mut(entity)
     }
 
+    /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
+    /// Also adds [`Parent`] component to the created entity.
+    fn spawn<B: Bundle>(&mut self, bundle: B) -> Self::SpawnOutput<'_> {
+        let entity = self.world.spawn((bundle, Parent(self.parent))).id();
+        push_child_unchecked(self.world, self.parent, entity);
+        push_events(
+            self.world,
+            [HierarchyEvent::ChildAdded {
+                child: entity,
+                parent: self.parent,
+            }],
+        );
+        self.world.entity_mut(entity)
+    }
+}
+
+impl ChildBuild for WorldChildBuilder<'_> {
     fn parent_entity(&self) -> Entity {
         self.parent
     }
@@ -667,7 +669,7 @@ impl BuildChildren for EntityWorldMut<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::{BuildChildren, ChildBuild};
+    use super::BuildChildren;
     use crate::{
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
@@ -679,6 +681,7 @@ mod tests {
         entity::Entity,
         event::Events,
         system::Commands,
+        traits::Spawn,
         world::{CommandQueue, World},
     };
 

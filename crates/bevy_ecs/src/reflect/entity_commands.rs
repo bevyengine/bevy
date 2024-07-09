@@ -315,7 +315,7 @@ mod tests {
     use crate::prelude::{AppTypeRegistry, ReflectComponent};
     use crate::reflect::ReflectCommandExt;
     use crate::system::{Commands, SystemState};
-    use crate::{self as bevy_ecs, component::Component, world::World};
+    use crate::{self as bevy_ecs, component::Component, traits::Spawn, world::World};
     use bevy_ecs_macros::Resource;
     use bevy_reflect::{Reflect, TypeRegistry};
 

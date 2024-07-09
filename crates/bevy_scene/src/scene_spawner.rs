@@ -472,6 +472,7 @@ mod tests {
     use bevy_ecs::prelude::ReflectComponent;
     use bevy_ecs::query::With;
     use bevy_ecs::system::{Commands, Res, ResMut, RunSystemOnce};
+    use bevy_ecs::traits::Spawn;
     use bevy_ecs::{component::Component, system::Query};
     use bevy_reflect::Reflect;
 

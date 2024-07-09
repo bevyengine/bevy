@@ -104,9 +104,9 @@ mod tests {
     use crate::{DynamicScene, DynamicSceneBundle, ScenePlugin, SceneSpawner};
     use bevy_app::{App, ScheduleRunnerPlugin};
     use bevy_asset::{AssetPlugin, Assets};
-    use bevy_ecs::component::Component;
     use bevy_ecs::entity::Entity;
     use bevy_ecs::prelude::{AppTypeRegistry, ReflectComponent, World};
+    use bevy_ecs::{component::Component, traits::Spawn};
     use bevy_hierarchy::{Children, HierarchyPlugin};
     use bevy_reflect::Reflect;
     use bevy_utils::default;

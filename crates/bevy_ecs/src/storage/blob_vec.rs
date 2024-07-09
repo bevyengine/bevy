@@ -509,7 +509,7 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs; // required for derive macros
+    use crate::{self as bevy_ecs, traits::Spawn}; // required for derive macros
     use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;

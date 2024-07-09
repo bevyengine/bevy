@@ -142,14 +142,12 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         system::Commands,
+        traits::Spawn,
         world::{CommandQueue, World},
     };
 
     use super::DespawnRecursiveExt;
-    use crate::{
-        child_builder::{BuildChildren, ChildBuild},
-        components::Children,
-    };
+    use crate::{child_builder::BuildChildren, components::Children};
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]
     struct Idx(u32);

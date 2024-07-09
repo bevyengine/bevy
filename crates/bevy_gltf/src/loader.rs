@@ -11,9 +11,12 @@ use bevy_asset::{
 use bevy_color::{Color, LinearRgba};
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::{entity::Entity, world::World};
-use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
+use bevy_ecs::{
+    entity::{Entity, EntityHashMap},
+    traits::Spawn,
+    world::World,
+};
+use bevy_hierarchy::{BuildChildren, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
@@ -2013,7 +2016,7 @@ mod test {
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
     use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::world::World;
+    use bevy_ecs::{traits::Spawn, world::World};
     use bevy_log::LogPlugin;
     use bevy_scene::ScenePlugin;
 

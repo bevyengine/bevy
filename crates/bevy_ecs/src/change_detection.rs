@@ -1038,6 +1038,7 @@ mod tests {
         },
         component::{Component, ComponentTicks, Tick},
         system::{IntoSystem, Query, System},
+        traits::Spawn,
         world::World,
     };
 

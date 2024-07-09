@@ -942,6 +942,7 @@ mod tests {
         removal_detection::RemovedComponents,
         schedule::{IntoSystemConfigs, ScheduleLabel},
         system::{Commands, Query, Resource},
+        traits::Spawn,
         world::{FromWorld, World},
     };
 
