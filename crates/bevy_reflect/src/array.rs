@@ -379,7 +379,7 @@ impl IntoIterator for DynamicArray {
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Box::into_iter(self.values)
+        Box::<[_]>::into_iter(self.values)
     }
 }
 
