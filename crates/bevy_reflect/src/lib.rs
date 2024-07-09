@@ -1088,7 +1088,7 @@ mod tests {
         });
         foo_patch.insert("g", composite);
 
-        let array = DynamicArray::from_vec(vec![2u32, 2u32]);
+        let array = DynamicArray::from_values([2u32, 2u32]);
         foo_patch.insert("h", array);
 
         foo.apply(&foo_patch);

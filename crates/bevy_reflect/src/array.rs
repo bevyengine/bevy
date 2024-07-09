@@ -192,7 +192,12 @@ impl DynamicArray {
         }
     }
 
+    #[deprecated(since = "0.15.0", note = "use from_values")]
     pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
+        Self::from_values(values)
+    }
+
+    pub fn from_values<T: Reflect>(values: impl IntoIterator<Item = T>) -> Self {
         Self {
             represented_type: None,
             values: values
