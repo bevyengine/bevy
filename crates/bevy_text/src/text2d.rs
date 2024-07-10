@@ -13,7 +13,7 @@ use bevy_ecs::{
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::Vec2;
+use bevy_math::{Vec2, Vec3};
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -76,6 +76,7 @@ pub fn extract_text2d_sprite(
             &Text,
             &TextLayoutInfo,
             &Anchor,
+            &TextBounds,
             &GlobalTransform,
         )>,
     >,
@@ -87,17 +88,19 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
-    for (original_entity, view_visibility, text, text_layout_info, anchor, global_transform) in
+    for (original_entity, view_visibility, text, text_layout_info, anchor, bounds, global_transform) in
         text2d_query.iter()
     {
         if !view_visibility.get() {
             continue;
         }
 
+        let b = Vec3::new(bounds.width.unwrap_or_default(), bounds.height.unwrap_or_default(), 0.);
+
         let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_translation = text_layout_info.size * text_anchor;
         let transform = *global_transform
-            * GlobalTransform::from_translation(alignment_translation.extend(0.))
+            * GlobalTransform::from_translation(alignment_translation.extend(0.) - 0.5 * b)
             * scaling;
         let mut color = LinearRgba::WHITE;
         let mut current_section = usize::MAX;
@@ -113,7 +116,6 @@ pub fn extract_text2d_sprite(
                 current_section = *section_index;
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-
             let entity = commands.spawn_empty().id();
             extracted_sprites.sprites.insert(
                 entity,
