@@ -84,7 +84,7 @@ fn cluster_debug_visualization(
     if (z_slice & 1u) == 1u {
         z_slice = z_slice + bindings::lights.cluster_dimensions.z / 2u;
     }
-    let slice_color_hsv = vec3<f32>(
+    let slice_color_hsv = vec3(
         f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u) * PI_2,
         1.0,
         0.5
