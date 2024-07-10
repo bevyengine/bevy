@@ -692,7 +692,7 @@ pub fn queue_material_meshes<M: Material>(
                 continue;
             };
 
-            let mut mesh_pipeline_key_bits = material.properties.mesh_pipeline_key_bits.clone();
+            let mut mesh_pipeline_key_bits = material.properties.mesh_pipeline_key_bits;
             mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(
                 material.properties.alpha_mode,
                 msaa,

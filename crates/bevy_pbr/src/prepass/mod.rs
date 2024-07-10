@@ -781,7 +781,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque | AlphaMode::AlphaToCoverage | AlphaMode::Mask(_) => {
-                    mesh_key |= alpha_mode_pipeline_key(alpha_mode, &msaa);
+                    mesh_key |= alpha_mode_pipeline_key(alpha_mode, msaa);
                 }
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
