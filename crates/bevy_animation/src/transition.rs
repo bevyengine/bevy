@@ -5,9 +5,10 @@
 
 use bevy_ecs::{
     component::Component,
+    reflect::ReflectComponent,
     system::{Query, Res},
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_time::Time;
 use bevy_utils::Duration;
 
