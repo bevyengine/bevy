@@ -25,7 +25,7 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
             CiTestingEvent::Screenshot => {
                 let mut primary_window_query =
                     world.query_filtered::<Entity, With<PrimaryWindow>>();
-                let Ok(main_window) = primary_window_query.single()(world) else {
+                let Ok(main_window) = primary_window_query.single(world) else {
                     warn!("Requesting screenshot, but PrimaryWindow is not available");
                     continue;
                 };
