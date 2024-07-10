@@ -508,10 +508,13 @@ impl Debug for DynamicStruct {
     }
 }
 
-impl FromIterator<(String, Box<dyn Reflect>)> for DynamicStruct {
+impl<'a, N> FromIterator<(N, Box<dyn Reflect>)> for DynamicStruct
+where
+    N: Into<Cow<'a, str>>,
+{
     /// Create a dynamic struct that doesn't represent a type from the
     /// field name, field value pairs.
-    fn from_iter<I: IntoIterator<Item = (String, Box<dyn Reflect>)>>(fields: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = (N, Box<dyn Reflect>)>>(fields: I) -> Self {
         let mut dynamic_struct = Self::default();
         for (name, value) in fields.into_iter() {
             dynamic_struct.insert_boxed(name, value);
