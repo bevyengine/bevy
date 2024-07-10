@@ -714,10 +714,13 @@ mod tests {
 
         let bar_to_foo = dst_world
             .query_filtered::<&MyEntityRef, Without<Foo>>()
-            .single()(&dst_world)
-        .cloned()
-        .unwrap();
-        let foo = dst_world.query_filtered::<Entity, With<Foo>>().single()(&dst_world).unwrap();
+            .single(&dst_world)
+            .cloned()
+            .unwrap();
+        let foo = dst_world
+            .query_filtered::<Entity, With<Foo>>()
+            .single(&dst_world)
+            .unwrap();
 
         assert_eq!(foo, bar_to_foo.0);
         assert!(dst_world

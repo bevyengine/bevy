@@ -1769,7 +1769,7 @@ mod tests {
 
         let q = world.query::<()>();
         let mut q = q.transmute::<Entity>(world.components());
-        assert_eq!(q.single(&world), entity);
+        assert_eq!(q.single(&world).unwrap(), entity);
     }
 
     #[test]
@@ -1947,7 +1947,7 @@ mod tests {
         let mut new_query: QueryState<Entity, ()> =
             query_1.join_filtered(world.components(), &query_2);
 
-        assert_eq!(new_query.single(&world), entity_ab);
+        assert_eq!(new_query.single(&world).unwrap(), entity_ab);
     }
 
     #[test]

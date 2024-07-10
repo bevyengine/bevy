@@ -500,7 +500,10 @@ mod tests {
 
         // clone only existing entity
         let mut scene_spawner = SceneSpawner::default();
-        let entity = world.query_filtered::<Entity, With<A>>().single(&world);
+        let entity = world
+            .query_filtered::<Entity, With<A>>()
+            .single(&world)
+            .unwrap();
         let scene = DynamicSceneBuilder::from_world(&world)
             .extract_entity(entity)
             .build();

@@ -157,7 +157,8 @@ mod tests {
         let (scene_entity, scene_component_a) = app
             .world_mut()
             .query::<(Entity, &ComponentA)>()
-            .single(app.world());
+            .single(app.world())
+            .unwrap();
         assert_eq!(scene_component_a.x, 3.0);
         assert_eq!(scene_component_a.y, 4.0);
         assert_eq!(
