@@ -406,6 +406,7 @@ impl ViewNode for VolumetricFogNode {
         Read<ViewVolumetricFogUniformOffset>,
         Read<MeshViewBindGroup>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<Msaa>,
     );
 
     fn run<'w>(
@@ -423,13 +424,13 @@ impl ViewNode for VolumetricFogNode {
             view_volumetric_lighting_uniform_buffer_offset,
             view_bind_group,
             view_ssr_offset,
+            view_msaa,
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let volumetric_lighting_pipeline = world.resource::<VolumetricFogPipeline>();
         let volumetric_lighting_uniform_buffer = world.resource::<VolumetricFogUniformBuffer>();
-        let msaa = world.resource::<Msaa>();
 
         // Fetch the uniform buffer and binding.
         let (Some(pipeline), Some(volumetric_lighting_uniform_buffer_binding)) = (
@@ -444,7 +445,7 @@ impl ViewNode for VolumetricFogNode {
         // Create the bind group for the view.
         //
         // TODO: Cache this.
-        let volumetric_view_bind_group_layout = match *msaa {
+        let volumetric_view_bind_group_layout = match *view_msaa {
             Msaa::Off => &volumetric_lighting_pipeline.volumetric_view_bind_group_layout_no_msaa,
             _ => &volumetric_lighting_pipeline.volumetric_view_bind_group_layout_msaa,
         };
@@ -558,6 +559,7 @@ pub fn prepare_volumetric_fog_pipelines(
         (
             Entity,
             &ExtractedView,
+            &Msaa,
             Has<NormalPrepass>,
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
@@ -565,10 +567,16 @@ pub fn prepare_volumetric_fog_pipelines(
         ),
         With<VolumetricFogSettings>,
     >,
-    msaa: Res<Msaa>,
 ) {
-    for (entity, view, normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass) in
-        view_targets.iter()
+    for (
+        entity,
+        view,
+        msaa,
+        normal_prepass,
+        depth_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
         let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(*msaa);

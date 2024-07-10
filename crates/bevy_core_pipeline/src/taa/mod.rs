@@ -34,6 +34,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use bevy_utils::tracing::warn;
 
 const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
 
@@ -46,8 +47,7 @@ impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.insert_resource(Msaa::Off)
-            .register_type::<TemporalAntiAliasSettings>();
+        app.register_type::<TemporalAntiAliasSettings>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -162,17 +162,23 @@ impl ViewNode for TemporalAntiAliasNode {
         &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TemporalAntiAliasPipelineId,
+        &'static Msaa,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if *msaa != Msaa::Off {
+            warn!("Temporal anti-aliasing requires MSAA to be disabled");
+            return Ok(());
+        }
+
         let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TaaPipeline>(),
             world.get_resource::<PipelineCache>(),
