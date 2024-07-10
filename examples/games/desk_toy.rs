@@ -343,7 +343,7 @@ fn toggle_transparency(
     mut commands: Commands,
     mut window_transparency: ResMut<WindowTransparency>,
     mut q_instructions_text: Query<&mut Visibility, With<InstructionsText>>,
-    mut q_primary_window: Query<&Window, With<PrimaryWindow>>,
+    q_primary_window: Query<&Window, With<PrimaryWindow>>,
 ) {
     // Toggle the window transparency resource
     window_transparency.0 = !window_transparency.0;
