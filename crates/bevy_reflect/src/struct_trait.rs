@@ -520,18 +520,6 @@ impl FromIterator<(String, Box<dyn Reflect>)> for DynamicStruct {
     }
 }
 
-impl<V: Reflect> FromIterator<(String, V)> for DynamicStruct {
-    /// Create a dynamic struct that doesn't represent a type from the
-    /// field name, field value pairs.
-    fn from_iter<I: IntoIterator<Item = (String, V)>>(fields: I) -> Self {
-        let mut dynamic_struct = Self::default();
-        for (name, value) in fields.into_iter() {
-            dynamic_struct.insert(name, value);
-        }
-        dynamic_struct
-    }
-}
-
 impl IntoIterator for DynamicStruct {
     type Item = Box<dyn Reflect>;
     type IntoIter = std::vec::IntoIter<Self::Item>;

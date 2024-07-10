@@ -435,18 +435,6 @@ impl FromIterator<Box<dyn Reflect>> for DynamicTupleStruct {
     }
 }
 
-impl<T: Reflect> FromIterator<T> for DynamicTupleStruct {
-    fn from_iter<I: IntoIterator<Item = T>>(fields: I) -> Self {
-        Self {
-            represented_type: None,
-            fields: fields
-                .into_iter()
-                .map(|field| Box::new(field) as Box<dyn Reflect>)
-                .collect(),
-        }
-    }
-}
-
 impl IntoIterator for DynamicTupleStruct {
     type Item = Box<dyn Reflect>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
