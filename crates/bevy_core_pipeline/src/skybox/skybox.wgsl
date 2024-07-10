@@ -3,7 +3,7 @@
 
 struct SkyboxUniforms {
 	brightness: f32,
-    transform: mat4x4<f32>,
+        transform: mat4x4<f32>,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
 	_wasm_padding_8b: u32,
 	_wasm_padding_12b: u32,
