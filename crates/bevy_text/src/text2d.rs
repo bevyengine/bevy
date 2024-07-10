@@ -100,7 +100,7 @@ pub fn extract_text2d_sprite(
         let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_translation = text_layout_info.size * text_anchor;
         let transform = *global_transform
-            * GlobalTransform::from_translation(alignment_translation.extend(0.) - 0.5 * b)
+            * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
         let mut color = LinearRgba::WHITE;
         let mut current_section = usize::MAX;
