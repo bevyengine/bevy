@@ -850,7 +850,7 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), view.hdr))
+            .entry((camera.target.clone(), view.hdr, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
