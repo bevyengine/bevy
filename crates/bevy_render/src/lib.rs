@@ -463,7 +463,9 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-        ));
+                World::clear_entities.in_set(RenderSet::Cleanup),
+            ),
+        );
 
     render_app.set_extract(|main_world, render_world| {
         #[cfg(feature = "trace")]
@@ -477,7 +479,7 @@ unsafe fn initialize_render_app(app: &mut App) {
             // reserve all existing main world entities for use in render_app
             // they can only be spawned using `get_or_spawn()`
             let total_count = main_world.entities().total_count();
-            /*
+
             assert_eq!(
                 render_world.entities().len(),
                 0,
@@ -490,21 +492,8 @@ unsafe fn initialize_render_app(app: &mut App) {
                     .entities_mut()
                     .flush_and_reserve_invalid_assuming_no_entities(total_count);
             }
-            */
         }
-        println!("{}", render_world.entities().len());
-        /*
-        if (render_world.entities().len() < 50) {
-        println!("Entities:");
-        for entity in render_world.iter_entities() {
-            print!("[");
-            for component_info in render_world.inspect_entity(entity.id()).take(5) {
-                print!("{:?}, ", component_info.name());
-            }
-            print!("] ");
-        }
-        }
-        */
+
         // run extract schedule
         extract(main_world, render_world);
     });

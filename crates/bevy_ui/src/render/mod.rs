@@ -725,7 +725,7 @@ pub fn extract_default_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
-    query: Extract<Query<(Entity, &Camera), (Or<(With<Camera2d>, With<Camera3d>)>, Added<Camera>)>>,
+    query: Extract<Query<(Entity, &Camera), Or<(With<Camera2d>, With<Camera3d>)>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();

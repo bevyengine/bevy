@@ -8,7 +8,6 @@ use std::{
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
-    prelude::*,
     component::Component,
     entity::Entity,
     query::{Changed, With},
@@ -406,7 +405,7 @@ pub fn check_visibility_ranges(
 /// render world and inserts them into [`RenderVisibilityRanges`].
 pub fn extract_visibility_ranges(
     mut render_visibility_ranges: ResMut<RenderVisibilityRanges>,
-    visibility_ranges_query: Extract<Query<(Entity, &VisibilityRange), Added<VisibilityRange>>>,
+    visibility_ranges_query: Extract<Query<(Entity, &VisibilityRange)>>,
     changed_ranges_query: Extract<Query<Entity, Changed<VisibilityRange>>>,
 ) {
     if changed_ranges_query.is_empty() {

@@ -118,7 +118,7 @@ fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closing: Extract<EventReader<WindowClosing>>,
-    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>), Added<Window>>>,
+    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
 ) {

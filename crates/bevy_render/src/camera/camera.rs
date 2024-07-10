@@ -15,7 +15,6 @@ use crate::{
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::*,
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
@@ -843,7 +842,7 @@ pub fn extract_cameras(
             Option<&RenderLayers>,
             Option<&Projection>,
             Has<GpuCulling>,
-        ), Added<Camera>>,
+        )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,

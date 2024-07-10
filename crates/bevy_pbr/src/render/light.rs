@@ -181,7 +181,7 @@ pub fn extract_lights(
             &GlobalTransform,
             &ViewVisibility,
             &CubemapFrusta,
-        ), Added<PointLight>>,
+        )>,
     >,
     spot_lights: Extract<
         Query<(
@@ -190,7 +190,7 @@ pub fn extract_lights(
             &GlobalTransform,
             &ViewVisibility,
             &Frustum,
-        ), Added<SpotLight>>,
+        )>,
     >,
     directional_lights: Extract<
         Query<
@@ -206,7 +206,7 @@ pub fn extract_lights(
                 Option<&RenderLayers>,
                 Option<&VolumetricLight>,
             ),
-            (Without<SpotLight>, Added<DirectionalLight>),
+            Without<SpotLight>,
         >,
     >,
     mut previous_point_lights_len: Local<usize>,
@@ -531,8 +531,8 @@ pub fn prepare_lights(
         Entity,
         &ExtractedPointLight,
         AnyOf<(&CubemapFrusta, &Frustum)>,
-    ), Added<ExtractedPointLight>>,
-    directional_lights: Query<(Entity, &ExtractedDirectionalLight), Added<ExtractedDirectionalLight>>,
+    )>,
+    directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
     mut live_shadow_mapping_lights: Local<EntityHashSet>,
 ) {
     let views_iter = views.iter();
