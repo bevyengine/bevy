@@ -1,6 +1,6 @@
 //! Isometry types for expressing rigid motions in two and three dimensions.
 //!
-//! In context, these are often used to express the relative positions of two entities (e.g. primitive shapes).
+//! These are often used to express the relative positions of two entities (e.g. primitive shapes).
 //! For example, in determining whether a sphere intersects a cube, one needs to know how the two are
 //! positioned relative to one another in addition to their sizes.
 //! If the two had absolute positions and orientations described by isometries `cube_iso` and `sphere_iso`,
