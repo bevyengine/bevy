@@ -35,13 +35,13 @@ fn for_loops(mut query: Query<&mut Foo>) {
 fn single_mut_query(mut query: Query<&mut Foo>) {
     // this should fail to compile
     {
-        let mut mut_foo = query.single_mut().unwrap();
+        let mut mut_foo = query.get_single_mut().unwrap();
 
         // This solves "temporary value dropped while borrowed"
         let readonly_query = query.to_readonly();
         //~^ E0502
 
-        let ref_foo = readonly_query.single().unwrap();
+        let ref_foo = readonly_query.get_single().unwrap();
 
         *mut_foo = Foo;
 
@@ -53,9 +53,9 @@ fn single_mut_query(mut query: Query<&mut Foo>) {
         // This solves "temporary value dropped while borrowed"
         let readonly_query = query.to_readonly();
 
-        let ref_foo = readonly_query.single().unwrap();
+        let ref_foo = readonly_query.get_single().unwrap();
 
-        let mut mut_foo = query.single_mut().unwrap();
+        let mut mut_foo = query.get_single_mut().unwrap();
         //~^ E0502
 
         println!("{ref_foo:?}");
@@ -68,9 +68,9 @@ fn single_mut_query(mut query: Query<&mut Foo>) {
         // This solves "temporary value dropped while borrowed"
         let readonly_query = query.to_readonly();
 
-        let readonly_foo = readonly_query.single().unwrap();
+        let readonly_foo = readonly_query.get_single().unwrap();
 
-        let query_foo = query.single().unwrap();
+        let query_foo = query.get_single().unwrap();
 
         println!("{readonly_foo:?}, {query_foo:?}");
     }

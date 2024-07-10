@@ -62,7 +62,7 @@ fn toggle_resolution(
     mut windows: Query<&mut Window>,
     resolution: Res<ResolutionSettings>,
 ) {
-    let mut window = windows.single_mut().unwrap();
+    let mut window = windows.get_single_mut().unwrap();
 
     if keys.just_pressed(KeyCode::Digit1) {
         let res = resolution.small;
@@ -84,7 +84,7 @@ fn on_resize_system(
     mut q: Query<&mut Text, With<ResolutionText>>,
     mut resize_reader: EventReader<WindowResized>,
 ) {
-    let mut text = q.single_mut().unwrap();
+    let mut text = q.get_single_mut().unwrap();
     for e in resize_reader.read() {
         // When resolution is being changed
         text.sections[0].value = format!("{:.1} x {:.1}", e.width, e.height);

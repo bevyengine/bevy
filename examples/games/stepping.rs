@@ -246,7 +246,7 @@ fn update_ui(
     }
 
     // ensure the UI is only visible when stepping is enabled
-    let (ui, mut text, vis) = ui.single_mut().unwrap();
+    let (ui, mut text, vis) = ui.get_single_mut().unwrap();
     match (vis, stepping.is_enabled()) {
         (Visibility::Hidden, true) => {
             commands.entity(ui).insert(Visibility::Inherited);

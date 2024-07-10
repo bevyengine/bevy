@@ -2304,7 +2304,7 @@ pub struct DefaultUiCamera<'w, 's> {
 
 impl<'w, 's> DefaultUiCamera<'w, 's> {
     pub fn get(&self) -> Option<Entity> {
-        self.default_cameras.single().ok().or_else(|| {
+        self.default_cameras.get_single().ok().or_else(|| {
             // If there isn't a single camera and the query isn't empty, there is two or more cameras queried.
             if !self.default_cameras.is_empty() {
                 warn_once!("Two or more Entities with IsDefaultUiCamera found when only one Camera with this marker is allowed.");

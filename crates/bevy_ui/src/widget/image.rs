@@ -111,7 +111,7 @@ pub fn update_image_content_size_system(
     >,
 ) {
     let combined_scale_factor = windows
-        .single()
+        .get_single()
         .map(|window| window.resolution.scale_factor())
         .unwrap_or(1.)
         * ui_scale.0;

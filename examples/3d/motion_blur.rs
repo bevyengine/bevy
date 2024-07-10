@@ -277,7 +277,7 @@ fn keyboard_inputs(
     mut text: Query<&mut Text>,
     mut camera: ResMut<CameraMode>,
 ) {
-    let mut settings = settings.single_mut().unwrap();
+    let mut settings = settings.get_single_mut().unwrap();
     if presses.just_pressed(KeyCode::Digit1) {
         settings.shutter_angle -= 0.25;
     } else if presses.just_pressed(KeyCode::Digit2) {
@@ -294,7 +294,7 @@ fn keyboard_inputs(
     }
     settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
     settings.samples = settings.samples.clamp(0, 64);
-    let mut text = text.single_mut().unwrap();
+    let mut text = text.get_single_mut().unwrap();
     text.sections[0].value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
     text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
 }
@@ -349,8 +349,8 @@ fn move_camera(
     tracked: Query<&Transform, With<CameraTracked>>,
     mode: Res<CameraMode>,
 ) {
-    let tracked = tracked.single().unwrap();
-    let (mut transform, mut projection) = camera.single_mut().unwrap();
+    let tracked = tracked.get_single().unwrap();
+    let (mut transform, mut projection) = camera.get_single_mut().unwrap();
     match *mode {
         CameraMode::Track => {
             transform.look_at(tracked.translation, Vec3::Y);

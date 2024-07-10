@@ -219,8 +219,8 @@ fn get_cursor_world_pos(
     q_primary_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform)>,
 ) {
-    let primary_window = q_primary_window.single().unwrap();
-    let (main_camera, main_camera_transform) = q_camera.single().unwrap();
+    let primary_window = q_primary_window.get_single().unwrap();
+    let (main_camera, main_camera_transform) = q_camera.get_single().unwrap();
     // Get the cursor position in the world
     cursor_world_pos.0 = primary_window
         .cursor_position()
@@ -233,7 +233,7 @@ fn update_cursor_hit_test(
     mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
     q_bevy_logo: Query<&Transform, With<BevyLogo>>,
 ) {
-    let mut primary_window = q_primary_window.single_mut().unwrap();
+    let mut primary_window = q_primary_window.get_single_mut().unwrap();
 
     // If the window has decorations (e.g. a border) then it should be clickable
     if primary_window.decorations {
@@ -247,7 +247,7 @@ fn update_cursor_hit_test(
     };
 
     // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
-    let bevy_logo_transform = q_bevy_logo.single().unwrap();
+    let bevy_logo_transform = q_bevy_logo.get_single().unwrap();
     primary_window.cursor.hit_test = bevy_logo_transform
         .translation
         .truncate()
@@ -267,7 +267,7 @@ fn start_drag(
     };
 
     // Get the offset from the cursor to the Bevy logo sprite
-    let bevy_logo_transform = q_bevy_logo.single().unwrap();
+    let bevy_logo_transform = q_bevy_logo.get_single().unwrap();
     let drag_offset = bevy_logo_transform.translation.truncate() - cursor_world_pos;
 
     // If the cursor is within the Bevy logo radius start the drag operation and remember the offset of the cursor from the origin
@@ -295,7 +295,7 @@ fn drag(
     };
 
     // Get the current Bevy logo transform
-    let mut bevy_transform = q_bevy_logo.single_mut().unwrap();
+    let mut bevy_transform = q_bevy_logo.get_single_mut().unwrap();
 
     // Calculate the new translation of the Bevy logo based on cursor and drag offset
     let new_translation = cursor_world_pos + drag_offset.0;
@@ -327,7 +327,7 @@ fn quit(
     };
 
     // If the cursor is within the Bevy logo radius send the [`AppExit`] event to quit the app
-    let bevy_logo_transform = q_bevy_logo.single().unwrap();
+    let bevy_logo_transform = q_bevy_logo.get_single().unwrap();
     if bevy_logo_transform
         .translation
         .truncate()
@@ -359,7 +359,7 @@ fn toggle_transparency(
 
     // Remove the primary window's decorations (e.g. borders), make it always on top of other desktop windows, and set the clear color to transparent
     // only if window transparency is enabled
-    let mut window = q_primary_window.single_mut().unwrap();
+    let mut window = q_primary_window.get_single_mut().unwrap();
     let clear_color;
     (window.decorations, window.window_level, clear_color) = if window_transparency.0 {
         (false, WindowLevel::AlwaysOnTop, Color::NONE)

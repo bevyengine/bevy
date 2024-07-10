@@ -222,7 +222,7 @@ fn move_player(
     mut mouse_motion: EventReader<MouseMotion>,
     mut player: Query<&mut Transform, With<Player>>,
 ) {
-    let mut transform = player.single_mut().unwrap();
+    let mut transform = player.get_single_mut().unwrap();
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
@@ -236,7 +236,7 @@ fn change_fov(
     input: Res<ButtonInput<KeyCode>>,
     mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>,
 ) {
-    let mut projection = world_model_projection.single_mut().unwrap();
+    let mut projection = world_model_projection.get_single_mut().unwrap();
     let Projection::Perspective(ref mut perspective) = projection.as_mut() else {
         unreachable!(
             "The `Projection` component was explicitly built with `Projection::Perspective`"

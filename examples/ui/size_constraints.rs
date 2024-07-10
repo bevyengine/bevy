@@ -302,7 +302,7 @@ fn update_buttons(
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
-    let mut style = bar_query.single_mut().unwrap();
+    let mut style = bar_query.get_single_mut().unwrap();
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {

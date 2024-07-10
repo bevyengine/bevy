@@ -74,7 +74,7 @@ fn display_override(
     mut windows: Query<&mut Window>,
     mut custom_text: Query<&mut Text, With<CustomText>>,
 ) {
-    let mut window = windows.single_mut().unwrap();
+    let mut window = windows.get_single_mut().unwrap();
 
     let text = format!(
         "Scale factor: {:.1} {}",
@@ -88,13 +88,13 @@ fn display_override(
 
     window.title.clone_from(&text);
 
-    let mut custom_text = custom_text.single_mut().unwrap();
+    let mut custom_text = custom_text.get_single_mut().unwrap();
     custom_text.sections[0].value = text;
 }
 
 /// This system toggles scale factor overrides when enter is pressed
 fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
-    let mut window = windows.single_mut().unwrap();
+    let mut window = windows.get_single_mut().unwrap();
 
     if input.just_pressed(KeyCode::Enter) {
         let scale_factor_override = window.resolution.scale_factor_override();
@@ -106,7 +106,7 @@ fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Win
 
 /// This system changes the scale factor override when up or down is pressed
 fn change_scale_factor(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
-    let mut window = windows.single_mut().unwrap();
+    let mut window = windows.get_single_mut().unwrap();
     let scale_factor_override = window.resolution.scale_factor_override();
     if input.just_pressed(KeyCode::ArrowUp) {
         window

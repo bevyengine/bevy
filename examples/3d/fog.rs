@@ -142,8 +142,8 @@ fn update_system(
     let now = time.elapsed_seconds();
     let delta = time.delta_seconds();
 
-    let (mut fog, mut transform) = camera.single_mut().unwrap();
-    let mut text = text.single_mut().unwrap();
+    let (mut fog, mut transform) = camera.get_single_mut().unwrap();
+    let mut text = text.get_single_mut().unwrap();
 
     // Orbit camera around pyramid
     let orbit_scale = 8.0 + (now / 10.0).sin() * 7.0;

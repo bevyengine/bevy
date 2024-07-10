@@ -771,9 +771,9 @@ mod tests {
 
         let _: Option<&Foo> = q.get(e).ok();
         let _: Option<[&Foo; 1]> = q.get_many([e]).ok();
-        let _: Option<&Foo> = q.single().ok();
+        let _: Option<&Foo> = q.get_single().ok();
         let _: [&Foo; 1] = q.many([e]);
-        let _: &Foo = q.single().unwrap();
+        let _: &Foo = q.get_single().unwrap();
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/8029

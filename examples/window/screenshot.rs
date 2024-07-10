@@ -22,7 +22,7 @@ fn screenshot_on_spacebar(
         let path = format!("./screenshot-{}.png", *counter);
         *counter += 1;
         screenshot_manager
-            .save_screenshot_to_disk(main_window.single().unwrap(), path)
+            .save_screenshot_to_disk(main_window.get_single().unwrap(), path)
             .unwrap();
     }
 }

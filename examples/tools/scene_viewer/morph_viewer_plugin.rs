@@ -195,7 +195,7 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        let mut text = text.single_mut().unwrap();
+        let mut text = text.get_single_mut().unwrap();
         text.sections[i + 2].value = format!("[{key_name}] {target}\n");
     }
 }

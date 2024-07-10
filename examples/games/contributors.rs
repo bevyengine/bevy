@@ -185,7 +185,7 @@ fn selection(
     let entity = contributor_selection.order[contributor_selection.idx];
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
-        let mut text = text_query.single_mut().unwrap();
+        let mut text = text_query.get_single_mut().unwrap();
         select(&mut sprite, contributor, &mut transform, &mut text);
     }
 }
@@ -237,7 +237,7 @@ fn collisions(
     windows: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let window = windows.single().unwrap();
+    let window = windows.get_single().unwrap();
     let window_size = window.size();
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);

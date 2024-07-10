@@ -73,9 +73,9 @@ fn relative_cursor_position_system(
     relative_cursor_position_query: Query<&RelativeCursorPosition>,
     mut output_query: Query<&mut Text>,
 ) {
-    let relative_cursor_position = relative_cursor_position_query.single().unwrap();
+    let relative_cursor_position = relative_cursor_position_query.get_single().unwrap();
 
-    let mut output = output_query.single_mut().unwrap();
+    let mut output = output_query.get_single_mut().unwrap();
 
     output.sections[0].value =
         if let Some(relative_cursor_position) = relative_cursor_position.normalized {

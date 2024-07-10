@@ -16,10 +16,10 @@ fn draw_cursor(
     windows: Query<&Window>,
     mut gizmos: Gizmos,
 ) {
-    let (camera, camera_transform) = camera_query.single().unwrap();
-    let ground = ground_query.single().unwrap();
+    let (camera, camera_transform) = camera_query.get_single().unwrap();
+    let ground = ground_query.get_single().unwrap();
 
-    let Some(cursor_position) = windows.single().unwrap().cursor_position() else {
+    let Some(cursor_position) = windows.get_single().unwrap().cursor_position() else {
         return;
     };
 

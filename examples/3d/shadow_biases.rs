@@ -187,7 +187,7 @@ fn toggle_light(
     if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
-                example_text.single_mut().unwrap().sections[3].value = "PointLight".to_string();
+                example_text.get_single_mut().unwrap().sections[3].value = "PointLight".to_string();
                 100000000.0
             } else {
                 0.0
@@ -195,7 +195,7 @@ fn toggle_light(
         }
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
-                example_text.single_mut().unwrap().sections[3].value =
+                example_text.get_single_mut().unwrap().sections[3].value =
                     "DirectionalLight".to_string();
                 100000.0
             } else {
@@ -230,7 +230,7 @@ fn adjust_light_position(
         offset.y += 1.0;
     }
     if offset != Vec3::ZERO {
-        let mut example_text = example_text.single_mut().unwrap();
+        let mut example_text = example_text.get_single_mut().unwrap();
         for mut light in &mut lights {
             light.translation += offset;
             light.look_at(Vec3::ZERO, Vec3::Y);
@@ -263,7 +263,7 @@ fn cycle_filter_methods(
                     ShadowFilteringMethod::Hardware2x2
                 }
             };
-            example_text.single_mut().unwrap().sections[6].value = filter_method_string;
+            example_text.get_single_mut().unwrap().sections[6].value = filter_method_string;
         }
     }
 }
@@ -297,9 +297,9 @@ fn adjust_point_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        example_text.single_mut().unwrap().sections[9].value =
+        example_text.get_single_mut().unwrap().sections[9].value =
             format!("{:.2}", light.shadow_depth_bias);
-        example_text.single_mut().unwrap().sections[12].value =
+        example_text.get_single_mut().unwrap().sections[12].value =
             format!("{:.1}", light.shadow_normal_bias);
     }
 }
@@ -333,9 +333,9 @@ fn adjust_directional_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        example_text.single_mut().unwrap().sections[15].value =
+        example_text.get_single_mut().unwrap().sections[15].value =
             format!("{:.2}", light.shadow_depth_bias);
-        example_text.single_mut().unwrap().sections[18].value =
+        example_text.get_single_mut().unwrap().sections[18].value =
             format!("{:.1}", light.shadow_normal_bias);
     }
 }

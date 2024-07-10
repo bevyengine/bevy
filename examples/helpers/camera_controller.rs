@@ -111,7 +111,7 @@ fn run_camera_controller(
 ) {
     let dt = time.delta_seconds();
 
-    if let Ok((mut transform, mut controller)) = query.single_mut() {
+    if let Ok((mut transform, mut controller)) = query.get_single_mut() {
         if !controller.initialized {
             let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
             controller.yaw = yaw;

@@ -34,7 +34,7 @@ fn startup( mut cmds: Commands )
 fn toggle_window_mode
 (   mut qry_window: Query<&mut Window>,
 )
-{   let Ok( mut window ) = qry_window.single_mut().unwrap() else { return };
+{   let Ok( mut window ) = qry_window.get_single_mut().unwrap() else { return };
 
     window.mode = match window.mode {
         WindowMode::Windowed => {

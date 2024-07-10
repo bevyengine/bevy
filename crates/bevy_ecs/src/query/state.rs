@@ -1518,12 +1518,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// the query.
     ///
     /// This can only be called for read-only queries,
-    /// see [`single_mut`](Self::single_mut) for write-queries.
+    /// see [`get_single_mut`](Self::get_single_mut) for write-queries.
     ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
     #[inline]
-    pub fn single<'w>(&mut self, world: &'w World) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
+    pub fn get_single<'w>(&mut self, world: &'w World) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
         self.update_archetypes(world);
 
         // SAFETY: query is read only
@@ -1542,7 +1542,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
     #[inline]
-    pub fn single_mut<'w>(
+    pub fn get_single_mut<'w>(
         &mut self,
         world: &'w mut World,
     ) -> Result<D::Item<'w>, QuerySingleError> {

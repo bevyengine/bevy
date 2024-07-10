@@ -59,7 +59,7 @@ fn make_visible(mut window: Query<&mut Window>, frames: Res<FrameCount>) {
         // At this point the gpu is ready to show the app so we can make the window visible.
         // Alternatively, you could toggle the visibility in Startup.
         // It will work, but it will have one white frame before it starts rendering
-        window.single_mut().unwrap().visible = true;
+        window.get_single_mut().unwrap().visible = true;
     }
 }
 
@@ -67,7 +67,7 @@ fn make_visible(mut window: Query<&mut Window>, frames: Res<FrameCount>) {
 /// You'll see fps increase displayed in the console.
 fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
     if input.just_pressed(KeyCode::KeyV) {
-        let mut window = windows.single_mut().unwrap();
+        let mut window = windows.get_single_mut().unwrap();
 
         window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
             PresentMode::AutoNoVsync
@@ -88,7 +88,7 @@ fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window
 
 fn switch_level(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
     if input.just_pressed(KeyCode::KeyT) {
-        let mut window = windows.single_mut().unwrap();
+        let mut window = windows.get_single_mut().unwrap();
 
         window.window_level = match window.window_level {
             WindowLevel::AlwaysOnBottom => WindowLevel::Normal,
@@ -110,7 +110,7 @@ fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&
     let toggle_close = input.just_pressed(KeyCode::Digit3);
 
     if toggle_minimize || toggle_maximize || toggle_close {
-        let mut window = windows.single_mut().unwrap();
+        let mut window = windows.get_single_mut().unwrap();
 
         if toggle_minimize {
             window.enabled_buttons.minimize = !window.enabled_buttons.minimize;
@@ -126,7 +126,7 @@ fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&
 
 /// This system will then change the title during execution
 fn change_title(mut windows: Query<&mut Window>, time: Res<Time>) {
-    let mut window = windows.single_mut().unwrap();
+    let mut window = windows.get_single_mut().unwrap();
     window.title = format!(
         "Seconds since startup: {}",
         time.elapsed().as_secs_f32().round()
@@ -135,7 +135,7 @@ fn change_title(mut windows: Query<&mut Window>, time: Res<Time>) {
 
 fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::Space) {
-        let mut window = windows.single_mut().unwrap();
+        let mut window = windows.get_single_mut().unwrap();
 
         window.cursor.visible = !window.cursor.visible;
         window.cursor.grab_mode = match window.cursor.grab_mode {
@@ -148,7 +148,7 @@ fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode
 // This system will toggle the color theme used by the window
 fn toggle_theme(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::KeyF) {
-        let mut window = windows.single_mut().unwrap();
+        let mut window = windows.get_single_mut().unwrap();
 
         if let Some(current_theme) = window.window_theme {
             window.window_theme = match current_theme {
@@ -165,7 +165,7 @@ fn cycle_cursor_icon(
     input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
 ) {
-    let mut window = windows.single_mut().unwrap();
+    let mut window = windows.get_single_mut().unwrap();
 
     const ICONS: &[CursorIcon] = &[
         CursorIcon::Default,

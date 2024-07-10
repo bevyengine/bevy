@@ -202,7 +202,7 @@ fn rotation(
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut transform = query.single_mut().unwrap();
+    let mut transform = query.get_single_mut().unwrap();
     let delta = time.delta_seconds();
 
     if input.pressed(KeyCode::ArrowLeft) {

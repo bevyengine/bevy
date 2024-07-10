@@ -60,11 +60,11 @@ fn trigger_system(
     input: Res<ButtonInput<KeyCode>>,
 ) {
     if input.just_pressed(KeyCode::KeyA) {
-        let entity = query_a.single().unwrap();
+        let entity = query_a.get_single().unwrap();
         commands.entity(entity).insert(Triggered);
     }
     if input.just_pressed(KeyCode::KeyB) {
-        let entity = query_b.single().unwrap();
+        let entity = query_b.get_single().unwrap();
         commands.entity(entity).insert(Triggered);
     }
 }
@@ -80,13 +80,13 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
 }
 
 fn system_a(mut query: Query<&mut Text>) {
-    let mut text = query.single_mut().unwrap();
+    let mut text = query.get_single_mut().unwrap();
     text.sections[2].value = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
 fn system_b(mut query: Query<&mut Text>) {
-    let mut text = query.single_mut().unwrap();
+    let mut text = query.get_single_mut().unwrap();
     text.sections[2].value = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }

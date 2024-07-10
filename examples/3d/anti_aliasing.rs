@@ -44,7 +44,7 @@ fn modify_aa(
     mut msaa: ResMut<Msaa>,
     mut commands: Commands,
 ) {
-    let (camera_entity, fxaa, smaa, taa) = camera.single_mut().unwrap();
+    let (camera_entity, fxaa, smaa, taa) = camera.get_single_mut().unwrap();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
@@ -182,9 +182,9 @@ fn update_ui(
     msaa: Res<Msaa>,
     mut ui: Query<&mut Text>,
 ) {
-    let (fxaa, smaa, taa, cas_settings) = camera.single().unwrap();
+    let (fxaa, smaa, taa, cas_settings) = camera.get_single().unwrap();
 
-    let mut ui = ui.single_mut().unwrap();
+    let mut ui = ui.get_single_mut().unwrap();
     let ui = &mut ui.sections[0].value;
 
     *ui = "Antialias Method\n".to_string();

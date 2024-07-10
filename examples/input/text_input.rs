@@ -111,12 +111,12 @@ fn toggle_ime(
     mut text: Query<&mut Text, With<Node>>,
 ) {
     if input.just_pressed(MouseButton::Left) {
-        let mut window = windows.single_mut().unwrap();
+        let mut window = windows.get_single_mut().unwrap();
 
         window.ime_position = window.cursor_position().unwrap();
         window.ime_enabled = !window.ime_enabled;
 
-        let mut text = text.single_mut().unwrap();
+        let mut text = text.get_single_mut().unwrap();
         text.sections[1].value = format!("{}\n", window.ime_enabled);
     }
 }
@@ -147,22 +147,22 @@ fn listen_ime_events(
     for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
-                status_text.single_mut().unwrap().sections[5].value =
+                status_text.get_single_mut().unwrap().sections[5].value =
                     format!("IME buffer: {value}");
             }
             Ime::Preedit { cursor, .. } if cursor.is_none() => {
-                status_text.single_mut().unwrap().sections[5].value = "".to_string();
+                status_text.get_single_mut().unwrap().sections[5].value = "".to_string();
             }
             Ime::Commit { value, .. } => {
-                edit_text.single_mut().unwrap().sections[0]
+                edit_text.get_single_mut().unwrap().sections[0]
                     .value
                     .push_str(value);
             }
             Ime::Enabled { .. } => {
-                status_text.single_mut().unwrap().sections[3].value = "true\n".to_string();
+                status_text.get_single_mut().unwrap().sections[3].value = "true\n".to_string();
             }
             Ime::Disabled { .. } => {
-                status_text.single_mut().unwrap().sections[3].value = "false\n".to_string();
+                status_text.get_single_mut().unwrap().sections[3].value = "false\n".to_string();
             }
             _ => (),
         }
@@ -182,7 +182,7 @@ fn listen_keyboard_input_events(
 
         match &event.logical_key {
             Key::Enter => {
-                let mut text = edit_text.single_mut().unwrap();
+                let mut text = edit_text.get_single_mut().unwrap();
                 if text.sections[0].value.is_empty() {
                     continue;
                 }
@@ -199,13 +199,13 @@ fn listen_keyboard_input_events(
                 ));
             }
             Key::Space => {
-                edit_text.single_mut().unwrap().sections[0].value.push(' ');
+                edit_text.get_single_mut().unwrap().sections[0].value.push(' ');
             }
             Key::Backspace => {
-                edit_text.single_mut().unwrap().sections[0].value.pop();
+                edit_text.get_single_mut().unwrap().sections[0].value.pop();
             }
             Key::Character(character) => {
-                edit_text.single_mut().unwrap().sections[0]
+                edit_text.get_single_mut().unwrap().sections[0]
                     .value
                     .push_str(character);
             }

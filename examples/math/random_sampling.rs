@@ -248,6 +248,6 @@ fn handle_mouse(
         return;
     }
     let displacement: f32 = motion_events.read().map(|motion| motion.delta.x).sum();
-    let mut camera_transform = camera.single_mut().unwrap();
+    let mut camera_transform = camera.get_single_mut().unwrap();
     camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 150.));
 }

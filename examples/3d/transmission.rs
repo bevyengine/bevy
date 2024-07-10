@@ -501,7 +501,7 @@ fn example_control_system(
         mut camera_transform,
         depth_prepass,
         temporal_jitter,
-    ) = camera.single_mut().unwrap();
+    ) = camera.get_single_mut().unwrap();
 
     if input.just_pressed(KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
@@ -584,7 +584,7 @@ fn example_control_system(
         Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
     );
 
-    let mut display = display.single_mut().unwrap();
+    let mut display = display.get_single_mut().unwrap();
     display.sections[0].value = format!(
         concat!(
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
@@ -644,8 +644,8 @@ fn flicker_system(
     let a = (s * 6.0).cos() * 0.0125 + (s * 4.0).cos() * 0.025;
     let b = (s * 5.0).cos() * 0.0125 + (s * 3.0).cos() * 0.025;
     let c = (s * 7.0).cos() * 0.0125 + (s * 2.0).cos() * 0.025;
-    let (mut light, mut light_transform) = light.single_mut().unwrap();
-    let mut flame_transform = flame.single_mut().unwrap();
+    let (mut light, mut light_transform) = light.get_single_mut().unwrap();
+    let mut flame_transform = flame.get_single_mut().unwrap();
     light.intensity = 4_000.0 + 3000.0 * (a + b + c);
     flame_transform.translation = Vec3::new(-1.0, 1.23, 0.0);
     flame_transform.look_at(Vec3::new(-1.0 - c, 1.7 - b, 0.0 - a), Vec3::X);

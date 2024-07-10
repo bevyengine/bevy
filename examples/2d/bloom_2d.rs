@@ -84,8 +84,8 @@ fn update_bloom_settings(
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom_settings = camera.single_mut().unwrap();
-    let mut text = text.single_mut().unwrap();
+    let bloom_settings = camera.get_single_mut().unwrap();
+    let mut text = text.get_single_mut().unwrap();
     let text = &mut text.sections[0].value;
 
     match bloom_settings {

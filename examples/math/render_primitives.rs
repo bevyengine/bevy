@@ -342,8 +342,8 @@ fn update_active_cameras(
     mut camera_3d: Query<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
     mut text: Query<&mut TargetCamera, With<HeaderNode>>,
 ) {
-    let (entity_2d, mut cam_2d) = camera_2d.single_mut().unwrap();
-    let (entity_3d, mut cam_3d) = camera_3d.single_mut().unwrap();
+    let (entity_2d, mut cam_2d) = camera_2d.get_single_mut().unwrap();
+    let (entity_3d, mut cam_3d) = camera_3d.get_single_mut().unwrap();
     let is_camera_2d_active = matches!(*state.get(), CameraActive::Dim2);
 
     cam_2d.is_active = is_camera_2d_active;

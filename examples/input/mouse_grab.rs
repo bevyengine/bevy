@@ -16,7 +16,7 @@ fn grab_mouse(
     mouse: Res<ButtonInput<MouseButton>>,
     key: Res<ButtonInput<KeyCode>>,
 ) {
-    let mut window = windows.single_mut().unwrap();
+    let mut window = windows.get_single_mut().unwrap();
 
     if mouse.just_pressed(MouseButton::Left) {
         window.cursor.visible = false;

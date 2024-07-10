@@ -231,7 +231,7 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn teardown_game(mut commands: Commands, player: Query<Entity, With<Sprite>>) {
-    commands.entity(player.single().unwrap()).despawn();
+    commands.entity(player.get_single().unwrap()).despawn();
     info!("Teardown game");
 }
 

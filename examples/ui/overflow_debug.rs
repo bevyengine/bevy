@@ -273,7 +273,7 @@ fn toggle_overflow(
             _ => Overflow::visible(),
         };
 
-        let mut text = instructions.single_mut().unwrap();
+        let mut text = instructions.get_single_mut().unwrap();
         text.sections[1].value = format!("{:?}", style.overflow);
     }
 }

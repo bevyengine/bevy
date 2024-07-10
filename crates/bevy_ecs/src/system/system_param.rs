@@ -945,7 +945,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 ///     criminals: Query<&Criminal>,
 ///     mut alarm: Deferred<AlarmFlag>
 /// ) {
-///     let settlement = settlements.single().unwrap();
+///     let settlement = settlements.get_single().unwrap();
 ///     for criminal in &criminals {
 ///         // Only sound the alarm if the criminal is a threat.
 ///         // For this example, assume that this check is expensive to run.

@@ -149,7 +149,7 @@ pub(crate) mod test_setup {
             ExampleMode::Application => "desktop_app(), reactive",
             ExampleMode::ApplicationWithRedraw => "desktop_app(), reactive, RequestRedraw sent",
         };
-        let mut text = query.single_mut().unwrap();
+        let mut text = query.get_single_mut().unwrap();
         text.sections[1].value = mode.to_string();
         text.sections[3].value = frame.to_string();
     }

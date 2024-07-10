@@ -322,7 +322,7 @@ fn move_paddle(
     mut query: Query<&mut Transform, With<Paddle>>,
     time: Res<Time>,
 ) {
-    let mut paddle_transform = query.single_mut().unwrap();
+    let mut paddle_transform = query.get_single_mut().unwrap();
     let mut direction = 0.0;
 
     if keyboard_input.pressed(KeyCode::ArrowLeft) {
@@ -353,7 +353,7 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
 }
 
 fn update_scoreboard(score: Res<Score>, mut query: Query<&mut Text, With<ScoreboardUi>>) {
-    let mut text = query.single_mut().unwrap();
+    let mut text = query.get_single_mut().unwrap();
     text.sections[1].value = score.to_string();
 }
 
@@ -364,7 +364,7 @@ fn check_for_collisions(
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
 ) {
-    let (mut ball_velocity, ball_transform) = ball_query.single_mut().unwrap();
+    let (mut ball_velocity, ball_transform) = ball_query.get_single_mut().unwrap();
 
     for (collider_entity, collider_transform, maybe_brick) in &collider_query {
         let collision = ball_collision(

@@ -22,7 +22,7 @@ pub enum QueryEntityError {
 }
 
 /// An error that occurs when evaluating a [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState) as a single expected result via
-/// [`single()`](crate::system::Query::single()) or [`single_mut`](crate::system::Query::single_mut).
+/// [`get_single()`](crate::system::Query::get_single()) or [`single_mut`](crate::system::Query::single_mut).
 #[derive(Debug, Error)]
 pub enum QuerySingleError {
     /// No entity fits the query.

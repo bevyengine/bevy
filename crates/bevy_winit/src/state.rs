@@ -463,7 +463,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 // handle wrapper removed when the app was suspended.
                 let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.single()(&self.world()) {
+                if let Ok((entity, window)) = query.get_single()(&self.world()) {
                     let window = window.clone();
 
                     let mut create_window =

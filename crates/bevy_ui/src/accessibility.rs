@@ -38,7 +38,7 @@ fn calc_bounds(
     camera: Query<(&Camera, &GlobalTransform)>,
     mut nodes: Query<(&mut AccessibilityNode, Ref<Node>, Ref<GlobalTransform>)>,
 ) {
-    if let Ok((camera, camera_transform)) = camera.single() {
+    if let Ok((camera, camera_transform)) = camera.get_single() {
         for (mut accessible, node, transform) in &mut nodes {
             if node.is_changed() || transform.is_changed() {
                 if let Some(translation) =
