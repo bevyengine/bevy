@@ -244,7 +244,7 @@ use std::borrow::Borrow;
 /// |[`iter_combinations`]\[[`_mut`][`iter_combinations_mut`]]|Returns an iterator over all combinations of a specified number of query items.|
 /// |[`get`]\[[`_mut`][`get_mut`]]|Returns the query item for the specified entity.|
 /// |[`many`]\[[`_mut`][`many_mut`]],<br>[`get_many`]\[[`_mut`][`get_many_mut`]]|Returns the query items for the specified entities.|
-/// |[`single`]\[[`_mut`][`single_mut`]],<br>[`get_single`]\[[`_mut`][`get_single_mut`]]|Returns the query item while verifying that there aren't others.|
+/// |[`single`]\[[`_mut`][`single_mut`]],<br>[`single()`]\[[`_mut`][`single_mut`]]|Returns the query item while verifying that there aren't others.|
 ///
 /// There are two methods for each type of query operation: immutable and mutable (ending with `_mut`).
 /// When using immutable methods, the query items returned are of type [`ROQueryItem`], a read-only version of the query item.
@@ -281,7 +281,7 @@ use std::borrow::Borrow;
 /// |[`get`]\[[`_mut`][`get_mut`]]|O(1)|
 /// |([`get_`][`get_many`])[`many`]|O(k)|
 /// |([`get_`][`get_many_mut`])[`many_mut`]|O(k<sup>2</sup>)|
-/// |[`single`]\[[`_mut`][`single_mut`]],<br>[`get_single`]\[[`_mut`][`get_single_mut`]]|O(a)|
+/// |[`single`]\[[`_mut`][`single_mut`]],<br>[`single()`]\[[`_mut`][`single_mut`]]|O(a)|
 /// |Archetype based filtering ([`With`], [`Without`], [`Or`])|O(a)|
 /// |Change detection filtering ([`Added`], [`Changed`])|O(a + n)|
 ///
@@ -325,8 +325,8 @@ use std::borrow::Borrow;
 /// [`get_many`]: Self::get_many
 /// [`get_many_mut`]: Self::get_many_mut
 /// [`get_mut`]: Self::get_mut
-/// [`get_single`]: Self::get_single
-/// [`get_single_mut`]: Self::get_single_mut
+/// [`single()`]: Self::single()
+/// [`single_mut`]: Self::single_mut
 /// [`iter`]: Self::iter
 /// [`iter_combinations`]: Self::iter_combinations
 /// [`iter_combinations_mut`]: Self::iter_combinations_mut
@@ -1073,36 +1073,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a single read-only query item when there is exactly one entity matching the query.
     ///
-    /// # Panics
-    ///
-    /// This method panics if the number of query items is **not** exactly one.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Component)]
-    /// # struct Player;
-    /// # #[derive(Component)]
-    /// # struct Position(f32, f32);
-    /// fn player_system(query: Query<&Position, With<Player>>) {
-    ///     let player_position = query.single();
-    ///     // do something with player_position
-    /// }
-    /// # bevy_ecs::system::assert_is_system(player_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_single`](Self::get_single) for the non-panicking version.
-    /// - [`single_mut`](Self::single_mut) to get the mutable query item.
-    #[track_caller]
-    pub fn single(&self) -> ROQueryItem<'_, D> {
-        self.get_single().unwrap()
-    }
-
-    /// Returns a single read-only query item when there is exactly one entity matching the query.
-    ///
     /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
     ///
     /// # Example
@@ -1113,7 +1083,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct PlayerScore(i32);
     /// fn player_scoring_system(query: Query<&PlayerScore>) {
-    ///     match query.get_single() {
+    ///     match query.single().unwrap() {
     ///         Ok(PlayerScore(score)) => {
     ///             println!("Score: {}", score);
     ///         }
@@ -1130,52 +1100,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_single_mut`](Self::get_single_mut) to get the mutable query item.
-    /// - [`single`](Self::single) for the panicking version.
+    /// - [`single_mut`](Self::single_mut) to get the mutable query item.
     #[inline]
-    pub fn get_single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
+    pub fn single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
         // SAFETY:
         // the query ensures that the components it accesses are not mutably accessible somewhere else
         // and the query is read only.
         unsafe {
-            self.state.as_readonly().get_single_unchecked_manual(
+            self.state.as_readonly().single_unchecked_manual(
                 self.world,
                 self.last_run,
                 self.this_run,
             )
         }
-    }
-
-    /// Returns a single query item when there is exactly one entity matching the query.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the number of query items is **not** exactly one.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct Player;
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// #
-    /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
-    ///     let mut health = query.single_mut();
-    ///     health.0 += 1;
-    /// }
-    /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_single_mut`](Self::get_single_mut) for the non-panicking version.
-    /// - [`single`](Self::single) to get the read-only query item.
-    #[track_caller]
-    pub fn single_mut(&mut self) -> D::Item<'_> {
-        self.get_single_mut().unwrap()
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
@@ -1193,7 +1130,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Health(u32);
     /// #
     /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
-    ///     let mut health = query.get_single_mut().expect("Error: Could not find a single player.");
+    ///     let mut health = query.single_mut().unwrap().expect("Error: Could not find a single player.");
     ///     health.0 += 1;
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
@@ -1201,16 +1138,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_single`](Self::get_single) to get the read-only query item.
+    /// - [`single`](Self::single) to get the read-only query item.
     /// - [`single_mut`](Self::single_mut) for the panicking version.
     #[inline]
-    pub fn get_single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
+    pub fn single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
         // SAFETY:
         // the query ensures mutable access to the components it accesses, and the query
         // is uniquely borrowed
         unsafe {
             self.state
-                .get_single_unchecked_manual(self.world, self.last_run, self.this_run)
+                .single_unchecked_manual(self.world, self.last_run, self.this_run)
         }
     }
 
@@ -1318,7 +1255,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # world.spawn((A(10), B(5)));
     /// #
     /// fn reusable_function(lens: &mut QueryLens<&A>) {
-    ///     assert_eq!(lens.query().single().0, 10);
+    ///     assert_eq!(lens.query().single().unwrap().0, 10);
     /// }
     ///
     /// // We can use the function in a system that takes the exact query.

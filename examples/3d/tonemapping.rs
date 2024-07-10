@@ -233,7 +233,7 @@ fn drag_drop_image(
             mat.base_color_texture = Some(new_image.clone());
 
             // Despawn the image viewer instructions
-            if let Ok(text_entity) = text.get_single() {
+            if let Ok(text_entity) = text.single() {
                 commands.entity(text_entity).despawn();
             }
         }
@@ -310,8 +310,8 @@ fn toggle_tonemapping_method(
     mut color_grading: Query<&mut ColorGrading>,
     per_method_settings: Res<PerMethodSettings>,
 ) {
-    let mut method = tonemapping.single_mut();
-    let mut color_grading = color_grading.single_mut();
+    let mut method = tonemapping.single_mut().unwrap();
+    let mut color_grading = color_grading.single_mut().unwrap();
 
     if keys.just_pressed(KeyCode::Digit1) {
         *method = Tonemapping::None;
@@ -362,7 +362,7 @@ fn update_color_grading_settings(
     current_scene: Res<CurrentScene>,
     mut selected_parameter: ResMut<SelectedParameter>,
 ) {
-    let method = tonemapping.single();
+    let method = tonemapping.single().unwrap();
     let color_grading = per_method_settings.settings.get_mut(method).unwrap();
     let mut dt = time.delta_seconds() * 0.25;
     if keys.pressed(KeyCode::ArrowLeft) {
@@ -422,18 +422,18 @@ fn update_ui(
         *hide_ui = !*hide_ui;
     }
 
-    let old_text = &text_query.single().sections[0].value;
+    let old_text = &text_query.single().unwrap().sections[0].value;
 
     if *hide_ui {
         if !old_text.is_empty() {
-            // single_mut() always triggers change detection,
+            // single_mut().unwrap() always triggers change detection,
             // so only access if text actually needs changing
-            text_query.single_mut().sections[0].value.clear();
+            text_query.single_mut().unwrap().sections[0].value.clear();
         }
         return;
     }
 
-    let (method, color_grading) = settings.single();
+    let (method, color_grading) = settings.single().unwrap();
     let method = *method;
 
     let mut text = String::with_capacity(old_text.len());
@@ -543,9 +543,9 @@ fn update_ui(
     }
 
     if text != old_text.as_str() {
-        // single_mut() always triggers change detection,
+        // single_mut().unwrap() always triggers change detection,
         // so only access if text actually changed
-        text_query.single_mut().sections[0].value = text;
+        text_query.single_mut().unwrap().sections[0].value = text;
     }
 }
 

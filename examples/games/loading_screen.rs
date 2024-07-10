@@ -313,9 +313,9 @@ fn display_loading_screen(
 ) {
     match loading_state.as_ref() {
         LoadingState::LevelLoading => {
-            *loading_screen.get_single_mut().unwrap() = Visibility::Visible;
+            *loading_screen.single_mut().unwrap() = Visibility::Visible;
         }
-        LoadingState::LevelReady => *loading_screen.get_single_mut().unwrap() = Visibility::Hidden,
+        LoadingState::LevelReady => *loading_screen.single_mut().unwrap() = Visibility::Hidden,
     };
 }
 

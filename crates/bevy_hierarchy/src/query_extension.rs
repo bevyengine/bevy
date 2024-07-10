@@ -23,7 +23,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// # #[derive(Component)]
     /// # struct Marker;
     /// fn system(query: Query<Entity, With<Marker>>, children_query: Query<&Children>) {
-    ///     let entity = query.single();
+    ///     let entity = query.single().unwrap();
     ///     for descendant in children_query.iter_descendants(entity) {
     ///         // Do something!
     ///     }
@@ -45,7 +45,7 @@ pub trait HierarchyQueryExt<'w, 's, D: QueryData, F: QueryFilter> {
     /// # #[derive(Component)]
     /// # struct Marker;
     /// fn system(query: Query<Entity, With<Marker>>, parent_query: Query<&Parent>) {
-    ///     let entity = query.single();
+    ///     let entity = query.single().unwrap();
     ///     for ancestor in parent_query.iter_ancestors(entity) {
     ///         // Do something!
     ///     }

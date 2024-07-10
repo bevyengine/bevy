@@ -481,7 +481,7 @@ fn handle_keypress(
         }
     }
 
-    let mut camera_rig = camera.single_mut();
+    let mut camera_rig = camera.single_mut().unwrap();
 
     // +/- => zoom camera.
     if keyboard.just_pressed(KeyCode::NumpadSubtract) || keyboard.just_pressed(KeyCode::Minus) {
@@ -537,7 +537,7 @@ fn handle_mouse(
         *mouse_pressed = MousePressed(button_event.state.is_pressed());
     }
 
-    let mut camera_rig = camera.single_mut();
+    let mut camera_rig = camera.single_mut().unwrap();
 
     let mouse_scroll = scroll_events
         .read()

@@ -578,7 +578,7 @@ fn update_ui_state(
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
     // Exit early if the UI didn't change
-    if !currently_selected_option.is_changed() && !cameras.single().is_changed() {
+    if !currently_selected_option.is_changed() && !cameras.single().unwrap().is_changed() {
         return;
     }
 
@@ -627,7 +627,8 @@ fn update_ui_state(
     }
 
     // Update the help text.
-    help_text.single_mut().sections[0].value = create_help_text(&currently_selected_option);
+    help_text.single_mut().unwrap().sections[0].value =
+        create_help_text(&currently_selected_option);
 }
 
 /// Creates the help text at the top left of the window.
@@ -651,7 +652,7 @@ fn adjust_color_grading_option(
     }
 
     if delta != 0.0 {
-        let mut color_grading = cameras.single_mut();
+        let mut color_grading = cameras.single_mut().unwrap();
         let new_value = currently_selected_option.get(&color_grading) + delta;
         currently_selected_option.set(&mut color_grading, new_value);
     }

@@ -369,7 +369,7 @@ mod menu {
     ) {
         for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Pressed && *setting != *button_setting {
-                let (previous_button, mut previous_image) = selected_query.single_mut();
+                let (previous_button, mut previous_image) = selected_query.single_mut().unwrap();
                 previous_image.color = NORMAL_BUTTON;
                 commands.entity(previous_button).remove::<SelectedOption>();
                 commands.entity(entity).insert(SelectedOption);

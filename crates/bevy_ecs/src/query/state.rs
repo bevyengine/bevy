@@ -1520,37 +1520,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This can only be called for read-only queries,
     /// see [`single_mut`](Self::single_mut) for write-queries.
     ///
-    /// # Panics
-    ///
-    /// Panics if the number of query results is not exactly one. Use
-    /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
-    #[track_caller]
-    #[inline]
-    pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, D> {
-        match self.get_single(world) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get single mutable query result: {error}"),
-        }
-    }
-
-    /// Returns a single immutable query result when there is exactly one entity matching
-    /// the query.
-    ///
-    /// This can only be called for read-only queries,
-    /// see [`get_single_mut`](Self::get_single_mut) for write-queries.
-    ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
     #[inline]
-    pub fn get_single<'w>(
-        &mut self,
-        world: &'w World,
-    ) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
+    pub fn single<'w>(&mut self, world: &'w World) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
         self.update_archetypes(world);
 
         // SAFETY: query is read only
         unsafe {
-            self.as_readonly().get_single_unchecked_manual(
+            self.as_readonly().single_unchecked_manual(
                 world.as_unsafe_world_cell_readonly(),
                 world.last_change_tick(),
                 world.read_change_tick(),
@@ -1561,27 +1539,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns a single mutable query result when there is exactly one entity matching
     /// the query.
     ///
-    /// # Panics
-    ///
-    /// Panics if the number of query results is not exactly one. Use
-    /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
-    #[track_caller]
-    #[inline]
-    pub fn single_mut<'w>(&mut self, world: &'w mut World) -> D::Item<'w> {
-        // SAFETY: query has unique world access
-        match self.get_single_mut(world) {
-            Ok(items) => items,
-            Err(error) => panic!("Cannot get single query result: {error}"),
-        }
-    }
-
-    /// Returns a single mutable query result when there is exactly one entity matching
-    /// the query.
-    ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
     #[inline]
-    pub fn get_single_mut<'w>(
+    pub fn single_mut<'w>(
         &mut self,
         world: &'w mut World,
     ) -> Result<D::Item<'w>, QuerySingleError> {
@@ -1591,7 +1552,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let last_change_tick = world.last_change_tick();
         // SAFETY: query has unique world access
         unsafe {
-            self.get_single_unchecked_manual(
+            self.single_unchecked_manual(
                 world.as_unsafe_world_cell(),
                 last_change_tick,
                 change_tick,
@@ -1609,12 +1570,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn get_single_unchecked<'w>(
+    pub unsafe fn single_unchecked<'w>(
         &mut self,
         world: UnsafeWorldCell<'w>,
     ) -> Result<D::Item<'w>, QuerySingleError> {
         self.update_archetypes_unsafe_world_cell(world);
-        self.get_single_unchecked_manual(world, world.last_change_tick(), world.change_tick())
+        self.single_unchecked_manual(world, world.last_change_tick(), world.change_tick())
     }
 
     /// Returns a query result when there is exactly one entity matching the query,
@@ -1628,7 +1589,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn get_single_unchecked_manual<'w>(
+    pub unsafe fn single_unchecked_manual<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
@@ -1938,7 +1899,7 @@ mod tests {
 
         world.clear_trackers();
 
-        assert!(query.get_single(&world).is_err());
+        assert!(query.single()(&world).is_err());
     }
 
     #[test]
@@ -1954,7 +1915,7 @@ mod tests {
 
         world.clear_trackers();
 
-        assert!(detection_query.get_single(&world).is_err());
+        assert!(detection_query.single()(&world).is_err());
 
         change_query.single_mut(&mut world).0 = 1;
 

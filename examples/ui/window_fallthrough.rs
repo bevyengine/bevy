@@ -52,7 +52,7 @@ fn toggle_mouse_passthrough(
     mut windows: Query<&mut Window>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyP) {
-        let mut window = windows.single_mut();
+        let mut window = windows.single_mut().unwrap();
         window.cursor.hit_test = !window.cursor.hit_test;
     }
 }

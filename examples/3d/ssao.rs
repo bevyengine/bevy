@@ -117,10 +117,10 @@ fn update(
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut sphere = sphere.single_mut();
+    let mut sphere = sphere.single_mut().unwrap();
     sphere.translation.y = (time.elapsed_seconds() / 1.7).sin() * 0.7;
 
-    let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
+    let (camera_entity, ssao_settings, temporal_jitter) = camera.single().unwrap();
 
     let mut commands = commands.entity(camera_entity);
     if keycode.just_pressed(KeyCode::Digit1) {
@@ -154,7 +154,7 @@ fn update(
         }
     }
 
-    let mut text = text.single_mut();
+    let mut text = text.single_mut().unwrap();
     let text = &mut text.sections[0].value;
     text.clear();
 

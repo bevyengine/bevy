@@ -459,7 +459,7 @@ fn move_camera(
     args: Res<Args>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    let mut camera_transform = camera_query.single_mut();
+    let mut camera_transform = camera_query.single_mut().unwrap();
     let delta = 0.15
         * if args.benchmark {
             1.0 / 60.0

@@ -134,7 +134,7 @@ impl<'w, 's> InsetGizmo<'w, 's> {
     }
     fn relative(&self, mut position: Vec2) -> Vec2 {
         let zero = GlobalTransform::IDENTITY;
-        let Ok(cam) = self.cam.get_single() else {
+        let Ok(cam) = self.cam.single().unwrap() else {
             return Vec2::ZERO;
         };
         if let Some(new_position) = cam.world_to_viewport(&zero, position.extend(0.)) {

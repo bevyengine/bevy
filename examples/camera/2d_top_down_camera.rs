@@ -92,11 +92,11 @@ fn update_camera(
     player: Query<&Transform, (With<Player>, Without<Camera2d>)>,
     time: Res<Time>,
 ) {
-    let Ok(mut camera) = camera.get_single_mut() else {
+    let Ok(mut camera) = camera.single_mut() else {
         return;
     };
 
-    let Ok(player) = player.get_single() else {
+    let Ok(player) = player.single() else {
         return;
     };
 
@@ -120,7 +120,7 @@ fn move_player(
     time: Res<Time>,
     kb_input: Res<ButtonInput<KeyCode>>,
 ) {
-    let Ok(mut player) = player.get_single_mut() else {
+    let Ok(mut player) = player.single_mut() else {
         return;
     };
 

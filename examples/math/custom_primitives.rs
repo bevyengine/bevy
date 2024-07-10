@@ -289,7 +289,7 @@ fn switch_cameras(
     };
     next.set(next_state);
 
-    let (mut transform, mut projection) = camera.single_mut();
+    let (mut transform, mut projection) = camera.single_mut().unwrap();
     match next_state {
         CameraActive::Dim2 => {
             *transform = TRANSFORM_2D;

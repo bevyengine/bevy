@@ -40,14 +40,14 @@ fn touch_camera(
     mut last_position: Local<Option<Vec2>>,
     mut rotations: EventReader<RotationGesture>,
 ) {
-    let window = windows.single();
+    let window = windows.single().unwrap();
 
     for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }
         if let Some(last_position) = *last_position {
-            let mut transform = camera.single_mut();
+            let mut transform = camera.single_mut().unwrap();
             *transform = Transform::from_xyz(
                 transform.translation.x
                     + (touch.position.x - last_position.x) / window.width() * 5.0,
@@ -61,7 +61,7 @@ fn touch_camera(
     }
     // Rotation gestures only work on iOS
     for rotation in rotations.read() {
-        let mut transform = camera.single_mut();
+        let mut transform = camera.single_mut().unwrap();
         let forward = transform.forward();
         transform.rotate_axis(forward, rotation.0 / 10.0);
     }
@@ -175,7 +175,7 @@ fn handle_lifetime(
     mut lifecycle_events: EventReader<AppLifecycle>,
     music_controller: Query<&AudioSink>,
 ) {
-    let Ok(music_controller) = music_controller.get_single() else {
+    let Ok(music_controller) = music_controller.single().unwrap() else {
         return;
     };
 

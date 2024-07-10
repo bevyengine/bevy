@@ -68,7 +68,7 @@ pub fn run_condition_yes_with_query(criterion: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(3));
     fn empty() {}
     fn yes_with_query(query: Query<&TestBool>) -> bool {
-        query.single().0
+        query.single().unwrap().0
     }
     for amount in 0..21 {
         let mut schedule = Schedule::default();

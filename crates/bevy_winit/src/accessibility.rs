@@ -189,7 +189,7 @@ fn update_accessibility_nodes(
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
-    let Ok((primary_window_id, primary_window)) = primary_window.get_single() else {
+    let Ok((primary_window_id, primary_window)) = primary_window.single() else {
         return;
     };
     let Some(adapter) = adapters.get_mut(&primary_window_id) else {

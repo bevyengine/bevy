@@ -1185,7 +1185,7 @@ mod tests {
         let (a, query, _) = system_state.get(&world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
-            *query.single(),
+            *query.single().unwrap(),
             B(7),
             "returned component matches initial value"
         );
@@ -1212,7 +1212,7 @@ mod tests {
         let (a, mut query) = system_state.get_mut(&mut world);
         assert_eq!(*a, A(42), "returned resource matches initial value");
         assert_eq!(
-            *query.single_mut(),
+            *query.single_mut().unwrap(),
             B(7),
             "returned component matches initial value"
         );
@@ -1229,18 +1229,18 @@ mod tests {
         let mut system_state: SystemState<Query<&A, Changed<A>>> = SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
-            assert_eq!(*query.single(), A(1));
+            assert_eq!(*query.single().unwrap(), A(1));
         }
 
         {
             let query = system_state.get(&world);
-            assert!(query.get_single().is_err());
+            assert!(query.single().unwrap().is_err());
         }
 
         world.entity_mut(entity).get_mut::<A>().unwrap().0 = 2;
         {
             let query = system_state.get(&world);
-            assert_eq!(*query.single(), A(2));
+            assert_eq!(*query.single().unwrap(), A(2));
         }
     }
 

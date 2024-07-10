@@ -158,7 +158,7 @@ fn scheduled_spawner(
     mut counter: ResMut<BevyCounter>,
     bird_resources: ResMut<BirdResources>,
 ) {
-    let window = windows.single();
+    let window = windows.single().unwrap();
 
     if scheduled.waves > 0 {
         let bird_resources = bird_resources.into_inner();
@@ -280,7 +280,7 @@ fn setup(
             spawn_birds(
                 &mut commands,
                 args,
-                &windows.single().resolution,
+                &windows.single().unwrap().resolution,
                 counter,
                 scheduled.per_wave,
                 &mut bird_resources,
@@ -312,7 +312,7 @@ fn mouse_handler(
         *rng = Some(ChaCha8Rng::seed_from_u64(42));
     }
     let rng = rng.as_mut().unwrap();
-    let window = windows.single();
+    let window = windows.single().unwrap();
 
     if mouse_button_input.just_released(MouseButton::Left) {
         counter.color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
@@ -508,7 +508,7 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
     }
 }
 fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
-    let window = windows.single();
+    let window = windows.single().unwrap();
 
     let half_extents = 0.5 * window.size();
 
@@ -522,7 +522,7 @@ fn counter_system(
     counter: Res<BevyCounter>,
     mut query: Query<&mut Text, With<StatsText>>,
 ) {
-    let mut text = query.single_mut();
+    let mut text = query.single_mut().unwrap();
 
     if counter.is_changed() {
         text.sections[1].value = counter.count.to_string();

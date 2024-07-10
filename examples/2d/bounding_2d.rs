@@ -73,7 +73,7 @@ fn update_text(mut text: Query<&mut Text>, cur_state: Res<State<Test>>) {
         return;
     }
 
-    let mut text = text.single_mut();
+    let mut text = text.single_mut().unwrap();
     let text = &mut text.sections[0].value;
     text.clear();
 

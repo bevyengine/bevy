@@ -239,13 +239,13 @@ fn toggle_prepass_view(
             3 => "motion vectors",
             _ => unreachable!(),
         };
-        let mut text = text.single_mut();
+        let mut text = text.single_mut().unwrap();
         text.sections[0].value = format!("Prepass Output: {label}\n");
         for section in &mut text.sections {
             section.style.color = Color::WHITE;
         }
 
-        let handle = material_handle.single();
+        let handle = material_handle.single().unwrap();
         let mat = materials.get_mut(handle).unwrap();
         mat.settings.show_depth = (*prepass_view == 1) as u32;
         mat.settings.show_normals = (*prepass_view == 2) as u32;

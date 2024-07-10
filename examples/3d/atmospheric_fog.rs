@@ -110,7 +110,7 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut FogSettings>) {
-    let mut fog_settings = fog.single_mut();
+    let mut fog_settings = fog.single_mut().unwrap();
 
     if keycode.just_pressed(KeyCode::Space) {
         let a = fog_settings.color.alpha();

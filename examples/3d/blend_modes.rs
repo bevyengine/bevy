@@ -321,7 +321,7 @@ fn example_control_system(
         }
     }
 
-    let (mut camera, mut camera_transform, camera_global_transform) = camera.single_mut();
+    let (mut camera, mut camera_transform, camera_global_transform) = camera.single_mut().unwrap();
 
     if input.just_pressed(KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
@@ -348,7 +348,7 @@ fn example_control_system(
         style.left = Val::Px(viewport_position.x);
     }
 
-    let mut display = display.single_mut();
+    let mut display = display.single_mut().unwrap();
     display.sections[0].value = format!(
         "  HDR: {}\nAlpha: {:.2}",
         if camera.hdr { "ON " } else { "OFF" },

@@ -282,7 +282,7 @@ fn update_exposure(
     mut text: Query<&mut Text>,
 ) {
     // TODO: Clamp values to a reasonable range
-    let mut text = text.single_mut();
+    let mut text = text.single_mut().unwrap();
     if key_input.just_pressed(KeyCode::Digit2) {
         parameters.aperture_f_stops *= 2.0;
     } else if key_input.just_pressed(KeyCode::Digit1) {
@@ -309,7 +309,7 @@ fn update_exposure(
     );
     text.sections[2].value = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
-    *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
+    *exposure.single_mut().unwrap() = Exposure::from_physical_camera(**parameters);
 }
 
 fn animate_light_direction(

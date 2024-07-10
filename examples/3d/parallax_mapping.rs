@@ -93,7 +93,7 @@ fn update_parallax_depth_scale(
         *depth_update = true;
     }
     if *depth_update {
-        let mut text = text.single_mut();
+        let mut text = text.single_mut().unwrap();
         for (_, mat) in materials.iter_mut() {
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
@@ -117,7 +117,7 @@ fn switch_method(
     } else {
         return;
     }
-    let mut text = text.single_mut();
+    let mut text = text.single_mut().unwrap();
     text.sections[2].value = format!("Method: {}\n", *current);
 
     for (_, mat) in materials.iter_mut() {
@@ -140,7 +140,7 @@ fn update_parallax_layers(
         return;
     }
     let layer_count = target_layers.0.exp2();
-    let mut text = text.single_mut();
+    let mut text = text.single_mut().unwrap();
     text.sections[1].value = format!("Layers: {layer_count:.0}\n");
 
     for (_, mat) in materials.iter_mut() {
@@ -185,7 +185,7 @@ fn move_camera(
     mut current_view: Local<usize>,
     button: Res<ButtonInput<MouseButton>>,
 ) {
-    let mut camera = camera.single_mut();
+    let mut camera = camera.single_mut().unwrap();
     if button.just_pressed(MouseButton::Left) {
         *current_view = (*current_view + 1) % CAMERA_POSITIONS.len();
     }

@@ -138,7 +138,7 @@ fn print_logs(
     mut commands: Commands,
     log_viewer_root: Query<Entity, With<LogViewerRoot>>,
 ) {
-    let root_entity = log_viewer_root.single();
+    let root_entity = log_viewer_root.single().unwrap();
 
     commands.entity(root_entity).with_children(|child| {
         for event in events.read() {

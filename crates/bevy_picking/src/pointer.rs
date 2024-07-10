@@ -289,7 +289,7 @@ impl Location {
     ) -> bool {
         if camera
             .target
-            .normalize(Some(match primary_window.get_single() {
+            .normalize(Some(match primary_window.single() {
                 Ok(w) => w,
                 Err(_) => return false,
             }))

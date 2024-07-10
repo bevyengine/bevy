@@ -310,7 +310,7 @@ fn switch_mode(
     mut hide_ui: Local<bool>,
     mut mode: Local<DefaultRenderMode>,
 ) {
-    let mut text = text.single_mut();
+    let mut text = text.single_mut().unwrap();
     let text = &mut text.sections[0].value;
 
     text.clear();

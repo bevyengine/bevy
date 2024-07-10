@@ -102,7 +102,7 @@ fn move_target(
     time: Res<Time>,
     mut rng: ResMut<RandomSource>,
 ) {
-    let mut target = target.single_mut();
+    let mut target = target.single_mut().unwrap();
 
     match Dir3::new(target_pos.0 - target.translation) {
         // The target and the present position of the target sphere are far enough to have a well-
@@ -130,8 +130,8 @@ fn move_follower(
     decay_rate: Res<DecayRate>,
     time: Res<Time>,
 ) {
-    let target = target.single();
-    let mut following = following.single_mut();
+    let target = target.single().unwrap();
+    let mut following = following.single_mut().unwrap();
     let decay_rate = decay_rate.0;
     let delta_time = time.delta_seconds();
 

@@ -98,7 +98,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
-    let mut text = query.single_mut();
+    let mut text = query.single_mut().unwrap();
 
     let Some(fps) = diag
         .get(&FrameTimeDiagnosticsPlugin::FPS)

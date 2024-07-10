@@ -1068,11 +1068,11 @@ mod tests {
     #[test]
     fn change_expiration() {
         fn change_detected(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+            query.single().unwrap().is_changed()
         }
 
         fn change_expired(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+            query.single().unwrap().is_changed()
         }
 
         let mut world = World::new();

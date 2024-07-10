@@ -146,7 +146,7 @@ fn setup(
 }
 
 fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
-    let mut transform = query.single_mut();
+    let mut transform = query.single_mut().unwrap();
 
     transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
 }
@@ -182,6 +182,6 @@ fn update_config(
             LightGizmoColor::MatchLightColor => LightGizmoColor::ByLightType,
             LightGizmoColor::ByLightType => LightGizmoColor::Manual(GRAY.into()),
         };
-        color_text_query.single_mut().sections[1].value = gizmo_color_text(light_config);
+        color_text_query.single_mut().unwrap().sections[1].value = gizmo_color_text(light_config);
     }
 }

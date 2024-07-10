@@ -115,7 +115,7 @@ pub fn ui_layout_system(
         let scale_factor = camera.target_scaling_factor().unwrap_or(1.0);
         let camera_target = camera
             .target
-            .normalize(primary_window.get_single().map(|(e, _)| e).ok());
+            .normalize(primary_window.single().map(|(e, _)| e).ok());
         let resized = matches!(camera_target,
           Some(NormalizedRenderTarget::Window(window_ref)) if resized_windows.contains(&window_ref.entity())
         );
@@ -302,7 +302,7 @@ pub fn resolve_outlines_system(
     mut outlines_query: Query<(&Outline, &mut Node)>,
 ) {
     let viewport_size = primary_window
-        .get_single()
+        .single()
         .map(Window::size)
         .unwrap_or(Vec2::ZERO)
         / ui_scale.0;
@@ -772,7 +772,7 @@ mod tests {
             mut cameras: Query<&mut Camera>,
         ) {
             let primary_window = primary_window_query
-                .get_single()
+                .single()
                 .expect("missing primary window");
             let camera_count = cameras.iter().len();
             for (camera_index, mut camera) in cameras.iter_mut().enumerate() {
@@ -829,7 +829,7 @@ mod tests {
             ui_schedule.run(world);
             let (ui_node_entity, TargetCamera(target_camera_entity)) = world
                 .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
-                .get_single(world)
+                .single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
             let ui_surface = world.resource::<UiSurface>();

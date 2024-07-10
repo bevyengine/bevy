@@ -118,7 +118,7 @@ fn update_listener(
     time: Res<Time>,
     mut listeners: Query<&mut Transform, With<SpatialListener>>,
 ) {
-    let mut transform = listeners.single_mut();
+    let mut transform = listeners.single_mut().unwrap();
 
     let speed = 200.;
 

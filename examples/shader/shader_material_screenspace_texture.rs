@@ -59,7 +59,7 @@ fn setup(
 }
 
 fn rotate_camera(mut camera: Query<&mut Transform, With<MainCamera>>, time: Res<Time>) {
-    let cam_transform = camera.single_mut().into_inner();
+    let cam_transform = camera.single_mut().unwrap().into_inner();
 
     cam_transform.rotate_around(
         Vec3::ZERO,

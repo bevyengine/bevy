@@ -179,9 +179,10 @@ fn handle_click(
     windows: Query<&Window>,
     mut commands: Commands,
 ) {
-    let (camera, camera_transform) = camera.single();
+    let (camera, camera_transform) = camera.single().unwrap();
     if let Some(pos) = windows
         .single()
+        .unwrap()
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
         .map(|ray| ray.origin.truncate())

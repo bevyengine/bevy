@@ -376,7 +376,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     ui_scale: Extract<Res<UiScale>>,
 ) {
     let ui_logical_viewport_size = windows
-        .get_single()
+        .single()
         .map(Window::size)
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,

@@ -168,7 +168,7 @@ fn fit_canvas(
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
-        let mut projection = projections.single_mut();
+        let mut projection = projections.single_mut().unwrap();
         projection.scale = 1. / h_scale.min(v_scale).round();
     }
 }

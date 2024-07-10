@@ -174,7 +174,7 @@ fn example_control_system(
     input: Res<ButtonInput<KeyCode>>,
     resources: Res<ExampleResources>,
 ) {
-    let (mut camera_transform, mut auto_exposure) = camera.single_mut();
+    let (mut camera_transform, mut auto_exposure) = camera.single_mut().unwrap();
 
     let rotation = if input.pressed(KeyCode::ArrowLeft) {
         time.delta_seconds()
@@ -204,13 +204,13 @@ fn example_control_system(
             };
     }
 
-    mask_image.single_mut().display = if input.pressed(KeyCode::KeyV) {
+    mask_image.single_mut().unwrap().display = if input.pressed(KeyCode::KeyV) {
         Display::Flex
     } else {
         Display::None
     };
 
-    let mut display = display.single_mut();
+    let mut display = display.single_mut().unwrap();
     display.sections[0].value = format!(
         "Compensation Curve: {}\nMetering Mask: {}",
         if auto_exposure.compensation_curve == resources.basic_compensation_curve {

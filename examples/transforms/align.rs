@@ -128,7 +128,7 @@ fn setup(
 
 // Draw the main and secondary axes on the rotating ship
 fn draw_ship_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Ship>>) {
-    let ship_transform = query.single();
+    let ship_transform = query.single().unwrap();
 
     // Local Z-axis arrow, negative direction
     let z_ends = arrow_ends(ship_transform, Vec3::NEG_Z, 1.5);
@@ -141,14 +141,14 @@ fn draw_ship_axes(mut gizmos: Gizmos, query: Query<&Transform, With<Ship>>) {
 
 // Draw the randomly generated axes
 fn draw_random_axes(mut gizmos: Gizmos, query: Query<&RandomAxes>) {
-    let RandomAxes(v1, v2) = query.single();
+    let RandomAxes(v1, v2) = query.single().unwrap();
     gizmos.arrow(Vec3::ZERO, 1.5 * *v1, WHITE);
     gizmos.arrow(Vec3::ZERO, 1.5 * *v2, GRAY);
 }
 
 // Actually update the ship's transform according to its initial source and target
 fn rotate_ship(mut ship: Query<(&mut Ship, &mut Transform)>) {
-    let (mut ship, mut ship_transform) = ship.single_mut();
+    let (mut ship, mut ship_transform) = ship.single_mut().unwrap();
 
     if !ship.in_motion {
         return;
@@ -177,8 +177,8 @@ fn handle_keypress(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
-    let (mut ship, ship_transform) = ship.single_mut();
-    let mut random_axes = random_axes.single_mut();
+    let (mut ship, ship_transform) = ship.single_mut().unwrap();
+    let mut random_axes = random_axes.single_mut().unwrap();
 
     if keyboard.just_pressed(KeyCode::KeyR) {
         // Randomize the target axes
@@ -198,7 +198,7 @@ fn handle_keypress(
     }
 
     if keyboard.just_pressed(KeyCode::KeyH) {
-        let mut instructions_viz = instructions.single_mut();
+        let mut instructions_viz = instructions.single_mut().unwrap();
         if *instructions_viz == Visibility::Hidden {
             *instructions_viz = Visibility::Visible;
         } else {
@@ -229,7 +229,7 @@ fn handle_mouse(
     let displacement = motion_events
         .read()
         .fold(0., |acc, mouse_motion| acc + mouse_motion.delta.x);
-    let mut camera_transform = camera.single_mut();
+    let mut camera_transform = camera.single_mut().unwrap();
     camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 75.));
 }
 

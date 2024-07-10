@@ -508,7 +508,7 @@ fn update_connected(
         return;
     }
 
-    let mut text = query.single_mut();
+    let mut text = query.single_mut().unwrap();
 
     let formatted = gamepads
         .iter()

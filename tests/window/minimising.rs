@@ -20,7 +20,7 @@ fn main() {
 
 fn minimise_automatically(mut windows: Query<&mut Window>, mut frames: Local<u32>) {
     if *frames == 60 {
-        let mut window = windows.single_mut();
+        let mut window = windows.single_mut().unwrap();
         window.set_minimized(true);
     } else {
         *frames += 1;

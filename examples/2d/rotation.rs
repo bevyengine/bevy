@@ -119,7 +119,7 @@ fn player_movement_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&Player, &mut Transform)>,
 ) {
-    let (ship, mut transform) = query.single_mut();
+    let (ship, mut transform) = query.single_mut().unwrap();
 
     let mut rotation_factor = 0.0;
     let mut movement_factor = 0.0;
@@ -160,7 +160,7 @@ fn snap_to_player_system(
     mut query: Query<&mut Transform, (With<SnapToPlayer>, Without<Player>)>,
     player_query: Query<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.single();
+    let player_transform = player_query.single().unwrap();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
@@ -203,7 +203,7 @@ fn rotate_to_player_system(
     mut query: Query<(&RotateToPlayer, &mut Transform), Without<Player>>,
     player_query: Query<&Transform, With<Player>>,
 ) {
-    let player_transform = player_query.single();
+    let player_transform = player_query.single().unwrap();
     // get the player translation in 2D
     let player_translation = player_transform.translation.xy();
 
