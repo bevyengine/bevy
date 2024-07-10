@@ -59,7 +59,7 @@ pub trait AppExtStates {
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 }
 
-/// Separate function to only warn once for all state installation methods.
+/// Helper function to panic if [`StatesPlugin`] is not installed.
 fn panic_if_no_states_plugin_installed(app: &SubApp) {
     if !app.is_plugin_added::<StatesPlugin>() {
         panic!("States were added to the app, but `StatesPlugin` is not installed.");
