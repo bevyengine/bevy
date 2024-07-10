@@ -240,7 +240,7 @@ fn add_skybox_and_environment_map(
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            transform: None,
+            rotation: None,
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),

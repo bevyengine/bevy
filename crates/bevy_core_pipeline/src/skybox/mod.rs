@@ -6,7 +6,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Quat};
 use bevy_render::{
     camera::Exposure,
     extract_component::{
@@ -92,7 +92,7 @@ pub struct Skybox {
     /// After applying this multiplier to the image samples, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     pub brightness: f32,
-    pub transform: Option<Transform>,
+    pub rotation: Option<Quat>,
 }
 
 impl ExtractComponent for Skybox {
@@ -109,9 +109,7 @@ impl ExtractComponent for Skybox {
             skybox.clone(),
             SkyboxUniforms {
                 brightness: skybox.brightness * exposure,
-                transform: skybox
-                    .transform
-                    .unwrap_or_default()
+                transform: Transform::from_rotation(skybox.rotation.unwrap_or_default())
                     .compute_matrix()
                     .inverse(),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -249,7 +247,7 @@ fn prepare_skybox_pipelines(
                 hdr: view.hdr,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
-                has_transform: skybox.transform.is_some(),
+                has_transform: skybox.rotation.is_some(),
             },
         );
 
