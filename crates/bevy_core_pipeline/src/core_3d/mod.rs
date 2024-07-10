@@ -651,7 +651,7 @@ pub fn prepare_core_3d_depth_textures(
         };
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
                 // The size of the depth texture
                 let size = Extent3d {
