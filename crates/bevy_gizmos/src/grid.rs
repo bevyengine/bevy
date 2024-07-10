@@ -1,6 +1,6 @@
 //! Additional [`Gizmos`] Functions -- Grids
 //!
-//! Includes the implementation of[`Gizmos::grid`] and [`Gizmos::grid_2d`].
+//! Includes the implementation of [`Gizmos::grid`] and [`Gizmos::grid_2d`].
 //! and assorted support items.
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};

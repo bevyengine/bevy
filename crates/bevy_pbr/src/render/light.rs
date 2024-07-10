@@ -1,10 +1,10 @@
-use bevy_asset::AssetId;
+use bevy_asset::UntypedAssetId;
+use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::mesh::Mesh;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::GpuMesh,
@@ -1285,10 +1285,10 @@ pub fn queue_shadows<M: Material>(
                     ShadowBinKey {
                         draw_function: draw_shadow_mesh,
                         pipeline: pipeline_id,
-                        asset_id: mesh_instance.mesh_asset_id,
+                        asset_id: mesh_instance.mesh_asset_id.into(),
                     },
                     entity,
-                    mesh_instance.should_batch(),
+                    BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                 );
             }
         }
@@ -1302,6 +1302,7 @@ pub struct Shadow {
     pub extra_index: PhaseItemExtraIndex,
 }
 
+/// Data used to bin each object in the shadow map phase.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ShadowBinKey {
     /// The identifier of the render pipeline.
@@ -1310,8 +1311,8 @@ pub struct ShadowBinKey {
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
-    /// The mesh.
-    pub asset_id: AssetId<Mesh>,
+    /// The object.
+    pub asset_id: UntypedAssetId,
 }
 
 impl PhaseItem for Shadow {

@@ -104,9 +104,9 @@ pub fn propagate_transforms(
 /// # Safety
 ///
 /// - While this function is running, `transform_query` must not have any fetches for `entity`,
-/// nor any of its descendants.
+///     nor any of its descendants.
 /// - The caller must ensure that the hierarchy leading to `entity`
-/// is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
+///     is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
 #[allow(unsafe_code)]
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
@@ -190,7 +190,7 @@ mod test {
 
     use crate::bundles::TransformBundle;
     use crate::systems::*;
-    use bevy_hierarchy::{BuildChildren, BuildWorldChildren};
+    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     #[test]
     fn correct_parent_removed() {

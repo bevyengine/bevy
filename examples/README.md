@@ -45,6 +45,7 @@ git checkout v0.4.0
   - [Assets](#assets)
   - [Async Tasks](#async-tasks)
   - [Audio](#audio)
+  - [Camera](#camera)
   - [Dev tools](#dev-tools)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
@@ -52,6 +53,7 @@ git checkout v0.4.0
   - [Gizmos](#gizmos)
   - [Input](#input)
   - [Math](#math)
+  - [Movement](#movement)
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
@@ -240,6 +242,13 @@ Example | Description
 [Spatial Audio 2D](../examples/audio/spatial_audio_2d.rs) | Shows how to play spatial audio, and moving the emitter in 2D
 [Spatial Audio 3D](../examples/audio/spatial_audio_3d.rs) | Shows how to play spatial audio, and moving the emitter in 3D
 
+## Camera
+
+Example | Description
+--- | ---
+[2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
+[First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
+
 ## Dev tools
 
 Example | Description
@@ -269,6 +278,7 @@ Example | Description
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
+[Observers](../examples/ecs/observers.rs) | Demonstrates observers that react to events (both built-in life-cycle events and custom events)
 [One Shot Systems](../examples/ecs/one_shot_systems.rs) | Shows how to flexibly run systems without scheduling them
 [Parallel Query](../examples/ecs/parallel_query.rs) | Illustrates parallel queries with `ParallelIterator`
 [Removal Detection](../examples/ecs/removal_detection.rs) | Query for entities that had a specific component removed earlier in the current frame
@@ -322,9 +332,17 @@ Example | Description
 
 Example | Description
 --- | ---
+[Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them.
 [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
 [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
 [Sampling Primitives](../examples/math/sampling_primitives.rs) | Demonstrates all the primitives which can be sampled.
+[Smooth Follow](../examples/movement/smooth_follow.rs) | Demonstrates how to make an entity smoothly follow another using interpolation
+
+## Movement
+
+Example | Description
+--- | ---
+[Run physics in a fixed timestep](../examples/movement/physics_in_fixed_timestep.rs) | Handles input, physics, and rendering in an industry-standard way by using a fixed timestep
 
 ## Reflection
 
@@ -332,6 +350,7 @@ Example | Description
 --- | ---
 [Custom Attributes](../examples/reflection/custom_attributes.rs) | Registering and accessing custom attributes on reflected types
 [Dynamic Types](../examples/reflection/dynamic_types.rs) | How dynamic types are used with reflection
+[Function Reflection](../examples/reflection/function_reflection.rs) | Demonstrates how functions can be called dynamically using reflection
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
@@ -357,6 +376,7 @@ Example | Description
 [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
+[Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call
@@ -651,60 +671,25 @@ In browsers, audio is not authorized to start without being triggered by an user
 ### Optimizing
 
 On the web, it's useful to reduce the size of the files that are distributed.
-With rust, there are many ways to improve your executable sizes.
-Here are some.
+With rust, there are many ways to improve your executable sizes, starting with
+the steps described in [the quick-start guide](https://bevyengine.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
-#### 1. Tweak your `Cargo.toml`
-
-Add a new [profile](https://doc.rust-lang.org/cargo/reference/profiles.html)
-to your `Cargo.toml`:
-
-```toml
-[profile.wasm-release]
-# Use release profile as default values
-inherits = "release"
-
-# Optimize with size in mind, also try "s", sometimes it is better.
-# This doesn't increase compilation times compared to -O3, great improvements
-opt-level = "z"
-
-# Do a second optimization pass removing duplicate or unused code from dependencies.
-# Slows compile times, marginal improvements
-lto = "fat"
-
-# When building crates, optimize larger chunks at a time
-# Slows compile times, marginal improvements
-codegen-units = 1
-```
-
-Now, when building the final executable, use the `wasm-release` profile
-by replacing `--release` by `--profile wasm-release` in the cargo command.
+Now, when building the executable, use `--profile wasm-release` instead of `--release`:
 
 ```sh
 cargo build --profile wasm-release --example lighting --target wasm32-unknown-unknown
 ```
 
-Make sure your final executable size is smaller, some of those optimizations
-may not be worth keeping, due to compilation time increases.
-
-#### 2. Use `wasm-opt` from the binaryen package
-
-Binaryen is a set of tools for working with wasm. It has a `wasm-opt` CLI tool.
-
-First download the `binaryen` package,
-then locate the `.wasm` file generated by `wasm-bindgen`.
-It should be in the `--out-dir` you specified in the command line,
-the file name should end in `_bg.wasm`.
-
-Then run `wasm-opt` with the `-Oz` flag. Note that `wasm-opt` is _very slow_.
-
-Note that `wasm-opt` optimizations might not be as effective if you
-didn't apply the optimizations from the previous section.
+To apply `wasm-opt`, first locate the `.wasm` file generated in the `--out-dir` of the
+earlier `wasm-bindgen-cli` command (the filename should end with `_bg.wasm`), then run:
 
 ```sh
 wasm-opt -Oz --output optimized.wasm examples/wasm/target/lighting_bg.wasm
 mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```
+
+Make sure your final executable size is actually smaller. Some optimizations
+may not be worth keeping due to compilation time increases.
 
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
@@ -717,13 +702,6 @@ the generated file sizes are, as of July 2022, as follows:
 |"z" + lto = "fat"                 | 5.1M     | 9.4M        |
 |"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
 |"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
-
-There are more advanced optimization options available,
-check the following pages for more info:
-
-- <https://rustwasm.github.io/book/reference/code-size.html>
-- <https://rustwasm.github.io/docs/wasm-bindgen/reference/optimize-size.html>
-- <https://rustwasm.github.io/book/game-of-life/code-size.html>
 
 ### Loading Assets
 

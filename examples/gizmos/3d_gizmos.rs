@@ -1,15 +1,17 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-use std::f32::consts::PI;
+#[path = "../helpers/camera_controller.rs"]
+mod camera_controller;
 
 use bevy::{color::palettes::css::*, prelude::*};
+use camera_controller::{CameraController, CameraControllerPlugin};
+use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, CameraControllerPlugin))
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate_camera)
         .add_systems(Update, (draw_example_collection, update_config))
         .run();
 }
@@ -23,10 +25,13 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        CameraController::default(),
+    ));
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
@@ -72,12 +77,6 @@ fn setup(
     );
 }
 
-fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {
-    let mut transform = query.single_mut();
-
-    transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(time.delta_seconds() / 2.));
-}
-
 fn draw_example_collection(
     mut gizmos: Gizmos,
     mut my_gizmos: Gizmos<MyRoundGizmos>,
@@ -102,6 +101,8 @@ fn draw_example_collection(
         Vec2::splat(2.),
         LIME,
     );
+
+    gizmos.cross(Vec3::new(-1., 1., 1.), Quat::IDENTITY, 0.5, FUCHSIA);
 
     my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED);
 

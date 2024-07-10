@@ -35,7 +35,7 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 use std::ops::Range;
-use wgpu::{BlendState, LoadOp, TextureFormat, TextureUsages};
+use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 use super::{ClearColorConfig, Projection};
 
@@ -353,7 +353,7 @@ impl Camera {
     /// - The computed coordinates are beyond the near or far plane
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The world coordinates cannot be mapped to the Normalized Device Coordinates. See [`world_to_ndc`](Camera::world_to_ndc)
-    /// May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
+    ///     May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
         &self,
@@ -386,7 +386,7 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The near or far plane cannot be computed. This can happen if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
-    /// Panics if the projection matrix is null and `glam_assert` is enabled.
+    ///     Panics if the projection matrix is null and `glam_assert` is enabled.
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
@@ -422,7 +422,7 @@ impl Camera {
     /// Returns `None` if any of these conditions occur:
     /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
     /// - The viewport position cannot be mapped to the world. See [`ndc_to_world`](Camera::ndc_to_world)
-    /// May panic. See [`ndc_to_world`](Camera::ndc_to_world).
+    ///     May panic. See [`ndc_to_world`](Camera::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
@@ -488,9 +488,8 @@ pub enum CameraOutputMode {
     Write {
         /// The blend state that will be used by the pipeline that writes the intermediate render textures to the final render target texture.
         blend_state: Option<BlendState>,
-        /// The color attachment load operation that will be used by the pipeline that writes the intermediate render textures to the final render
-        /// target texture.
-        color_attachment_load_op: LoadOp<wgpu::Color>,
+        /// The clear color operation to perform on the final render target texture.
+        clear_color: ClearColorConfig,
     },
     /// Skips writing the camera output to the configured render target. The output will remain in the
     /// Render Target's "intermediate" textures, which a camera with a higher order should write to the render target
@@ -505,7 +504,7 @@ impl Default for CameraOutputMode {
     fn default() -> Self {
         CameraOutputMode::Write {
             blend_state: None,
-            color_attachment_load_op: LoadOp::Clear(Default::default()),
+            clear_color: ClearColorConfig::Default,
         }
     }
 }
@@ -824,6 +823,7 @@ pub struct ExtractedCamera {
     pub clear_color: ClearColorConfig,
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
+    pub hdr: bool,
 }
 
 pub fn extract_cameras(
@@ -897,12 +897,13 @@ pub fn extract_cameras(
                     order: camera.order,
                     output_mode: camera.output_mode,
                     msaa_writeback: camera.msaa_writeback,
-                    clear_color: camera.clear_color.clone(),
+                    clear_color: camera.clear_color,
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
                     exposure: exposure
-                        .map(|e| e.exposure())
+                        .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
+                    hdr: camera.hdr,
                 },
                 ExtractedView {
                     clip_from_view: camera.clip_from_view(),
@@ -954,6 +955,7 @@ pub struct SortedCamera {
     pub entity: Entity,
     pub order: isize,
     pub target: Option<NormalizedRenderTarget>,
+    pub hdr: bool,
 }
 
 pub fn sort_cameras(
@@ -966,6 +968,7 @@ pub fn sort_cameras(
             entity,
             order: camera.order,
             target: camera.target.clone(),
+            hdr: camera.hdr,
         });
     }
     // sort by order and ensure within an order, RenderTargets of the same type are packed together
@@ -986,7 +989,9 @@ pub fn sort_cameras(
             }
         }
         if let Some(target) = &sorted_camera.target {
-            let count = target_counts.entry(target.clone()).or_insert(0usize);
+            let count = target_counts
+                .entry((target.clone(), sorted_camera.hdr))
+                .or_insert(0usize);
             let (_, mut camera) = cameras.get_mut(sorted_camera.entity).unwrap();
             camera.sorted_camera_index_for_target = *count;
             *count += 1;

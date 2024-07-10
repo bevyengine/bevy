@@ -18,7 +18,7 @@ use bevy_ecs::system::{
     lifetimeless::{SRes, SResMut},
     SystemParamItem,
 };
-use bevy_math::*;
+use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::{error, warn};
 use bytemuck::cast_slice;
@@ -100,25 +100,25 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Common points of confusion
 ///
 /// - UV maps in Bevy start at the top-left, see [`ATTRIBUTE_UV_0`](Mesh::ATTRIBUTE_UV_0),
-/// other APIs can have other conventions, `OpenGL` starts at bottom-left.
+///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
-/// [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-/// it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
+///     it's a common technique in 3D modelling for complex UV mapping or other calculations.
 /// - Bevy performs frustum culling based on the [`Aabb`] of meshes, which is calculated
-/// and added automatically for new meshes only. If a mesh is modified, the entity's [`Aabb`]
-/// needs to be updated manually or deleted so that it is re-calculated.
+///     and added automatically for new meshes only. If a mesh is modified, the entity's [`Aabb`]
+///     needs to be updated manually or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
 /// To render correctly with `StandardMaterial`, a mesh needs to have properly defined:
 /// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh
-/// (also true for `ColorMaterial`).
+///     (also true for `ColorMaterial`).
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
-/// [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
-/// because simple meshes are smooth and they don't require complex light calculations.
+///     [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
+///     because simple meshes are smooth and they don't require complex light calculations.
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
-/// which means that Bevy would *only* render the "front" of each triangle, which
-/// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///     which means that Bevy would *only* render the "front" of each triangle, which
+///     is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 #[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
     #[reflect(ignore)]
@@ -1076,6 +1076,134 @@ impl Mesh {
             }
         }
     }
+
+    /// Get a list of this Mesh's [triangles] as an iterator if possible.
+    ///
+    /// Returns an error if any of the following conditions are met (see [`MeshTrianglesError`]):
+    /// * The Mesh's [primitive topology] is not `TriangleList` or `TriangleStrip`.
+    /// * The Mesh is missing position or index data.
+    /// * The Mesh's position data has the wrong format (not `Float32x3`).
+    ///
+    /// [primitive topology]: PrimitiveTopology
+    /// [triangles]: Triangle3d
+    pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
+        let Some(position_data) = self.attribute(Mesh::ATTRIBUTE_POSITION) else {
+            return Err(MeshTrianglesError::MissingPositions);
+        };
+
+        let Some(vertices) = position_data.as_float3() else {
+            return Err(MeshTrianglesError::PositionsFormat);
+        };
+
+        let Some(indices) = self.indices() else {
+            return Err(MeshTrianglesError::MissingIndices);
+        };
+
+        match self.primitive_topology {
+            PrimitiveTopology::TriangleList => {
+                // When indices reference out-of-bounds vertex data, the triangle is omitted.
+                // This implicitly truncates the indices to a multiple of 3.
+                let iterator = match indices {
+                    Indices::U16(vec) => FourIterators::First(
+                        vec.as_slice()
+                            .chunks_exact(3)
+                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                    ),
+                    Indices::U32(vec) => FourIterators::Second(
+                        vec.as_slice()
+                            .chunks_exact(3)
+                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                    ),
+                };
+
+                return Ok(iterator);
+            }
+
+            PrimitiveTopology::TriangleStrip => {
+                // When indices reference out-of-bounds vertex data, the triangle is omitted.
+                // If there aren't enough indices to make a triangle, then an empty vector will be
+                // returned.
+                let iterator = match indices {
+                    Indices::U16(vec) => FourIterators::Third(
+                        vec.as_slice()
+                            .windows(3)
+                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                    ),
+                    Indices::U32(vec) => FourIterators::Fourth(
+                        vec.as_slice()
+                            .windows(3)
+                            .flat_map(move |indices| indices_to_triangle(vertices, indices)),
+                    ),
+                };
+
+                return Ok(iterator);
+            }
+
+            _ => {
+                return Err(MeshTrianglesError::WrongTopology);
+            }
+        };
+
+        fn indices_to_triangle<T: TryInto<usize> + Copy>(
+            vertices: &[[f32; 3]],
+            indices: &[T],
+        ) -> Option<Triangle3d> {
+            let vert0: Vec3 = Vec3::from(*vertices.get(indices[0].try_into().ok()?)?);
+            let vert1: Vec3 = Vec3::from(*vertices.get(indices[1].try_into().ok()?)?);
+            let vert2: Vec3 = Vec3::from(*vertices.get(indices[2].try_into().ok()?)?);
+            Some(Triangle3d {
+                vertices: [vert0, vert1, vert2],
+            })
+        }
+    }
+}
+
+/// A disjunction of four iterators. This is necessary to have a well-formed type for the output
+/// of [`Mesh::triangles`], which produces iterators of four different types depending on the
+/// branch taken.
+enum FourIterators<A, B, C, D> {
+    First(A),
+    Second(B),
+    Third(C),
+    Fourth(D),
+}
+
+impl<A, B, C, D, I> Iterator for FourIterators<A, B, C, D>
+where
+    A: Iterator<Item = I>,
+    B: Iterator<Item = I>,
+    C: Iterator<Item = I>,
+    D: Iterator<Item = I>,
+{
+    type Item = I;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            FourIterators::First(iter) => iter.next(),
+            FourIterators::Second(iter) => iter.next(),
+            FourIterators::Third(iter) => iter.next(),
+            FourIterators::Fourth(iter) => iter.next(),
+        }
+    }
+}
+
+/// An error that occurred while trying to extract a collection of triangles from a [`Mesh`].
+#[derive(Debug, Error)]
+pub enum MeshTrianglesError {
+    #[error("Source mesh does not have primitive topology TriangleList or TriangleStrip")]
+    WrongTopology,
+
+    #[error("Source mesh lacks position data")]
+    MissingPositions,
+
+    #[error("Source mesh position data is not Float32x3")]
+    PositionsFormat,
+
+    #[error("Source mesh lacks face index data")]
+    MissingIndices,
+
+    #[error("Face index data references vertices that do not exist")]
+    BadIndices,
 }
 
 impl core::ops::Mul<Mesh> for Transform {
@@ -1237,6 +1365,7 @@ impl VertexFormatSize for VertexFormat {
             VertexFormat::Unorm8x4 => 4,
             VertexFormat::Snorm8x2 => 2,
             VertexFormat::Snorm8x4 => 4,
+            VertexFormat::Unorm10_10_10_2 => 4,
             VertexFormat::Uint16x2 => 2 * 2,
             VertexFormat::Uint16x4 => 2 * 4,
             VertexFormat::Sint16x2 => 2 * 2,

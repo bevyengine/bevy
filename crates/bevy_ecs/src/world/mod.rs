@@ -1,20 +1,25 @@
 //! Defines the [`World`] and APIs for accessing it directly.
 
 pub(crate) mod command_queue;
+mod component_constants;
 mod deferred_world;
 mod entity_ref;
 pub mod error;
+mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
-pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
-pub use crate::world::command_queue::CommandQueue;
-use crate::{component::ComponentInitializer, entity::EntityHashSet};
+pub use crate::{
+    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    world::command_queue::CommandQueue,
+};
+pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_ref::{
     EntityMut, EntityRef, EntityWorldMut, Entry, FilteredEntityMut, FilteredEntityRef,
     OccupiedEntry, VacantEntry,
 };
+pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
@@ -25,8 +30,9 @@ use crate::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
         Components, Tick,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
+    observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -43,10 +49,7 @@ use std::{
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
-mod identifier;
-
-use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
-pub use identifier::WorldId;
+use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// A [`World`] mutation.
 ///
@@ -110,30 +113,36 @@ pub struct World {
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
+    pub(crate) observers: Observers,
     pub(crate) removed_components: RemovedComponentEvents,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
+    pub(crate) last_trigger_id: u32,
     pub(crate) command_queue: RawCommandQueue,
 }
 
 impl Default for World {
     fn default() -> Self {
-        Self {
+        let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
+            observers: Observers::default(),
             removed_components: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
+            last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
-        }
+        };
+        world.bootstrap();
+        world
     }
 }
 
@@ -149,6 +158,14 @@ impl Drop for World {
 }
 
 impl World {
+    /// This performs initialization that _must_ happen for every [`World`] immediately upon creation (such as claiming specific component ids).
+    /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
+    #[inline]
+    fn bootstrap(&mut self) {
+        assert_eq!(ON_ADD, self.init_component::<OnAdd>());
+        assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
+        assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
+    }
     /// Creates a new empty [`World`].
     ///
     /// # Panics
@@ -219,15 +236,6 @@ impl World {
         &self.bundles
     }
 
-    /// Creates a [`ComponentInitializer`] for this world.
-    #[inline]
-    pub fn component_initializer(&mut self) -> ComponentInitializer {
-        ComponentInitializer {
-            components: &mut self.components,
-            storages: &mut self.storages,
-        }
-    }
-
     /// Retrieves this world's [`RemovedComponentEvents`] collection
     #[inline]
     pub fn removed_components(&self) -> &RemovedComponentEvents {
@@ -235,7 +243,7 @@ impl World {
     }
 
     /// Creates a new [`Commands`] instance that writes to the world's command queue
-    /// Use [`World::flush_commands`] to apply all queued commands
+    /// Use [`World::flush`] to apply all queued commands
     #[inline]
     pub fn commands(&mut self) -> Commands {
         // SAFETY: command_queue is stored on world and always valid while the world exists
@@ -471,7 +479,7 @@ impl World {
 
     /// Returns the components of an [`Entity`] through [`ComponentInfo`].
     #[inline]
-    pub fn inspect_entity(&self, entity: Entity) -> Vec<&ComponentInfo> {
+    pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = &ComponentInfo> {
         let entity_location = self
             .entities()
             .get(entity)
@@ -490,7 +498,6 @@ impl World {
         archetype
             .components()
             .filter_map(|id| self.components().get_info(id))
-            .collect()
     }
 
     /// Returns an [`EntityWorldMut`] for the given `entity` (if it exists) or spawns one if it doesn't exist.
@@ -502,7 +509,7 @@ impl World {
     /// scheme worked out to share an ID space (which doesn't happen by default).
     #[inline]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
-        self.flush_entities();
+        self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
                 // SAFETY: `entity` exists and `location` is that entity's location
@@ -895,7 +902,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
-        self.flush_entities();
+        self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
         unsafe { self.spawn_at_empty_internal(entity) }
@@ -961,7 +968,7 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
-        self.flush_entities();
+        self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let entity_location = {
@@ -1092,6 +1099,7 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
+        self.flush();
         if let Some(entity) = self.get_entity_mut(entity) {
             entity.despawn();
             true
@@ -1113,9 +1121,9 @@ impl World {
     /// By clearing this internal state, the world "forgets" about those changes, allowing a new round
     /// of detection to be recorded.
     ///
-    /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
-    /// main app, to run during `Last`, so you don't need to call it manually. When using `bevy_ecs`
-    /// as a separate standalone crate however, you need to call this manually.
+    /// When using `bevy_ecs` as part of the full Bevy engine, this method is called automatically
+    /// by `bevy_app::App::update` and `bevy_app::SubApp::update`, so you don't need to call it manually.
+    /// When using `bevy_ecs` as a separate standalone crate however, you do need to call this manually.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1254,7 +1262,7 @@ impl World {
             .map(|removed| removed.iter_current_update_events().cloned())
             .into_iter()
             .flatten()
-            .map(|e| e.into())
+            .map(Into::into)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -1389,7 +1397,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
-            .map(|info| info.is_present())
+            .map(ResourceData::is_present)
             .unwrap_or(false)
     }
 
@@ -1399,7 +1407,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
-            .map(|info| info.is_present())
+            .map(ResourceData::is_present)
             .unwrap_or(false)
     }
 
@@ -1486,7 +1494,7 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| resource.get_ticks())
+            .and_then(ResourceData::get_ticks)
     }
 
     /// Gets a reference to the resource of the given type
@@ -1743,7 +1751,7 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.flush_entities();
+        self.flush();
 
         let change_tick = self.change_tick();
 
@@ -1860,7 +1868,7 @@ impl World {
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(|info| info.remove())
+            .and_then(ResourceData::remove)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
@@ -2029,9 +2037,15 @@ impl World {
         }
     }
 
+    /// Calls both [`World::flush_entities`] and [`World::flush_commands`].
+    #[inline]
+    pub fn flush(&mut self) {
+        self.flush_entities();
+        self.flush_commands();
+    }
+
     /// Applies any commands in the world's internal [`CommandQueue`].
     /// This does not apply commands from any systems, only those stored in the world.
-    #[inline]
     pub fn flush_commands(&mut self) {
         // SAFETY: `self.command_queue` is only de-allocated in `World`'s `Drop`
         if !unsafe { self.command_queue.is_empty() } {
@@ -2080,6 +2094,13 @@ impl World {
     #[inline]
     pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick
+    }
+
+    /// Returns the id of the last ECS event that was fired.
+    /// Used internally to ensure observers don't trigger multiple times for the same event.
+    #[inline]
+    pub(crate) fn last_trigger_id(&self) -> u32 {
+        self.last_trigger_id
     }
 
     /// Sets [`World::last_change_tick()`] to the specified value during a scope.
@@ -3132,7 +3153,7 @@ mod tests {
         fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(|component_info| component_info.type_id())
+                .map(ComponentInfo::type_id)
                 .collect()
         }
 
@@ -3140,31 +3161,31 @@ mod tests {
         let bar_id = TypeId::of::<Bar>();
         let baz_id = TypeId::of::<Baz>();
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent0)),
+            to_type_ids(world.inspect_entity(ent0).collect()),
             [Some(foo_id), Some(bar_id), Some(baz_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent1)),
+            to_type_ids(world.inspect_entity(ent1).collect()),
             [Some(foo_id), Some(bar_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent2)),
+            to_type_ids(world.inspect_entity(ent2).collect()),
             [Some(bar_id), Some(baz_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent3)),
+            to_type_ids(world.inspect_entity(ent3).collect()),
             [Some(foo_id), Some(baz_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent4)),
+            to_type_ids(world.inspect_entity(ent4).collect()),
             [Some(foo_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent5)),
+            to_type_ids(world.inspect_entity(ent5).collect()),
             [Some(bar_id)].into()
         );
         assert_eq!(
-            to_type_ids(world.inspect_entity(ent6)),
+            to_type_ids(world.inspect_entity(ent6).collect()),
             [Some(baz_id)].into()
         );
     }
