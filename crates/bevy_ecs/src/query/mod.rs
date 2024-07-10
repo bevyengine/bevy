@@ -758,8 +758,8 @@ mod tests {
         let _: Option<&Foo> = q.get(&world, e).ok();
         let _: Option<&Foo> = q.get_manual(&world, e).ok();
         let _: Option<[&Foo; 1]> = q.get_many(&world, [e]).ok();
-        let _: Option<&Foo> = q.single()(&world).ok();
-        let _: &Foo = q.single(&world);
+        let _: Option<&Foo> = q.single(&world).ok();
+        let _: &Foo = q.single(&world).unwrap();
 
         // system param
         let mut q = SystemState::<Query<&mut Foo>>::new(&mut world);

@@ -175,7 +175,7 @@ fn handle_lifetime(
     mut lifecycle_events: EventReader<AppLifecycle>,
     music_controller: Query<&AudioSink>,
 ) {
-    let Ok(music_controller) = music_controller.single().unwrap() else {
+    let Ok(music_controller) = music_controller.single() else {
         return;
     };
 

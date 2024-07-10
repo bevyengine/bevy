@@ -199,7 +199,7 @@ fn outline_roots(
             you might notice gaps between container lines"
         );
     }
-    let window_scale = window.single()().map_or(1., Window::scale_factor);
+    let window_scale = window.single().map_or(1., Window::scale_factor);
     let scale_factor = outline.ui_scale.0;
 
     // We let the line be defined by the window scale alone

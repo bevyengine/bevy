@@ -343,7 +343,7 @@ fn toggle_transparency(
     mut commands: Commands,
     mut window_transparency: ResMut<WindowTransparency>,
     mut q_instructions_text: Query<&mut Visibility, With<InstructionsText>>,
-    mut q_primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut q_primary_window: Query<&Window, With<PrimaryWindow>>,
 ) {
     // Toggle the window transparency resource
     window_transparency.0 = !window_transparency.0;
@@ -359,7 +359,7 @@ fn toggle_transparency(
 
     // Remove the primary window's decorations (e.g. borders), make it always on top of other desktop windows, and set the clear color to transparent
     // only if window transparency is enabled
-    let mut window = q_primary_window.single_mut().unwrap();
+    let window = q_primary_window.single().unwrap();
     let clear_color;
     (window.decorations, window.window_level, clear_color) = if window_transparency.0 {
         (false, WindowLevel::AlwaysOnTop, Color::NONE)
