@@ -226,14 +226,17 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {
-                    if let Some(min_x) = info.glyphs.iter()
+                    if let Some(min_x) = info
+                        .glyphs
+                        .iter()
                         .map(|glyph| FloatOrd(glyph.position.x - 0.5 * glyph.size.x))
-                        .min() {
+                        .min()
+                    {
                         for glyph in info.glyphs.iter_mut() {
                             glyph.position.x -= min_x.0;
                         }
                     }
-                    
+
                     info.logical_size.x = scale_value(info.logical_size.x, inverse_scale_factor);
                     info.logical_size.y = scale_value(info.logical_size.y, inverse_scale_factor);
                     *text_layout_info = info;
