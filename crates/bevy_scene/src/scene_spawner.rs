@@ -502,7 +502,7 @@ mod tests {
         let mut scene_spawner = SceneSpawner::default();
         let entity = world
             .query_filtered::<Entity, With<A>>()
-            .single(&world)
+            .get_single(&world)
             .unwrap();
         let scene = DynamicSceneBuilder::from_world(&world)
             .extract_entity(entity)

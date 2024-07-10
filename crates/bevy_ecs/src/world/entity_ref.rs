@@ -1389,11 +1389,11 @@ impl<'w> EntityWorldMut<'w> {
     /// let mut entity = world.spawn_empty();
     /// entity.entry().or_insert_with(|| Comp(4));
     /// # let entity_id = entity.id();
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 4);
     ///
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
     /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 5);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 5);
     ///
     /// ```
     pub fn entry<'a, T: Component>(&'a mut self) -> Entry<'w, 'a, T> {
@@ -1461,7 +1461,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// let mut entity = world.spawn(Comp(0));
     ///
     /// entity.entry::<Comp>().and_modify(|mut c| c.0 += 1);
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 1);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 1);
     /// ```
     #[inline]
     pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
@@ -1518,11 +1518,11 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     ///
     /// entity.entry().or_insert(Comp(4));
     /// # let entity_id = entity.id();
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 4);
     ///
     /// # let mut entity = world.get_entity_mut(entity_id).unwrap();
     /// entity.entry().or_insert(Comp(15)).0 *= 2;
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 8);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 8);
     /// ```
     #[inline]
     pub fn or_insert(self, default: T) -> Mut<'a, T> {
@@ -1546,7 +1546,7 @@ impl<'w, 'a, T: Component> Entry<'w, 'a, T> {
     /// let mut entity = world.spawn_empty();
     ///
     /// entity.entry().or_insert_with(|| Comp(4));
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 4);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 4);
     /// ```
     #[inline]
     pub fn or_insert_with<F: FnOnce() -> T>(self, default: F) -> Mut<'a, T> {
@@ -1572,7 +1572,7 @@ impl<'w, 'a, T: Component + Default> Entry<'w, 'a, T> {
     /// let mut entity = world.spawn_empty();
     ///
     /// entity.entry::<Comp>().or_default();
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 0);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 0);
     /// ```
     #[inline]
     pub fn or_default(self) -> Mut<'a, T> {
@@ -1639,7 +1639,7 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     ///     o.get_mut().0 += 2
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 17);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 17);
     /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
@@ -1668,7 +1668,7 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     ///     o.into_mut().0 += 10;
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 15);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 15);
     /// ```
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
@@ -1692,7 +1692,7 @@ impl<'w, 'a, T: Component> OccupiedEntry<'w, 'a, T> {
     ///     o.insert(Comp(10));
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 10);
     /// ```
     #[inline]
     pub fn insert(&mut self, component: T) {
@@ -1747,7 +1747,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     ///     v.insert(Comp(10));
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 10);
     /// ```
     #[inline]
     pub fn insert(self, component: T) -> Mut<'a, T> {
@@ -1772,7 +1772,7 @@ impl<'w, 'a, T: Component> VacantEntry<'w, 'a, T> {
     ///     v.insert_entry(Comp(10));
     /// }
     ///
-    /// assert_eq!(world.query::<&Comp>().single(&world).0, 10);
+    /// assert_eq!(world.query::<&Comp>().get_single(&world).0, 10);
     /// ```
     #[inline]
     pub fn insert_entry(self, component: T) -> OccupiedEntry<'w, 'a, T> {

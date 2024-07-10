@@ -1523,7 +1523,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
     #[inline]
-    pub fn get_single<'w>(&mut self, world: &'w World) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
+    pub fn get_single<'w>(
+        &mut self,
+        world: &'w World,
+    ) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
         self.update_archetypes(world);
 
         // SAFETY: query is read only
@@ -1742,7 +1745,7 @@ mod tests {
         let query_state = world.query::<(&A, &B)>();
         let mut new_query_state = query_state.transmute::<&A>(world.components());
         assert_eq!(new_query_state.iter(&world).len(), 1);
-        let a = new_query_state.single(&world).unwrap();
+        let a = new_query_state.get_single(&world).unwrap();
 
         assert_eq!(a.0, 1);
     }
@@ -1756,7 +1759,7 @@ mod tests {
         let query_state = world.query_filtered::<(&A, &B), Without<C>>();
         let mut new_query_state = query_state.transmute::<&A>(world.components());
         // even though we change the query to not have Without<C>, we do not get the component with C.
-        let a = new_query_state.single(&world).unwrap();
+        let a = new_query_state.get_single(&world).unwrap();
 
         assert_eq!(a.0, 0);
     }
@@ -1769,7 +1772,7 @@ mod tests {
 
         let q = world.query::<()>();
         let mut q = q.transmute::<Entity>(world.components());
-        assert_eq!(q.single(&world).unwrap(), entity);
+        assert_eq!(q.get_single(&world).unwrap(), entity);
     }
 
     #[test]
@@ -1779,7 +1782,7 @@ mod tests {
 
         let q = world.query::<&A>();
         let mut new_q = q.transmute::<Ref<A>>(world.components());
-        assert!(new_q.single(&world).unwrap().is_added());
+        assert!(new_q.get_single(&world).unwrap().is_added());
 
         let q = world.query::<Ref<A>>();
         let _ = q.transmute::<&A>(world.components());
@@ -1850,7 +1853,7 @@ mod tests {
 
         let query_state = world.query::<Option<&A>>();
         let mut new_query_state = query_state.transmute::<&A>(world.components());
-        let x = new_query_state.single(&world).unwrap();
+        let x = new_query_state.get_single(&world).unwrap();
         assert_eq!(x.0, 1234);
     }
 
@@ -1875,7 +1878,7 @@ mod tests {
 
         let mut query = query;
         // Our result is completely untyped
-        let entity_ref = query.single(&world).unwrap();
+        let entity_ref = query.get_single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
         assert_eq!(0, entity_ref.get::<A>().unwrap().0);
@@ -1890,16 +1893,16 @@ mod tests {
         let mut query = QueryState::<(Entity, &A, Has<B>)>::new(&mut world)
             .transmute_filtered::<(Entity, Has<B>), Added<A>>(world.components());
 
-        assert_eq!((entity_a, false), query.single(&world).unwrap());
+        assert_eq!((entity_a, false), query.get_single(&world).unwrap());
 
         world.clear_trackers();
 
         let entity_b = world.spawn((A(0), B(0))).id();
-        assert_eq!((entity_b, true), query.single(&world).unwrap());
+        assert_eq!((entity_b, true), query.get_single(&world).unwrap());
 
         world.clear_trackers();
 
-        assert!(query.single(&world).is_err());
+        assert!(query.get_single(&world).is_err());
     }
 
     #[test]
@@ -1911,15 +1914,15 @@ mod tests {
             .transmute_filtered::<Entity, Changed<A>>(world.components());
 
         let mut change_query = QueryState::<&mut A>::new(&mut world);
-        assert_eq!(entity_a, detection_query.single(&world).unwrap());
+        assert_eq!(entity_a, detection_query.get_single(&world).unwrap());
 
         world.clear_trackers();
 
-        assert!(detection_query.single(&world).is_err());
+        assert!(detection_query.get_single(&world).is_err());
 
-        change_query.single_mut(&mut world).unwrap().0 = 1;
+        change_query.get_single_mut(&mut world).unwrap().0 = 1;
 
-        assert_eq!(entity_a, detection_query.single(&world).unwrap());
+        assert_eq!(entity_a, detection_query.get_single(&world).unwrap());
     }
 
     #[test]
@@ -1947,7 +1950,7 @@ mod tests {
         let mut new_query: QueryState<Entity, ()> =
             query_1.join_filtered(world.components(), &query_2);
 
-        assert_eq!(new_query.single(&world).unwrap(), entity_ab);
+        assert_eq!(new_query.get_single(&world).unwrap(), entity_ab);
     }
 
     #[test]
