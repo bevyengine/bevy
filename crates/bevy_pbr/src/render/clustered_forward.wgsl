@@ -116,7 +116,7 @@ fn cluster_debug_visualization(
     // NOTE: Visualizes the cluster to which the fragment belongs
     let cluster_overlay_alpha = 0.1;
     var rng = cluster_index;
-    let cluster_color_hsv = vec3<f32>(rand_f(&rng) * PI_2, 1.0, 0.5);
+    let cluster_color_hsv = vec3(rand_f(&rng) * PI_2, 1.0, 0.5);
     let cluster_color = hsv_to_rgb(cluster_color_hsv);
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
