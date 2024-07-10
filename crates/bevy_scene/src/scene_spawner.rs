@@ -341,12 +341,12 @@ impl SceneSpawner {
 
         for (scene_handle, instance_id, parent) in scenes_to_spawn {
             let mut entity_map = EntityHashMap::default();
-            
-            match self.spawn_sync_internal(world, scene_handle.id(), &mut entity_map) {
+
+            match Self::spawn_sync_internal(world, scene_handle.id(), &mut entity_map) {
                 Ok(_) => {
                     self.spawned_instances
                         .insert(instance_id, InstanceInfo { entity_map });
-                  
+
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
                     if parent.is_none() {
