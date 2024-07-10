@@ -389,13 +389,13 @@ pub fn prepare_meshlet_per_frame_resources(
         let visibility_buffer_software_raster_indirect_args_first = render_device
             .create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_software_raster_indirect_args_first"),
-                contents: DispatchIndirectArgs { x: 0, y: 0, z: 0 }.as_bytes(),
+                contents: DispatchIndirectArgs { x: 0, y: 1, z: 1 }.as_bytes(),
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
         let visibility_buffer_software_raster_indirect_args_second = render_device
             .create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("visibility_buffer_software_raster_indirect_args_second"),
-                contents: DispatchIndirectArgs { x: 0, y: 0, z: 0 }.as_bytes(),
+                contents: DispatchIndirectArgs { x: 0, y: 1, z: 1 }.as_bytes(),
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
 
