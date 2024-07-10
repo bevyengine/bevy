@@ -95,7 +95,7 @@ pub fn extract_text2d_sprite(
             continue;
         }
 
-        let b = Vec3::new(bounds.width.unwrap_or_default(), bounds.height.unwrap_or_default(), 0.);
+        let b = Vec3::new(bounds.width.unwrap_or_default(), -bounds.height.unwrap_or_default(), 0.);
 
         let text_anchor = -(anchor.as_vec() + 0.5);
         let alignment_translation = text_layout_info.size * text_anchor;
