@@ -26,8 +26,7 @@ use winit::platform::web::WindowExtWebSys;
 use crate::state::react_to_resize;
 use crate::{
     converters::{
-        self, convert_enabled_buttons, convert_window_level, convert_window_theme,
-        convert_winit_theme,
+        convert_enabled_buttons, convert_window_level, convert_window_theme, convert_winit_theme,
     },
     get_best_videomode, get_fitting_videomode, CreateWindowParams, WinitWindows,
 };
@@ -275,10 +274,6 @@ pub(crate) fn changed_windows(
                     error!("could not set cursor position: {:?}", err);
                 }
             }
-        }
-
-        if window.cursor.icon != cache.window.cursor.icon {
-            winit_window.set_cursor(converters::convert_cursor_icon(window.cursor.icon));
         }
 
         if window.cursor.grab_mode != cache.window.cursor.grab_mode {

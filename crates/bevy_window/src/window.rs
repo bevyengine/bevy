@@ -12,7 +12,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
 
-use crate::CursorIcon;
+use crate::NativeCursorIcon;
 
 /// Marker [`Component`] for the window considered the primary window.
 ///
@@ -542,8 +542,75 @@ impl WindowResizeConstraints {
     }
 }
 
+/// Cursor icon.
+#[derive(Debug, Clone, Reflect, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, Default)]
+pub enum CursorIcon {
+    /// Custom cursor image data.
+    Custom(CustomCursor),
+    /// Native cursor icon.
+    Native(NativeCursorIcon),
+}
+
+impl Default for CursorIcon {
+    fn default() -> Self {
+        CursorIcon::Native(NativeCursorIcon::Default)
+    }
+}
+
+impl From<NativeCursorIcon> for CursorIcon {
+    fn from(icon: NativeCursorIcon) -> Self {
+        CursorIcon::Native(icon)
+    }
+}
+
+impl From<CustomCursor> for CursorIcon {
+    fn from(cursor: CustomCursor) -> Self {
+        CursorIcon::Custom(cursor)
+    }
+}
+
+/// Custom cursor image data.
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum CustomCursor {
+    /// Image data in RGBA format. Cursor creation can fail if the image data is invalid.
+    /// Rgba data must be a multiple of 4 bytes in length. Width times height must match
+    /// the length of the data / 4. The hotspot must be within the image bounds.
+    ///[`bevy_render::texture::image_to_rgba_pixels`] can be used to convert an [`Image`] to RGBA pixels.
+    Image {
+        /// RGBA pixel values for the image. Not premultiplied.
+        rgba: Vec<u8>,
+        /// Width of the image in pixels.
+        width: u16,
+        /// Height of the image in pixels.
+        height: u16,
+        /// X-coordinate of the hotspot in pixels.
+        hotspot_x: u16,
+        /// Y-coordinate of the hotspot in pixels.
+        hotspot_y: u16,
+    },
+    #[cfg(target_arch = "wasm32")]
+    /// A URL to an image to use as the cursor. Cursor creation can fail if the image is invalid or
+    /// not reachable.
+    Url {
+        url: String,
+        hotspot_x: u16,
+        hotspot_y: u16,
+    },
+}
+
 /// Cursor data for a [`Window`].
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -586,7 +653,7 @@ pub struct Cursor {
 impl Default for Cursor {
     fn default() -> Self {
         Cursor {
-            icon: CursorIcon::Default,
+            icon: Default::default(),
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,

@@ -89,7 +89,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Default)]
-pub enum CursorIcon {
+pub enum NativeCursorIcon {
     /// The platform-dependent default cursor. Often rendered as arrow.
     #[default]
     Default,

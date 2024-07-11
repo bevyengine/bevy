@@ -770,6 +770,35 @@ impl Image {
     }
 }
 
+/// Returns the image data as a Vec<u8> and the width and height of the image.
+/// Only supports rgba8 and rgba32float formats. Useful for creating [`bevy_window::CustomCursor`]s.
+pub fn image_to_rgba_pixels(image: &Image) -> Option<(Vec<u8>, u32, u32)> {
+    match image.texture_descriptor.format {
+        TextureFormat::Rgba8Unorm
+        | TextureFormat::Rgba8UnormSrgb
+        | TextureFormat::Rgba8Snorm
+        | TextureFormat::Rgba8Uint
+        | TextureFormat::Rgba8Sint
+        | TextureFormat::Bgra8Unorm
+        | TextureFormat::Bgra8UnormSrgb => {
+            Some((image.data.clone(), image.width(), image.height()))
+        }
+        TextureFormat::Rgba32Float => {
+            let data = image
+                .data
+                .chunks(4)
+                .map(|chunk| {
+                    let chunk = chunk.try_into().unwrap();
+                    let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
+                    (num / 255.0) as u8
+                })
+                .collect();
+            Some((data, image.width(), image.height()))
+        }
+        _ => None,
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum DataFormat {
     Rgb,

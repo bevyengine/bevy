@@ -5,7 +5,10 @@ use bevy::{
     core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    render::texture::image_to_rgba_pixels,
+    window::{
+        CursorGrabMode, CustomCursor, NativeCursorIcon, PresentMode, WindowLevel, WindowTheme,
+    },
 };
 
 fn main() {
@@ -37,6 +40,8 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))
+        .init_resource::<CursorIcons>()
+        .add_systems(Startup, init_cursor_images)
         .add_systems(
             Update,
             (
@@ -45,6 +50,7 @@ fn main() {
                 toggle_cursor,
                 toggle_vsync,
                 toggle_window_controls,
+                load_cursors_from_images,
                 cycle_cursor_icon,
                 switch_level,
                 make_visible,
@@ -159,31 +165,78 @@ fn toggle_theme(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>
     }
 }
 
+// This is just for keeping the images alive while loading them into cursors.
+#[derive(Resource, Default)]
+#[allow(dead_code)]
+struct CursorImages(Vec<Handle<Image>>);
+
+#[derive(Resource)]
+struct CursorIcons(Vec<CursorIcon>);
+
+impl Default for CursorIcons {
+    fn default() -> Self {
+        Self(vec![
+            NativeCursorIcon::Default.into(),
+            NativeCursorIcon::Pointer.into(),
+            NativeCursorIcon::Wait.into(),
+            NativeCursorIcon::Text.into(),
+            CustomCursor::Image {
+                rgba: vec![255; 20 * 20 * 4],
+                width: 20,
+                height: 20,
+                hotspot_x: 10,
+                hotspot_y: 10,
+            }
+            .into(),
+        ])
+    }
+}
+
+fn init_cursor_images(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(CursorImages(vec![asset_server.load("branding/icon.png")]));
+}
+
+fn load_cursors_from_images(
+    mut asset_events: EventReader<AssetEvent<Image>>,
+    image_assets: Res<Assets<Image>>,
+    mut cursor_icons: ResMut<CursorIcons>,
+) {
+    for ev in asset_events.read() {
+        if let AssetEvent::LoadedWithDependencies { id } = ev {
+            let image = image_assets.get(*id).unwrap();
+            let (rgba, width, height) = image_to_rgba_pixels(image).unwrap();
+            cursor_icons.0.push(
+                CustomCursor::Image {
+                    rgba,
+                    width: width as u16,
+                    height: height as u16,
+                    hotspot_x: (width / 2) as u16,
+                    hotspot_y: (height / 2) as u16,
+                }
+                .into(),
+            );
+        }
+    }
+}
+
 /// This system cycles the cursor's icon through a small set of icons when clicking
 fn cycle_cursor_icon(
     mut windows: Query<&mut Window>,
     input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
+    cursor_icons: Res<CursorIcons>,
 ) {
     let mut window = windows.single_mut();
 
-    const ICONS: &[CursorIcon] = &[
-        CursorIcon::Default,
-        CursorIcon::Pointer,
-        CursorIcon::Wait,
-        CursorIcon::Text,
-        CursorIcon::Copy,
-    ];
-
     if input.just_pressed(MouseButton::Left) {
-        *index = (*index + 1) % ICONS.len();
+        *index = (*index + 1) % cursor_icons.0.len();
+        window.cursor.icon = cursor_icons.0[*index].clone();
     } else if input.just_pressed(MouseButton::Right) {
         *index = if *index == 0 {
-            ICONS.len() - 1
+            cursor_icons.0.len() - 1
         } else {
             *index - 1
         };
+        window.cursor.icon = cursor_icons.0[*index].clone();
     }
-
-    window.cursor.icon = ICONS[*index];
 }
