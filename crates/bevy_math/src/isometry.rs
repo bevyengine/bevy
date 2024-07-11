@@ -28,7 +28,7 @@ impl Isometry2d {
 
     /// Create a two-dimensional isometry from a rotation and a translation.
     #[inline]
-    pub fn from_rotation_translation(rotation: Rot2, translation: Vec2) -> Self {
+    pub fn new(translation: Vec2, rotation: Rot2) -> Self {
         Isometry2d {
             rotation,
             translation,
@@ -65,7 +65,7 @@ impl Isometry2d {
 
     /// Transform a point by rotating and translating it using this isometry.
     #[inline]
-    pub fn transform_point2(&self, point: Vec2) -> Vec2 {
+    pub fn transform_point(&self, point: Vec2) -> Vec2 {
         self.rotation * point + self.translation
     }
 }
@@ -92,6 +92,15 @@ impl Mul for Isometry2d {
     }
 }
 
+impl Mul<Vec2> for Isometry2d {
+    type Output = Vec2;
+
+    #[inline]
+    fn mul(self, rhs: Vec2) -> Self::Output {
+        self.transform_point(rhs)
+    }
+}
+
 /// An isometry in three dimensions.
 pub struct Isometry3d {
     /// The rotational part of a three-dimensional isometry.
@@ -109,7 +118,7 @@ impl Isometry3d {
 
     /// Create a three-dimensional isometry from a rotation and a translation.
     #[inline]
-    pub fn from_rotation_translation(rotation: Quat, translation: impl Into<Vec3A>) -> Self {
+    pub fn new(translation: impl Into<Vec3A>, rotation: Quat) -> Self {
         Isometry3d {
             rotation,
             translation: translation.into(),
@@ -146,18 +155,13 @@ impl Isometry3d {
 
     /// Transform a point by rotating and translating it using this isometry.
     #[inline]
-    pub fn transform_point3(&self, point: Vec3) -> Vec3 {
-        self.rotation * point + Into::<Vec3>::into(self.translation)
-    }
-
-    /// Transform a point by rotating and translating it using this isometry.
-    #[inline]
-    pub fn transform_point3a(&self, point: Vec3A) -> Vec3A {
-        self.rotation * point + self.translation
+    pub fn transform_point(&self, point: impl Into<Vec3A>) -> Vec3A {
+        self.rotation * point.into() + self.translation
     }
 }
 
 impl From<Isometry3d> for Affine3 {
+    #[inline]
     fn from(iso: Isometry3d) -> Self {
         Affine3 {
             matrix3: Mat3::from_quat(iso.rotation),
@@ -167,6 +171,7 @@ impl From<Isometry3d> for Affine3 {
 }
 
 impl From<Isometry3d> for Affine3A {
+    #[inline]
     fn from(iso: Isometry3d) -> Self {
         Affine3A {
             matrix3: Mat3A::from_quat(iso.rotation),
@@ -178,10 +183,29 @@ impl From<Isometry3d> for Affine3A {
 impl Mul for Isometry3d {
     type Output = Self;
 
+    #[inline]
     fn mul(self, rhs: Self) -> Self::Output {
         Isometry3d {
             rotation: self.rotation * rhs.rotation,
             translation: self.rotation * rhs.translation + self.translation,
         }
+    }
+}
+
+impl Mul<Vec3A> for Isometry3d {
+    type Output = Vec3A;
+
+    #[inline]
+    fn mul(self, rhs: Vec3A) -> Self::Output {
+        self.transform_point(rhs)
+    }
+}
+
+impl Mul<Vec3> for Isometry3d {
+    type Output = Vec3;
+
+    #[inline]
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        self.transform_point(rhs).into()
     }
 }
