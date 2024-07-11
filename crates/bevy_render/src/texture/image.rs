@@ -770,7 +770,7 @@ impl Image {
     }
 }
 
-/// Returns the image data as a Vec<u8> and the width and height of the image.
+/// Returns the image data as a `Vec<u8>` and the width and height of the image.
 /// Only supports rgba8 and rgba32float formats. Useful for creating [`bevy_window::CustomCursor`]s.
 pub fn image_to_rgba_pixels(image: &Image) -> Option<(Vec<u8>, u32, u32)> {
     match image.texture_descriptor.format {

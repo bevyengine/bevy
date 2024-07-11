@@ -107,7 +107,7 @@ pub enum NativeCursorIcon {
     Pointer,
 
     /// A progress indicator. The program is performing some processing, but is
-    /// different from [`CursorIcon::Wait`] in that the user may still interact
+    /// different from [`NativeCursorIcon::Wait`] in that the user may still interact
     /// with the program.
     Progress,
 

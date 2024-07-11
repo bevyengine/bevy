@@ -586,7 +586,7 @@ pub enum CustomCursor {
     /// Image data in RGBA format. Cursor creation can fail if the image data is invalid.
     /// Rgba data must be a multiple of 4 bytes in length. Width times height must match
     /// the length of the data / 4. The hotspot must be within the image bounds.
-    ///[`bevy_render::texture::image_to_rgba_pixels`] can be used to convert an [`Image`] to RGBA pixels.
+    /// `image_to_rgba_pixels` can be used to convert an `Image` to RGBA pixels.
     Image {
         /// RGBA pixel values for the image. Not premultiplied.
         rgba: Vec<u8>,
