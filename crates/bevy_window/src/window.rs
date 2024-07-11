@@ -112,11 +112,11 @@ impl NormalizedWindowRef {
 /// ```
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_window::{CursorIcon, PrimaryWindow, Window};
+/// # use bevy_window::{NativeCursorIcon, PrimaryWindow, Window};
 /// fn change_cursor(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
 ///     // Query returns one window typically.
 ///     for mut window in windows.iter_mut() {
-///         window.cursor.icon = CursorIcon::Wait;
+///         window.cursor.icon = NativeCursorIcon::Wait.into();
 ///     }
 /// }
 /// ```
