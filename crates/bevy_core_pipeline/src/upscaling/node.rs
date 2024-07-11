@@ -84,6 +84,20 @@ impl ViewNode for UpscalingNode {
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
 
+
+        if let Some(camera) = camera {
+            if let Some(viewport) = &camera.viewport {
+                let size =viewport.physical_size;
+                let position = viewport.physical_position;
+                render_pass.set_scissor_rect(
+                    position.x as u32,
+                    position.y as u32,
+                    size.x as u32,
+                    size.y as u32,
+                );
+            }
+        }
+
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
