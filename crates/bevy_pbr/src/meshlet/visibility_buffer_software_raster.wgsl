@@ -32,9 +32,9 @@ fn rasterize_cluster(
     let cluster_id = meshlet_software_raster_clusters[workgroup_id.x];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
-    let triangle_id = local_invocation_id.x;
-    if triangle_id < meshlet.vertex_count {
-        let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + triangle_id];
+    let vertex_id = local_invocation_id.x;
+    if vertex_id < meshlet.vertex_count {
+        let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
         let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);
 
         // Project vertex to screen space
@@ -52,11 +52,12 @@ fn rasterize_cluster(
         let screen_position = vec3(screen_position_xy, ndc_position.z);
 
         // Write screen space vertex to workgroup shared memory
-        screen_space_vertices[triangle_id] = screen_position;
+        screen_space_vertices[vertex_id] = screen_position;
     }
     workgroupBarrier();
 
     // Load 1 triangle's worth of vertex data per thread
+    let triangle_id = local_invocation_id.x;
     if triangle_id >= meshlet.triangle_count { return; }
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
     let vertex_ids = vec3(get_meshlet_index(index_ids[0]), get_meshlet_index(index_ids[1]), get_meshlet_index(index_ids[2]));
