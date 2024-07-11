@@ -13,6 +13,7 @@
         unpack_meshlet_vertex,
     },
     mesh_functions::mesh_position_local_to_world,
+    view_transformations::ndc_to_uv,
 }
 #import bevy_render::maths::affine3_to_square
 
@@ -46,8 +47,9 @@ fn rasterize_cluster(
         let unclamped_clip_depth = clip_position.z; // TODO: What to do with this?
         clip_position.z = min(clip_position.z, 1.0);
     #endif
-        var screen_position = clip_position.xyz / clip_position.w;
-        screen_position *= vec3(view.viewport.zw, 1.0);
+        let ndc_position = clip_position.xyz / clip_position.w;
+        let screen_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
+        let screen_position = vec3(screen_position_xy, ndc_position.z);
 
         // Write screen space vertex to workgroup shared memory
         screen_space_vertices[triangle_id] = screen_position;
@@ -63,23 +65,23 @@ fn rasterize_cluster(
     let vertex_3 = screen_space_vertices[vertex_ids[2]];
 
     // Compute triangle bounding box
-    var min_x = min3(vertex_1.x, vertex_2.x, vertex_3.x);
-    var min_y = min3(vertex_1.y, vertex_2.y, vertex_3.y);
-    var max_x = max3(vertex_1.x, vertex_2.x, vertex_3.x);
-    var max_y = max3(vertex_1.y, vertex_2.y, vertex_3.y);
+    var min_x = floor(min3(vertex_1.x, vertex_2.x, vertex_3.x));
+    var min_y = floor(min3(vertex_1.y, vertex_2.y, vertex_3.y));
+    var max_x = ceil(max3(vertex_1.x, vertex_2.x, vertex_3.x));
+    var max_y = ceil(max3(vertex_1.y, vertex_2.y, vertex_3.y));
 
     // Clip triangle bounding box against screen bounds
-    min_x = floor(max(min_x, 0.0));
-    min_y = floor(max(min_y, 0.0));
-    max_x = ceil(min(min_x, view.viewport.z));
-    max_y = ceil(min(min_y, view.viewport.w));
+    min_x = max(min_x, 0.0);
+    min_y = max(min_y, 0.0);
+    max_x = min(min_x, view.viewport.z - 1.0);
+    max_y = min(min_y, view.viewport.w - 1.0);
 
     let cluster_id_packed = cluster_id << 6u;
     let double_triangle_area = edge_function(vertex_1.xy, vertex_2.xy, vertex_3.xy);
 
     // Iterate over every pixel in the triangle's bounding box
-    for (var y = min_y; y < max_y; y += 1.0) {
-        for (var x = min_x; x < max_x; x += 1.0) {
+    for (var y = min_y; y <= max_y; y += 1.0) {
+        for (var x = min_x; x <= max_x; x += 1.0) {
             let x = x + 0.5;
             let y = y + 0.5;
 
@@ -92,8 +94,7 @@ fn rasterize_cluster(
             if min3(w0, w1, w2) >= 0.0 {
                 // Interpolate vertex depth for the current pixel
                 let barycentrics = vec3(w0, w1, w2) / double_triangle_area;
-                let vertex_inverse_z = 1.0 / vec3(vertex_1.z, vertex_2.z, vertex_3.z);
-                let z = 1.0 / dot(barycentrics, vertex_inverse_z);
+                let z = dot(barycentrics, vec3(vertex_1.z, vertex_2.z, vertex_3.z));
 
                 let frag_coord_1d = u32(y) * u32(view.viewport.z) + u32(x);
 
