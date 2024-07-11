@@ -13,6 +13,9 @@ use std::{
     sync::Arc,
 };
 
+/// Unique identifier for the [`MeshletMesh`] asset format.
+const MESHLET_MESH_ASSET_MAGIC: u64 = 1717551717668;
+
 /// The current version of the [`MeshletMesh`] asset format.
 pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 
@@ -93,6 +96,11 @@ impl AssetSaver for MeshletMeshSaverLoader {
         asset: SavedAsset<'a, MeshletMesh>,
         _settings: &'a (),
     ) -> Result<(), MeshletMeshSaveOrLoadError> {
+        // Write asset magic number
+        writer
+            .write_all(&MESHLET_MESH_ASSET_MAGIC.to_le_bytes())
+            .await?;
+
         // Write asset version
         writer
             .write_all(&MESHLET_MESH_ASSET_VERSION.to_le_bytes())
@@ -125,6 +133,12 @@ impl AssetLoader for MeshletMeshSaverLoader {
         _settings: &'a (),
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<MeshletMesh, MeshletMeshSaveOrLoadError> {
+        // Load and check magic number
+        let magic = async_read_u64(reader).await?;
+        if magic != MESHLET_MESH_ASSET_MAGIC {
+            return Err(MeshletMeshSaveOrLoadError::WrongFileType);
+        }
+
         // Load and check asset version
         let version = async_read_u64(reader).await?;
         if version != MESHLET_MESH_ASSET_VERSION {
@@ -157,6 +171,8 @@ impl AssetLoader for MeshletMeshSaverLoader {
 
 #[derive(thiserror::Error, Debug)]
 pub enum MeshletMeshSaveOrLoadError {
+    #[error("file was not a MeshletMesh asset")]
+    WrongFileType,
     #[error("expected asset version {MESHLET_MESH_ASSET_VERSION} but found version {found}")]
     WrongVersion { found: u64 },
     #[error("failed to compress or decompress asset data")]
@@ -196,6 +212,7 @@ fn read_slice<T: Pod>(reader: &mut dyn Read) -> Result<Arc<[T]>, std::io::Error>
     Ok(data)
 }
 
+// TODO: Use async for everything and get rid of this adapter
 struct AsyncWriteSyncAdapter<'a>(&'a mut Writer);
 
 impl Write for AsyncWriteSyncAdapter<'_> {
@@ -208,6 +225,7 @@ impl Write for AsyncWriteSyncAdapter<'_> {
     }
 }
 
+// TODO: Use async for everything and get rid of this adapter
 struct AsyncReadSyncAdapter<'a>(&'a mut dyn Reader);
 
 impl Read for AsyncReadSyncAdapter<'_> {
