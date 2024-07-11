@@ -358,7 +358,7 @@ fn load_font_to_fontdb(
         });
 }
 
-/// Translates [`TextSection`] to [`Attrs`](cosmic_text::attrs::Attrs),
+/// Translates [`TextSection`] to [`Attrs`],
 /// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
 fn get_attrs<'a>(
     section: &TextSection,
