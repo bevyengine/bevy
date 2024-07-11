@@ -788,7 +788,6 @@ impl<T: Event> WinitAppRunnerState<T> {
                                 winit_window.set_cursor(winit_custom_cursor);
                             }
                             None => {
-                                warn!("Failed to create custom cursor, setting to default");
                                 winit_window.set_cursor(winit::window::Cursor::default());
                             }
                         }
