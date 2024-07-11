@@ -8,10 +8,21 @@
 //! answering this query.
 
 use crate::{Affine2, Affine3, Affine3A, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use std::ops::Mul;
 
 /// An isometry in two dimensions.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Isometry2d {
     /// The rotational part of a two-dimensional isometry.
     pub rotation: Rot2,
@@ -102,6 +113,17 @@ impl Mul<Vec2> for Isometry2d {
 }
 
 /// An isometry in three dimensions.
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Isometry3d {
     /// The rotational part of a three-dimensional isometry.
     pub rotation: Quat,
