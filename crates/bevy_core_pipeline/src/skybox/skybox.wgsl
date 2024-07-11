@@ -2,8 +2,8 @@
 #import bevy_pbr::utils::coords_to_viewport_uv
 
 struct SkyboxUniforms {
-        brightness: f32,
-        transform: mat4x4<f32>,
+	brightness: f32,
+	transform: mat4x4<f32>,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
 	_wasm_padding_8b: u32,
 	_wasm_padding_12b: u32,
@@ -31,12 +31,10 @@ fn coords_to_ray_direction(position: vec2<f32>, viewport: vec4<f32>) -> vec3<f32
         1.0,
     );
 
-#ifdef SKYBOX_TRANSFORM
+    // Transforming the view space ray direction by the skybox transform matrix, it is 
+    // equivalent to rotating the skybox itself.
     var view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w;
     view_ray_direction = (uniforms.transform * vec4(view_ray_direction, 1.0)).xyz;
-#else 
-    let view_ray_direction = view_position_homogeneous.xyz / view_position_homogeneous.w;
-#endif
 
     // Transforming the view space ray direction by the view matrix, transforms the
     // direction to world space. Note that the w element is set to 0.0, as this is a

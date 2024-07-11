@@ -246,7 +246,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
-            rotation: None,
+            ..Default::default()
         })
         .insert(ScreenSpaceReflectionsBundle::default())
         .insert(Fxaa::default());

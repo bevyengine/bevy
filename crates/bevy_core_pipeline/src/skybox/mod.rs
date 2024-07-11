@@ -2,7 +2,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::QueryItem,
+    query::{QueryItem, With},
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
@@ -92,7 +92,17 @@ pub struct Skybox {
     /// After applying this multiplier to the image samples, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     pub brightness: f32,
-    pub rotation: Option<Quat>,
+    pub rotation: Quat,
+}
+
+impl Default for Skybox {
+    fn default() -> Self {
+        Skybox {
+            image: Handle::default(),
+            brightness: 0.0,
+            rotation: Quat::IDENTITY,
+        }
+    }
 }
 
 impl ExtractComponent for Skybox {
@@ -109,7 +119,7 @@ impl ExtractComponent for Skybox {
             skybox.clone(),
             SkyboxUniforms {
                 brightness: skybox.brightness * exposure,
-                transform: Transform::from_rotation(skybox.rotation.unwrap_or_default())
+                transform: Transform::from_rotation(skybox.rotation)
                     .compute_matrix()
                     .inverse(),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -166,17 +176,12 @@ struct SkyboxPipelineKey {
     hdr: bool,
     samples: u32,
     depth_format: TextureFormat,
-    has_transform: bool,
 }
 
 impl SpecializedRenderPipeline for SkyboxPipeline {
     type Key = SkyboxPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut shader_defs = Vec::new();
-        if key.has_transform {
-            shader_defs.push("SKYBOX_TRANSFORM".into());
-        }
         RenderPipelineDescriptor {
             label: Some("skybox_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
@@ -211,7 +216,7 @@ impl SpecializedRenderPipeline for SkyboxPipeline {
             },
             fragment: Some(FragmentState {
                 shader: SKYBOX_SHADER_HANDLE,
-                shader_defs,
+                shader_defs: Vec::new(),
                 entry_point: "skybox_fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
@@ -237,9 +242,9 @@ fn prepare_skybox_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
     msaa: Res<Msaa>,
-    views: Query<(Entity, &ExtractedView, &Skybox)>,
+    views: Query<(Entity, &ExtractedView), With<Skybox>>,
 ) {
-    for (entity, view, skybox) in &views {
+    for (entity, view) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
@@ -247,7 +252,6 @@ fn prepare_skybox_pipelines(
                 hdr: view.hdr,
                 samples: msaa.samples(),
                 depth_format: CORE_3D_DEPTH_FORMAT,
-                has_transform: skybox.rotation.is_some(),
             },
         );
 

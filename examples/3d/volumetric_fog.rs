@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
-            rotation: None,
+            ..Default::default()
         })
         .insert(VolumetricFogSettings {
             // This value is explicitly set to 0 since we have no environment map light
