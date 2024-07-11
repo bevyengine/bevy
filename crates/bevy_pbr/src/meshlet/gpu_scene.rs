@@ -105,6 +105,7 @@ pub fn extract_meshlet_meshes(
     ) in &instances_query
     {
         // Skip instances with an unloaded MeshletMesh asset
+        // TODO: This is a semi-expensive check
         if asset_server.is_managed(handle.id())
             && !asset_server.is_loaded_with_dependencies(handle.id())
         {
@@ -226,6 +227,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
     let gpu_scene = gpu_scene.as_mut();
 
+    // TODO: Move this and the submit to a seperate system
     gpu_scene
         .instance_uniforms
         .write_buffer(&render_device, &render_queue);
