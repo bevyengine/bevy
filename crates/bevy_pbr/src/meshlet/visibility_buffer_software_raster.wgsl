@@ -25,7 +25,6 @@ var<workgroup> screen_space_vertices: array<vec3f, 64>;
 @workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 vertex/triangle per thread, 1 cluster per workgroup
 fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>,
     @builtin(local_invocation_id) local_invocation_id: vec3<u32>,
 ) {
     // Load and project 1 vertex per thread
@@ -54,6 +53,7 @@ fn rasterize_cluster(
         // Write screen space vertex to workgroup shared memory
         screen_space_vertices[vertex_id] = screen_position;
     }
+
     workgroupBarrier();
 
     // Load 1 triangle's worth of vertex data per thread
