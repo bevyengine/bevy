@@ -17,7 +17,7 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
 
 const ASSET_URL: &str =
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/TODO/bunny.meshlet_mesh";
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
     if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
