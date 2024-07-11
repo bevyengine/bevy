@@ -34,8 +34,8 @@ fn rasterize_cluster(
     // Load and project 1 vertex per thread
     let vertex_id = local_invocation_id.x;
     if vertex_id < meshlet.vertex_count {
-        let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
-        let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);
+        let meshlet_vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
+        let vertex = unpack_meshlet_vertex(meshlet_vertex_data[meshlet_vertex_id]);
 
         // Project vertex to screen space
         let instance_id = meshlet_cluster_instance_ids[cluster_id];
