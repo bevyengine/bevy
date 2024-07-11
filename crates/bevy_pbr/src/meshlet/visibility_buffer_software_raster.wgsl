@@ -27,10 +27,11 @@ fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_id) local_invocation_id: vec3<u32>,
 ) {
-    // Load and project 1 vertex per thread
     let cluster_id = meshlet_software_raster_clusters[workgroup_id.x];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
+
+    // Load and project 1 vertex per thread
     let vertex_id = local_invocation_id.x;
     if vertex_id < meshlet.vertex_count {
         let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
