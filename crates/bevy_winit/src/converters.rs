@@ -693,14 +693,18 @@ pub fn convert_custom_cursor(
                 }
             }
         }
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_family = "wasm", target_os = "unknown"))]
         CustomCursor::Url {
             url,
             hotspot_x,
             hotspot_y,
         } => {
             use winit::platform::web::CustomCursorExtWebSys;
-            CustomCursor::from_url(url.clone(), hotspot_x, hotspot_y)
+            Some(winit::window::CustomCursor::from_url(
+                url.clone(),
+                *hotspot_x,
+                *hotspot_y,
+            ))
         }
     }
 }

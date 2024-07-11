@@ -599,12 +599,15 @@ pub enum CustomCursor {
         /// Y-coordinate of the hotspot in pixels.
         hotspot_y: u16,
     },
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
     /// A URL to an image to use as the cursor. Cursor creation can fail if the image is invalid or
     /// not reachable.
     Url {
+        /// Web URL to an image to use as the cursor. PNGs preferred.
         url: String,
+        /// X-coordinate of the hotspot in pixels.
         hotspot_x: u16,
+        /// Y-coordinate of the hotspot in pixels.
         hotspot_y: u16,
     },
 }
