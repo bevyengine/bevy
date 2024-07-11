@@ -7,7 +7,7 @@
 //! then `cube_iso.inverse() * sphere_iso` would describe the relative orientation, which is sufficient for
 //! answering this query.
 
-use crate::{Affine2, Affine3, Affine3A, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
+use crate::{Affine2, Affine3, Affine3A, Dir2, Dir3, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
 use std::ops::Mul;
 
 #[cfg(feature = "approx")]
@@ -116,6 +116,15 @@ impl Mul<Vec2> for Isometry2d {
     #[inline]
     fn mul(self, rhs: Vec2) -> Self::Output {
         self.transform_point(rhs)
+    }
+}
+
+impl Mul<Dir2> for Isometry2d {
+    type Output = Dir2;
+
+    #[inline]
+    fn mul(self, rhs: Dir2) -> Self::Output {
+        self.rotation * rhs
     }
 }
 
@@ -284,6 +293,15 @@ impl Mul<Vec3> for Isometry3d {
     #[inline]
     fn mul(self, rhs: Vec3) -> Self::Output {
         self.transform_point(rhs).into()
+    }
+}
+
+impl Mul<Dir3> for Isometry3d {
+    type Output = Dir3;
+
+    #[inline]
+    fn mul(self, rhs: Dir3) -> Self::Output {
+        self.rotation * rhs
     }
 }
 
