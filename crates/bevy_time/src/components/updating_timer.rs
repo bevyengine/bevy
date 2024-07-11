@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use bevy_ecs::component::Component;
 use bevy_utils::Duration;
 
-use crate::{Timer, TimerMode};
+use crate::{context::Context, Time, TimeTracker, Timer, TimerMode};
 
 /// A version of a [`Timer`] that acts as a component .
 ///
@@ -98,6 +98,17 @@ impl<T> UpdatingTimer<T> {
 
     pub fn timer_mut(&mut self) -> &mut Timer {
         &mut self.timer
+    }
+}
+
+impl<C: Context + Default + Send + Sync + 'static> TimeTracker for UpdatingTimer<C> {
+    type Time = Time<C>;
+
+    fn update(
+        &mut self,
+        time: &<<Self::Time as crate::context::TimesWithContext>::AsSystemParam<'_> as bevy_ecs::system::SystemParam>::Item<'_, '_>,
+    ) {
+        self.timer.tick(time.delta());
     }
 }
 

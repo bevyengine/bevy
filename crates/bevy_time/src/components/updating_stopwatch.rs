@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use bevy_ecs::component::Component;
 use bevy_utils::Duration;
 
-use crate::Stopwatch;
+use crate::{context::Context, Stopwatch, Time, TimeTracker};
 
 #[derive(Component)]
 pub struct UpdatingStopwatch<T> {
@@ -46,6 +46,17 @@ impl<T> UpdatingStopwatch<T> {
 
     pub fn reset(&mut self) {
         self.watch.reset()
+    }
+}
+
+impl<C: Context + Default + Send + Sync + 'static> TimeTracker for UpdatingStopwatch<C> {
+    type Time = Time<C>;
+
+    fn update(
+        &mut self,
+        time: &<<Self::Time as crate::context::TimesWithContext>::AsSystemParam<'_> as bevy_ecs::system::SystemParam>::Item<'_, '_>,
+    ) {
+        self.watch.tick(time.delta());
     }
 }
 

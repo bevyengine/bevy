@@ -2,7 +2,7 @@
 use bevy_reflect::Reflect;
 use bevy_utils::{tracing::debug, Duration};
 
-use crate::{real::Real, time::Time};
+use crate::{context::Context, real::Real, time::Time};
 
 /// The virtual game clock representing game time.
 ///
@@ -254,6 +254,8 @@ impl Time<Virtual> {
         self.advance_by(delta);
     }
 }
+
+impl Context for Virtual {}
 
 impl Default for Virtual {
     fn default() -> Self {

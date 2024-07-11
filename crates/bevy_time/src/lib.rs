@@ -9,6 +9,7 @@
 /// Common run conditions
 pub mod common_conditions;
 mod components;
+mod context;
 mod fixed;
 mod real;
 mod stopwatch;
@@ -75,6 +76,10 @@ impl Plugin for TimePlugin {
             .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
 
         app.configure_sets(First, UpdateTimeTrackers.after(TimeSystem));
+
+        app.register_time_context::<Real>()
+            .register_time_context::<Virtual>()
+            .register_time_context::<Fixed>();
 
         // ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);

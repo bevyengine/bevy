@@ -2,7 +2,8 @@ use bevy_ecs::component::Component;
 use bevy_utils::Duration;
 
 use crate::{
-    Fixed, Stopwatch, TimeTracker, Timer, TimerMode, UpdatingStopwatch, UpdatingTimer, Virtual,
+    Fixed, Stopwatch, Time, TimeTracker, Timer, TimerMode, UpdatingStopwatch, UpdatingTimer,
+    Virtual,
 };
 
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
@@ -142,28 +143,24 @@ impl MixedTimer {
 }
 
 impl TimeTracker for MixedTimer {
-    const DOES_UPDATE: bool = true;
+    type Time = (Time<Virtual>, Time<Fixed>);
 
-    const DOES_FIXED_UPDATE: bool = true;
-
-    type UpdateSource<'w> = <UpdatingTimer<Virtual> as TimeTracker>::UpdateSource<'w>;
-
-    type FixedUpdateSource<'w> = <UpdatingTimer<Fixed> as TimeTracker>::UpdateSource<'w>;
-
-    fn update<'a: 'b, 'b>(
+    fn update(
         &mut self,
-        time: &'b <Self::UpdateSource<'a> as bevy_ecs::system::SystemParam>::Item<'_, '_>,
+        (virt, fixed): &<<Self::Time as crate::context::TimesWithContext>::AsSystemParam<'_> as bevy_ecs::system::SystemParam>::Item<'_, '_>,
     ) {
-        self.virt.update(time);
-        self.tracked = TrackedTime::Virtual;
+        match self.tracked {
+            TrackedTime::Virtual => self.virt.update(virt),
+            TrackedTime::Fixed => self.fixed.update(fixed),
+        }
     }
 
-    fn fixed_update<'a: 'b, 'b>(
-        &mut self,
-        time: &'b <Self::FixedUpdateSource<'a> as bevy_ecs::system::SystemParam>::Item<'_, '_>,
-    ) {
-        self.fixed.update(time);
+    fn enter_fixed_update(&mut self) {
         self.tracked = TrackedTime::Fixed;
+    }
+
+    fn exit_fixed_update(&mut self) {
+        self.tracked = TrackedTime::Virtual;
     }
 }
 
@@ -241,27 +238,23 @@ impl MixedStopwatch {
 }
 
 impl TimeTracker for MixedStopwatch {
-    const DOES_UPDATE: bool = true;
+    type Time = (Time<Virtual>, Time<Fixed>);
 
-    const DOES_FIXED_UPDATE: bool = true;
-
-    type UpdateSource<'w> = <UpdatingStopwatch<Virtual> as TimeTracker>::UpdateSource<'w>;
-
-    type FixedUpdateSource<'w> = <UpdatingStopwatch<Fixed> as TimeTracker>::FixedUpdateSource<'w>;
-
-    fn update<'a: 'b, 'b>(
+    fn update(
         &mut self,
-        time: &'b <Self::UpdateSource<'a> as bevy_ecs::system::SystemParam>::Item<'_, '_>,
+        (virt, fixed): &<<Self::Time as crate::context::TimesWithContext>::AsSystemParam<'_> as bevy_ecs::system::SystemParam>::Item<'_, '_>,
     ) {
-        self.virt.update(time);
-        self.tracked = TrackedTime::Virtual;
+        match self.tracked {
+            TrackedTime::Virtual => self.virt.update(virt),
+            TrackedTime::Fixed => self.fixed.update(fixed),
+        }
     }
 
-    fn fixed_update<'a: 'b, 'b>(
-        &mut self,
-        time: &'b <Self::FixedUpdateSource<'a> as bevy_ecs::system::SystemParam>::Item<'_, '_>,
-    ) {
-        self.fixed.fixed_update(time);
+    fn enter_fixed_update(&mut self) {
         self.tracked = TrackedTime::Fixed;
+    }
+
+    fn exit_fixed_update(&mut self) {
+        self.tracked = TrackedTime::Virtual;
     }
 }
