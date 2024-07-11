@@ -75,8 +75,8 @@ fn rasterize_cluster(
     // Clip triangle bounding box against screen bounds
     min_x = max(min_x, 0.0);
     min_y = max(min_y, 0.0);
-    max_x = min(min_x, view.viewport.z - 1.0);
-    max_y = min(min_y, view.viewport.w - 1.0);
+    max_x = min(max_x, view.viewport.z - 1.0);
+    max_y = min(max_y, view.viewport.w - 1.0);
 
     let cluster_id_packed = cluster_id << 6u;
     let double_triangle_area = edge_function(vertex_1.xy, vertex_2.xy, vertex_3.xy);
