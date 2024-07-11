@@ -5,8 +5,8 @@ use crate::TypePath;
 
 /// Type information for an [`Arg`] used in a [`DynamicFunction`].
 ///
-/// [`Arg`]: crate::func::args::Arg
-/// [`DynamicFunction`]: super::function::DynamicFunction
+/// [`Arg`]: crate::func::Arg
+/// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Debug, Clone)]
 pub struct ArgInfo {
     /// The index of the argument within its function.
@@ -57,6 +57,7 @@ impl ArgInfo {
     /// For [`DynamicFunctions`] created using [`IntoFunction`], the name will always be `None`.
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
+    /// [`IntoFunction`]: crate::func::IntoFunction
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
