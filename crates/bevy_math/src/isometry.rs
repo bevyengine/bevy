@@ -10,6 +10,9 @@
 use crate::{Affine2, Affine3, Affine3A, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
 use std::ops::Mul;
 
+#[cfg(feature = "approx")]
+use approx::{AbsDiffEq, RelativeEq, UlpsEq};
+
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
@@ -113,6 +116,54 @@ impl Mul<Vec2> for Isometry2d {
     #[inline]
     fn mul(self, rhs: Vec2) -> Self::Output {
         self.transform_point(rhs)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl AbsDiffEq for Isometry2d {
+    type Epsilon = <f32 as AbsDiffEq>::Epsilon;
+
+    fn default_epsilon() -> Self::Epsilon {
+        f32::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.rotation.abs_diff_eq(&other.rotation, epsilon)
+            && self.translation.abs_diff_eq(other.translation, epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl RelativeEq for Isometry2d {
+    fn default_max_relative() -> Self::Epsilon {
+        Self::default_epsilon()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        self.rotation
+            .relative_eq(&other.rotation, epsilon, max_relative)
+            && self
+                .translation
+                .relative_eq(&other.translation, epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl UlpsEq for Isometry2d {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+
+    fn ulps_eq(&self, other: &Self, epsilon: Self::Epsilon, max_ulps: u32) -> bool {
+        self.rotation.ulps_eq(&other.rotation, epsilon, max_ulps)
+            && self
+                .translation
+                .ulps_eq(&other.translation, epsilon, max_ulps)
     }
 }
 
@@ -233,5 +284,121 @@ impl Mul<Vec3> for Isometry3d {
     #[inline]
     fn mul(self, rhs: Vec3) -> Self::Output {
         self.transform_point(rhs).into()
+    }
+}
+
+#[cfg(feature = "approx")]
+impl AbsDiffEq for Isometry3d {
+    type Epsilon = <f32 as AbsDiffEq>::Epsilon;
+
+    fn default_epsilon() -> Self::Epsilon {
+        f32::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.rotation.abs_diff_eq(other.rotation, epsilon)
+            && self.translation.abs_diff_eq(other.translation, epsilon)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl RelativeEq for Isometry3d {
+    fn default_max_relative() -> Self::Epsilon {
+        Self::default_epsilon()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        self.rotation
+            .relative_eq(&other.rotation, epsilon, max_relative)
+            && self
+                .translation
+                .relative_eq(&other.translation, epsilon, max_relative)
+    }
+}
+
+#[cfg(feature = "approx")]
+impl UlpsEq for Isometry3d {
+    fn default_max_ulps() -> u32 {
+        4
+    }
+
+    fn ulps_eq(&self, other: &Self, epsilon: Self::Epsilon, max_ulps: u32) -> bool {
+        self.rotation.ulps_eq(&other.rotation, epsilon, max_ulps)
+            && self
+                .translation
+                .ulps_eq(&other.translation, epsilon, max_ulps)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{vec2, vec3};
+    use approx::assert_abs_diff_eq;
+    use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
+
+    #[test]
+    fn mul_2d() {
+        let iso1 = Isometry2d::new(vec2(1.0, 0.0), Rot2::FRAC_PI_2);
+        let iso2 = Isometry2d::new(vec2(0.0, 1.0), Rot2::FRAC_PI_2);
+        let expected = Isometry2d::new(vec2(0.0, 0.0), Rot2::PI);
+        assert_abs_diff_eq!(iso1 * iso2, expected);
+    }
+
+    #[test]
+    fn mul_3d() {
+        let iso1 = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_x(FRAC_PI_2));
+        let iso2 = Isometry3d::new(vec3(0.0, 1.0, 0.0), Quat::IDENTITY);
+        let expected = Isometry3d::new(vec3(1.0, 0.0, 1.0), Quat::from_rotation_x(FRAC_PI_2));
+        assert_abs_diff_eq!(iso1 * iso2, expected);
+    }
+
+    #[test]
+    fn identity_2d() {
+        let iso = Isometry2d::new(vec2(-1.0, -0.5), Rot2::degrees(75.0));
+        assert_abs_diff_eq!(Isometry2d::IDENTITY * iso, iso);
+        assert_abs_diff_eq!(iso * Isometry2d::IDENTITY, iso);
+    }
+
+    #[test]
+    fn identity_3d() {
+        let iso = Isometry3d::new(vec3(-1.0, 2.5, 3.3), Quat::from_rotation_z(FRAC_PI_3));
+        assert_abs_diff_eq!(Isometry3d::IDENTITY * iso, iso);
+        assert_abs_diff_eq!(iso * Isometry3d::IDENTITY, iso);
+    }
+
+    #[test]
+    fn inverse_2d() {
+        let iso = Isometry2d::new(vec2(-1.0, -0.5), Rot2::degrees(75.0));
+        let inv = iso.inverse();
+        assert_abs_diff_eq!(iso * inv, Isometry2d::IDENTITY);
+        assert_abs_diff_eq!(inv * iso, Isometry2d::IDENTITY);
+    }
+
+    #[test]
+    fn inverse_3d() {
+        let iso = Isometry3d::new(vec3(-1.0, 2.5, 3.3), Quat::from_rotation_z(FRAC_PI_3));
+        let inv = iso.inverse();
+        assert_abs_diff_eq!(iso * inv, Isometry3d::IDENTITY);
+        assert_abs_diff_eq!(inv * iso, Isometry3d::IDENTITY);
+    }
+
+    #[test]
+    fn transform_2d() {
+        let iso = Isometry2d::new(vec2(0.5, -0.5), Rot2::FRAC_PI_2);
+        let point = vec2(1.0, 1.0);
+        assert_abs_diff_eq!(vec2(-0.5, 0.5), iso * point);
+    }
+
+    #[test]
+    fn transform_3d() {
+        let iso = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_y(FRAC_PI_2));
+        let point = vec3(1.0, 1.0, 1.0);
+        assert_abs_diff_eq!(vec3(2.0, 1.0, -1.0), iso * point);
     }
 }
