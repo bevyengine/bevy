@@ -1,7 +1,7 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::core_2d::{Camera2d, Transparent2d};
 use bevy_core_pipeline::tonemapping::{
     get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
 };
@@ -611,7 +611,7 @@ pub fn prepare_mesh2d_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
+    views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
