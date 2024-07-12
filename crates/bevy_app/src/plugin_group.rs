@@ -27,7 +27,7 @@ impl PluginGroup for PluginGroupBuilder {
     }
 }
 
-// Helper method to get the `TypeId` of a value without having to name its type.
+/// Helper method to get the [`TypeId`] of a value without having to name its type.
 fn type_id_of_val<T: 'static>(_: &T) -> TypeId {
     TypeId::of::<T>()
 }
