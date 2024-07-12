@@ -363,14 +363,10 @@ impl FromIterator<Box<dyn Reflect>> for DynamicArray {
 
 impl<T: Reflect> FromIterator<T> for DynamicArray {
     fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
-        Self {
-            represented_type: None,
-            values: values
-                .into_iter()
-                .map(|field| Box::new(field) as Box<dyn Reflect>)
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        }
+        values
+            .into_iter()
+            .map(|value| Box::new(value).into_reflect())
+            .collect()
     }
 }
 

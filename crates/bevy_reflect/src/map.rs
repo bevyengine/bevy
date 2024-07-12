@@ -457,11 +457,11 @@ impl<'a> Iterator for MapIter<'a> {
 
 impl FromIterator<(Box<dyn Reflect>, Box<dyn Reflect>)> for DynamicMap {
     fn from_iter<I: IntoIterator<Item = (Box<dyn Reflect>, Box<dyn Reflect>)>>(items: I) -> Self {
-        let mut dynamic_map = Self::default();
+        let mut map = Self::default();
         for (key, value) in items.into_iter() {
-            dynamic_map.insert_boxed(key, value);
+            map.insert_boxed(key, value);
         }
-        dynamic_map
+        map
     }
 }
 

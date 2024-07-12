@@ -389,13 +389,10 @@ impl FromIterator<Box<dyn Reflect>> for DynamicList {
 
 impl<T: Reflect> FromIterator<T> for DynamicList {
     fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
-        Self {
-            represented_type: None,
-            values: values
-                .into_iter()
-                .map(|field| Box::new(field) as Box<dyn Reflect>)
-                .collect(),
-        }
+        values
+            .into_iter()
+            .map(|field| Box::new(field).into_reflect())
+            .collect()
     }
 }
 
