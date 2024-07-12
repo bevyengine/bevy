@@ -71,7 +71,8 @@ pub struct StateTransitionEvent<S: States> {
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum StateTransitionSteps {
-    /// States apply their transitions from [`NextState`] and compute functions based on their parent states.
+    /// States apply their transitions from [`NextState`](super::NextState)
+    /// and compute functions based on their parent states.
     DependentTransitions,
     /// Exit schedules are executed in leaf to root order
     ExitSchedules,

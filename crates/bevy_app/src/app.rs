@@ -318,7 +318,7 @@ impl App {
     }
 
     /// Initializes `T` event handling by inserting an event queue resource ([`Events::<T>`])
-    /// and scheduling an [`event_update_system`] in [`First`](crate::First).
+    /// and scheduling an [`event_update_system`] in [`First`].
     ///
     /// See [`Events`] for information on how to define events.
     ///
