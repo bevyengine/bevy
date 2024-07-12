@@ -50,24 +50,29 @@ use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
     bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
 };
+use bevy_math::Quat;
 use bevy_reflect::Reflect;
 use bevy_render::{
+    extract_component::ExtractComponent,
     extract_instances::ExtractInstance,
     prelude::SpatialBundle,
     render_asset::RenderAssets,
     render_resource::{
-        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
+        binding_types::{self, uniform_buffer},
+        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage, Image},
 };
+use bevy_transform::components::Transform;
 
 use std::num::NonZeroU32;
 use std::ops::Deref;
 
 use crate::{
-    add_cubemap_texture_view, binding_arrays_are_usable, LightProbe, MAX_VIEW_LIGHT_PROBES,
+    add_cubemap_texture_view, binding_arrays_are_usable, EnvironmentMapUniform, LightProbe,
+    MAX_VIEW_LIGHT_PROBES,
 };
 
 use super::{LightProbeComponent, RenderViewLightProbes};
@@ -96,6 +101,34 @@ pub struct EnvironmentMapLight {
     ///
     /// See also <https://google.github.io/filament/Filament.html#lighting/imagebasedlights/iblunit>.
     pub intensity: f32,
+
+    /// The rotation of the environment light map
+    pub rotation: Quat,
+}
+
+impl ExtractComponent for EnvironmentMapLight {
+    type QueryData = &'static Self;
+    type QueryFilter = ();
+    type Out = EnvironmentMapUniform;
+
+    fn extract_component(light: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+        Some(EnvironmentMapUniform {
+            transform: Transform::from_rotation(light.rotation)
+                .compute_matrix()
+                .inverse(),
+        })
+    }
+}
+
+impl Default for EnvironmentMapLight {
+    fn default() -> Self {
+        EnvironmentMapLight {
+            diffuse_map: Handle::default(),
+            specular_map: Handle::default(),
+            intensity: 0.0,
+            rotation: Quat::IDENTITY,
+        }
+    }
 }
 
 /// Like [`EnvironmentMapLight`], but contains asset IDs instead of handles.
@@ -193,7 +226,7 @@ impl ExtractInstance for EnvironmentMapIds {
 /// specular binding arrays respectively, in addition to the sampler.
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
-) -> [BindGroupLayoutEntryBuilder; 3] {
+) -> [BindGroupLayoutEntryBuilder; 4] {
     let mut texture_cube_binding =
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device) {
@@ -205,6 +238,7 @@ pub(crate) fn get_bind_group_layout_entries(
         texture_cube_binding,
         texture_cube_binding,
         binding_types::sampler(SamplerBindingType::Filtering),
+        uniform_buffer::<EnvironmentMapUniform>(false).visibility(ShaderStages::FRAGMENT),
     ]
 }
 
@@ -312,6 +346,7 @@ impl LightProbeComponent for EnvironmentMapLight {
             diffuse_map: diffuse_map_handle,
             specular_map: specular_map_handle,
             intensity,
+            ..
         }) = view_component
         {
             if let (Some(_), Some(specular_map)) = (

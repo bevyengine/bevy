@@ -151,6 +151,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
+            ..Default::default()
         },
     });
 }
@@ -299,6 +300,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
         diffuse_map: cubemaps.diffuse.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
         intensity: 5000.0,
+        ..Default::default()
     }
 }
 

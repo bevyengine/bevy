@@ -3,6 +3,7 @@
 #import bevy_pbr::light_probe::query_light_probe
 #import bevy_pbr::mesh_view_bindings as bindings
 #import bevy_pbr::mesh_view_bindings::light_probes
+#import bevy_pbr::mesh_view_bindings::environment_map_uniform
 #import bevy_pbr::lighting::{
     F_Schlick_vec, LayerLightingInput, LightingInput, LAYER_BASE, LAYER_CLEARCOAT
 }
@@ -57,17 +58,21 @@ fn compute_radiances(
         bindings::specular_environment_maps[query_result.texture_index]) - 1u);
 
     if (!found_diffuse_indirect) {
+        var irradiance_sample_dir = vec3(N.xy, -N.z);
+        irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
         radiances.irradiance = textureSampleLevel(
             bindings::diffuse_environment_maps[query_result.texture_index],
             bindings::environment_map_sampler,
-            vec3(N.xy, -N.z),
+            irradiance_sample_dir,
             0.0).rgb * query_result.intensity;
     }
 
+    var radiance_sample_dir = vec3(R.xy, -R.z);
+    radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
     radiances.radiance = textureSampleLevel(
         bindings::specular_environment_maps[query_result.texture_index],
         bindings::environment_map_sampler,
-        vec3(R.xy, -R.z),
+        radiance_sample_dir,
         radiance_level).rgb * query_result.intensity;
 
     return radiances;
@@ -102,17 +107,21 @@ fn compute_radiances(
     let intensity = light_probes.intensity_for_view;
 
     if (!found_diffuse_indirect) {
+        var irradiance_sample_dir = vec3(N.xy, -N.z);
+        irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
         radiances.irradiance = textureSampleLevel(
             bindings::diffuse_environment_map,
             bindings::environment_map_sampler,
-            vec3(N.xy, -N.z),
+            irradiance_sample_dir,
             0.0).rgb * intensity;
     }
 
+    var radiance_sample_dir = vec3(R.xy, -R.z);
+    radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
     radiances.radiance = textureSampleLevel(
         bindings::specular_environment_map,
         bindings::environment_map_sampler,
-        vec3(R.xy, -R.z),
+        radiance_sample_dir,
         radiance_level).rgb * intensity;
 
     return radiances;

@@ -148,3 +148,7 @@ struct ScreenSpaceReflectionsSettings {
     bisection_steps: u32,
     use_secant: u32,
 };
+
+struct EnvironmentMapUniform {
+    transform: mat4x4<f32>,
+};

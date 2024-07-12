@@ -15,6 +15,7 @@ use bevy_ecs::{
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
     extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
@@ -296,6 +297,11 @@ impl LightProbe {
     }
 }
 
+#[derive(Component, ShaderType, Clone)]
+pub struct EnvironmentMapUniform {
+    transform: Mat4,
+}
+
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -320,6 +326,10 @@ impl Plugin for LightProbePlugin {
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
             .register_type::<IrradianceVolume>();
+        app.add_plugins((
+            ExtractComponentPlugin::<EnvironmentMapLight>::default(),
+            UniformComponentPlugin::<EnvironmentMapUniform>::default(),
+        ));
     }
 
     fn finish(&self, app: &mut App) {
