@@ -62,7 +62,7 @@ pub trait AppExtStates {
 /// Helper function to panic if [`StatesPlugin`] is not installed.
 fn panic_if_no_states_plugin_installed(app: &SubApp) {
     if !app.is_plugin_added::<StatesPlugin>() {
-        panic!("States were added to the app, but `StatesPlugin` is not installed.");
+        panic!("Missing `StatesPlugin`. Did you forget to add `StatesPlugin` or `DefaultPlugins` before adding states to the `App`?");
     }
 }
 
