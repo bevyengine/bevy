@@ -20,7 +20,9 @@ pub trait Context {
     const IS_FIXED_UPDATE: bool = false;
 }
 
+/// A tuple of [`Time`]s.
 pub trait TimesWithContext: sealed::Sealed {
+    /// They system parameter to access these resources.
     type AsSystemParam<'w>: ReadOnlySystemParam;
 
     #[doc(hidden)]

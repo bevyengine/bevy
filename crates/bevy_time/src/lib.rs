@@ -20,6 +20,7 @@ mod timer;
 mod virt;
 
 pub use components::*;
+pub use context::*;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;

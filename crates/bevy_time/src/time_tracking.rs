@@ -17,9 +17,7 @@ pub trait TimeTracker {
     /// The time source this time tracker tracker tracks in [`update`](TimeTracker::update).
     type Time: TimesWithContext;
 
-    /// Updates this time tracker with the data from the [`UpdateSource`](TimeTracker::UpdateSource).
-    ///
-    /// If this time tracker was registered with [register_time_tracker](TimeTrackingAppExtension::register_time_tracker) this will be called in the [`First`] schedule.
+    /// Updates this time tracker with the data from [`Time`](TimeTracker::Time).
     fn update(
         &mut self,
         time: &<<Self::Time as TimesWithContext>::AsSystemParam<'_> as SystemParam>::Item<'_, '_>,
@@ -45,7 +43,7 @@ pub fn update_time_tracker<T>(
 {
     let inner = time.into_inner();
     for mut us in &mut us {
-        us.update(&inner)
+        us.update(&inner);
     }
 }
 
@@ -75,7 +73,7 @@ where
     }
 }
 
-/// A extension to the bevy_app to allow registering time trackers.
+/// A extension to [`App`] to allow registering time trackers.
 pub trait TimeTrackingAppExtension: sealed::Sealed {
     /// Registers a time tracker to be automatically updated.
     fn register_time_tracker<T>(&mut self) -> &mut Self

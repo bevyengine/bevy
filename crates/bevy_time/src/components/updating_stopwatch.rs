@@ -6,13 +6,24 @@ use bevy_utils::Duration;
 
 use crate::{context::Context, Stopwatch, Time, TimeTracker};
 
+/// A version of a [`Stopwatch`] that acts as a component.
+///
+/// The generic `T` defines what [`Time<T>`](Time) this stopwatch will follow.
+///
+/// # Fixed update
+/// If this stopwatch is set to track [`Time<Fixed>`](crate::Fixed) it will report incorrect information when read outside of [`FixedUpdate`](bevy_app::FixedUpdate).
+/// Conversely when not set to track fixed time this stopwatch will report incorrect information when not read in `FixedUpdate`. If you need a stopwatch that works
+/// in both contexts use a [`MixedStopwatch`](super::MixedStopwatch).
 #[derive(Component)]
 pub struct UpdatingStopwatch<T> {
-    pub watch: Stopwatch,
+    watch: Stopwatch,
     tracking: PhantomData<T>,
 }
 
 impl<T> UpdatingStopwatch<T> {
+    /// Creates a new [`UpdatingStopwatch`] from the given [`Stopwatch`].
+    ///
+    /// See [`Stopwatch::new`].
     pub fn new(watch: Stopwatch) -> Self {
         Self {
             watch,
@@ -20,32 +31,42 @@ impl<T> UpdatingStopwatch<T> {
         }
     }
 
+    /// Returns the elapsed time since the last [`reset`](UpdatingStopwatch::reset)
+    /// of the stopwatch.
     pub fn elapsed(&self) -> Duration {
         self.watch.elapsed()
     }
 
+    /// Returns the elapsed time since the last [`reset`](Stopwatch::reset)
+    /// of the stopwatch, in seconds.
     pub fn elapsed_secs(&self) -> f32 {
         self.watch.elapsed_secs()
     }
 
+    /// Returns the elapsed time since the last [`reset`](Stopwatch::reset)
+    /// of the stopwatch, in seconds, as f64.
     pub fn elapsed_secs_f64(&self) -> f64 {
         self.watch.elapsed_secs_f64()
     }
 
+    /// Pauses the stopwatch.
     pub fn pause(&mut self) {
-        self.watch.pause()
+        self.watch.pause();
     }
 
+    /// Unpauses the stopwatch.
     pub fn unpause(&mut self) {
-        self.watch.unpause()
+        self.watch.unpause();
     }
 
+    /// Returns `true` if the stopwatch is paused.
     pub fn paused(&self) -> bool {
         self.watch.paused()
     }
 
+    /// Resets the stopwatch. The reset doesn't affect the paused state of the stopwatch.
     pub fn reset(&mut self) {
-        self.watch.reset()
+        self.watch.reset();
     }
 }
 
@@ -64,7 +85,7 @@ impl<T> Clone for UpdatingStopwatch<T> {
     fn clone(&self) -> Self {
         Self {
             watch: self.watch.clone(),
-            tracking: self.tracking.clone(),
+            tracking: self.tracking,
         }
     }
 }
