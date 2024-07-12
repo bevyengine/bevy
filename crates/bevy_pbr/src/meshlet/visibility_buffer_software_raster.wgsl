@@ -62,15 +62,15 @@ fn rasterize_cluster(
     if triangle_id >= meshlet.triangle_count { return; }
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
     let vertex_ids = vec3(get_meshlet_index(index_ids[0]), get_meshlet_index(index_ids[1]), get_meshlet_index(index_ids[2]));
-    let vertex_1 = screen_space_vertices[vertex_ids[0]];
-    let vertex_2 = screen_space_vertices[vertex_ids[1]];
-    let vertex_3 = screen_space_vertices[vertex_ids[2]];
+    let vertex_0 = screen_space_vertices[vertex_ids[0]];
+    let vertex_1 = screen_space_vertices[vertex_ids[1]];
+    let vertex_2 = screen_space_vertices[vertex_ids[2]];
 
     // Compute triangle bounding box
-    var min_x = floor(min3(vertex_1.x, vertex_2.x, vertex_3.x));
-    var min_y = floor(min3(vertex_1.y, vertex_2.y, vertex_3.y));
-    var max_x = ceil(max3(vertex_1.x, vertex_2.x, vertex_3.x));
-    var max_y = ceil(max3(vertex_1.y, vertex_2.y, vertex_3.y));
+    var min_x = floor(min3(vertex_0.x, vertex_1.x, vertex_2.x));
+    var min_y = floor(min3(vertex_0.y, vertex_1.y, vertex_2.y));
+    var max_x = ceil(max3(vertex_0.x, vertex_1.x, vertex_2.x));
+    var max_y = ceil(max3(vertex_0.y, vertex_1.y, vertex_2.y));
 
     // Clip triangle bounding box against screen bounds
     min_x = max(min_x, 0.0);
@@ -78,43 +78,61 @@ fn rasterize_cluster(
     max_x = min(max_x, view.viewport.z - 1.0);
     max_y = min(max_y, view.viewport.w - 1.0);
 
-    let cluster_id_packed = cluster_id << 6u;
-    let double_triangle_area = edge_function(vertex_1.xy, vertex_2.xy, vertex_3.xy);
+    // Setup initial edge functions
+    let a = vec3(vertex_1.y - vertex_2.y, vertex_2.y - vertex_0.y, vertex_0.y - vertex_1.y);
+    let b = vec3(vertex_2.x - vertex_1.x, vertex_0.x - vertex_2.x, vertex_1.x - vertex_0.x);
+    var w_row = vec3(
+        edge_function(vertex_1.xy, vertex_2.xy, vec2(min_x, min_y) + 0.5),
+        edge_function(vertex_2.xy, vertex_0.xy, vec2(min_x, min_y) + 0.5),
+        edge_function(vertex_0.xy, vertex_1.xy, vec2(min_x, min_y) + 0.5),
+    );
+    let double_triangle_area = edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy);
+
+    let vertices_z = vec3(vertex_0.z, vertex_1.z, vertex_2.z);
+    let view_width = u32(view.viewport.z);
+    let packed_ids = (cluster_id << 6u) | triangle_id;
 
     // Iterate over every pixel in the triangle's bounding box
     for (var y = min_y; y <= max_y; y += 1.0) {
+        var w = w_row;
+
         for (var x = min_x; x <= max_x; x += 1.0) {
+            // Use pixel center
             let x = x + 0.5;
             let y = y + 0.5;
 
-            // Calculate edge functions for the current pixel
-            let w0 = edge_function(vertex_2.xy, vertex_3.xy, vec2(x, y));
-            let w1 = edge_function(vertex_3.xy, vertex_1.xy, vec2(x, y));
-            let w2 = edge_function(vertex_1.xy, vertex_2.xy, vec2(x, y));
-
             // Check if point at pixel is within triangle
-            if min3(w0, w1, w2) >= 0.0 {
+            if min3(w[0], w[1], w[2]) >= 0.0 {
                 // Interpolate vertex depth for the current pixel
-                let barycentrics = vec3(w0, w1, w2) / double_triangle_area;
-                let z = dot(barycentrics, vec3(vertex_1.z, vertex_2.z, vertex_3.z));
+                let z = dot(w / double_triangle_area, vertices_z);
 
-                let frag_coord_1d = u32(y) * u32(view.viewport.z) + u32(x);
-
-                // TODO: Remove dummy
-#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-                let depth = bitcast<u32>(z);
-                let visibility = (u64(depth) << 32u) | u64(cluster_id_packed | triangle_id);
-                let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
-#else ifdef DEPTH_CLAMP_ORTHO
-                let depth = bitcast<u32>(z); // TODO: unclamped_clip_depth
-                let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
-#else
-                let depth = bitcast<u32>(z);
-                let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
-#endif
+                // Write pixel to visibility buffer
+                let frag_coord_1d = u32(y) * view_width + u32(x);
+                write_visibility_buffer_pixel(frag_coord_1d, z, packed_ids);
             }
+
+            // Increment edge functions along the X-axis
+            w += a;
         }
+
+        // Increment edge functions along the Y-axis
+        w_row += b;
     }
+}
+
+// TODO: Remove dummy
+fn write_visibility_buffer_pixel(frag_coord_1d: u32, z: f32, packed_ids: u32) {
+#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    let depth = bitcast<u32>(z);
+    let visibility = (u64(depth) << 32u) | u64(packed_ids);
+    let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
+#else ifdef DEPTH_CLAMP_ORTHO
+    let depth = bitcast<u32>(z); // TODO: unclamped_clip_depth
+    let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+#else
+    let depth = bitcast<u32>(z);
+    let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+#endif
 }
 
 fn edge_function(a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {
