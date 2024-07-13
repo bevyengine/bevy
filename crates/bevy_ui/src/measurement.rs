@@ -16,18 +16,20 @@ impl std::fmt::Debug for ContentSize {
     }
 }
 
+pub struct MeasureArgs<'a> {
+    pub width: Option<f32>,
+    pub height: Option<f32>,
+    pub available_width: AvailableSpace,
+    pub available_height: AvailableSpace,
+    #[cfg(feature = "bevy_text")]
+    pub font_system: &'a mut bevy_text::cosmic_text::FontSystem,
+}
+
 /// A `Measure` is used to compute the size of a ui node
 /// when the size of that node is based on its content.
 pub trait Measure: Send + Sync + 'static {
     /// Calculate the size of the node given the constraints.
-    fn measure(
-        &self,
-        width: Option<f32>,
-        height: Option<f32>,
-        available_width: AvailableSpace,
-        available_height: AvailableSpace,
-        style: &taffy::Style,
-    ) -> Vec2;
+    fn measure(&mut self, measure_args: MeasureArgs<'_>, style: &taffy::Style) -> Vec2;
 }
 
 /// A type to serve as Taffy's node context (which allows the content size of leaf nodes to be computed)
@@ -43,28 +45,13 @@ pub enum NodeMeasure {
 }
 
 impl Measure for NodeMeasure {
-    fn measure(
-        &self,
-        width: Option<f32>,
-        height: Option<f32>,
-        available_width: AvailableSpace,
-        available_height: AvailableSpace,
-        style: &taffy::Style,
-    ) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
         match self {
-            NodeMeasure::Fixed(fixed) => {
-                fixed.measure(width, height, available_width, available_height, style)
-            }
+            NodeMeasure::Fixed(fixed) => fixed.measure(measure_args, style),
             #[cfg(feature = "bevy_text")]
-            NodeMeasure::Text(text) => {
-                text.measure(width, height, available_width, available_height, style)
-            }
-            NodeMeasure::Image(image) => {
-                image.measure(width, height, available_width, available_height, style)
-            }
-            NodeMeasure::Custom(custom) => {
-                custom.measure(width, height, available_width, available_height, style)
-            }
+            NodeMeasure::Text(text) => text.measure(measure_args, style),
+            NodeMeasure::Image(image) => image.measure(measure_args, style),
+            NodeMeasure::Custom(custom) => custom.measure(measure_args, style),
         }
     }
 }
@@ -77,14 +64,7 @@ pub struct FixedMeasure {
 }
 
 impl Measure for FixedMeasure {
-    fn measure(
-        &self,
-        _: Option<f32>,
-        _: Option<f32>,
-        _: AvailableSpace,
-        _: AvailableSpace,
-        _: &taffy::Style,
-    ) -> Vec2 {
+    fn measure(&mut self, _: MeasureArgs, _: &taffy::Style) -> Vec2 {
         self.size
     }
 }

@@ -1,4 +1,4 @@
-use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState};
+use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
@@ -448,5 +448,13 @@ impl SubApps {
     /// Returns a mutable iterator over the sub-apps (starting with the main one).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SubApp> + '_ {
         std::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+    }
+
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
+        if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
+            sub_app.extract(&mut self.main.world);
+            sub_app.update();
+        }
     }
 }

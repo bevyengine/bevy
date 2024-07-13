@@ -76,7 +76,7 @@ impl EmbeddedAssetRegistry {
             let root_paths = self.root_paths.clone();
             let dir = self.dir.clone();
             let processed_root_paths = self.root_paths.clone();
-            let processd_dir = self.dir.clone();
+            let processed_dir = self.dir.clone();
             source = source
                 .with_watcher(move |sender| {
                     Some(Box::new(EmbeddedWatcher::new(
@@ -88,7 +88,7 @@ impl EmbeddedAssetRegistry {
                 })
                 .with_processed_watcher(move |sender| {
                     Some(Box::new(EmbeddedWatcher::new(
-                        processd_dir.clone(),
+                        processed_dir.clone(),
                         processed_root_paths.clone(),
                         sender,
                         std::time::Duration::from_millis(300),

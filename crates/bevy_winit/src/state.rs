@@ -2,7 +2,7 @@ use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
 use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
 use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{EventWriter, ManualEventReader};
+use bevy_ecs::event::{EventCursor, EventWriter};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::FromWorld;
@@ -54,10 +54,12 @@ struct WinitAppRunnerState<T: Event> {
     window_event_received: bool,
     /// Is `true` if a new [`DeviceEvent`] event has been received since the last update.
     device_event_received: bool,
-    /// Is `true` if a new [`T`] event has been received since the last update.
+    /// Is `true` if a new `T` event has been received since the last update.
     user_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
     redraw_requested: bool,
+    /// Is `true` if the app has already updated since the last redraw.
+    ran_update_since_last_redraw: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
     wait_elapsed: bool,
     /// Number of "forced" updates to trigger on application start
@@ -104,6 +106,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             device_event_received: false,
             user_event_received: false,
             redraw_requested: false,
+            ran_update_since_last_redraw: false,
             wait_elapsed: false,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
@@ -369,6 +372,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::Destroyed => {
                 self.winit_events.send(WindowDestroyed { window });
             }
+            WindowEvent::RedrawRequested => {
+                self.ran_update_since_last_redraw = false;
+            }
             _ => {}
         }
 
@@ -402,7 +408,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         create_windows(event_loop, create_window.get_mut(self.world_mut()));
         create_window.apply(self.world_mut());
 
-        let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
+        let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
@@ -499,7 +505,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         if should_update {
             // Not redrawing, but the timeout elapsed.
-            self.run_app_update();
+            if !self.ran_update_since_last_redraw {
+                self.run_app_update();
+                self.ran_update_since_last_redraw = true;
+            } else {
+                self.redraw_requested = true;
+            }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());
@@ -728,7 +739,7 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 }
 
-/// The default [`App::runner`] for the [`WinitPlugin`] plugin.
+/// The default [`App::runner`] for the [`WinitPlugin`](crate::WinitPlugin) plugin.
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.

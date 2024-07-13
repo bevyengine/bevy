@@ -242,10 +242,6 @@ impl MeshLayouts {
                     // The current frame's morph weight buffer.
                     (2, layout_entry::weights()),
                     (3, layout_entry::targets()),
-                    // The previous frame's joint matrix buffer.
-                    (6, layout_entry::skinning()),
-                    // The previous frame's morph weight buffer.
-                    (7, layout_entry::weights()),
                 ),
             ),
         )

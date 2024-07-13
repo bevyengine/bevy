@@ -209,10 +209,8 @@ pub struct GltfNode {
     pub index: usize,
     /// Computed name for a node - either a user defined node name from gLTF or a generated name from index
     pub name: String,
-    /// Subasset label for this node within the gLTF parent asset.
-    pub asset_label: GltfAssetLabel,
     /// Direct children of the node.
-    pub children: Vec<GltfNode>,
+    pub children: Vec<Handle<GltfNode>>,
     /// Mesh of the node.
     pub mesh: Option<Handle<GltfMesh>>,
     /// Local transform.
@@ -225,14 +223,13 @@ impl GltfNode {
     /// Create a node extracting name and index from glTF def
     pub fn new(
         node: &gltf::Node,
-        children: Vec<GltfNode>,
+        children: Vec<Handle<GltfNode>>,
         mesh: Option<Handle<GltfMesh>>,
         transform: bevy_transform::prelude::Transform,
         extras: Option<GltfExtras>,
     ) -> Self {
         Self {
             index: node.index(),
-            asset_label: GltfAssetLabel::Node(node.index()),
             name: if let Some(name) = node.name() {
                 name.to_string()
             } else {
@@ -243,6 +240,11 @@ impl GltfNode {
             transform,
             extras,
         }
+    }
+
+    /// Subasset label for this node within the gLTF parent asset.
+    pub fn asset_label(&self) -> GltfAssetLabel {
+        GltfAssetLabel::Node(self.index)
     }
 }
 
@@ -256,8 +258,6 @@ pub struct GltfMesh {
     pub index: usize,
     /// Computed name for a mesh - either a user defined mesh name from gLTF or a generated name from index
     pub name: String,
-    /// Subasset label for this mesh within the gLTF parent asset.
-    pub asset_label: GltfAssetLabel,
     /// Primitives of the glTF mesh.
     pub primitives: Vec<GltfPrimitive>,
     /// Additional data.
@@ -273,7 +273,6 @@ impl GltfMesh {
     ) -> Self {
         Self {
             index: mesh.index(),
-            asset_label: GltfAssetLabel::Mesh(mesh.index()),
             name: if let Some(name) = mesh.name() {
                 name.to_string()
             } else {
@@ -282,6 +281,11 @@ impl GltfMesh {
             primitives,
             extras,
         }
+    }
+
+    /// Subasset label for this mesh within the gLTF parent asset.
+    pub fn asset_label(&self) -> GltfAssetLabel {
+        GltfAssetLabel::Mesh(self.index)
     }
 }
 
@@ -292,10 +296,10 @@ impl GltfMesh {
 pub struct GltfPrimitive {
     /// Index of the primitive inside the mesh
     pub index: usize,
+    /// Index of the parent [`GltfMesh`] of this primitive
+    pub parent_mesh_index: usize,
     /// Computed name for a primitive - either a user defined primitive name from gLTF or a generated name from index
     pub name: String,
-    /// Subasset label for this mesh within the gLTF parent asset.
-    pub asset_label: GltfAssetLabel,
     /// Topology to be rendered.
     pub mesh: Handle<Mesh>,
     /// Material to apply to the `mesh`.
@@ -318,6 +322,7 @@ impl GltfPrimitive {
     ) -> Self {
         GltfPrimitive {
             index: gltf_primitive.index(),
+            parent_mesh_index: gltf_mesh.index(),
             name: {
                 let mesh_name = gltf_mesh.name().unwrap_or("Mesh");
                 if gltf_mesh.primitives().len() > 1 {
@@ -326,14 +331,18 @@ impl GltfPrimitive {
                     mesh_name.to_string()
                 }
             },
-            asset_label: GltfAssetLabel::Primitive {
-                mesh: gltf_mesh.index(),
-                primitive: gltf_primitive.index(),
-            },
             mesh,
             material,
             extras,
             material_extras,
+        }
+    }
+
+    /// Subasset label for this primitive within its parent [`GltfMesh`] within the gLTF parent asset.
+    pub fn asset_label(&self) -> GltfAssetLabel {
+        GltfAssetLabel::Primitive {
+            mesh: self.parent_mesh_index,
+            primitive: self.index,
         }
     }
 }
@@ -405,7 +414,7 @@ pub struct GltfMaterialExtras {
 ///     let gltf_scene: Handle<Scene> = asset_server.load(format!("models/FlightHelmet/FlightHelmet.gltf#{}", GltfAssetLabel::Scene(0)));
 /// }
 /// ```
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GltfAssetLabel {
     /// `Scene{}`: glTF Scene as a Bevy `Scene`
     Scene(usize),
