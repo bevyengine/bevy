@@ -36,7 +36,7 @@ use crate::{
 /// A plugin that provides memory management services for mesh data.
 pub struct MeshAllocatorPlugin;
 
-/// Manages the assignment of mesh data to hardware buffers.
+/// Manages the assignment of mesh data to GPU buffers.
 ///
 /// The Bevy renderer tries to pack vertex and index data for multiple meshes
 /// together so that multiple meshes can be drawn back-to-back without any
@@ -117,6 +117,21 @@ pub struct MeshAllocatorSettings {
     ///
     /// The default value is 1.5.
     pub growth_factor: f64,
+}
+
+impl Default for MeshAllocatorSettings {
+    fn default() -> Self {
+        Self {
+            // 1MB
+            min_slab_size: 1024 * 1024,
+            // 512MB
+            max_slab_size: 1024 * 1024 * 512,
+            // 256MB
+            large_threshold: 1024 * 1024 * 256,
+            // 1.5× growth
+            growth_factor: 1.5,
+        }
+    }
 }
 
 /// The hardware buffer that mesh data lives in, as well as the range within
@@ -216,7 +231,7 @@ enum ElementClass {
 /// Slab objects are allocated in units of *slots*. Usually, each element takes
 /// up one slot, and so elements and slots are equivalent. Occasionally,
 /// however, a slot may consist of 2 or even 4 elements. This occurs when the
-/// size of an element isn't divisible by [`COPY_BUFFER_ALIGNMENT`] (4). When we
+/// size of an element isn't divisible by [`COPY_BUFFER_ALIGNMENT`]. When we
 /// resize buffers, we perform GPU-to-GPU copies to shuffle the existing
 /// elements into their new positions, and such copies must be on
 /// [`COPY_BUFFER_ALIGNMENT`] boundaries. Slots solve this problem by
@@ -267,21 +282,6 @@ struct SlabToReallocate {
     /// Maps all allocations that need to be relocated to their positions within
     /// the *new* slab.
     allocations_to_copy: HashMap<AssetId<Mesh>, SlabAllocation>,
-}
-
-impl Default for MeshAllocatorSettings {
-    fn default() -> Self {
-        Self {
-            // 1MB
-            min_slab_size: 1024 * 1024,
-            // 512MB
-            max_slab_size: 1024 * 1024 * 512,
-            // 256MB
-            large_threshold: 1024 * 1024 * 256,
-            // 1.5× growth
-            growth_factor: 1.5,
-        }
-    }
 }
 
 impl Display for SlabId {
