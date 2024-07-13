@@ -6,7 +6,7 @@ use crate::func::args::Ownership;
 
 /// An error that occurs when converting an [argument].
 ///
-/// [argument]: crate::func::Arg
+/// [argument]: crate::func::args::Arg
 #[derive(Debug, Error, PartialEq)]
 pub enum ArgError {
     /// The argument is not the expected type.
