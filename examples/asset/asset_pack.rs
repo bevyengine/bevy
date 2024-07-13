@@ -12,6 +12,7 @@ fn main() {
 }
 
 #[derive(AssetPack)]
+#[src_path = "examples/asset"] //necessary to specify crate root, like you would with `embedded_asset`
 struct ExampleAssetPack {
     #[embedded("files/bevy_pixel_dark.png")]
     sprite: Handle<Image>,

@@ -2,9 +2,9 @@
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-use bevy_macro_utils::{get_struct_fields, BevyManifest};
+use bevy_macro_utils::{get_lit_str, get_struct_fields, BevyManifest, Symbol};
 use proc_macro::{Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, Data, DeriveInput, Field, Path};
 
 pub(crate) fn bevy_app_path() -> Path {
@@ -130,8 +130,9 @@ fn derive_dependency_visitor_internal(
 
 const EMBEDDED_ATTRIBUTE: &str = "embedded";
 const LOAD_ATTRIBUTE: &str = "load";
+const ASSET_SRC_ATTRIBUTE: &str = "src_path";
 
-#[proc_macro_derive(AssetPack, attributes(embedded, load))]
+#[proc_macro_derive(AssetPack, attributes(embedded, load, src_path))]
 pub fn derive_asset_pack(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let bevy_app_path: Path = bevy_app_path();
@@ -184,7 +185,7 @@ impl FieldLoadMethod {
     fn init(&self, bevy_asset_path: &Path) -> proc_macro2::TokenStream {
         match self {
             FieldLoadMethod::Embedded(_, path) => match path {
-                Ok(path) => quote!(#bevy_asset_path::embedded_asset!(app, #path);),
+                Ok(path) => quote!(#bevy_asset_path::embedded_asset!(app, SRC_PATH, #path);),
                 Err(err) => err.to_compile_error(),
             },
             _ => proc_macro2::TokenStream::new(),
@@ -195,8 +196,7 @@ impl FieldLoadMethod {
         match self {
             FieldLoadMethod::Embedded(ident, path) => match path {
                 Ok(path) => quote!(#ident: {
-                    let embedded_path = #bevy_asset_path::embedded_path!(#path);
-                    let embedded_source_id = #bevy_asset_path::io::AssetSourceId::from("embedded");
+                    let embedded_path = #bevy_asset_path::embedded_path!(SRC_PATH, #path);
                     let asset_path = #bevy_asset_path::AssetPath::from_path(embedded_path.as_path()).with_source(embedded_source_id);
                     asset_server.load(asset_path)
                 },),
@@ -219,10 +219,30 @@ fn derive_asset_pack_internal(
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let src_path = ast
+        .attrs
+        .iter()
+        .find_map(|attr| match &attr.meta {
+            syn::Meta::NameValue(syn::MetaNameValue { path, value, .. }) => {
+                if path.is_ident(ASSET_SRC_ATTRIBUTE) {
+                    Some(get_lit_str(Symbol("src_path"), value).cloned())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .unwrap_or_else(|| Ok(syn::LitStr::new("src", proc_macro2::Span::call_site())));
+
+    let src_path_tokens = match src_path {
+        Ok(path) => path.into_token_stream(),
+        Err(err) => err.to_compile_error(),
+    };
+
     let fields = get_struct_fields(&ast.data)?;
 
     let load_methods = fields.iter().map(FieldLoadMethod::new).collect::<Vec<_>>();
-    let error = load_methods.iter().map(|field| field.error());
+    let error = load_methods.iter().map(FieldLoadMethod::error);
     let init = load_methods.iter().map(|field| field.init(bevy_asset_path));
     let load = load_methods.iter().map(|field| field.load(bevy_asset_path));
 
@@ -231,10 +251,13 @@ fn derive_asset_pack_internal(
 
         impl #impl_generics #bevy_asset_path::io::pack::AssetPack for #struct_name #type_generics #where_clause {
             fn init(app: &mut #bevy_app_path::App) {
+                const SRC_PATH: &str = #src_path_tokens;
                 #(#init)*
             }
 
             fn load(asset_server: &#bevy_asset_path::AssetServer) -> Self {
+                const SRC_PATH: &str = #src_path_tokens;
+                let embedded_source_id = #bevy_asset_path::io::AssetSourceId::from("embedded");
                 Self {
                     #(#load)*
                 }
