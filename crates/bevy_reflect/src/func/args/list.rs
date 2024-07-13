@@ -258,3 +258,91 @@ impl<'a> ArgList<'a> {
         self.0.is_empty()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_push_arguments_in_order() {
+        let args = ArgList::new()
+            .push_owned(123)
+            .push_owned(456)
+            .push_owned(789);
+
+        assert_eq!(args.len(), 3);
+        assert_eq!(args.0[0].index(), 0);
+        assert_eq!(args.0[1].index(), 1);
+        assert_eq!(args.0[2].index(), 2);
+    }
+
+    #[test]
+    fn should_push_arg_with_correct_ownership() {
+        let a = String::from("a");
+        let b = String::from("b");
+        let mut c = String::from("c");
+        let d = String::from("d");
+        let e = String::from("e");
+        let f = String::from("f");
+        let mut g = String::from("g");
+
+        let args = ArgList::new()
+            .push_arg(ArgValue::Owned(Box::new(a)))
+            .push_arg(ArgValue::Ref(&b))
+            .push_arg(ArgValue::Mut(&mut c))
+            .push_owned(d)
+            .push_boxed(Box::new(e))
+            .push_ref(&f)
+            .push_mut(&mut g);
+
+        assert!(matches!(args.0[0].value(), &ArgValue::Owned(_)));
+        assert!(matches!(args.0[1].value(), &ArgValue::Ref(_)));
+        assert!(matches!(args.0[2].value(), &ArgValue::Mut(_)));
+        assert!(matches!(args.0[3].value(), &ArgValue::Owned(_)));
+        assert!(matches!(args.0[4].value(), &ArgValue::Owned(_)));
+        assert!(matches!(args.0[5].value(), &ArgValue::Ref(_)));
+        assert!(matches!(args.0[6].value(), &ArgValue::Mut(_)));
+    }
+
+    #[test]
+    fn should_take_args_in_order() {
+        let a = String::from("a");
+        let b = 123_i32;
+        let c = 456_usize;
+        let mut d = 5.78_f32;
+
+        let mut args = ArgList::new()
+            .push_owned(a)
+            .push_ref(&b)
+            .push_ref(&c)
+            .push_mut(&mut d);
+
+        assert_eq!(args.len(), 4);
+        assert_eq!(args.next_owned::<String>().unwrap(), String::from("a"));
+        assert_eq!(args.next::<&i32>().unwrap(), &123);
+        assert_eq!(args.next_ref::<usize>().unwrap(), &456);
+        assert_eq!(args.next_mut::<f32>().unwrap(), &mut 5.78);
+        assert_eq!(args.len(), 0);
+    }
+
+    #[test]
+    fn should_pop_args_in_reverse_order() {
+        let a = String::from("a");
+        let b = 123_i32;
+        let c = 456_usize;
+        let mut d = 5.78_f32;
+
+        let mut args = ArgList::new()
+            .push_owned(a)
+            .push_ref(&b)
+            .push_ref(&c)
+            .push_mut(&mut d);
+
+        assert_eq!(args.len(), 4);
+        assert_eq!(args.pop_mut::<f32>().unwrap(), &mut 5.78);
+        assert_eq!(args.pop_ref::<usize>().unwrap(), &456);
+        assert_eq!(args.pop::<&i32>().unwrap(), &123);
+        assert_eq!(args.pop_owned::<String>().unwrap(), String::from("a"));
+        assert_eq!(args.len(), 0);
+    }
+}
