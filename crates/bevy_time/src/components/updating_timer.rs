@@ -4,6 +4,9 @@ use std::marker::PhantomData;
 use bevy_ecs::component::Component;
 use bevy_utils::Duration;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
+
 use crate::{context::Context, Time, TimeTracker, Timer, TimerMode};
 
 /// A version of a [`Timer`] that acts as a component.
@@ -15,8 +18,12 @@ use crate::{context::Context, Time, TimeTracker, Timer, TimerMode};
 /// Conversely when not set to track fixed time this timer will report incorrect information when not read in `FixedUpdate`. If you need a timer that works
 /// in both contexts use a [`MixedTimer`](super::MixedTimer).
 #[derive(Component)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub struct UpdatingTimer<T> {
     timer: Timer,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     tracking: PhantomData<T>,
 }
 
@@ -180,3 +187,9 @@ impl<T> PartialEq for UpdatingTimer<T> {
 }
 
 impl<T> Eq for UpdatingTimer<T> {}
+
+impl<C> From<Timer> for UpdatingTimer<C> {
+    fn from(value: Timer) -> Self {
+        Self::new(value)
+    }
+}

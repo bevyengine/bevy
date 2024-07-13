@@ -1,6 +1,9 @@
 use bevy_ecs::component::Component;
 use bevy_utils::Duration;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
+
 use crate::{Fixed, Time, TimeTracker, Timer, TimerMode, UpdatingTimer, Virtual};
 
 use super::TrackedTime;
@@ -15,6 +18,8 @@ use super::TrackedTime;
 ///
 /// Note that unlike [`Timer`] this timer will advanced automatically once attached to an entity.
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub struct MixedTimer {
     fixed: UpdatingTimer<Fixed>,
     virt: UpdatingTimer<Virtual>,
@@ -206,5 +211,11 @@ impl TimeTracker for MixedTimer {
 
     fn exit_fixed_update(&mut self) {
         self.tracked = TrackedTime::Virtual;
+    }
+}
+
+impl From<Timer> for MixedTimer {
+    fn from(value: Timer) -> Self {
+        Self::new(value)
     }
 }

@@ -3,12 +3,17 @@ use bevy_utils::Duration;
 
 use crate::{Fixed, Stopwatch, Time, TimeTracker, UpdatingStopwatch, Virtual};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
+
 use super::TrackedTime;
 
 /// A stopwatch component that tracks time elapsed when started.
 ///
 /// Note unlike [`Stopwatch`] this stopwatch will automatically advance when attached to an entity.
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub struct MixedStopwatch {
     fixed: UpdatingStopwatch<Fixed>,
     virt: UpdatingStopwatch<Virtual>,
@@ -118,5 +123,11 @@ impl TimeTracker for MixedStopwatch {
 
     fn exit_fixed_update(&mut self) {
         self.tracked = TrackedTime::Virtual;
+    }
+}
+
+impl From<Stopwatch> for MixedStopwatch {
+    fn from(value: Stopwatch) -> Self {
+        Self::new(value)
     }
 }

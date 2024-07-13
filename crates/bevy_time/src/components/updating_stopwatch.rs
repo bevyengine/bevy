@@ -4,6 +4,9 @@ use std::marker::PhantomData;
 use bevy_ecs::component::Component;
 use bevy_utils::Duration;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::*;
+
 use crate::{context::Context, Stopwatch, Time, TimeTracker};
 
 /// A version of a [`Stopwatch`] that acts as a component.
@@ -15,8 +18,12 @@ use crate::{context::Context, Stopwatch, Time, TimeTracker};
 /// Conversely when not set to track fixed time this stopwatch will report incorrect information when not read in `FixedUpdate`. If you need a stopwatch that works
 /// in both contexts use a [`MixedStopwatch`](super::MixedStopwatch).
 #[derive(Component)]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub struct UpdatingStopwatch<T> {
     watch: Stopwatch,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     tracking: PhantomData<T>,
 }
 
@@ -115,3 +122,9 @@ impl<T> PartialEq for UpdatingStopwatch<T> {
 }
 
 impl<T> Eq for UpdatingStopwatch<T> {}
+
+impl<C> From<Stopwatch> for UpdatingStopwatch<C> {
+    fn from(value: Stopwatch) -> Self {
+        Self::new(value)
+    }
+}
