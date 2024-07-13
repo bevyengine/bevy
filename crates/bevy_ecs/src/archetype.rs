@@ -121,6 +121,7 @@ pub(crate) struct AddBundle {
     /// indicate if the component is newly added to the target archetype or if it already existed
     pub bundle_status: Vec<ComponentStatus>,
     pub added: Vec<ComponentId>,
+    pub mutated: Vec<ComponentId>,
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
@@ -205,6 +206,7 @@ impl Edges {
         archetype_id: ArchetypeId,
         bundle_status: Vec<ComponentStatus>,
         added: Vec<ComponentId>,
+        mutated: Vec<ComponentId>,
     ) {
         self.add_bundle.insert(
             bundle_id,
@@ -212,6 +214,7 @@ impl Edges {
                 archetype_id,
                 bundle_status,
                 added,
+                mutated,
             },
         );
     }

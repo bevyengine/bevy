@@ -456,11 +456,13 @@ impl BundleInfo {
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.component_ids.len());
         let mut added = Vec::new();
+        let mut mutated = Vec::new();
 
         let current_archetype = &mut archetypes[archetype_id];
         for component_id in self.component_ids.iter().cloned() {
             if current_archetype.contains(component_id) {
                 bundle_status.push(ComponentStatus::Mutated);
+                mutated.push(component_id);
             } else {
                 bundle_status.push(ComponentStatus::Added);
                 added.push(component_id);
@@ -476,7 +478,7 @@ impl BundleInfo {
         if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
             let edges = current_archetype.edges_mut();
             // the archetype does not change when we add this bundle
-            edges.insert_add_bundle(self.id, archetype_id, bundle_status, added);
+            edges.insert_add_bundle(self.id, archetype_id, bundle_status, added, mutated);
             archetype_id
         } else {
             let table_id;
@@ -526,6 +528,7 @@ impl BundleInfo {
                 new_archetype_id,
                 bundle_status,
                 added,
+                mutated,
             );
             new_archetype_id
         }
@@ -676,17 +679,13 @@ impl<'w> BundleInserter<'w> {
             deferred_world.trigger_on_replace(
                 archetype,
                 entity,
-                bundle_info
-                    .iter_components()
-                    .filter(|component_id| !add_bundle.added.contains(component_id)),
+                add_bundle.mutated.iter().copied(),
             );
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(
                     ON_REPLACE,
                     entity,
-                    bundle_info
-                        .iter_components()
-                        .filter(|component_id| !add_bundle.added.contains(component_id)),
+                    add_bundle.mutated.iter().copied(),
                 );
             }
         }
