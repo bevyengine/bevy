@@ -477,7 +477,7 @@ impl MeshAllocator {
         let vertex_data = mesh.get_vertex_buffer_data();
 
         // Call the generic function.
-        self.copy_mesh_data(
+        self.copy_element_data(
             mesh_id,
             mesh,
             &vertex_data,
@@ -505,7 +505,7 @@ impl MeshAllocator {
         };
 
         // Call the generic function.
-        self.copy_mesh_data(
+        self.copy_element_data(
             mesh_id,
             mesh,
             index_data,
@@ -518,7 +518,7 @@ impl MeshAllocator {
 
     /// A generic function that copies either vertex or index data into a slab.
     #[allow(clippy::too_many_arguments)]
-    fn copy_mesh_data(
+    fn copy_element_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
         mesh: &Mesh,
