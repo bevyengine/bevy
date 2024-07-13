@@ -21,7 +21,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
 /// if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
 ///
-/// [`GlobalTransform`] is managed by Bevy; it is computed by successfully applying the [`Transform`] of each ancestor
+/// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
 /// entity which has a Transform. This is done automatically by Bevy-internal systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
