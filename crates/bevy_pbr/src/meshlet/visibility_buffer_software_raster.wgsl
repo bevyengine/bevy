@@ -120,18 +120,17 @@ fn rasterize_cluster(
     }
 }
 
-// TODO: Remove dummy
 fn write_visibility_buffer_pixel(frag_coord_1d: u32, z: f32, packed_ids: u32) {
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
     let depth = bitcast<u32>(z);
     let visibility = (u64(depth) << 32u) | u64(packed_ids);
-    let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
+    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
 #else ifdef DEPTH_CLAMP_ORTHO
     let depth = bitcast<u32>(z); // TODO: unclamped_clip_depth
-    let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
 #else
     let depth = bitcast<u32>(z);
-    let dummy = atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
 #endif
 }
 
