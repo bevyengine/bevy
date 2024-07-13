@@ -227,7 +227,7 @@ impl Time<Virtual> {
     }
 
     /// Updates the elapsed duration of `self` by `raw_delta`, up to the `max_delta`.
-    fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
+    pub fn advance_with_raw_delta(&mut self, raw_delta: Duration) {
         let max_delta = self.context().max_delta;
         let clamped_delta = if raw_delta > max_delta {
             debug!(
