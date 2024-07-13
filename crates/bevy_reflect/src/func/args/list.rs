@@ -100,9 +100,9 @@ impl<'a> ArgList<'a> {
 
     /// Remove the first argument in the list and return it.
     ///
-    /// It's generally preferred to use [`Self::next`] instead of this method
+    /// It's generally preferred to use [`Self::take`] instead of this method
     /// as it provides a more ergonomic way to immediately downcast the argument.
-    pub fn next_arg(&mut self) -> Result<Arg<'a>, ArgError> {
+    pub fn take_arg(&mut self) -> Result<Arg<'a>, ArgError> {
         self.needs_reindex = true;
         self.list.pop_front().ok_or(ArgError::EmptyArgList)
     }
@@ -120,24 +120,24 @@ impl<'a> ArgList<'a> {
     /// let mut c = 3u32;
     /// let mut args = ArgList::new().push_owned(a).push_ref(&b).push_mut(&mut c);
     ///
-    /// let a = args.next::<u32>().unwrap();
+    /// let a = args.take::<u32>().unwrap();
     /// assert_eq!(a, 1);
     ///
-    /// let b = args.next::<&u32>().unwrap();
+    /// let b = args.take::<&u32>().unwrap();
     /// assert_eq!(*b, 2);
     ///
-    /// let c = args.next::<&mut u32>().unwrap();
+    /// let c = args.take::<&mut u32>().unwrap();
     /// assert_eq!(*c, 3);
     /// ```
-    pub fn next<T: FromArg>(&mut self) -> Result<T::This<'a>, ArgError> {
-        self.next_arg()?.take::<T>()
+    pub fn take<T: FromArg>(&mut self) -> Result<T::This<'a>, ArgError> {
+        self.take_arg()?.take::<T>()
     }
 
     /// Remove the first argument in the list and return `Ok(T)` if the argument is [`ArgValue::Owned`].
     ///
     /// If the list is empty or the argument is not owned, returns an error.
     ///
-    /// It's generally preferred to use [`Self::next`] instead of this method.
+    /// It's generally preferred to use [`Self::take`] instead of this method.
     ///
     /// # Example
     ///
@@ -145,18 +145,18 @@ impl<'a> ArgList<'a> {
     /// # use bevy_reflect::func::ArgList;
     /// let value = 123u32;
     /// let mut args = ArgList::new().push_owned(value);
-    /// let value = args.next_owned::<u32>().unwrap();
+    /// let value = args.take_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
-    pub fn next_owned<T: Reflect + TypePath>(&mut self) -> Result<T, ArgError> {
-        self.next_arg()?.take_owned()
+    pub fn take_owned<T: Reflect + TypePath>(&mut self) -> Result<T, ArgError> {
+        self.take_arg()?.take_owned()
     }
 
     /// Remove the first argument in the list and return `Ok(&T)` if the argument is [`ArgValue::Ref`].
     ///
     /// If the list is empty or the argument is not a reference, returns an error.
     ///
-    /// It's generally preferred to use [`Self::next`] instead of this method.
+    /// It's generally preferred to use [`Self::take`] instead of this method.
     ///
     /// # Example
     ///
@@ -164,18 +164,18 @@ impl<'a> ArgList<'a> {
     /// # use bevy_reflect::func::ArgList;
     /// let value = 123u32;
     /// let mut args = ArgList::new().push_ref(&value);
-    /// let value = args.next_ref::<u32>().unwrap();
+    /// let value = args.take_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn next_ref<T: Reflect + TypePath>(&mut self) -> Result<&'a T, ArgError> {
-        self.next_arg()?.take_ref()
+    pub fn take_ref<T: Reflect + TypePath>(&mut self) -> Result<&'a T, ArgError> {
+        self.take_arg()?.take_ref()
     }
 
     /// Remove the first argument in the list and return `Ok(&mut T)` if the argument is [`ArgValue::Mut`].
     ///
     /// If the list is empty or the argument is not a mutable reference, returns an error.
     ///
-    /// It's generally preferred to use [`Self::next`] instead of this method.
+    /// It's generally preferred to use [`Self::take`] instead of this method.
     ///
     /// # Example
     ///
@@ -183,11 +183,11 @@ impl<'a> ArgList<'a> {
     /// # use bevy_reflect::func::ArgList;
     /// let mut value = 123u32;
     /// let mut args = ArgList::new().push_mut(&mut value);
-    /// let value = args.next_mut::<u32>().unwrap();
+    /// let value = args.take_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
-    pub fn next_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
-        self.next_arg()?.take_mut()
+    pub fn take_mut<T: Reflect + TypePath>(&mut self) -> Result<&'a mut T, ArgError> {
+        self.take_arg()?.take_mut()
     }
 
     /// Remove the last argument in the list and return it.
@@ -351,10 +351,10 @@ mod tests {
             .push_mut(&mut d);
 
         assert_eq!(args.len(), 4);
-        assert_eq!(args.next_owned::<String>().unwrap(), String::from("a"));
-        assert_eq!(args.next::<&i32>().unwrap(), &123);
-        assert_eq!(args.next_ref::<usize>().unwrap(), &456);
-        assert_eq!(args.next_mut::<f32>().unwrap(), &mut 5.78);
+        assert_eq!(args.take_owned::<String>().unwrap(), String::from("a"));
+        assert_eq!(args.take::<&i32>().unwrap(), &123);
+        assert_eq!(args.take_ref::<usize>().unwrap(), &456);
+        assert_eq!(args.take_mut::<f32>().unwrap(), &mut 5.78);
         assert_eq!(args.len(), 0);
     }
 
@@ -380,7 +380,7 @@ mod tests {
     }
 
     #[test]
-    fn should_reindex_on_push_after_removal() {
+    fn should_reindex_on_push_after_take() {
         let mut args = ArgList::new()
             .push_owned(123)
             .push_owned(456)
@@ -388,7 +388,7 @@ mod tests {
 
         assert!(!args.needs_reindex);
 
-        args.next_arg().unwrap();
+        args.take_arg().unwrap();
         assert!(args.needs_reindex);
         assert!(args.list[0].value().reflect_partial_eq(&456).unwrap());
         assert_eq!(args.list[0].index(), 1);

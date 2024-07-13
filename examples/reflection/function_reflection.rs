@@ -139,12 +139,12 @@ fn main() {
 
             // The `ArgList` contains the arguments in the order they were pushed.
             // We can retrieve them out in order (note that this modifies the `ArgList`):
-            let value = args.next::<i32>()?;
-            let container = args.next::<&mut Option<i32>>()?;
+            let value = args.take::<i32>()?;
+            let container = args.take::<&mut Option<i32>>()?;
 
             // We could have also done the following to make use of type inference:
-            // let value = args.next_owned()?;
-            // let container = args.next_mut()?;
+            // let value = args.take_owned()?;
+            // let container = args.take_mut()?;
 
             Ok(Return::Ref(get_or_insert(value, container)))
         },

@@ -101,7 +101,7 @@ macro_rules! impl_reflect_fn_mut {
                 }
 
                 // Extract all arguments (in order)
-                $(let $arg = args.next::<$Arg>()?;)*
+                $(let $arg = args.take::<$Arg>()?;)*
 
                 Ok((self)($($arg,)*).into_return())
             }
@@ -130,8 +130,8 @@ macro_rules! impl_reflect_fn_mut {
                 }
 
                 // Extract all arguments (in order)
-                let receiver = args.next_ref::<Receiver>()?;
-                $(let $arg = args.next::<$Arg>()?;)*
+                let receiver = args.take_ref::<Receiver>()?;
+                $(let $arg = args.take::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
@@ -160,8 +160,8 @@ macro_rules! impl_reflect_fn_mut {
                 }
 
                 // Extract all arguments (in order)
-                let receiver = args.next_mut::<Receiver>()?;
-                $(let $arg = args.next::<$Arg>()?;)*
+                let receiver = args.take_mut::<Receiver>()?;
+                $(let $arg = args.take::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
@@ -190,8 +190,8 @@ macro_rules! impl_reflect_fn_mut {
                 }
 
                 // Extract all arguments (in order)
-                let receiver = args.next_mut::<Receiver>()?;
-                $(let $arg = args.next::<$Arg>()?;)*
+                let receiver = args.take_mut::<Receiver>()?;
+                $(let $arg = args.take::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
