@@ -84,7 +84,7 @@ pub const VOLUMETRIC_FOG_HANDLE: Handle<Shader> = Handle::weak_from_u128(1740005
 /// A plugin that implements volumetric fog.
 pub struct VolumetricFogPlugin;
 
-/// Add this component to a [`DirectionalLight`] with a shadow map
+/// Add this component to a [`DirectionalLight`](crate::DirectionalLight) with a shadow map
 /// (`shadows_enabled: true`) to make volumetric fog interact with it.
 ///
 /// This allows the light to generate light shafts/god rays.
