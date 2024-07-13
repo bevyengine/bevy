@@ -25,6 +25,11 @@ impl<'a> Arg<'a> {
         self.index
     }
 
+    /// Set the index of the argument.
+    pub(crate) fn set_index(&mut self, index: usize) {
+        self.index = index;
+    }
+
     /// The value of the argument.
     pub fn value(&self) -> &ArgValue<'a> {
         &self.value

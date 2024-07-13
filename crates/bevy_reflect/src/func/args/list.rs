@@ -31,37 +31,69 @@ use std::collections::VecDeque;
 /// [`DynamicClosure`]: crate::func::DynamicClosure
 /// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
 #[derive(Default, Debug)]
-pub struct ArgList<'a>(VecDeque<Arg<'a>>);
+pub struct ArgList<'a> {
+    list: VecDeque<Arg<'a>>,
+    /// A flag that indicates if the list needs to be re-indexed.
+    ///
+    /// This flag should be set when an argument is removed from the beginning of the list,
+    /// so that any future push operations will re-index the arguments.
+    needs_reindex: bool,
+}
 
 impl<'a> ArgList<'a> {
     /// Create a new empty list of arguments.
     pub fn new() -> Self {
-        Self(VecDeque::new())
+        Self {
+            list: VecDeque::new(),
+            needs_reindex: false,
+        }
     }
 
     /// Push an [`ArgValue`] onto the list.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
     pub fn push_arg(mut self, arg: ArgValue<'a>) -> Self {
-        let index = self.0.len();
-        self.0.push_back(Arg::new(index, arg));
+        if self.needs_reindex {
+            for (index, arg) in self.list.iter_mut().enumerate() {
+                arg.set_index(index);
+            }
+            self.needs_reindex = false;
+        }
+
+        let index = self.list.len();
+        self.list.push_back(Arg::new(index, arg));
         self
     }
 
     /// Push an [`ArgValue::Ref`] onto the list with the given reference.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
     pub fn push_ref(self, arg: &'a dyn Reflect) -> Self {
         self.push_arg(ArgValue::Ref(arg))
     }
 
     /// Push an [`ArgValue::Mut`] onto the list with the given mutable reference.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
     pub fn push_mut(self, arg: &'a mut dyn Reflect) -> Self {
         self.push_arg(ArgValue::Mut(arg))
     }
 
     /// Push an [`ArgValue::Owned`] onto the list with the given owned value.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
     pub fn push_owned(self, arg: impl Reflect) -> Self {
         self.push_arg(ArgValue::Owned(Box::new(arg)))
     }
 
     /// Push an [`ArgValue::Owned`] onto the list with the given boxed value.
+    ///
+    /// If an argument was previously removed from the beginning of the list,
+    /// this method will also re-index the list.
     pub fn push_boxed(self, arg: Box<dyn Reflect>) -> Self {
         self.push_arg(ArgValue::Owned(arg))
     }
@@ -71,7 +103,8 @@ impl<'a> ArgList<'a> {
     /// It's generally preferred to use [`Self::next`] instead of this method
     /// as it provides a more ergonomic way to immediately downcast the argument.
     pub fn next_arg(&mut self) -> Result<Arg<'a>, ArgError> {
-        self.0.pop_front().ok_or(ArgError::EmptyArgList)
+        self.needs_reindex = true;
+        self.list.pop_front().ok_or(ArgError::EmptyArgList)
     }
 
     /// Remove the first argument in the list and return `Ok(T::This)`.
@@ -162,7 +195,7 @@ impl<'a> ArgList<'a> {
     /// It's generally preferred to use [`Self::pop`] instead of this method
     /// as it provides a more ergonomic way to immediately downcast the argument.
     pub fn pop_arg(&mut self) -> Result<Arg<'a>, ArgError> {
-        self.0.pop_back().ok_or(ArgError::EmptyArgList)
+        self.list.pop_back().ok_or(ArgError::EmptyArgList)
     }
 
     /// Remove the last argument in the list and return `Ok(T::This)`.
@@ -250,12 +283,12 @@ impl<'a> ArgList<'a> {
 
     /// Returns the number of arguments in the list.
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.list.len()
     }
 
     /// Returns `true` if the list of arguments is empty.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.list.is_empty()
     }
 }
 
@@ -271,9 +304,9 @@ mod tests {
             .push_owned(789);
 
         assert_eq!(args.len(), 3);
-        assert_eq!(args.0[0].index(), 0);
-        assert_eq!(args.0[1].index(), 1);
-        assert_eq!(args.0[2].index(), 2);
+        assert_eq!(args.list[0].index(), 0);
+        assert_eq!(args.list[1].index(), 1);
+        assert_eq!(args.list[2].index(), 2);
     }
 
     #[test]
@@ -295,13 +328,13 @@ mod tests {
             .push_ref(&f)
             .push_mut(&mut g);
 
-        assert!(matches!(args.0[0].value(), &ArgValue::Owned(_)));
-        assert!(matches!(args.0[1].value(), &ArgValue::Ref(_)));
-        assert!(matches!(args.0[2].value(), &ArgValue::Mut(_)));
-        assert!(matches!(args.0[3].value(), &ArgValue::Owned(_)));
-        assert!(matches!(args.0[4].value(), &ArgValue::Owned(_)));
-        assert!(matches!(args.0[5].value(), &ArgValue::Ref(_)));
-        assert!(matches!(args.0[6].value(), &ArgValue::Mut(_)));
+        assert!(matches!(args.list[0].value(), &ArgValue::Owned(_)));
+        assert!(matches!(args.list[1].value(), &ArgValue::Ref(_)));
+        assert!(matches!(args.list[2].value(), &ArgValue::Mut(_)));
+        assert!(matches!(args.list[3].value(), &ArgValue::Owned(_)));
+        assert!(matches!(args.list[4].value(), &ArgValue::Owned(_)));
+        assert!(matches!(args.list[5].value(), &ArgValue::Ref(_)));
+        assert!(matches!(args.list[6].value(), &ArgValue::Mut(_)));
     }
 
     #[test]
@@ -344,5 +377,31 @@ mod tests {
         assert_eq!(args.pop::<&i32>().unwrap(), &123);
         assert_eq!(args.pop_owned::<String>().unwrap(), String::from("a"));
         assert_eq!(args.len(), 0);
+    }
+
+    #[test]
+    fn should_reindex_on_push_after_removal() {
+        let mut args = ArgList::new()
+            .push_owned(123)
+            .push_owned(456)
+            .push_owned(789);
+
+        assert!(!args.needs_reindex);
+
+        args.next_arg().unwrap();
+        assert!(args.needs_reindex);
+        assert!(args.list[0].value().reflect_partial_eq(&456).unwrap());
+        assert_eq!(args.list[0].index(), 1);
+        assert!(args.list[1].value().reflect_partial_eq(&789).unwrap());
+        assert_eq!(args.list[1].index(), 2);
+
+        let args = args.push_owned(123);
+        assert!(!args.needs_reindex);
+        assert!(args.list[0].value().reflect_partial_eq(&456).unwrap());
+        assert_eq!(args.list[0].index(), 0);
+        assert!(args.list[1].value().reflect_partial_eq(&789).unwrap());
+        assert_eq!(args.list[1].index(), 1);
+        assert!(args.list[2].value().reflect_partial_eq(&123).unwrap());
+        assert_eq!(args.list[2].index(), 2);
     }
 }
