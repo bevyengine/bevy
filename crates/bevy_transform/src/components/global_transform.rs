@@ -189,9 +189,11 @@ impl GlobalTransform {
         (self.0.matrix3 * extents).length()
     }
 
-    /// Transforms the given `point`, applying shear, scale, rotation and translation.
+    /// Transforms the given `point` from local space to global space, applying shear, scale, rotation and translation.
     ///
-    /// This moves `point` into the local space of this [`GlobalTransform`].
+    /// To transform a `point` from global to local, use `global_transform.affine().inverse().transform_point(point)`.
+    /// To transform a `vector` from local to global, use `global_transform.affine().transform_vector(vector)`.
+    /// To transform a `vector` global to local, use `global_transform.affine().inverse().transform_vector(vector)`.
     #[inline]
     pub fn transform_point(&self, point: Vec3) -> Vec3 {
         self.0.transform_point3(point)
