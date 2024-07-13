@@ -16,7 +16,7 @@ pub struct Arg<'a> {
 
 impl<'a> Arg<'a> {
     /// Create a new [`Arg`] with the given index and value.
-    pub(crate) fn new(index: usize, value: ArgValue<'a>) -> Self {
+    pub fn new(index: usize, value: ArgValue<'a>) -> Self {
         Self { index, value }
     }
 
