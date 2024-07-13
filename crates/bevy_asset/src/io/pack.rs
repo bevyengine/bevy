@@ -16,7 +16,7 @@ use crate::AssetServer;
 /// literal, or something else depending on the use-case.
 ///
 /// The derive macro also provides a top level attribute `src_path` to override the root
-/// directory used by internal calls to `embedded_asset`. It's necessary for crates with-"src" root
+/// directory used by internal calls to `embedded_asset!`. It's necessary for crates with-"src" root
 /// directories, such as the cargo example.
 ///
 /// For accessing an `AssetPack`, see `AssetPackPlugin`, `Pack` and `GetPack`
