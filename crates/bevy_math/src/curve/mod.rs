@@ -3,6 +3,7 @@
 //! curves that are interpolated from samples.
 
 pub mod cores;
+pub mod differentiable;
 pub mod interval;
 
 pub use interval::{everywhere, interval, Interval};

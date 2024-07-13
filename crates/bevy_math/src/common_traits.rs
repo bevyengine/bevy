@@ -305,3 +305,38 @@ impl StableInterpolate for Dir3A {
         self.slerp(*other, t)
     }
 }
+
+/// A type that has tangents.
+pub trait HasTangent {
+    /// The tangent type.
+    type Tangent;
+}
+
+/// A point with a tangent.
+pub struct WithDerivative<T>
+where
+    T: HasTangent,
+{
+    /// The underlying point.
+    pub point: T,
+    /// The derivative at `point`.
+    pub derivative: T::Tangent,
+}
+
+/// A point with a tangent and a second derivative.
+pub struct WithTwoDerivatives<T>
+where
+    T: HasTangent,
+    T::Tangent: HasTangent,
+{
+    /// The underlying point.
+    pub point: T,
+    /// The derivative at `point`.
+    pub derivative: T::Tangent,
+    /// The second derivative at `point`.
+    pub second_derivative: <T::Tangent as HasTangent>::Tangent,
+}
+
+impl<V: VectorSpace> HasTangent for V {
+    type Tangent = V;
+}

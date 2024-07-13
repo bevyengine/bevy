@@ -1,6 +1,9 @@
 use bevy_asset::prelude::*;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
-use bevy_math::{cubic_splines::CubicGenerator, FloatExt, Vec2};
+use bevy_math::{
+    cubic_splines::{CubicGenerator, Smoothness},
+    FloatExt, Vec2,
+};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},
@@ -94,9 +97,10 @@ impl AutoExposureCompensationCurve {
     ///     .unwrap()
     /// );
     /// ```
-    pub fn from_curve<T>(curve: T) -> Result<Self, AutoExposureCompensationCurveError>
+    pub fn from_curve<T, S>(curve: T) -> Result<Self, AutoExposureCompensationCurveError>
     where
-        T: CubicGenerator<Vec2>,
+        T: CubicGenerator<Vec2, S>,
+        S: Smoothness,
     {
         let curve = curve.to_curve();
 
