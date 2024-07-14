@@ -53,8 +53,8 @@ fn setup(mut commands: Commands) {
         "Right",
         "Top",
         "Bottom",
-        "Left Right",
-        "Top Bottom",
+        "Horizonal",
+        "Vertical",
         "Top Left",
         "Bottom Left",
         "Top Right",
@@ -304,6 +304,7 @@ fn setup(mut commands: Commands) {
         .spawn(NodeBundle {
             style: Style {
                 margin: UiRect::all(Val::Px(25.0)),
+                flex_direction: FlexDirection::Column,
                 align_self: AlignSelf::Stretch,
                 justify_self: JustifySelf::Stretch,
                 flex_wrap: FlexWrap::Wrap,
