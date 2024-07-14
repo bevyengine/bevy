@@ -20,7 +20,7 @@ impl BoundedExtrusion for Circle {
         let segment_dir = rotation * Vec3::Z;
         let top = (segment_dir * half_depth).abs();
 
-        let e = Vec3::ONE - segment_dir * segment_dir;
+        let e = (Vec3::ONE - segment_dir * segment_dir).max(Vec3::ZERO);
         let half_size = self.radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         Aabb3d {
