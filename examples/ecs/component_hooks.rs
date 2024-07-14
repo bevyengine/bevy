@@ -8,16 +8,22 @@
 //! Here are some cases where components hooks might be necessary:
 //!
 //! - Maintaining indexes: If you need to keep custom data structures (like a spatial index) in
-//! sync with the addition/removal of components.
+//!     sync with the addition/removal of components.
 //!
 //! - Enforcing structural rules: When you have systems that depend on specific relationships
-//! between components (like hierarchies or parent-child links) and need to maintain correctness.
+//!     between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::ecs::component::{ComponentHooks, StorageType};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
 #[derive(Debug)]
+/// Hooks can also be registered during component initialisation by
+/// using [`Component`] derive macro:
+/// ```no_run
+/// #[derive(Component)]
+/// #[component(on_add = ..., on_insert = ..., on_remove = ...)]
+/// ```
 struct MyComponent(KeyCode);
 
 impl Component for MyComponent {

@@ -14,7 +14,7 @@
 mod affine3;
 mod aspect_ratio;
 pub mod bounding;
-mod common_traits;
+pub mod common_traits;
 mod compass;
 pub mod cubic_splines;
 mod direction;

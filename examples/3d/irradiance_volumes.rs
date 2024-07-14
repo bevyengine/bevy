@@ -22,6 +22,9 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 use bevy::window::PrimaryWindow;
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
+
 // Rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.2;
 
@@ -471,11 +474,7 @@ fn handle_mouse_clicks(
     if !buttons.pressed(MouseButton::Left) {
         return;
     }
-    let Some(mouse_position) = windows
-        .iter()
-        .next()
-        .and_then(|window| window.cursor_position())
-    else {
+    let Some(mouse_position) = windows.iter().next().and_then(Window::cursor_position) else {
         return;
     };
     let Some((camera, camera_transform)) = cameras.iter().next() else {
@@ -650,6 +649,6 @@ fn toggle_voxel_visibility(
 
 impl MaterialExtension for VoxelVisualizationExtension {
     fn fragment_shader() -> ShaderRef {
-        "shaders/irradiance_volume_voxel_visualization.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

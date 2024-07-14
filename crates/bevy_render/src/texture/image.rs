@@ -458,7 +458,7 @@ impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
     fn from(value: wgpu::SamplerDescriptor) -> Self {
         ImageSamplerDescriptor {
-            label: value.label.map(|l| l.to_string()),
+            label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
             address_mode_v: value.address_mode_v.into(),
             address_mode_w: value.address_mode_w.into(),
@@ -529,6 +529,38 @@ impl Image {
         image.texture_descriptor.format = format;
         image.asset_usage = asset_usage;
         image
+    }
+
+    /// A transparent white 1x1x1 image.
+    ///
+    /// Contrast to [`Image::default`], which is opaque.
+    pub fn transparent() -> Image {
+        // We rely on the default texture format being RGBA8UnormSrgb
+        // when constructing a transparent color from bytes.
+        // If this changes, this function will need to be updated.
+        let format = TextureFormat::bevy_default();
+        debug_assert!(format.pixel_size() == 4);
+        let data = vec![255, 255, 255, 0];
+        Image {
+            data,
+            texture_descriptor: wgpu::TextureDescriptor {
+                size: Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                format,
+                dimension: TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
+        }
     }
 
     /// Creates a new image from raw binary data and the corresponding metadata, by filling

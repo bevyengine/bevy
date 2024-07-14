@@ -51,6 +51,13 @@ pub struct ColorMaterial {
     pub texture: Option<Handle<Image>>,
 }
 
+impl ColorMaterial {
+    /// Creates a new material from a given color
+    pub fn from_color(color: impl Into<Color>) -> Self {
+        Self::from(color.into())
+    }
+}
+
 impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {

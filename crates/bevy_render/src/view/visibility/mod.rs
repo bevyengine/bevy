@@ -155,8 +155,8 @@ pub struct VisibilityBundle {
 /// It can be used for example:
 /// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
 /// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
-/// to appear in the reflection of a [`Mesh`] within.
-#[derive(Component, Default, Reflect)]
+///     to appear in the reflection of a [`Mesh`] within.
+#[derive(Debug, Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct NoFrustumCulling;
 
@@ -501,7 +501,7 @@ mod test {
 
     use super::*;
 
-    use bevy_hierarchy::BuildWorldChildren;
+    use bevy_hierarchy::BuildChildren;
 
     fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
         VisibilityBundle {

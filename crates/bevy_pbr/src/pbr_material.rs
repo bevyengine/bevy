@@ -12,7 +12,8 @@ use crate::*;
 
 /// An enum to define which UV attribute to use for a texture.
 /// It is used for every texture in the [`StandardMaterial`].
-/// It only supports two UV attributes, [`Mesh::ATTRIBUTE_UV_0`] and [`Mesh::ATTRIBUTE_UV_1`].
+/// It only supports two UV attributes, [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_0`] and
+/// [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_1`].
 /// The default is [`UvChannel::Uv0`].
 #[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
 #[reflect(Default, Debug)]
@@ -215,8 +216,8 @@ pub struct StandardMaterial {
     ///
     /// **Important:** The [`StandardMaterial::diffuse_transmission`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
-    #[texture(19)]
-    #[sampler(20)]
+    #[cfg_attr(feature = "pbr_transmission_textures", texture(19))]
+    #[cfg_attr(feature = "pbr_transmission_textures", sampler(20))]
     #[cfg(feature = "pbr_transmission_textures")]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
 
@@ -235,13 +236,13 @@ pub struct StandardMaterial {
     /// with distortion and blur effects.
     ///
     /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
-    /// to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
+    ///     to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
     ///     - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
-    /// [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
+    ///         [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
-    /// for a much less expensive effect.
+    ///     for a much less expensive effect.
     /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
-    ///   won't be visible through specular transmissive materials.
+    ///     won't be visible through specular transmissive materials.
     #[doc(alias = "refraction")]
     pub specular_transmission: f32,
 
@@ -256,8 +257,8 @@ pub struct StandardMaterial {
     ///
     /// **Important:** The [`StandardMaterial::specular_transmission`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
-    #[texture(15)]
-    #[sampler(16)]
+    #[cfg_attr(feature = "pbr_transmission_textures", texture(15))]
+    #[cfg_attr(feature = "pbr_transmission_textures", sampler(16))]
     #[cfg(feature = "pbr_transmission_textures")]
     pub specular_transmission_texture: Option<Handle<Image>>,
 
@@ -285,8 +286,8 @@ pub struct StandardMaterial {
     ///
     /// **Important:** The [`StandardMaterial::thickness`] property must be set to a value higher than 0.0,
     /// or this texture won't have any effect.
-    #[texture(17)]
-    #[sampler(18)]
+    #[cfg_attr(feature = "pbr_transmission_textures", texture(17))]
+    #[cfg_attr(feature = "pbr_transmission_textures", sampler(18))]
     #[cfg(feature = "pbr_transmission_textures")]
     pub thickness_texture: Option<Handle<Image>>,
 
@@ -420,8 +421,8 @@ pub struct StandardMaterial {
     /// main [`StandardMaterial::clearcoat`] factor.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.
-    #[texture(21)]
-    #[sampler(22)]
+    #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(21))]
+    #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(22))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_texture: Option<Handle<Image>>,
 
@@ -445,8 +446,8 @@ pub struct StandardMaterial {
     /// [`StandardMaterial::clearcoat_perceptual_roughness`] factor.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.
-    #[texture(23)]
-    #[sampler(24)]
+    #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(23))]
+    #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(24))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_roughness_texture: Option<Handle<Image>>,
 
@@ -467,8 +468,8 @@ pub struct StandardMaterial {
     /// in both [`StandardMaterial::normal_map_texture`] and this field.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.
-    #[texture(25)]
-    #[sampler(26)]
+    #[cfg_attr(feature = "pbr_multi_layer_material_textures", texture(25))]
+    #[cfg_attr(feature = "pbr_multi_layer_material_textures", sampler(26))]
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_normal_texture: Option<Handle<Image>>,
 
@@ -513,6 +514,7 @@ pub struct StandardMaterial {
     /// The UV channel to use for the [`StandardMaterial::anisotropy_texture`].
     ///
     /// Defaults to [`UvChannel::Uv0`].
+    #[cfg(feature = "pbr_anisotropy_texture")]
     pub anisotropy_channel: UvChannel,
 
     /// An image texture that allows the
@@ -536,8 +538,9 @@ pub struct StandardMaterial {
     ///
     /// [`KHR_materials_anisotropy` specification]:
     /// https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md
-    #[texture(13)]
-    #[sampler(14)]
+    #[cfg_attr(feature = "pbr_anisotropy_texture", texture(13))]
+    #[cfg_attr(feature = "pbr_anisotropy_texture", sampler(14))]
+    #[cfg(feature = "pbr_anisotropy_texture")]
     pub anisotropy_texture: Option<Handle<Image>>,
 
     /// Support two-sided lighting by automatically flipping the normals for "back" faces
@@ -747,6 +750,11 @@ impl StandardMaterial {
         self.flip(horizontal, vertical);
         self
     }
+
+    /// Creates a new material from a given color
+    pub fn from_color(color: impl Into<Color>) -> Self {
+        Self::from(color.into())
+    }
 }
 
 impl Default for StandardMaterial {
@@ -809,7 +817,9 @@ impl Default for StandardMaterial {
             clearcoat_normal_texture: None,
             anisotropy_strength: 0.0,
             anisotropy_rotation: 0.0,
+            #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_channel: UvChannel::Uv0,
+            #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture: None,
             flip_normal_map_y: false,
             double_sided: false,
@@ -867,7 +877,7 @@ bitflags::bitflags! {
         const UNLIT                      = 1 << 5;
         const TWO_COMPONENT_NORMAL_MAP   = 1 << 6;
         const FLIP_NORMAL_MAP_Y          = 1 << 7;
-        // const UNUSED                  = 1 << 8; // USE THIS IF YOU ADD A NEW FLAG
+        const FOG_ENABLED                = 1 << 8;
         const DEPTH_MAP                  = 1 << 9; // Used for parallax mapping
         const SPECULAR_TRANSMISSION_TEXTURE = 1 << 10;
         const THICKNESS_TEXTURE          = 1 << 11;
@@ -975,6 +985,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
         if self.unlit {
             flags |= StandardMaterialFlags::UNLIT;
         }
+        if self.fog_enabled {
+            flags |= StandardMaterialFlags::FOG_ENABLED;
+        }
         if self.depth_map.is_some() {
             flags |= StandardMaterialFlags::DEPTH_MAP;
         }
@@ -991,8 +1004,11 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             }
         }
 
-        if self.anisotropy_texture.is_some() {
-            flags |= StandardMaterialFlags::ANISOTROPY_TEXTURE;
+        #[cfg(feature = "pbr_anisotropy_texture")]
+        {
+            if self.anisotropy_texture.is_some() {
+                flags |= StandardMaterialFlags::ANISOTROPY_TEXTURE;
+            }
         }
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
@@ -1010,7 +1026,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
-            let normal_map_id = self.normal_map_texture.as_ref().map(|h| h.id()).unwrap();
+            let normal_map_id = self.normal_map_texture.as_ref().map(Handle::id).unwrap();
             if let Some(texture) = images.get(normal_map_id) {
                 match texture.texture_format {
                     // All 2-component unorm formats
@@ -1112,7 +1128,6 @@ bitflags! {
         const CLEARCOAT_UV             = 0x040000;
         const CLEARCOAT_ROUGHNESS_UV   = 0x080000;
         const CLEARCOAT_NORMAL_UV      = 0x100000;
-        const FOG_ENABLED              = 0x200000;
         const DEPTH_BIAS               = 0xffffffff_00000000;
     }
 }
@@ -1200,10 +1215,14 @@ impl From<&StandardMaterial> for StandardMaterialKey {
             StandardMaterialKey::NORMAL_MAP_UV,
             material.normal_map_channel != UvChannel::Uv0,
         );
-        key.set(
-            StandardMaterialKey::ANISOTROPY_UV,
-            material.anisotropy_channel != UvChannel::Uv0,
-        );
+
+        #[cfg(feature = "pbr_anisotropy_texture")]
+        {
+            key.set(
+                StandardMaterialKey::ANISOTROPY_UV,
+                material.anisotropy_channel != UvChannel::Uv0,
+            );
+        }
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         {
@@ -1220,7 +1239,6 @@ impl From<&StandardMaterial> for StandardMaterialKey {
                 material.clearcoat_normal_channel != UvChannel::Uv0,
             );
         }
-        key.set(StandardMaterialKey::FOG_ENABLED, material.fog_enabled);
 
         key.insert(StandardMaterialKey::from_bits_retain(
             (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
@@ -1377,7 +1395,6 @@ impl Material for StandardMaterial {
                     StandardMaterialKey::ANISOTROPY_UV,
                     "STANDARD_MATERIAL_ANISOTROPY_UV",
                 ),
-                (StandardMaterialKey::FOG_ENABLED, "FOG_ENABLED"),
             ] {
                 if key.bind_group_data.intersects(flags) {
                     shader_defs.push(shader_def.into());
