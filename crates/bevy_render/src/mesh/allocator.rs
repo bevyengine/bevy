@@ -1005,9 +1005,7 @@ fn pad_to_alignment(buffer: &[u8], align: usize) -> Cow<[u8]> {
         return Cow::Borrowed(buffer);
     }
     let mut buffer = buffer.to_vec();
-    while buffer.len() % align != 0 {
-        buffer.push(0);
-    }
+    buffer.extend(iter::repeat(0).take(align - buffer.len() % align));
     Cow::Owned(buffer)
 }
 
