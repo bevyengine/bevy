@@ -1,7 +1,6 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, ApplyError, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
@@ -409,7 +408,8 @@ impl Reflect for DynamicTupleStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicTupleStruct);
-impl_function_traits!(DynamicTupleStruct);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicTupleStruct);
 
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -476,6 +476,7 @@
 mod array;
 mod fields;
 mod from_reflect;
+#[cfg(feature = "functions")]
 pub mod func;
 mod list;
 mod map;
@@ -517,6 +518,9 @@ pub mod prelude {
         ReflectDeserialize, ReflectFromReflect, ReflectPath, ReflectSerialize, Struct, TupleStruct,
         TypePath,
     };
+
+    #[cfg(feature = "functions")]
+    pub use crate::func::IntoFunction;
 }
 
 pub use array::*;
