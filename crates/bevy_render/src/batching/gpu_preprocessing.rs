@@ -422,8 +422,8 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 phase.items[current_index].entity(),
             );
 
-            // Unpack that index and metadata. Note that it's possible for index
-            // and/or metadata to not be present, which signifies that this
+            // Unpack that index and metadata. If the index is None we skip this item.
+            // If the is metadata to not present it signifies that this
             // entity is unbatchable. In that case, we break the batch here.
             let Some((current_input_index, current_meta)) = current_batch_input_index else {
                 continue;
