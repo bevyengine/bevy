@@ -76,7 +76,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         *self.propagate = should_propagate;
     }
 
-    /// Returns the value of the  flag that controls event propagation. See [`propagate`] for more information.
+    /// Returns the value of the flag that controls event propagation. See [`propagate`] for more information.
     pub fn get_propagate(&self) -> bool {
         *self.propagate
     }
@@ -451,7 +451,7 @@ mod tests {
     struct Parent(Entity);
 
     impl Traversal for Parent {
-        fn next(&self) -> Option<Entity> {
+        fn traverse(&self) -> Option<Entity> {
             Some(self.0)
         }
     }
@@ -731,7 +731,30 @@ mod tests {
     }
 
     #[test]
-    fn observer_propagating_redundant_dispatch() {
+    fn observer_propagating_redundant_dispatch_same_entity() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        let parent = world
+            .spawn_empty()
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+
+        let child = world
+            .spawn(Parent(parent))
+            .observe(|_: Trigger<EventPropagating>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger_targets(EventPropagating, [child, child]);
+        world.flush();
+        assert_eq!(4, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_propagating_redundant_dispatch_parent_child() {
         let mut world = World::new();
         world.init_resource::<R>();
 
@@ -765,10 +788,12 @@ mod tests {
 
         let child = world
             .spawn(Parent(parent))
-            .observe(|trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
-                res.0 += 1;
-                *trigger.propagate = false;
-            })
+            .observe(
+                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
+                    res.0 += 1;
+                    trigger.propagate(false);
+                },
+            )
             .id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
@@ -841,10 +866,12 @@ mod tests {
 
         let child_a = world
             .spawn(Parent(parent_a))
-            .observe(|trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
-                res.0 += 1;
-                *trigger.propagate = false;
-            })
+            .observe(
+                |mut trigger: Trigger<EventPropagating>, mut res: ResMut<R>| {
+                    res.0 += 1;
+                    trigger.propagate(false);
+                },
+            )
             .id();
 
         let parent_b = world

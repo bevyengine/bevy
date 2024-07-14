@@ -11,14 +11,18 @@ use crate::{
 /// events use the [`TraverseNone`] placeholder component, which cannot actually be created or added to
 /// an entity and so never causes traversal.
 ///
-/// The implementer is responsible for ensuring that `Traversal::next` cannot produce infinite loops.
+/// Infinite loops are possible, and are not checked for. While looping can be desireable in some contexts
+/// (for example, an observer that triggers itself multiple times before stopping), following an infinite
+/// traversal loop without an eventual exit will can your application to hang. Each implementer of `Traversal`
+/// for documenting possible looping behavior, and consumers of those implementations are responsible for
+/// avoiding infinite loops in their code.
 ///
 /// [specify the direction]: crate::event::Event::Traverse
 /// [event propagation]: crate::observer::Trigger::propagate
 /// [observers]: crate::observer::Observer
 pub trait Traversal: Component {
     /// Returns the next entity to visit.
-    fn next(&self) -> Option<Entity>;
+    fn traverse(&self) -> Option<Entity>;
 }
 
 /// A traversal component that doesn't traverse anything. Used to provide a default traversal
@@ -29,7 +33,7 @@ pub enum TraverseNone {}
 
 impl Traversal for TraverseNone {
     #[inline(always)]
-    fn next(&self) -> Option<Entity> {
+    fn traverse(&self) -> Option<Entity> {
         None
     }
 }
