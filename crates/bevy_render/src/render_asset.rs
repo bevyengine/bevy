@@ -114,7 +114,7 @@ impl Default for RenderAssetUsages {
 /// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
 /// `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to depend on another
 /// prepared [`RenderAsset`], for example `Mesh::prepare_asset` relies on `RenderAssets::<GpuImage>` for morph
-/// targets, so the plugin is created as `RenderAssetPlugin::<GpuMesh, GpuImage>::default()`.
+/// targets, so the plugin is created as `RenderAssetPlugin::<RenderMesh, GpuImage>::default()`.
 pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'static = ()> {
     phantom: PhantomData<fn() -> (A, AFTER)>,
 }
@@ -168,9 +168,16 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 /// Temporarily stores the extracted and removed assets of the current frame.
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
-    pub(crate) extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
-    pub(crate) removed: HashSet<AssetId<A::SourceAsset>>,
-    pub(crate) added: HashSet<AssetId<A::SourceAsset>>,
+    /// The assets extracted this frame.
+    pub extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
+
+    /// IDs of the assets removed this frame.
+    ///
+    /// These assets will not be present in [`ExtractedAssets::extracted`].
+    pub removed: HashSet<AssetId<A::SourceAsset>>,
+
+    /// IDs of the assets added this frame.
+    pub added: HashSet<AssetId<A::SourceAsset>>,
 }
 
 impl<A: RenderAsset> Default for ExtractedAssets<A> {

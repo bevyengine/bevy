@@ -1210,7 +1210,7 @@ impl GetBatchData for MeshPipeline {
     type Param = (
         SRes<RenderMeshInstances>,
         SRes<RenderLightmaps>,
-        SRes<RenderAssets<GpuMesh>>,
+        SRes<RenderAssets<RenderMesh>>,
         SRes<MeshAllocator>,
     );
     // The material bind group ID, the mesh ID, and the lightmap ID,
@@ -1335,7 +1335,7 @@ impl GetFullBatchData for MeshPipeline {
 /// parameters.
 fn get_batch_indirect_parameters_index(
     mesh_instances: &RenderMeshInstances,
-    meshes: &RenderAssets<GpuMesh>,
+    meshes: &RenderAssets<RenderMesh>,
     mesh_allocator: &MeshAllocator,
     indirect_parameters_buffer: &mut IndirectParametersBuffer,
     entity: Entity,
@@ -1358,7 +1358,7 @@ fn get_batch_indirect_parameters_index(
     // though they actually have distinct layouts. See the comment above that
     // type for more information.
     let indirect_parameters = match mesh.buffer_info {
-        GpuBufferInfo::Indexed {
+        RenderMeshBufferInfo::Indexed {
             count: index_count, ..
         } => {
             let index_buffer_slice =
@@ -1371,7 +1371,7 @@ fn get_batch_indirect_parameters_index(
                 first_instance: instance_index,
             }
         }
-        GpuBufferInfo::NonIndexed => IndirectParameters {
+        RenderMeshBufferInfo::NonIndexed => IndirectParameters {
             vertex_or_index_count: mesh.vertex_count,
             instance_count: 0,
             first_vertex_or_first_index: vertex_buffer_slice.range.start,
@@ -1954,7 +1954,7 @@ impl MeshBindGroups {
         self.morph_targets.clear();
         self.lightmaps.clear();
     }
-    /// Get the `BindGroup` for `GpuMesh` with given `handle_id` and lightmap
+    /// Get the `BindGroup` for `RenderMesh` with given `handle_id` and lightmap
     /// key `lightmap`.
     pub fn get(
         &self,
@@ -1991,7 +1991,7 @@ impl MeshBindGroupPair {
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
-    meshes: Res<RenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<RenderMesh>>,
     images: Res<RenderAssets<GpuImage>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
@@ -2247,7 +2247,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (
-        SRes<RenderAssets<GpuMesh>>,
+        SRes<RenderAssets<RenderMesh>>,
         SRes<RenderMeshInstances>,
         SRes<IndirectParametersBuffer>,
         SRes<PipelineCache>,
@@ -2318,7 +2318,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
 
         // Draw either directly or indirectly, as appropriate.
         match &gpu_mesh.buffer_info {
-            GpuBufferInfo::Indexed {
+            RenderMeshBufferInfo::Indexed {
                 index_format,
                 count,
             } => {
@@ -2345,7 +2345,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                         ),
                 }
             }
-            GpuBufferInfo::NonIndexed => match indirect_parameters {
+            RenderMeshBufferInfo::NonIndexed => match indirect_parameters {
                 None => {
                     pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
                 }

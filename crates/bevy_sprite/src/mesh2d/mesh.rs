@@ -19,12 +19,12 @@ use bevy_render::batching::no_gpu_preprocessing::{
     BatchedInstanceBuffer,
 };
 use bevy_render::mesh::allocator::MeshAllocator;
-use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
+use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
 use bevy_render::texture::FallbackImage;
 use bevy_render::{
     batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh},
+    mesh::{Mesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
@@ -696,7 +696,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     type Param = (
-        SRes<RenderAssets<GpuMesh>>,
+        SRes<RenderAssets<RenderMesh>>,
         SRes<RenderMesh2dInstances>,
         SRes<MeshAllocator>,
     );
@@ -731,7 +731,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
 
         let batch_range = item.batch_range();
         match &gpu_mesh.buffer_info {
-            GpuBufferInfo::Indexed {
+            RenderMeshBufferInfo::Indexed {
                 index_format,
                 count,
             } => {
@@ -748,7 +748,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
                     batch_range.clone(),
                 );
             }
-            GpuBufferInfo::NonIndexed => {
+            RenderMeshBufferInfo::NonIndexed => {
                 pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
             }
         }

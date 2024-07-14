@@ -26,7 +26,7 @@ use wgpu::{
 };
 
 use crate::{
-    mesh::{GpuMesh, Indices, Mesh, MeshVertexBufferLayouts},
+    mesh::{Indices, Mesh, MeshVertexBufferLayouts, RenderMesh},
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
@@ -89,14 +89,14 @@ pub struct MeshAllocator {
 pub struct MeshAllocatorSettings {
     /// The minimum size of a slab (hardware buffer), in bytes.
     ///
-    /// The default value is 1 MB.
+    /// The default value is 1 MiB.
     pub min_slab_size: u64,
 
     /// The maximum size of a slab (hardware buffer), in bytes.
     ///
     /// When a slab reaches this limit, a new slab is created.
     ///
-    /// The default value is 512 MB.
+    /// The default value is 512 MiB.
     pub max_slab_size: u64,
 
     /// The maximum size of vertex or index data that can be placed in a general
@@ -106,7 +106,7 @@ pub struct MeshAllocatorSettings {
     /// data is placed in its own slab. This reduces fragmentation, but incurs
     /// more CPU-side binding overhead when drawing the mesh.
     ///
-    /// The default value is 256 MB.
+    /// The default value is 256 MiB.
     pub large_threshold: u64,
 
     /// The factor by which we scale a slab when growing it.
@@ -172,7 +172,7 @@ enum Slab {
 /// [`MeshAllocatorSettings::large_threshold`]. Slabs are divided into *slots*,
 /// which are described in detail in the [`ElementLayout`] documentation.
 struct GeneralSlab {
-    /// The [`Allocator`] thatmanages the objects in this slab.
+    /// The [`Allocator`] that manages the objects in this slab.
     allocator: Allocator,
 
     /// The GPU buffer that backs this slab.
@@ -302,7 +302,7 @@ impl Plugin for MeshAllocatorPlugin {
                 Render,
                 allocate_and_free_meshes
                     .in_set(RenderSet::PrepareAssets)
-                    .before(prepare_assets::<GpuMesh>),
+                    .before(prepare_assets::<RenderMesh>),
             );
     }
 
@@ -343,7 +343,7 @@ impl FromWorld for MeshAllocator {
 pub fn allocate_and_free_meshes(
     mut mesh_allocator: ResMut<MeshAllocator>,
     mesh_allocator_settings: Res<MeshAllocatorSettings>,
-    extracted_meshes: Res<ExtractedAssets<GpuMesh>>,
+    extracted_meshes: Res<ExtractedAssets<RenderMesh>>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
@@ -412,7 +412,7 @@ impl MeshAllocator {
     fn allocate_meshes(
         &mut self,
         mesh_allocator_settings: &MeshAllocatorSettings,
-        extracted_meshes: &ExtractedAssets<GpuMesh>,
+        extracted_meshes: &ExtractedAssets<RenderMesh>,
         mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
         render_device: &RenderDevice,
         render_queue: &RenderQueue,
@@ -575,7 +575,7 @@ impl MeshAllocator {
         }
     }
 
-    fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<GpuMesh>) {
+    fn free_meshes(&mut self, extracted_meshes: &ExtractedAssets<RenderMesh>) {
         let mut empty_slabs = HashSet::new();
         for mesh_id in &extracted_meshes.removed {
             if let Some(slab_id) = self.mesh_id_to_vertex_slab.remove(mesh_id) {

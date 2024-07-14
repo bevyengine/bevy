@@ -30,7 +30,7 @@ impl Plugin for MeshPlugin {
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
-            .add_plugins(RenderAssetPlugin::<GpuMesh, GpuImage>::default())
+            .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
             .add_plugins(MeshAllocatorPlugin);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

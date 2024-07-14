@@ -12,7 +12,9 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{allocator::MeshAllocator, GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
+        mesh::{
+            allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+        },
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -117,7 +119,7 @@ fn queue_custom(
     msaa: Res<Msaa>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    meshes: Res<RenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
@@ -242,7 +244,7 @@ struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     type Param = (
-        SRes<RenderAssets<GpuMesh>>,
+        SRes<RenderAssets<RenderMesh>>,
         SRes<RenderMeshInstances>,
         SRes<MeshAllocator>,
     );
@@ -279,7 +281,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         pass.set_vertex_buffer(1, instance_buffer.buffer.slice(..));
 
         match &gpu_mesh.buffer_info {
-            GpuBufferInfo::Indexed {
+            RenderMeshBufferInfo::Indexed {
                 index_format,
                 count,
             } => {
@@ -296,7 +298,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
                     0..instance_buffer.length as u32,
                 );
             }
-            GpuBufferInfo::NonIndexed => {
+            RenderMeshBufferInfo::NonIndexed => {
                 pass.draw(0..gpu_mesh.vertex_count, 0..instance_buffer.length as u32);
             }
         }
