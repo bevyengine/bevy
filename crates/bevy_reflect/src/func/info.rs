@@ -56,6 +56,7 @@ impl FunctionInfo {
     /// the name will always be the full path to the function as returned by [`std::any::type_name`].
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
+    /// [`IntoFunction`]: crate::func::IntoFunction
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }

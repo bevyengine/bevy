@@ -348,6 +348,9 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
+# Enable function reflection
+reflect_functions = ["bevy_internal/reflect_functions"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
 
@@ -2158,6 +2161,7 @@ wasm = false
 name = "function_reflection"
 path = "examples/reflection/function_reflection.rs"
 doc-scrape-examples = true
+required-features = ["reflect_functions"]
 
 [package.metadata.example.function_reflection]
 name = "Function Reflection"
@@ -3080,7 +3084,7 @@ wasm = true
 
 [[example]]
 name = "smooth_follow"
-path = "examples/math/smooth_follow.rs"
+path = "examples/movement/smooth_follow.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.smooth_follow]
@@ -3256,6 +3260,17 @@ doc-scrape-examples = true
 name = "Custom phase item"
 description = "Demonstrates how to enqueue custom draw commands in a render phase"
 category = "Shaders"
+wasm = true
+
+[[example]]
+name = "physics_in_fixed_timestep"
+path = "examples/movement/physics_in_fixed_timestep.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.physics_in_fixed_timestep]
+name = "Run physics in a fixed timestep"
+description = "Handles input, physics, and rendering in an industry-standard way by using a fixed timestep"
+category = "Movement"
 wasm = true
 
 [profile.wasm-release]

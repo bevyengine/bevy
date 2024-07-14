@@ -1,4 +1,3 @@
-use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, utility::reflect_hasher, ApplyError, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -359,7 +358,9 @@ impl Array for DynamicArray {
 }
 
 impl_type_path!((in bevy_reflect) DynamicArray);
-impl_function_traits!(DynamicArray);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicArray);
+
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     array: &'a dyn Array,
