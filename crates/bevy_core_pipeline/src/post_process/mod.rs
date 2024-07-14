@@ -165,14 +165,14 @@ pub struct ChromaticAberrationUniform {
 }
 
 /// A resource, part of the render world, that stores the
-/// [`PostProcessingUniform`]s for each view.
+/// [`ChromaticAberrationUniform`]s for each view.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct PostProcessingUniformBuffers {
     chromatic_aberration: DynamicUniformBuffer<ChromaticAberrationUniform>,
 }
 
 /// A component, part of the render world, that stores the appropriate byte
-/// offset within the [`PostProcessingUniformBuffer`] for the camera it's
+/// offset within the [`PostProcessingUniformBuffers`] for the camera it's
 /// attached to.
 #[derive(Component, Deref, DerefMut)]
 pub struct PostProcessingUniformBufferOffsets {
