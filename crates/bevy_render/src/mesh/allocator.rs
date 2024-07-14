@@ -33,7 +33,7 @@ use crate::{
     Render, RenderApp, RenderSet,
 };
 
-/// A plugin that provides memory management services for mesh data.
+/// A plugin that manages GPU memory for mesh data.
 pub struct MeshAllocatorPlugin;
 
 /// Manages the assignment of mesh data to GPU buffers.
