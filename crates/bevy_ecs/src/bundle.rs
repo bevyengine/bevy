@@ -668,7 +668,7 @@ impl<'w> BundleInserter<'w> {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();
         let table = self.table.as_mut();
-        let archetype = self.archetype.as_mut();
+        let archetype = self.archetype.as_ref();
 
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
@@ -689,6 +689,8 @@ impl<'w> BundleInserter<'w> {
                 );
             }
         }
+
+        let archetype = self.archetype.as_mut();
 
         let (new_archetype, new_location) = match &mut self.result {
             InsertBundleResult::SameArchetype => {
