@@ -226,6 +226,19 @@ impl Rot2 {
         Self::from_sin_cos(self.sin * length_recip, self.cos * length_recip)
     }
 
+    /// Returns `self` after an approximate normalization and , assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        let length_squared = self.length_squared();
+        // Based on a taylor approximation of the inverse square root, see `[Dir3::fast_renormalize]` for more details.
+        let length_recip_approx = 0.5 * (3.0 - length_squared);
+        Rot2::from_sin_cos(
+            self.sin * length_recip_approx,
+            self.cos * length_recip_approx,
+        )
+    }
+
     /// Returns `true` if the rotation is neither infinite nor NaN.
     #[inline]
     pub fn is_finite(self) -> bool {

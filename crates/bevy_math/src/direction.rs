@@ -243,6 +243,15 @@ impl Dir2 {
     pub fn rotation_to_y(self) -> Rot2 {
         self.rotation_from_y().inverse()
     }
+
+    /// Returns `self` after an approximate normalization and , assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        let length_squared = self.0.length_squared();
+        // Based on a taylor approximation of the inverse square root, see `[Dir3::fast_renormalize]` for more details.
+        Self(self * (0.5 * (3.0 - length_squared)))
+    }
 }
 
 impl TryFrom<Vec2> for Dir2 {
@@ -445,6 +454,32 @@ impl Dir3 {
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
         let quat = Quat::IDENTITY.slerp(Quat::from_rotation_arc(self.0, rhs.0), s);
         Dir3(quat.mul_vec3(self.0))
+    }
+
+    /// Returns `self` after an approximate normalization and , assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        // We numerically approximate the inverse square root by a taylor series around 1
+        // As we expect the error (x := length_squared - 1) to be small
+        // inverse_sqrt(length_squared) = (1 + x)^(-1/2) = 1 - 1/2 x + O(x^2)
+        // inverse_sqrt(length_squared) ~~ 1 - 1/2 (length_squared - 1) = 1/2 (3 - length_squared)
+
+        // Iterative calls to this method quickly converge to a normalised value,
+        // so long as the denormalisation is not large ~ O(1/10).
+        // One iteration can be described as:
+        // l_sq <- l_sq * (1 - 1/2 (l_sq - 1))^2;
+        // Rewriting in terms of the error x:
+        // 1 + x <- (1 + x) * (1 - 1/2 x)^2
+        // 1 + x <- (1 + x) * (1 - x + 1/4 x^2)
+        // 1 + x <- 1 - x + 1/4 x^2 + x - x^2 + 1/4 x^3
+        // x <- -1/4 x^2 (3 - x)
+        // If the error is small, say in a range of (-1/2, 1/2), then:
+        // |-1/4 x^2 (3 - x)| <= (3/4 + 1/4 * |x|) * x^2 <= (3/4 + 1/4 * 1/2) * x^2 < x^2 < 1/2 x
+        // Therefore the sequence of iterates converges to 0 error as a second order method.
+
+        let length_squared = self.0.length_squared();
+        Self(self * (0.5 * (3.0 - length_squared)))
     }
 }
 
@@ -654,6 +689,15 @@ impl Dir3A {
             s,
         );
         Dir3A(quat.mul_vec3a(self.0))
+    }
+
+    /// Returns `self` after an approximate normalization and , assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        let length_squared = self.0.length_squared();
+        // Based on a taylor approximation of the inverse square root, see `[Dir3::fast_renormalize]` for more details.
+        Self(self * (0.5 * (3.0 - length_squared)))
     }
 }
 
