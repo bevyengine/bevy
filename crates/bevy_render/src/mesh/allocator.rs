@@ -1,10 +1,7 @@
 //! Manages mesh vertex and index buffers.
 
 use std::{
-    borrow::Cow,
-    fmt::{self, Display, Formatter},
-    ops::Range,
-    vec::Vec,
+    borrow::Cow, fmt::{self, Display, Formatter}, iter, ops::Range, vec::Vec
 };
 
 use bevy_app::{App, Plugin};
@@ -122,11 +119,11 @@ pub struct MeshAllocatorSettings {
 impl Default for MeshAllocatorSettings {
     fn default() -> Self {
         Self {
-            // 1MB
+            // 1 MiB
             min_slab_size: 1024 * 1024,
-            // 512MB
+            // 512 MiB
             max_slab_size: 1024 * 1024 * 512,
-            // 256MB
+            // 256 MiB
             large_threshold: 1024 * 1024 * 256,
             // 1.5× growth
             growth_factor: 1.5,
@@ -452,7 +449,7 @@ impl MeshAllocator {
 
         // Perform growth.
         for (slab_id, slab_to_grow) in slabs_to_grow.0 {
-            self.reallocate_slab(render_device, slab_id, slab_to_grow);
+            self.reallocate_slab(render_device, render_queue, slab_id, slab_to_grow);
         }
 
         // Copy new mesh data in.
@@ -754,6 +751,7 @@ impl MeshAllocator {
     fn reallocate_slab(
         &mut self,
         render_device: &RenderDevice,
+        render_queue: &RenderQueue,
         slab_id: SlabId,
         slab_to_grow: SlabToReallocate,
     ) {
@@ -809,6 +807,9 @@ impl MeshAllocator {
             // Now that we've done the copy, we can update the allocation record.
             *src_slab_allocation = dest_slab_allocation.clone();
         }
+
+        let command_buffer = encoder.finish();
+        render_queue.submit(iter::once(command_buffer));
     }
 
     /// Records the location of the given newly-allocated mesh data in the
