@@ -48,7 +48,7 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
 
 /// Collection of mesh entities visible for 3D lighting.
 /// This component contains all mesh entities visible from the current light view.
-/// The collection is updated automatically by  [`SimulationLightSystems::CheckLightVisibility`].
+/// The collection is updated automatically by [`SimulationLightSystems::CheckLightVisibility`].
 #[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component)]
 pub struct VisibleMeshEntities {
