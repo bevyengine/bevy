@@ -15,9 +15,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// This can often be useful for expressing relative positions and transformations from one position to another.
 ///
 /// In particular, this type represents a distance-preserving transformation known as a *rigid motion* or a *direct motion*,
-/// and belongs to the *Special Euclidean group* SE(2). This includes translation and rotation, but excludes reflection.
+/// and belongs to the special [Euclidean group] SE(2). This includes translation and rotation, but excludes reflection.
 ///
 /// For the three-dimensional version, see [`Isometry3d`].
+///
+/// [Euclidean group]: https://en.wikipedia.org/wiki/Euclidean_group
 ///
 /// # Example
 ///
@@ -272,9 +274,11 @@ impl UlpsEq for Isometry2d {
 /// This can often be useful for expressing relative positions and transformations from one position to another.
 ///
 /// In particular, this type represents a distance-preserving transformation known as a *rigid motion* or a *direct motion*,
-/// and belongs to the *Special Euclidean group* SE(3). This includes translation and rotation, but excludes reflection.
+/// and belongs to the special [Euclidean group] SE(3). This includes translation and rotation, but excludes reflection.
 ///
 /// For the two-dimensional version, see [`Isometry2d`].
+///
+/// [Euclidean group]: https://en.wikipedia.org/wiki/Euclidean_group
 ///
 /// # Example
 ///
