@@ -71,6 +71,15 @@ impl Isometry2d {
         }
     }
 
+    /// Create a two-dimensional isometry from a translation with the given `x` and `y` components.
+    #[inline]
+    pub fn from_xy(x: f32, y: f32) -> Self {
+        Isometry2d {
+            rotation: Rot2::IDENTITY,
+            translation: Vec2::new(x, y),
+        }
+    }
+
     /// The inverse isometry that undoes this one.
     #[inline]
     pub fn inverse(&self) -> Self {
@@ -226,6 +235,15 @@ impl Isometry3d {
         Isometry3d {
             rotation: Quat::IDENTITY,
             translation: translation.into(),
+        }
+    }
+
+    /// Create a three-dimensional isometry from a translation with the given `x`, `y`, and `z` components.
+    #[inline]
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Isometry3d {
+            rotation: Quat::IDENTITY,
+            translation: Vec3A::new(x, y, z),
         }
     }
 
