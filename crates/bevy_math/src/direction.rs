@@ -244,7 +244,7 @@ impl Dir2 {
         self.rotation_from_y().inverse()
     }
 
-    /// Returns `self` after an approximate normalization and , assuming the value is already nearly normalized.
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
@@ -456,7 +456,7 @@ impl Dir3 {
         Dir3(quat.mul_vec3(self.0))
     }
 
-    /// Returns `self` after an approximate normalization and , assuming the value is already nearly normalized.
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
@@ -691,7 +691,7 @@ impl Dir3A {
         Dir3A(quat.mul_vec3a(self.0))
     }
 
-    /// Returns `self` after an approximate normalization and , assuming the value is already nearly normalized.
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
     #[inline]
     pub fn fast_renormalize(self) -> Self {

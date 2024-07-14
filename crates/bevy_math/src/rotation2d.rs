@@ -226,7 +226,7 @@ impl Rot2 {
         Self::from_sin_cos(self.sin * length_recip, self.cos * length_recip)
     }
 
-    /// Returns `self` after an approximate normalization and , assuming the value is already nearly normalized.
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
