@@ -1265,7 +1265,7 @@ impl<
         // It is safe to alias for ReadOnlyWorldQuery.
         unsafe {
             Self::fetch_next_aliased_unchecked(
-                self.entity_iter.by_ref().rev().by_ref(),
+                self.entity_iter.by_ref().rev(),
                 self.entities,
                 self.tables,
                 self.archetypes,
