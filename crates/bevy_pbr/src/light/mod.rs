@@ -99,7 +99,7 @@ impl Default for PointLightShadowMap {
 }
 
 /// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
-/// With<DirectionalLight>)>`, for use with [`VisibleEntities`].
+/// With<DirectionalLight>)>`, for use with [`bevy_render::view::VisibleEntities`].
 pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
