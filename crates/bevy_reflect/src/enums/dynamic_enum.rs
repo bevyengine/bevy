@@ -1,6 +1,5 @@
 use bevy_reflect_derive::impl_type_path;
 
-use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct,
     DynamicTuple, Enum, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple,
@@ -428,4 +427,5 @@ impl Reflect for DynamicEnum {
 }
 
 impl_type_path!((in bevy_reflect) DynamicEnum);
-impl_function_traits!(DynamicEnum);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicEnum);

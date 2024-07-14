@@ -1,4 +1,4 @@
-use crate::impls::{impl_function_traits, impl_type_path, impl_typed};
+use crate::impls::{impl_type_path, impl_typed};
 use crate::ReflectStruct;
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
@@ -46,7 +46,11 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
 
-    let function_impls = impl_function_traits(reflect_struct.meta(), &where_clause_options);
+    #[cfg(not(feature = "functions"))]
+    let function_impls = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "functions")]
+    let function_impls =
+        crate::impls::impl_function_traits(reflect_struct.meta(), &where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()

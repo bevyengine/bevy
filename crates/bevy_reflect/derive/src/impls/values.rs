@@ -1,4 +1,4 @@
-use crate::impls::{impl_function_traits, impl_type_path, impl_typed};
+use crate::impls::{impl_type_path, impl_typed};
 use crate::utility::WhereClauseOptions;
 use crate::ReflectMeta;
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQClone, FQOption, FQResult};
@@ -33,7 +33,10 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
     let type_path_impl = impl_type_path(meta);
 
-    let function_impls = impl_function_traits(meta, &where_clause_options);
+    #[cfg(not(feature = "functions"))]
+    let function_impls = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "functions")]
+    let function_impls = crate::impls::impl_function_traits(meta, &where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
