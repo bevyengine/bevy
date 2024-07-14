@@ -690,6 +690,8 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
+        // SAFETY: Archetype gets borrowed when running the on_replace observers above,
+        // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = self.archetype.as_mut();
 
         let (new_archetype, new_location) = match &mut self.result {
