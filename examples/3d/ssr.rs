@@ -21,6 +21,9 @@ use bevy::{
     },
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
+
 // The speed of camera movement.
 const CAMERA_KEYBOARD_ZOOM_SPEED: f32 = 0.1;
 const CAMERA_KEYBOARD_ORBIT_SPEED: f32 = 0.02;
@@ -286,7 +289,7 @@ fn create_text(app_settings: &AppSettings) -> Text {
 
 impl MaterialExtension for Water {
     fn deferred_fragment_shader() -> ShaderRef {
-        "shaders/water_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }
 

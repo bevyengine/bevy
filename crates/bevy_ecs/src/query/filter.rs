@@ -1,10 +1,10 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, ComponentInitializer, Components, StorageType, Tick},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
@@ -183,8 +183,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         access.and_with(id);
     }
 
-    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
-        initializer.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -291,8 +291,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         access.and_without(id);
     }
 
-    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
-        initializer.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -461,8 +461,8 @@ macro_rules! impl_or_query_filter {
                 *access = _new_access;
             }
 
-            fn init_state(initializer: &mut ComponentInitializer) -> Self::State {
-                ($($filter::init_state(initializer),)*)
+            fn init_state(world: &mut World) -> Self::State {
+                ($($filter::init_state(world),)*)
             }
 
             fn get_state(components: &Components) -> Option<Self::State> {
@@ -693,8 +693,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         access.add_read(id);
     }
 
-    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
-        initializer.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
@@ -904,8 +904,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         access.add_read(id);
     }
 
-    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
-        initializer.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {

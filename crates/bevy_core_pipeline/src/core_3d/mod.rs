@@ -50,7 +50,7 @@ pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 /// `sampler2DShadow` and will cheerfully generate invalid GLSL that tries to
 /// perform non-percentage-closer-filtering with such a sampler. Therefore we
 /// disable depth of field and screen space reflections entirely on WebGL 2.
-#[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+#[cfg(not(any(feature = "webgpu", not(target_arch = "wasm32"))))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 
 /// True if multisampled depth textures are supported on this platform.
@@ -65,7 +65,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use std::ops::Range;
 
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, UntypedAssetId};
 use bevy_color::LinearRgba;
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -77,7 +77,6 @@ use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
-    mesh::Mesh,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -137,6 +136,14 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .init_resource::<DrawFunctions<Opaque3dDeferred>>()
             .init_resource::<DrawFunctions<AlphaMask3dDeferred>>()
+            .init_resource::<ViewBinnedRenderPhases<Opaque3d>>()
+            .init_resource::<ViewBinnedRenderPhases<AlphaMask3d>>()
+            .init_resource::<ViewBinnedRenderPhases<Opaque3dPrepass>>()
+            .init_resource::<ViewBinnedRenderPhases<AlphaMask3dPrepass>>()
+            .init_resource::<ViewBinnedRenderPhases<Opaque3dDeferred>>()
+            .init_resource::<ViewBinnedRenderPhases<AlphaMask3dDeferred>>()
+            .init_resource::<ViewSortedRenderPhases<Transmissive3d>>()
+            .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
@@ -214,7 +221,7 @@ pub struct Opaque3d {
     pub extra_index: PhaseItemExtraIndex,
 }
 
-/// Data that must be identical in order to batch meshes together.
+/// Data that must be identical in order to batch phase items together.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Opaque3dBinKey {
     /// The identifier of the render pipeline.
@@ -223,8 +230,11 @@ pub struct Opaque3dBinKey {
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
-    /// The mesh.
-    pub asset_id: AssetId<Mesh>,
+    /// The asset that this phase item is associated with.
+    ///
+    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
+    /// the ID of another type of asset.
+    pub asset_id: UntypedAssetId,
 
     /// The ID of a bind group specific to the material.
     ///

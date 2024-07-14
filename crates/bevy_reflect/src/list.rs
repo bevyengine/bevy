@@ -100,7 +100,7 @@ pub trait List: Reflect {
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(|value| value.clone_value()).collect(),
+            values: self.iter().map(Reflect::clone_value).collect(),
         }
     }
 }
@@ -369,6 +369,8 @@ impl Reflect for DynamicList {
 }
 
 impl_type_path!((in bevy_reflect) DynamicList);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicList);
 
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

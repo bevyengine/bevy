@@ -1,7 +1,7 @@
 use bevy_ecs::schedule::Schedule;
 
 use super::{freely_mutable_state::FreelyMutableState, state_set::StateSet, states::States};
-pub use bevy_state_macros_official::SubStates;
+pub use bevy_state_macros::SubStates;
 
 /// A sub-state is a state that exists only when the source state meet certain conditions,
 /// but unlike [`ComputedStates`](crate::state::ComputedStates) - while they exist they can be manually modified.
@@ -150,7 +150,7 @@ pub trait SubStates: States + FreelyMutableState {
     ///
     /// This can either be a single type that implements [`States`], or a tuple
     /// containing multiple types that implement [`States`], or any combination of
-    /// types implementing [`States`] and Options of types implementing [`States`]
+    /// types implementing [`States`] and Options of types implementing [`States`].
     type SourceStates: StateSet;
 
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.

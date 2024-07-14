@@ -437,11 +437,11 @@ fn upload_light_probes(
             reflection_probes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             irradiance_volumes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             reflection_probe_count: render_view_environment_maps
-                .map(|maps| maps.len())
+                .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
             irradiance_volume_count: render_view_irradiance_volumes
-                .map(|maps| maps.len())
+                .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
             view_cubemap_index: render_view_environment_maps
@@ -657,21 +657,21 @@ pub(crate) fn add_cubemap_texture_view<'a>(
 /// (a.k.a. bindless textures). This function checks for these pitfalls:
 ///
 /// 1. If GLSL support is enabled at the feature level, then in debug mode
-/// `naga_oil` will attempt to compile all shader modules under GLSL to check
-/// validity of names, even if GLSL isn't actually used. This will cause a crash
-/// if binding arrays are enabled, because binding arrays are currently
-/// unimplemented in the GLSL backend of Naga. Therefore, we disable binding
-/// arrays if the `shader_format_glsl` feature is present.
+///     `naga_oil` will attempt to compile all shader modules under GLSL to check
+///     validity of names, even if GLSL isn't actually used. This will cause a crash
+///     if binding arrays are enabled, because binding arrays are currently
+///     unimplemented in the GLSL backend of Naga. Therefore, we disable binding
+///     arrays if the `shader_format_glsl` feature is present.
 ///
 /// 2. If there aren't enough texture bindings available to accommodate all the
-/// binding arrays, the driver will panic. So we also bail out if there aren't
-/// enough texture bindings available in the fragment shader.
+///     binding arrays, the driver will panic. So we also bail out if there aren't
+///     enough texture bindings available in the fragment shader.
 ///
 /// 3. If binding arrays aren't supported on the hardware, then we obviously
-/// can't use them.
+///     can't use them.
 ///
 /// 4. If binding arrays are supported on the hardware, but they can only be
-/// accessed by uniform indices, that's not good enough, and we bail out.
+///     accessed by uniform indices, that's not good enough, and we bail out.
 ///
 /// If binding arrays aren't usable, we disable reflection probes and limit the
 /// number of irradiance volumes in the scene to 1.

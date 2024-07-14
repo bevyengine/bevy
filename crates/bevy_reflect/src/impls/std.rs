@@ -397,6 +397,9 @@ impl_reflect_for_veclike!(
     Vec::pop,
     [T]
 );
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(Vec<T>; <T: FromReflect + TypePath + GetTypeRegistration>);
+
 impl_reflect_for_veclike!(
     ::alloc::collections::VecDeque<T>,
     VecDeque::insert,
@@ -405,6 +408,8 @@ impl_reflect_for_veclike!(
     VecDeque::pop_back,
     VecDeque::<T>
 );
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(VecDeque<T>; <T: FromReflect + TypePath + GetTypeRegistration>);
 
 macro_rules! impl_reflect_for_hashmap {
     ($ty:path) => {
@@ -634,10 +639,26 @@ macro_rules! impl_reflect_for_hashmap {
 impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
 impl_type_path!(::std::collections::hash_map::RandomState);
 impl_type_path!(::std::collections::HashMap<K, V, S>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
+    <
+        K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashMap<K, V, S>;
+    <
+        K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
 
 impl<K, V> Map for ::std::collections::BTreeMap<K, V>
 where
@@ -851,6 +872,13 @@ where
 }
 
 impl_type_path!(::std::collections::BTreeMap<K, V>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::std::collections::BTreeMap<K, V>;
+    <
+        K: FromReflect + TypePath + GetTypeRegistration + Eq + Ord,
+        V: FromReflect + TypePath + GetTypeRegistration
+    >
+);
 
 impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]
@@ -1011,6 +1039,9 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistr
     }
 }
 
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!([T; N]; <T: Reflect + TypePath + GetTypeRegistration> [const N: usize]);
+
 impl_reflect! {
     #[type_path = "core::option"]
     enum Option<T> {
@@ -1167,6 +1198,9 @@ impl FromReflect for Cow<'static, str> {
         )
     }
 }
+
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(Cow<'static, str>);
 
 impl<T: TypePath> TypePath for [T]
 where
@@ -1346,6 +1380,9 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> FromReflect for Co
     }
 }
 
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(Cow<'static, [T]>; <T: FromReflect + Clone + TypePath + GetTypeRegistration>);
+
 impl Reflect for &'static str {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -1452,6 +1489,9 @@ impl FromReflect for &'static str {
     }
 }
 
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(&'static str);
+
 impl Reflect for &'static Path {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -1556,6 +1596,9 @@ impl FromReflect for &'static Path {
         reflect.as_any().downcast_ref::<Self>().copied()
     }
 }
+
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(&'static Path);
 
 impl Reflect for Cow<'static, Path> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -1671,6 +1714,9 @@ impl GetTypeRegistration for Cow<'static, Path> {
         registration
     }
 }
+
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(Cow<'static, Path>);
 
 #[cfg(test)]
 mod tests {

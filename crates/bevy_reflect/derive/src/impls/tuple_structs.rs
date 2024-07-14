@@ -46,6 +46,12 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
 
+    #[cfg(not(feature = "functions"))]
+    let function_impls = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "functions")]
+    let function_impls =
+        crate::impls::impl_function_traits(reflect_struct.meta(), &where_clause_options);
+
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()
         .type_path()
@@ -60,6 +66,8 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         #typed_impl
 
         #type_path_impl
+
+        #function_impls
 
         impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_path #ty_generics #where_reflect_clause {
             fn field(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {

@@ -23,6 +23,8 @@ pub mod syncunsafecell;
 
 mod cow_arc;
 mod default;
+mod object_safe;
+pub use object_safe::assert_object_safe;
 mod once;
 mod parallel_queue;
 
