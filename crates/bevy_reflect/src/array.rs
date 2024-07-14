@@ -1,3 +1,4 @@
+use crate::diff::{diff_array, ArrayDiff, DiffApplyError, DiffApplyResult, DiffResult};
 use crate::{
     self as bevy_reflect, utility::reflect_hasher, ApplyError, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -72,6 +73,9 @@ pub trait Array: Reflect {
             values: self.iter().map(Reflect::clone_value).collect(),
         }
     }
+
+    /// Apply the given [`ArrayDiff`] to this value.
+    fn apply_array_diff(&mut self, diff: ArrayDiff) -> DiffApplyResult;
 }
 
 /// A container for compile-time array info.
@@ -298,6 +302,11 @@ impl Reflect for DynamicArray {
     }
 
     #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_array(self, other)
+    }
+
+    #[inline]
     fn reflect_hash(&self) -> Option<u64> {
         array_hash(self)
     }
@@ -354,6 +363,26 @@ impl Array for DynamicArray {
                 .map(|value| value.clone_value())
                 .collect(),
         }
+    }
+
+    fn apply_array_diff(&mut self, diff: ArrayDiff) -> DiffApplyResult {
+        if self.len() != diff.len() {
+            return Err(DiffApplyError::TypeMismatch);
+        }
+
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
+        };
+
+        for (index, diff) in diff.take_changes().into_iter().enumerate() {
+            self.get_mut(index)
+                .ok_or(DiffApplyError::MissingField)?
+                .apply_diff(diff)?;
+        }
+
+        Ok(())
     }
 }
 

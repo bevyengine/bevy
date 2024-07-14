@@ -1,4 +1,5 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::diff::{diff_struct, DiffApplyError, DiffApplyResult, DiffResult, StructDiff};
 use crate::{
     self as bevy_reflect, ApplyError, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -73,6 +74,9 @@ pub trait Struct: Reflect {
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
+
+    /// Apply the given [`StructDiff`] to this value.
+    fn apply_struct_diff(&mut self, diff: StructDiff) -> DiffApplyResult;
 }
 
 /// A container for compile-time named struct info.
@@ -396,6 +400,22 @@ impl Struct for DynamicStruct {
                 .collect(),
         }
     }
+
+    fn apply_struct_diff(&mut self, diff: StructDiff) -> DiffApplyResult {
+        if let Some(info) = self.get_represented_type_info() {
+            if info.type_id() != diff.type_info().type_id() {
+                return Err(DiffApplyError::TypeMismatch);
+            }
+        }
+
+        for (field_name, field_diff) in diff.take_changes() {
+            self.field_mut(&field_name)
+                .ok_or(DiffApplyError::MissingField)?
+                .apply_diff(field_diff)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Reflect for DynamicStruct {
@@ -480,6 +500,11 @@ impl Reflect for DynamicStruct {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new> {
+        diff_struct(self, other)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

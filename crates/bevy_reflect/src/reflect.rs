@@ -10,6 +10,7 @@ use std::{
 
 use thiserror::Error;
 
+use crate::diff::{Diff, DiffApplyResult, DiffResult};
 use crate::utility::NonGenericTypeInfoCell;
 
 macro_rules! impl_reflect_enum {
@@ -102,7 +103,7 @@ pub enum ReflectOwned {
 impl_reflect_enum!(ReflectOwned);
 
 /// A enumeration of all error outcomes that might happen when running [`try_apply`](Reflect::try_apply).
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
     /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
@@ -310,6 +311,39 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
     /// use those subtraits' respective `clone_dynamic` methods.
     fn clone_value(&self) -> Box<dyn Reflect>;
+
+    /// Compute the [diff](crate::diff::Diff) between this value and `other`.
+    ///
+    /// The computed diff should indicate how this value can be transformed into `other`.
+    ///
+    /// See the [module-level docs](crate::diff) for more details.
+    fn diff<'new>(&self, other: &'new dyn Reflect) -> DiffResult<'_, 'new>;
+
+    /// Apply the given [`Diff`] to this value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the diff cannot be applied to this value.
+    ///
+    /// Note that this may leave `self` in an invalid state.
+    /// If a possible error is expected, it is recommended to keep a copy of the original object,
+    /// such that it can be restored if necessary.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::Reflect;
+    /// let old = vec![1, 2, 3];
+    /// let new = vec![0, 2, 4];
+    ///
+    /// let diff = old.diff(&new).unwrap();
+    ///
+    /// let mut value = vec![1, 2, 3];
+    /// diff.apply(&mut value).unwrap();
+    /// ```
+    fn apply_diff(&mut self, diff: Diff) -> DiffApplyResult {
+        diff.apply(self.as_reflect_mut())
+    }
 
     /// Returns a hash of the value (which includes the type).
     ///

@@ -129,6 +129,25 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
                 dynamic
             }
+
+            fn apply_struct_diff(&mut self, diff: #bevy_reflect_path::diff::StructDiff) -> #bevy_reflect_path::diff::DiffApplyResult {
+                let info = <Self as #bevy_reflect_path::Typed>::type_info();
+
+                if info.type_id() != diff.type_info().type_id() {
+                    return #FQResult::Err(#bevy_reflect_path::diff::DiffApplyError::TypeMismatch);
+                }
+
+                let mut diffs = diff.take_changes();
+
+                #(
+                    #bevy_reflect_path::Reflect::apply_diff(
+                        &mut self.#field_idents,
+                        diffs.remove(#field_names).ok_or(#bevy_reflect_path::diff::DiffApplyError::MissingField)?
+                    )?;
+                )*
+
+                #FQResult::Ok(())
+            }
         }
 
         impl #impl_generics #bevy_reflect_path::Reflect for #struct_path #ty_generics #where_reflect_clause {
@@ -170,6 +189,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             #[inline]
             fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
                 #FQBox::new(#bevy_reflect_path::Struct::clone_dynamic(self))
+            }
+
+            #[inline]
+            fn diff<'new>(&self, other: &'new dyn #bevy_reflect_path::Reflect) -> #bevy_reflect_path::diff::DiffResult<'_, 'new> {
+                #bevy_reflect_path::diff::diff_struct(self, other)
             }
 
             #[inline]
