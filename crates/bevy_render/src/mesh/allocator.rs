@@ -1,7 +1,11 @@
 //! Manages mesh vertex and index buffers.
 
 use std::{
-    borrow::Cow, fmt::{self, Display, Formatter}, iter, ops::Range, vec::Vec
+    borrow::Cow,
+    fmt::{self, Display, Formatter},
+    iter,
+    ops::Range,
+    vec::Vec,
 };
 
 use bevy_app::{App, Plugin};
