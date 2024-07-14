@@ -105,7 +105,7 @@ impl<T: NoUninit> RawBufferVec<T> {
 
     /// Changes the debugging label of the buffer.
     ///
-    /// The next time the buffer is updated (via [`reserve`]), Bevy will inform
+    /// The next time the buffer is updated (via [`reserve`](Self::reserve)), Bevy will inform
     /// the driver of the new label.
     pub fn set_label(&mut self, label: Option<&str>) {
         let label = label.map(str::to_string);
@@ -201,7 +201,7 @@ impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
 /// For performance reasons, unlike [`RawBufferVec`], this type doesn't allow
 /// CPU access to the data after it's been added via [`BufferVec::push`]. If you
 /// need CPU access to the data, consider another type, such as
-/// [`StorageBuffer`].
+/// [`StorageBuffer`][super::StorageBuffer].
 pub struct BufferVec<T>
 where
     T: ShaderType + WriteInto,
@@ -284,7 +284,7 @@ where
 
     /// Changes the debugging label of the buffer.
     ///
-    /// The next time the buffer is updated (via [`reserve`]), Bevy will inform
+    /// The next time the buffer is updated (via [`Self::reserve`]), Bevy will inform
     /// the driver of the new label.
     pub fn set_label(&mut self, label: Option<&str>) {
         let label = label.map(str::to_string);
