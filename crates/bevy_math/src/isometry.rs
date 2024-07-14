@@ -86,7 +86,7 @@ impl Isometry2d {
     /// If the same isometry is used multiple times, it is more efficient to instead compute
     /// the inverse once and use that for each transformation.
     #[inline]
-    pub fn inverse_mul(self, rhs: Self) -> Self {
+    pub fn inverse_mul(&self, rhs: Self) -> Self {
         let inv_rot = self.rotation.inverse();
         let delta_translation = rhs.translation - self.translation;
         Self::new(inv_rot * delta_translation, inv_rot * rhs.rotation)
@@ -265,7 +265,7 @@ impl Isometry3d {
     /// If the same isometry is used multiple times, it is more efficient to instead compute
     /// the inverse once and use that for each transformation.
     #[inline]
-    pub fn inverse_mul(self, rhs: Self) -> Self {
+    pub fn inverse_mul(&self, rhs: Self) -> Self {
         let inv_rot = self.rotation.inverse();
         let delta_translation = rhs.translation - self.translation;
         Self::new(inv_rot * delta_translation, inv_rot * rhs.rotation)
