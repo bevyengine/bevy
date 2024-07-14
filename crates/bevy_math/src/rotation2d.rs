@@ -537,10 +537,7 @@ mod tests {
 
     #[test]
     fn fast_renormalize() {
-        let rotation = Rot2 {
-            sin: 1.0,
-            cos: 0.5,
-        };
+        let rotation = Rot2 { sin: 1.0, cos: 0.5 };
         let normalized_rotation = rotation.normalize();
 
         let mut unnormalized_rot = rotation;
@@ -565,8 +562,16 @@ mod tests {
         assert!(fully_normalized_rot.is_normalized());
 
         assert_relative_eq!(fully_normalized_rot, renormalized_rot, epsilon = 0.000001);
-        assert_relative_eq!(fully_normalized_rot, unnormalized_rot.normalize(), epsilon = 0.000001);
-        assert_relative_eq!(fully_normalized_rot, initially_normalized_rot.normalize(), epsilon = 0.000001);
+        assert_relative_eq!(
+            fully_normalized_rot,
+            unnormalized_rot.normalize(),
+            epsilon = 0.000001
+        );
+        assert_relative_eq!(
+            fully_normalized_rot,
+            initially_normalized_rot.normalize(),
+            epsilon = 0.000001
+        );
     }
 
     #[test]
