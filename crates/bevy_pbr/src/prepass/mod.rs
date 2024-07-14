@@ -851,6 +851,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
+            mesh_instance
+                .material_bind_group_id
+                .set(material.get_bind_group_id());
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
