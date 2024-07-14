@@ -809,7 +809,7 @@ impl MeshAllocator {
         }
 
         let command_buffer = encoder.finish();
-        render_queue.submit(iter::once(command_buffer));
+        render_queue.submit([command_buffer]);
     }
 
     /// Records the location of the given newly-allocated mesh data in the
