@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+default = []
 serialize = ["serde", "smol_str/serde", "bevy_ecs/serialize"]
 
 [dependencies]
