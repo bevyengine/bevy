@@ -210,7 +210,7 @@ impl GlobalTransform {
     /// assert_eq!(local_point, Vec3::new(1., 2., 3.))
     /// ```
     ///
-    /// To apply shear, scale, and rotation WITHOUT applying translation, different functions are available:
+    /// To apply shear, scale, and rotation *without* applying translation, different functions are available:
     /// ```
     /// # use bevy_transform::prelude::{GlobalTransform};
     /// # use bevy_math::prelude::Vec3;
