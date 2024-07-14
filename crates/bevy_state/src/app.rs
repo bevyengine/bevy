@@ -73,7 +73,9 @@ impl AppExtStates for SubApp {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            let schedule = self.get_schedule_mut(StateTransition).expect(
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
+            );
             S::register_state(schedule);
             let state = self.world().resource::<State<S>>().get().clone();
             self.world_mut().send_event(StateTransitionEvent {
@@ -94,7 +96,9 @@ impl AppExtStates for SubApp {
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            let schedule = self.get_schedule_mut(StateTransition).expect(
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
+            );
             S::register_state(schedule);
             self.world_mut().send_event(StateTransitionEvent {
                 exited: None,

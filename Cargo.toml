@@ -348,6 +348,9 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
+# Enable function reflection
+reflect_functions = ["bevy_internal/reflect_functions"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
 
@@ -2169,6 +2172,7 @@ wasm = false
 name = "function_reflection"
 path = "examples/reflection/function_reflection.rs"
 doc-scrape-examples = true
+required-features = ["reflect_functions"]
 
 [package.metadata.example.function_reflection]
 name = "Function Reflection"
