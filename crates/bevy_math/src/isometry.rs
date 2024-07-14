@@ -398,9 +398,8 @@ impl UlpsEq for Isometry3d {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{vec2, vec3};
+    use crate::{vec2, vec3, vec3a};
     use approx::assert_abs_diff_eq;
-    use glam::vec3a;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 
     #[test]
