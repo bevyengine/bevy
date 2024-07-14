@@ -10,7 +10,7 @@ use crate::{
     prelude::Bundle,
     world::{EntityMut, EntityWorldMut},
 };
-use bevy_reflect::{FromReflect, FromType, Reflect, ReflectRef, TypeRegistry};
+use bevy_reflect::{CreateTypeData, FromReflect, Reflect, ReflectRef, TypeRegistry};
 
 use super::{from_reflect_with_fallback, ReflectComponent};
 
@@ -38,12 +38,12 @@ pub struct ReflectBundleFns {
 
 impl ReflectBundleFns {
     /// Get the default set of [`ReflectBundleFns`] for a specific bundle type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: Bundle + Reflect + FromReflect>() -> Self {
-        <ReflectBundle as FromType<T>>::from_type().0
+        <ReflectBundle as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -122,8 +122,8 @@ impl ReflectBundle {
     }
 }
 
-impl<B: Bundle + Reflect> FromType<B> for ReflectBundle {
-    fn from_type() -> Self {
+impl<B: Bundle + Reflect> CreateTypeData<B> for ReflectBundle {
+    fn create_type_data(_input: ()) -> Self {
         ReflectBundle(ReflectBundleFns {
             insert: |entity, reflected_bundle, registry| {
                 let bundle = entity.world_scope(|world| {

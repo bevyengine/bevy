@@ -5,7 +5,7 @@ use bevy_macro_utils::{
     fq_std::{FQAny, FQOption, FQSend, FQSync},
     BevyManifest,
 };
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
 use syn::parse::{Parse, ParseStream, Peek};
 use syn::punctuated::Punctuated;
@@ -21,18 +21,18 @@ pub(crate) fn get_bevy_reflect_path() -> Path {
 /// # Example
 ///
 /// ```
-/// # use proc_macro2::Ident;
+/// # use proc_macro2::{Ident, Span};
 /// # // We can't import this method because of its visibility.
-/// # fn get_reflect_ident(name: &str) -> Ident {
-/// #     let reflected = format!("Reflect{name}");
-/// #     Ident::new(&reflected, proc_macro2::Span::call_site())
+/// # fn get_reflect_ident(base_ident: &Ident) -> Ident {
+/// #     let reflected = format!("Reflect{base_ident}");
+/// #     Ident::new(&reflected, base_ident.span())
 /// # }
-/// let reflected: Ident = get_reflect_ident("Hash");
+/// let reflected: Ident = get_reflect_ident(&Ident::new("Hash", Span::call_site()));
 /// assert_eq!("ReflectHash", reflected.to_string());
 /// ```
-pub(crate) fn get_reflect_ident(name: &str) -> Ident {
-    let reflected = format!("Reflect{name}");
-    Ident::new(&reflected, Span::call_site())
+pub(crate) fn get_reflect_ident(base_ident: &Ident) -> Ident {
+    let reflected = format!("Reflect{base_ident}");
+    Ident::new(&reflected, base_ident.span())
 }
 
 /// Helper struct used to process an iterator of `Result<Vec<T>, syn::Error>`,

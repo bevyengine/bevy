@@ -16,14 +16,14 @@
 //! [`get_type_registration`] method (see the relevant code[^1]).
 //!
 //! ```
-//! # use bevy_reflect::{FromType, Reflect};
+//! # use bevy_reflect::{CreateTypeData, Reflect};
 //! # use bevy_ecs::prelude::{ReflectComponent, Component};
 //! # #[derive(Default, Reflect, Component)]
 //! # struct A;
 //! # impl A {
 //! #   fn foo() {
 //! # let mut registration = bevy_reflect::TypeRegistration::of::<A>();
-//! registration.insert::<ReflectComponent>(FromType::<Self>::from_type());
+//! registration.insert::<ReflectComponent>(CreateTypeData::<Self>::create_type_data(()));
 //! #   }
 //! # }
 //! ```
@@ -32,10 +32,10 @@
 //! The user can access the `ReflectComponent` for type `T` through the type registry,
 //! as per the `trait_reflection.rs` example.
 //!
-//! The `FromType::<Self>::from_type()` in the previous line calls the `FromType<C>`
-//! implementation of `ReflectComponent`.
+//! The `CreateTypeData::<Self>::create_type_data(())` in the previous line calls the
+//! `CreateTypeData<C>` implementation of `ReflectComponent`.
 //!
-//! The `FromType<C>` impl creates a function per field of [`ReflectComponentFns`].
+//! The `CreateTypeData<C>` impl creates a function per field of [`ReflectComponentFns`].
 //! In those functions, we call generic methods on [`World`] and [`EntityWorldMut`].
 //!
 //! The result is a `ReflectComponent` completely independent of `C`, yet capable
@@ -67,7 +67,7 @@ use crate::{
         FilteredEntityRef, World,
     },
 };
-use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+use bevy_reflect::{CreateTypeData, FromReflect, Reflect, TypeRegistry};
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
@@ -123,12 +123,12 @@ pub struct ReflectComponentFns {
 
 impl ReflectComponentFns {
     /// Get the default set of [`ReflectComponentFns`] for a specific component type using its
-    /// [`FromType`] implementation.
+    /// [`CreateTypeData`] implementation.
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
     pub fn new<T: Component + Reflect + FromReflect>() -> Self {
-        <ReflectComponent as FromType<T>>::from_type().0
+        <ReflectComponent as CreateTypeData<T>>::create_type_data(()).0
     }
 }
 
@@ -256,8 +256,8 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect> FromType<C> for ReflectComponent {
-    fn from_type() -> Self {
+impl<C: Component + Reflect> CreateTypeData<C> for ReflectComponent {
+    fn create_type_data(_input: ()) -> Self {
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
                 let component = entity.world_scope(|world| {

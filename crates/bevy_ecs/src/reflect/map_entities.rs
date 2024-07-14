@@ -3,7 +3,7 @@ use crate::{
     entity::{Entity, EntityHashMap, MapEntities, SceneEntityMapper},
     world::World,
 };
-use bevy_reflect::FromType;
+use bevy_reflect::CreateTypeData;
 
 /// For a specific type of component, this maps any fields with values of type [`Entity`] to a new world.
 /// Since a given `Entity` ID is only valid for the world it came from, when performing deserialization
@@ -48,8 +48,8 @@ impl ReflectMapEntities {
     }
 }
 
-impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
-    fn from_type() -> Self {
+impl<C: Component + MapEntities> CreateTypeData<C> for ReflectMapEntities {
+    fn create_type_data(_input: ()) -> Self {
         ReflectMapEntities {
             map_entities: |world, entity_mapper, entities| {
                 for &entity in entities {
@@ -93,8 +93,8 @@ impl ReflectMapEntitiesResource {
     }
 }
 
-impl<R: crate::system::Resource + MapEntities> FromType<R> for ReflectMapEntitiesResource {
-    fn from_type() -> Self {
+impl<R: crate::system::Resource + MapEntities> CreateTypeData<R> for ReflectMapEntitiesResource {
+    fn create_type_data(_input: ()) -> Self {
         ReflectMapEntitiesResource {
             map_entities: |world, entity_mapper| {
                 if let Some(mut resource) = world.get_resource_mut::<R>() {
