@@ -1011,10 +1011,7 @@ fn pad_to_alignment(buffer: &[u8], align: usize) -> Cow<[u8]> {
     Cow::Owned(buffer)
 }
 
-/// Returns either `"vertex "` or `"index "`, depending on the type of buffer
-/// we're dealing with.
-///
-/// This is used when constructing mesh buffer labels.
+/// Returns a string describing the given buffer usages.
 fn buffer_usages_to_str(buffer_usages: BufferUsages) -> &'static str {
     if buffer_usages.contains(BufferUsages::VERTEX) {
         "vertex "
