@@ -53,7 +53,7 @@ fn setup(mut commands: Commands) {
         "Right",
         "Top",
         "Bottom",
-        "Horizonal",
+        "Horizontal",
         "Vertical",
         "Top Left",
         "Bottom Left",
