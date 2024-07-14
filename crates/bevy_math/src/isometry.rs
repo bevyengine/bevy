@@ -90,10 +90,31 @@ impl Isometry2d {
         }
     }
 
+    /// Compute `iso1.inverse() * iso2` in a more efficient way for one-shot cases.
+    ///
+    /// If the same isometry is used multiple times, it is more efficient to instead compute
+    /// the inverse once and use that for each transformation.
+    #[inline]
+    pub fn inverse_mul(&self, rhs: Self) -> Self {
+        let inv_rot = self.rotation.inverse();
+        let delta_translation = rhs.translation - self.translation;
+        Self::new(inv_rot * delta_translation, inv_rot * rhs.rotation)
+    }
+
     /// Transform a point by rotating and translating it using this isometry.
     #[inline]
     pub fn transform_point(&self, point: Vec2) -> Vec2 {
         self.rotation * point + self.translation
+    }
+
+    /// Transform a point by rotating and translating it using the inverse of this isometry.
+    ///
+    /// This is more efficient than `iso.inverse().transform_point(point)` for one-shot cases.
+    /// If the same isometry is used multiple times, it is more efficient to instead compute
+    /// the inverse once and use that for each transformation.
+    #[inline]
+    pub fn inverse_transform_point(&self, point: Vec2) -> Vec2 {
+        self.rotation.inverse() * (point - self.translation)
     }
 }
 
@@ -257,10 +278,31 @@ impl Isometry3d {
         }
     }
 
+    /// Compute `iso1.inverse() * iso2` in a more efficient way for one-shot cases.
+    ///
+    /// If the same isometry is used multiple times, it is more efficient to instead compute
+    /// the inverse once and use that for each transformation.
+    #[inline]
+    pub fn inverse_mul(&self, rhs: Self) -> Self {
+        let inv_rot = self.rotation.inverse();
+        let delta_translation = rhs.translation - self.translation;
+        Self::new(inv_rot * delta_translation, inv_rot * rhs.rotation)
+    }
+
     /// Transform a point by rotating and translating it using this isometry.
     #[inline]
     pub fn transform_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         self.rotation * point.into() + self.translation
+    }
+
+    /// Transform a point by rotating and translating it using the inverse of this isometry.
+    ///
+    /// This is more efficient than `iso.inverse().transform_point(point)` for one-shot cases.
+    /// If the same isometry is used multiple times, it is more efficient to instead compute
+    /// the inverse once and use that for each transformation.
+    #[inline]
+    pub fn inverse_transform_point(&self, point: impl Into<Vec3A>) -> Vec3A {
+        self.rotation.inverse() * (point.into() - self.translation)
     }
 }
 
@@ -374,7 +416,7 @@ impl UlpsEq for Isometry3d {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{vec2, vec3};
+    use crate::{vec2, vec3, vec3a};
     use approx::assert_abs_diff_eq;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 
@@ -387,11 +429,27 @@ mod tests {
     }
 
     #[test]
+    fn inverse_mul_2d() {
+        let iso1 = Isometry2d::new(vec2(1.0, 0.0), Rot2::FRAC_PI_2);
+        let iso2 = Isometry2d::new(vec2(0.0, 0.0), Rot2::PI);
+        let expected = Isometry2d::new(vec2(0.0, 1.0), Rot2::FRAC_PI_2);
+        assert_abs_diff_eq!(iso1.inverse_mul(iso2), expected);
+    }
+
+    #[test]
     fn mul_3d() {
         let iso1 = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_x(FRAC_PI_2));
         let iso2 = Isometry3d::new(vec3(0.0, 1.0, 0.0), Quat::IDENTITY);
         let expected = Isometry3d::new(vec3(1.0, 0.0, 1.0), Quat::from_rotation_x(FRAC_PI_2));
         assert_abs_diff_eq!(iso1 * iso2, expected);
+    }
+
+    #[test]
+    fn inverse_mul_3d() {
+        let iso1 = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_x(FRAC_PI_2));
+        let iso2 = Isometry3d::new(vec3(1.0, 0.0, 1.0), Quat::from_rotation_x(FRAC_PI_2));
+        let expected = Isometry3d::new(vec3(0.0, 1.0, 0.0), Quat::IDENTITY);
+        assert_abs_diff_eq!(iso1.inverse_mul(iso2), expected);
     }
 
     #[test]
@@ -432,9 +490,23 @@ mod tests {
     }
 
     #[test]
+    fn inverse_transform_2d() {
+        let iso = Isometry2d::new(vec2(0.5, -0.5), Rot2::FRAC_PI_2);
+        let point = vec2(-0.5, 0.5);
+        assert_abs_diff_eq!(vec2(1.0, 1.0), iso.inverse_transform_point(point));
+    }
+
+    #[test]
     fn transform_3d() {
         let iso = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_y(FRAC_PI_2));
         let point = vec3(1.0, 1.0, 1.0);
         assert_abs_diff_eq!(vec3(2.0, 1.0, -1.0), iso * point);
+    }
+
+    #[test]
+    fn inverse_transform_3d() {
+        let iso = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_y(FRAC_PI_2));
+        let point = vec3(2.0, 1.0, -1.0);
+        assert_abs_diff_eq!(vec3a(1.0, 1.0, 1.0), iso.inverse_transform_point(point));
     }
 }
