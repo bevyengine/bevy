@@ -388,7 +388,7 @@ impl<'w> DeferredWorld<'w> {
             if !propagate {
                 break;
             }
-            if let Some(traverse_to) = self.get::<C>(entity).and_then(|t| t.traverse()) {
+            if let Some(traverse_to) = self.get::<C>(entity).and_then(C::traverse) {
                 entity = traverse_to;
             } else {
                 break;
