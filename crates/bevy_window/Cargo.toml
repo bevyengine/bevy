@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 default = []
-serialize = ["serde", "smol_str/serde"]
+serialize = ["serde", "smol_str/serde", "bevy_ecs/serialize"]
 
 [dependencies]
 # bevy
