@@ -83,7 +83,7 @@ pub struct TextPlugin {
     ///
     /// System fonts loading is a surprisingly complicated task,
     /// mostly unsolvable without interacting with system libraries.
-    /// This method will simply scan some predefined directories.
+    /// It will simply scan some predefined directories.
     /// Which means that fonts that are not in those directories must
     /// be added manually.
     pub load_system_fonts: bool,
