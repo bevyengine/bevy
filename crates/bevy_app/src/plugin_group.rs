@@ -115,6 +115,7 @@ macro_rules! plugin_group {
             $(#[doc = $post_doc])+
         )?
         $vis struct $group;
+
         impl $crate::PluginGroup for $group {
             fn build(self) -> $crate::PluginGroupBuilder {
                 let mut group = $crate::PluginGroupBuilder::start::<Self>();
