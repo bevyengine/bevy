@@ -81,11 +81,14 @@ pub struct TextPlugin {
     ///
     /// Supports Windows, Linux and macOS.
     ///
-    /// System fonts loading is a surprisingly complicated task,
+    /// System font loading is a surprisingly complicated task,
     /// mostly unsolvable without interacting with system libraries.
-    /// It will simply scan some predefined directories.
-    /// Which means that fonts that are not in those directories must
+    /// It will simply scan some predefined directories,
+    /// which means that fonts not in those directories must
     /// be added manually.
+    ///
+    /// For details on which directories are considered on each platform,
+    /// refer to the [fontdb::Database::load_system_fonts](https://docs.rs/fontdb/latest/fontdb/struct.Database.html#method.load_system_fonts) documentation.
     pub load_system_fonts: bool,
 }
 
