@@ -107,7 +107,7 @@ macro_rules! plugin_group {
         $(#[$group_meta])*
         ///
         $(#[doc = concat!(
-            "* [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
+            " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
             $(, " - with feature `", $plugin_feature, "`")?
         )])*
         $(
