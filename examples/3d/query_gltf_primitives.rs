@@ -49,9 +49,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb"),
-        ),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/GltfPrimitives/gltf_primitives.glb")),
         transform: Transform {
             rotation: Quat::from_rotation_y(-90.0 / 180.0 * std::f32::consts::PI),
             ..default()
