@@ -26,7 +26,7 @@ impl<T: 'static> Task<T> {
         Self(receiver.into_future())
     }
 
-    /// When building for wasm, this method has no effect.
+    /// When building for Wasm, this method has no effect.
     /// This is only included for feature parity with other platforms.
     pub fn detach(self) {}
 
@@ -35,7 +35,7 @@ impl<T: 'static> Task<T> {
     ///
     /// # Implementation
     ///
-    /// When building for wasm, it is not possible to cancel tasks which means this is the same
+    /// When building for Wasm, it is not possible to cancel tasks, which means this is the same
     /// as just awaiting the task. This method is only included for feature parity with other platforms.
     pub async fn cancel(self) -> Option<T> {
         match self.0.await {
