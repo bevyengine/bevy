@@ -162,7 +162,7 @@ impl RenderLayers {
                 return None;
             }
             let next = buffer.trailing_zeros() + 1;
-            buffer >>= next;
+            buffer = buffer.checked_shr(next).unwrap_or(0);
             layer += next as usize;
             Some(layer - 1)
         })
@@ -358,5 +358,11 @@ mod rendering_mask_tests {
         // When excluding that layer, it should drop the extra memory block
         let layers = layers.without(77);
         assert!(layers.0.len() == 1);
+    }
+
+    #[test]
+    fn render_layer_iter_no_overflow() {
+        let layers = RenderLayers::from_layers(&[63]);
+        layers.iter().count();
     }
 }
