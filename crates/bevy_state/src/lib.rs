@@ -35,7 +35,8 @@ pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
 
-/// Provides [`StateScoped`] and [`clear_state_scoped_entities`] for managing lifetime of entities.
+/// Provides [`StateScoped`](crate::state_scoped::StateScoped) and
+/// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
 pub mod state_scoped;
 
 /// Most commonly used re-exported types.

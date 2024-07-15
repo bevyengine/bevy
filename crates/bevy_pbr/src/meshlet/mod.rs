@@ -30,7 +30,7 @@ pub(crate) use self::{
     },
 };
 
-pub use self::asset::*;
+pub use self::asset::{MeshletMesh, MeshletMeshSaverLoader};
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
@@ -118,6 +118,9 @@ pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_endian = "big")]
+        compile_error!("MeshletPlugin is only supported on little-endian processors.");
+
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
@@ -168,7 +171,7 @@ impl Plugin for MeshletPlugin {
         );
 
         app.init_asset::<MeshletMesh>()
-            .register_asset_loader(MeshletMeshSaverLoad)
+            .register_asset_loader(MeshletMeshSaverLoader)
             .add_systems(
                 PostUpdate,
                 check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),

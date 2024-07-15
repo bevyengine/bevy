@@ -17,6 +17,7 @@ pub fn convert_keyboard_input(
         state: convert_element_state(keyboard_input.state),
         key_code: convert_physical_key_code(keyboard_input.physical_key),
         logical_key: convert_logical_key(&keyboard_input.logical_key),
+        repeat: keyboard_input.repeat,
         window,
     }
 }

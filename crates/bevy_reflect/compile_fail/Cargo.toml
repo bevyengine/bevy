@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-bevy_reflect = { path = "../" }
+bevy_reflect = { path = "../", features = ["functions"] }
 
 [dev-dependencies]
 compile_fail_utils = { path = "../../../tools/compile_fail_utils" }

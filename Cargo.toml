@@ -348,6 +348,9 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
+# Enable function reflection
+reflect_functions = ["bevy_internal/reflect_functions"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
 
@@ -2158,6 +2161,7 @@ wasm = false
 name = "function_reflection"
 path = "examples/reflection/function_reflection.rs"
 doc-scrape-examples = true
+required-features = ["reflect_functions"]
 
 [package.metadata.example.function_reflection]
 name = "Function Reflection"
@@ -2188,13 +2192,13 @@ category = "Reflection"
 wasm = false
 
 [[example]]
-name = "trait_reflection"
-path = "examples/reflection/trait_reflection.rs"
+name = "type_data"
+path = "examples/reflection/type_data.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.trait_reflection]
-name = "Trait Reflection"
-description = "Allows reflection with trait objects"
+[package.metadata.example.type_data]
+name = "Type Data"
+description = "Demonstrates how to create and use type data"
 category = "Reflection"
 wasm = false
 
@@ -2233,11 +2237,11 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "post_processing"
-path = "examples/shader/post_processing.rs"
+name = "custom_post_processing"
+path = "examples/shader/custom_post_processing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.post_processing]
+[package.metadata.example.custom_post_processing]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -2563,6 +2567,17 @@ doc-scrape-examples = true
 [package.metadata.example.observers]
 name = "Observers"
 description = "Demonstrates observers that react to events (both built-in life-cycle events and custom events)"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
+name = "observer_propagation"
+path = "examples/ecs/observer_propagation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observer_propagation]
+name = "Observer Propagation"
+description = "Demonstrates event propagation with observers"
 category = "ECS (Entity Component System)"
 wasm = true
 
@@ -3267,6 +3282,17 @@ doc-scrape-examples = true
 name = "Run physics in a fixed timestep"
 description = "Handles input, physics, and rendering in an industry-standard way by using a fixed timestep"
 category = "Movement"
+wasm = true
+
+[[example]]
+name = "post_processing"
+path = "examples/3d/post_processing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.post_processing]
+name = "Built-in postprocessing"
+description = "Demonstrates the built-in postprocessing features"
+category = "3D Rendering"
 wasm = true
 
 [profile.wasm-release]

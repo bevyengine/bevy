@@ -30,6 +30,7 @@ pub mod graph {
         Bloom,
         AutoExposure,
         DepthOfField,
+        PostProcessing,
         Tonemapping,
         Fxaa,
         Smaa,
