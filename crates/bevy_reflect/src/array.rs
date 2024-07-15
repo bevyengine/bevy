@@ -203,15 +203,9 @@ impl DynamicArray {
         }
     }
 
+    #[deprecated(since = "0.15.0", note = "use from_iter")]
     pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
-        Self {
-            represented_type: None,
-            values: values
-                .into_iter()
-                .map(|field| Box::new(field) as Box<dyn Reflect>)
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        }
+        Self::from_iter(values)
     }
 
     /// Sets the [type] to be represented by this `DynamicArray`.
@@ -366,6 +360,42 @@ impl Array for DynamicArray {
                 .map(|value| value.clone_value())
                 .collect(),
         }
+    }
+}
+
+impl FromIterator<Box<dyn Reflect>> for DynamicArray {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(values: I) -> Self {
+        Self {
+            represented_type: None,
+            values: values.into_iter().collect::<Vec<_>>().into_boxed_slice(),
+        }
+    }
+}
+
+impl<T: Reflect> FromIterator<T> for DynamicArray {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
+        values
+            .into_iter()
+            .map(|value| Box::new(value).into_reflect())
+            .collect()
+    }
+}
+
+impl IntoIterator for DynamicArray {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_vec().into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicArray {
+    type Item = &'a dyn Reflect;
+    type IntoIter = ArrayIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
