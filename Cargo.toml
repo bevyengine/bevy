@@ -2504,17 +2504,6 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
-name = "transform_hierarchy"
-path = "examples/stress_tests/transform_hierarchy.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.transform_hierarchy]
-name = "Transform Hierarchy"
-description = "Various test cases for hierarchy and transform propagation performance"
-category = "Stress Tests"
-wasm = false
-
-[[example]]
 name = "text_pipeline"
 path = "examples/stress_tests/text_pipeline.rs"
 doc-scrape-examples = true
