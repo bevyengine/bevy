@@ -59,8 +59,8 @@ pub trait AppExtStates {
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 }
 
-/// Helper function to panic if [`StatesPlugin`] is not installed.
-fn panic_if_no_states_plugin_installed(app: &SubApp) {
+/// Helper function to panic if [`StatesPlugin`] is not added to the `App`.
+fn panic_if_no_states_plugin_added(app: &SubApp) {
     if !app.is_plugin_added::<StatesPlugin>() {
         panic!("Missing `StatesPlugin`. Did you forget to add `StatesPlugin` or `DefaultPlugins` before adding states to the `App`?");
     }
@@ -68,7 +68,7 @@ fn panic_if_no_states_plugin_installed(app: &SubApp) {
 
 impl AppExtStates for SubApp {
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
-        panic_if_no_states_plugin_installed(self);
+        panic_if_no_states_plugin_added(self);
         if !self.world().contains_resource::<State<S>>() {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
@@ -89,7 +89,7 @@ impl AppExtStates for SubApp {
     }
 
     fn insert_state<S: FreelyMutableState>(&mut self, state: S) -> &mut Self {
-        panic_if_no_states_plugin_installed(self);
+        panic_if_no_states_plugin_added(self);
         if !self.world().contains_resource::<State<S>>() {
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
@@ -116,7 +116,7 @@ impl AppExtStates for SubApp {
     }
 
     fn add_computed_state<S: ComputedStates>(&mut self) -> &mut Self {
-        panic_if_no_states_plugin_installed(self);
+        panic_if_no_states_plugin_added(self);
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
@@ -141,7 +141,7 @@ impl AppExtStates for SubApp {
     }
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
-        panic_if_no_states_plugin_installed(self);
+        panic_if_no_states_plugin_added(self);
         if !self
             .world()
             .contains_resource::<Events<StateTransitionEvent<S>>>()
