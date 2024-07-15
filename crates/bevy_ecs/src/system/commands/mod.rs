@@ -939,12 +939,12 @@ impl EntityCommands<'_> {
     ///
     /// The command will panic when applied if the associated entity does not exist.
     ///
-    /// To avoid a panic in this case, use the command [`Self::try_insert`] instead.
+    /// To avoid a panic in this case, use the command [`Self::try_insert_by_id`] instead.
     ///
     /// # Safety
     ///
     /// - [`ComponentId`] must be from the same world as `self`.
-    /// - `T` must have the same layout as the one passed during `componennt_id` creation.
+    /// - `T` must have the same layout as the one passed during `component_id` creation.
     pub unsafe fn insert_by_id<T: Send + 'static>(
         &mut self,
         component_id: ComponentId,
@@ -952,7 +952,7 @@ impl EntityCommands<'_> {
     ) -> &mut Self {
         // SAFETY: same invariants as parent call
         self.add(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: Could not insert a component {component_id:?} (with type {}) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>());
         })});
         self
     }
@@ -964,7 +964,7 @@ impl EntityCommands<'_> {
     /// # Safety
     ///
     /// - [`ComponentId`] must be from the same world as `self`.
-    /// - `T` must have the same layout as the one passed during `componennt_id` creation.
+    /// - `T` must have the same layout as the one passed during `component_id` creation.
     pub unsafe fn try_insert_by_id<T: Send + 'static>(
         &mut self,
         component_id: ComponentId,
@@ -1295,7 +1295,7 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
 /// # Safety
 ///
 /// - The returned `EntityCommand` must be queued for the world where `component_id` was created.
-/// - `T` must be the type represented by `componennt_id`.
+/// - `T` must be the type represented by `component_id`.
 unsafe fn insert_by_id<T: Send + 'static>(
     component_id: ComponentId,
     value: T,
