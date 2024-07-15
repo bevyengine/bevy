@@ -8,8 +8,8 @@
 
 use bevy::reflect::func::args::ArgInfo;
 use bevy::reflect::func::{
-    ArgList, DynamicClosure, DynamicFunction, FunctionInfo, IntoClosure, IntoFunction, Return,
-    ReturnInfo,
+    ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionInfo, IntoClosure,
+    IntoClosureMut, IntoFunction, Return, ReturnInfo,
 };
 use bevy::reflect::Reflect;
 
@@ -56,30 +56,30 @@ fn main() {
     let value: Box<dyn Reflect> = return_value.unwrap_owned();
     assert_eq!(value.take::<i32>().unwrap(), 4);
 
-    // The same can also be done for closures that capture references to their environment
+    // The same can also be done for closures that capture references to their environment.
+    // Closures that capture their environment immutably can be converted into a `DynamicClosure`
     // using the `IntoClosure` trait.
-    let mut count = 0;
-    let increment = |amount: i32| count += amount;
-
-    let closure: DynamicClosure = dbg!(increment.into_closure());
-    let args = dbg!(ArgList::new().push_owned(5_i32));
-    // `DynamicClosure`s that mutably capture their environment like this one
-    // may need to be dropped before those captured variables may be used again.
-    // This can be done manually with `drop(closure)` or by using the `DynamicClosure::call_once` method.
-    dbg!(closure.call_once(args).unwrap());
-    assert_eq!(count, 5);
-
-    // Note that `DynamicFunction` just requires a `'static` lifetime.
-    // This means that closures that capture variables by taking ownership of them
-    // can still be converted to a `DynamicFunction`.
     let minimum = 5;
-    let clamp = move |value: i32| value.max(minimum);
+    let clamp = |value: i32| value.max(minimum);
 
-    let function: DynamicFunction = dbg!(clamp.into_function());
+    let function: DynamicClosure = dbg!(clamp.into_closure());
     let args = dbg!(ArgList::new().push_owned(2_i32));
     let return_value = dbg!(function.call(args).unwrap());
     let value: Box<dyn Reflect> = return_value.unwrap_owned();
     assert_eq!(value.take::<i32>().unwrap(), 5);
+
+    // We can also handle closures that capture their environment mutably
+    // using the `IntoClosureMut` trait.
+    let mut count = 0;
+    let increment = |amount: i32| count += amount;
+
+    let closure: DynamicClosureMut = dbg!(increment.into_closure_mut());
+    let args = dbg!(ArgList::new().push_owned(5_i32));
+    // Because `DynamicClosureMut` mutably borrows `total`,
+    // it will need to be dropped before `total` can be accessed again.
+    // This can be done manually with `drop(closure)` or by using the `DynamicClosureMut::call_once` method.
+    dbg!(closure.call_once(args).unwrap());
+    assert_eq!(count, 5);
 
     // As stated before, this works for many kinds of simple functions.
     // Functions with non-reflectable arguments or return values may not be able to be converted.

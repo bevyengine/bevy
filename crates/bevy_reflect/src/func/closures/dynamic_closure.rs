@@ -7,8 +7,9 @@ use crate::func::{FunctionResult, IntoClosure, ReturnInfo};
 
 /// A dynamic representation of a Rust closure.
 ///
-/// For our purposes, a "closure" is just a callable that may reference its environment.
-/// This includes any type of Rust function or closure.
+/// This type can be used to represent any Rust closure that captures its environment immutably.
+/// For closures that need to capture their environment mutably,
+/// see [`DynamicClosureMut`].
 ///
 /// This type can be seen as a superset of [`DynamicFunction`].
 ///
@@ -24,35 +25,29 @@ use crate::func::{FunctionResult, IntoClosure, ReturnInfo};
 /// ```
 /// # use bevy_reflect::func::{ArgList, DynamicClosure, FunctionInfo, IntoClosure};
 /// #
-/// let mut list: Vec<i32> = vec![1, 2, 3];
+/// let punct = String::from("!!!");
 ///
-/// // `replace` is a closure that captures a mutable reference to `list`
-/// let mut replace = |index: usize, value: i32| -> i32 {
-///   let old_value = list[index];
-///   list[index] = value;
-///   old_value
+/// let punctuate = |text: &String| -> String {
+///   format!("{}{}", text, punct)
 /// };
 ///
 /// // Convert the closure into a dynamic closure using `IntoClosure::into_closure`
-/// let mut func: DynamicClosure = replace.into_closure();
+/// let mut func: DynamicClosure = punctuate.into_closure();
 ///
 /// // Dynamically call the closure:
-/// let args = ArgList::default().push_owned(1_usize).push_owned(-2_i32);
+/// let text = String::from("Hello, world");
+/// let args = ArgList::default().push_ref(&text);
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(value.take::<i32>().unwrap(), 2);
-///
-/// // Note that `func` still has a reference to `list`,
-/// // so we need to drop it before we can access `list` again.
-/// drop(func);
-/// assert_eq!(list, vec![1, -2, 3]);
+/// assert_eq!(value.take::<String>().unwrap(), "Hello, world!!!");
 /// ```
 ///
+/// [`DynamicClosureMut`]: crate::func::closures::DynamicClosureMut
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 pub struct DynamicClosure<'env> {
     info: FunctionInfo,
-    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
+    func: Box<dyn for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
 }
 
 impl<'env> DynamicClosure<'env> {
@@ -62,7 +57,7 @@ impl<'env> DynamicClosure<'env> {
     ///
     /// It's important that the closure signature matches the provided [`FunctionInfo`].
     /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>(
+    pub fn new<F: for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
@@ -107,41 +102,17 @@ impl<'env> DynamicClosure<'env> {
     ///
     /// ```
     /// # use bevy_reflect::func::{IntoClosure, ArgList};
+    /// let c = 23;
     /// let add = |a: i32, b: i32| -> i32 {
-    ///   a + b
+    ///   a + b + c
     /// };
     ///
     /// let mut func = add.into_closure().with_name("add");
     /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.take::<i32>().unwrap(), 100);
+    /// assert_eq!(result.take::<i32>().unwrap(), 123);
     /// ```
-    pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func)(args, &self.info)
-    }
-
-    /// Call the closure with the given arguments and consume the closure.
-    ///
-    /// This is useful for closures that capture their environment because otherwise
-    /// any captured variables would still be borrowed by this closure.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_reflect::func::{IntoClosure, ArgList};
-    /// let mut count = 0;
-    /// let increment = |amount: i32| count += amount;
-    ///
-    /// let increment_function = increment.into_closure();
-    /// let args = ArgList::new().push_owned(5_i32);
-    ///
-    /// // We need to drop `increment_function` here so that we
-    /// // can regain access to `count`.
-    /// // `call_once` does this automatically for us.
-    /// increment_function.call_once(args).unwrap();
-    /// assert_eq!(count, 5);
-    /// ```
-    pub fn call_once(mut self, args: ArgList) -> FunctionResult {
+    pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
         (self.func)(args, &self.info)
     }
 
@@ -180,5 +151,30 @@ impl<'env> IntoClosure<'env, ()> for DynamicClosure<'env> {
     #[inline]
     fn into_closure(self) -> DynamicClosure<'env> {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_overwrite_closure_name() {
+        let c = 23;
+        let func = (|a: i32, b: i32| a + b + c)
+            .into_closure()
+            .with_name("my_closure");
+        assert_eq!(func.info().name(), Some("my_closure"));
+    }
+
+    #[test]
+    fn should_convert_dynamic_closure_with_into_closure() {
+        fn make_closure<'env, F: IntoClosure<'env, M>, M>(f: F) -> DynamicClosure<'env> {
+            f.into_closure()
+        }
+
+        let c = 23;
+        let closure: DynamicClosure = make_closure(|a: i32, b: i32| a + b + c);
+        let _: DynamicClosure = make_closure(closure);
     }
 }

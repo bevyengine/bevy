@@ -9,7 +9,7 @@ use crate::Reflect;
 ///
 /// This allows functions to be called dynamically through [reflection].
 ///
-/// It is a supertrait of [`ReflectFn`], and is used for closures that may mutate their environment.
+/// This is a supertrait of [`ReflectFn`], and is used for closures that may mutate their environment.
 ///
 /// # Blanket Implementation
 ///

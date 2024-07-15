@@ -208,3 +208,26 @@ impl IntoFunction<()> for DynamicFunction {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_overwrite_function_name() {
+        fn foo() {}
+
+        let func = foo.into_function().with_name("my_function");
+        assert_eq!(func.info().name(), Some("my_function"));
+    }
+
+    #[test]
+    fn should_convert_dynamic_function_with_into_function() {
+        fn make_function<F: IntoFunction<M>, M>(f: F) -> DynamicFunction {
+            f.into_function()
+        }
+
+        let function: DynamicFunction = make_function(|| {});
+        let _: DynamicFunction = make_function(function);
+    }
+}
