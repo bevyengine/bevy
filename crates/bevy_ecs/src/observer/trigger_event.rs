@@ -22,9 +22,8 @@ impl<E: Event, Targets: TriggerTargets> TriggerEvent<E, Targets> {
 }
 
 impl<E: Event, Targets: TriggerTargets + 'static> Command for TriggerEvent<E, Targets> {
-    fn apply(mut self, world: &mut World) {
-        let event_type = world.init_component::<E>();
-        trigger_event(world, event_type, &mut self.event, self.targets);
+    fn apply(self, world: &mut World) {
+        self.trigger(world);
     }
 }
 
