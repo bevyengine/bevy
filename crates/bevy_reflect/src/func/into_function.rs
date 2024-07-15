@@ -48,13 +48,13 @@ use bevy_utils::all_tuples;
 ///
 /// Secondly, the allowed return type is dependent on the first argument of the function:
 /// - If the first argument is an immutable reference,
-/// then the return type may be either an owned type, a static reference type, or a reference type
-/// bound to the lifetime of the first argument.
+///   then the return type may be either an owned type, a static reference type, or a reference type
+///   bound to the lifetime of the first argument.
 /// - If the first argument is a mutable reference,
-/// then the return type may be either an owned type, a static reference type, or be a mutable reference type
-/// bound to the lifetime of the first argument.
+///   then the return type may be either an owned type, a static reference type, or be a mutable reference type
+///   bound to the lifetime of the first argument.
 /// - If the first argument is an owned type,
-/// then the return type may be either an owned type or a static reference type.
+///   then the return type may be either an owned type or a static reference type.
 ///
 /// The return type must always implement [`GetOwnership`] and [`TypePath`].
 /// If it is either an owned type or a static reference type,

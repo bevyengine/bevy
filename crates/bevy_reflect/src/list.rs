@@ -4,11 +4,10 @@ use std::hash::{Hash, Hasher};
 
 use bevy_reflect_derive::impl_type_path;
 
-use crate::func::macros::impl_function_traits;
 use crate::utility::reflect_hasher;
 use crate::{
-    self as bevy_reflect, ApplyError, FromReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, ApplyError, FromReflect, MaybeTyped, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -111,6 +110,7 @@ pub trait List: Reflect {
 pub struct ListInfo {
     type_path: TypePathTable,
     type_id: TypeId,
+    item_info: fn() -> Option<&'static TypeInfo>,
     item_type_path: TypePathTable,
     item_type_id: TypeId,
     #[cfg(feature = "documentation")]
@@ -119,10 +119,11 @@ pub struct ListInfo {
 
 impl ListInfo {
     /// Create a new [`ListInfo`].
-    pub fn new<TList: List + TypePath, TItem: FromReflect + TypePath>() -> Self {
+    pub fn new<TList: List + TypePath, TItem: FromReflect + MaybeTyped + TypePath>() -> Self {
         Self {
             type_path: TypePathTable::of::<TList>(),
             type_id: TypeId::of::<TList>(),
+            item_info: TItem::maybe_type_info,
             item_type_path: TypePathTable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             #[cfg(feature = "documentation")]
@@ -161,6 +162,14 @@ impl ListInfo {
     /// Check if the given type matches the list type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [`TypeInfo`] of the list item.
+    ///
+    /// Returns `None` if the list item does not contain static type information,
+    /// such as for dynamic types.
+    pub fn item_info(&self) -> Option<&'static TypeInfo> {
+        (self.item_info)()
     }
 
     /// A representation of the type path of the list item.
@@ -370,7 +379,8 @@ impl Reflect for DynamicList {
 }
 
 impl_type_path!((in bevy_reflect) DynamicList);
-impl_function_traits!(DynamicList);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicList);
 
 impl Debug for DynamicList {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -3,7 +3,7 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
     entity::Entity,
-    event::{Event, Events, ManualEventReader},
+    event::{Event, EventCursor, Events},
     reflect::AppTypeRegistry,
     system::Resource,
     world::{Command, Mut, World},
@@ -64,7 +64,7 @@ impl InstanceId {
 pub struct SceneSpawner {
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     pub(crate) spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: ManualEventReader<AssetEvent<DynamicScene>>,
+    scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
     dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId, Option<Entity>)>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId, Option<Entity>)>,
     scenes_to_despawn: Vec<AssetId<DynamicScene>>,
@@ -226,6 +226,7 @@ impl SceneSpawner {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentScene { id })?;
+
             scene.write_to_world(world, entity_map)
         })
     }
@@ -234,27 +235,32 @@ impl SceneSpawner {
     pub fn spawn_sync(
         &mut self,
         world: &mut World,
-        id: AssetId<Scene>,
+        id: impl Into<AssetId<Scene>>,
     ) -> Result<InstanceId, SceneSpawnError> {
-        self.spawn_sync_internal(world, id, InstanceId::new())
+        let mut entity_map = EntityHashMap::default();
+        let id = id.into();
+        Self::spawn_sync_internal(world, id, &mut entity_map)?;
+        let instance_id = InstanceId::new();
+        self.spawned_instances
+            .insert(instance_id, InstanceInfo { entity_map });
+        Ok(instance_id)
     }
 
     fn spawn_sync_internal(
-        &mut self,
         world: &mut World,
         id: AssetId<Scene>,
-        instance_id: InstanceId,
-    ) -> Result<InstanceId, SceneSpawnError> {
+        entity_map: &mut EntityHashMap<Entity>,
+    ) -> Result<(), SceneSpawnError> {
         world.resource_scope(|world, scenes: Mut<Assets<Scene>>| {
             let scene = scenes
                 .get(id)
                 .ok_or(SceneSpawnError::NonExistentRealScene { id })?;
 
-            let instance_info =
-                scene.write_to_world_with(world, &world.resource::<AppTypeRegistry>().clone())?;
-
-            self.spawned_instances.insert(instance_id, instance_info);
-            Ok(instance_id)
+            scene.write_to_world_with(
+                world,
+                entity_map,
+                &world.resource::<AppTypeRegistry>().clone(),
+            )
         })
     }
 
@@ -334,8 +340,13 @@ impl SceneSpawner {
         let scenes_to_spawn = std::mem::take(&mut self.scenes_to_spawn);
 
         for (scene_handle, instance_id, parent) in scenes_to_spawn {
-            match self.spawn_sync_internal(world, scene_handle.id(), instance_id) {
+            let mut entity_map = EntityHashMap::default();
+
+            match Self::spawn_sync_internal(world, scene_handle.id(), &mut entity_map) {
                 Ok(_) => {
+                    self.spawned_instances
+                        .insert(instance_id, InstanceInfo { entity_map });
+
                     // Scenes with parents need more setup before they are ready.
                     // See `set_scene_instance_parent_sync()`.
                     if parent.is_none() {
