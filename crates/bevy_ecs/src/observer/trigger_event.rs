@@ -14,7 +14,14 @@ pub struct TriggerEvent<E, Targets: TriggerTargets = ()> {
     pub targets: Targets,
 }
 
-impl<E: Event, Targets: TriggerTargets> Command for TriggerEvent<E, Targets> {
+impl<E: Event, Targets: TriggerTargets> TriggerEvent<E, Targets> {
+    pub(super) fn trigger(mut self, world: &mut World) {
+        let event_type = world.init_component::<E>();
+        trigger_event(world, event_type, &mut self.event, self.targets);
+    }
+}
+
+impl<E: Event, Targets: TriggerTargets + 'static> Command for TriggerEvent<E, Targets> {
     fn apply(mut self, world: &mut World) {
         let event_type = world.init_component::<E>();
         trigger_event(world, event_type, &mut self.event, self.targets);
@@ -41,7 +48,7 @@ impl<E, Targets: TriggerTargets> EmitDynamicTrigger<E, Targets> {
     }
 }
 
-impl<E: Event, Targets: TriggerTargets> Command for EmitDynamicTrigger<E, Targets> {
+impl<E: Event, Targets: TriggerTargets + 'static> Command for EmitDynamicTrigger<E, Targets> {
     fn apply(mut self, world: &mut World) {
         trigger_event(world, self.event_type, &mut self.event_data, self.targets);
     }
@@ -86,7 +93,7 @@ fn trigger_event<E, Targets: TriggerTargets>(
 ///
 /// [`Trigger`]: crate::observer::Trigger
 /// [`Observer`]: crate::observer::Observer
-pub trait TriggerTargets: Send + Sync + 'static {
+pub trait TriggerTargets: Send + Sync {
     /// The components the trigger should target.
     fn components(&self) -> impl ExactSizeIterator<Item = ComponentId>;
 

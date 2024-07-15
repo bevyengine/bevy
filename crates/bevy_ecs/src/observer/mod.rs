@@ -272,12 +272,12 @@ impl World {
 
     /// Triggers the given `event`, which will run any observers watching for it.
     pub fn trigger(&mut self, event: impl Event) {
-        TriggerEvent { event, targets: () }.apply(self);
+        TriggerEvent { event, targets: () }.trigger(self);
     }
 
     /// Triggers the given `event` for the given `targets`, which will run any observers watching for it.
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
-        TriggerEvent { event, targets }.apply(self);
+        TriggerEvent { event, targets }.trigger(self);
     }
 
     /// Register an observer to the cache, called when an observer is created

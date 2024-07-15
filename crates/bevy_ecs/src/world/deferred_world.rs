@@ -374,7 +374,7 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
-    pub fn trigger_targets(&mut self, trigger: impl Event, targets: impl TriggerTargets) {
+    pub fn trigger_targets(&mut self, trigger: impl Event, targets: impl TriggerTargets + 'static) {
         self.commands().trigger_targets(trigger, targets);
     }
 
