@@ -2571,6 +2571,17 @@ category = "ECS (Entity Component System)"
 wasm = true
 
 [[example]]
+name = "observer_propagation"
+path = "examples/ecs/observer_propagation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observer_propagation]
+name = "Observer Propagation"
+description = "Demonstrates event propagation with observers"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 doc-scrape-examples = true
