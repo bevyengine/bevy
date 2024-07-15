@@ -7,7 +7,7 @@ use crate::TypePath;
 ///
 /// [`Arg`]: crate::func::args::Arg
 /// [`DynamicFunction`]: crate::func::function::DynamicFunction
-/// [`DynamicClosure`]: crate::func::closure::DynamicClosure
+/// [`DynamicClosure`]: crate::func::closures::DynamicClosure
 #[derive(Debug, Clone)]
 pub struct ArgInfo {
     /// The index of the argument within its function.

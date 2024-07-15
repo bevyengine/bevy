@@ -1,5 +1,4 @@
-use crate::func::closure::DynamicClosure;
-use crate::func::{ReflectFnMut, TypedFunction};
+use crate::func::{DynamicClosure, ReflectFnMut, TypedFunction};
 
 /// A trait for types that can be converted into a [`DynamicClosure`].
 ///

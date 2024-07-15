@@ -3,8 +3,7 @@ use core::fmt::{Debug, Formatter};
 
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::into_closure::IntoClosure;
-use crate::func::{FunctionResult, ReturnInfo};
+use crate::func::{FunctionResult, IntoClosure, ReturnInfo};
 
 /// A dynamic representation of a Rust closure.
 ///

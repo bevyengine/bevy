@@ -87,11 +87,10 @@
 //! [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
 
-pub use closure::*;
+pub use closures::*;
 pub use error::*;
 pub use function::*;
 pub use info::*;
-pub use into_closure::*;
 pub use into_function::*;
 pub use reflect_fn::*;
 pub use reflect_fn_mut::*;
@@ -100,11 +99,10 @@ pub use return_type::*;
 pub use args::{Arg, ArgError, ArgList};
 
 pub mod args;
-mod closure;
+mod closures;
 mod error;
 mod function;
 mod info;
-mod into_closure;
 mod into_function;
 pub(crate) mod macros;
 mod reflect_fn;
