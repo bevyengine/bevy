@@ -41,7 +41,7 @@ fn vertex(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-    out.position = view.view_proj * vec4(vertex_position, 1.0);
+    out.position = view.clip_from_world * vec4(vertex_position, 1.0);
     out.color = vertex_color;
     out.flags = flags;
     out.radius = radius;
@@ -123,12 +123,11 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
-    return clamp(0.0, 1.0, 0.5 - distance);
+    // This antialiases between the distance values of 0.25 and -0.25
+    return clamp(0.0, 1.0, 0.5 - 2.0 * distance);
 }
 
-fn draw(in: VertexOutput) -> vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
-
+fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
     // This allows us to draw both textured and untextured shapes together in the same batch.
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
@@ -143,7 +142,7 @@ fn draw(in: VertexOutput) -> vec4<f32> {
 
     // Signed distance from the border's internal edge (the signed distance is negative if the point 
     // is inside the rect but not on the border).
-    // If the border size is set to zero, this is the same as as the external distance.
+    // If the border size is set to zero, this is the same as the external distance.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
     // Signed distance from the border (the intersection of the rect with its border).
@@ -158,24 +157,25 @@ fn draw(in: VertexOutput) -> vec4<f32> {
     let t = select(1.0 - step(0.0, border_distance), antialias(border_distance), external_distance < internal_distance);
 
     // Blend mode ALPHA_BLENDING is used for UI elements, so we don't premultiply alpha here.
-    return vec4(color.rgb, color.a * t);
+    return vec4(color.rgb, saturate(color.a * t));
 }
 
-fn draw_background(in: VertexOutput) -> vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
 
     // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
     let t = antialias(internal_distance);
-    return vec4(color.rgb, color.a * t);
+    return vec4(color.rgb, saturate(color.a * t));
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+
     if enabled(in.flags, BORDER) {
-        return draw(in);    
+        return draw(in, texture_color);    
     } else {
-        return draw_background(in);
+        return draw_background(in, texture_color);
     }
 }

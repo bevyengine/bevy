@@ -65,6 +65,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
 
+    #[cfg(not(feature = "functions"))]
+    let function_impls = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "functions")]
+    let function_impls =
+        crate::impls::impl_function_traits(reflect_enum.meta(), &where_clause_options);
+
     let get_type_registration_impl = reflect_enum.get_type_registration(&where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) =
@@ -78,6 +84,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         #typed_impl
 
         #type_path_impl
+
+        #function_impls
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_path #ty_generics #where_reflect_clause {
             fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {

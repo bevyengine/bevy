@@ -110,7 +110,7 @@ where
             );
             let out = self.func.run(world, input, params);
 
-            world.flush_commands();
+            world.flush();
             let change_tick = world.change_tick.get_mut();
             self.system_meta.last_run.set(*change_tick);
             *change_tick = change_tick.wrapping_add(1);
@@ -121,6 +121,13 @@ where
 
     #[inline]
     fn apply_deferred(&mut self, _world: &mut World) {
+        // "pure" exclusive systems do not have any buffers to apply.
+        // Systems made by piping a normal system with an exclusive system
+        // might have buffers to apply, but this is handled by `PipeSystem`.
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, _world: crate::world::DeferredWorld) {
         // "pure" exclusive systems do not have any buffers to apply.
         // Systems made by piping a normal system with an exclusive system
         // might have buffers to apply, but this is handled by `PipeSystem`.
@@ -161,6 +168,10 @@ where
 ///
 /// This trait can be useful for making your own systems which accept other systems,
 /// sometimes called higher order systems.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an exclusive system",
+    label = "invalid system"
+)]
 pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     /// The input type to this system. See [`System::In`].
     type In;
@@ -168,7 +179,7 @@ pub trait ExclusiveSystemParamFunction<Marker>: Send + Sync + 'static {
     /// The return type of this system. See [`System::Out`].
     type Out;
 
-    /// The [`ExclusiveSystemParam`]/s defined by this system's `fn` parameters.
+    /// The [`ExclusiveSystemParam`]'s defined by this system's `fn` parameters.
     type Param: ExclusiveSystemParam;
 
     /// Executes this system once. See [`System::run`].

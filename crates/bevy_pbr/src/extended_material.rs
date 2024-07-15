@@ -121,7 +121,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// When used with `StandardMaterial` as the base, all the standard material fields are
 /// present, so the `pbr_fragment` shader functions can be called from the extension shader (see
 /// the `extended_material` example).
-#[derive(Asset, Clone, Reflect)]
+#[derive(Asset, Clone, Debug, Reflect)]
 #[reflect(type_path = false)]
 pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub base: B,

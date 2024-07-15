@@ -29,7 +29,7 @@ fn setup(
     });
 
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
         ..default()
     });
 
@@ -99,13 +99,7 @@ fn setup(
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(
-                    *camera_name,
-                    TextStyle {
-                        font_size: 20.,
-                        ..default()
-                    },
-                ));
+                parent.spawn(TextBundle::from_section(*camera_name, TextStyle::default()));
                 buttons_panel(parent);
             });
     }
@@ -146,18 +140,12 @@ fn setup(
                         ..default()
                     },
                     border_color: Color::WHITE.into(),
-                    image: UiImage::default().with_color(Color::srgb(0.25, 0.25, 0.25)),
+                    background_color: Color::srgb(0.25, 0.25, 0.25).into(),
                     ..default()
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(
-                    caption,
-                    TextStyle {
-                        font_size: 20.,
-                        ..default()
-                    },
-                ));
+                parent.spawn(TextBundle::from_section(caption, TextStyle::default()));
             });
     }
 }

@@ -93,6 +93,42 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Adding component's hooks
+///
+/// See [`ComponentHooks`] for a detailed explanation of component's hooks.
+///
+/// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
+/// - `#[component(on_add = on_add_function)]`
+/// - `#[component(on_insert = on_insert_function)]`
+/// - `#[component(on_remove = on_remove_function)]`
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::world::DeferredWorld;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::component::ComponentId;
+/// #
+/// #[derive(Component)]
+/// #[component(on_add = my_on_add_hook)]
+/// #[component(on_insert = my_on_insert_hook)]
+/// // Another possible way of configuring hooks:
+/// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
+/// //
+/// // We don't have a remove hook, so we can leave it out:
+/// // #[component(on_remove = my_on_remove_hook)]
+/// struct ComponentA;
+///
+/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
+///     // ...
+/// }
+///
+/// // You can also omit writing some types using generics.
+/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+///     // ...
+/// }
+///
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
@@ -150,6 +186,11 @@ use std::{
 ///
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Component`",
+    label = "invalid `Component`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]`"
+)]
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
@@ -194,7 +235,11 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 ///
 /// This information is stored in the [`ComponentInfo`] of the associated component.
 ///
-/// # Example
+/// There is two ways of configuring hooks for a component:
+/// 1. Defining the [`Component::register_component_hooks`] method (see [`Component`])
+/// 2. Using the [`World::register_component_hooks`] method
+///
+/// # Example 2
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
@@ -408,7 +453,7 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] of [`Resource`] within a
+/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -684,7 +729,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_name(&self, id: ComponentId) -> Option<&str> {
-        self.get_info(id).map(|descriptor| descriptor.name())
+        self.get_info(id).map(ComponentInfo::name)
     }
 
     /// Gets the metadata associated with the given component.
@@ -836,8 +881,12 @@ impl Components {
 /// This is used to power change detection.
 ///
 /// *Note* that a system that hasn't been run yet has a `Tick` of 0.
-#[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Copy, Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
 pub struct Tick {
     tick: u32,
 }

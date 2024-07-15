@@ -29,7 +29,10 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn the glTF scene.
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/VolumetricFogExample/VolumetricFogExample.glb#Scene0"),
+        scene: asset_server.load(
+            GltfAssetLabel::Scene(0)
+                .from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
+        ),
         ..default()
     });
 
@@ -50,25 +53,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
         })
-        .insert(VolumetricFogSettings::default());
+        .insert(VolumetricFogSettings {
+            // This value is explicitly set to 0 since we have no environment map light
+            ambient_intensity: 0.0,
+            ..default()
+        });
 
     // Add the help text.
     commands.spawn(
         TextBundle {
             text: Text::from_section(
                 "Press WASD or the arrow keys to change the light direction",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 24.0,
-                    ..default()
-                },
+                TextStyle::default(),
             ),
             ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

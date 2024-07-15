@@ -41,9 +41,9 @@ use crate::{
         self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
         IRRADIANCE_VOLUMES_ARE_USABLE,
     },
-    prepass, FogMeta, GlobalLightMeta, GpuFog, GpuLights, GpuPointLights, LightMeta,
-    LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes,
-    ScreenSpaceAmbientOcclusionTextures, ScreenSpaceReflectionsBuffer,
+    prepass, FogMeta, GlobalClusterableObjectMeta, GpuClusterableObjects, GpuFog, GpuLights,
+    LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey,
+    RenderViewLightProbes, ScreenSpaceAmbientOcclusionTextures, ScreenSpaceReflectionsBuffer,
     ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
@@ -239,7 +239,7 @@ fn layout_entries(
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
-                    Some(GpuPointLights::min_size(
+                    Some(GpuClusterableObjects::min_size(
                         clustered_forward_buffer_binding_type,
                     )),
                 ),
@@ -250,9 +250,11 @@ fn layout_entries(
                 buffer_layout(
                     clustered_forward_buffer_binding_type,
                     false,
-                    Some(ViewClusterBindings::min_size_cluster_light_index_lists(
-                        clustered_forward_buffer_binding_type,
-                    )),
+                    Some(
+                        ViewClusterBindings::min_size_clusterable_object_index_lists(
+                            clustered_forward_buffer_binding_type,
+                        ),
+                    ),
                 ),
             ),
             // ClusterOffsetsAndCounts
@@ -450,7 +452,7 @@ pub fn prepare_mesh_view_bind_groups(
     mesh_pipeline: Res<MeshPipeline>,
     shadow_samplers: Res<ShadowSamplers>,
     light_meta: Res<LightMeta>,
-    global_light_meta: Res<GlobalLightMeta>,
+    global_light_meta: Res<GlobalClusterableObjectMeta>,
     fog_meta: Res<FogMeta>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(
@@ -480,7 +482,7 @@ pub fn prepare_mesh_view_bind_groups(
     if let (
         Some(view_binding),
         Some(light_binding),
-        Some(point_light_binding),
+        Some(clusterable_objects_binding),
         Some(globals),
         Some(fog_binding),
         Some(light_probes_binding),
@@ -489,7 +491,7 @@ pub fn prepare_mesh_view_bind_groups(
     ) = (
         view_uniforms.uniforms.binding(),
         light_meta.view_gpu_lights.binding(),
-        global_light_meta.gpu_point_lights.binding(),
+        global_light_meta.gpu_clusterable_objects.binding(),
         globals_buffer.buffer.binding(),
         fog_meta.gpu_fogs.binding(),
         light_probes_buffer.binding(),
@@ -530,8 +532,13 @@ pub fn prepare_mesh_view_bind_groups(
                 (5, &shadow_bindings.directional_light_depth_texture_view),
                 (6, &shadow_samplers.directional_light_comparison_sampler),
                 (7, &shadow_samplers.directional_light_linear_sampler),
-                (8, point_light_binding.clone()),
-                (9, cluster_bindings.light_index_lists_binding().unwrap()),
+                (8, clusterable_objects_binding.clone()),
+                (
+                    9,
+                    cluster_bindings
+                        .clusterable_object_index_lists_binding()
+                        .unwrap(),
+                ),
                 (10, cluster_bindings.offsets_and_counts_binding().unwrap()),
                 (11, globals.clone()),
                 (12, fog_binding.clone()),

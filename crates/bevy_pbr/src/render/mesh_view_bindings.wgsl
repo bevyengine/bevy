@@ -24,12 +24,12 @@
 @group(0) @binding(7) var directional_shadow_textures_linear_sampler: sampler;
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
-@group(0) @binding(8) var<storage> point_lights: types::PointLights;
-@group(0) @binding(9) var<storage> cluster_light_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(8) var<storage> clusterable_objects: types::ClusterableObjects;
+@group(0) @binding(9) var<storage> clusterable_object_index_lists: types::ClusterLightIndexLists;
 @group(0) @binding(10) var<storage> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #else
-@group(0) @binding(8) var<uniform> point_lights: types::PointLights;
-@group(0) @binding(9) var<uniform> cluster_light_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(8) var<uniform> clusterable_objects: types::ClusterableObjects;
+@group(0) @binding(9) var<uniform> clusterable_object_index_lists: types::ClusterLightIndexLists;
 @group(0) @binding(10) var<uniform> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #endif
 

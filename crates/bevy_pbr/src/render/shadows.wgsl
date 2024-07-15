@@ -17,7 +17,7 @@
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = &view_bindings::point_lights.data[light_id];
+    let light = &view_bindings::clusterable_objects.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -68,7 +68,7 @@ fn fetch_spot_shadow(
     surface_normal: vec3<f32>,
     near_z: f32,
 ) -> f32 {
-    let light = &view_bindings::point_lights.data[light_id];
+    let light = &view_bindings::clusterable_objects.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
 
@@ -147,7 +147,7 @@ fn world_to_directional_light_local(
     let light = &view_bindings::lights.directional_lights[light_id];
     let cascade = &(*light).cascades[cascade_index];
 
-    let offset_position_clip = (*cascade).view_projection * offset_position;
+    let offset_position_clip = (*cascade).clip_from_world * offset_position;
     if (offset_position_clip.w <= 0.0) {
         return vec4(0.0);
     }

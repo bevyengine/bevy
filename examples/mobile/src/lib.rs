@@ -2,9 +2,9 @@
 
 use bevy::{
     color::palettes::basic::*,
-    input::touch::TouchPhase,
+    input::{gestures::RotationGesture, touch::TouchPhase},
     prelude::*,
-    window::{ApplicationLifetime, WindowMode},
+    window::{AppLifecycle, WindowMode},
 };
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
@@ -15,6 +15,9 @@ fn main() {
         primary_window: Some(Window {
             resizable: false,
             mode: WindowMode::BorderlessFullscreen,
+            // on iOS, gestures must be enabled.
+            // This doesn't work on Android
+            recognize_rotation_gesture: true,
             ..default()
         }),
         ..default()
@@ -35,6 +38,7 @@ fn touch_camera(
     mut touches: EventReader<TouchInput>,
     mut camera: Query<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
+    mut rotations: EventReader<RotationGesture>,
 ) {
     let window = windows.single();
 
@@ -54,6 +58,12 @@ fn touch_camera(
             .looking_at(Vec3::ZERO, Vec3::Y);
         }
         *last_position = Some(touch.position);
+    }
+    // Rotation gestures only work on iOS
+    for rotation in rotations.read() {
+        let mut transform = camera.single_mut();
+        let forward = transform.forward();
+        transform.rotate_axis(forward, rotation.0 / 10.0);
     }
 }
 
@@ -104,22 +114,18 @@ fn setup_scene(
 
     // Test ui
     commands
-        .spawn((
-            ButtonBundle {
-                style: Style {
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(50.0),
-                    right: Val::Px(50.0),
-                    bottom: Val::Px(50.0),
-                    ..default()
-                },
-                image: UiImage::default().with_color(Color::NONE),
+        .spawn(ButtonBundle {
+            style: Style {
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
+                left: Val::Px(50.0),
+                right: Val::Px(50.0),
+                bottom: Val::Px(50.0),
                 ..default()
             },
-            BackgroundColor(Color::WHITE),
-        ))
+            ..default()
+        })
         .with_children(|b| {
             b.spawn(
                 TextBundle::from_section(
@@ -166,14 +172,18 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // Pause audio when app goes into background and resume when it returns.
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
-    mut lifetime_events: EventReader<ApplicationLifetime>,
+    mut lifecycle_events: EventReader<AppLifecycle>,
     music_controller: Query<&AudioSink>,
 ) {
-    for event in lifetime_events.read() {
+    let Ok(music_controller) = music_controller.get_single() else {
+        return;
+    };
+
+    for event in lifecycle_events.read() {
         match event {
-            ApplicationLifetime::Suspended => music_controller.single().pause(),
-            ApplicationLifetime::Resumed => music_controller.single().play(),
-            ApplicationLifetime::Started => (),
+            AppLifecycle::Idle | AppLifecycle::WillSuspend | AppLifecycle::WillResume => {}
+            AppLifecycle::Suspended => music_controller.pause(),
+            AppLifecycle::Running => music_controller.play(),
         }
     }
 }

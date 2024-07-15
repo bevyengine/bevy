@@ -4,13 +4,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: (1350.0, 700.0).into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
 }
@@ -25,17 +19,12 @@ fn spawn_sprites(
 ) {
     let cases = [
         // Reference sprite
-        ("Original texture", style.clone(), Vec2::splat(100.0), None),
+        ("Original", style.clone(), Vec2::splat(100.0), None),
         // Scaled regular sprite
-        (
-            "Stretched texture",
-            style.clone(),
-            Vec2::new(100.0, 200.0),
-            None,
-        ),
+        ("Stretched", style.clone(), Vec2::new(100.0, 200.0), None),
         // Stretched Scaled sliced sprite
         (
-            "Stretched and sliced",
+            "With Slicing",
             style.clone(),
             Vec2::new(100.0, 200.0),
             Some(ImageScaleMode::Sliced(TextureSlicer {
@@ -46,7 +35,7 @@ fn spawn_sprites(
         ),
         // Scaled sliced sprite
         (
-            "Sliced and Tiled",
+            "With Tiling",
             style.clone(),
             Vec2::new(100.0, 200.0),
             Some(ImageScaleMode::Sliced(TextureSlicer {
@@ -58,7 +47,7 @@ fn spawn_sprites(
         ),
         // Scaled sliced sprite horizontally
         (
-            "Sliced and Tiled",
+            "With Tiling",
             style.clone(),
             Vec2::new(300.0, 200.0),
             Some(ImageScaleMode::Sliced(TextureSlicer {
@@ -70,7 +59,7 @@ fn spawn_sprites(
         ),
         // Scaled sliced sprite horizontally with max scale
         (
-            "Sliced and Tiled with corner constraint",
+            "With Corners Constrained",
             style,
             Vec2::new(300.0, 200.0),
             Some(ImageScaleMode::Sliced(TextureSlicer {
@@ -113,8 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextStyle {
         font: font.clone(),
-        font_size: 16.0,
-        color: Color::WHITE,
+        ..default()
     };
 
     // Load textures
@@ -127,7 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Vec3::new(-600.0, 200.0, 0.0),
         200.0,
         style.clone(),
-        50.,
+        40.,
     );
 
     spawn_sprites(
@@ -136,6 +124,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Vec3::new(-600.0, -200.0, 0.0),
         80.0,
         style,
-        50.,
+        40.,
     );
 }

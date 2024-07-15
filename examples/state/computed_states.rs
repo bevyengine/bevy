@@ -16,7 +16,7 @@
 //! And lastly, we'll add [`Tutorial`], a computed state deriving from [`TutorialState`], [`InGame`] and [`IsPaused`], with 2 distinct
 //! states to display the 2 tutorial texts.
 
-use bevy::prelude::*;
+use bevy::{dev_tools::states::*, prelude::*};
 
 use ui::*;
 
@@ -141,7 +141,7 @@ impl ComputedStates for Tutorial {
     // effective to rely on the already derived states to avoid the logic drifting apart.
     //
     // Notice that you can wrap any of the [`States`] here in [`Option`]s. If you do so,
-    // the the computation will get called even if the state does not exist.
+    // the computation will get called even if the state does not exist.
     type SourceStates = (TutorialState, InGame, Option<IsPaused>);
 
     // Notice that we aren't using InGame - we're just using it as a source state to
@@ -186,7 +186,7 @@ fn main() {
         .add_systems(OnEnter(InGame), setup_game)
         // And we only want to run the [`clear_game`] function when we leave the [`AppState::InGame`] state, regardless
         // of whether we're paused.
-        .add_systems(OnExit(InGame), clear_state_bound_entities(InGame))
+        .enable_state_scoped_entities::<InGame>()
         // We want the color change, toggle_pause and quit_to_menu systems to ignore the paused condition, so we can use the [`InGame`] derived
         // state here as well.
         .add_systems(
@@ -200,26 +200,22 @@ fn main() {
         )
         // We can continue setting things up, following all the same patterns used above and in the `states` example.
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .add_systems(
-            OnExit(IsPaused::Paused),
-            clear_state_bound_entities(IsPaused::Paused),
-        )
+        .enable_state_scoped_entities::<IsPaused>()
         .add_systems(OnEnter(TurboMode), setup_turbo_text)
-        .add_systems(OnExit(TurboMode), clear_state_bound_entities(TurboMode))
+        .enable_state_scoped_entities::<TurboMode>()
         .add_systems(
             OnEnter(Tutorial::MovementInstructions),
             movement_instructions,
         )
         .add_systems(OnEnter(Tutorial::PauseInstructions), pause_instructions)
+        .enable_state_scoped_entities::<Tutorial>()
         .add_systems(
-            OnExit(Tutorial::MovementInstructions),
-            clear_state_bound_entities(Tutorial::MovementInstructions),
+            Update,
+            (
+                log_transitions::<AppState>,
+                log_transitions::<TutorialState>,
+            ),
         )
-        .add_systems(
-            OnExit(Tutorial::PauseInstructions),
-            clear_state_bound_entities(Tutorial::PauseInstructions),
-        )
-        .add_systems(Update, log_transitions)
         .run();
 }
 
@@ -228,20 +224,19 @@ fn menu(
     tutorial_state: Res<State<TutorialState>>,
     mut next_tutorial: ResMut<NextState<TutorialState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage, &MenuButton),
+        (&Interaction, &mut BackgroundColor, &MenuButton),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut image, menu_button) in &mut interaction_query {
-        let color = &mut image.color;
+    for (interaction, mut color, menu_button) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    PRESSED_ACTIVE_BUTTON
+                    PRESSED_ACTIVE_BUTTON.into()
                 } else {
-                    PRESSED_BUTTON
+                    PRESSED_BUTTON.into()
                 };
 
                 match menu_button {
@@ -259,35 +254,19 @@ fn menu(
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = HOVERED_ACTIVE_BUTTON;
+                    *color = HOVERED_ACTIVE_BUTTON.into();
                 } else {
-                    *color = HOVERED_BUTTON;
+                    *color = HOVERED_BUTTON.into();
                 }
             }
             Interaction::None => {
                 if menu_button == &MenuButton::Tutorial
                     && tutorial_state.get() == &TutorialState::Active
                 {
-                    *color = ACTIVE_BUTTON;
+                    *color = ACTIVE_BUTTON.into();
                 } else {
-                    *color = NORMAL_BUTTON;
+                    *color = NORMAL_BUTTON.into();
                 }
-            }
-        }
-    }
-}
-
-#[derive(Component)]
-struct StateBound<S: States>(S);
-
-fn clear_state_bound_entities<S: States>(
-    state: S,
-) -> impl Fn(Commands, Query<(Entity, &StateBound<S>)>) {
-    info!("Clearing entities for {state:?}");
-    move |mut commands, query| {
-        for (entity, bound) in &query {
-            if bound.0 == state {
-                commands.entity(entity).despawn_recursive();
             }
         }
     }
@@ -326,25 +305,6 @@ fn toggle_turbo(
 fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if input.just_pressed(KeyCode::Escape) {
         next_state.set(AppState::Menu);
-    }
-}
-
-/// print when either an `AppState` transition or a `TutorialState` transition happens
-fn log_transitions(
-    mut transitions: EventReader<StateTransitionEvent<AppState>>,
-    mut tutorial_transitions: EventReader<StateTransitionEvent<TutorialState>>,
-) {
-    for transition in transitions.read() {
-        info!(
-            "transition: {:?} => {:?}",
-            transition.before, transition.after
-        );
-    }
-    for transition in tutorial_transitions.read() {
-        info!(
-            "tutorial transition: {:?} => {:?}",
-            transition.before, transition.after
-        );
     }
 }
 
@@ -402,7 +362,7 @@ mod ui {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                            background_color: NORMAL_BUTTON.into(),
                             ..default()
                         },
                         MenuButton::Play,
@@ -430,10 +390,11 @@ mod ui {
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            image: UiImage::default().with_color(match tutorial_state.get() {
+                            background_color: match tutorial_state.get() {
                                 TutorialState::Active => ACTIVE_BUTTON,
                                 TutorialState::Inactive => NORMAL_BUTTON,
-                            }),
+                            }
+                            .into(),
                             ..default()
                         },
                         MenuButton::Tutorial,
@@ -461,7 +422,7 @@ mod ui {
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
-            StateBound(InGame),
+            StateScoped(InGame),
             SpriteBundle {
                 texture: asset_server.load("branding/icon.png"),
                 ..default()
@@ -505,7 +466,7 @@ mod ui {
         info!("Printing Pause");
         commands
             .spawn((
-                StateBound(IsPaused::Paused),
+                StateScoped(IsPaused::Paused),
                 NodeBundle {
                     style: Style {
                         // center button
@@ -555,7 +516,7 @@ mod ui {
     pub fn setup_turbo_text(mut commands: Commands) {
         commands
             .spawn((
-                StateBound(TurboMode),
+                StateScoped(TurboMode),
                 NodeBundle {
                     style: Style {
                         // center button
@@ -597,7 +558,7 @@ mod ui {
     pub fn movement_instructions(mut commands: Commands) {
         commands
             .spawn((
-                StateBound(Tutorial::MovementInstructions),
+                StateScoped(Tutorial::MovementInstructions),
                 NodeBundle {
                     style: Style {
                         // center button
@@ -654,7 +615,7 @@ mod ui {
     pub fn pause_instructions(mut commands: Commands) {
         commands
             .spawn((
-                StateBound(Tutorial::PauseInstructions),
+                StateScoped(Tutorial::PauseInstructions),
                 NodeBundle {
                     style: Style {
                         // center button

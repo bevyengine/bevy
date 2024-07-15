@@ -7,7 +7,7 @@
     view::View,
 }
 
-@group(0) @binding(0) var<uniform> view: View;
+#import bevy_sprite::sprite_view_bindings::view
 
 struct VertexInput {
     @builtin(vertex_index) index: u32,
@@ -37,7 +37,7 @@ fn vertex(in: VertexInput) -> VertexOutput {
         0.0
     );
 
-    out.clip_position = view.view_proj * affine3_to_square(mat3x4<f32>(
+    out.clip_position = view.clip_from_world * affine3_to_square(mat3x4<f32>(
         in.i_model_transpose_col0,
         in.i_model_transpose_col1,
         in.i_model_transpose_col2,

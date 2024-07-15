@@ -2,12 +2,13 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
-use bevy_color::{Alpha, LinearRgba};
+use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
@@ -334,7 +335,10 @@ pub fn extract_uinode_images(
         };
 
         // Skip invisible images
-        if !view_visibility.get() || image.color.is_fully_transparent() {
+        if !view_visibility.get()
+            || image.color.is_fully_transparent()
+            || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             continue;
         }
 
@@ -671,7 +675,7 @@ pub fn extract_uinode_outlines(
             ),
         ];
 
-        let transform = global_transform.compute_matrix();
+        let world_from_local = global_transform.compute_matrix();
         for edge in outline_edges {
             if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
                 extracted_uinodes.uinodes.insert(
@@ -679,7 +683,8 @@ pub fn extract_uinode_outlines(
                     ExtractedUiNode {
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
-                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        transform: world_from_local
+                            * Mat4::from_translation(edge.center().extend(0.)),
                         color: outline.color.into(),
                         rect: Rect {
                             max: edge.size(),
@@ -755,13 +760,13 @@ pub fn extract_default_ui_camera_view(
             );
             let default_camera_view = commands
                 .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
+                    clip_from_view: projection_matrix,
+                    world_from_view: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
-                    view_projection: None,
+                    clip_from_world: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         physical_origin.x,
@@ -856,7 +861,7 @@ pub fn extract_uinode_text(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let mut rect = atlas.textures[atlas_info.glyph_index].as_rect();
+            let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
             extracted_uinodes.uinodes.insert(

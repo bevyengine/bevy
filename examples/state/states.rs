@@ -5,7 +5,7 @@
 //!
 //! In this case, we're transitioning from a `Menu` state to an `InGame` state.
 
-use bevy::prelude::*;
+use bevy::{dev_tools::states::*, prelude::*};
 
 fn main() {
     App::new()
@@ -25,7 +25,7 @@ fn main() {
             Update,
             (movement, change_color).run_if(in_state(AppState::InGame)),
         )
-        .add_systems(Update, log_transitions)
+        .add_systems(Update, log_transitions::<AppState>)
         .run();
 }
 
@@ -74,7 +74,7 @@ fn setup_menu(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                    background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -95,21 +95,21 @@ fn setup_menu(mut commands: Commands) {
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut image) in &mut interaction_query {
+    for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                image.color = PRESSED_BUTTON;
+                *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }
             Interaction::Hovered => {
-                image.color = HOVERED_BUTTON;
+                *color = HOVERED_BUTTON.into();
             }
             Interaction::None => {
-                image.color = NORMAL_BUTTON;
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
@@ -161,16 +161,5 @@ fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         };
 
         sprite.color = new_color.into();
-    }
-}
-
-/// print when an `AppState` transition happens
-/// also serves as an example of how to use `StateTransitionEvent`
-fn log_transitions(mut transitions: EventReader<StateTransitionEvent<AppState>>) {
-    for transition in transitions.read() {
-        info!(
-            "transition: {:?} => {:?}",
-            transition.before, transition.after
-        );
     }
 }

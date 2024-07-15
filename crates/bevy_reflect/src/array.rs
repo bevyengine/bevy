@@ -69,7 +69,7 @@ pub trait Array: Reflect {
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(|value| value.clone_value()).collect(),
+            values: self.iter().map(Reflect::clone_value).collect(),
         }
     }
 }
@@ -358,6 +358,9 @@ impl Array for DynamicArray {
 }
 
 impl_type_path!((in bevy_reflect) DynamicArray);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicArray);
+
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     array: &'a dyn Array,
