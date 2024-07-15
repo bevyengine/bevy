@@ -135,7 +135,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 ///
 /// struct Foo<T>(T);
 ///
-/// impl<T: Reflect + TypePath> Typed for Foo<T> {
+/// impl<T: Reflect + Typed + TypePath> Typed for Foo<T> {
 ///     fn type_info() -> &'static TypeInfo {
 ///         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
 ///         CELL.get_or_insert::<Self, _>(|| {
@@ -149,7 +149,7 @@ impl<T: TypedProperty> Default for NonGenericTypeCell<T> {
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
-/// # impl<T: Reflect + TypePath> Reflect for Foo<T> {
+/// # impl<T: Reflect + Typed + TypePath> Reflect for Foo<T> {
 /// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
 /// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #     fn as_any(&self) -> &dyn Any { todo!() }

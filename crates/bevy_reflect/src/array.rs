@@ -1,7 +1,6 @@
-use crate::func::macros::impl_function_traits;
 use crate::{
-    self as bevy_reflect, utility::reflect_hasher, ApplyError, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, utility::reflect_hasher, ApplyError, MaybeTyped, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use std::{
@@ -80,6 +79,7 @@ pub trait Array: Reflect {
 pub struct ArrayInfo {
     type_path: TypePathTable,
     type_id: TypeId,
+    item_info: fn() -> Option<&'static TypeInfo>,
     item_type_path: TypePathTable,
     item_type_id: TypeId,
     capacity: usize,
@@ -94,10 +94,13 @@ impl ArrayInfo {
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
     ///
-    pub fn new<TArray: Array + TypePath, TItem: Reflect + TypePath>(capacity: usize) -> Self {
+    pub fn new<TArray: Array + TypePath, TItem: Reflect + MaybeTyped + TypePath>(
+        capacity: usize,
+    ) -> Self {
         Self {
             type_path: TypePathTable::of::<TArray>(),
             type_id: TypeId::of::<TArray>(),
+            item_info: TItem::maybe_type_info,
             item_type_path: TypePathTable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
@@ -142,6 +145,14 @@ impl ArrayInfo {
     /// Check if the given type matches the array type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [`TypeInfo`] of the array item.
+    ///
+    /// Returns `None` if the array item does not contain static type information,
+    /// such as for dynamic types.
+    pub fn item_info(&self) -> Option<&'static TypeInfo> {
+        (self.item_info)()
     }
 
     /// A representation of the type path of the array item.
@@ -359,7 +370,9 @@ impl Array for DynamicArray {
 }
 
 impl_type_path!((in bevy_reflect) DynamicArray);
-impl_function_traits!(DynamicArray);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicArray);
+
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     array: &'a dyn Array,
