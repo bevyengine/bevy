@@ -71,11 +71,11 @@ impl Deref for Parent {
     }
 }
 
-/// This provides generalized hiarchy traversal for use in [event propagation].
+/// This provides generalized hierarchy traversal for use in [event propagation].
 ///
 /// `Parent::traverse` will never form loops in properly-constructed hierarchies.
 ///
-/// [event propagation]: crate::observer::Trigger::propagate
+/// [event propagation]: bevy_ecs::observer::Trigger::propagate
 impl Traversal for Parent {
     fn traverse(&self) -> Option<Entity> {
         Some(self.0)
