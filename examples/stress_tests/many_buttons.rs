@@ -100,12 +100,15 @@ fn main() {
 struct IdleColor(Color);
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &mut UiImage, &IdleColor), Changed<Interaction>>,
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor, &IdleColor),
+        Changed<Interaction>,
+    >,
 ) {
-    for (interaction, mut image, &IdleColor(idle_color)) in interaction_query.iter_mut() {
-        image.color = match interaction {
+    for (interaction, mut color, &IdleColor(idle_color)) in interaction_query.iter_mut() {
+        *color = match interaction {
             Interaction::Hovered => ORANGE_RED.into(),
-            _ => idle_color,
+            _ => idle_color.into(),
         };
     }
 }
@@ -246,7 +249,7 @@ fn spawn_button(
                 border,
                 ..default()
             },
-            image: UiImage::default().with_color(background_color),
+            background_color: background_color.into(),
             border_color,
             ..default()
         },

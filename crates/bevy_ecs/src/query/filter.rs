@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, StorageType, Tick},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
@@ -70,7 +70,11 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
 /// [`State`]: Self::State
-
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid `Query` filter",
+    label = "invalid `Query` filter",
+    note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
+)]
 pub trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
     /// components are accessed by the Query.
@@ -183,8 +187,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         world.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -291,8 +295,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         world.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<Self::State> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<Self::State> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -461,8 +465,8 @@ macro_rules! impl_or_query_filter {
                 ($($filter::init_state(world),)*)
             }
 
-            fn get_state(world: &World) -> Option<Self::State> {
-                Some(($($filter::get_state(world)?,)*))
+            fn get_state(components: &Components) -> Option<Self::State> {
+                Some(($($filter::get_state(components)?,)*))
             }
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
@@ -514,12 +518,14 @@ macro_rules! impl_tuple_query_filter {
 all_tuples!(impl_tuple_query_filter, 0, 15, F);
 all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
-/// A filter on a component that only retains results added after the system last ran.
+/// A filter on a component that only retains results the first time after they have been added.
 ///
 /// A common use for this filter is one-time initialization.
 ///
 /// To retain all results without filtering but still check whether they were added after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
 /// # Deferred
 ///
@@ -691,8 +697,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         world.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<ComponentId> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -716,7 +722,7 @@ impl<T: Component> QueryFilter for Added<T> {
     }
 }
 
-/// A filter on a component that only retains results added or mutably dereferenced after the system last ran.
+/// A filter on a component that only retains results the first time after they have been added or mutably dereferenced.
 ///
 /// A common use for this filter is avoiding redundant work when values have not changed.
 ///
@@ -725,6 +731,8 @@ impl<T: Component> QueryFilter for Added<T> {
 ///
 /// To retain all results without filtering but still check whether they were changed after the
 /// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
 ///
 /// # Deferred
 ///
@@ -900,8 +908,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         world.init_component::<T>()
     }
 
-    fn get_state(world: &World) -> Option<ComponentId> {
-        world.component_id::<T>()
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        components.component_id::<T>()
     }
 
     fn matches_component_set(
@@ -938,6 +946,11 @@ impl<T: Component> QueryFilter for Changed<T> {
 ///
 /// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
 /// they do not implement [`ArchetypeFilter`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid `Query` filter based on archetype information",
+    label = "invalid `Query` filter",
+    note = "an `ArchetypeFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
+)]
 pub trait ArchetypeFilter: QueryFilter {}
 
 impl<T: Component> ArchetypeFilter for With<T> {}

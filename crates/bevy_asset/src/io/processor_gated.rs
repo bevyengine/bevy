@@ -51,7 +51,7 @@ impl ProcessorGatedReader {
 }
 
 impl AssetReader for ProcessorGatedReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading {asset_path}");
         let process_result = self
@@ -67,11 +67,11 @@ impl AssetReader for ProcessorGatedReader {
         trace!("Processing finished with {asset_path}, reading {process_result:?}",);
         let lock = self.get_transaction_lock(&asset_path).await?;
         let asset_reader = self.reader.read(path).await?;
-        let reader: Box<Reader<'a>> = Box::new(TransactionLockedReader::new(asset_reader, lock));
+        let reader = TransactionLockedReader::new(asset_reader, lock);
         Ok(reader)
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading meta for {asset_path}",);
         let process_result = self
@@ -87,7 +87,7 @@ impl AssetReader for ProcessorGatedReader {
         trace!("Processing finished with {process_result:?}, reading meta for {asset_path}",);
         let lock = self.get_transaction_lock(&asset_path).await?;
         let meta_reader = self.reader.read_meta(path).await?;
-        let reader: Box<Reader<'a>> = Box::new(TransactionLockedReader::new(meta_reader, lock));
+        let reader = TransactionLockedReader::new(meta_reader, lock);
         Ok(reader)
     }
 
@@ -119,12 +119,12 @@ impl AssetReader for ProcessorGatedReader {
 
 /// An [`AsyncRead`] impl that will hold its asset's transaction lock until [`TransactionLockedReader`] is dropped.
 pub struct TransactionLockedReader<'a> {
-    reader: Box<Reader<'a>>,
+    reader: Box<dyn Reader + 'a>,
     _file_transaction_lock: RwLockReadGuardArc<()>,
 }
 
 impl<'a> TransactionLockedReader<'a> {
-    fn new(reader: Box<Reader<'a>>, file_transaction_lock: RwLockReadGuardArc<()>) -> Self {
+    fn new(reader: Box<dyn Reader + 'a>, file_transaction_lock: RwLockReadGuardArc<()>) -> Self {
         Self {
             reader,
             _file_transaction_lock: file_transaction_lock,
@@ -132,7 +132,7 @@ impl<'a> TransactionLockedReader<'a> {
     }
 }
 
-impl<'a> AsyncRead for TransactionLockedReader<'a> {
+impl AsyncRead for TransactionLockedReader<'_> {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -142,12 +142,21 @@ impl<'a> AsyncRead for TransactionLockedReader<'a> {
     }
 }
 
-impl<'a> AsyncSeek for TransactionLockedReader<'a> {
+impl AsyncSeek for TransactionLockedReader<'_> {
     fn poll_seek(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
         Pin::new(&mut self.reader).poll_seek(cx, pos)
+    }
+}
+
+impl Reader for TransactionLockedReader<'_> {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+        self.reader.read_to_end(buf)
     }
 }

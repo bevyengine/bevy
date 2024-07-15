@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use bevy_app::{plugin_group, Plugin};
 
 plugin_group! {
@@ -16,6 +15,8 @@ plugin_group! {
         bevy_input:::InputPlugin,
         bevy_window:::WindowPlugin,
         bevy_a11y:::AccessibilityPlugin,
+        #[custom(cfg(not(target_arch = "wasm32")))]
+        bevy_app:::TerminalCtrlCHandlerPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
         #[cfg(feature = "bevy_scene")]
@@ -25,7 +26,7 @@ plugin_group! {
         #[cfg(feature = "bevy_render")]
         bevy_render:::RenderPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported
-        // compressed texture formats
+        // compressed texture formats.
         #[cfg(feature = "bevy_render")]
         bevy_render::texture:::ImagePlugin,
         #[cfg(feature = "bevy_render")]
@@ -42,7 +43,7 @@ plugin_group! {
         #[cfg(feature = "bevy_pbr")]
         bevy_pbr:::PbrPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported
-        // compressed texture formats
+        // compressed texture formats.
         #[cfg(feature = "bevy_gltf")]
         bevy_gltf:::GltfPlugin,
         #[cfg(feature = "bevy_audio")]
@@ -53,8 +54,12 @@ plugin_group! {
         bevy_animation:::AnimationPlugin,
         #[cfg(feature = "bevy_gizmos")]
         bevy_gizmos:::GizmoPlugin,
+        #[cfg(feature = "bevy_state")]
+        bevy_state::app:::StatesPlugin,
         #[cfg(feature = "bevy_dev_tools")]
         bevy_dev_tools:::DevToolsPlugin,
+        #[cfg(feature = "bevy_ci_testing")]
+        bevy_dev_tools::ci_testing:::CiTestingPlugin,
         #[doc(hidden)]
         :IgnoreAmbiguitiesPlugin,
     }
@@ -95,8 +100,8 @@ plugin_group! {
         bevy_core:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_app:::ScheduleRunnerPlugin,
-        #[cfg(feature = "bevy_dev_tools")]
-        bevy_dev_tools:::DevToolsPlugin,
+        #[cfg(feature = "bevy_ci_testing")]
+        bevy_dev_tools::ci_testing:::CiTestingPlugin,
     }
     /// This group of plugins is intended for use for minimal, *headless* programs –
     /// see the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)

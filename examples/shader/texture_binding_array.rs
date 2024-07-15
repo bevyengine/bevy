@@ -17,6 +17,9 @@ use bevy::{
 };
 use std::{num::NonZeroU32, process::exit};
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wgsl";
+
 fn main() {
     let mut app = App::new();
     app.add_plugins((
@@ -186,6 +189,6 @@ impl AsBindGroup for BindlessMaterial {
 
 impl Material for BindlessMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/texture_binding_array.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

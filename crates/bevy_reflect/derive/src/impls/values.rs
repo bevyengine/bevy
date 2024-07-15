@@ -33,6 +33,11 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
     let type_path_impl = impl_type_path(meta);
 
+    #[cfg(not(feature = "functions"))]
+    let function_impls = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "functions")]
+    let function_impls = crate::impls::impl_function_traits(meta, &where_clause_options);
+
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
     let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
@@ -43,6 +48,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
         #type_path_impl
 
         #typed_impl
+
+        #function_impls
 
         impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]
@@ -85,14 +92,20 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
                 #FQBox::new(#FQClone::clone(self))
             }
 
-            #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                let value = #bevy_reflect_path::Reflect::as_any(value);
-                if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
+             #[inline]
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
+                let any = #bevy_reflect_path::Reflect::as_any(value);
+                if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(any) {
                     *self = #FQClone::clone(value);
                 } else {
-                    panic!("Value is not {}.", <Self as #bevy_reflect_path::TypePath>::type_path());
+                    return #FQResult::Err(
+                        #bevy_reflect_path::ApplyError::MismatchedTypes {
+                            from_type: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(value)),
+                            to_type: ::core::convert::Into::into(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                        }
+                    );
                 }
+                #FQResult::Ok(())
             }
 
             #[inline]
@@ -101,18 +114,22 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
                 #FQResult::Ok(())
             }
 
+            #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::Value
             }
 
+            #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::Value(self)
             }
 
+            #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::Value(self)
             }
 
+            #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Value(self)
             }

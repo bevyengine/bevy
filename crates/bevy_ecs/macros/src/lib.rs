@@ -74,6 +74,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let mut field_component_ids = Vec::new();
+    let mut field_get_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
@@ -86,6 +87,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
                 <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                });
+                field_get_component_ids.push(quote! {
+                    <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
                 });
                 match field {
                     Some(field) => {
@@ -131,6 +135,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
+            }
+
+            fn get_component_ids(
+                components: &#ecs_path::component::Components,
+                ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
+            ){
+                #(#field_get_component_ids)*
             }
 
             #[allow(unused_variables, non_snake_case)]
@@ -433,6 +444,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
+                }
+
+                fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: #path::world::DeferredWorld) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
                 }
 
                 unsafe fn get_param<'w, 's>(

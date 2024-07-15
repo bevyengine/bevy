@@ -18,6 +18,8 @@ pub mod fps_overlay;
 #[cfg(feature = "bevy_ui_debug")]
 pub mod ui_debug_overlay;
 
+pub mod states;
+
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.
 ///
@@ -28,7 +30,7 @@ pub mod ui_debug_overlay;
 /// To enable developer tools, you can either:
 ///
 /// - Create a custom crate feature (e.g "`dev_mode`"), which enables the `bevy_dev_tools` feature
-/// along with any other development tools you might be using:
+///     along with any other development tools you might be using:
 ///
 /// ```toml
 /// [feature]
@@ -49,10 +51,5 @@ pub mod ui_debug_overlay;
 pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
-    fn build(&self, _app: &mut App) {
-        #[cfg(feature = "bevy_ci_testing")]
-        {
-            ci_testing::setup_app(_app);
-        }
-    }
+    fn build(&self, _app: &mut App) {}
 }

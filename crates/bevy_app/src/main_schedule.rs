@@ -1,6 +1,6 @@
 use crate::{App, Plugin};
 use bevy_ecs::{
-    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel, StateTransition},
+    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel},
     system::{Local, Resource},
     world::{Mut, World},
 };
@@ -32,6 +32,7 @@ use bevy_ecs::{
 ///
 /// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
 ///
+/// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
 /// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
 /// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`SubApp`]: crate::SubApp
@@ -173,7 +174,6 @@ impl Default for MainScheduleOrder {
             labels: vec![
                 First.intern(),
                 PreUpdate.intern(),
-                StateTransition.intern(),
                 RunFixedMainLoop.intern(),
                 Update.intern(),
                 SpawnScene.intern(),
@@ -196,6 +196,16 @@ impl MainScheduleOrder {
         self.labels.insert(index + 1, schedule.intern());
     }
 
+    /// Adds the given `schedule` before the `before` schedule in the main list of schedules.
+    pub fn insert_before(&mut self, before: impl ScheduleLabel, schedule: impl ScheduleLabel) {
+        let index = self
+            .labels
+            .iter()
+            .position(|current| (**current).eq(&before))
+            .unwrap_or_else(|| panic!("Expected {before:?} to exist"));
+        self.labels.insert(index, schedule.intern());
+    }
+
     /// Adds the given `schedule` after the `after` schedule in the list of startup schedules.
     pub fn insert_startup_after(
         &mut self,
@@ -208,6 +218,20 @@ impl MainScheduleOrder {
             .position(|current| (**current).eq(&after))
             .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
         self.startup_labels.insert(index + 1, schedule.intern());
+    }
+
+    /// Adds the given `schedule` before the `before` schedule in the list of startup schedules.
+    pub fn insert_startup_before(
+        &mut self,
+        before: impl ScheduleLabel,
+        schedule: impl ScheduleLabel,
+    ) {
+        let index = self
+            .startup_labels
+            .iter()
+            .position(|current| (**current).eq(&before))
+            .unwrap_or_else(|| panic!("Expected {before:?} to exist"));
+        self.startup_labels.insert(index, schedule.intern());
     }
 }
 
@@ -291,6 +315,16 @@ impl FixedMainScheduleOrder {
             .position(|current| (**current).eq(&after))
             .unwrap_or_else(|| panic!("Expected {after:?} to exist"));
         self.labels.insert(index + 1, schedule.intern());
+    }
+
+    /// Adds the given `schedule` before the `before` schedule
+    pub fn insert_before(&mut self, before: impl ScheduleLabel, schedule: impl ScheduleLabel) {
+        let index = self
+            .labels
+            .iter()
+            .position(|current| (**current).eq(&before))
+            .unwrap_or_else(|| panic!("Expected {before:?} to exist"));
+        self.labels.insert(index, schedule.intern());
     }
 }
 

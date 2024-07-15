@@ -1,3 +1,43 @@
+//! The [`ShapeSample`] trait, allowing random sampling from geometric shapes.
+//!
+//! At the most basic level, this allows sampling random points from the interior and boundary of
+//! geometric primitives. For example:
+//! ```
+//! # use bevy_math::primitives::*;
+//! # use bevy_math::ShapeSample;
+//! # use rand::SeedableRng;
+//! # use rand::rngs::StdRng;
+//! // Get some `Rng`:
+//! let rng = &mut StdRng::from_entropy();
+//! // Make a circle of radius 2:
+//! let circle = Circle::new(2.0);
+//! // Get a point inside this circle uniformly at random:
+//! let interior_pt = circle.sample_interior(rng);
+//! // Get a point on the circle's boundary uniformly at random:
+//! let boundary_pt = circle.sample_boundary(rng);
+//! ```
+//!
+//! For repeated sampling, `ShapeSample` also includes methods for accessing a [`Distribution`]:
+//! ```
+//! # use bevy_math::primitives::*;
+//! # use bevy_math::{Vec2, ShapeSample};
+//! # use rand::SeedableRng;
+//! # use rand::rngs::StdRng;
+//! # use rand::distributions::Distribution;
+//! # let rng1 = StdRng::from_entropy();
+//! # let rng2 = StdRng::from_entropy();
+//! // Use a rectangle this time:
+//! let rectangle = Rectangle::new(1.0, 2.0);
+//! // Get an iterator that spits out random interior points:
+//! let interior_iter = rectangle.interior_dist().sample_iter(rng1);
+//! // Collect random interior points from the iterator:
+//! let interior_pts: Vec<Vec2> = interior_iter.take(1000).collect();
+//! // Similarly, get an iterator over many random boundary points and collect them:
+//! let boundary_pts: Vec<Vec2> = rectangle.boundary_dist().sample_iter(rng2).take(1000).collect();
+//! ```
+//!
+//! In any case, the [`Rng`] used as the source of randomness must be provided explicitly.
+
 use std::f32::consts::{PI, TAU};
 
 use crate::{primitives::*, NormedVectorSpace, Vec2, Vec3};
@@ -39,6 +79,72 @@ pub trait ShapeSample {
     /// println!("{:?}", square.sample_boundary(&mut rand::thread_rng()));
     /// ```
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
+
+    /// Extract a [`Distribution`] whose samples are points of this shape's interior, taken uniformly.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # use rand::distributions::Distribution;
+    /// let square = Rectangle::new(2.0, 2.0);
+    /// let rng = rand::thread_rng();
+    ///
+    /// // Iterate over points randomly drawn from `square`'s interior:
+    /// for random_val in square.interior_dist().sample_iter(rng).take(5) {
+    ///     println!("{:?}", random_val);
+    /// }
+    /// ```
+    fn interior_dist(self) -> impl Distribution<Self::Output>
+    where
+        Self: Sized,
+    {
+        InteriorOf(self)
+    }
+
+    /// Extract a [`Distribution`] whose samples are points of this shape's boundary, taken uniformly.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # use rand::distributions::Distribution;
+    /// let square = Rectangle::new(2.0, 2.0);
+    /// let rng = rand::thread_rng();
+    ///
+    /// // Iterate over points randomly drawn from `square`'s boundary:
+    /// for random_val in square.boundary_dist().sample_iter(rng).take(5) {
+    ///     println!("{:?}", random_val);
+    /// }
+    /// ```
+    fn boundary_dist(self) -> impl Distribution<Self::Output>
+    where
+        Self: Sized,
+    {
+        BoundaryOf(self)
+    }
+}
+
+#[derive(Clone, Copy)]
+/// A wrapper struct that allows interior sampling from a [`ShapeSample`] type directly as
+/// a [`Distribution`].
+pub struct InteriorOf<T: ShapeSample>(pub T);
+
+#[derive(Clone, Copy)]
+/// A wrapper struct that allows boundary sampling from a [`ShapeSample`] type directly as
+/// a [`Distribution`].
+pub struct BoundaryOf<T: ShapeSample>(pub T);
+
+impl<T: ShapeSample> Distribution<<T as ShapeSample>::Output> for InteriorOf<T> {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> <T as ShapeSample>::Output {
+        self.0.sample_interior(rng)
+    }
+}
+
+impl<T: ShapeSample> Distribution<<T as ShapeSample>::Output> for BoundaryOf<T> {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> <T as ShapeSample>::Output {
+        self.0.sample_boundary(rng)
+    }
 }
 
 impl ShapeSample for Circle {
@@ -81,6 +187,35 @@ impl ShapeSample for Sphere {
             x: self.radius * phi.sin() * theta.cos(),
             y: self.radius * phi.sin() * theta.sin(),
             z: self.radius * phi.cos(),
+        }
+    }
+}
+
+impl ShapeSample for Annulus {
+    type Output = Vec2;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let inner_radius = self.inner_circle.radius;
+        let outer_radius = self.outer_circle.radius;
+
+        // Like random sampling for a circle, radius is weighted by the square.
+        let r_squared = rng.gen_range((inner_radius * inner_radius)..(outer_radius * outer_radius));
+        let r = r_squared.sqrt();
+        let theta = rng.gen_range(0.0..TAU);
+
+        Vec2::new(r * theta.cos(), r * theta.sin())
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let total_perimeter = self.inner_circle.perimeter() + self.outer_circle.perimeter();
+        let inner_prob = (self.inner_circle.perimeter() / total_perimeter) as f64;
+
+        // Sample from boundary circles, choosing which one by weighting by perimeter:
+        let inner = rng.gen_bool(inner_prob);
+        if inner {
+            self.inner_circle.sample_boundary(rng)
+        } else {
+            self.outer_circle.sample_boundary(rng)
         }
     }
 }
@@ -215,6 +350,63 @@ impl ShapeSample for Triangle3d {
     }
 }
 
+impl ShapeSample for Tetrahedron {
+    type Output = Vec3;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let [v0, v1, v2, v3] = self.vertices;
+
+        // Generate a random point in a cube:
+        let mut coords: [f32; 3] = [
+            rng.gen_range(0.0..1.0),
+            rng.gen_range(0.0..1.0),
+            rng.gen_range(0.0..1.0),
+        ];
+
+        // The cube is broken into six tetrahedra of the form 0 <= c_0 <= c_1 <= c_2 <= 1,
+        // where c_i are the three euclidean coordinates in some permutation. (Since 3! = 6,
+        // there are six of them). Sorting the coordinates folds these six tetrahedra into the
+        // tetrahedron 0 <= x <= y <= z <= 1 (i.e. a fundamental domain of the permutation action).
+        coords.sort_by(|x, y| x.partial_cmp(y).unwrap());
+
+        // Now, convert a point from the fundamental tetrahedron into barycentric coordinates by
+        // taking the four successive differences of coordinates; note that these telescope to sum
+        // to 1, and this transformation is linear, hence preserves the probability density, since
+        // the latter comes from the Lebesgue measure.
+        //
+        // (See https://en.wikipedia.org/wiki/Lebesgue_measure#Properties — specifically, that
+        // Lebesgue measure of a linearly transformed set is its original measure times the
+        // determinant.)
+        let (a, b, c, d) = (
+            coords[0],
+            coords[1] - coords[0],
+            coords[2] - coords[1],
+            1. - coords[2],
+        );
+
+        // This is also a linear mapping, so probability density is still preserved.
+        v0 * a + v1 * b + v2 * c + v3 * d
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let triangles = self.faces();
+        let areas = triangles.iter().map(Measured2d::area);
+
+        if areas.clone().sum::<f32>() > 0.0 {
+            // There is at least one triangle with nonzero area, so this unwrap succeeds.
+            let dist = WeightedIndex::new(areas).unwrap();
+
+            // Get a random index, then sample the interior of the associated triangle.
+            let idx = dist.sample(rng);
+            triangles[idx].sample_interior(rng)
+        } else {
+            // In this branch the tetrahedron has zero surface area; just return a point that's on
+            // the tetrahedron.
+            self.vertices[0]
+        }
+    }
+}
+
 impl ShapeSample for Cylinder {
     type Output = Vec3;
 
@@ -346,6 +538,34 @@ impl ShapeSample for Capsule3d {
             }
         } else {
             Vec3::ZERO
+        }
+    }
+}
+
+impl<P: Primitive2d + Measured2d + ShapeSample<Output = Vec2>> ShapeSample for Extrusion<P> {
+    type Output = Vec3;
+
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let base_point = self.base_shape.sample_interior(rng);
+        let depth = rng.gen_range(-self.half_depth..self.half_depth);
+        base_point.extend(depth)
+    }
+
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+        let base_area = self.base_shape.area();
+        let total_area = self.area();
+
+        let random = rng.gen_range(0.0..total_area);
+        match random {
+            x if x < base_area => self.base_shape.sample_interior(rng).extend(self.half_depth),
+            x if x < 2. * base_area => self
+                .base_shape
+                .sample_interior(rng)
+                .extend(-self.half_depth),
+            _ => self
+                .base_shape
+                .sample_boundary(rng)
+                .extend(rng.gen_range(-self.half_depth..self.half_depth)),
         }
     }
 }

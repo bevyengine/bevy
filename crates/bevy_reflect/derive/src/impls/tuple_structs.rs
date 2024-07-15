@@ -15,7 +15,6 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         .active_fields()
         .map(|field| Member::Unnamed(Index::from(field.declaration_index)))
         .collect::<Vec<_>>();
-    let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
@@ -39,49 +38,19 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             }
         });
 
-    #[cfg(feature = "documentation")]
-    let field_generator = {
-        let docs = reflect_struct
-            .active_fields()
-            .map(|field| ToTokens::to_token_stream(&field.doc));
-        quote! {
-            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents).with_docs(#docs) ,)*
-        }
-    };
-
-    #[cfg(not(feature = "documentation"))]
-    let field_generator = {
-        quote! {
-            #(#bevy_reflect_path::UnnamedField::new::<#field_types>(#field_idents) ,)*
-        }
-    };
-
-    #[cfg(feature = "documentation")]
-    let info_generator = {
-        let doc = reflect_struct.meta().doc();
-        quote! {
-           #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields).with_docs(#doc)
-        }
-    };
-
-    #[cfg(not(feature = "documentation"))]
-    let info_generator = {
-        quote! {
-            #bevy_reflect_path::TupleStructInfo::new::<Self>(&fields)
-        }
-    };
-
     let typed_impl = impl_typed(
         reflect_struct.meta(),
         &where_clause_options,
-        quote! {
-            let fields = [#field_generator];
-            let info = #info_generator;
-            #bevy_reflect_path::TypeInfo::TupleStruct(info)
-        },
+        reflect_struct.to_info_tokens(true),
     );
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
+
+    #[cfg(not(feature = "functions"))]
+    let function_impls = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "functions")]
+    let function_impls =
+        crate::impls::impl_function_traits(reflect_struct.meta(), &where_clause_options);
 
     let (impl_generics, ty_generics, where_clause) = reflect_struct
         .meta()
@@ -98,6 +67,8 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
 
         #type_path_impl
 
+        #function_impls
+
         impl #impl_generics #bevy_reflect_path::TupleStruct for #struct_path #ty_generics #where_reflect_clause {
             fn field(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match index {
@@ -112,11 +83,11 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                     _ => #FQOption::None,
                 }
             }
-
+            #[inline]
             fn field_len(&self) -> usize {
                 #field_count
             }
-
+            #[inline]
             fn iter_fields(&self) -> #bevy_reflect_path::TupleStructFieldIter {
                 #bevy_reflect_path::TupleStructFieldIter::new(self)
             }
@@ -177,28 +148,36 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             }
 
             #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
                     for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::TupleStruct::iter_fields(struct_value)) {
-                        #bevy_reflect_path::TupleStruct::field_mut(self, i).map(|v| v.apply(value));
+                        if let #FQOption::Some(v) = #bevy_reflect_path::TupleStruct::field_mut(self, i) {
+                            #bevy_reflect_path::Reflect::try_apply(v, value)?;
+                        }
                     }
                 } else {
-                    panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
+                    return #FQResult::Err(
+                        #bevy_reflect_path::ApplyError::MismatchedKinds {
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(value),
+                            to_kind: #bevy_reflect_path::ReflectKind::TupleStruct,
+                        }
+                    );
                 }
+               #FQResult::Ok(())
             }
-
+            #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::TupleStruct
             }
-
+            #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::TupleStruct(self)
             }
-
+            #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::TupleStruct(self)
             }
-
+            #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::TupleStruct(self)
             }

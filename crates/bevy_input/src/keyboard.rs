@@ -72,10 +72,11 @@ use bevy_ecs::{
     event::{Event, EventReader},
     system::ResMut,
 };
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use smol_str::SmolStr;
 
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A keyboard input event.
@@ -87,11 +88,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct KeyboardInput {
@@ -105,6 +106,21 @@ pub struct KeyboardInput {
     pub window: Entity,
 }
 
+/// Gets generated from `bevy_winit::winit_runner`
+///
+/// Used for clearing all cached states to avoid having 'stuck' key presses
+/// when, for example, switching between windows with 'Alt-Tab' or using any other
+/// OS specific key combination that leads to Bevy window losing focus and not receiving any
+/// input events
+#[derive(Event, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct KeyboardFocusLost;
+
 /// Updates the [`ButtonInput<KeyCode>`] resource with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
@@ -114,6 +130,7 @@ pub struct KeyboardInput {
 pub fn keyboard_input_system(
     mut key_input: ResMut<ButtonInput<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
+    mut focus_events: EventReader<KeyboardFocusLost>,
 ) {
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
     key_input.bypass_change_detection().clear();
@@ -126,6 +143,12 @@ pub fn keyboard_input_system(
             ButtonState::Released => key_input.release(*key_code),
         }
     }
+
+    // Release all cached input to avoid having stuck input when switching between windows in os
+    if !focus_events.is_empty() {
+        key_input.release_all();
+        focus_events.clear();
+    }
 }
 
 /// Contains the platform-native physical key identifier
@@ -135,14 +158,15 @@ pub fn keyboard_input_system(
 ///
 /// This enum is primarily used to store raw keycodes when Winit doesn't map a given native
 /// physical key identifier to a meaningful [`KeyCode`] variant. In the presence of identifiers we
-/// haven't mapped for you yet, this lets you use use [`KeyCode`] to:
+/// haven't mapped for you yet, this lets you use [`KeyCode`] to:
 ///
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.
-#[derive(Debug, Clone, Ord, PartialOrd, Copy, PartialEq, Eq, Hash, Reflect)]
+#[derive(Debug, Clone, Ord, PartialOrd, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum NativeKeyCode {
@@ -176,11 +200,15 @@ pub enum NativeKeyCode {
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`].
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 #[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
@@ -665,11 +693,15 @@ pub enum KeyCode {
 /// This enum is primarily used to store raw keysym when Winit doesn't map a given native logical
 /// key identifier to a meaningful [`Key`] variant. This lets you use [`Key`], and let the user
 /// define keybinds which work in the presence of identifiers we haven't mapped for you yet.
-#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Hash)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum NativeKey {
@@ -694,11 +726,15 @@ pub enum NativeKey {
 ///
 /// Its values map 1 to 1 to winit's Key.
 #[non_exhaustive]
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 #[allow(clippy::doc_markdown)] // Clippy doesn't like our use of <kbd>.
