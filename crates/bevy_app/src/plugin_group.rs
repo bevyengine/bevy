@@ -27,6 +27,11 @@ impl PluginGroup for PluginGroupBuilder {
     }
 }
 
+/// Helper method to get the [`TypeId`] of a value without having to name its type.
+fn type_id_of_val<T: 'static>(_: &T) -> TypeId {
+    TypeId::of::<T>()
+}
+
 /// Facilitates the creation and configuration of a [`PluginGroup`].
 /// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
 /// are built before/after dependent/depending [`Plugin`]s. [`Plugin`]s inside the group
@@ -153,9 +158,9 @@ impl PluginGroupBuilder {
     /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] before the plugin of type `Target`.
     /// If the plugin was already the group, it is removed from its previous place. There must
     /// be a plugin of type `Target` in the group or it will panic.
-    pub fn add_before<Target: Plugin, T: Plugin>(mut self, plugin: T) -> Self {
+    pub fn add_before<Target: Plugin>(mut self, plugin: impl Plugin) -> Self {
         let target_index = self.index_of::<Target>();
-        self.order.insert(target_index, TypeId::of::<T>());
+        self.order.insert(target_index, type_id_of_val(&plugin));
         self.upsert_plugin_state(plugin, target_index);
         self
     }
@@ -163,9 +168,9 @@ impl PluginGroupBuilder {
     /// Adds a [`Plugin`] in this [`PluginGroupBuilder`] after the plugin of type `Target`.
     /// If the plugin was already the group, it is removed from its previous place. There must
     /// be a plugin of type `Target` in the group or it will panic.
-    pub fn add_after<Target: Plugin, T: Plugin>(mut self, plugin: T) -> Self {
+    pub fn add_after<Target: Plugin>(mut self, plugin: impl Plugin) -> Self {
         let target_index = self.index_of::<Target>() + 1;
-        self.order.insert(target_index, TypeId::of::<T>());
+        self.order.insert(target_index, type_id_of_val(&plugin));
         self.upsert_plugin_state(plugin, target_index);
         self
     }
@@ -285,7 +290,7 @@ mod tests {
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
             .add(PluginA)
             .add(PluginB)
-            .add_after::<PluginA, PluginC>(PluginC);
+            .add_after::<PluginA>(PluginC);
 
         assert_eq!(
             group.order,
@@ -302,7 +307,7 @@ mod tests {
         let group = PluginGroupBuilder::start::<NoopPluginGroup>()
             .add(PluginA)
             .add(PluginB)
-            .add_before::<PluginB, PluginC>(PluginC);
+            .add_before::<PluginB>(PluginC);
 
         assert_eq!(
             group.order,
@@ -338,7 +343,7 @@ mod tests {
             .add(PluginA)
             .add(PluginB)
             .add(PluginC)
-            .add_after::<PluginA, PluginC>(PluginC);
+            .add_after::<PluginA>(PluginC);
 
         assert_eq!(
             group.order,
@@ -356,7 +361,7 @@ mod tests {
             .add(PluginA)
             .add(PluginB)
             .add(PluginC)
-            .add_before::<PluginB, PluginC>(PluginC);
+            .add_before::<PluginB>(PluginC);
 
         assert_eq!(
             group.order,

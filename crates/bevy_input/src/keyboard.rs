@@ -102,6 +102,10 @@ pub struct KeyboardInput {
     pub logical_key: Key,
     /// The press state of the key.
     pub state: ButtonState,
+    /// On some systems, holding down a key for some period of time causes that key to be repeated
+    /// as though it were being pressed and released repeatedly. This field is [`true`] if this
+    /// event is the result of one of those repeats.
+    pub repeat: bool,
     /// Window that received the input.
     pub window: Entity,
 }

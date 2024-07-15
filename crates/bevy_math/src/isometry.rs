@@ -1,11 +1,4 @@
 //! Isometry types for expressing rigid motions in two and three dimensions.
-//!
-//! These are often used to express the relative positions of two entities (e.g. primitive shapes).
-//! For example, in determining whether a sphere intersects a cube, one needs to know how the two are
-//! positioned relative to one another in addition to their sizes.
-//! If the two had absolute positions and orientations described by isometries `cube_iso` and `sphere_iso`,
-//! then `cube_iso.inverse() * sphere_iso` would describe the relative orientation, which is sufficient for
-//! answering this query.
 
 use crate::{Affine2, Affine3, Affine3A, Dir2, Dir3, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
 use std::ops::Mul;
@@ -18,7 +11,78 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// An isometry in two dimensions.
+/// An isometry in two dimensions, representing a rotation followed by a translation.
+/// This can often be useful for expressing relative positions and transformations from one position to another.
+///
+/// In particular, this type represents a distance-preserving transformation known as a *rigid motion* or a *direct motion*,
+/// and belongs to the special [Euclidean group] SE(2). This includes translation and rotation, but excludes reflection.
+///
+/// For the three-dimensional version, see [`Isometry3d`].
+///
+/// [Euclidean group]: https://en.wikipedia.org/wiki/Euclidean_group
+///
+/// # Example
+///
+/// Isometries can be created from a given translation and rotation:
+///
+/// ```
+/// # use bevy_math::{Isometry2d, Rot2, Vec2};
+/// #
+/// let iso = Isometry2d::new(Vec2::new(2.0, 1.0), Rot2::degrees(90.0));
+/// ```
+///
+/// Or from separate parts:
+///
+/// ```
+/// # use bevy_math::{Isometry2d, Rot2, Vec2};
+/// #
+/// let iso1 = Isometry2d::from_translation(Vec2::new(2.0, 1.0));
+/// let iso2 = Isometry2d::from_rotation(Rot2::degrees(90.0));
+/// ```
+///
+/// The isometries can be used to transform points:
+///
+/// ```
+/// # use approx::assert_abs_diff_eq;
+/// # use bevy_math::{Isometry2d, Rot2, Vec2};
+/// #
+/// let iso = Isometry2d::new(Vec2::new(2.0, 1.0), Rot2::degrees(90.0));
+/// let point = Vec2::new(4.0, 4.0);
+///
+/// // These are equivalent
+/// let result = iso.transform_point(point);
+/// let result = iso * point;
+///
+/// assert_eq!(result, Vec2::new(-2.0, 5.0));
+/// ```
+///
+/// Isometries can also be composed together:
+///
+/// ```
+/// # use bevy_math::{Isometry2d, Rot2, Vec2};
+/// #
+/// # let iso = Isometry2d::new(Vec2::new(2.0, 1.0), Rot2::degrees(90.0));
+/// # let iso1 = Isometry2d::from_translation(Vec2::new(2.0, 1.0));
+/// # let iso2 = Isometry2d::from_rotation(Rot2::degrees(90.0));
+/// #
+/// assert_eq!(iso1 * iso2, iso);
+/// ```
+///
+/// One common operation is to compute an isometry representing the relative positions of two objects
+/// for things like intersection tests. This can be done with an inverse transformation:
+///
+/// ```
+/// # use bevy_math::{Isometry2d, Rot2, Vec2};
+/// #
+/// let circle_iso = Isometry2d::from_translation(Vec2::new(2.0, 1.0));
+/// let rectangle_iso = Isometry2d::from_rotation(Rot2::degrees(90.0));
+///
+/// // Compute the relative position and orientation between the two shapes
+/// let relative_iso = circle_iso.inverse() * rectangle_iso;
+///
+/// // Or alternatively, to skip an extra rotation operation:
+/// let relative_iso = circle_iso.inverse_mul(rectangle_iso);
+/// ```
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -71,6 +135,15 @@ impl Isometry2d {
         }
     }
 
+    /// Create a two-dimensional isometry from a translation with the given `x` and `y` components.
+    #[inline]
+    pub fn from_xy(x: f32, y: f32) -> Self {
+        Isometry2d {
+            rotation: Rot2::IDENTITY,
+            translation: Vec2::new(x, y),
+        }
+    }
+
     /// The inverse isometry that undoes this one.
     #[inline]
     pub fn inverse(&self) -> Self {
@@ -81,10 +154,31 @@ impl Isometry2d {
         }
     }
 
+    /// Compute `iso1.inverse() * iso2` in a more efficient way for one-shot cases.
+    ///
+    /// If the same isometry is used multiple times, it is more efficient to instead compute
+    /// the inverse once and use that for each transformation.
+    #[inline]
+    pub fn inverse_mul(&self, rhs: Self) -> Self {
+        let inv_rot = self.rotation.inverse();
+        let delta_translation = rhs.translation - self.translation;
+        Self::new(inv_rot * delta_translation, inv_rot * rhs.rotation)
+    }
+
     /// Transform a point by rotating and translating it using this isometry.
     #[inline]
     pub fn transform_point(&self, point: Vec2) -> Vec2 {
         self.rotation * point + self.translation
+    }
+
+    /// Transform a point by rotating and translating it using the inverse of this isometry.
+    ///
+    /// This is more efficient than `iso.inverse().transform_point(point)` for one-shot cases.
+    /// If the same isometry is used multiple times, it is more efficient to instead compute
+    /// the inverse once and use that for each transformation.
+    #[inline]
+    pub fn inverse_transform_point(&self, point: Vec2) -> Vec2 {
+        self.rotation.inverse() * (point - self.translation)
     }
 }
 
@@ -176,7 +270,83 @@ impl UlpsEq for Isometry2d {
     }
 }
 
-/// An isometry in three dimensions.
+/// An isometry in three dimensions, representing a rotation followed by a translation.
+/// This can often be useful for expressing relative positions and transformations from one position to another.
+///
+/// In particular, this type represents a distance-preserving transformation known as a *rigid motion* or a *direct motion*,
+/// and belongs to the special [Euclidean group] SE(3). This includes translation and rotation, but excludes reflection.
+///
+/// For the two-dimensional version, see [`Isometry2d`].
+///
+/// [Euclidean group]: https://en.wikipedia.org/wiki/Euclidean_group
+///
+/// # Example
+///
+/// Isometries can be created from a given translation and rotation:
+///
+/// ```
+/// # use bevy_math::{Isometry3d, Quat, Vec3};
+/// # use core::f32::consts::FRAC_PI_2;
+/// #
+/// let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
+/// ```
+///
+/// Or from separate parts:
+///
+/// ```
+/// # use bevy_math::{Isometry3d, Quat, Vec3};
+/// # use core::f32::consts::FRAC_PI_2;
+/// #
+/// let iso1 = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
+/// let iso2 = Isometry3d::from_rotation(Quat::from_rotation_z(FRAC_PI_2));
+/// ```
+///
+/// The isometries can be used to transform points:
+///
+/// ```
+/// # use approx::assert_relative_eq;
+/// # use bevy_math::{Isometry3d, Quat, Vec3};
+/// # use core::f32::consts::FRAC_PI_2;
+/// #
+/// let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
+/// let point = Vec3::new(4.0, 4.0, 4.0);
+///
+/// // These are equivalent
+/// let result = iso.transform_point(point);
+/// let result = iso * point;
+///
+/// assert_relative_eq!(result, Vec3::new(-2.0, 5.0, 7.0));
+/// ```
+///
+/// Isometries can also be composed together:
+///
+/// ```
+/// # use bevy_math::{Isometry3d, Quat, Vec3};
+/// # use core::f32::consts::FRAC_PI_2;
+/// #
+/// # let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
+/// # let iso1 = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
+/// # let iso2 = Isometry3d::from_rotation(Quat::from_rotation_z(FRAC_PI_2));
+/// #
+/// assert_eq!(iso1 * iso2, iso);
+/// ```
+///
+/// One common operation is to compute an isometry representing the relative positions of two objects
+/// for things like intersection tests. This can be done with an inverse transformation:
+///
+/// ```
+/// # use bevy_math::{Isometry3d, Quat, Vec3};
+/// # use core::f32::consts::FRAC_PI_2;
+/// #
+/// let sphere_iso = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
+/// let cuboid_iso = Isometry3d::from_rotation(Quat::from_rotation_z(FRAC_PI_2));
+///
+/// // Compute the relative position and orientation between the two shapes
+/// let relative_iso = sphere_iso.inverse() * cuboid_iso;
+///
+/// // Or alternatively, to skip an extra rotation operation:
+/// let relative_iso = sphere_iso.inverse_mul(cuboid_iso);
+/// ```
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -229,6 +399,15 @@ impl Isometry3d {
         }
     }
 
+    /// Create a three-dimensional isometry from a translation with the given `x`, `y`, and `z` components.
+    #[inline]
+    pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
+        Isometry3d {
+            rotation: Quat::IDENTITY,
+            translation: Vec3A::new(x, y, z),
+        }
+    }
+
     /// The inverse isometry that undoes this one.
     #[inline]
     pub fn inverse(&self) -> Self {
@@ -239,10 +418,31 @@ impl Isometry3d {
         }
     }
 
+    /// Compute `iso1.inverse() * iso2` in a more efficient way for one-shot cases.
+    ///
+    /// If the same isometry is used multiple times, it is more efficient to instead compute
+    /// the inverse once and use that for each transformation.
+    #[inline]
+    pub fn inverse_mul(&self, rhs: Self) -> Self {
+        let inv_rot = self.rotation.inverse();
+        let delta_translation = rhs.translation - self.translation;
+        Self::new(inv_rot * delta_translation, inv_rot * rhs.rotation)
+    }
+
     /// Transform a point by rotating and translating it using this isometry.
     #[inline]
     pub fn transform_point(&self, point: impl Into<Vec3A>) -> Vec3A {
         self.rotation * point.into() + self.translation
+    }
+
+    /// Transform a point by rotating and translating it using the inverse of this isometry.
+    ///
+    /// This is more efficient than `iso.inverse().transform_point(point)` for one-shot cases.
+    /// If the same isometry is used multiple times, it is more efficient to instead compute
+    /// the inverse once and use that for each transformation.
+    #[inline]
+    pub fn inverse_transform_point(&self, point: impl Into<Vec3A>) -> Vec3A {
+        self.rotation.inverse() * (point.into() - self.translation)
     }
 }
 
@@ -356,7 +556,7 @@ impl UlpsEq for Isometry3d {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{vec2, vec3};
+    use crate::{vec2, vec3, vec3a};
     use approx::assert_abs_diff_eq;
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 
@@ -369,11 +569,27 @@ mod tests {
     }
 
     #[test]
+    fn inverse_mul_2d() {
+        let iso1 = Isometry2d::new(vec2(1.0, 0.0), Rot2::FRAC_PI_2);
+        let iso2 = Isometry2d::new(vec2(0.0, 0.0), Rot2::PI);
+        let expected = Isometry2d::new(vec2(0.0, 1.0), Rot2::FRAC_PI_2);
+        assert_abs_diff_eq!(iso1.inverse_mul(iso2), expected);
+    }
+
+    #[test]
     fn mul_3d() {
         let iso1 = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_x(FRAC_PI_2));
         let iso2 = Isometry3d::new(vec3(0.0, 1.0, 0.0), Quat::IDENTITY);
         let expected = Isometry3d::new(vec3(1.0, 0.0, 1.0), Quat::from_rotation_x(FRAC_PI_2));
         assert_abs_diff_eq!(iso1 * iso2, expected);
+    }
+
+    #[test]
+    fn inverse_mul_3d() {
+        let iso1 = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_x(FRAC_PI_2));
+        let iso2 = Isometry3d::new(vec3(1.0, 0.0, 1.0), Quat::from_rotation_x(FRAC_PI_2));
+        let expected = Isometry3d::new(vec3(0.0, 1.0, 0.0), Quat::IDENTITY);
+        assert_abs_diff_eq!(iso1.inverse_mul(iso2), expected);
     }
 
     #[test]
@@ -414,9 +630,23 @@ mod tests {
     }
 
     #[test]
+    fn inverse_transform_2d() {
+        let iso = Isometry2d::new(vec2(0.5, -0.5), Rot2::FRAC_PI_2);
+        let point = vec2(-0.5, 0.5);
+        assert_abs_diff_eq!(vec2(1.0, 1.0), iso.inverse_transform_point(point));
+    }
+
+    #[test]
     fn transform_3d() {
         let iso = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_y(FRAC_PI_2));
         let point = vec3(1.0, 1.0, 1.0);
         assert_abs_diff_eq!(vec3(2.0, 1.0, -1.0), iso * point);
+    }
+
+    #[test]
+    fn inverse_transform_3d() {
+        let iso = Isometry3d::new(vec3(1.0, 0.0, 0.0), Quat::from_rotation_y(FRAC_PI_2));
+        let point = vec3(2.0, 1.0, -1.0);
+        assert_abs_diff_eq!(vec3a(1.0, 1.0, 1.0), iso.inverse_transform_point(point));
     }
 }

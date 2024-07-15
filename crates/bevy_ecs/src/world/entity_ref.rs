@@ -16,7 +16,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use std::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE};
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -904,7 +904,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: all bundle components exist in World
         unsafe {
-            trigger_on_remove_hooks_and_observers(
+            trigger_on_replace_and_on_remove_hooks_and_observers(
                 &mut deferred_world,
                 old_archetype,
                 entity,
@@ -1085,7 +1085,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: all bundle components exist in World
         unsafe {
-            trigger_on_remove_hooks_and_observers(
+            trigger_on_replace_and_on_remove_hooks_and_observers(
                 &mut deferred_world,
                 old_archetype,
                 entity,
@@ -1222,6 +1222,10 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
+            deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
+            if archetype.has_replace_observer() {
+                deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
+            }
             deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
@@ -1423,12 +1427,16 @@ impl<'w> EntityWorldMut<'w> {
 }
 
 /// SAFETY: all components in the archetype must exist in world
-unsafe fn trigger_on_remove_hooks_and_observers(
+unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     deferred_world: &mut DeferredWorld,
     archetype: &Archetype,
     entity: Entity,
     bundle_info: &BundleInfo,
 ) {
+    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_components());
+    if archetype.has_replace_observer() {
+        deferred_world.trigger_observers(ON_REPLACE, entity, bundle_info.iter_components());
+    }
     deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_components());
     if archetype.has_remove_observer() {
         deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_components());

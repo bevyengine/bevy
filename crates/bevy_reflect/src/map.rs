@@ -5,8 +5,8 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    self as bevy_reflect, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, ApplyError, MaybeTyped, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -96,8 +96,10 @@ pub trait Map: Reflect {
 pub struct MapInfo {
     type_path: TypePathTable,
     type_id: TypeId,
+    key_info: fn() -> Option<&'static TypeInfo>,
     key_type_path: TypePathTable,
     key_type_id: TypeId,
+    value_info: fn() -> Option<&'static TypeInfo>,
     value_type_path: TypePathTable,
     value_type_id: TypeId,
     #[cfg(feature = "documentation")]
@@ -106,13 +108,18 @@ pub struct MapInfo {
 
 impl MapInfo {
     /// Create a new [`MapInfo`].
-    pub fn new<TMap: Map + TypePath, TKey: Reflect + TypePath, TValue: Reflect + TypePath>() -> Self
-    {
+    pub fn new<
+        TMap: Map + TypePath,
+        TKey: Reflect + MaybeTyped + TypePath,
+        TValue: Reflect + MaybeTyped + TypePath,
+    >() -> Self {
         Self {
             type_path: TypePathTable::of::<TMap>(),
             type_id: TypeId::of::<TMap>(),
+            key_info: TKey::maybe_type_info,
             key_type_path: TypePathTable::of::<TKey>(),
             key_type_id: TypeId::of::<TKey>(),
+            value_info: TValue::maybe_type_info,
             value_type_path: TypePathTable::of::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
             #[cfg(feature = "documentation")]
@@ -153,6 +160,14 @@ impl MapInfo {
         TypeId::of::<T>() == self.type_id
     }
 
+    /// The [`TypeInfo`] of the key type.
+    ///
+    /// Returns `None` if the key type does not contain static type information,
+    /// such as for dynamic types.
+    pub fn key_info(&self) -> Option<&'static TypeInfo> {
+        (self.key_info)()
+    }
+
     /// A representation of the type path of the key type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
@@ -168,6 +183,14 @@ impl MapInfo {
     /// Check if the given type matches the key type.
     pub fn key_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.key_type_id
+    }
+
+    /// The [`TypeInfo`] of the value type.
+    ///
+    /// Returns `None` if the value type does not contain static type information,
+    /// such as for dynamic types.
+    pub fn value_info(&self) -> Option<&'static TypeInfo> {
+        (self.value_info)()
     }
 
     /// A representation of the type path of the value type.
@@ -455,12 +478,41 @@ impl<'a> Iterator for MapIter<'a> {
     }
 }
 
+impl FromIterator<(Box<dyn Reflect>, Box<dyn Reflect>)> for DynamicMap {
+    fn from_iter<I: IntoIterator<Item = (Box<dyn Reflect>, Box<dyn Reflect>)>>(items: I) -> Self {
+        let mut map = Self::default();
+        for (key, value) in items.into_iter() {
+            map.insert_boxed(key, value);
+        }
+        map
+    }
+}
+
+impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(items: I) -> Self {
+        let mut map = Self::default();
+        for (key, value) in items.into_iter() {
+            map.insert(key, value);
+        }
+        map
+    }
+}
+
 impl IntoIterator for DynamicMap {
     type Item = (Box<dyn Reflect>, Box<dyn Reflect>);
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicMap {
+    type Item = (&'a dyn Reflect, &'a dyn Reflect);
+    type IntoIter = MapIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 
