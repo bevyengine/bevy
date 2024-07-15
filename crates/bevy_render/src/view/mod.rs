@@ -145,7 +145,6 @@ impl Plugin for ViewPlugin {
 /// Defaults to 4 samples. Some advanced rendering features may require that MSAA be disabled.
 ///
 /// Note that web currently only supports 1 or 4 samples.
-/// ```
 #[derive(
     Component,
     Default,
