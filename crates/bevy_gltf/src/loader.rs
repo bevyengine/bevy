@@ -2096,7 +2096,7 @@ mod test {
     use bevy_core::TaskPoolPlugin;
     use bevy_ecs::world::World;
     use bevy_log::LogPlugin;
-    use bevy_render::mesh::{MeshPlugin, skinning::SkinnedMeshInverseBindposes};
+    use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
