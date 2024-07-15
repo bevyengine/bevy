@@ -157,25 +157,25 @@ fn update_config(
     time: Res<Time>,
     mut color_text_query: Query<&mut Text, With<GizmoColorText>>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyD) {
+    if keyboard.just_pressed(&KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
             config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
         }
     }
 
     let (config, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
-    if keyboard.pressed(KeyCode::ArrowRight) {
+    if keyboard.pressed(&KeyCode::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::ArrowLeft) {
+    if keyboard.pressed(&KeyCode::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::KeyA) {
+    if keyboard.just_pressed(&KeyCode::KeyA) {
         config.enabled ^= true;
     }
-    if keyboard.just_pressed(KeyCode::KeyC) {
+    if keyboard.just_pressed(&KeyCode::KeyC) {
         light_config.color = match light_config.color {
             LightGizmoColor::Manual(_) => LightGizmoColor::Varied,
             LightGizmoColor::Varied => LightGizmoColor::MatchLightColor,

@@ -137,35 +137,35 @@ fn run_camera_controller(
 
         // Handle key input
         let mut axis_input = Vec3::ZERO;
-        if key_input.pressed(controller.key_forward) {
+        if key_input.pressed(&controller.key_forward) {
             axis_input.z += 1.0;
         }
-        if key_input.pressed(controller.key_back) {
+        if key_input.pressed(&controller.key_back) {
             axis_input.z -= 1.0;
         }
-        if key_input.pressed(controller.key_right) {
+        if key_input.pressed(&controller.key_right) {
             axis_input.x += 1.0;
         }
-        if key_input.pressed(controller.key_left) {
+        if key_input.pressed(&controller.key_left) {
             axis_input.x -= 1.0;
         }
-        if key_input.pressed(controller.key_up) {
+        if key_input.pressed(&controller.key_up) {
             axis_input.y += 1.0;
         }
-        if key_input.pressed(controller.key_down) {
+        if key_input.pressed(&controller.key_down) {
             axis_input.y -= 1.0;
         }
 
         let mut cursor_grab_change = false;
-        if key_input.just_pressed(controller.keyboard_key_toggle_cursor_grab) {
+        if key_input.just_pressed(&controller.keyboard_key_toggle_cursor_grab) {
             *toggle_cursor_grab = !*toggle_cursor_grab;
             cursor_grab_change = true;
         }
-        if mouse_button_input.just_pressed(controller.mouse_key_cursor_grab) {
+        if mouse_button_input.just_pressed(&controller.mouse_key_cursor_grab) {
             *mouse_cursor_grab = true;
             cursor_grab_change = true;
         }
-        if mouse_button_input.just_released(controller.mouse_key_cursor_grab) {
+        if mouse_button_input.just_released(&controller.mouse_key_cursor_grab) {
             *mouse_cursor_grab = false;
             cursor_grab_change = true;
         }
@@ -173,7 +173,7 @@ fn run_camera_controller(
 
         // Apply movement update
         if axis_input != Vec3::ZERO {
-            let max_speed = if key_input.pressed(controller.key_run) {
+            let max_speed = if key_input.pressed(&controller.key_run) {
                 controller.run_speed
             } else {
                 controller.walk_speed

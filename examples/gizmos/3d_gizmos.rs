@@ -158,12 +158,12 @@ fn update_config(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyD) {
+    if keyboard.just_pressed(&KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
             config.depth_bias = if config.depth_bias == 0. { -1. } else { 0. };
         }
     }
-    if keyboard.just_pressed(KeyCode::KeyP) {
+    if keyboard.just_pressed(&KeyCode::KeyP) {
         for (_, config, _) in config_store.iter_mut() {
             // Toggle line_perspective
             config.line_perspective ^= true;
@@ -173,24 +173,24 @@ fn update_config(
     }
 
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
-    if keyboard.pressed(KeyCode::ArrowRight) {
+    if keyboard.pressed(&KeyCode::ArrowRight) {
         config.line_width += 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::ArrowLeft) {
+    if keyboard.pressed(&KeyCode::ArrowLeft) {
         config.line_width -= 5. * time.delta_seconds();
         config.line_width = config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Digit1) {
+    if keyboard.just_pressed(&KeyCode::Digit1) {
         config.enabled ^= true;
     }
-    if keyboard.just_pressed(KeyCode::KeyU) {
+    if keyboard.just_pressed(&KeyCode::KeyU) {
         config.line_style = match config.line_style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
             _ => GizmoLineStyle::Solid,
         };
     }
-    if keyboard.just_pressed(KeyCode::KeyJ) {
+    if keyboard.just_pressed(&KeyCode::KeyJ) {
         config.line_joints = match config.line_joints {
             GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
             GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
@@ -200,24 +200,24 @@ fn update_config(
     }
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
-    if keyboard.pressed(KeyCode::ArrowUp) {
+    if keyboard.pressed(&KeyCode::ArrowUp) {
         my_config.line_width += 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.pressed(KeyCode::ArrowDown) {
+    if keyboard.pressed(&KeyCode::ArrowDown) {
         my_config.line_width -= 5. * time.delta_seconds();
         my_config.line_width = my_config.line_width.clamp(0., 50.);
     }
-    if keyboard.just_pressed(KeyCode::Digit2) {
+    if keyboard.just_pressed(&KeyCode::Digit2) {
         my_config.enabled ^= true;
     }
-    if keyboard.just_pressed(KeyCode::KeyI) {
+    if keyboard.just_pressed(&KeyCode::KeyI) {
         my_config.line_style = match my_config.line_style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
             _ => GizmoLineStyle::Solid,
         };
     }
-    if keyboard.just_pressed(KeyCode::KeyK) {
+    if keyboard.just_pressed(&KeyCode::KeyK) {
         my_config.line_joints = match my_config.line_joints {
             GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
             GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
@@ -226,7 +226,7 @@ fn update_config(
         };
     }
 
-    if keyboard.just_pressed(KeyCode::KeyA) {
+    if keyboard.just_pressed(&KeyCode::KeyA) {
         // AABB gizmos are normally only drawn on entities with a ShowAabbGizmo component
         // We can change this behaviour in the configuration of AabbGizmoGroup
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;

@@ -221,16 +221,18 @@ fn move_camera(
     let (mut zoom_delta, mut theta_delta) = (0.0, 0.0);
 
     // Process zoom in and out via the keyboard.
-    if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::ArrowUp) {
+    if keyboard_input.pressed(&KeyCode::KeyW) || keyboard_input.pressed(&KeyCode::ArrowUp) {
         zoom_delta -= CAMERA_KEYBOARD_ZOOM_SPEED;
-    } else if keyboard_input.pressed(KeyCode::KeyS) || keyboard_input.pressed(KeyCode::ArrowDown) {
+    } else if keyboard_input.pressed(&KeyCode::KeyS) || keyboard_input.pressed(&KeyCode::ArrowDown)
+    {
         zoom_delta += CAMERA_KEYBOARD_ZOOM_SPEED;
     }
 
     // Process left and right pan via the keyboard.
-    if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::ArrowLeft) {
+    if keyboard_input.pressed(&KeyCode::KeyA) || keyboard_input.pressed(&KeyCode::ArrowLeft) {
         theta_delta -= CAMERA_KEYBOARD_PAN_SPEED;
-    } else if keyboard_input.pressed(KeyCode::KeyD) || keyboard_input.pressed(KeyCode::ArrowRight) {
+    } else if keyboard_input.pressed(&KeyCode::KeyD) || keyboard_input.pressed(&KeyCode::ArrowRight)
+    {
         theta_delta += CAMERA_KEYBOARD_PAN_SPEED;
     }
 
@@ -261,15 +263,16 @@ fn update_mode(
     mut app_status: ResMut<AppStatus>,
 ) {
     // Toggle the mode as requested.
-    if keyboard_input.just_pressed(KeyCode::Digit1) || keyboard_input.just_pressed(KeyCode::Numpad1)
+    if keyboard_input.just_pressed(&KeyCode::Digit1)
+        || keyboard_input.just_pressed(&KeyCode::Numpad1)
     {
         app_status.show_one_model_only = None;
-    } else if keyboard_input.just_pressed(KeyCode::Digit2)
-        || keyboard_input.just_pressed(KeyCode::Numpad2)
+    } else if keyboard_input.just_pressed(&KeyCode::Digit2)
+        || keyboard_input.just_pressed(&KeyCode::Numpad2)
     {
         app_status.show_one_model_only = Some(MainModel::HighPoly);
-    } else if keyboard_input.just_pressed(KeyCode::Digit3)
-        || keyboard_input.just_pressed(KeyCode::Numpad3)
+    } else if keyboard_input.just_pressed(&KeyCode::Digit3)
+        || keyboard_input.just_pressed(&KeyCode::Numpad3)
     {
         app_status.show_one_model_only = Some(MainModel::LowPoly);
     } else {

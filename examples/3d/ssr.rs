@@ -313,16 +313,16 @@ fn move_camera(
     let (mut distance_delta, mut theta_delta) = (0.0, 0.0);
 
     // Handle keyboard events.
-    if keyboard_input.pressed(KeyCode::KeyW) {
+    if keyboard_input.pressed(&KeyCode::KeyW) {
         distance_delta -= CAMERA_KEYBOARD_ZOOM_SPEED;
     }
-    if keyboard_input.pressed(KeyCode::KeyS) {
+    if keyboard_input.pressed(&KeyCode::KeyS) {
         distance_delta += CAMERA_KEYBOARD_ZOOM_SPEED;
     }
-    if keyboard_input.pressed(KeyCode::KeyA) {
+    if keyboard_input.pressed(&KeyCode::KeyA) {
         theta_delta += CAMERA_KEYBOARD_ORBIT_SPEED;
     }
-    if keyboard_input.pressed(KeyCode::KeyD) {
+    if keyboard_input.pressed(&KeyCode::KeyD) {
         theta_delta -= CAMERA_KEYBOARD_ORBIT_SPEED;
     }
 
@@ -363,13 +363,13 @@ fn adjust_app_settings(
     let mut any_changes = false;
 
     // If the user pressed Space, toggle SSR.
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(&KeyCode::Space) {
         app_settings.ssr_on = !app_settings.ssr_on;
         any_changes = true;
     }
 
     // If the user pressed Enter, switch models.
-    if keyboard_input.just_pressed(KeyCode::Enter) {
+    if keyboard_input.just_pressed(&KeyCode::Enter) {
         app_settings.displayed_model = match app_settings.displayed_model {
             DisplayedModel::Cube => DisplayedModel::FlightHelmet,
             DisplayedModel::FlightHelmet => DisplayedModel::Cube,

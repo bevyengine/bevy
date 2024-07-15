@@ -50,13 +50,13 @@ struct Config {
 }
 
 fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
-    if input.just_pressed(KeyCode::ArrowUp) {
+    if input.just_pressed(&KeyCode::ArrowUp) {
         config.line_count += 10_000;
     }
-    if input.just_pressed(KeyCode::ArrowDown) {
+    if input.just_pressed(&KeyCode::ArrowDown) {
         config.line_count = config.line_count.saturating_sub(10_000);
     }
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(&KeyCode::Space) {
         config.fancy = !config.fancy;
     }
 }

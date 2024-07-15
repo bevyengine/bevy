@@ -11,10 +11,10 @@ fn main() {
 
 /// This system prints when `Ctrl + Shift + A` is pressed
 fn keyboard_input_system(input: Res<ButtonInput<KeyCode>>) {
-    let shift = input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    let ctrl = input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]);
+    let shift = input.any_pressed([&KeyCode::ShiftLeft, &KeyCode::ShiftRight]);
+    let ctrl = input.any_pressed([&KeyCode::ControlLeft, &KeyCode::ControlRight]);
 
-    if ctrl && shift && input.just_pressed(KeyCode::KeyA) {
+    if ctrl && shift && input.just_pressed(&KeyCode::KeyA) {
         info!("Just pressed Ctrl + Shift + A!");
     }
 }

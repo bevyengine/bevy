@@ -158,7 +158,7 @@ fn handle_inputs(
             Some(name) => name.to_string(),
             None => format!("entity {entity:?}"),
         };
-        if keyboard_input.just_pressed(KeyCode::Space) {
+        if keyboard_input.just_pressed(&KeyCode::Space) {
             if player.all_paused() {
                 info!("resuming animations for {display_entity_name}");
                 player.resume_all();
@@ -171,7 +171,7 @@ fn handle_inputs(
             continue;
         }
 
-        if keyboard_input.just_pressed(KeyCode::Enter) {
+        if keyboard_input.just_pressed(&KeyCode::Enter) {
             info!("switching to new animation for {display_entity_name}");
 
             let resume = !player.all_paused();

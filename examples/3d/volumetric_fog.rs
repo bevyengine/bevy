@@ -97,16 +97,16 @@ fn move_directional_light(
     mut directional_lights: Query<&mut Transform, With<DirectionalLight>>,
 ) {
     let mut delta_theta = Vec2::ZERO;
-    if input.pressed(KeyCode::KeyW) || input.pressed(KeyCode::ArrowUp) {
+    if input.pressed(&KeyCode::KeyW) || input.pressed(&KeyCode::ArrowUp) {
         delta_theta.y += DIRECTIONAL_LIGHT_MOVEMENT_SPEED;
     }
-    if input.pressed(KeyCode::KeyS) || input.pressed(KeyCode::ArrowDown) {
+    if input.pressed(&KeyCode::KeyS) || input.pressed(&KeyCode::ArrowDown) {
         delta_theta.y -= DIRECTIONAL_LIGHT_MOVEMENT_SPEED;
     }
-    if input.pressed(KeyCode::KeyA) || input.pressed(KeyCode::ArrowLeft) {
+    if input.pressed(&KeyCode::KeyA) || input.pressed(&KeyCode::ArrowLeft) {
         delta_theta.x += DIRECTIONAL_LIGHT_MOVEMENT_SPEED;
     }
-    if input.pressed(KeyCode::KeyD) || input.pressed(KeyCode::ArrowRight) {
+    if input.pressed(&KeyCode::KeyD) || input.pressed(&KeyCode::ArrowRight) {
         delta_theta.x -= DIRECTIONAL_LIGHT_MOVEMENT_SPEED;
     }
 

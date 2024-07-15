@@ -113,18 +113,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 /// Adjusts the focal distance and f-number per user inputs.
 fn adjust_focus(input: Res<ButtonInput<KeyCode>>, mut app_settings: ResMut<AppSettings>) {
     // Change the focal distance if the user requested.
-    let distance_delta = if input.pressed(KeyCode::ArrowDown) {
+    let distance_delta = if input.pressed(&KeyCode::ArrowDown) {
         -FOCAL_DISTANCE_SPEED
-    } else if input.pressed(KeyCode::ArrowUp) {
+    } else if input.pressed(&KeyCode::ArrowUp) {
         FOCAL_DISTANCE_SPEED
     } else {
         0.0
     };
 
     // Change the f-number if the user requested.
-    let f_stop_delta = if input.pressed(KeyCode::ArrowLeft) {
+    let f_stop_delta = if input.pressed(&KeyCode::ArrowLeft) {
         -APERTURE_F_STOP_SPEED
-    } else if input.pressed(KeyCode::ArrowRight) {
+    } else if input.pressed(&KeyCode::ArrowRight) {
         APERTURE_F_STOP_SPEED
     } else {
         0.0
@@ -138,7 +138,7 @@ fn adjust_focus(input: Res<ButtonInput<KeyCode>>, mut app_settings: ResMut<AppSe
 
 /// Changes the depth of field mode (Gaussian, bokeh, off) per user inputs.
 fn change_mode(input: Res<ButtonInput<KeyCode>>, mut app_settings: ResMut<AppSettings>) {
-    if !input.just_pressed(KeyCode::Space) {
+    if !input.just_pressed(&KeyCode::Space) {
         return;
     }
 

@@ -168,7 +168,7 @@ fn handle_input(
     mut app_status: ResMut<AppStatus>,
 ) {
     // If Space was pressed, change the lighting.
-    if keyboard.just_pressed(KeyCode::Space) {
+    if keyboard.just_pressed(&KeyCode::Space) {
         match app_status.light_mode {
             LightMode::Directional => {
                 // Switch to a point light. Despawn all existing lights and
@@ -208,7 +208,7 @@ fn handle_input(
     }
 
     // If Enter was pressed, toggle anisotropy on and off.
-    if keyboard.just_pressed(KeyCode::Enter) {
+    if keyboard.just_pressed(&KeyCode::Enter) {
         app_status.anisotropy_enabled = !app_status.anisotropy_enabled;
 
         // Go through each mesh and alter its material.

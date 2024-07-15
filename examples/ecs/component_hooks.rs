@@ -111,7 +111,7 @@ fn trigger_hooks(
     index: Res<MyComponentIndex>,
 ) {
     for (key, entity) in index.iter() {
-        if !keys.pressed(*key) {
+        if !keys.pressed(key) {
             commands.entity(*entity).remove::<MyComponent>();
         }
     }

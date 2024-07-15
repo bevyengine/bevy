@@ -277,7 +277,7 @@ fn toggle_pause(
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(&KeyCode::Space) {
         if let AppState::InGame { paused, turbo } = current_state.get() {
             next_state.set(AppState::InGame {
                 paused: !*paused,
@@ -292,7 +292,7 @@ fn toggle_turbo(
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    if input.just_pressed(KeyCode::KeyT) {
+    if input.just_pressed(&KeyCode::KeyT) {
         if let AppState::InGame { paused, turbo } = current_state.get() {
             next_state.set(AppState::InGame {
                 paused: *paused,
@@ -303,7 +303,7 @@ fn toggle_turbo(
 }
 
 fn quit_to_menu(input: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
-    if input.just_pressed(KeyCode::Escape) {
+    if input.just_pressed(&KeyCode::Escape) {
         next_state.set(AppState::Menu);
     }
 }
@@ -441,16 +441,16 @@ mod ui {
     ) {
         for mut transform in &mut query {
             let mut direction = Vec3::ZERO;
-            if input.pressed(KeyCode::ArrowLeft) {
+            if input.pressed(&KeyCode::ArrowLeft) {
                 direction.x -= 1.0;
             }
-            if input.pressed(KeyCode::ArrowRight) {
+            if input.pressed(&KeyCode::ArrowRight) {
                 direction.x += 1.0;
             }
-            if input.pressed(KeyCode::ArrowUp) {
+            if input.pressed(&KeyCode::ArrowUp) {
                 direction.y += 1.0;
             }
-            if input.pressed(KeyCode::ArrowDown) {
+            if input.pressed(&KeyCode::ArrowDown) {
                 direction.y -= 1.0;
             }
 

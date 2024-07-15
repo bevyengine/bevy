@@ -59,11 +59,11 @@ fn trigger_system(
     query_b: Query<Entity, With<B>>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
-    if input.just_pressed(KeyCode::KeyA) {
+    if input.just_pressed(&KeyCode::KeyA) {
         let entity = query_a.single();
         commands.entity(entity).insert(Triggered);
     }
-    if input.just_pressed(KeyCode::KeyB) {
+    if input.just_pressed(&KeyCode::KeyB) {
         let entity = query_b.single();
         commands.entity(entity).insert(Triggered);
     }

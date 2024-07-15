@@ -99,11 +99,11 @@ use std::hash::Hash;
 /// }
 ///
 /// fn print_keyboard(keyboard: Res<ButtonInput<KeyCode>>) {
-///     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
-///         && keyboard.any_pressed([KeyCode::AltLeft, KeyCode::AltRight])
-///         && keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
-///         && keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
-///         && keyboard.pressed(KeyCode::KeyL)
+///     if keyboard.any_pressed([&KeyCode::ControlLeft, &KeyCode::ControlRight])
+///         && keyboard.any_pressed([&KeyCode::AltLeft, &KeyCode::AltRight])
+///         && keyboard.any_pressed([&KeyCode::ShiftLeft, &KeyCode::ShiftRight])
+///         && keyboard.any_pressed([&KeyCode::SuperLeft, &KeyCode::SuperRight])
+///         && keyboard.pressed(&KeyCode::KeyL)
 ///     {
 ///         println!("On Windows this opens LinkedIn.");
 ///     } else {
@@ -187,17 +187,17 @@ where
     }
 
     /// Returns `true` if the `input` has been pressed.
-    pub fn pressed(&self, input: T) -> bool {
-        self.pressed.contains(&input)
+    pub fn pressed(&self, input: &T) -> bool {
+        self.pressed.contains(input)
     }
 
     /// Returns `true` if any item in `inputs` has been pressed.
-    pub fn any_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+    pub fn any_pressed<'a>(&self, inputs: impl IntoIterator<Item = &'a T>) -> bool {
         inputs.into_iter().any(|it| self.pressed(it))
     }
 
     /// Returns `true` if all items in `inputs` have been pressed.
-    pub fn all_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+    pub fn all_pressed<'a>(&self, inputs: impl IntoIterator<Item = &'a T>) -> bool {
         inputs.into_iter().all(|it| self.pressed(it))
     }
 
@@ -218,39 +218,39 @@ where
     /// Returns `true` if the `input` has been pressed during the current frame.
     ///
     /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
-    pub fn just_pressed(&self, input: T) -> bool {
-        self.just_pressed.contains(&input)
+    pub fn just_pressed(&self, input: &T) -> bool {
+        self.just_pressed.contains(input)
     }
 
     /// Returns `true` if any item in `inputs` has been pressed during the current frame.
-    pub fn any_just_pressed(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+    pub fn any_just_pressed<'a>(&self, inputs: impl IntoIterator<Item = &'a T>) -> bool {
         inputs.into_iter().any(|it| self.just_pressed(it))
     }
 
     /// Clears the `just_pressed` state of the `input` and returns `true` if the `input` has just been pressed.
     ///
     /// Future calls to [`ButtonInput::just_pressed`] for the given input will return false until a new press event occurs.
-    pub fn clear_just_pressed(&mut self, input: T) -> bool {
-        self.just_pressed.remove(&input)
+    pub fn clear_just_pressed(&mut self, input: &T) -> bool {
+        self.just_pressed.remove(input)
     }
 
     /// Returns `true` if the `input` has been released during the current frame.
     ///
     /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
-    pub fn just_released(&self, input: T) -> bool {
-        self.just_released.contains(&input)
+    pub fn just_released(&self, input: &T) -> bool {
+        self.just_released.contains(input)
     }
 
     /// Returns `true` if any item in `inputs` has just been released.
-    pub fn any_just_released(&self, inputs: impl IntoIterator<Item = T>) -> bool {
+    pub fn any_just_released<'a>(&self, inputs: impl IntoIterator<Item = &'a T>) -> bool {
         inputs.into_iter().any(|it| self.just_released(it))
     }
 
     /// Clears the `just_released` state of the `input` and returns `true` if the `input` has just been released.
     ///
     /// Future calls to [`ButtonInput::just_released`] for the given input will return false until a new release event occurs.
-    pub fn clear_just_released(&mut self, input: T) -> bool {
-        self.just_released.remove(&input)
+    pub fn clear_just_released(&mut self, input: &T) -> bool {
+        self.just_released.remove(input)
     }
 
     /// Clears the `pressed`, `just_pressed` and `just_released` data of the `input`.
@@ -321,34 +321,34 @@ mod test {
     #[test]
     fn test_pressed() {
         let mut input = ButtonInput::default();
-        assert!(!input.pressed(DummyInput::Input1));
+        assert!(!input.pressed(&DummyInput::Input1));
         input.press(DummyInput::Input1);
-        assert!(input.pressed(DummyInput::Input1));
+        assert!(input.pressed(&DummyInput::Input1));
     }
 
     #[test]
     fn test_any_pressed() {
         let mut input = ButtonInput::default();
-        assert!(!input.any_pressed([DummyInput::Input1]));
-        assert!(!input.any_pressed([DummyInput::Input2]));
-        assert!(!input.any_pressed([DummyInput::Input1, DummyInput::Input2]));
+        assert!(!input.any_pressed([&DummyInput::Input1]));
+        assert!(!input.any_pressed([&DummyInput::Input2]));
+        assert!(!input.any_pressed([&DummyInput::Input1, &DummyInput::Input2]));
         input.press(DummyInput::Input1);
-        assert!(input.any_pressed([DummyInput::Input1]));
-        assert!(!input.any_pressed([DummyInput::Input2]));
-        assert!(input.any_pressed([DummyInput::Input1, DummyInput::Input2]));
+        assert!(input.any_pressed([&DummyInput::Input1]));
+        assert!(!input.any_pressed([&DummyInput::Input2]));
+        assert!(input.any_pressed([&DummyInput::Input1, &DummyInput::Input2]));
     }
 
     #[test]
     fn test_all_pressed() {
         let mut input = ButtonInput::default();
-        assert!(!input.all_pressed([DummyInput::Input1]));
-        assert!(!input.all_pressed([DummyInput::Input2]));
-        assert!(!input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
+        assert!(!input.all_pressed([&DummyInput::Input1]));
+        assert!(!input.all_pressed([&DummyInput::Input2]));
+        assert!(!input.all_pressed([&DummyInput::Input1, &DummyInput::Input2]));
         input.press(DummyInput::Input1);
-        assert!(input.all_pressed([DummyInput::Input1]));
-        assert!(!input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
+        assert!(input.all_pressed([&DummyInput::Input1]));
+        assert!(!input.all_pressed([&DummyInput::Input1, &DummyInput::Input2]));
         input.press(DummyInput::Input2);
-        assert!(input.all_pressed([DummyInput::Input1, DummyInput::Input2]));
+        assert!(input.all_pressed([&DummyInput::Input1, &DummyInput::Input2]));
     }
 
     #[test]
@@ -376,52 +376,52 @@ mod test {
     #[test]
     fn test_just_pressed() {
         let mut input = ButtonInput::default();
-        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(!input.just_pressed(&DummyInput::Input1));
         input.press(DummyInput::Input1);
-        assert!(input.just_pressed(DummyInput::Input1));
+        assert!(input.just_pressed(&DummyInput::Input1));
     }
 
     #[test]
     fn test_any_just_pressed() {
         let mut input = ButtonInput::default();
-        assert!(!input.any_just_pressed([DummyInput::Input1]));
-        assert!(!input.any_just_pressed([DummyInput::Input2]));
-        assert!(!input.any_just_pressed([DummyInput::Input1, DummyInput::Input2]));
+        assert!(!input.any_just_pressed([&DummyInput::Input1]));
+        assert!(!input.any_just_pressed([&DummyInput::Input2]));
+        assert!(!input.any_just_pressed([&DummyInput::Input1, &DummyInput::Input2]));
         input.press(DummyInput::Input1);
-        assert!(input.any_just_pressed([DummyInput::Input1]));
-        assert!(!input.any_just_pressed([DummyInput::Input2]));
-        assert!(input.any_just_pressed([DummyInput::Input1, DummyInput::Input2]));
+        assert!(input.any_just_pressed([&DummyInput::Input1]));
+        assert!(!input.any_just_pressed([&DummyInput::Input2]));
+        assert!(input.any_just_pressed([&DummyInput::Input1, &DummyInput::Input2]));
     }
 
     #[test]
     fn test_clear_just_pressed() {
         let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
-        assert!(input.just_pressed(DummyInput::Input1));
-        input.clear_just_pressed(DummyInput::Input1);
-        assert!(!input.just_pressed(DummyInput::Input1));
+        assert!(input.just_pressed(&DummyInput::Input1));
+        input.clear_just_pressed(&DummyInput::Input1);
+        assert!(!input.just_pressed(&DummyInput::Input1));
     }
 
     #[test]
     fn test_just_released() {
         let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
-        assert!(!input.just_released(DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input1));
         input.release(DummyInput::Input1);
-        assert!(input.just_released(DummyInput::Input1));
+        assert!(input.just_released(&DummyInput::Input1));
     }
 
     #[test]
     fn test_any_just_released() {
         let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
-        assert!(!input.any_just_released([DummyInput::Input1]));
-        assert!(!input.any_just_released([DummyInput::Input2]));
-        assert!(!input.any_just_released([DummyInput::Input1, DummyInput::Input2]));
+        assert!(!input.any_just_released([&DummyInput::Input1]));
+        assert!(!input.any_just_released([&DummyInput::Input2]));
+        assert!(!input.any_just_released([&DummyInput::Input1, &DummyInput::Input2]));
         input.release(DummyInput::Input1);
-        assert!(input.any_just_released([DummyInput::Input1]));
-        assert!(!input.any_just_released([DummyInput::Input2]));
-        assert!(input.any_just_released([DummyInput::Input1, DummyInput::Input2]));
+        assert!(input.any_just_released([&DummyInput::Input1]));
+        assert!(!input.any_just_released([&DummyInput::Input2]));
+        assert!(input.any_just_released([&DummyInput::Input1, &DummyInput::Input2]));
     }
 
     #[test]
@@ -429,9 +429,9 @@ mod test {
         let mut input = ButtonInput::default();
         input.press(DummyInput::Input1);
         input.release(DummyInput::Input1);
-        assert!(input.just_released(DummyInput::Input1));
-        input.clear_just_released(DummyInput::Input1);
-        assert!(!input.just_released(DummyInput::Input1));
+        assert!(input.just_released(&DummyInput::Input1));
+        input.clear_just_released(&DummyInput::Input1);
+        assert!(!input.just_released(&DummyInput::Input1));
     }
 
     #[test]
@@ -440,24 +440,24 @@ mod test {
 
         // Pressed
         input.press(DummyInput::Input1);
-        assert!(input.pressed(DummyInput::Input1));
-        assert!(input.just_pressed(DummyInput::Input1));
-        assert!(!input.just_released(DummyInput::Input1));
+        assert!(input.pressed(&DummyInput::Input1));
+        assert!(input.just_pressed(&DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input1));
         input.reset(DummyInput::Input1);
-        assert!(!input.pressed(DummyInput::Input1));
-        assert!(!input.just_pressed(DummyInput::Input1));
-        assert!(!input.just_released(DummyInput::Input1));
+        assert!(!input.pressed(&DummyInput::Input1));
+        assert!(!input.just_pressed(&DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input1));
 
         // Released
         input.press(DummyInput::Input1);
         input.release(DummyInput::Input1);
-        assert!(!input.pressed(DummyInput::Input1));
-        assert!(input.just_pressed(DummyInput::Input1));
-        assert!(input.just_released(DummyInput::Input1));
+        assert!(!input.pressed(&DummyInput::Input1));
+        assert!(input.just_pressed(&DummyInput::Input1));
+        assert!(input.just_released(&DummyInput::Input1));
         input.reset(DummyInput::Input1);
-        assert!(!input.pressed(DummyInput::Input1));
-        assert!(!input.just_pressed(DummyInput::Input1));
-        assert!(!input.just_released(DummyInput::Input1));
+        assert!(!input.pressed(&DummyInput::Input1));
+        assert!(!input.just_pressed(&DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input1));
     }
 
     #[test]
@@ -482,24 +482,24 @@ mod test {
 
         // Pressed
         input.press(DummyInput::Input1);
-        assert!(input.pressed(DummyInput::Input1));
-        assert!(input.just_pressed(DummyInput::Input1));
-        assert!(!input.just_released(DummyInput::Input1));
+        assert!(input.pressed(&DummyInput::Input1));
+        assert!(input.just_pressed(&DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input1));
         input.clear();
-        assert!(input.pressed(DummyInput::Input1));
-        assert!(!input.just_pressed(DummyInput::Input1));
-        assert!(!input.just_released(DummyInput::Input1));
+        assert!(input.pressed(&DummyInput::Input1));
+        assert!(!input.just_pressed(&DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input1));
 
         // Released
         input.press(DummyInput::Input1);
         input.release(DummyInput::Input1);
-        assert!(!input.pressed(DummyInput::Input1));
-        assert!(!input.just_pressed(DummyInput::Input1));
-        assert!(input.just_released(DummyInput::Input1));
+        assert!(!input.pressed(&DummyInput::Input1));
+        assert!(!input.just_pressed(&DummyInput::Input1));
+        assert!(input.just_released(&DummyInput::Input1));
         input.clear();
-        assert!(!input.pressed(DummyInput::Input1));
-        assert!(!input.just_pressed(DummyInput::Input1));
-        assert!(!input.just_released(DummyInput::Input1));
+        assert!(!input.pressed(&DummyInput::Input1));
+        assert!(!input.just_pressed(&DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input1));
     }
 
     #[test]
@@ -549,42 +549,42 @@ mod test {
         input.press(DummyInput::Input2);
 
         // Check if they were `just_pressed` (pressed on this update)
-        assert!(input.just_pressed(DummyInput::Input1));
-        assert!(input.just_pressed(DummyInput::Input2));
+        assert!(input.just_pressed(&DummyInput::Input1));
+        assert!(input.just_pressed(&DummyInput::Input2));
 
         // Check if they are also marked as pressed
-        assert!(input.pressed(DummyInput::Input1));
-        assert!(input.pressed(DummyInput::Input2));
+        assert!(input.pressed(&DummyInput::Input1));
+        assert!(input.pressed(&DummyInput::Input2));
 
         // Clear the `input`, removing `just_pressed` and `just_released`
         input.clear();
 
         // Check if they're marked `just_pressed`
-        assert!(!input.just_pressed(DummyInput::Input1));
-        assert!(!input.just_pressed(DummyInput::Input2));
+        assert!(!input.just_pressed(&DummyInput::Input1));
+        assert!(!input.just_pressed(&DummyInput::Input2));
 
         // Check if they're marked as pressed
-        assert!(input.pressed(DummyInput::Input1));
-        assert!(input.pressed(DummyInput::Input2));
+        assert!(input.pressed(&DummyInput::Input1));
+        assert!(input.pressed(&DummyInput::Input2));
 
         // Release the inputs and check state
         input.release(DummyInput::Input1);
         input.release(DummyInput::Input2);
 
         // Check if they're marked as `just_released` (released on this update)
-        assert!(input.just_released(DummyInput::Input1));
-        assert!(input.just_released(DummyInput::Input2));
+        assert!(input.just_released(&DummyInput::Input1));
+        assert!(input.just_released(&DummyInput::Input2));
 
         // Check that they're not incorrectly marked as pressed
-        assert!(!input.pressed(DummyInput::Input1));
-        assert!(!input.pressed(DummyInput::Input2));
+        assert!(!input.pressed(&DummyInput::Input1));
+        assert!(!input.pressed(&DummyInput::Input2));
 
         // Clear the `Input` and check for removal from `just_released`
         input.clear();
 
         // Check that they're not incorrectly marked as just released
-        assert!(!input.just_released(DummyInput::Input1));
-        assert!(!input.just_released(DummyInput::Input2));
+        assert!(!input.just_released(&DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input2));
 
         // Set up an `Input` to test resetting
         let mut input = ButtonInput::default();
@@ -596,8 +596,8 @@ mod test {
         input.reset(DummyInput::Input1);
         input.reset(DummyInput::Input2);
 
-        assert!(!input.just_pressed(DummyInput::Input1));
-        assert!(!input.pressed(DummyInput::Input1));
-        assert!(!input.just_released(DummyInput::Input2));
+        assert!(!input.just_pressed(&DummyInput::Input1));
+        assert!(!input.pressed(&DummyInput::Input1));
+        assert!(!input.just_released(&DummyInput::Input2));
     }
 }

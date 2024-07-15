@@ -78,7 +78,7 @@ fn increment_atlas_index(
     mut atlas_images: Query<&mut TextureAtlas>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    if keyboard.just_pressed(KeyCode::Space) {
+    if keyboard.just_pressed(&KeyCode::Space) {
         for mut atlas_image in &mut atlas_images {
             atlas_image.index = (atlas_image.index + 1) % 6;
         }

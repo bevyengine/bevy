@@ -225,7 +225,7 @@ fn update_animation(
 ) {
     let delta = time.elapsed_seconds();
 
-    if keys.just_pressed(KeyCode::Space) {
+    if keys.just_pressed(&KeyCode::Space) {
         animation.playing = !animation.playing;
 
         if !animation.playing {

@@ -186,7 +186,7 @@ fn handle_click(
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
         .map(|ray| ray.origin.truncate())
     {
-        if mouse_button_input.just_pressed(MouseButton::Left) {
+        if mouse_button_input.just_pressed(&MouseButton::Left) {
             commands.trigger(ExplodeMines { pos, radius: 1.0 });
         }
     }

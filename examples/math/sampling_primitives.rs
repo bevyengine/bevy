@@ -437,7 +437,7 @@ fn handle_keypress(
     mut camera: Query<&mut CameraRig>,
 ) {
     // R => restart, deleting all samples
-    if keyboard.just_pressed(KeyCode::KeyR) {
+    if keyboard.just_pressed(&KeyCode::KeyR) {
         // Don't forget to zero out the counter!
         counter.0 = 0;
         for entity in &samples {
@@ -446,17 +446,17 @@ fn handle_keypress(
     }
 
     // S => sample once
-    if keyboard.just_pressed(KeyCode::KeyS) {
+    if keyboard.just_pressed(&KeyCode::KeyS) {
         spawn_queue.0 += 1;
     }
 
     // D => sample a hundred
-    if keyboard.just_pressed(KeyCode::KeyD) {
+    if keyboard.just_pressed(&KeyCode::KeyD) {
         spawn_queue.0 += 100;
     }
 
     // M => toggle mode between interior and boundary.
-    if keyboard.just_pressed(KeyCode::KeyM) {
+    if keyboard.just_pressed(&KeyCode::KeyM) {
         match *mode {
             SamplingMode::Interior => *mode = SamplingMode::Boundary,
             SamplingMode::Boundary => *mode = SamplingMode::Interior,
@@ -464,7 +464,7 @@ fn handle_keypress(
     }
 
     // A => toggle spawning mode between automatic and manual.
-    if keyboard.just_pressed(KeyCode::KeyA) {
+    if keyboard.just_pressed(&KeyCode::KeyA) {
         match *spawn_mode {
             SpawningMode::Manual => *spawn_mode = SpawningMode::Automatic,
             SpawningMode::Automatic => *spawn_mode = SpawningMode::Manual,
@@ -472,7 +472,7 @@ fn handle_keypress(
     }
 
     // Tab => toggle help menu.
-    if keyboard.just_pressed(KeyCode::Tab) {
+    if keyboard.just_pressed(&KeyCode::Tab) {
         for mut visibility in text_menus.iter_mut() {
             *visibility = match *visibility {
                 Visibility::Hidden => Visibility::Visible,
@@ -484,14 +484,14 @@ fn handle_keypress(
     let mut camera_rig = camera.single_mut();
 
     // +/- => zoom camera.
-    if keyboard.just_pressed(KeyCode::NumpadSubtract) || keyboard.just_pressed(KeyCode::Minus) {
+    if keyboard.just_pressed(&KeyCode::NumpadSubtract) || keyboard.just_pressed(&KeyCode::Minus) {
         camera_rig.distance += MAX_CAMERA_DISTANCE / 15.0;
         camera_rig.distance = camera_rig
             .distance
             .clamp(MIN_CAMERA_DISTANCE, MAX_CAMERA_DISTANCE);
     }
 
-    if keyboard.just_pressed(KeyCode::NumpadAdd) {
+    if keyboard.just_pressed(&KeyCode::NumpadAdd) {
         camera_rig.distance -= MAX_CAMERA_DISTANCE / 15.0;
         camera_rig.distance = camera_rig
             .distance
@@ -499,8 +499,8 @@ fn handle_keypress(
     }
 
     // Arrows => Move camera focus
-    let left = keyboard.just_pressed(KeyCode::ArrowLeft);
-    let right = keyboard.just_pressed(KeyCode::ArrowRight);
+    let left = keyboard.just_pressed(&KeyCode::ArrowLeft);
+    let right = keyboard.just_pressed(&KeyCode::ArrowRight);
 
     if left || right {
         let mut closest = 0;

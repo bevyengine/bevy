@@ -450,10 +450,10 @@ fn update_buttons(
 ) {
     for gamepad in gamepads.iter() {
         for (mut handle, react_to) in query.iter_mut() {
-            if button_inputs.just_pressed(GamepadButton::new(gamepad, **react_to)) {
+            if button_inputs.just_pressed(&GamepadButton::new(gamepad, **react_to)) {
                 *handle = materials.active.clone();
             }
-            if button_inputs.just_released(GamepadButton::new(gamepad, **react_to)) {
+            if button_inputs.just_released(&GamepadButton::new(gamepad, **react_to)) {
                 *handle = materials.normal.clone();
             }
         }

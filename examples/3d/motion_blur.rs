@@ -278,15 +278,15 @@ fn keyboard_inputs(
     mut camera: ResMut<CameraMode>,
 ) {
     let mut settings = settings.single_mut();
-    if presses.just_pressed(KeyCode::Digit1) {
+    if presses.just_pressed(&KeyCode::Digit1) {
         settings.shutter_angle -= 0.25;
-    } else if presses.just_pressed(KeyCode::Digit2) {
+    } else if presses.just_pressed(&KeyCode::Digit2) {
         settings.shutter_angle += 0.25;
-    } else if presses.just_pressed(KeyCode::Digit3) {
+    } else if presses.just_pressed(&KeyCode::Digit3) {
         settings.samples = settings.samples.saturating_sub(1);
-    } else if presses.just_pressed(KeyCode::Digit4) {
+    } else if presses.just_pressed(&KeyCode::Digit4) {
         settings.samples += 1;
-    } else if presses.just_pressed(KeyCode::Space) {
+    } else if presses.just_pressed(&KeyCode::Space) {
         *camera = match *camera {
             CameraMode::Track => CameraMode::Chase,
             CameraMode::Chase => CameraMode::Track,

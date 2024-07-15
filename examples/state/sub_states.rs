@@ -95,16 +95,16 @@ fn movement(
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::ArrowLeft) {
+        if input.pressed(&KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::ArrowRight) {
+        if input.pressed(&KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
-        if input.pressed(KeyCode::ArrowUp) {
+        if input.pressed(&KeyCode::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::ArrowDown) {
+        if input.pressed(&KeyCode::ArrowDown) {
             direction.y -= 1.0;
         }
 
@@ -130,7 +130,7 @@ fn toggle_pause(
     current_state: Res<State<IsPaused>>,
     mut next_state: ResMut<NextState<IsPaused>>,
 ) {
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(&KeyCode::Space) {
         next_state.set(match current_state.get() {
             IsPaused::Running => IsPaused::Paused,
             IsPaused::Paused => IsPaused::Running,

@@ -643,10 +643,10 @@ fn adjust_color_grading_option(
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
     let mut delta = 0.0;
-    if input.pressed(KeyCode::ArrowLeft) {
+    if input.pressed(&KeyCode::ArrowLeft) {
         delta -= OPTION_ADJUSTMENT_SPEED;
     }
-    if input.pressed(KeyCode::ArrowRight) {
+    if input.pressed(&KeyCode::ArrowRight) {
         delta += OPTION_ADJUSTMENT_SPEED;
     }
 

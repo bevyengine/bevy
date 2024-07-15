@@ -283,22 +283,22 @@ fn update_exposure(
 ) {
     // TODO: Clamp values to a reasonable range
     let mut text = text.single_mut();
-    if key_input.just_pressed(KeyCode::Digit2) {
+    if key_input.just_pressed(&KeyCode::Digit2) {
         parameters.aperture_f_stops *= 2.0;
-    } else if key_input.just_pressed(KeyCode::Digit1) {
+    } else if key_input.just_pressed(&KeyCode::Digit1) {
         parameters.aperture_f_stops *= 0.5;
     }
-    if key_input.just_pressed(KeyCode::Digit4) {
+    if key_input.just_pressed(&KeyCode::Digit4) {
         parameters.shutter_speed_s *= 2.0;
-    } else if key_input.just_pressed(KeyCode::Digit3) {
+    } else if key_input.just_pressed(&KeyCode::Digit3) {
         parameters.shutter_speed_s *= 0.5;
     }
-    if key_input.just_pressed(KeyCode::Digit6) {
+    if key_input.just_pressed(&KeyCode::Digit6) {
         parameters.sensitivity_iso += 100.0;
-    } else if key_input.just_pressed(KeyCode::Digit5) {
+    } else if key_input.just_pressed(&KeyCode::Digit5) {
         parameters.sensitivity_iso -= 100.0;
     }
-    if key_input.just_pressed(KeyCode::KeyR) {
+    if key_input.just_pressed(&KeyCode::KeyR) {
         *parameters = Parameters::default();
     }
 
@@ -328,16 +328,16 @@ fn movement(
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
-        if input.pressed(KeyCode::ArrowUp) {
+        if input.pressed(&KeyCode::ArrowUp) {
             direction.y += 1.0;
         }
-        if input.pressed(KeyCode::ArrowDown) {
+        if input.pressed(&KeyCode::ArrowDown) {
             direction.y -= 1.0;
         }
-        if input.pressed(KeyCode::ArrowLeft) {
+        if input.pressed(&KeyCode::ArrowLeft) {
             direction.x -= 1.0;
         }
-        if input.pressed(KeyCode::ArrowRight) {
+        if input.pressed(&KeyCode::ArrowRight) {
             direction.x += 1.0;
         }
 

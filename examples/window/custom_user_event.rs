@@ -57,13 +57,13 @@ fn send_event(input: Res<ButtonInput<KeyCode>>) {
         return;
     };
 
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(&KeyCode::Space) {
         let _ = event_loop_proxy.send_event(CustomEvent::WakeUp);
     }
 
     // This simulates sending a custom event through an external thread.
     #[cfg(not(target_arch = "wasm32"))]
-    if input.just_pressed(KeyCode::KeyE) {
+    if input.just_pressed(&KeyCode::KeyE) {
         let handler = std::thread::spawn(|| {
             let _ = event_loop_proxy.send_event(CustomEvent::Key('e'));
         });

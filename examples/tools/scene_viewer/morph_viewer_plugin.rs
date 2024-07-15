@@ -170,9 +170,9 @@ impl MorphKey {
         let mut modifier = self.modifiers.iter();
         let mut non_modifier = ALL_MODIFIERS.iter().filter(|m| !self.modifiers.contains(m));
 
-        let key = inputs.pressed(self.key);
-        let modifier = modifier.all(|m| inputs.pressed(*m));
-        let non_modifier = non_modifier.all(|m| !inputs.pressed(*m));
+        let key = inputs.pressed(&self.key);
+        let modifier = modifier.all(|m| inputs.pressed(m));
+        let non_modifier = non_modifier.all(|m| !inputs.pressed(m));
         key && modifier && non_modifier
     }
 }

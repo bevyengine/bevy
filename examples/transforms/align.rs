@@ -180,7 +180,7 @@ fn handle_keypress(
     let (mut ship, ship_transform) = ship.single_mut();
     let mut random_axes = random_axes.single_mut();
 
-    if keyboard.just_pressed(KeyCode::KeyR) {
+    if keyboard.just_pressed(&KeyCode::KeyR) {
         // Randomize the target axes
         let first = seeded_rng.0.gen();
         let second = seeded_rng.0.gen();
@@ -193,11 +193,11 @@ fn handle_keypress(
         ship.progress = 0;
     }
 
-    if keyboard.just_pressed(KeyCode::KeyT) {
+    if keyboard.just_pressed(&KeyCode::KeyT) {
         ship.in_motion ^= true;
     }
 
-    if keyboard.just_pressed(KeyCode::KeyH) {
+    if keyboard.just_pressed(&KeyCode::KeyH) {
         let mut instructions_viz = instructions.single_mut();
         if *instructions_viz == Visibility::Hidden {
             *instructions_viz = Visibility::Visible;

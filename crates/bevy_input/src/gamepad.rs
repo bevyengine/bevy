@@ -1202,7 +1202,7 @@ pub fn gamepad_button_event_system(
 
         if button_property.is_released(value) {
             // Check if button was previously pressed
-            if button_input.pressed(button) {
+            if button_input.pressed(&button) {
                 button_input_events.send(GamepadButtonInput {
                     button,
                     state: ButtonState::Released,
@@ -1213,7 +1213,7 @@ pub fn gamepad_button_event_system(
             button_input.release(button);
         } else if button_property.is_pressed(value) {
             // Check if button was previously not pressed
-            if !button_input.pressed(button) {
+            if !button_input.pressed(&button) {
                 button_input_events.send(GamepadButtonInput {
                     button,
                     state: ButtonState::Pressed,

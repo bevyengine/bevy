@@ -107,7 +107,7 @@ fn toggle_ime(
     mut windows: Query<&mut Window>,
     mut text: Query<&mut Text, With<Node>>,
 ) {
-    if input.just_pressed(MouseButton::Left) {
+    if input.just_pressed(&MouseButton::Left) {
         let mut window = windows.single_mut();
 
         window.ime_position = window.cursor_position().unwrap();

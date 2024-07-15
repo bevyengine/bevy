@@ -21,7 +21,7 @@ fn gamepad_system(
 ) {
     for gamepad in gamepads.iter() {
         let button_pressed = |button| {
-            button_inputs.just_pressed(GamepadButton {
+            button_inputs.just_pressed(&GamepadButton {
                 gamepad,
                 button_type: button,
             })

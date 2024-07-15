@@ -126,19 +126,19 @@ fn move_player(
 
     let mut direction = Vec2::ZERO;
 
-    if kb_input.pressed(KeyCode::KeyW) {
+    if kb_input.pressed(&KeyCode::KeyW) {
         direction.y += 1.;
     }
 
-    if kb_input.pressed(KeyCode::KeyS) {
+    if kb_input.pressed(&KeyCode::KeyS) {
         direction.y -= 1.;
     }
 
-    if kb_input.pressed(KeyCode::KeyA) {
+    if kb_input.pressed(&KeyCode::KeyA) {
         direction.x -= 1.;
     }
 
-    if kb_input.pressed(KeyCode::KeyD) {
+    if kb_input.pressed(&KeyCode::KeyD) {
         direction.x += 1.;
     }
 

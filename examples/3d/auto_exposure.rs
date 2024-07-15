@@ -177,9 +177,9 @@ fn example_control_system(
 ) {
     let (mut camera_transform, mut auto_exposure) = camera.single_mut();
 
-    let rotation = if input.pressed(KeyCode::ArrowLeft) {
+    let rotation = if input.pressed(&KeyCode::ArrowLeft) {
         time.delta_seconds()
-    } else if input.pressed(KeyCode::ArrowRight) {
+    } else if input.pressed(&KeyCode::ArrowRight) {
         -time.delta_seconds()
     } else {
         0.0
@@ -187,7 +187,7 @@ fn example_control_system(
 
     camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(rotation));
 
-    if input.just_pressed(KeyCode::KeyC) {
+    if input.just_pressed(&KeyCode::KeyC) {
         auto_exposure.compensation_curve =
             if auto_exposure.compensation_curve == resources.basic_compensation_curve {
                 Handle::default()
@@ -196,7 +196,7 @@ fn example_control_system(
             };
     }
 
-    if input.just_pressed(KeyCode::KeyM) {
+    if input.just_pressed(&KeyCode::KeyM) {
         auto_exposure.metering_mask =
             if auto_exposure.metering_mask == resources.basic_metering_mask {
                 Handle::default()
@@ -205,7 +205,7 @@ fn example_control_system(
             };
     }
 
-    mask_image.single_mut().display = if input.pressed(KeyCode::KeyV) {
+    mask_image.single_mut().display = if input.pressed(&KeyCode::KeyV) {
         Display::Flex
     } else {
         Display::None

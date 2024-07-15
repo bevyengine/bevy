@@ -251,8 +251,8 @@ impl Touches {
     }
 
     /// Returns the [`Touch`] input corresponding to the `id` if it is being pressed.
-    pub fn get_pressed(&self, id: u64) -> Option<&Touch> {
-        self.pressed.get(&id)
+    pub fn get_pressed(&self, id: &u64) -> Option<&Touch> {
+        self.pressed.get(id)
     }
 
     /// Checks if any touch input was just pressed.
@@ -273,15 +273,15 @@ impl Touches {
     }
 
     /// Returns `true` if the input corresponding to the `id` has just been pressed.
-    pub fn just_pressed(&self, id: u64) -> bool {
-        self.just_pressed.contains_key(&id)
+    pub fn just_pressed(&self, id: &u64) -> bool {
+        self.just_pressed.contains_key(id)
     }
 
     /// Clears the `just_pressed` state of the touch input and returns `true` if the touch input has just been pressed.
     ///
     /// Future calls to [`Touches::just_pressed`] for the given touch input will return false until a new press event occurs.
-    pub fn clear_just_pressed(&mut self, id: u64) -> bool {
-        self.just_pressed.remove(&id).is_some()
+    pub fn clear_just_pressed(&mut self, id: &u64) -> bool {
+        self.just_pressed.remove(id).is_some()
     }
 
     /// An iterator visiting every just pressed [`Touch`] input in arbitrary order.
@@ -290,8 +290,8 @@ impl Touches {
     }
 
     /// Returns the [`Touch`] input corresponding to the `id` if it has just been released.
-    pub fn get_released(&self, id: u64) -> Option<&Touch> {
-        self.just_released.get(&id)
+    pub fn get_released(&self, id: &u64) -> Option<&Touch> {
+        self.just_released.get(id)
     }
 
     /// Checks if any touch input was just released.
@@ -300,15 +300,15 @@ impl Touches {
     }
 
     /// Returns `true` if the input corresponding to the `id` has just been released.
-    pub fn just_released(&self, id: u64) -> bool {
-        self.just_released.contains_key(&id)
+    pub fn just_released(&self, id: &u64) -> bool {
+        self.just_released.contains_key(id)
     }
 
     /// Clears the `just_released` state of the touch input and returns `true` if the touch input has just been released.
     ///
     /// Future calls to [`Touches::just_released`] for the given touch input will return false until a new release event occurs.
-    pub fn clear_just_released(&mut self, id: u64) -> bool {
-        self.just_released.remove(&id).is_some()
+    pub fn clear_just_released(&mut self, id: &u64) -> bool {
+        self.just_released.remove(id).is_some()
     }
 
     /// An iterator visiting every just released [`Touch`] input in arbitrary order.
@@ -322,8 +322,8 @@ impl Touches {
     }
 
     /// Returns `true` if the input corresponding to the `id` has just been canceled.
-    pub fn just_canceled(&self, id: u64) -> bool {
-        self.just_canceled.contains_key(&id)
+    pub fn just_canceled(&self, id: &u64) -> bool {
+        self.just_canceled.contains_key(id)
     }
 
     /// Clears the `just_canceled` state of the touch input and returns `true` if the touch input has just been canceled.
@@ -607,7 +607,7 @@ mod test {
         touches.process_touch_event(&moved_touch_event2);
 
         {
-            let touch = touches.get_pressed(started_touch_event.id).unwrap();
+            let touch = touches.get_pressed(&started_touch_event.id).unwrap();
             assert_eq!(touch.previous_position, started_touch_event.position);
             assert_eq!(touch.position, moved_touch_event2.position);
         }
@@ -621,7 +621,7 @@ mod test {
         touches.process_touch_event(&moved_touch_event1);
 
         {
-            let touch = touches.get_pressed(started_touch_event.id).unwrap();
+            let touch = touches.get_pressed(&started_touch_event.id).unwrap();
             assert_eq!(touch.previous_position, moved_touch_event2.position);
             assert_eq!(touch.position, moved_touch_event1.position);
         }
@@ -646,12 +646,12 @@ mod test {
         // Register the touch and test that it was registered correctly
         touches.process_touch_event(&touch_event);
 
-        assert!(touches.get_pressed(touch_event.id).is_some());
-        assert!(touches.just_pressed(touch_event.id));
+        assert!(touches.get_pressed(&touch_event.id).is_some());
+        assert!(touches.just_pressed(&touch_event.id));
         assert_eq!(touches.iter().count(), 1);
 
-        touches.clear_just_pressed(touch_event.id);
-        assert!(!touches.just_pressed(touch_event.id));
+        touches.clear_just_pressed(&touch_event.id);
+        assert!(!touches.just_pressed(&touch_event.id));
     }
 
     #[test]
@@ -673,12 +673,12 @@ mod test {
         // Register the touch and test that it was registered correctly
         touches.process_touch_event(&touch_event);
 
-        assert!(touches.get_released(touch_event.id).is_some());
-        assert!(touches.just_released(touch_event.id));
+        assert!(touches.get_released(&touch_event.id).is_some());
+        assert!(touches.just_released(&touch_event.id));
         assert_eq!(touches.iter_just_released().count(), 1);
 
-        touches.clear_just_released(touch_event.id);
-        assert!(!touches.just_released(touch_event.id));
+        touches.clear_just_released(&touch_event.id);
+        assert!(!touches.just_released(&touch_event.id));
     }
 
     #[test]
@@ -700,11 +700,11 @@ mod test {
         // Register the touch and test that it was registered correctly
         touches.process_touch_event(&touch_event);
 
-        assert!(touches.just_canceled(touch_event.id));
+        assert!(touches.just_canceled(&touch_event.id));
         assert_eq!(touches.iter_just_canceled().count(), 1);
 
         touches.clear_just_canceled(touch_event.id);
-        assert!(!touches.just_canceled(touch_event.id));
+        assert!(!touches.just_canceled(&touch_event.id));
     }
 
     #[test]
@@ -726,11 +726,11 @@ mod test {
         // Register the touch and test that it was registered correctly
         touches.process_touch_event(&touch_event);
 
-        assert!(touches.get_pressed(touch_event.id).is_some());
+        assert!(touches.get_pressed(&touch_event.id).is_some());
 
         touches.release(touch_event.id);
-        assert!(touches.get_pressed(touch_event.id).is_none());
-        assert!(touches.just_released(touch_event.id));
+        assert!(touches.get_pressed(&touch_event.id).is_none());
+        assert!(touches.just_released(&touch_event.id));
     }
 
     #[test]
@@ -760,15 +760,15 @@ mod test {
         touches.process_touch_event(&touch_pressed_event);
         touches.process_touch_event(&touch_moved_event);
 
-        assert!(touches.get_pressed(touch_pressed_event.id).is_some());
-        assert!(touches.get_pressed(touch_moved_event.id).is_some());
+        assert!(touches.get_pressed(&touch_pressed_event.id).is_some());
+        assert!(touches.get_pressed(&touch_moved_event.id).is_some());
 
         touches.release_all();
 
-        assert!(touches.get_pressed(touch_pressed_event.id).is_none());
-        assert!(touches.just_released(touch_pressed_event.id));
-        assert!(touches.get_pressed(touch_moved_event.id).is_none());
-        assert!(touches.just_released(touch_moved_event.id));
+        assert!(touches.get_pressed(&touch_pressed_event.id).is_none());
+        assert!(touches.just_released(&touch_pressed_event.id));
+        assert!(touches.get_pressed(&touch_moved_event.id).is_none());
+        assert!(touches.just_released(&touch_moved_event.id));
     }
 
     #[test]
@@ -808,17 +808,17 @@ mod test {
         touches.process_touch_event(&touch_canceled_event);
         touches.process_touch_event(&touch_released_event);
 
-        assert!(touches.get_pressed(touch_press_event.id).is_some());
-        assert!(touches.just_pressed(touch_press_event.id));
-        assert!(touches.just_canceled(touch_canceled_event.id));
-        assert!(touches.just_released(touch_released_event.id));
+        assert!(touches.get_pressed(&touch_press_event.id).is_some());
+        assert!(touches.just_pressed(&touch_press_event.id));
+        assert!(touches.just_canceled(&touch_canceled_event.id));
+        assert!(touches.just_released(&touch_released_event.id));
 
         touches.clear();
 
-        assert!(touches.get_pressed(touch_press_event.id).is_some());
-        assert!(!touches.just_pressed(touch_press_event.id));
-        assert!(!touches.just_canceled(touch_canceled_event.id));
-        assert!(!touches.just_released(touch_released_event.id));
+        assert!(touches.get_pressed(&touch_press_event.id).is_some());
+        assert!(!touches.just_pressed(&touch_press_event.id));
+        assert!(!touches.just_canceled(&touch_canceled_event.id));
+        assert!(!touches.just_released(&touch_released_event.id));
     }
 
     #[test]
@@ -858,17 +858,17 @@ mod test {
         touches.process_touch_event(&touch_canceled_event);
         touches.process_touch_event(&touch_released_event);
 
-        assert!(touches.get_pressed(touch_press_event.id).is_some());
-        assert!(touches.just_pressed(touch_press_event.id));
-        assert!(touches.just_canceled(touch_canceled_event.id));
-        assert!(touches.just_released(touch_released_event.id));
+        assert!(touches.get_pressed(&touch_press_event.id).is_some());
+        assert!(touches.just_pressed(&touch_press_event.id));
+        assert!(touches.just_canceled(&touch_canceled_event.id));
+        assert!(touches.just_released(&touch_released_event.id));
 
         touches.reset_all();
 
-        assert!(touches.get_pressed(touch_press_event.id).is_none());
-        assert!(!touches.just_pressed(touch_press_event.id));
-        assert!(!touches.just_canceled(touch_canceled_event.id));
-        assert!(!touches.just_released(touch_released_event.id));
+        assert!(touches.get_pressed(&touch_press_event.id).is_none());
+        assert!(!touches.just_pressed(&touch_press_event.id));
+        assert!(!touches.just_canceled(&touch_canceled_event.id));
+        assert!(!touches.just_released(&touch_released_event.id));
     }
 
     fn clear_all(touch_state: &mut Touches) {

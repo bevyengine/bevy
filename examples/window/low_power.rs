@@ -117,7 +117,7 @@ pub(crate) mod test_setup {
         mut mode: ResMut<ExampleMode>,
         button_input: Res<ButtonInput<KeyCode>>,
     ) {
-        if button_input.just_pressed(KeyCode::Space) {
+        if button_input.just_pressed(&KeyCode::Space) {
             *mode = match *mode {
                 ExampleMode::Game => ExampleMode::Application,
                 ExampleMode::Application => ExampleMode::ApplicationWithRequestRedraw,

@@ -18,7 +18,7 @@ fn screenshot_on_spacebar(
     mut screenshot_manager: ResMut<ScreenshotManager>,
     mut counter: Local<u32>,
 ) {
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(&KeyCode::Space) {
         let path = format!("./screenshot-{}.png", *counter);
         *counter += 1;
         screenshot_manager

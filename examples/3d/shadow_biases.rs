@@ -184,7 +184,7 @@ fn toggle_light(
     mut directional_lights: Query<&mut DirectionalLight>,
     mut example_text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::KeyL) {
+    if input.just_pressed(&KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 example_text.single_mut().sections[3].value = "PointLight".to_string();
@@ -210,22 +210,22 @@ fn adjust_light_position(
     mut example_text: Query<&mut Text>,
 ) {
     let mut offset = Vec3::ZERO;
-    if input.just_pressed(KeyCode::ArrowLeft) {
+    if input.just_pressed(&KeyCode::ArrowLeft) {
         offset.x -= 1.0;
     }
-    if input.just_pressed(KeyCode::ArrowRight) {
+    if input.just_pressed(&KeyCode::ArrowRight) {
         offset.x += 1.0;
     }
-    if input.just_pressed(KeyCode::ArrowUp) {
+    if input.just_pressed(&KeyCode::ArrowUp) {
         offset.z -= 1.0;
     }
-    if input.just_pressed(KeyCode::ArrowDown) {
+    if input.just_pressed(&KeyCode::ArrowDown) {
         offset.z += 1.0;
     }
-    if input.just_pressed(KeyCode::PageDown) {
+    if input.just_pressed(&KeyCode::PageDown) {
         offset.y -= 1.0;
     }
-    if input.just_pressed(KeyCode::PageUp) {
+    if input.just_pressed(&KeyCode::PageUp) {
         offset.y += 1.0;
     }
     if offset != Vec3::ZERO {
@@ -245,7 +245,7 @@ fn cycle_filter_methods(
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
     mut example_text: Query<&mut Text>,
 ) {
-    if input.just_pressed(KeyCode::KeyF) {
+    if input.just_pressed(&KeyCode::KeyF) {
         for mut filter_method in &mut filter_methods {
             let filter_method_string;
             *filter_method = match *filter_method {
@@ -275,23 +275,23 @@ fn adjust_point_light_biases(
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
     for mut light in &mut query {
-        if input.just_pressed(KeyCode::Digit1) {
+        if input.just_pressed(&KeyCode::Digit1) {
             light.shadow_depth_bias -= depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Digit2) {
+        if input.just_pressed(&KeyCode::Digit2) {
             light.shadow_depth_bias += depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Digit3) {
+        if input.just_pressed(&KeyCode::Digit3) {
             light.shadow_normal_bias -= normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Digit4) {
+        if input.just_pressed(&KeyCode::Digit4) {
             light.shadow_normal_bias += normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::KeyR) {
+        if input.just_pressed(&KeyCode::KeyR) {
             light.shadow_depth_bias = PointLight::DEFAULT_SHADOW_DEPTH_BIAS;
             light.shadow_normal_bias = PointLight::DEFAULT_SHADOW_NORMAL_BIAS;
         }
-        if input.just_pressed(KeyCode::KeyZ) {
+        if input.just_pressed(&KeyCode::KeyZ) {
             light.shadow_depth_bias = 0.0;
             light.shadow_normal_bias = 0.0;
         }
@@ -309,23 +309,23 @@ fn adjust_directional_light_biases(
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
     for mut light in &mut query {
-        if input.just_pressed(KeyCode::Digit5) {
+        if input.just_pressed(&KeyCode::Digit5) {
             light.shadow_depth_bias -= depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Digit6) {
+        if input.just_pressed(&KeyCode::Digit6) {
             light.shadow_depth_bias += depth_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Digit7) {
+        if input.just_pressed(&KeyCode::Digit7) {
             light.shadow_normal_bias -= normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::Digit8) {
+        if input.just_pressed(&KeyCode::Digit8) {
             light.shadow_normal_bias += normal_bias_step_size;
         }
-        if input.just_pressed(KeyCode::KeyR) {
+        if input.just_pressed(&KeyCode::KeyR) {
             light.shadow_depth_bias = DirectionalLight::DEFAULT_SHADOW_DEPTH_BIAS;
             light.shadow_normal_bias = DirectionalLight::DEFAULT_SHADOW_NORMAL_BIAS;
         }
-        if input.just_pressed(KeyCode::KeyZ) {
+        if input.just_pressed(&KeyCode::KeyZ) {
             light.shadow_depth_bias = 0.0;
             light.shadow_normal_bias = 0.0;
         }
