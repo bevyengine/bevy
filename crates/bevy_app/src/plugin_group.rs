@@ -10,54 +10,75 @@ use std::any::TypeId;
 ///
 /// ```
 /// # use bevy_app::*;
+/// #
 /// # mod velocity {
-/// #   use bevy_app::*;
-/// #   #[derive(Default)] pub struct VelocityPlugin;
-/// #   impl Plugin for VelocityPlugin { fn build(&self, _: &mut App) {} }
+/// #     use bevy_app::*;
+/// #     #[derive(Default)]
+/// #     pub struct VelocityPlugin;
+/// #     impl Plugin for VelocityPlugin { fn build(&self, _: &mut App) {} }
 /// # }
-/// # mod collision { pub mod capsule {
-/// #   use bevy_app::*;
-/// #   #[derive(Default)] pub struct CapsuleCollisionPlugin;
-/// #   impl Plugin for CapsuleCollisionPlugin { fn build(&self, _: &mut App) {} }
-/// # } }
-/// # #[derive(Default)] pub struct TickratePlugin;
+/// #
+/// # mod collision {
+/// #     pub mod capsule {
+/// #         use bevy_app::*;
+/// #         #[derive(Default)]
+/// #         pub struct CapsuleCollisionPlugin;
+/// #         impl Plugin for CapsuleCollisionPlugin { fn build(&self, _: &mut App) {} }
+/// #     }
+/// # }
+/// #
+/// # #[derive(Default)]
+/// # pub struct TickratePlugin;
 /// # impl Plugin for TickratePlugin { fn build(&self, _: &mut App) {} }
+/// #
 /// # mod features {
 /// #   use bevy_app::*;
-/// #   #[derive(Default)] pub struct ForcePlugin;
+/// #   #[derive(Default)]
+/// #   pub struct ForcePlugin;
 /// #   impl Plugin for ForcePlugin { fn build(&self, _: &mut App) {} }
 /// # }
+/// #
 /// # mod web {
 /// #   use bevy_app::*;
-/// #   #[derive(Default)] pub struct WebCompatibilityPlugin;
+/// #   #[derive(Default)]
+/// #   pub struct WebCompatibilityPlugin;
 /// #   impl Plugin for WebCompatibilityPlugin { fn build(&self, _: &mut App) {} }
 /// # }
+/// #
 /// # mod internal {
 /// #   use bevy_app::*;
-/// #   #[derive(Default)] pub struct InternalPlugin;
+/// #   #[derive(Default)]
+/// #   pub struct InternalPlugin;
 /// #   impl Plugin for InternalPlugin { fn build(&self, _: &mut App) {} }
 /// # }
+/// #
 /// plugin_group! {
+///     /// Doc comments and annotations are supported: they will be added to the generated plugin
+///     /// group.
+///     #[derive(Debug)]
 ///     pub struct PhysicsPlugins {
-///         // Due to local ambiguity issues, you have to
-///         // use a colon before the plugin's name.
+///         // If referencing a plugin within the same module, you must prefix it with a colon `:`.
 ///         :TickratePlugin,
-///         // Due to local ambiguity issues, you have to
-///         // use 3 colons for the last part of the path.
+///         // If referencing a plugin within a different module, there must be three colons `:::`
+///         // between the final module and the plugin name.
 ///         collision::capsule:::CapsuleCollisionPlugin,
 ///         velocity:::VelocityPlugin,
-///         // Add a documented feature restriction.
+///         // If you feature-flag a plugin, it will be automatically documented. There can only be
+///         // one automatically documented feature flag, and it must be first. All other
+///         // `#[cfg()]` attributes must be wrapped by `#[custom()]`.
 ///         #[cfg(feature = "external_forces")]
 ///         features:::ForcePlugin,
-///         // You can add any attribute you want like this, but it won't be documented.
+///         // More complicated `#[cfg()]`s and annotations are not supported by automatic doc
+///         // generation, in which case you must wrap it in `#[custom()]`.
 ///         #[custom(cfg(target_arch = "wasm32"))]
 ///         web:::WebCompatibilityPlugin,
-///         // You can hide plugins from documentation.
-///         // NOTE: Due to macro limitations, you can only use
-///         //       #[doc(hidden)] for plugins at the bottom of the macro.
+///         // You can hide plugins from documentation. Due to macro limitations, hidden plugins
+///         // must be last.
 ///         #[doc(hidden)]
 ///         internal:::InternalPlugin
 ///     }
+///     /// You may add doc comments after the plugin group as well. They will be appended after
+///     /// the documented list of plugins.
 /// }
 /// ```
 #[macro_export]
