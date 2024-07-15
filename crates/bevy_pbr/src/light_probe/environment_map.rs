@@ -102,7 +102,9 @@ pub struct EnvironmentMapLight {
     /// See also <https://google.github.io/filament/Filament.html#lighting/imagebasedlights/iblunit>.
     pub intensity: f32,
 
-    /// The rotation of the environment light map
+    /// World space rotation applied to the environment light cubemaps.
+    /// This is useful for users who require a different axis, such as the Z-axis, to serve
+    /// as the vertical axis.
     pub rotation: Quat,
 }
 

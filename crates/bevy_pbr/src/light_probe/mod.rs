@@ -297,8 +297,11 @@ impl LightProbe {
     }
 }
 
+/// The uniform struct extracted from [`EnvironmentMapLight`].
+/// Will be available for use in the Environment Map shader.
 #[derive(Component, ShaderType, Clone)]
 pub struct EnvironmentMapUniform {
+    /// The world space transformation matrix of the sample ray for environment cubemaps.
     transform: Mat4,
 }
 
