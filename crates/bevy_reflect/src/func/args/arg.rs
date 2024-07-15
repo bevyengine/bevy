@@ -53,14 +53,14 @@ impl<'a> Arg<'a> {
     /// let mut c = 3u32;
     /// let mut args = ArgList::new().push_owned(a).push_ref(&b).push_mut(&mut c);
     ///
-    /// let c = args.pop::<&mut u32>().unwrap();
-    /// assert_eq!(*c, 3);
+    /// let a = args.take::<u32>().unwrap();
+    /// assert_eq!(a, 1);
     ///
-    /// let b = args.pop::<&u32>().unwrap();
+    /// let b = args.take::<&u32>().unwrap();
     /// assert_eq!(*b, 2);
     ///
-    /// let a = args.pop::<u32>().unwrap();
-    /// assert_eq!(a, 1);
+    /// let c = args.take::<&mut u32>().unwrap();
+    /// assert_eq!(*c, 3);
     /// ```
     pub fn take<T: FromArg>(self) -> Result<T::This<'a>, ArgError> {
         T::from_arg(self)
@@ -78,7 +78,7 @@ impl<'a> Arg<'a> {
     /// # use bevy_reflect::func::ArgList;
     /// let value = 123u32;
     /// let mut args = ArgList::new().push_owned(value);
-    /// let value = args.pop_owned::<u32>().unwrap();
+    /// let value = args.take_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
     pub fn take_owned<T: Reflect + TypePath>(self) -> Result<T, ArgError> {
@@ -113,7 +113,7 @@ impl<'a> Arg<'a> {
     /// # use bevy_reflect::func::ArgList;
     /// let value = 123u32;
     /// let mut args = ArgList::new().push_ref(&value);
-    /// let value = args.pop_ref::<u32>().unwrap();
+    /// let value = args.take_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
     pub fn take_ref<T: Reflect + TypePath>(self) -> Result<&'a T, ArgError> {
@@ -150,7 +150,7 @@ impl<'a> Arg<'a> {
     /// # use bevy_reflect::func::ArgList;
     /// let mut value = 123u32;
     /// let mut args = ArgList::new().push_mut(&mut value);
-    /// let value = args.pop_mut::<u32>().unwrap();
+    /// let value = args.take_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
     pub fn take_mut<T: Reflect + TypePath>(self) -> Result<&'a mut T, ArgError> {
