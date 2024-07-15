@@ -78,15 +78,8 @@ use bevy_sprite::SpriteSystem;
 #[derive(Default)]
 pub struct TextPlugin {
     /// Attempts to load system fonts if [true].
-    ///
     /// Supports Windows, Linux and macOS.
-    ///
-    /// System font loading is a surprisingly complicated task,
-    /// mostly unsolvable without interacting with system libraries.
-    /// It will simply scan some predefined directories,
-    /// which means that fonts not in those directories must
-    /// be added manually.
-    ///
+    /// It will simply scan some predefined directories.
     /// For details on which directories are considered on each platform,
     /// refer to the [fontdb::Database::load_system_fonts](https://docs.rs/fontdb/latest/fontdb/struct.Database.html#method.load_system_fonts) documentation.
     pub load_system_fonts: bool,

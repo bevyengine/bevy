@@ -32,7 +32,7 @@ struct FpsText;
 struct ColorText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Emojis won't be rendered correctly on wasm32 because the default loaded font doesn't support them, and system font fallback isn't supported on this platform.
+    // Emojis won't be rendered properly on wasm32 because the default loaded font doesn't support them, and loading system fonts isn't supported on this platform.
     let text_content = if cfg!(target_arch = "wasm32") {
         "hello\nbevy!"
     } else {
