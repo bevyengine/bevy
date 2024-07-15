@@ -42,7 +42,7 @@ impl<T: 'static> Task<T> {
             Ok(Ok(value)) => Some(value),
             Err(_) => None,
             Ok(Err(panic)) => {
-                // drop this to prevent the panic panic from resuming the panic on drop.
+                // drop this to prevent the panic payload from resuming the panic on drop.
                 // this also leaks the box but I'm not sure how to avoid that
                 std::mem::forget(panic);
                 None
