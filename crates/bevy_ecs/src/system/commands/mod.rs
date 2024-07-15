@@ -759,7 +759,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// watches those targets.
     ///
     /// [`Trigger`]: crate::observer::Trigger
-    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
+    pub fn trigger_targets(
+        &mut self,
+        event: impl Event,
+        targets: impl TriggerTargets + Send + Sync + 'static,
+    ) {
         self.add(TriggerEvent { event, targets });
     }
 
