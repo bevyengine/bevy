@@ -1,4 +1,7 @@
-//! Query primitives in a glTF scene.
+//! This example demonstrates how to query a [`StandardMaterial`] within a glTF scene.
+//! It is particularly useful for glTF scenes with a mesh that consists of multiple primitives.
+
+use std::f32::consts::PI;
 
 use bevy::{
     gltf::GltfMaterialName,
@@ -6,15 +9,47 @@ use bevy::{
     prelude::*,
     render::mesh::VertexAttributeValues,
 };
-use rand::{random, Rng};
 
 fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, random_color_and_position)
+        .add_systems(Update, find_top_material_and_mesh)
         .run();
+}
+
+fn find_top_material_and_mesh(
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    time: Res<Time>,
+    mat_query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &GltfMaterialName)>,
+) {
+    for (mat_handle, mesh_handle, name) in mat_query.iter() {
+        // locate a material by material name
+        if name.0 == "Top" {
+            if let Some(material) = materials.get_mut(mat_handle) {
+                if let Color::Hsla(ref mut hsla) = material.base_color {
+                    *hsla = hsla.rotate_hue(time.delta_seconds() * 100.0);
+                } else {
+                    material.base_color = Color::from(Hsla::hsl(0.0, 0.8, 0.5));
+                }
+            }
+
+            if let Some(mesh) = meshes.get_mut(mesh_handle) {
+                if let Some(VertexAttributeValues::Float32x3(positions)) =
+                    mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+                {
+                    positions[0] = (
+                        f32::sin(2.0 * PI * time.elapsed_seconds()),
+                        positions[0][1],
+                        positions[0][2],
+                    )
+                        .into();
+                }
+            }
+        }
+    }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -57,39 +92,4 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         ..default()
     });
-}
-
-fn random_color_and_position(
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mat_query: Query<(&Handle<StandardMaterial>, &Handle<Mesh>, &GltfMaterialName)>,
-) {
-    for (mat_handle, mesh_handle, name) in mat_query.iter() {
-        // locate a material by material name
-        if name.0 == "Top" {
-            if let Some(material) = materials.get_mut(mat_handle) {
-                material.base_color = Srgba {
-                    red: random(),
-                    green: random(),
-                    blue: random(),
-                    alpha: 1.0,
-                }
-                .into();
-            }
-
-            if let Some(mesh) = meshes.get_mut(mesh_handle) {
-                if let Some(VertexAttributeValues::Float32x3(positions)) =
-                    mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
-                {
-                    let mut rng = rand::thread_rng();
-                    positions[0] = (
-                        rng.gen_range(-1.0..1.0),
-                        rng.gen_range(-1.0..1.0),
-                        rng.gen_range(-1.0..1.0),
-                    )
-                        .into();
-                }
-            }
-        }
-    }
 }
