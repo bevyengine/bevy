@@ -356,7 +356,7 @@ Example | Description
 [Generic Reflection](../examples/reflection/generic_reflection.rs) | Registers concrete instances of generic types that may be used with reflection
 [Reflection](../examples/reflection/reflection.rs) | Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types
 [Reflection Types](../examples/reflection/reflection_types.rs) | Illustrates the various reflection types available
-[Trait Reflection](../examples/reflection/trait_reflection.rs) | Allows reflection with trait objects
+[Type Data](../examples/reflection/type_data.rs) | Demonstrates how to create and use type data
 
 ## Scene
 

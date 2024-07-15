@@ -2192,13 +2192,13 @@ category = "Reflection"
 wasm = false
 
 [[example]]
-name = "trait_reflection"
-path = "examples/reflection/trait_reflection.rs"
+name = "type_data"
+path = "examples/reflection/type_data.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.trait_reflection]
-name = "Trait Reflection"
-description = "Allows reflection with trait objects"
+[package.metadata.example.type_data]
+name = "Type Data"
+description = "Demonstrates how to create and use type data"
 category = "Reflection"
 wasm = false
 
