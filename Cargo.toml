@@ -2237,11 +2237,11 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "post_processing"
-path = "examples/shader/post_processing.rs"
+name = "custom_post_processing"
+path = "examples/shader/custom_post_processing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.post_processing]
+[package.metadata.example.custom_post_processing]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -3282,6 +3282,17 @@ doc-scrape-examples = true
 name = "Run physics in a fixed timestep"
 description = "Handles input, physics, and rendering in an industry-standard way by using a fixed timestep"
 category = "Movement"
+wasm = true
+
+[[example]]
+name = "post_processing"
+path = "examples/3d/post_processing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.post_processing]
+name = "Built-in postprocessing"
+description = "Demonstrates the built-in postprocessing features"
+category = "3D Rendering"
 wasm = true
 
 [profile.wasm-release]
