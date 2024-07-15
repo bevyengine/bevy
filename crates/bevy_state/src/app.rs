@@ -1,9 +1,5 @@
-use bevy_app::{App, MainScheduleOrder, Plugin, PreUpdate, Startup, SubApp};
-use bevy_ecs::{
-    event::Events,
-    schedule::{IntoSystemConfigs, ScheduleLabel},
-    world::FromWorld,
-};
+use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
+use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
 use bevy_utils::{tracing::warn, warn_once};
 
 use crate::state::{
@@ -222,7 +218,8 @@ impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
         let mut schedule = app.world_mut().resource_mut::<MainScheduleOrder>();
         schedule.insert_after(PreUpdate, StateTransition);
-        setup_state_transitions_in_world(app.world_mut(), Some(Startup.intern()));
+        schedule.insert_startup_before(PreStartup, StateTransition);
+        setup_state_transitions_in_world(app.world_mut());
     }
 }
 

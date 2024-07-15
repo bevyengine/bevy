@@ -187,6 +187,7 @@ fn add_environment_map_to_camera(
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
                 brightness: 5000.0,
+                ..Default::default()
             });
     }
 }

@@ -426,6 +426,33 @@ impl From<DynamicTuple> for DynamicTupleStruct {
     }
 }
 
+impl FromIterator<Box<dyn Reflect>> for DynamicTupleStruct {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(fields: I) -> Self {
+        Self {
+            represented_type: None,
+            fields: fields.into_iter().collect(),
+        }
+    }
+}
+
+impl IntoIterator for DynamicTupleStruct {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicTupleStruct {
+    type Item = &'a dyn Reflect;
+    type IntoIter = TupleStructFieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
+    }
+}
+
 /// Compares a [`TupleStruct`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:

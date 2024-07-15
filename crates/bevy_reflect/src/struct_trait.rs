@@ -508,6 +508,39 @@ impl Debug for DynamicStruct {
     }
 }
 
+impl<'a, N> FromIterator<(N, Box<dyn Reflect>)> for DynamicStruct
+where
+    N: Into<Cow<'a, str>>,
+{
+    /// Create a dynamic struct that doesn't represent a type from the
+    /// field name, field value pairs.
+    fn from_iter<I: IntoIterator<Item = (N, Box<dyn Reflect>)>>(fields: I) -> Self {
+        let mut dynamic_struct = Self::default();
+        for (name, value) in fields.into_iter() {
+            dynamic_struct.insert_boxed(name, value);
+        }
+        dynamic_struct
+    }
+}
+
+impl IntoIterator for DynamicStruct {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicStruct {
+    type Item = &'a dyn Reflect;
+    type IntoIter = FieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
+    }
+}
+
 /// Compares a [`Struct`] with a [`Reflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
