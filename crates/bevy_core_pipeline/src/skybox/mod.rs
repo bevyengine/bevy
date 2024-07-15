@@ -92,6 +92,10 @@ pub struct Skybox {
     /// After applying this multiplier to the image samples, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     pub brightness: f32,
+
+    /// View space rotation applied to the skybox cubemap.
+    /// This is useful for users who require a different axis, such as the Z-axis, to serve
+    /// as the vertical axis.
     pub rotation: Quat,
 }
 
