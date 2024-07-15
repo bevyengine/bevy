@@ -18,6 +18,7 @@ use std::time::Duration;
 /// This plugin is included within `DefaultPlugins` and `MinimalPlugins` when the `bevy_ci_testing`
 /// feature is enabled. It is recommended to only used this plugin during testing (manual or
 /// automatic), and disable it during regular development and for production builds.
+#[derive(Default)]
 pub struct CiTestingPlugin;
 
 impl Plugin for CiTestingPlugin {
