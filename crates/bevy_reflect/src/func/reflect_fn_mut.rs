@@ -1,7 +1,7 @@
 use bevy_utils::all_tuples;
 
 use crate::func::args::FromArg;
-use crate::func::macros::count_tts;
+use crate::func::macros::count_tokens;
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionResult, IntoReturn};
 use crate::Reflect;
 
@@ -95,7 +95,7 @@ macro_rules! impl_reflect_fn_mut {
             Function: for<'a> FnMut($($Arg::Item<'a>),*) -> ReturnType + 'env,
         {
             fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
-                const COUNT: usize = count_tts!($($Arg)*);
+                const COUNT: usize = count_tokens!($($Arg)*);
 
                 if args.len() != COUNT {
                     return Err(FunctionError::InvalidArgCount {
@@ -130,7 +130,7 @@ macro_rules! impl_reflect_fn_mut {
             Function: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
         {
             fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
-                const COUNT: usize = count_tts!(Receiver $($Arg)*);
+                const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
                     return Err(FunctionError::InvalidArgCount {
@@ -167,7 +167,7 @@ macro_rules! impl_reflect_fn_mut {
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut ReturnType + 'env,
         {
             fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
-                const COUNT: usize = count_tts!(Receiver $($Arg)*);
+                const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
                     return Err(FunctionError::InvalidArgCount {
@@ -204,7 +204,7 @@ macro_rules! impl_reflect_fn_mut {
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
         {
             fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
-                const COUNT: usize = count_tts!(Receiver $($Arg)*);
+                const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
                     return Err(FunctionError::InvalidArgCount {
