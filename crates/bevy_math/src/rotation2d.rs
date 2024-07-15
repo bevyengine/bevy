@@ -231,7 +231,7 @@ impl Rot2 {
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.length_squared();
-        // Based on a taylor approximation of the inverse square root, see `[Dir3::fast_renormalize]` for more details.
+        // Based on a taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
         let length_recip_approx = 0.5 * (3.0 - length_squared);
         Rot2 {
             sin: self.sin * length_recip_approx,
