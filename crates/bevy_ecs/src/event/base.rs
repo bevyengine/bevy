@@ -26,6 +26,9 @@ use std::{
 /// [`World`]: crate::world::World
 /// [`ComponentId`]: crate::component::ComponentId
 /// [`Observer`]: crate::observer::Observer
+/// [`Events<E>`]: super::Events
+/// [`EventReader`]: super::EventReader
+/// [`EventWriter`]: super::EventWriter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Event`",
     label = "invalid `Event`",

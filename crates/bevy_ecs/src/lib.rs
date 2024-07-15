@@ -47,7 +47,7 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
         entity::{Entity, EntityMapper},
-        event::{Event, EventReader, EventWriter, Events},
+        event::{Event, EventMutator, EventReader, EventWriter, Events},
         observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,

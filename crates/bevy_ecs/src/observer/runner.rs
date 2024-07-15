@@ -84,7 +84,7 @@ impl Component for ObserverState {
 }
 
 /// Type for function that is run when an observer is triggered.
-/// Typically refers to the default runner that runs the system stored in the associated [`ObserverSystemComponent`],
+/// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
 /// but can be overridden for custom behaviour.
 pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
 
@@ -395,7 +395,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     // This transmute is obviously not ideal, but it is safe. Ideally we can remove the
     // static constraint from ObserverSystem, but so far we have not found a way.
     let trigger: Trigger<'static, E, B> = unsafe { std::mem::transmute(trigger) };
-    // SAFETY: Observer was triggered so must have an `ObserverSystemComponent`
+    // SAFETY: Observer was triggered so must have an `Observer` component.
     let system = unsafe {
         &mut observer_cell
             .get_mut::<Observer<E, B>>()

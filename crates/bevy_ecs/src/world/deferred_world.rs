@@ -396,12 +396,12 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Sends a "global" [`Trigger`] without any targets.
+    /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
     pub fn trigger<T: Event>(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 
-    /// Sends a [`Trigger`] with the given `targets`.
+    /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
     pub fn trigger_targets(&mut self, trigger: impl Event, targets: impl TriggerTargets) {
         self.commands().trigger_targets(trigger, targets);
     }

@@ -36,7 +36,9 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
+    #[cfg_attr(not(feature = "bevy_reflect"), allow(unused_variables))]
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "bevy_reflect")]
         app.register_type::<Name>();
     }
 }

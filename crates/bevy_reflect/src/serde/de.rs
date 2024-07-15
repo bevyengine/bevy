@@ -920,7 +920,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
                 E: Error,
             {
                 self.0.variant(variant_name).ok_or_else(|| {
-                    let names = self.0.iter().map(|variant| variant.name());
+                    let names = self.0.iter().map(VariantInfo::name);
                     Error::custom(format_args!(
                         "unknown variant `{}`, expected one of {:?}",
                         variant_name,
@@ -1046,7 +1046,7 @@ where
     let mut dynamic_struct = DynamicStruct::default();
     while let Some(Ident(key)) = map.next_key::<Ident>()? {
         let field = info.get_field(&key).ok_or_else(|| {
-            let fields = info.iter_fields().map(|field| field.name());
+            let fields = info.iter_fields().map(NamedField::name);
             Error::custom(format_args!(
                 "unknown field `{}`, expected one of {:?}",
                 key,

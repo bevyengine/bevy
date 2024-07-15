@@ -390,7 +390,7 @@ impl ShapeSample for Tetrahedron {
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
         let triangles = self.faces();
-        let areas = triangles.iter().map(|t| t.area());
+        let areas = triangles.iter().map(Measured2d::area);
 
         if areas.clone().sum::<f32>() > 0.0 {
             // There is at least one triangle with nonzero area, so this unwrap succeeds.
