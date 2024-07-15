@@ -2,7 +2,7 @@ use bevy_app::{plugin_group, Plugin};
 
 plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:
-    DefaultPlugins {
+    pub struct DefaultPlugins {
         bevy_app:::PanicHandlerPlugin,
         bevy_log:::LogPlugin,
         bevy_core:::TaskPoolPlugin,
@@ -94,7 +94,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
 
 plugin_group! {
     /// This plugin group will add the minimal plugins for a *Bevy* application:
-    MinimalPlugins {
+    pub struct MinimalPlugins {
         bevy_core:::TaskPoolPlugin,
         bevy_core:::TypeRegistrationPlugin,
         bevy_core:::FrameCountPlugin,
