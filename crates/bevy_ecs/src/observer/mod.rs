@@ -78,7 +78,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
 
     /// Returns the value of the flag that controls event propagation. See [`propagate`] for more information.
     ///
-    /// [`propigate`]: Trigger::propagate
+    /// [`propagate`]: Trigger::propagate
     pub fn get_propagate(&self) -> bool {
         *self.propagate
     }
