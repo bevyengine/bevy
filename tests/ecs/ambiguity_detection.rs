@@ -15,6 +15,7 @@ pub fn get_ignored_ambiguous_systems() -> Vec<Box<dyn ScheduleLabel>> {
     vec![
         Box::new(First),
         Box::new(PreUpdate),
+        Box::new(Update),
         Box::new(PostUpdate),
         Box::new(Last),
         Box::new(ExtractSchedule),
@@ -78,7 +79,7 @@ pub fn main() {
 
     assert_eq!(
         assert_no_conflicting_systems(sub_app),
-        78,
+        82,
         "Main app does not have expected conflicting systems,\
          you might consider verifying if it's normal, or change the expected number.",
     );
