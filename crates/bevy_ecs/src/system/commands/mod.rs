@@ -235,8 +235,7 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
-    /// and returns its corresponding [`EntityCommands`].
+    /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding [`EntityCommands`].
     ///
     /// See [`World::spawn_empty`] for more details.
     ///
