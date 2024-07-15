@@ -56,23 +56,38 @@ pub fn main() {
     app.cleanup();
     app.update();
 
-    fn assert_no_conflicting_systems(sub_app: &SubApp) {
+    /// Returns the number of conflicting systems.
+    fn assert_no_conflicting_systems(sub_app: &SubApp) -> usize {
         let ignored_ambiguous_systems = get_ignored_ambiguous_systems();
 
         let schedules = sub_app.world().resource::<Schedules>();
+        let mut total_ambiguities_amount = 0;
         for (_, schedule) in schedules.iter() {
             if ignored_ambiguous_systems
                 .iter()
                 .any(|label| **label == *schedule.label())
             {
+                total_ambiguities_amount += schedule.graph().conflicting_systems().len();
                 continue;
             }
             assert!(schedule.graph().conflicting_systems().is_empty());
         }
+        total_ambiguities_amount
     }
     let sub_app = app.main();
-    assert_no_conflicting_systems(sub_app);
+
+    assert_eq!(
+        assert_no_conflicting_systems(sub_app),
+        78,
+        "Main app does not have expected conflicting systems,\
+         you might consider verifying if it's normal, or change the expected number.",
+    );
+
     // RenderApp is not checked here, because it is not within the App at this point.
     let sub_app = app.sub_app(RenderExtractApp);
-    assert_no_conflicting_systems(sub_app);
+    assert_eq!(
+        assert_no_conflicting_systems(sub_app),
+        0,
+        "RenderExtractApp contains conflicting systems.",
+    );
 }

@@ -1610,17 +1610,6 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "ambiguity_detection"
-path = "examples/ecs/ambiguity_detection.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.ambiguity_detection]
-name = "System Order Ambiguity Detection"
-description = "Detects systems ordered ambiguously."
-category = "ECS (Entity Component System)"
-wasm = false
-
-[[example]]
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
 doc-scrape-examples = true
@@ -3006,6 +2995,14 @@ path = "tests/window/minimising.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.minimising]
+hidden = true
+
+[[example]]
+name = "ambiguity_detection"
+path = "tests/ecs/ambiguity_detection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ambiguity_detection]
 hidden = true
 
 [[example]]

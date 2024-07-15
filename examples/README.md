@@ -64,22 +64,24 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
-
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
     - [Setup](#setup)
-    - [Build & Run](#build--run)
+    - [Build \& Run](#build--run)
+    - [Debugging](#debugging)
     - [Old phones](#old-phones)
   - [iOS](#ios)
     - [Setup](#setup-1)
-    - [Build & Run](#build--run-1)
+    - [Build \& Run](#build--run-1)
   - [WASM](#wasm)
     - [Setup](#setup-2)
-    - [Build & Run](#build--run-2)
-    - [WebGL2 and WebGPU](#webgl2-and-webgpu)
+    - [Build \& Run](#build--run-2)
+      - [WebGL2 and WebGPU](#webgl2-and-webgpu)
     - [Audio in the browsers](#audio-in-the-browsers)
     - [Optimizing](#optimizing)
+      - [1. Tweak your `Cargo.toml`](#1-tweak-your-cargotoml)
+      - [2. Use `wasm-opt` from the binaryen package](#2-use-wasm-opt-from-the-binaryen-package)
     - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
@@ -288,7 +290,6 @@ Example | Description
 [Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
-[System Order Ambiguity Detection](../examples/ecs/ambiguity_detection.rs) | Detects systems ordered ambiguously.
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
 [System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution.
