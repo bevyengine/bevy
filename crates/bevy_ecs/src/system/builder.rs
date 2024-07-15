@@ -209,6 +209,15 @@ macro_rules! impl_system_param_builder_tuple {
 
 all_tuples!(impl_system_param_builder_tuple, 0, 16, P, B);
 
+// SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <Vec<P> as SystemParam>::State {
+        self.into_iter()
+            .map(|builder| builder.build(world, meta))
+            .collect()
+    }
+}
+
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
 /// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
 /// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
@@ -250,6 +259,38 @@ macro_rules! impl_param_set_builder_tuple {
 }
 
 all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
+
+// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+// with any prior access, a panic will occur.
+unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
+{
+    fn build(
+        self,
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+    ) -> <Vec<P> as SystemParam>::State {
+        let mut states = Vec::with_capacity(self.0.len());
+        let mut metas = Vec::with_capacity(self.0.len());
+        for builder in self.0 {
+            let mut meta = system_meta.clone();
+            states.push(builder.build(world, &mut meta));
+            metas.push(meta);
+        }
+        if metas.iter().any(|m| !m.is_send()) {
+            system_meta.set_non_send();
+        }
+        for meta in metas {
+            system_meta
+                .component_access_set
+                .extend(meta.component_access_set);
+            system_meta
+                .archetype_component_access
+                .extend(&meta.archetype_component_access);
+        }
+        states
+    }
+}
 
 /// A [`SystemParamBuilder`] for a [`Local`].
 /// The provided value will be used as the initial value of the `Local`.
@@ -357,6 +398,37 @@ mod tests {
     }
 
     #[test]
+    fn vec_builder() {
+        let mut world = World::new();
+
+        world.spawn((A, B, C));
+        world.spawn((A, B));
+        world.spawn((A, C));
+        world.spawn((A, C));
+        world.spawn_empty();
+
+        let system = (vec![
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<B>().without::<C>();
+            }),
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<C>().without::<B>();
+            }),
+        ],)
+            .build_state(&mut world)
+            .build_system(|params: Vec<Query<&mut A>>| {
+                let mut count: usize = 0;
+                params
+                    .into_iter()
+                    .for_each(|mut query| count += query.iter_mut().count());
+                count
+            });
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 3);
+    }
+
+    #[test]
     fn param_set_builder() {
         let mut world = World::new();
 
@@ -377,6 +449,35 @@ mod tests {
             .build_state(&mut world)
             .build_system(|mut params: ParamSet<(Query<&mut A>, Query<&mut A>)>| {
                 params.p0().iter().count() + params.p1().iter().count()
+            });
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 5);
+    }
+
+    #[test]
+    fn param_set_vec_builder() {
+        let mut world = World::new();
+
+        world.spawn((A, B, C));
+        world.spawn((A, B));
+        world.spawn((A, C));
+        world.spawn((A, C));
+        world.spawn_empty();
+
+        let system = (ParamSetBuilder(vec![
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<B>();
+            }),
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<C>();
+            }),
+        ]),)
+            .build_state(&mut world)
+            .build_system(|mut params: ParamSet<Vec<Query<&mut A>>>| {
+                let mut count = 0;
+                params.for_each(|mut query| count += query.iter_mut().count());
+                count
             });
 
         let result = world.run_system_once(system);
