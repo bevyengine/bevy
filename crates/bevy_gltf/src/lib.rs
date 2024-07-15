@@ -460,7 +460,9 @@ pub struct GltfMaterialExtras {
     pub value: String,
 }
 
-/// The material name of a gltf primitive.
+/// The material name of a glTF primitive.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material).
 #[derive(Clone, Debug, Reflect, Default, Component)]
 #[reflect(Component)]
 pub struct GltfMaterialName(pub String);
