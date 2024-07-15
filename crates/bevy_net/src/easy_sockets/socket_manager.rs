@@ -4,9 +4,12 @@ use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use futures::task::SpawnExt;
-use bevy_asset::{Asset, AssetId, Assets, Handle};
-use bevy_ecs::prelude::{Res, ResMut};
-use bevy_ecs::system::Resource;
+use bevy_asset::{Asset, AssetEvent, AssetEvents, AssetId, Assets, Handle};
+use bevy_ecs::component::Tick;
+use bevy_ecs::event::Events;
+use bevy_ecs::prelude::{Res, ResMut, World};
+use bevy_ecs::system::{In, Resource, SystemMeta, SystemParam};
+use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy_reflect::TypePath;
 use bevy_tasks::IoTaskPool;
 use bevy_time::{Real, Time};
@@ -27,24 +30,24 @@ impl<B> BufferEntry<B>
 where B: Send + Sync + TypePath {
     /// Estimate the amount of fresh data
     /// arrived since last frame.
-    fn new_data(&self) -> f64 {
+    fn new_data(&self) -> usize {
         let average = self.receive_rate();
 
-        average * (Instant::now() - self.last_read).as_micros() as f64
+        average * (Instant::now() - self.last_read).as_micros() as usize
     }
 
-    fn sent_rate(&self) -> f64 {
+    fn sent_rate(&self) -> usize {
         self.write_rates.calc_average()
     }
 
-    fn receive_rate(&self) -> f64 {
+    fn receive_rate(&self) -> usize {
         self.read_rates.calc_average()
     }
 
-    fn sent_data(&self) -> f64 {
+    fn sent_data(&self) -> usize {
         let average = self.sent_rate();
 
-        average * (Instant::now() - self.last_write).as_micros() as f64
+        average * (Instant::now() - self.last_write).as_micros() as usize
     }
 }
 
@@ -64,24 +67,24 @@ where B: Send + Sync + TypePath {
 }
 
 struct RollingAverage<const L: usize> {
-    items: [f64; L],
+    items: [usize; L],
     head: usize
 }
 
 impl<const L: usize> RollingAverage<L> {
     fn new() -> Self {
         Self {
-            items: [0.0; L],
+            items: [0; L],
             head: 0
         }
     }
 
-    fn calc_average(&self) -> f64 {
-        let s: f64 = self.items.iter().sum();
-        s / L as f64
+    fn calc_average(&self) -> usize {
+        let s: u64 = self.items.iter().map(|u| {*u as u64}).sum();
+        (s / L as u64) as usize
     }
 
-    fn push(&mut self, new_value: f64) {
+    fn push(&mut self, new_value: usize) {
         self.items[self.head] = new_value;
         self.head = (self.head + 1) % L
     }
@@ -97,29 +100,29 @@ where B: Send + Sync + TypePath + Buffer {
                 let mut write = 0;
                 let mut read = 0;
 
-                let read_start = Instant::now();
-
-                while let Ok(n) = entry.buffer.read_from_io(100000).await {
+                while let Ok(n) = entry.buffer.read_from_io(10000.max(entry.new_data())).await {
                     read += n;
                 }
+                
+                let now = Instant::now();
+                
+                let read_duration = now - entry.last_read;
 
-                entry.last_read = Instant::now();
+                entry.read_rates.push(read / (read_duration.as_micros() as usize).max(1));
+                
+                entry.last_read = now;
 
-                let read_duration = entry.last_read - read_start;
-
-                entry.read_rates.push(read as f64 / read_duration.as_micros() as f64);
-
-                let write_start = Instant::now();
-
-                while let Ok(n) = entry.buffer.write_to_io(100000).await {
+                while let Ok(n) = entry.buffer.write_to_io(10000.max(entry.new_data())).await {
                     write += n;
                 }
+                
+                let now = Instant::now();
+                
+                let write_duration = now - entry.last_write;
 
-                entry.last_write = Instant::now();
-
-                let write_duration = entry.last_write - write_start;
-
-                entry.write_rates.push(write as f64 / write_duration.as_micros() as f64);
+                entry.write_rates.push(write / (write_duration.as_micros() as usize).max(1));
+                
+                entry.last_write = now;
 
                 entry.buffer.additional_updates().await;
             });
@@ -127,16 +130,37 @@ where B: Send + Sync + TypePath + Buffer {
     });
 }
 
+pub fn handle_socket_events_system<B: Send + Sync + TypePath>
+(mut events: ResMut<Events<AssetEvent<BufferEntry<B>>>>, mut sockets: ResMut<Sockets<B>>) {
+    for event in events.update_drain() {
+        match event {
+            AssetEvent::Unused { id } => {
+                sockets.inner.remove(id);
+            }
+            _ => {}
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct Sockets<B>
 where B: Send + Sync + TypePath {
-    inner: ResMut<'static, Assets<BufferEntry<B>>>
+    inner: Assets<BufferEntry<B>>
 }
 
 #[derive(Debug)]
 pub struct Key<B> 
 where B: Send + Sync + TypePath {
     inner: Handle<BufferEntry<B>>
+}
+
+impl<B> Default for Sockets<B>
+where B: Send + Sync + TypePath {
+    fn default() -> Self {
+        Self {
+            inner: Assets::default(),
+        }
+    }
 }
 
 impl<B> Key<B>

@@ -1,38 +1,29 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use bevy_app::{App, Plugin};
-use bevy_core::TaskPoolPlugin;
-
-pub(crate) static PLUGIN_INIT: InitChecker = InitChecker::new();
-
-pub struct InitChecker(AtomicBool);
-
-impl InitChecker {
-    pub const fn new() -> Self {
-        Self(AtomicBool::new(false))
-    } 
-    
-    pub fn is_init(&self) -> bool {
-        self.0.load(Ordering::Acquire)
-    }
-    
-    fn set_init(&self) {
-        self.0.store(true, Ordering::Release);
-    }
-}
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::AssetPlugin;
+use crate::easy_sockets::quic::{Connection, RecvStream, SendStream};
+use crate::easy_sockets::socket_manager::{handle_socket_events_system, Sockets, update_ports_system};
 
 #[derive(Default)]
 pub struct SocketManagerPlugin;
 
 impl Plugin for SocketManagerPlugin {
     fn build(&self, app: &mut App) {
+        assert!(!app.is_plugin_added::<AssetPlugin>());
+        
+        #[cfg(feature = "QUIC")]
+        app.init_resource::<Sockets<Connection>>()
+            .init_resource::<Sockets<RecvStream>>()
+            .init_resource::<Sockets<SendStream>>()
+            .add_systems(Update, (
+                update_ports_system::<RecvStream>, 
+                update_ports_system::<SendStream>,
+                update_ports_system::<Connection>,
+                handle_socket_events_system::<RecvStream>,
+                handle_socket_events_system::<SendStream>,
+                handle_socket_events_system::<Connection>
+            ));
         
         
-        
-        if app.is_plugin_added::<TaskPoolPlugin>() {
-            PLUGIN_INIT.set_init();
-        } else {
-            app.add_plugins(TaskPoolPlugin::default());
-            PLUGIN_INIT.set_init();
-        }
+        todo!()
     }
 }

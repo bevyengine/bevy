@@ -10,7 +10,7 @@ use std::time::Duration;
 use bytes::Bytes;
 use futures::task::SpawnExt;
 use quinn::{ConnectError, ConnectionError, OpenUni, ReadError, SendDatagramError, VarInt, WriteError};
-use quinn_proto::ConnectionStats;
+use quinn_proto::{ConnectionStats};
 use static_init::dynamic;
 use bevy_reflect::{impl_type_path, TypePath};
 use bevy_tasks::{ComputeTaskPool, IoTaskPool, Task};
@@ -40,8 +40,7 @@ pub enum DataSendError {
     ConnectionLost(ConnectionError)
 }
 
-
-
+#[derive(TypePath)]
 pub struct Connection {
     inner: quinn::Connection,
     outgoing: VecDeque<Bytes>,
@@ -49,6 +48,20 @@ pub struct Connection {
     
     outgoing_result: Result<(), DataSendError>,
     incoming_error: Option<ConnectError>,
+}
+
+impl Buffer for Connection {
+    fn read_from_io(&mut self, target: usize) -> impl Future<Output=Result<usize, ()>> + Send {
+        todo!()
+    }
+
+    fn write_to_io(&mut self, target: usize) -> impl Future<Output=Result<usize, ()>> + Send {
+        todo!()
+    }
+
+    fn additional_updates(&mut self) -> impl Future<Output=()> + Send {
+        todo!()
+    }
 }
 
 #[derive(TypePath)]
@@ -114,7 +127,7 @@ impl RecvStream {
     }
     
     /// Shuts down the stream gracefully, awaiting the reset of the stream by the peer
-    /// or until the connection is lost. Returns all remaining received data as well as it's result.
+    /// or until the connection is lost. Returns all remaining received data as well as its result.
     pub fn finish(mut self) -> Task<(VecDeque<VecDeque<u8>>, Result<Option<VarInt>, ResetError>)> {
         IoTaskPool::get().spawn(async move {
             let res = self.inner.received_reset().await;
@@ -134,6 +147,8 @@ impl Buffer for RecvStream {
                         if n == 0 {
                             return Err(())
                         }
+                        buf.shrink_to_fit();
+                        self.queue.push_back(buf.into());
                         if n < target {
                             return Ok(n)
                         } else {
@@ -175,8 +190,8 @@ pub enum SendError {
 }
 
 impl SendError {
-    fn from(writeerror: WriteError) -> Self {
-        match writeerror {
+    fn from(write_error: WriteError) -> Self {
+        match write_error {
             WriteError::Stopped(i) => {
                 Self::Stopped(i)
             }
@@ -193,7 +208,6 @@ impl SendError {
     }
 }
 
-
 impl Drop for SendStream {
     fn drop(&mut self) {
         let _ = self.inner.finish();
@@ -208,6 +222,7 @@ impl SendStream {
     fn handle_error(&mut self) -> Option<SendError> {
         self.error.take()
     }
+    
     fn write(&mut self, bytes: impl ToBytes) {
         self.queue.push_back(bytes.to_bytes())
     }
@@ -272,6 +287,7 @@ impl Buffer for SendStream {
 }
 
 impl Connection {
+    
     pub fn send_data(&mut self, bytes: impl ToBytes) {
         self.outgoing.push_back(bytes.to_bytes());
     }
@@ -284,7 +300,7 @@ impl Connection {
         self.inner.remote_address()
     }
 
-    pub fn receive_data(&mut self, buf: &mut [u8]) -> usize {
+    pub fn receive_iter(&mut self, buf: &mut [u8]) -> usize { 
         todo!()
     }
 
@@ -300,12 +316,57 @@ impl Connection {
         self.inner.rtt()
     }
 
-    pub fn accept_uni(&self) -> Result<RecvStream, ConnectionError> {
-        todo!()
+    pub fn accept_uni(&self, receive_streams: &mut Sockets<RecvStream>) -> Result<Key<RecvStream>, ConnectionError> {
+        let res =
+            IoTaskPool::get().scope(
+                |s| s.spawn(self.inner.accept_uni())).pop().unwrap();
+        
+        match res {
+            Ok(rs) => {
+                Ok(receive_streams.register(RecvStream {
+                    inner: rs,
+                    queue: Default::default(),
+                    total_bytes: 0,
+                    error: None,
+                }))
+            }
+            Err(e) => {
+                Err(e)
+            }
+        }
     }
 
-    pub fn accept_bi(&self) -> Result<(SendStream, RecvStream), ConnectionError> {
-        todo!()
+    pub fn accept_bi(
+        &self, 
+        send_streams: &mut Sockets<SendStream>, 
+        receive_streams: &mut Sockets<RecvStream>
+    ) -> Result<(Key<SendStream>, Key<RecvStream>), ConnectionError> {
+        //this should complete quickly
+        let res =
+            IoTaskPool::get().scope(
+                |s| s.spawn(self.inner.accept_bi())).pop().unwrap();
+        
+        match res {
+            Ok((ss, rs)) => {
+                let send_key = send_streams.register(SendStream {
+                    inner: ss,
+                    queue: Default::default(),
+                    error: None,
+                });
+                
+                let receive_key = receive_streams.register(RecvStream {
+                    inner: rs,
+                    queue: Default::default(),
+                    total_bytes: 0,
+                    error: None,
+                });
+                
+                Ok((send_key, receive_key))
+            }
+            Err(e) => {
+                Err(e)
+            }
+        }
     }
 
     pub fn open_uni(&self, sends: &mut Sockets<SendStream>) -> Result<Key<SendStream>, ConnectionError>{
@@ -328,14 +389,36 @@ impl Connection {
         }
     }
 
-    pub fn open_bi(&self) {
+    pub fn open_bi(
+        &self, 
+        sends: &mut Sockets<SendStream>, 
+        receives: &mut Sockets<RecvStream>
+    ) -> Result<(Key<SendStream>, Key<RecvStream>), ConnectionError> {
         //this should be completed quickly
-        let res =
-            IoTaskPool::get().scope(|s|
-            s.spawn(self.inner.open_bi())
-            ).pop().unwrap();
+        let res = IoTaskPool::get().scope(|s| s.spawn(async {  
+            self.inner.open_bi().await
+        })).pop().unwrap();
 
-
-        todo!()
+        match res {
+            Ok((send, receive)) => {
+                let recv_key = receives.register(RecvStream {
+                    inner: receive,
+                    queue: Default::default(),
+                    total_bytes: 0,
+                    error: None,
+                });
+                
+                let send_key = sends.register(SendStream {
+                    inner: send,
+                    queue: Default::default(),
+                    error: None,
+                });
+                
+                Ok((send_key, recv_key))
+            }
+            Err(e) => {
+                Err(e)
+            }
+        }
     }
 }
