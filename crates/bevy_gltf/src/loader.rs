@@ -1701,6 +1701,7 @@ struct GltfTreeIterator<'a> {
 }
 
 impl<'a> GltfTreeIterator<'a> {
+    #[allow(clippy::result_large_err)]
     fn try_new(gltf: &'a gltf::Gltf) -> Result<Self, GltfError> {
         let nodes = gltf.nodes().collect::<Vec<_>>();
 
@@ -1739,7 +1740,7 @@ impl<'a> GltfTreeIterator<'a> {
                     warn!(
                         "The glTF skin {:?} has {} joints, but the maximum supported is {}",
                         skin.name()
-                            .map(|name| name.to_string())
+                            .map(ToString::to_string)
                             .unwrap_or_else(|| skin.index().to_string()),
                         skin.joints().len(),
                         MAX_JOINTS
