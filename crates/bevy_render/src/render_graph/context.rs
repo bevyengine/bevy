@@ -17,7 +17,7 @@ pub struct RunSubGraph {
 }
 
 /// The context with all graph information required to run a [`Node`](super::Node).
-/// This context is created for each node by the [`RenderGraphRunner`](crate::renderer::graph_runner::RenderGraphRunner).
+/// This context is created for each node by the render graph runner.
 ///
 /// The slot input can be read from here and the outputs must be written back to the context for
 /// passing them onto the next node.

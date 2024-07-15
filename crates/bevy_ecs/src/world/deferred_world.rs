@@ -10,6 +10,7 @@ use crate::{
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
+    traversal::Traversal,
 };
 
 use super::{
@@ -350,7 +351,14 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         components: impl Iterator<Item = ComponentId>,
     ) {
-        Observers::invoke(self.reborrow(), event, entity, components, &mut ());
+        Observers::invoke::<_>(
+            self.reborrow(),
+            event,
+            entity,
+            components,
+            &mut (),
+            &mut false,
+        );
     }
 
     /// Triggers all event observers for [`ComponentId`] in target.
@@ -358,22 +366,42 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event`
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<E>(
+    pub(crate) unsafe fn trigger_observers_with_data<E, C>(
         &mut self,
         event: ComponentId,
-        entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        mut entity: Entity,
+        components: &[ComponentId],
         data: &mut E,
-    ) {
-        Observers::invoke(self.reborrow(), event, entity, components, data);
+        mut propagate: bool,
+    ) where
+        C: Traversal,
+    {
+        loop {
+            Observers::invoke::<_>(
+                self.reborrow(),
+                event,
+                entity,
+                components.iter().copied(),
+                data,
+                &mut propagate,
+            );
+            if !propagate {
+                break;
+            }
+            if let Some(traverse_to) = self.get::<C>(entity).and_then(C::traverse) {
+                entity = traverse_to;
+            } else {
+                break;
+            }
+        }
     }
 
-    /// Sends a "global" [`Trigger`] without any targets.
+    /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
     pub fn trigger<T: Event>(&mut self, trigger: impl Event) {
         self.commands().trigger(trigger);
     }
 
-    /// Sends a [`Trigger`] with the given `targets`.
+    /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
     pub fn trigger_targets(&mut self, trigger: impl Event, targets: impl TriggerTargets) {
         self.commands().trigger_targets(trigger, targets);
     }

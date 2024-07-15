@@ -11,16 +11,16 @@ use std::any::TypeId;
 use std::sync::Arc;
 
 // Utility type for handling the sources of reader references
-enum ReaderRef<'a, 'b> {
-    Borrowed(&'a mut Reader<'b>),
-    Boxed(Box<Reader<'b>>),
+enum ReaderRef<'a> {
+    Borrowed(&'a mut dyn Reader),
+    Boxed(Box<dyn Reader + 'a>),
 }
 
-impl<'a, 'b> ReaderRef<'a, 'b> {
-    pub fn as_mut(&mut self) -> &mut Reader {
+impl ReaderRef<'_> {
+    pub fn as_mut(&mut self) -> &mut dyn Reader {
         match self {
-            ReaderRef::Borrowed(r) => r,
-            ReaderRef::Boxed(b) => &mut *b,
+            ReaderRef::Borrowed(r) => &mut **r,
+            ReaderRef::Boxed(b) => &mut **b,
         }
     }
 }
@@ -28,7 +28,7 @@ impl<'a, 'b> ReaderRef<'a, 'b> {
 /// A builder for loading nested assets inside a `LoadContext`.
 ///
 /// # Lifetimes
-/// - `ctx`: the lifetime of the associated [`AssetServer`] reference
+/// - `ctx`: the lifetime of the associated [`AssetServer`](crate::AssetServer) reference
 /// - `builder`: the lifetime of the temporary builder structs
 pub struct NestedLoader<'ctx, 'builder> {
     load_context: &'builder mut LoadContext<'ctx>,
@@ -107,11 +107,14 @@ impl<'ctx, 'builder> NestedLoader<'ctx, 'builder> {
     }
 
     /// Retrieves a handle for the asset at the given path and adds that path as a dependency of the asset.
-    /// If the current context is a normal [`AssetServer::load`], an actual asset load will be kicked off immediately, which ensures the load happens
-    /// as soon as possible.
-    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off loads immediately.
-    /// If the current context is configured to not load dependencies automatically (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
-    /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin a load if necessary.
+    /// If the current context is a normal [`AssetServer::load`](crate::AssetServer::load), an actual asset
+    /// load will be kicked off immediately, which ensures the load happens as soon as possible.
+    /// "Normal loads" kicked from within a normal Bevy App will generally configure the context to kick off
+    /// loads immediately.
+    /// If the current context is configured to not load dependencies automatically
+    /// (ex: [`AssetProcessor`](crate::processor::AssetProcessor)),
+    /// a load will not be kicked off automatically. It is then the calling context's responsibility to begin
+    /// a load if necessary.
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
         let handle = if self.load_context.should_load_dependencies {
@@ -131,7 +134,7 @@ impl<'ctx, 'builder> NestedLoader<'ctx, 'builder> {
 /// A builder for loading untyped nested assets inside a [`LoadContext`].
 ///
 /// # Lifetimes
-/// - `ctx`: the lifetime of the associated [`AssetServer`] reference
+/// - `ctx`: the lifetime of the associated [`AssetServer`](crate::AssetServer) reference
 /// - `builder`: the lifetime of the temporary builder structs
 pub struct UntypedNestedLoader<'ctx, 'builder> {
     base: NestedLoader<'ctx, 'builder>,
@@ -163,18 +166,18 @@ impl<'ctx, 'builder> UntypedNestedLoader<'ctx, 'builder> {
 /// A builder for directly loading nested assets inside a `LoadContext`.
 ///
 /// # Lifetimes
-/// - `ctx`: the lifetime of the associated [`AssetServer`] reference
+/// - `ctx`: the lifetime of the associated [`AssetServer`][crate::AssetServer] reference
 /// - `builder`: the lifetime of the temporary builder structs
 /// - `reader`: the lifetime of the [`Reader`] reference used to read the asset data
 pub struct DirectNestedLoader<'ctx, 'builder, 'reader> {
     base: NestedLoader<'ctx, 'builder>,
-    reader: Option<&'builder mut Reader<'reader>>,
+    reader: Option<&'builder mut (dyn Reader + 'reader)>,
 }
 
 impl<'ctx: 'reader, 'builder, 'reader> DirectNestedLoader<'ctx, 'builder, 'reader> {
     /// Specify the reader to use to read the asset data.
     #[must_use]
-    pub fn with_reader(mut self, reader: &'builder mut Reader<'reader>) -> Self {
+    pub fn with_reader(mut self, reader: &'builder mut (dyn Reader + 'reader)) -> Self {
         self.reader = Some(reader);
         self
     }
@@ -277,7 +280,7 @@ impl<'ctx: 'reader, 'builder, 'reader> DirectNestedLoader<'ctx, 'builder, 'reade
 /// A builder for directly loading untyped nested assets inside a `LoadContext`.
 ///
 /// # Lifetimes
-/// - `ctx`: the lifetime of the associated [`AssetServer`] reference
+/// - `ctx`: the lifetime of the associated [`AssetServer`](crate::AssetServer) reference
 /// - `builder`: the lifetime of the temporary builder structs
 /// - `reader`: the lifetime of the [`Reader`] reference used to read the asset data
 pub struct UntypedDirectNestedLoader<'ctx, 'builder, 'reader> {
