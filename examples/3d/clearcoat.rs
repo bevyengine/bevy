@@ -224,13 +224,13 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            ..Default::default()
+            ..default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2000.0,
-            ..Default::default()
+            ..default()
         });
 }
 

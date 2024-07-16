@@ -145,7 +145,7 @@ fn setup_scene_after_load(
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 150.0,
-                ..Default::default()
+                ..default()
             },
             camera_controller,
         ));
