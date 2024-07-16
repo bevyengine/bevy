@@ -370,13 +370,13 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        components: &[ComponentId],
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
             entity,
-            components,
+            components.iter().copied(),
             &mut (),
             &mut false,
         );
