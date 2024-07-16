@@ -353,6 +353,16 @@ impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
 }
 
 impl<T: SparseSetIndex> FilteredAccess<T> {
+    /// Returns a `FilteredAccess` with no access and matching nothing.
+    /// This is the equivalent of a `FALSE` logic atom.
+    pub fn empty() -> Self {
+        Self {
+            access: Access::default(),
+            required: FixedBitSet::default(),
+            filter_sets: Vec::new(),
+        }
+    }
+
     /// Returns a reference to the underlying unfiltered access.
     #[inline]
     pub fn access(&self) -> &Access<T> {
