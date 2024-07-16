@@ -23,7 +23,7 @@ where
 {
     fn into_closure_mut(mut self) -> DynamicClosureMut<'env> {
         DynamicClosureMut::new(
-            move |args, info| self.reflect_call_mut(args, info),
+            move |args| self.reflect_call_mut(args),
             Self::function_info(),
         )
     }

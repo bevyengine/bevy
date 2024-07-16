@@ -48,18 +48,47 @@ impl FunctionInfo {
         self
     }
 
+    /// Push an argument onto the function's argument list.
+    ///
+    /// The order in which this method is called matters as it will determine the index of the argument
+    /// based on the current number of arguments.
+    pub fn with_arg<T: TypePath + GetOwnership>(
+        mut self,
+        name: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        let index = self.args.len();
+        self.args.push(ArgInfo::new::<T>(index).with_name(name));
+        self
+    }
+
     /// Set the arguments of the function.
     ///
-    /// Arguments passed to the function will be validated against the info provided here.
-    /// Mismatched arguments may result in the function call returning an [error].
+    /// This will completely replace any existing arguments.
     ///
-    /// [error]: crate::func::FunctionError
+    /// It's preferable to use [`Self::with_arg`] to add arguments to the function
+    /// as it will automatically set the index of the argument.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.args = args;
         self
     }
 
-    /// Set the return information of the function.
+    /// Set the [return information] of the function.
+    ///
+    /// To manually set the [`ReturnInfo`] of the function, see [`Self::with_return_info`].
+    ///
+    /// [return information]: ReturnInfo
+    pub fn with_return<T: TypePath + GetOwnership>(mut self) -> Self {
+        self.return_info = ReturnInfo::new::<T>();
+        self
+    }
+
+    /// Set the [return information] of the function.
+    ///
+    /// This will completely replace any existing return information.
+    ///
+    /// For a simpler, static version of this method, see [`Self::with_return`].
+    ///
+    /// [return information]: ReturnInfo
     pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
         self.return_info = return_info;
         self

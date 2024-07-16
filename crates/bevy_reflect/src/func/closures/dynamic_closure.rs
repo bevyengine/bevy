@@ -47,7 +47,7 @@ use crate::func::{FunctionResult, IntoClosure, ReturnInfo};
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 pub struct DynamicClosure<'env> {
     info: FunctionInfo,
-    func: Box<dyn for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
+    func: Box<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'env>,
 }
 
 impl<'env> DynamicClosure<'env> {
@@ -56,8 +56,8 @@ impl<'env> DynamicClosure<'env> {
     /// The given function can be used to call out to a regular function, closure, or method.
     ///
     /// It's important that the closure signature matches the provided [`FunctionInfo`].
-    /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>(
+    /// This info may be used by consumers of the function for validation and debugging.
+    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'env>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
@@ -83,8 +83,8 @@ impl<'env> DynamicClosure<'env> {
 
     /// Set the arguments of the closure.
     ///
-    /// It is very important that the arguments match the intended closure signature,
-    /// as this is used to validate arguments passed to the closure.
+    /// It's important that the arguments match the intended closure signature,
+    /// as this can be used by consumers of the function for validation and debugging.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.info = self.info.with_args(args);
         self
@@ -113,7 +113,7 @@ impl<'env> DynamicClosure<'env> {
     /// assert_eq!(result.take::<i32>().unwrap(), 123);
     /// ```
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func)(args, &self.info)
+        (self.func)(args)
     }
 
     /// Returns the closure info.

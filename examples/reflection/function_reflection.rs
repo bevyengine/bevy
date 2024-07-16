@@ -6,10 +6,9 @@
 //! This can be used for things like adding scripting support to your application,
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
-use bevy::reflect::func::args::ArgInfo;
 use bevy::reflect::func::{
-    ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionInfo, IntoClosure,
-    IntoClosureMut, IntoFunction, Return, ReturnInfo,
+    ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionError, FunctionInfo,
+    IntoClosure, IntoClosureMut, IntoFunction, Return,
 };
 use bevy::reflect::Reflect;
 
@@ -129,33 +128,37 @@ fn main() {
     }
 
     let get_or_insert_function = dbg!(DynamicFunction::new(
-        |mut args, info| {
-            let container_info = &info.args()[1];
-            let value_info = &info.args()[0];
+        |mut args| {
+            // We can optionally add a check to ensure we were given the correct number of arguments.
+            if args.len() != 2 {
+                return Err(FunctionError::ArgCountMismatch {
+                    expected: 2,
+                    received: args.len(),
+                });
+            }
 
             // The `ArgList` contains the arguments in the order they were pushed.
-            // Therefore, we need to pop them in reverse order.
-            let container = args
-                .pop()
-                .unwrap()
-                .take_mut::<Option<i32>>(container_info)
-                .unwrap();
-            let value = args.pop().unwrap().take_owned::<i32>(value_info).unwrap();
+            // We can retrieve them out in order (note that this modifies the `ArgList`):
+            let value = args.take::<i32>()?;
+            let container = args.take::<&mut Option<i32>>()?;
+
+            // We could have also done the following to make use of type inference:
+            // let value = args.take_owned()?;
+            // let container = args.take_mut()?;
 
             Ok(Return::Ref(get_or_insert(value, container)))
         },
         FunctionInfo::new()
-            // We can optionally provide a name for the function
+            // We can optionally provide a name for the function.
             .with_name("get_or_insert")
-            // Since our function takes arguments, we MUST provide that argument information.
-            // The arguments should be provided in the order they are defined in the function.
-            // This is used to validate any arguments given at runtime.
-            .with_args(vec![
-                ArgInfo::new::<i32>(0).with_name("value"),
-                ArgInfo::new::<&mut Option<i32>>(1).with_name("container"),
-            ])
-            // We can optionally provide return information as well.
-            .with_return_info(ReturnInfo::new::<&i32>()),
+            // Since our function takes arguments, we should provide that argument information.
+            // This helps ensure that consumers of the function can validate the arguments they
+            // pass into the function and helps for debugging.
+            // Arguments should be provided in the order they are defined in the function.
+            .with_arg::<i32>("value")
+            .with_arg::<&mut Option<i32>>("container")
+            // We can provide return information as well.
+            .with_return::<&i32>(),
     ));
 
     let mut container: Option<i32> = None;
