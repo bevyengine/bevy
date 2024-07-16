@@ -1869,7 +1869,8 @@ macro_rules! impl_anytuple_fetch {
 
                 $(
                     // Create an intermediate because `access`'s value needs to be preserved
-                    // for the next query data, and `_new_access` has to be modified only by `append_or` to it.
+                    // for the next query data, and `_new_access` has to be modified only by `append_or` to it,
+                    // which only updates the `filter_sets`, not the `access`.
                     let mut intermediate = access.clone();
                     $name::update_component_access($name, &mut intermediate);
                     _new_access.append_or(&intermediate);
