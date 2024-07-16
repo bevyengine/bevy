@@ -250,7 +250,7 @@ impl Dir2 {
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
-        // Based on a taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
+        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
         Self(self * (0.5 * (3.0 - length_squared)))
     }
 }
