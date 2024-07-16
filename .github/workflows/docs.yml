@@ -40,14 +40,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-      
-      - uses: dtolnay/install@cargo-docs-rs
 
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
           wayland: true
           xkb: true
+
+      - name: Install cargo-docs-rs
+        run: cargo install cargo-docs-rs
 
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
