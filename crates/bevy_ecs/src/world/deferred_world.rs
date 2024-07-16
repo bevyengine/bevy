@@ -317,6 +317,28 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
+    /// Triggers all `on_replace` hooks for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_on_replace(
+        &mut self,
+        archetype: &Archetype,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        if archetype.has_replace_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_replace {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
+            }
+        }
+    }
+
     /// Triggers all `on_remove` hooks for [`ComponentId`] in target.
     ///
     /// # Safety
@@ -330,9 +352,8 @@ impl<'w> DeferredWorld<'w> {
     ) {
         if archetype.has_remove_hook() {
             for component_id in targets {
-                let hooks =
                 // SAFETY: Caller ensures that these components exist
-                    unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_remove {
                     hook(DeferredWorld { world: self.world }, entity, component_id);
                 }
@@ -402,7 +423,11 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
-    pub fn trigger_targets(&mut self, trigger: impl Event, targets: impl TriggerTargets) {
+    pub fn trigger_targets(
+        &mut self,
+        trigger: impl Event,
+        targets: impl TriggerTargets + Send + Sync + 'static,
+    ) {
         self.commands().trigger_targets(trigger, targets);
     }
 
