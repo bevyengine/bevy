@@ -164,6 +164,7 @@ impl World {
     fn bootstrap(&mut self) {
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
+        assert_eq!(ON_REPLACE, self.init_component::<OnReplace>());
         assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
     }
     /// Creates a new empty [`World`].
@@ -812,8 +813,8 @@ impl World {
         unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
     }
 
-    /// Gets mutable access to multiple entities, contained in a [`HashSet`].
-    /// The uniqueness of items in a [`HashSet`] allows us to avoid checking for duplicates.
+    /// Gets mutable access to multiple entities, contained in a [`EntityHashSet`].
+    /// The uniqueness of items in a [`EntityHashSet`] allows us to avoid checking for duplicates.
     ///
     /// # Errors
     ///
@@ -1104,7 +1105,7 @@ impl World {
             entity.despawn();
             true
         } else {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", entity);
+            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
             false
         }
     }
@@ -2037,7 +2038,7 @@ impl World {
         }
     }
 
-    /// Calls both [`World::flush_entities`] and [`World::flush_commands`].
+    /// Flushes queued entities and calls [`World::flush_commands`].
     #[inline]
     pub fn flush(&mut self) {
         self.flush_entities();

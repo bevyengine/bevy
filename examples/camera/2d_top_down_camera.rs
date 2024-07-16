@@ -4,9 +4,9 @@
 //!
 //! | Key Binding          | Action        |
 //! |:---------------------|:--------------|
-//! | `Z`(azerty), `W`(US) | Move forward  |
-//! | `S`                  | Move backward |
-//! | `Q`(azerty), `A`(US) | Move left     |
+//! | `W`                  | Move up       |
+//! | `S`                  | Move down     |
+//! | `A`                  | Move left     |
 //! | `D`                  | Move right    |
 
 use bevy::core_pipeline::bloom::BloomSettings;
@@ -61,7 +61,7 @@ fn setup_scene(
 fn setup_instructions(mut commands: Commands) {
     commands.spawn(
         TextBundle::from_section(
-            "Move the light with ZQSD or WASD.\nThe camera will smoothly track the light.",
+            "Move the light with WASD.\nThe camera will smoothly track the light.",
             TextStyle::default(),
         )
         .with_style(Style {
@@ -111,6 +111,10 @@ fn update_camera(
 }
 
 /// Update the player position with keyboard inputs.
+/// Note that the approach used here is for demonstration purposes only,
+/// as the point of this example is to showcase the camera tracking feature.
+///
+/// A more robust solution for player movement can be found in `examples/movement/physics_in_fixed_timestep.rs`.
 fn move_player(
     mut player: Query<&mut Transform, With<Player>>,
     time: Res<Time>,

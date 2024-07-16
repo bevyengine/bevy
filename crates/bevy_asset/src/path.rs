@@ -74,7 +74,7 @@ impl<'a> Display for AssetPath<'a> {
     }
 }
 
-/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`] or [`AssetPath::from<'static str>`].
+/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`].
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
     /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.

@@ -62,7 +62,7 @@ pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
-    /// See [`EventLoopBuilder::build`] for more information on this.
+    /// See [`EventLoopBuilder::build`](winit::event_loop::EventLoopBuilder::build) for more information on this.
     ///
     /// # Supported platforms
     ///
