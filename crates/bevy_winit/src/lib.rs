@@ -149,7 +149,7 @@ pub struct WakeUp;
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///
-/// Use `NonSend<EventLoopProxy>` to receive this resource.
+/// Use `Res<EventLoopProxy>` to receive this resource.
 #[derive(Resource, Deref)]
 pub struct EventLoopProxyWrapper<T: 'static>(winit::event_loop::EventLoopProxy<T>);
 
