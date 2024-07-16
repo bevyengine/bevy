@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     utils::Duration,
     window::{PresentMode, RequestRedraw, WindowPlugin},
-    winit::{EventLoopProxy, WakeUp, WinitSettings},
+    winit::{EventLoopProxyWrapper, WakeUp, WinitSettings},
 };
 
 fn main() {
@@ -55,7 +55,7 @@ enum ExampleMode {
 fn update_winit(
     mode: Res<ExampleMode>,
     mut winit_config: ResMut<WinitSettings>,
-    event_loop_proxy: NonSend<EventLoopProxy<WakeUp>>,
+    event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
     mut redraw_request_events: EventWriter<RequestRedraw>,
 ) {
     use ExampleMode::*;
