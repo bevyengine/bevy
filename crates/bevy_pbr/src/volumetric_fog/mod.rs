@@ -74,8 +74,9 @@ pub struct VolumetricFogPlugin;
 #[reflect(Component)]
 pub struct VolumetricLight;
 
-/// When placed on a [`Camera3d`], enables volumetric fog and volumetric
-/// lighting, also known as light shafts or god rays.
+/// When placed on a [`bevy_core_pipeline::core_3d::Camera3d`], enables
+/// volumetric fog and volumetric lighting, also known as light shafts or god
+/// rays.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct VolumetricFogSettings {
