@@ -452,7 +452,7 @@ macro_rules! impl_or_query_filter {
                     $filter::update_component_access($filter, &mut intermediate);
                     _new_access.append_or(&intermediate);
                     // Also extend the accesses required to compute the filter. This is required because
-                    // otherwise a `Query<(), Changed<Foo>>` won't conflict with `Query<&mut Foo>`.
+                    // otherwise a `Query<(), Or<(Changed<Foo>,)>` won't conflict with `Query<&mut Foo>`.
                     _new_access.extend_access(&intermediate);
                 )*
 
