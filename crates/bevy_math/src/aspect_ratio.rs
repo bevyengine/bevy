@@ -2,7 +2,12 @@
 
 use crate::Vec2;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+
 /// An `AspectRatio` is the ratio of width to height.
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct AspectRatio(f32);
 
 impl AspectRatio {

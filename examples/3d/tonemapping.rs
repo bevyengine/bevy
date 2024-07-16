@@ -6,14 +6,15 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
-        texture::{ImageSampler, ImageSamplerDescriptor},
-        view::ColorGrading,
+        render_resource::{AsBindGroup, ShaderRef},
+        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
     utils::HashMap,
 };
 use std::f32::consts::PI;
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
 
 fn main() {
     App::new()
@@ -82,104 +83,31 @@ fn setup(
 
     // ui
     commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 18.0,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
 }
 
-fn setup_basic_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    asset_server: Res<AssetServer>,
-) {
-    // plane
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-            material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
+fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Main scene
+    commands
+        .spawn(SceneBundle {
+            scene: asset_server.load(
+                GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+            ),
             ..default()
-        },
-        SceneNumber(1),
-    ));
-
-    // cubes
-    let cube_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
-    });
-
-    let cube_mesh = meshes.add(Cuboid::new(0.25, 0.25, 0.25));
-    for i in 0..5 {
-        commands.spawn((
-            PbrBundle {
-                mesh: cube_mesh.clone(),
-                material: cube_material.clone(),
-                transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
-                ..default()
-            },
-            SceneNumber(1),
-        ));
-    }
-
-    // spheres
-    let sphere_mesh = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
-    for i in 0..6 {
-        let j = i % 3;
-        let s_val = if i < 3 { 0.0 } else { 0.2 };
-        let material = if j == 0 {
-            materials.add(StandardMaterial {
-                base_color: Color::srgb(s_val, s_val, 1.0),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        } else if j == 1 {
-            materials.add(StandardMaterial {
-                base_color: Color::srgb(s_val, 1.0, s_val),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        } else {
-            materials.add(StandardMaterial {
-                base_color: Color::srgb(1.0, s_val, s_val),
-                perceptual_roughness: 0.089,
-                metallic: 0.0,
-                ..default()
-            })
-        };
-        commands.spawn((
-            PbrBundle {
-                mesh: sphere_mesh.clone(),
-                material,
-                transform: Transform::from_xyz(
-                    j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
-                    0.125,
-                    -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
-                ),
-                ..default()
-            },
-            SceneNumber(1),
-        ));
-    }
+        })
+        .insert(SceneNumber(1));
 
     // Flight Helmet
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             transform: Transform::from_xyz(0.5, 0.0, -0.5)
                 .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
             ..default()
@@ -403,10 +331,12 @@ fn toggle_tonemapping_method(
         *method = Tonemapping::BlenderFilmic;
     }
 
-    *color_grading = *per_method_settings
+    *color_grading = (*per_method_settings
         .settings
         .get::<Tonemapping>(&method)
-        .unwrap();
+        .as_ref()
+        .unwrap())
+    .clone();
 }
 
 #[derive(Resource)]
@@ -448,16 +378,20 @@ fn update_color_grading_settings(
     if keys.pressed(KeyCode::ArrowLeft) || keys.pressed(KeyCode::ArrowRight) {
         match selected_parameter.value {
             0 => {
-                color_grading.exposure += dt;
+                color_grading.global.exposure += dt;
             }
             1 => {
-                color_grading.gamma += dt;
+                color_grading
+                    .all_sections_mut()
+                    .for_each(|section| section.gamma += dt);
             }
             2 => {
-                color_grading.pre_saturation += dt;
+                color_grading
+                    .all_sections_mut()
+                    .for_each(|section| section.saturation += dt);
             }
             3 => {
-                color_grading.post_saturation += dt;
+                color_grading.global.post_saturation += dt;
             }
             _ => {}
         }
@@ -477,26 +411,32 @@ fn update_color_grading_settings(
 }
 
 fn update_ui(
-    mut text: Query<&mut Text, Without<SceneNumber>>,
+    mut text_query: Query<&mut Text, Without<SceneNumber>>,
     settings: Query<(&Tonemapping, &ColorGrading)>,
     current_scene: Res<CurrentScene>,
     selected_parameter: Res<SelectedParameter>,
     mut hide_ui: Local<bool>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
-    let (method, color_grading) = settings.single();
-    let method = *method;
-
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
-
     if keys.just_pressed(KeyCode::KeyH) {
         *hide_ui = !*hide_ui;
     }
-    text.clear();
+
+    let old_text = &text_query.single().sections[0].value;
+
     if *hide_ui {
+        if !old_text.is_empty() {
+            // single_mut() always triggers change detection,
+            // so only access if text actually needs changing
+            text_query.single_mut().sections[0].value.clear();
+        }
         return;
     }
+
+    let (method, color_grading) = settings.single();
+    let method = *method;
+
+    let mut text = String::with_capacity(old_text.len());
 
     let scn = current_scene.0;
     text.push_str("(H) Hide UI\n\n");
@@ -577,29 +517,35 @@ fn update_ui(
     if selected_parameter.value == 0 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Exposure: {}\n", color_grading.exposure));
+    text.push_str(&format!("Exposure: {}\n", color_grading.global.exposure));
     if selected_parameter.value == 1 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Gamma: {}\n", color_grading.gamma));
+    text.push_str(&format!("Gamma: {}\n", color_grading.shadows.gamma));
     if selected_parameter.value == 2 {
         text.push_str("> ");
     }
     text.push_str(&format!(
         "PreSaturation: {}\n",
-        color_grading.pre_saturation
+        color_grading.shadows.saturation
     ));
     if selected_parameter.value == 3 {
         text.push_str("> ");
     }
     text.push_str(&format!(
         "PostSaturation: {}\n",
-        color_grading.post_saturation
+        color_grading.global.post_saturation
     ));
     text.push_str("(Space) Reset all to default\n");
 
     if current_scene.0 == 1 {
         text.push_str("(Enter) Reset all to scene recommendation\n");
+    }
+
+    if text != old_text.as_str() {
+        // single_mut() always triggers change detection,
+        // so only access if text actually changed
+        text_query.single_mut().sections[0].value = text;
     }
 }
 
@@ -614,19 +560,30 @@ impl PerMethodSettings {
     fn basic_scene_recommendation(method: Tonemapping) -> ColorGrading {
         match method {
             Tonemapping::Reinhard | Tonemapping::ReinhardLuminance => ColorGrading {
-                exposure: 0.5,
+                global: ColorGradingGlobal {
+                    exposure: 0.5,
+                    ..default()
+                },
                 ..default()
             },
             Tonemapping::AcesFitted => ColorGrading {
-                exposure: 0.35,
+                global: ColorGradingGlobal {
+                    exposure: 0.35,
+                    ..default()
+                },
                 ..default()
             },
-            Tonemapping::AgX => ColorGrading {
-                exposure: -0.2,
-                gamma: 1.0,
-                pre_saturation: 1.1,
-                post_saturation: 1.1,
-            },
+            Tonemapping::AgX => ColorGrading::with_identical_sections(
+                ColorGradingGlobal {
+                    exposure: -0.2,
+                    post_saturation: 1.1,
+                    ..default()
+                },
+                ColorGradingSection {
+                    saturation: 1.1,
+                    ..default()
+                },
+            ),
             _ => ColorGrading::default(),
         }
     }
@@ -656,40 +613,9 @@ impl Default for PerMethodSettings {
     }
 }
 
-/// Creates a colorful test pattern
-fn uv_debug_texture() -> Image {
-    const TEXTURE_SIZE: usize = 8;
-
-    let mut palette: [u8; 32] = [
-        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
-        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
-    ];
-
-    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
-    for y in 0..TEXTURE_SIZE {
-        let offset = TEXTURE_SIZE * y * 4;
-        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
-        palette.rotate_right(4);
-    }
-
-    let mut img = Image::new_fill(
-        Extent3d {
-            width: TEXTURE_SIZE as u32,
-            height: TEXTURE_SIZE as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &texture_data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    );
-    img.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
-    img
-}
-
 impl Material for ColorGradientMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/tonemapping_test_patterns.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }
 

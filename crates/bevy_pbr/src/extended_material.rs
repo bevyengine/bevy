@@ -8,7 +8,7 @@ use bevy_render::{
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage},
 };
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
@@ -121,11 +121,24 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// When used with `StandardMaterial` as the base, all the standard material fields are
 /// present, so the `pbr_fragment` shader functions can be called from the extension shader (see
 /// the `extended_material` example).
-#[derive(Asset, Clone, Reflect)]
+#[derive(Asset, Clone, Debug, Reflect)]
 #[reflect(type_path = false)]
 pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub base: B,
     pub extension: E,
+}
+
+impl<B, E> Default for ExtendedMaterial<B, E>
+where
+    B: Material + Default,
+    E: MaterialExtension + Default,
+{
+    fn default() -> Self {
+        Self {
+            base: B::default(),
+            extension: E::default(),
+        }
+    }
 }
 
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
@@ -139,7 +152,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material

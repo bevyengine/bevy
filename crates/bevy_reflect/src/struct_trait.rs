@@ -1,10 +1,12 @@
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{
-    self as bevy_reflect, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    self as bevy_reflect, ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::sync::Arc;
 use std::{
     any::{Any, TypeId},
     borrow::Cow,
@@ -81,6 +83,7 @@ pub struct StructInfo {
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
+    custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -99,7 +102,7 @@ impl StructInfo {
             .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let field_names = fields.iter().map(|field| field.name()).collect();
+        let field_names = fields.iter().map(NamedField::name).collect();
 
         Self {
             type_path: TypePathTable::of::<T>(),
@@ -107,6 +110,7 @@ impl StructInfo {
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
+            custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -116,6 +120,14 @@ impl StructInfo {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Sets the custom attributes for this struct.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes: Arc::new(custom_attributes),
+            ..self
+        }
     }
 
     /// A slice containing the names of all fields in order.
@@ -182,6 +194,8 @@ impl StructInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(self.custom_attributes, "struct");
 }
 
 /// An iterator over the field values of a struct.
@@ -204,7 +218,7 @@ impl<'a> Iterator for FieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.struct_val.field_at(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -360,7 +374,7 @@ impl Struct for DynamicStruct {
 
     #[inline]
     fn name_at(&self, index: usize) -> Option<&str> {
-        self.field_names.get(index).map(|name| name.as_ref())
+        self.field_names.get(index).map(AsRef::as_ref)
     }
 
     #[inline]
@@ -421,17 +435,21 @@ impl PartialReflect for DynamicStruct {
         None
     }
 
-    fn apply(&mut self, value: &dyn PartialReflect) {
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
             for (i, value) in struct_value.iter_fields().enumerate() {
                 let name = struct_value.name_at(i).unwrap();
                 if let Some(v) = self.field_mut(name) {
-                    v.apply(value);
+                    v.try_apply(value)?;
                 }
             }
         } else {
-            panic!("Attempted to apply non-struct type to struct type.");
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::Struct,
+            });
         }
+        Ok(())
     }
 
     #[inline]
@@ -480,6 +498,39 @@ impl_type_path!((in bevy_reflect) DynamicStruct);
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl<'a, N> FromIterator<(N, Box<dyn PartialReflect>)> for DynamicStruct
+where
+    N: Into<Cow<'a, str>>,
+{
+    /// Create a dynamic struct that doesn't represent a type from the
+    /// field name, field value pairs.
+    fn from_iter<I: IntoIterator<Item = (N, Box<dyn PartialReflect>)>>(fields: I) -> Self {
+        let mut dynamic_struct = Self::default();
+        for (name, value) in fields.into_iter() {
+            dynamic_struct.insert_boxed(name, value);
+        }
+        dynamic_struct
+    }
+}
+
+impl IntoIterator for DynamicStruct {
+    type Item = Box<dyn PartialReflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicStruct {
+    type Item = &'a dyn PartialReflect;
+    type IntoIter = FieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
     }
 }
 
@@ -541,7 +592,7 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt:
     let mut debug = f.debug_struct(
         dyn_struct
             .get_represented_type_info()
-            .map(|s| s.type_path())
+            .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );
     for field_index in 0..dyn_struct.field_len() {
@@ -552,4 +603,32 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt:
         );
     }
     debug.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_reflect;
+    use crate::*;
+    #[derive(Reflect, Default)]
+    struct MyStruct {
+        a: (),
+        b: (),
+        c: (),
+    }
+    #[test]
+    fn next_index_increment() {
+        let my_struct = MyStruct::default();
+        let mut iter = my_struct.iter_fields();
+        iter.index = iter.len() - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        let prev_index = iter.index;
+        assert!(iter.next().is_none());
+        assert_eq!(prev_index, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(prev_index, iter.index);
+    }
 }

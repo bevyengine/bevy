@@ -3,18 +3,20 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
+pub use crate::label::DynEq;
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_label;
-use bevy_utils::intern::Interned;
-pub use bevy_utils::label::DynEq;
 
-use crate::system::{
-    ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
-    IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+use crate::{
+    define_label,
+    intern::Interned,
+    system::{
+        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
+        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
+    },
 };
 
 define_label!(
-    /// A strongly-typed class of labels used to identify an [`Schedule`].
+    /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
     ScheduleLabel,
     SCHEDULE_LABEL_INTERNER
 );
@@ -147,6 +149,10 @@ impl SystemSet for AnonymousSet {
 }
 
 /// Types that can be converted into a [`SystemSet`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a system set",
+    label = "invalid system set"
+)]
 pub trait IntoSystemSet<Marker>: Sized {
     /// The type of [`SystemSet`] this instance converts into.
     type Set: SystemSet;

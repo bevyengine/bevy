@@ -38,7 +38,7 @@ impl<'a> Access<'a> {
     /// Converts this into an "owned" value.
     ///
     /// If the [`Access`] is of variant [`Field`](Access::Field),
-    /// the field's [`Cow<str>`] will be converted to it's owned
+    /// the field's [`Cow<str>`] will be converted to its owned
     /// counterpart, which doesn't require a reference.
     pub fn into_owned(self) -> Access<'static> {
         match self {

@@ -3,13 +3,14 @@ use crate::{
     StandardMaterial,
 };
 use bevy_asset::Handle;
-use bevy_ecs::entity::EntityHashMap;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
-    view::{InheritedVisibility, ViewVisibility, Visibility, VisibleEntities},
+    view::{InheritedVisibility, ViewVisibility, Visibility},
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -45,27 +46,37 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
     }
 }
 
+/// Collection of mesh entities visible for 3D lighting.
+/// This component contains all mesh entities visible from the current light view.
+/// The collection is updated automatically by [`crate::SimulationLightSystems`].
+#[derive(Component, Clone, Debug, Default, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct VisibleMeshEntities {
+    #[reflect(ignore)]
+    pub entities: Vec<Entity>,
+}
+
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct CubemapVisibleEntities {
     #[reflect(ignore)]
-    data: [VisibleEntities; 6],
+    data: [VisibleMeshEntities; 6],
 }
 
 impl CubemapVisibleEntities {
-    pub fn get(&self, i: usize) -> &VisibleEntities {
+    pub fn get(&self, i: usize) -> &VisibleMeshEntities {
         &self.data[i]
     }
 
-    pub fn get_mut(&mut self, i: usize) -> &mut VisibleEntities {
+    pub fn get_mut(&mut self, i: usize) -> &mut VisibleMeshEntities {
         &mut self.data[i]
     }
 
-    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &VisibleEntities> {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = &VisibleMeshEntities> {
         self.data.iter()
     }
 
-    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut VisibleEntities> {
+    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut VisibleMeshEntities> {
         self.data.iter_mut()
     }
 }
@@ -75,11 +86,11 @@ impl CubemapVisibleEntities {
 pub struct CascadesVisibleEntities {
     /// Map of view entity to the visible entities for each cascade frustum.
     #[reflect(ignore)]
-    pub entities: EntityHashMap<Vec<VisibleEntities>>,
+    pub entities: EntityHashMap<Vec<VisibleMeshEntities>>,
 }
 
 /// A component bundle for [`PointLight`] entities.
-#[derive(Debug, Bundle, Default)]
+#[derive(Debug, Bundle, Default, Clone)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
     pub cubemap_visible_entities: CubemapVisibleEntities,
@@ -95,10 +106,10 @@ pub struct PointLightBundle {
 }
 
 /// A component bundle for spot light entities
-#[derive(Debug, Bundle, Default)]
+#[derive(Debug, Bundle, Default, Clone)]
 pub struct SpotLightBundle {
     pub spot_light: SpotLight,
-    pub visible_entities: VisibleEntities,
+    pub visible_entities: VisibleMeshEntities,
     pub frustum: Frustum,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -111,7 +122,7 @@ pub struct SpotLightBundle {
 }
 
 /// A component bundle for [`DirectionalLight`] entities.
-#[derive(Debug, Bundle, Default)]
+#[derive(Debug, Bundle, Default, Clone)]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,
     pub frusta: CascadesFrusta,

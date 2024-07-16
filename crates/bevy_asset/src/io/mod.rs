@@ -18,12 +18,14 @@ pub mod wasm;
 
 mod source;
 
-pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
+pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
-use futures_io::{AsyncRead, AsyncWrite};
+use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::{ready, Stream};
+use std::io::SeekFrom;
+use std::task::Context;
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
@@ -49,13 +51,80 @@ pub enum AssetReaderError {
     HttpError(u16),
 }
 
+impl PartialEq for AssetReaderError {
+    /// Equality comparison for `AssetReaderError::Io` is not full (only through `ErrorKind` of inner error)
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::NotFound(path), Self::NotFound(other_path)) => path == other_path,
+            (Self::Io(error), Self::Io(other_error)) => error.kind() == other_error.kind(),
+            (Self::HttpError(code), Self::HttpError(other_code)) => code == other_code,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for AssetReaderError {}
+
 impl From<std::io::Error> for AssetReaderError {
     fn from(value: std::io::Error) -> Self {
         Self::Io(Arc::new(value))
     }
 }
 
-pub type Reader<'a> = dyn AsyncRead + Unpin + Send + Sync + 'a;
+/// The maximum size of a future returned from [`Reader::read_to_end`].
+/// This is large enough to fit ten references.
+// Ideally this would be even smaller (ReadToEndFuture only needs space for two references based on its definition),
+// but compiler optimizations can apparently inflate the stack size of futures due to inlining, which makes
+// a higher maximum necessary.
+pub const STACK_FUTURE_SIZE: usize = 10 * std::mem::size_of::<&()>();
+
+pub use stackfuture::StackFuture;
+
+/// A type returned from [`AssetReader::read`], which is used to read the contents of a file
+/// (or virtual file) corresponding to an asset.
+///
+/// This is essentially a trait alias for types implementing  [`AsyncRead`] and [`AsyncSeek`].
+/// The only reason a blanket implementation is not provided for applicable types is to allow
+/// implementors to override the provided implementation of [`Reader::read_to_end`].
+pub trait Reader: AsyncRead + AsyncSeek + Unpin + Send + Sync {
+    /// Reads the entire contents of this reader and appends them to a vec.
+    ///
+    /// # Note for implementors
+    /// You should override the provided implementation if you can fill up the buffer more
+    /// efficiently than the default implementation, which calls `poll_read` repeatedly to
+    /// fill up the buffer 32 bytes at a time.
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        let future = futures_lite::AsyncReadExt::read_to_end(self, buf);
+        StackFuture::from(future)
+    }
+}
+
+impl Reader for Box<dyn Reader + '_> {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        (**self).read_to_end(buf)
+    }
+}
+
+/// A future that returns a value or an [`AssetReaderError`]
+pub trait AssetReaderFuture:
+    ConditionalSendFuture<Output = Result<Self::Value, AssetReaderError>>
+{
+    type Value;
+}
+
+impl<F, T> AssetReaderFuture for F
+where
+    F: ConditionalSendFuture<Output = Result<T, AssetReaderError>>,
+{
+    type Value = T;
+}
 
 /// Performs read operations on an asset storage. [`AssetReader`] exposes a "virtual filesystem"
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
@@ -64,21 +133,35 @@ pub type Reader<'a> = dyn AsyncRead + Unpin + Send + Sync + 'a;
 /// Also see [`AssetWriter`].
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
-    fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
+    ///
+    /// # Note for implementors
+    /// The preferred style for implementing this method is an `async fn` returning an opaque type.
+    ///
+    /// ```no_run
+    /// # use std::path::Path;
+    /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader, AssetReaderError}};
+    /// # struct MyReader;
+    /// impl AssetReader for MyReader {
+    ///     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    ///         // ...
+    ///         # let val: Box<dyn Reader> = unimplemented!(); Ok(val)
+    ///     }
+    ///     # async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    ///     #     let val: Box<dyn Reader> = unimplemented!(); Ok(val) }
+    ///     # async fn read_directory<'a>(&'a self, path: &'a Path) -> Result<Box<PathStream>, AssetReaderError> { unimplemented!() }
+    ///     # async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> { unimplemented!() }
+    ///     # async fn read_meta_bytes<'a>(&'a self, path: &'a Path) -> Result<Vec<u8>, AssetReaderError> { unimplemented!() }
+    /// }
+    /// ```
+    fn read<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns a future to load the full file data at the provided path.
-    fn read_meta<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> impl ConditionalSendFuture<Output = Result<Box<Reader<'a>>, AssetReaderError>>;
+    fn read_meta<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
         path: &'a Path,
     ) -> impl ConditionalSendFuture<Output = Result<Box<PathStream>, AssetReaderError>>;
-    /// Returns an iterator of directory entry names at the provided path.
+    /// Returns true if the provided path points to a directory.
     fn is_directory<'a>(
         &'a self,
         path: &'a Path,
@@ -102,13 +185,15 @@ pub trait AssetReader: Send + Sync + 'static {
 /// as [`AssetReader`] isn't currently object safe.
 pub trait ErasedAssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
-    fn read<'a>(&'a self, path: &'a Path)
-        -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>>;
+    fn read<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>>;
+    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns an iterator of directory entry names at the provided path.
     fn read_directory<'a>(
         &'a self,
@@ -128,14 +213,20 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(Self::read(self, path))
+    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+        Box::pin(async {
+            let reader = Self::read(self, path).await?;
+            Ok(Box::new(reader) as Box<dyn Reader>)
+        })
     }
     fn read_meta<'a>(
         &'a self,
         path: &'a Path,
-    ) -> BoxedFuture<Result<Box<Reader<'a>>, AssetReaderError>> {
-        Box::pin(Self::read_meta(self, path))
+    ) -> BoxedFuture<Result<Box<dyn Reader + 'a>, AssetReaderError>> {
+        Box::pin(async {
+            let reader = Self::read_meta(self, path).await?;
+            Ok(Box::new(reader) as Box<dyn Reader>)
+        })
     }
     fn read_directory<'a>(
         &'a self,
@@ -442,6 +533,144 @@ impl AsyncRead for VecReader {
     }
 }
 
+impl AsyncSeek for VecReader {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        pos: SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let result = match pos {
+            SeekFrom::Start(offset) => offset.try_into(),
+            SeekFrom::End(offset) => self.bytes.len().try_into().map(|len: i64| len - offset),
+            SeekFrom::Current(offset) => self
+                .bytes_read
+                .try_into()
+                .map(|bytes_read: i64| bytes_read + offset),
+        };
+
+        if let Ok(new_pos) = result {
+            if new_pos < 0 {
+                Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "seek position is out of range",
+                )))
+            } else {
+                self.bytes_read = new_pos as _;
+
+                Poll::Ready(Ok(new_pos as _))
+            }
+        } else {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek position is out of range",
+            )))
+        }
+    }
+}
+
+impl Reader for VecReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        StackFuture::from(async {
+            if self.bytes_read >= self.bytes.len() {
+                Ok(0)
+            } else {
+                buf.extend_from_slice(&self.bytes[self.bytes_read..]);
+                let n = self.bytes.len() - self.bytes_read;
+                self.bytes_read = self.bytes.len();
+                Ok(n)
+            }
+        })
+    }
+}
+
+/// An [`AsyncRead`] implementation capable of reading a [`&[u8]`].
+pub struct SliceReader<'a> {
+    bytes: &'a [u8],
+    bytes_read: usize,
+}
+
+impl<'a> SliceReader<'a> {
+    /// Create a new [`SliceReader`] for `bytes`.
+    pub fn new(bytes: &'a [u8]) -> Self {
+        Self {
+            bytes,
+            bytes_read: 0,
+        }
+    }
+}
+
+impl<'a> AsyncRead for SliceReader<'a> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<std::io::Result<usize>> {
+        if self.bytes_read >= self.bytes.len() {
+            Poll::Ready(Ok(0))
+        } else {
+            let n = ready!(Pin::new(&mut &self.bytes[self.bytes_read..]).poll_read(cx, buf))?;
+            self.bytes_read += n;
+            Poll::Ready(Ok(n))
+        }
+    }
+}
+
+impl<'a> AsyncSeek for SliceReader<'a> {
+    fn poll_seek(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        pos: SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let result = match pos {
+            SeekFrom::Start(offset) => offset.try_into(),
+            SeekFrom::End(offset) => self.bytes.len().try_into().map(|len: i64| len - offset),
+            SeekFrom::Current(offset) => self
+                .bytes_read
+                .try_into()
+                .map(|bytes_read: i64| bytes_read + offset),
+        };
+
+        if let Ok(new_pos) = result {
+            if new_pos < 0 {
+                Poll::Ready(Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "seek position is out of range",
+                )))
+            } else {
+                self.bytes_read = new_pos as _;
+
+                Poll::Ready(Ok(new_pos as _))
+            }
+        } else {
+            Poll::Ready(Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek position is out of range",
+            )))
+        }
+    }
+}
+
+impl Reader for SliceReader<'_> {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> StackFuture<'a, std::io::Result<usize>, STACK_FUTURE_SIZE> {
+        StackFuture::from(async {
+            if self.bytes_read >= self.bytes.len() {
+                Ok(0)
+            } else {
+                buf.extend_from_slice(&self.bytes[self.bytes_read..]);
+                let n = self.bytes.len() - self.bytes_read;
+                self.bytes_read = self.bytes.len();
+                Ok(n)
+            }
+        })
+    }
+}
+
 /// Appends `.meta` to the given path.
 pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     let mut meta_path = path.to_path_buf();
@@ -451,9 +680,11 @@ pub(crate) fn get_meta_path(path: &Path) -> PathBuf {
     meta_path
 }
 
+#[cfg(any(target_arch = "wasm32", target_os = "android"))]
 /// A [`PathBuf`] [`Stream`] implementation that immediately returns nothing.
 struct EmptyPathStream;
 
+#[cfg(any(target_arch = "wasm32", target_os = "android"))]
 impl Stream for EmptyPathStream {
     type Item = PathBuf;
 

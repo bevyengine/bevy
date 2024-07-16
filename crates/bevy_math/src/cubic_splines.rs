@@ -6,6 +6,9 @@ use crate::{Vec2, VectorSpace};
 
 use thiserror::Error;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+
 /// A spline composed of a single cubic Bezier curve.
 ///
 /// Useful for user-drawn curves with local control, or animation easing. See
@@ -40,8 +43,11 @@ use thiserror::Error;
 /// let bezier = CubicBezier::new(points).to_curve();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBezier<P: VectorSpace> {
-    control_points: Vec<[P; 4]>,
+    /// The control points of the Bezier curve
+    pub control_points: Vec<[P; 4]>,
 }
 
 impl<P: VectorSpace> CubicBezier<P> {
@@ -111,8 +117,11 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicHermite<P: VectorSpace> {
-    control_points: Vec<(P, P)>,
+    /// The control points of the Hermite curve
+    pub control_points: Vec<(P, P)>,
 }
 impl<P: VectorSpace> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
@@ -177,9 +186,13 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 /// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
-    tension: f32,
-    control_points: Vec<P>,
+    /// Tension
+    pub tension: f32,
+    /// The control points of the Cardinal spline
+    pub control_points: Vec<P>,
 }
 
 impl<P: VectorSpace> CubicCardinalSpline<P> {
@@ -264,8 +277,11 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 /// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBSpline<P: VectorSpace> {
-    control_points: Vec<P>,
+    /// The control points of the spline
+    pub control_points: Vec<P>,
 }
 impl<P: VectorSpace> CubicBSpline<P> {
     /// Build a new B-Spline.
@@ -303,7 +319,7 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
 }
 
 /// Error during construction of [`CubicNurbs`]
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
     #[error("Wrong number of knots: expected {expected}, provided {provided}")]
@@ -381,10 +397,15 @@ pub enum CubicNurbsError {
 ///     .to_curve();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicNurbs<P: VectorSpace> {
-    control_points: Vec<P>,
-    weights: Vec<f32>,
-    knots: Vec<f32>,
+    /// The control points of the NURBS
+    pub control_points: Vec<P>,
+    /// Weights
+    pub weights: Vec<f32>,
+    /// Knots
+    pub knots: Vec<f32>,
 }
 impl<P: VectorSpace> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
@@ -558,7 +579,7 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
             .map(|((points, weights), knots)| {
                 // This is curve segment i. It uses control points P_i, P_i+2, P_i+2 and P_i+3,
                 // It is associated with knot span i+3 (which is the interval between knots i+3
-                // and i+4) and it's characteristic matrix uses knots i+1 through i+6 (because
+                // and i+4) and its characteristic matrix uses knots i+1 through i+6 (because
                 // those define the two knot spans on either side).
                 let span = knots[4] - knots[3];
                 let coefficient_knots = knots.try_into().expect("Knot windows are of length 6");
@@ -585,8 +606,11 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 ///
 /// ### Continuity
 /// The curve is C0 continuous, meaning it has no holes or jumps.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct LinearSpline<P: VectorSpace> {
-    points: Vec<P>,
+    /// The control points of the NURBS
+    pub points: Vec<P>,
 }
 impl<P: VectorSpace> LinearSpline<P> {
     /// Create a new linear spline
@@ -624,9 +648,11 @@ pub trait CubicGenerator<P: VectorSpace> {
 /// Can be evaluated as a parametric curve over the domain `[0, 1)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct CubicSegment<P: VectorSpace> {
-    coeff: [P; 4],
+    /// Coefficients of the segment
+    pub coeff: [P; 4],
 }
 
 impl<P: VectorSpace> CubicSegment<P> {
@@ -685,7 +711,7 @@ impl CubicSegment<Vec2> {
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
         let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
-        bezier.segments[0].clone()
+        bezier.segments[0]
     }
 
     /// Maximum allowable error for iterative Bezier solve
@@ -783,8 +809,10 @@ impl CubicSegment<Vec2> {
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCurve<P: VectorSpace> {
-    segments: Vec<CubicSegment<P>>,
+    /// Segments of the curve
+    pub segments: Vec<CubicSegment<P>>,
 }
 
 impl<P: VectorSpace> CubicCurve<P> {
@@ -914,14 +942,15 @@ pub trait RationalGenerator<P: VectorSpace> {
 /// Can be evaluated as a parametric curve over the domain `[0, knot_span)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
-    coeff: [P; 4],
+    pub coeff: [P; 4],
     /// The homogeneous weight coefficients.
-    weight_coeff: [f32; 4],
+    pub weight_coeff: [f32; 4],
     /// The width of the domain of this segment.
-    knot_span: f32,
+    pub knot_span: f32,
 }
 
 impl<P: VectorSpace> RationalSegment<P> {
@@ -1042,8 +1071,10 @@ impl<P: VectorSpace> RationalSegment<P> {
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct RationalCurve<P: VectorSpace> {
-    segments: Vec<RationalSegment<P>>,
+    /// The segments in the curve
+    pub segments: Vec<RationalSegment<P>>,
 }
 
 impl<P: VectorSpace> RationalCurve<P> {
@@ -1159,7 +1190,7 @@ impl<P: VectorSpace> RationalCurve<P> {
         }
     }
 
-    /// Returns the length of of the domain of the parametric curve.
+    /// Returns the length of the domain of the parametric curve.
     #[inline]
     pub fn domain(&self) -> f32 {
         self.segments.iter().map(|segment| segment.knot_span).sum()

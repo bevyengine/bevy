@@ -16,7 +16,7 @@
 //! for managing parent-child relationships between entities.
 //! It provides two components, [`Parent`] and [`Children`],
 //! to store references to related entities.
-//! It also provides [command] and [world] API extensions
+//! It also provides [command and world] API extensions
 //! to set and clear those relationships.
 //!
 //! More advanced users may also appreciate
@@ -44,13 +44,12 @@
 //! In most cases, these operations will invalidate the hierarchy.
 //! Instead, you should use the provided [hierarchical despawn extension methods].
 //!
-//! [command]: BuildChildren
+//! [command and world]: BuildChildren
 //! [diagnostic plugin]: ValidParentCheckPlugin
 //! [events]: HierarchyEvent
 //! [hierarchical despawn extension methods]: DespawnRecursiveExt
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
-//! [world]: BuildWorldChildren
 
 mod components;
 pub use components::*;
@@ -88,9 +87,11 @@ use bevy_app::prelude::*;
 /// Check the [crate-level documentation] for all the features.
 ///
 /// [crate-level documentation]: crate
+#[cfg(feature = "bevy_app")]
 #[derive(Default)]
 pub struct HierarchyPlugin;
 
+#[cfg(feature = "bevy_app")]
 impl Plugin for HierarchyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Children>()

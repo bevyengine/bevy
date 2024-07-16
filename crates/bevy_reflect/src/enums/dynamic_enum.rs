@@ -1,9 +1,9 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, DynamicStruct, DynamicTuple,
-    Enum, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct,
-    Tuple, TypeInfo, VariantFieldIter, VariantType,
+    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct,
+    DynamicTuple, Enum, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
 };
 
 use std::fmt::Formatter;
@@ -321,7 +321,7 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn apply(&mut self, value: &dyn PartialReflect) {
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let ReflectRef::Enum(value) = value.reflect_ref() {
             if Enum::variant_name(self) == value.variant_name() {
                 // Same variant -> just update fields
@@ -330,14 +330,14 @@ impl PartialReflect for DynamicEnum {
                         for field in value.iter_fields() {
                             let name = field.name().unwrap();
                             if let Some(v) = Enum::field_mut(self, name) {
-                                v.apply(field.value());
+                                v.try_apply(field.value())?;
                             }
                         }
                     }
                     VariantType::Tuple => {
                         for (index, field) in value.iter_fields().enumerate() {
                             if let Some(v) = Enum::field_at_mut(self, index) {
-                                v.apply(field.value());
+                                v.try_apply(field.value())?;
                             }
                         }
                     }
@@ -366,8 +366,12 @@ impl PartialReflect for DynamicEnum {
                 self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            panic!("`{}` is not an enum", value.reflect_type_path());
+            return Err(ApplyError::MismatchedKinds {
+                from_kind: value.reflect_kind(),
+                to_kind: ReflectKind::Enum,
+            });
         }
+        Ok(())
     }
 
     #[inline]

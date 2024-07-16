@@ -3,7 +3,7 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, AsyncReadExt, ErasedLoadedAsset, LoadContext, LoadDirectError,
+        AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
@@ -24,7 +24,7 @@ struct GzAssetLoader;
 /// Possible errors that can be produced by [`GzAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum GzAssetLoaderError {
+enum GzAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
@@ -42,7 +42,7 @@ impl AssetLoader for GzAssetLoader {
     type Error = GzAssetLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a (),
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
@@ -72,7 +72,11 @@ impl AssetLoader for GzAssetLoader {
         let mut reader = VecReader::new(bytes_uncompressed);
 
         let uncompressed = load_context
-            .load_direct_with_reader(&mut reader, contained_path)
+            .loader()
+            .direct()
+            .with_reader(&mut reader)
+            .untyped()
+            .load(contained_path)
             .await?;
 
         Ok(GzAsset { uncompressed })

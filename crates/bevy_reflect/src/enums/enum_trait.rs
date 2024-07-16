@@ -1,7 +1,9 @@
+use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{DynamicEnum, PartialReflect, TypePath, TypePathTable, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::slice::Iter;
+use std::sync::Arc;
 
 /// A trait used to power [enum-like] operations via [reflection].
 ///
@@ -138,6 +140,7 @@ pub struct EnumInfo {
     variants: Box<[VariantInfo]>,
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
+    custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -156,7 +159,7 @@ impl EnumInfo {
             .map(|(index, variant)| (variant.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let variant_names = variants.iter().map(|variant| variant.name()).collect();
+        let variant_names = variants.iter().map(VariantInfo::name).collect();
 
         Self {
             type_path: TypePathTable::of::<TEnum>(),
@@ -164,6 +167,7 @@ impl EnumInfo {
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
             variant_indices,
+            custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -173,6 +177,14 @@ impl EnumInfo {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Sets the custom attributes for this enum.
+    pub fn with_custom_attributes(self, custom_attributes: CustomAttributes) -> Self {
+        Self {
+            custom_attributes: Arc::new(custom_attributes),
+            ..self
+        }
     }
 
     /// A slice containing the names of all variants in order.
@@ -251,6 +263,8 @@ impl EnumInfo {
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
+
+    impl_custom_attribute_methods!(self.custom_attributes, "enum");
 }
 
 /// An iterator over the fields in the current enum variant.
@@ -280,7 +294,7 @@ impl<'a> Iterator for VariantFieldIter<'a> {
                 Some(VariantField::Struct(name, self.container.field(name)?))
             }
         };
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -307,8 +321,63 @@ impl<'a> VariantField<'a> {
     }
 
     pub fn value(&self) -> &'a dyn PartialReflect {
-        match self {
-            Self::Struct(.., value) | Self::Tuple(value) => *value,
+        match *self {
+            Self::Struct(_, value) | Self::Tuple(value) => value,
+        }
+    }
+}
+
+// Tests that need access to internal fields have to go here rather than in mod.rs
+#[cfg(test)]
+mod tests {
+    use crate as bevy_reflect;
+    use crate::*;
+
+    #[derive(Reflect, Debug, PartialEq)]
+    enum MyEnum {
+        A,
+        B(usize, i32),
+        C { foo: f32, bar: bool },
+    }
+    #[test]
+    fn next_index_increment() {
+        // unit enums always return none, so index should stay at 0
+        let unit_enum = MyEnum::A;
+        let mut iter = unit_enum.iter_fields();
+        let size = iter.len();
+        for _ in 0..2 {
+            assert!(iter.next().is_none());
+            assert_eq!(size, iter.index);
+        }
+        // tuple enums we iter over each value (unnamed fields), stop after that
+        let tuple_enum = MyEnum::B(0, 1);
+        let mut iter = tuple_enum.iter_fields();
+        let size = iter.len();
+        for _ in 0..2 {
+            let prev_index = iter.index;
+            assert!(iter.next().is_some());
+            assert_eq!(prev_index, iter.index - 1);
+        }
+        for _ in 0..2 {
+            assert!(iter.next().is_none());
+            assert_eq!(size, iter.index);
+        }
+
+        // struct enums, we iterate over each field in the struct
+        let struct_enum = MyEnum::C {
+            foo: 0.,
+            bar: false,
+        };
+        let mut iter = struct_enum.iter_fields();
+        let size = iter.len();
+        for _ in 0..2 {
+            let prev_index = iter.index;
+            assert!(iter.next().is_some());
+            assert_eq!(prev_index, iter.index - 1);
+        }
+        for _ in 0..2 {
+            assert!(iter.next().is_none());
+            assert_eq!(size, iter.index);
         }
     }
 }

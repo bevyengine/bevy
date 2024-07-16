@@ -12,6 +12,7 @@ use bevy_utils::HashMap;
 /// [`TextureAtlasBuilder`]).
 ///
 /// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
+/// [Example usage animating sprite in response to an event.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 ///
 /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
@@ -28,25 +29,6 @@ pub struct TextureAtlasLayout {
     ///
     /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
     pub(crate) texture_handles: Option<HashMap<AssetId<Image>, usize>>,
-}
-
-/// Component used to draw a specific section of a texture.
-///
-/// It stores a handle to [`TextureAtlasLayout`] and the index of the current section of the atlas.
-/// The texture atlas contains various *sections* of a given texture, allowing users to have a single
-/// image file for either sprite animation or global mapping.
-/// You can change the texture [`index`](Self::index) of the atlas to animate the sprite or display only a *section* of the texture
-/// for efficient rendering of related game objects.
-///
-/// Check the following examples for usage:
-/// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
-/// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Component, Default, Debug, Clone, Reflect)]
-pub struct TextureAtlas {
-    /// Texture atlas layout handle
-    pub layout: Handle<TextureAtlasLayout>,
-    /// Texture atlas section index
-    pub index: usize,
 }
 
 impl TextureAtlasLayout {
@@ -145,6 +127,26 @@ impl TextureAtlasLayout {
             .as_ref()
             .and_then(|texture_handles| texture_handles.get(&id).cloned())
     }
+}
+
+/// Component used to draw a specific section of a texture.
+///
+/// It stores a handle to [`TextureAtlasLayout`] and the index of the current section of the atlas.
+/// The texture atlas contains various *sections* of a given texture, allowing users to have a single
+/// image file for either sprite animation or global mapping.
+/// You can change the texture [`index`](Self::index) of the atlas to animate the sprite or display only a *section* of the texture
+/// for efficient rendering of related game objects.
+///
+/// Check the following examples for usage:
+/// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
+/// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
+/// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
+#[derive(Component, Default, Debug, Clone, Reflect)]
+pub struct TextureAtlas {
+    /// Texture atlas layout handle
+    pub layout: Handle<TextureAtlasLayout>,
+    /// Texture atlas section index
+    pub index: usize,
 }
 
 impl TextureAtlas {

@@ -6,10 +6,15 @@
 //! Same as [`super::component`], but for bundles.
 use std::any::TypeId;
 
-use crate::{prelude::Bundle, world::EntityWorldMut};
-use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, ReflectRef, TypeRegistry};
+use crate::{
+    prelude::Bundle,
+    world::{EntityMut, EntityWorldMut},
+};
+use bevy_reflect::{
+    FromReflect, FromType, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry,
+};
 
-use super::ReflectComponent;
+use super::{from_reflect_with_fallback, ReflectComponent};
 
 /// A struct used to operate on reflected [`Bundle`] trait of a type.
 ///
@@ -24,9 +29,9 @@ pub struct ReflectBundle(ReflectBundleFns);
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect),
+    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply()`].
-    pub apply: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    pub apply: fn(EntityMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply_or_insert()`].
     pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::remove()`].
@@ -39,15 +44,20 @@ impl ReflectBundleFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Bundle + Reflect + FromReflect>() -> Self {
+    pub fn new<T: Bundle + FromReflect + TypePath>() -> Self {
         <ReflectBundle as FromType<T>>::from_type().0
     }
 }
 
 impl ReflectBundle {
     /// Insert a reflected [`Bundle`] into the entity like [`insert()`](EntityWorldMut::insert).
-    pub fn insert(&self, entity: &mut EntityWorldMut, bundle: &dyn PartialReflect) {
-        (self.0.insert)(entity, bundle);
+    pub fn insert(
+        &self,
+        entity: &mut EntityWorldMut,
+        bundle: &dyn PartialReflect,
+        registry: &TypeRegistry,
+    ) {
+        (self.0.insert)(entity, bundle, registry);
     }
 
     /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value.
@@ -55,13 +65,13 @@ impl ReflectBundle {
     /// # Panics
     ///
     /// Panics if there is no [`Bundle`] of the given type.
-    pub fn apply(
+    pub fn apply<'a>(
         &self,
-        entity: &mut EntityWorldMut,
+        entity: impl Into<EntityMut<'a>>,
         bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
-        (self.0.apply)(entity, bundle, registry);
+        (self.0.apply)(entity.into(), bundle, registry);
     }
 
     /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or insert a new one if it does not exist.
@@ -114,14 +124,16 @@ impl ReflectBundle {
     }
 }
 
-impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
+impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
     fn from_type() -> Self {
         ReflectBundle(ReflectBundleFns {
-            insert: |entity, reflected_bundle| {
-                let bundle = B::from_reflect(reflected_bundle).unwrap();
+            insert: |entity, reflected_bundle, registry| {
+                let bundle = entity.world_scope(|world| {
+                    from_reflect_with_fallback::<B>(reflected_bundle, world, registry)
+                });
                 entity.insert(bundle);
             },
-            apply: |entity, reflected_bundle, registry| {
+            apply: |mut entity, reflected_bundle, registry| {
                 if let Some(reflect_component) =
                     registry.get_type_data::<ReflectComponent>(TypeId::of::<B>())
                 {
@@ -130,10 +142,10 @@ impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
                     match reflected_bundle.reflect_ref() {
                         ReflectRef::Struct(bundle) => bundle
                             .iter_fields()
-                            .for_each(|field| insert_field(entity, field, registry)),
+                            .for_each(|field| apply_field(&mut entity, field, registry)),
                         ReflectRef::Tuple(bundle) => bundle
                             .iter_fields()
-                            .for_each(|field| insert_field(entity, field, registry)),
+                            .for_each(|field| apply_field(&mut entity, field, registry)),
                         _ => panic!(
                             "expected bundle `{}` to be named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
@@ -170,32 +182,22 @@ impl<B: Bundle + Reflect + FromReflect> FromType<B> for ReflectBundle {
     }
 }
 
-fn insert_field(entity: &mut EntityWorldMut, field: &dyn PartialReflect, registry: &TypeRegistry) {
+fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &TypeRegistry) {
     let Some(type_id) = field.try_as_reflect().map(|field| field.type_id()) else {
         panic!(
             "`{}` did not implement `Reflect`",
             field.reflect_type_path()
         );
     };
-
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
-        reflect_component.apply(entity, field.as_partial_reflect());
+        reflect_component.apply(entity.reborrow(), field);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
-        reflect_bundle.apply(entity, field.as_partial_reflect(), registry);
+        reflect_bundle.apply(entity.reborrow(), field, registry);
     } else {
-        let is_component = entity.world().components().get_id(type_id).is_some();
-
-        if is_component {
-            panic!(
-                "no `ReflectComponent` registration found for `{}`",
-                field.reflect_type_path(),
-            );
-        } else {
-            panic!(
-                "no `ReflectBundle` registration found for `{}`",
-                field.reflect_type_path(),
-            )
-        }
+        panic!(
+            "no `ReflectComponent` nor `ReflectBundle` registration found for `{}`",
+            field.reflect_type_path()
+        );
     }
 }
 

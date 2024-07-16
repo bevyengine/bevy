@@ -1,5 +1,5 @@
 use crate::render_phase::{PhaseItem, TrackedRenderPass};
-use bevy_app::App;
+use bevy_app::{App, SubApp};
 use bevy_ecs::{
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyQueryData},
@@ -310,16 +310,16 @@ pub trait AddRenderCommand {
         C::Param: ReadOnlySystemParam;
 }
 
-impl AddRenderCommand for App {
+impl AddRenderCommand for SubApp {
     fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
         &mut self,
     ) -> &mut Self
     where
         C::Param: ReadOnlySystemParam,
     {
-        let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
+        let draw_function = RenderCommandState::<P, C>::new(self.world_mut());
         let draw_functions = self
-            .world
+            .world()
             .get_resource::<DrawFunctions<P>>()
             .unwrap_or_else(|| {
                 panic!(
@@ -329,6 +329,18 @@ impl AddRenderCommand for App {
                 );
             });
         draw_functions.write().add_with::<C, _>(draw_function);
+        self
+    }
+}
+
+impl AddRenderCommand for App {
+    fn add_render_command<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static>(
+        &mut self,
+    ) -> &mut Self
+    where
+        C::Param: ReadOnlySystemParam,
+    {
+        SubApp::add_render_command::<P, C>(self.main_mut());
         self
     }
 }

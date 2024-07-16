@@ -236,6 +236,10 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`List`]: crate::List
 /// [`Array`]: crate::Array
 /// [`Enum`]: crate::Enum
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not provide a reflection path",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait GetPath: PartialReflect {
     /// Returns a reference to the value specified by `path`.
     ///
@@ -500,7 +504,6 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::*;
-    use error::AccessErrorKind;
 
     #[derive(Reflect)]
     struct A {

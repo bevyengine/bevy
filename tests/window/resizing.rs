@@ -36,14 +36,7 @@ fn main() {
         })
         .insert_resource(ContractingY)
         .add_systems(Startup, (setup_3d, setup_2d))
-        .add_systems(
-            Update,
-            (
-                change_window_size,
-                sync_dimensions,
-                bevy::window::close_on_esc,
-            ),
-        )
+        .add_systems(Update, (change_window_size, sync_dimensions))
         .run();
 }
 

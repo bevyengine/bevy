@@ -50,6 +50,18 @@ mod tests {
             if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<usize>());
                 assert!(variant.field_at(1).unwrap().is::<i32>());
+                assert!(variant
+                    .field_at(0)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<usize>());
+                assert!(variant
+                    .field_at(1)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<i32>());
             } else {
                 panic!("Expected `VariantInfo::Tuple`");
             }
@@ -60,6 +72,12 @@ mod tests {
             if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<f32>());
                 assert!(variant.field("foo").unwrap().is::<f32>());
+                assert!(variant
+                    .field("foo")
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<f32>());
             } else {
                 panic!("Expected `VariantInfo::Struct`");
             }
@@ -283,12 +301,46 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "`bevy_reflect::DynamicTuple` is not an enum")]
+    #[should_panic(
+        expected = "called `Result::unwrap()` on an `Err` value: MismatchedKinds { from_kind: Tuple, to_kind: Enum }"
+    )]
     fn applying_non_enum_should_panic() {
         let mut value = MyEnum::B(0, 0);
         let mut dyn_tuple = DynamicTuple::default();
         dyn_tuple.insert((123_usize, 321_i32));
         value.apply(&dyn_tuple);
+    }
+
+    #[test]
+    fn enum_try_apply_should_detect_type_mismatch() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum MyEnumAnalogue {
+            A(u32),
+            B(usize, usize),
+            C { foo: f32, bar: u8 },
+        }
+
+        let mut target = MyEnumAnalogue::A(0);
+
+        // === Tuple === //
+        let result = target.try_apply(&MyEnum::B(0, 1));
+        assert!(
+            matches!(result, Err(ApplyError::MismatchedTypes { .. })),
+            "`result` was {result:?}"
+        );
+
+        // === Struct === //
+        target = MyEnumAnalogue::C { foo: 0.0, bar: 1 };
+        let result = target.try_apply(&MyEnum::C {
+            foo: 1.0,
+            bar: true,
+        });
+        assert!(
+            matches!(result, Err(ApplyError::MismatchedTypes { .. })),
+            "`result` was {result:?}"
+        );
+        // Type mismatch should occur after partial application.
+        assert_eq!(target, MyEnumAnalogue::C { foo: 1.0, bar: 1 });
     }
 
     #[test]

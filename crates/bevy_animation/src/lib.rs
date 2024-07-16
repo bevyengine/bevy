@@ -39,7 +39,6 @@ use graph::{AnimationGraph, AnimationNodeIndex};
 use petgraph::graph::NodeIndex;
 use petgraph::Direction;
 use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
-use sha1_smol::Sha1;
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
@@ -108,7 +107,7 @@ pub struct VariableCurve {
     ///
     /// - for `Interpolation::Step` and `Interpolation::Linear`, each keyframe is a single value
     /// - for `Interpolation::CubicSpline`, each keyframe is made of three values for `tangent_in`,
-    /// `keyframe_value` and `tangent_out`
+    ///     `keyframe_value` and `tangent_out`
     pub keyframes: Keyframes,
     /// Interpolation method to use between keyframes.
     pub interpolation: Interpolation,
@@ -129,7 +128,7 @@ impl VariableCurve {
             .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
 
         // Subtract one for zero indexing!
-        let last_keyframe = self.keyframes.len() - 1;
+        let last_keyframe = self.keyframe_timestamps.len() - 1;
 
         // We want to find the index of the keyframe before the current time
         // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
@@ -237,7 +236,7 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Component, Reflect)]
+#[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, MapEntities)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
@@ -256,6 +255,12 @@ impl AnimationClip {
         &self.curves
     }
 
+    #[inline]
+    /// Get mutable references of [`VariableCurve`]s for each animation target. Indexed by the [`AnimationTargetId`].
+    pub fn curves_mut(&mut self) -> &mut AnimationCurves {
+        &mut self.curves
+    }
+
     /// Gets the curves for a single animation target.
     ///
     /// Returns `None` if this clip doesn't animate the target.
@@ -267,10 +272,27 @@ impl AnimationClip {
         self.curves.get(&target_id)
     }
 
+    /// Gets mutable references of the curves for a single animation target.
+    ///
+    /// Returns `None` if this clip doesn't animate the target.
+    #[inline]
+    pub fn curves_for_target_mut(
+        &mut self,
+        target_id: AnimationTargetId,
+    ) -> Option<&'_ mut Vec<VariableCurve>> {
+        self.curves.get_mut(&target_id)
+    }
+
     /// Duration of the clip, represented in seconds.
     #[inline]
     pub fn duration(&self) -> f32 {
         self.duration
+    }
+
+    /// Set the duration of the clip in seconds.
+    #[inline]
+    pub fn set_duration(&mut self, duration_sec: f32) {
+        self.duration = duration_sec;
     }
 
     /// Adds a [`VariableCurve`] to an [`AnimationTarget`] named by an
@@ -304,7 +326,7 @@ pub enum RepeatAnimation {
 /// playing, but is presently paused.
 ///
 /// An stopped animation is considered no longer active.
-#[derive(Debug, Reflect)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
     weight: f32,
@@ -493,6 +515,21 @@ pub struct AnimationPlayer {
     blend_weights: HashMap<AnimationNodeIndex, f32>,
 }
 
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl Clone for AnimationPlayer {
+    fn clone(&self) -> Self {
+        Self {
+            active_animations: self.active_animations.clone(),
+            blend_weights: self.blend_weights.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.active_animations.clone_from(&source.active_animations);
+        self.blend_weights.clone_from(&source.blend_weights);
+    }
+}
+
 /// The components that we might need to read or write during animation of each
 /// animation target.
 struct AnimationTargetContext<'a> {
@@ -575,7 +612,7 @@ impl AnimationPlayer {
     pub fn all_finished(&self) -> bool {
         self.active_animations
             .values()
-            .all(|playing_animation| playing_animation.is_finished())
+            .all(ActiveAnimation::is_finished)
     }
 
     /// Check if all playing animations are paused.
@@ -583,7 +620,7 @@ impl AnimationPlayer {
     pub fn all_paused(&self) -> bool {
         self.active_animations
             .values()
-            .all(|playing_animation| playing_animation.is_paused())
+            .all(ActiveAnimation::is_paused)
     }
 
     /// Resume all playing animations.
@@ -920,13 +957,10 @@ impl AnimationTargetContext<'_> {
                 };
 
                 let rot_start = keyframes[step_start];
-                let mut rot_end = keyframes[step_start + 1];
-                // Choose the smallest angle for the rotation
-                if rot_end.dot(rot_start) < 0.0 {
-                    rot_end = -rot_end;
-                }
+                let rot_end = keyframes[step_start + 1];
+
                 // Rotations are using a spherical linear interpolation
-                let rot = rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                let rot = rot_start.slerp(rot_end, lerp);
                 transform.rotation = transform.rotation.slerp(rot, weight);
             }
 
@@ -1160,10 +1194,12 @@ impl AnimationTargetId {
     /// Typically, this will be the path from the animation root to the
     /// animation target (e.g. bone) that is to be animated.
     pub fn from_names<'a>(names: impl Iterator<Item = &'a Name>) -> Self {
-        let mut sha1 = Sha1::new();
-        sha1.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
-        names.for_each(|name| sha1.update(name.as_bytes()));
-        let hash = sha1.digest().bytes()[0..16].try_into().unwrap();
+        let mut blake3 = blake3::Hasher::new();
+        blake3.update(ANIMATION_TARGET_NAMESPACE.as_bytes());
+        for name in names {
+            blake3.update(name.as_bytes());
+        }
+        let hash = blake3.finalize().as_bytes()[0..16].try_into().unwrap();
         Self(*uuid::Builder::from_sha1_bytes(hash).as_uuid())
     }
 

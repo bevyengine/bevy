@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use bevy::{
     ecs::{
         component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
-        query::{QueryBuilder, QueryData},
+        query::QueryData,
         world::FilteredEntityMut,
     },
     ptr::{Aligned, OwningPtr},
@@ -79,7 +79,7 @@ fn main() {
                     let Some(name) = component.next() else {
                         return;
                     };
-                    let size = match component.next().map(|s| s.parse::<usize>()) {
+                    let size = match component.next().map(str::parse) {
                         Some(Ok(size)) => size,
                         _ => 0,
                     };

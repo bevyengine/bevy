@@ -1,10 +1,9 @@
 use crate::{
     define_atomic_id,
-    prelude::Image,
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
-    texture::FallbackImage,
+    texture::{FallbackImage, GpuImage},
 };
 pub use bevy_render_macros::AsBindGroup;
 use encase::ShaderType;
@@ -58,14 +57,14 @@ impl Deref for BindGroup {
 ///
 /// This is an opinionated trait that is intended to make it easy to generically
 /// convert a type into a [`BindGroup`]. It provides access to specific render resources,
-/// such as [`RenderAssets<Image>`] and [`FallbackImage`]. If a type has a [`Handle<Image>`](bevy_asset::Handle),
+/// such as [`RenderAssets<GpuImage>`] and [`FallbackImage`]. If a type has a [`Handle<Image>`](bevy_asset::Handle),
 /// these can be used to retrieve the corresponding [`Texture`](crate::render_resource::Texture) resource.
 ///
 /// [`AsBindGroup::as_bind_group`] is intended to be called once, then the result cached somewhere. It is generally
 /// ok to do "expensive" work here, such as creating a [`Buffer`] for a uniform.
 ///
 /// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::render_resource::Texture)
-/// for an [`Image`] hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
+/// for an [`Image`](crate::texture::Image) hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
 /// should retry again later.
 ///
 /// # Deriving
@@ -109,15 +108,15 @@ impl Deref for BindGroup {
 ///
 /// * `uniform(BINDING_INDEX)`
 ///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
-///     [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
-///   [`LinearRgba`](bevy_color::LinearRgba). It can also be derived for custom structs.
+///         [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
+///         [`LinearRgba`](bevy_color::LinearRgba). It can also be derived for custom structs.
 ///
 /// * `texture(BINDING_INDEX, arguments)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
-///     GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
-///    (with a different binding index) if a binding of the sampler for the [`Image`] is also required.
+///         GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///         [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
+///         (with a different binding index) if a binding of the sampler for the [`Image`](crate::texture::Image) is also required.
 ///
 /// | Arguments             | Values                                                                  | Default              |
 /// |-----------------------|-------------------------------------------------------------------------|----------------------|
@@ -129,9 +128,9 @@ impl Deref for BindGroup {
 ///
 /// * `storage_texture(BINDING_INDEX, arguments)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
-///     GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///     [`None`], the [`FallbackImage`] resource will be used instead.
+///         GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///         [`None`], the [`FallbackImage`] resource will be used instead.
 ///
 /// | Arguments              | Values                                                                                     | Default       |
 /// |------------------------|--------------------------------------------------------------------------------------------|---------------|
@@ -142,10 +141,10 @@ impl Deref for BindGroup {
 ///
 /// * `sampler(BINDING_INDEX, arguments)`
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
-///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
-///     (with a different binding index) if a binding of the texture for the [`Image`] is also required.
+///         resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///         [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
+///         (with a different binding index) if a binding of the texture for the [`Image`](crate::texture::Image) is also required.
 ///
 /// | Arguments              | Values                                                                  | Default                |
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
@@ -217,16 +216,16 @@ impl Deref for BindGroup {
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
 /// * `uniform(BINDING_INDEX, ConvertedShaderType)`
 ///     * This also creates a [`Buffer`] using [`ShaderType`] and binds it as a uniform, much
-///     much like the field-level `uniform` attribute. The difference is that the entire [`AsBindGroup`] value is converted to `ConvertedShaderType`,
-///     which must implement [`ShaderType`], instead of a specific field implementing [`ShaderType`]. This is useful if more complicated conversion
-///     logic is required. The conversion is done using the [`AsBindGroupShaderType<ConvertedShaderType>`] trait, which is automatically implemented
-///     if `&Self` implements [`Into<ConvertedShaderType>`]. Only use [`AsBindGroupShaderType`] if access to resources like [`RenderAssets<Image>`] is
-///     required.
+///         like the field-level `uniform` attribute. The difference is that the entire [`AsBindGroup`] value is converted to `ConvertedShaderType`,
+///         which must implement [`ShaderType`], instead of a specific field implementing [`ShaderType`]. This is useful if more complicated conversion
+///         logic is required. The conversion is done using the [`AsBindGroupShaderType<ConvertedShaderType>`] trait, which is automatically implemented
+///         if `&Self` implements [`Into<ConvertedShaderType>`]. Only use [`AsBindGroupShaderType`] if access to resources like [`RenderAssets<GpuImage>`] is
+///         required.
 /// * `bind_group_data(DataType)`
 ///     * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
-///     as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
-///     the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
-///     is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
+///         as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
+///         the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
+///         is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
 ///
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
@@ -295,7 +294,7 @@ pub trait AsBindGroup {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let UnpreparedBindGroup { bindings, data } =
@@ -326,7 +325,7 @@ pub trait AsBindGroup {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        images: &RenderAssets<GpuImage>,
         fallback_image: &FallbackImage,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
@@ -396,7 +395,7 @@ impl OwnedBindingResource {
 pub trait AsBindGroupShaderType<T: ShaderType> {
     /// Return the `T` [`ShaderType`] for `self`. When used in [`AsBindGroup`]
     /// derives, it is safe to assume that all images in `self` exist.
-    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> T;
+    fn as_bind_group_shader_type(&self, images: &RenderAssets<GpuImage>) -> T;
 }
 
 impl<T, U: ShaderType> AsBindGroupShaderType<U> for T
@@ -404,7 +403,7 @@ where
     for<'a> &'a T: Into<U>,
 {
     #[inline]
-    fn as_bind_group_shader_type(&self, _images: &RenderAssets<Image>) -> U {
+    fn as_bind_group_shader_type(&self, _images: &RenderAssets<GpuImage>) -> U {
         self.into()
     }
 }
@@ -412,7 +411,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_render;
+    use crate::{self as bevy_render, prelude::Image};
     use bevy_asset::Handle;
 
     #[test]

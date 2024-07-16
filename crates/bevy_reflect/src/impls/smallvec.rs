@@ -1,18 +1,18 @@
 use bevy_reflect_derive::impl_type_path;
-use smallvec::SmallVec;
+use smallvec::{Array as SmallArray, SmallVec};
 
 use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter,
-    PartialReflect, Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypePath, TypeRegistration, Typed,
+    self as bevy_reflect, ApplyError, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
+    ListIter, MaybeTyped, PartialReflect, Reflect, ReflectFromPtr, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
 };
 
-impl<T: smallvec::Array + TypePath + Send + Sync> List for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
 where
-    T::Item: FromReflect + TypePath,
+    T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
         if index < SmallVec::len(self) {
@@ -32,7 +32,7 @@ where
 
     fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
         let value = value.try_take::<T::Item>().unwrap_or_else(|value| {
-            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to insert invalid value of type {}.",
                     value.reflect_type_path()
@@ -48,7 +48,7 @@ where
 
     fn push(&mut self, value: Box<dyn PartialReflect>) {
         let value = value.try_take::<T::Item>().unwrap_or_else(|value| {
-            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
                     value.reflect_type_path()
@@ -77,9 +77,9 @@ where
             .collect()
     }
 }
-impl<T: smallvec::Array + TypePath + Send + Sync> PartialReflect for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
-    T::Item: FromReflect + TypePath,
+    T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -114,6 +114,10 @@ where
         crate::list_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        crate::list_try_apply(self, value)
+    }
+
     fn reflect_kind(&self) -> ReflectKind {
         ReflectKind::List
     }
@@ -139,9 +143,9 @@ where
     }
 }
 
-impl<T: smallvec::Array + TypePath + Send + Sync> Reflect for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> Reflect for SmallVec<T>
 where
-    T::Item: FromReflect + TypePath,
+    T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -173,9 +177,9 @@ where
     }
 }
 
-impl<T: smallvec::Array + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync + 'static> Typed for SmallVec<T>
 where
-    T::Item: FromReflect + TypePath,
+    T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -183,17 +187,17 @@ where
     }
 }
 
-impl_type_path!(::smallvec::SmallVec<T: smallvec::Array>);
+impl_type_path!(::smallvec::SmallVec<T: SmallArray>);
 
-impl<T: smallvec::Array + TypePath + Send + Sync> FromReflect for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where
-    T::Item: FromReflect + TypePath,
+    T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut new_list = Self::with_capacity(ref_list.len());
             for field in ref_list.iter() {
-                new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
+                new_list.push(<T as SmallArray>::Item::from_reflect(field)?);
             }
             Some(new_list)
         } else {
@@ -202,9 +206,9 @@ where
     }
 }
 
-impl<T: smallvec::Array + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
+impl<T: SmallArray + TypePath + Send + Sync> GetTypeRegistration for SmallVec<T>
 where
-    T::Item: FromReflect + TypePath,
+    T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<SmallVec<T>>();
@@ -212,3 +216,6 @@ where
         registration
     }
 }
+
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(SmallVec<T>; <T: SmallArray + TypePath + Send + Sync> where T::Item: FromReflect + MaybeTyped + TypePath);

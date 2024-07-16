@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::css::{ORANGE, SILVER, WHITE},
-    math::{cubic_splines::CubicCurve, vec3},
+    math::vec3,
     prelude::*,
 };
 

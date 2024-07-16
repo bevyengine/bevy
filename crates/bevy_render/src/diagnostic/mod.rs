@@ -52,18 +52,18 @@ impl Plugin for RenderDiagnosticsPlugin {
         app.insert_resource(render_diagnostics_mutex.clone())
             .add_systems(PreUpdate, sync_diagnostics);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.insert_resource(render_diagnostics_mutex);
         }
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let device = render_app.world.resource::<RenderDevice>();
-        let queue = render_app.world.resource::<RenderQueue>();
+        let device = render_app.world().resource::<RenderDevice>();
+        let queue = render_app.world().resource::<RenderQueue>();
         render_app.insert_resource(DiagnosticsRecorder::new(device, queue));
     }
 }

@@ -1,7 +1,9 @@
 use crate::{
-    color_difference::EuclideanDistance, Alpha, ClampColor, Hsla, Hsva, Hue, Hwba, Laba, Lcha,
-    LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
+    color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
+    Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// Color in Oklch color space, with alpha
@@ -9,11 +11,11 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Oklcha {
@@ -118,6 +120,11 @@ impl Mix for Oklcha {
     }
 }
 
+impl Gray for Oklcha {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(1.0, 0.000000059604645, 90.0, 1.0);
+}
+
 impl Alpha for Oklcha {
     #[inline]
     fn with_alpha(&self, alpha: f32) -> Self {
@@ -190,6 +197,60 @@ impl EuclideanDistance for Oklcha {
     }
 }
 
+impl ColorToComponents for Oklcha {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.lightness, self.chroma, self.hue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.lightness, self.chroma, self.hue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.lightness, self.chroma, self.hue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.lightness, self.chroma, self.hue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            chroma: color[1],
+            hue: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl From<Oklaba> for Oklcha {
     fn from(
         Oklaba {
@@ -222,24 +283,6 @@ impl From<Oklcha> for Oklaba {
         let b = chroma * hue.to_radians().sin();
 
         Oklaba::new(l, a, b, alpha)
-    }
-}
-
-impl ClampColor for Oklcha {
-    fn clamped(&self) -> Self {
-        Self {
-            lightness: self.lightness.clamp(0., 1.),
-            chroma: self.chroma.clamp(0., 1.),
-            hue: self.hue.rem_euclid(360.),
-            alpha: self.alpha.clamp(0., 1.),
-        }
-    }
-
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.).contains(&self.lightness)
-            && (0. ..=1.).contains(&self.chroma)
-            && (0. ..=360.).contains(&self.hue)
-            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -344,7 +387,7 @@ impl From<Oklcha> for Xyza {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{test_colors::TEST_COLORS, testing::assert_approx_eq, Srgba};
+    use crate::{test_colors::TEST_COLORS, testing::assert_approx_eq};
 
     #[test]
     fn test_to_from_srgba() {
@@ -388,22 +431,5 @@ mod tests {
         assert_approx_eq!(oklcha.chroma, oklcha2.chroma, 0.001);
         assert_approx_eq!(oklcha.hue, oklcha2.hue, 0.001);
         assert_approx_eq!(oklcha.alpha, oklcha2.alpha, 0.001);
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Oklcha::lch(-1., 2., 400.);
-        let color_2 = Oklcha::lch(1., 1., 249.54);
-        let mut color_3 = Oklcha::lch(-0.4, 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Oklcha::lch(0., 1., 40.));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Oklcha::lch(0., 1., 1.));
     }
 }

@@ -1,6 +1,7 @@
 [package]
 name = "bevy_mobile_example"
-version = "0.1.0"
+# Version is required by `cargo-apk`, though this value will never change.
+version = "0.0.0"
 edition = "2021"
 description = "Example for building an iOS or Android app with Bevy"
 publish = false

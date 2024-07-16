@@ -54,7 +54,7 @@ use std::any::Any;
 ///     }
 /// }
 /// # fn damp_flickering() {}
-/// ````
+/// ```
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
@@ -100,10 +100,34 @@ impl<T: Fn(&mut App) + Send + Sync + 'static> Plugin for T {
     }
 }
 
+/// Plugins state in the application
+#[derive(PartialEq, Eq, Debug, Clone, Copy, PartialOrd, Ord)]
+pub enum PluginsState {
+    /// Plugins are being added.
+    Adding,
+    /// All plugins already added are ready.
+    Ready,
+    /// Finish has been executed for all plugins added.
+    Finished,
+    /// Cleanup has been executed for all plugins added.
+    Cleaned,
+}
+
+/// A dummy plugin that's to temporarily occupy an entry in an app's plugin registry.
+pub(crate) struct PlaceholderPlugin;
+
+impl Plugin for PlaceholderPlugin {
+    fn build(&self, _app: &mut App) {}
+}
+
 /// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
 /// It is used for dynamically loading plugins.
 ///
 /// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
+#[deprecated(
+    since = "0.14.0",
+    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
+)]
 pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
 
 /// Types that represent a set of [`Plugin`]s.

@@ -456,7 +456,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style.clone(),
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Play,
@@ -477,7 +477,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style.clone(),
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Settings,
@@ -498,7 +498,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Quit,
@@ -567,7 +567,7 @@ mod menu {
                                 .spawn((
                                     ButtonBundle {
                                         style: button_style.clone(),
-                                        image: UiImage::default().with_color(NORMAL_BUTTON),
+                                        background_color: NORMAL_BUTTON.into(),
                                         ..default()
                                     },
                                     action,
@@ -654,7 +654,7 @@ mod menu {
                                                 height: Val::Px(65.0),
                                                 ..button_style.clone()
                                             },
-                                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                                            background_color: NORMAL_BUTTON.into(),
                                             ..default()
                                         },
                                         quality_setting,
@@ -675,7 +675,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::BackToSettings,
@@ -750,7 +750,7 @@ mod menu {
                                                 height: Val::Px(65.0),
                                                 ..button_style.clone()
                                             },
-                                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                                            background_color: NORMAL_BUTTON.into(),
                                             ..default()
                                         },
                                         Volume(volume_setting),
@@ -764,7 +764,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::BackToSettings,
@@ -789,7 +789,7 @@ mod menu {
             if *interaction == Interaction::Pressed {
                 match menu_button_action {
                     MenuButtonAction::Quit => {
-                        app_exit_events.send(AppExit);
+                        app_exit_events.send(AppExit::Success);
                     }
                     MenuButtonAction::Play => {
                         game_state.set(GameState::Game);

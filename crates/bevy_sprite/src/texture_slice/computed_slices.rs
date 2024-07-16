@@ -53,9 +53,20 @@ impl ComputedTextureSlices {
                 flip_x,
                 flip_y,
                 image_handle_id: handle.id(),
-                anchor: sprite.anchor.as_vec(),
+                anchor: Self::redepend_anchor_from_sprite_to_slice(sprite, slice),
             }
         })
+    }
+
+    fn redepend_anchor_from_sprite_to_slice(sprite: &Sprite, slice: &TextureSlice) -> Vec2 {
+        let sprite_size = sprite
+            .custom_size
+            .unwrap_or(sprite.rect.unwrap_or_default().size());
+        if sprite_size == Vec2::ZERO {
+            sprite.anchor.as_vec()
+        } else {
+            sprite.anchor.as_vec() * sprite_size / slice.draw_size
+        }
     }
 }
 
@@ -71,7 +82,7 @@ impl ComputedTextureSlices {
 /// * `image_handle` - The texture to slice or tile
 /// * `images` - The image assets, use to retrieve the image dimensions
 /// * `atlas` - Optional texture atlas, if set the slicing will happen on the matching sub section
-/// of the texture
+///     of the texture
 /// * `atlas_layouts` - The atlas layout assets, used to retrieve the texture atlas section rect
 #[must_use]
 fn compute_sprite_slices(

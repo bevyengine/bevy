@@ -16,13 +16,13 @@ use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
 /// [`InstanceId`] of a spawned scene. It can be used with the [`SceneSpawner`] to
 /// interact with the spawned scene.
 #[derive(Component, Deref, DerefMut)]
-pub struct SceneInstance(InstanceId);
+pub struct SceneInstance(pub(crate) InstanceId);
 
 /// A component bundle for a [`Scene`] root.
 ///
 /// The scene from `scene` will be spawned as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
-#[derive(Default, Bundle)]
+#[derive(Default, Bundle, Clone)]
 pub struct SceneBundle {
     /// Handle to the scene to spawn.
     pub scene: Handle<Scene>,
@@ -46,7 +46,7 @@ pub struct SceneBundle {
 ///
 /// The dynamic scene from `scene` will be spawn as a child of the entity with this component.
 /// Once it's spawned, the entity will have a [`SceneInstance`] component.
-#[derive(Default, Bundle)]
+#[derive(Default, Bundle, Clone)]
 pub struct DynamicSceneBundle {
     /// Handle to the scene to spawn.
     pub scene: Handle<DynamicScene>,
@@ -132,15 +132,18 @@ mod tests {
         let mut scene_world = World::new();
 
         // create a new DynamicScene manually
-        let type_registry = app.world.resource::<AppTypeRegistry>().clone();
+        let type_registry = app.world().resource::<AppTypeRegistry>().clone();
         scene_world.insert_resource(type_registry);
         scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
         let scene = DynamicScene::from_world(&scene_world);
-        let scene_handle = app.world.resource_mut::<Assets<DynamicScene>>().add(scene);
+        let scene_handle = app
+            .world_mut()
+            .resource_mut::<Assets<DynamicScene>>()
+            .add(scene);
 
         // spawn the scene as a child of `entity` using the `DynamicSceneBundle`
         let entity = app
-            .world
+            .world_mut()
             .spawn(DynamicSceneBundle {
                 scene: scene_handle.clone(),
                 ..default()
@@ -152,24 +155,27 @@ mod tests {
 
         // make sure that the scene was added as a child of the root entity
         let (scene_entity, scene_component_a) = app
-            .world
+            .world_mut()
             .query::<(Entity, &ComponentA)>()
-            .single(&app.world);
+            .single(app.world());
         assert_eq!(scene_component_a.x, 3.0);
         assert_eq!(scene_component_a.y, 4.0);
-        assert_eq!(app.world.entity(entity).get::<Children>().unwrap().len(), 1);
+        assert_eq!(
+            app.world().entity(entity).get::<Children>().unwrap().len(),
+            1
+        );
 
         // let's try to delete the scene
-        let mut scene_spawner = app.world.resource_mut::<SceneSpawner>();
+        let mut scene_spawner = app.world_mut().resource_mut::<SceneSpawner>();
         scene_spawner.despawn(&scene_handle);
 
         // run the scene spawner system to despawn the scene
         app.update();
 
         // the scene entity does not exist anymore
-        assert!(app.world.get_entity(scene_entity).is_none());
+        assert!(app.world().get_entity(scene_entity).is_none());
 
         // the root entity does not have any children anymore
-        assert!(app.world.entity(entity).get::<Children>().is_none());
+        assert!(app.world().entity(entity).get::<Children>().is_none());
     }
 }

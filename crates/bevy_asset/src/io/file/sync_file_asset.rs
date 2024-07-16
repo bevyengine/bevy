@@ -1,4 +1,4 @@
-use futures_io::{AsyncRead, AsyncWrite};
+use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::Stream;
 
 use crate::io::{
@@ -8,7 +8,7 @@ use crate::io::{
 
 use std::{
     fs::{read_dir, File},
-    io::{Read, Write},
+    io::{Read, Seek, Write},
     path::{Path, PathBuf},
     pin::Pin,
     task::Poll,
@@ -27,6 +27,28 @@ impl AsyncRead for FileReader {
         let this = self.get_mut();
         let read = this.0.read(buf);
         Poll::Ready(read)
+    }
+}
+
+impl AsyncSeek for FileReader {
+    fn poll_seek(
+        self: Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        pos: std::io::SeekFrom,
+    ) -> Poll<std::io::Result<u64>> {
+        let this = self.get_mut();
+        let seek = this.0.seek(pos);
+        Poll::Ready(seek)
+    }
+}
+
+impl Reader for FileReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { crate::io::STACK_FUTURE_SIZE }>
+    {
+        stackfuture::StackFuture::from(async { self.0.read_to_end(buf) })
     }
 }
 
@@ -75,13 +97,10 @@ impl Stream for DirReader {
 }
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         match File::open(&full_path) {
-            Ok(file) => {
-                let reader: Box<Reader> = Box::new(FileReader(file));
-                Ok(reader)
-            }
+            Ok(file) => Ok(FileReader(file)),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))
@@ -92,14 +111,11 @@ impl AssetReader for FileAssetReader {
         }
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(path);
         let full_path = self.root_path.join(meta_path);
         match File::open(&full_path) {
-            Ok(file) => {
-                let reader: Box<Reader> = Box::new(FileReader(file));
-                Ok(reader)
-            }
+            Ok(file) => Ok(FileReader(file)),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Err(AssetReaderError::NotFound(full_path))

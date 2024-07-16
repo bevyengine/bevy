@@ -8,6 +8,8 @@ use std::{
     fmt::Debug,
 };
 
+use thiserror::Error;
+
 use crate::utility::NonGenericTypeInfoCell;
 
 macro_rules! impl_reflect_enum {
@@ -99,6 +101,42 @@ pub enum ReflectOwned {
 }
 impl_reflect_enum!(ReflectOwned);
 
+/// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
+#[derive(Error, Debug)]
+pub enum ApplyError {
+    #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    MismatchedKinds {
+        from_kind: ReflectKind,
+        to_kind: ReflectKind,
+    },
+
+    #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
+    /// Enum variant that we tried to apply to was missing a field.
+    MissingEnumField {
+        variant_name: Box<str>,
+        field_name: Box<str>,
+    },
+
+    #[error("`{from_type}` is not `{to_type}`")]
+    /// Tried to apply incompatible types.
+    MismatchedTypes {
+        from_type: Box<str>,
+        to_type: Box<str>,
+    },
+
+    #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
+    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
+    DifferentSize { from_size: usize, to_size: usize },
+
+    #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
+    /// The enum we tried to apply to didn't contain a variant with the give name.
+    UnknownVariant {
+        enum_name: Box<str>,
+        variant_name: Box<str>,
+    },
+}
+
 /// A zero-sized enumuration of the "kinds" of a reflected type.
 ///
 /// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
@@ -141,6 +179,10 @@ impl std::fmt::Display for ReflectKind {
 /// [`bevy_reflect`]: crate
 /// [derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be reflected",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait PartialReflect: DynamicTypePath + Send + Sync
 where
     // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
@@ -227,7 +269,20 @@ where
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
-    fn apply(&mut self, value: &dyn PartialReflect);
+    fn apply(&mut self, value: &dyn PartialReflect) {
+        PartialReflect::try_apply(self, value).unwrap();
+    }
+
+    /// Tries to [`apply`](PartialReflect::apply) a reflected value to this value.
+    ///
+    /// Functions the same as the [`apply`](PartialReflect::apply) function but returns an error instead of
+    /// panicking.
+    ///
+    /// # Handling Errors
+    ///
+    /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
+    /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError>;
 
     /// Returns a zero-sized enumeration of "kinds" of type.
     ///
@@ -318,6 +373,10 @@ where
     }
 }
 
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be fully reflected",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait Reflect: PartialReflect + Any {
     /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;

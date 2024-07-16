@@ -88,7 +88,7 @@ impl ComputedTextureSlices {
 /// * `image_handle` - The texture to slice or tile
 /// * `images` - The image assets, use to retrieve the image dimensions
 /// * `atlas` - Optional texture atlas, if set the slicing will happen on the matching sub section
-/// of the texture
+///     of the texture
 /// * `atlas_layouts` - The atlas layout assets, used to retrieve the texture atlas section rect
 #[must_use]
 fn compute_texture_slices(
@@ -177,7 +177,7 @@ pub(crate) fn compute_slices_on_asset_event(
             atlas,
             &atlas_layouts,
         ) {
-            commands.entity(entity).insert(slices);
+            commands.entity(entity).try_insert(slices);
         }
     }
 }
@@ -213,7 +213,7 @@ pub(crate) fn compute_slices_on_image_change(
             atlas,
             &atlas_layouts,
         ) {
-            commands.entity(entity).insert(slices);
+            commands.entity(entity).try_insert(slices);
         }
     }
 }

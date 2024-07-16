@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::{borrow::Cow, collections::VecDeque};
 
-use bevy_app::App;
+use bevy_app::{App, SubApp};
 use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
 use bevy_utils::{hashbrown::HashMap, Duration, Instant, PassHash};
 use const_fnv1a_hash::fnv1a_hash_str_64;
@@ -383,10 +383,6 @@ impl SystemBuffer for DiagnosticsBuffer {
 
 /// Extend [`App`] with new `register_diagnostic` function.
 pub trait RegisterDiagnostic {
-    fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self;
-}
-
-impl RegisterDiagnostic for App {
     /// Register a new [`Diagnostic`] with an [`App`].
     ///
     /// Will initialize a [`DiagnosticsStore`] if it doesn't exist.
@@ -402,11 +398,22 @@ impl RegisterDiagnostic for App {
     ///     .add_plugins(DiagnosticsPlugin)
     ///     .run();
     /// ```
+    fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self;
+}
+
+impl RegisterDiagnostic for SubApp {
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
         self.init_resource::<DiagnosticsStore>();
-        let mut diagnostics = self.world.resource_mut::<DiagnosticsStore>();
+        let mut diagnostics = self.world_mut().resource_mut::<DiagnosticsStore>();
         diagnostics.add(diagnostic);
 
+        self
+    }
+}
+
+impl RegisterDiagnostic for App {
+    fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
+        SubApp::register_diagnostic(self.main_mut(), diagnostic);
         self
     }
 }

@@ -1,9 +1,11 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
-    TypePath, TypePathTable,
+    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind,
+    StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
+use thiserror::Error;
 
 /// A static accessor to compile-time type information.
 ///
@@ -25,7 +27,7 @@ use std::fmt::Debug;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -60,7 +62,7 @@ use std::fmt::Debug;
 /// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
-/// #     fn apply(&mut self, value: &dyn PartialReflect) { todo!() }
+/// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
 /// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
@@ -78,11 +80,67 @@ use std::fmt::Debug;
 /// ```
 ///
 /// [utility]: crate::utility
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not provide type information through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait Typed: Reflect + TypePath {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo
     fn type_info() -> &'static TypeInfo;
+}
+
+/// A wrapper trait around [`Typed`].
+///
+/// This trait is used to provide a way to get compile-time type information for types that
+/// do implement `Typed` while also allowing for types that do not implement `Typed` to be used.
+/// It's used instead of `Typed` directly to avoid making dynamic types also
+/// implement `Typed` in order to be used as active fields.
+///
+/// This trait has a blanket implementation for all types that implement `Typed`
+/// and manual implementations for all dynamic types (which simply return `None`).
+#[doc(hidden)]
+pub trait MaybeTyped: PartialReflect {
+    /// Returns the compile-time [info] for the underlying type, if it exists.
+    ///
+    /// [info]: TypeInfo
+    fn maybe_type_info() -> Option<&'static TypeInfo> {
+        None
+    }
+}
+
+impl<T: Typed> MaybeTyped for T {
+    fn maybe_type_info() -> Option<&'static TypeInfo> {
+        Some(T::type_info())
+    }
+}
+
+impl MaybeTyped for DynamicEnum {}
+
+impl MaybeTyped for DynamicTupleStruct {}
+
+impl MaybeTyped for DynamicStruct {}
+
+impl MaybeTyped for DynamicMap {}
+
+impl MaybeTyped for DynamicList {}
+
+impl MaybeTyped for DynamicArray {}
+
+impl MaybeTyped for DynamicTuple {}
+
+/// A [`TypeInfo`]-specific error.
+#[derive(Debug, Error)]
+pub enum TypeInfoError {
+    /// Caused when a type was expected to be of a certain [kind], but was not.
+    ///
+    /// [kind]: ReflectKind
+    #[error("kind mismatch: expected {expected:?}, received {received:?}")]
+    KindMismatch {
+        expected: ReflectKind,
+        received: ReflectKind,
+    },
 }
 
 /// Compile-time type information for various reflected types.
@@ -178,6 +236,50 @@ impl TypeInfo {
             Self::Value(info) => info.docs(),
         }
     }
+
+    /// Returns the [kind] of this `TypeInfo`.
+    ///
+    /// [kind]: ReflectKind
+    pub fn kind(&self) -> ReflectKind {
+        match self {
+            Self::Struct(_) => ReflectKind::Struct,
+            Self::TupleStruct(_) => ReflectKind::TupleStruct,
+            Self::Tuple(_) => ReflectKind::Tuple,
+            Self::List(_) => ReflectKind::List,
+            Self::Array(_) => ReflectKind::Array,
+            Self::Map(_) => ReflectKind::Map,
+            Self::Enum(_) => ReflectKind::Enum,
+            Self::Value(_) => ReflectKind::Value,
+        }
+    }
+}
+
+macro_rules! impl_cast_method {
+    ($name:ident : $kind:ident => $info:ident) => {
+        #[doc = concat!("Attempts a cast to [`", stringify!($info), "`].")]
+        #[doc = concat!("\n\nReturns an error if `self` is not [`TypeInfo::", stringify!($kind), "`].")]
+        pub fn $name(&self) -> Result<&$info, TypeInfoError> {
+            match self {
+                Self::$kind(info) => Ok(info),
+                _ => Err(TypeInfoError::KindMismatch {
+                    expected: ReflectKind::$kind,
+                    received: self.kind(),
+                }),
+            }
+        }
+    };
+}
+
+/// Conversion convenience methods for [`TypeInfo`].
+impl TypeInfo {
+    impl_cast_method!(as_struct: Struct => StructInfo);
+    impl_cast_method!(as_tuple_struct: TupleStruct => TupleStructInfo);
+    impl_cast_method!(as_tuple: Tuple => TupleInfo);
+    impl_cast_method!(as_list: List => ListInfo);
+    impl_cast_method!(as_array: Array => ArrayInfo);
+    impl_cast_method!(as_map: Map => MapInfo);
+    impl_cast_method!(as_enum: Enum => EnumInfo);
+    impl_cast_method!(as_value: Value => ValueInfo);
 }
 
 /// A container for compile-time info related to general value types, including primitives.
@@ -186,7 +288,7 @@ impl TypeInfo {
 /// due to technical reasons (or by definition), but it can also be a purposeful choice.
 ///
 /// For example, [`i32`] cannot be broken down any further, so it is represented by a [`ValueInfo`].
-/// And while [`String`] itself is a struct, it's fields are private, so we don't really treat
+/// And while [`String`] itself is a struct, its fields are private, so we don't really treat
 /// it _as_ a struct. It therefore makes more sense to represent it as a [`ValueInfo`].
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
@@ -243,5 +345,22 @@ impl ValueInfo {
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_return_error_on_invalid_cast() {
+        let info = <Vec<i32> as Typed>::type_info();
+        assert!(matches!(
+            info.as_struct(),
+            Err(TypeInfoError::KindMismatch {
+                expected: ReflectKind::Struct,
+                received: ReflectKind::List
+            })
+        ));
     }
 }

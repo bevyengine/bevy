@@ -9,9 +9,9 @@ use crate::{
     system::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypeRegistry};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
-use super::from_reflect_or_world;
+use super::from_reflect_with_fallback;
 
 /// A struct used to operate on reflected [`Resource`] of a type.
 ///
@@ -67,7 +67,7 @@ impl ReflectResourceFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Resource + FromReflect>() -> Self {
+    pub fn new<T: Resource + FromReflect + TypePath>() -> Self {
         <ReflectResource as FromType<T>>::from_type().0
     }
 }
@@ -181,11 +181,11 @@ impl ReflectResource {
     }
 }
 
-impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
+impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
     fn from_type() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {
-                let resource = from_reflect_or_world::<R>(reflected_resource, world, registry);
+                let resource = from_reflect_with_fallback::<R>(reflected_resource, world, registry);
                 world.insert_resource(resource);
             },
             apply: |world, reflected_resource| {
@@ -196,7 +196,8 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
                 if let Some(mut resource) = world.get_resource_mut::<R>() {
                     resource.apply(reflected_resource);
                 } else {
-                    let resource = from_reflect_or_world::<R>(reflected_resource, world, registry);
+                    let resource =
+                        from_reflect_with_fallback::<R>(reflected_resource, world, registry);
                     world.insert_resource(resource);
                 }
             },
@@ -217,7 +218,7 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
             copy: |source_world, destination_world, registry| {
                 let source_resource = source_world.resource::<R>();
                 let destination_resource =
-                    from_reflect_or_world::<R>(source_resource, destination_world, registry);
+                    from_reflect_with_fallback::<R>(source_resource, destination_world, registry);
                 destination_world.insert_resource(destination_resource);
             },
         })

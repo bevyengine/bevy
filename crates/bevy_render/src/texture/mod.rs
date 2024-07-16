@@ -43,6 +43,14 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
+/// A handle to a 1 x 1 transparent white image.
+///
+/// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
+/// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x 1 white image.
+// Number randomly selected by fair WolframAlpha query. Totally arbitrary.
+pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
+    Handle::weak_from_u128(154728948001857810431816125397303024160);
+
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin {
@@ -84,16 +92,19 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugins(RenderAssetPlugin::<Image>::default())
+        app.add_plugins(RenderAssetPlugin::<GpuImage>::default())
             .register_type::<Image>()
             .init_asset::<Image>()
             .register_asset_reflect::<Image>();
-        app.world
-            .resource_mut::<Assets<Image>>()
-            .insert(&Handle::default(), Image::default());
+
+        let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
+
+        image_assets.insert(&Handle::default(), Image::default());
+        image_assets.insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent());
+
         #[cfg(feature = "basis-universal")]
         if let Some(processor) = app
-            .world
+            .world()
             .get_resource::<bevy_asset::processor::AssetProcessor>()
         {
             processor.register_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>(
@@ -103,7 +114,7 @@ impl Plugin for ImagePlugin {
                 .set_default_processor::<bevy_asset::processor::LoadAndSave<ImageLoader, CompressedImageSaver>>("png");
         }
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<TextureCache>().add_systems(
                 Render,
                 update_texture_cache_system.in_set(RenderSet::Cleanup),
@@ -140,9 +151,9 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<ImageLoader>();
         }
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
-                let device = render_app.world.resource::<RenderDevice>();
+                let device = render_app.world().resource::<RenderDevice>();
                 device.create_sampler(&self.default_sampler.as_wgpu())
             };
             render_app

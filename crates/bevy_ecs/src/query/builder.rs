@@ -253,8 +253,6 @@ mod tests {
     use crate::prelude::*;
     use crate::world::FilteredEntityRef;
 
-    use super::QueryBuilder;
-
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
 

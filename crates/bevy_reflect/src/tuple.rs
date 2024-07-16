@@ -2,9 +2,9 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
 use crate::{
-    self as bevy_reflect, utility::GenericTypePathCell, FromReflect, GetTypeRegistration, Reflect,
-    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
-    Typed, UnnamedField,
+    self as bevy_reflect, utility::GenericTypePathCell, ApplyError, FromReflect,
+    GetTypeRegistration, MaybeTyped, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypePath, TypeRegistration, TypeRegistry, Typed, UnnamedField,
 };
 use crate::{PartialReflect, ReflectKind, TypePathTable};
 use std::any::{Any, TypeId};
@@ -75,7 +75,7 @@ impl<'a> Iterator for TupleFieldIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.tuple.field(self.index);
-        self.index += 1;
+        self.index += value.is_some() as usize;
         value
     }
 
@@ -359,6 +359,10 @@ impl PartialReflect for DynamicTuple {
         Box::new(self.clone_dynamic())
     }
 
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        tuple_try_apply(self, value)
+    }
+
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         tuple_partial_eq(self, value)
     }
@@ -377,6 +381,33 @@ impl PartialReflect for DynamicTuple {
 
 impl_type_path!((in bevy_reflect) DynamicTuple);
 
+impl FromIterator<Box<dyn PartialReflect>> for DynamicTuple {
+    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(fields: I) -> Self {
+        Self {
+            represented_type: None,
+            fields: fields.into_iter().collect(),
+        }
+    }
+}
+
+impl IntoIterator for DynamicTuple {
+    type Item = Box<dyn PartialReflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicTuple {
+    type Item = &'a dyn PartialReflect;
+    type IntoIter = TupleFieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
+    }
+}
+
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
 /// # Panics
@@ -384,15 +415,33 @@ impl_type_path!((in bevy_reflect) DynamicTuple);
 /// This function panics if `b` is not a tuple.
 #[inline]
 pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) {
+    if let Err(err) = tuple_try_apply(a, b) {
+        panic!("{err}");
+    }
+}
+
+/// Tries to apply the elements of `b` to the corresponding elements of `a` and
+/// returns a Result.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a tuple or if
+/// applying elements to each other fails.
+#[inline]
+pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn PartialReflect) -> Result<(), ApplyError> {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
         for (i, value) in tuple.iter_fields().enumerate() {
             if let Some(v) = a.field_mut(i) {
-                v.apply(value);
+                v.try_apply(value)?;
             }
         }
     } else {
-        panic!("Attempted to apply non-Tuple type to Tuple type.");
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: b.reflect_kind(),
+            to_kind: ReflectKind::Tuple,
+        });
     }
+    Ok(())
 }
 
 /// Compares a [`Tuple`] with a [`PartialReflect`] value.
@@ -451,7 +500,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> std::fmt::Re
 
 macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
+        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
             #[inline]
             fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
                 match index {
@@ -502,7 +551,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> PartialReflect for ($($name,)*) {
+        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> PartialReflect for ($($name,)*) {
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
@@ -532,10 +581,6 @@ macro_rules! impl_reflect_tuple {
                 Some(self)
             }
 
-            fn apply(&mut self, value: &dyn PartialReflect) {
-                crate::tuple_apply(self, value);
-            }
-
             fn reflect_kind(&self) -> ReflectKind {
                 ReflectKind::Tuple
             }
@@ -559,9 +604,17 @@ macro_rules! impl_reflect_tuple {
             fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
                 crate::tuple_partial_eq(self, value)
             }
+
+            fn apply(&mut self, value: &dyn PartialReflect) {
+                crate::tuple_apply(self, value);
+            }
+
+            fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+                crate::tuple_try_apply(self, value)
+            }
         }
 
-        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
             fn into_any(self: Box<Self>) -> Box<dyn Any> {
                 self
             }
@@ -592,7 +645,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect + TypePath + GetTypeRegistration),*> Typed for ($($name,)*) {
+        impl <$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
                 static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
@@ -605,7 +658,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 TypeRegistration::of::<($($name,)*)>()
             }
@@ -615,7 +668,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: FromReflect + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
+        impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
                 if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {
@@ -700,3 +753,52 @@ macro_rules! impl_type_path_tuple {
 }
 
 all_tuples!(impl_type_path_tuple, 0, 12, P);
+
+#[cfg(feature = "functions")]
+const _: () = {
+    macro_rules! impl_get_ownership_tuple {
+    ($($name: ident),*) => {
+        $crate::func::args::impl_get_ownership!(($($name,)*); <$($name),*>);
+    };
+}
+
+    all_tuples!(impl_get_ownership_tuple, 0, 12, P);
+
+    macro_rules! impl_from_arg_tuple {
+    ($($name: ident),*) => {
+        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+    };
+}
+
+    all_tuples!(impl_from_arg_tuple, 0, 12, P);
+
+    macro_rules! impl_into_return_tuple {
+    ($($name: ident),+) => {
+        $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+    };
+}
+
+    // The unit type (i.e. `()`) is special-cased, so we skip implementing it here.
+    all_tuples!(impl_into_return_tuple, 1, 12, P);
+};
+
+#[cfg(test)]
+mod tests {
+    use super::Tuple;
+
+    #[test]
+    fn next_index_increment() {
+        let mut iter = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).iter_fields();
+        let size = iter.len();
+        iter.index = size - 1;
+        let prev_index = iter.index;
+        assert!(iter.next().is_some());
+        assert_eq!(prev_index, iter.index - 1);
+
+        // When None we should no longer increase index
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+        assert!(iter.next().is_none());
+        assert_eq!(size, iter.index);
+    }
+}

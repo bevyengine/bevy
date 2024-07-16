@@ -3,7 +3,7 @@ use std::{cmp::Ordering, fs::File};
 use hashbrown::HashMap;
 use serde::Serialize;
 use tera::{Context, Tera};
-use toml_edit::DocumentMut;
+use toml_edit::{DocumentMut, Item};
 
 use crate::Command;
 
@@ -58,11 +58,14 @@ fn parse_examples(panic_on_missing: bool) -> Vec<Example> {
             if panic_on_missing && metadatas.get(&technical_name).is_none() {
                 panic!("Missing metadata for example {technical_name}");
             }
+            if panic_on_missing && val.get("doc-scrape-examples").is_none() {
+                panic!("Example {technical_name} is missing doc-scrape-examples");
+            }
 
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
-                .and_then(|hidden| hidden.as_bool())
+                .and_then(Item::as_bool)
                 .and_then(|hidden| hidden.then_some(()))
                 .is_some()
             {

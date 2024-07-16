@@ -17,7 +17,7 @@ use thiserror::Error;
 ///     This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
 /// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
-/// allowed to load "sub assets" of any type, which are identified by a named "label".
+///     allowed to load "sub assets" of any type, which are identified by a named "label".
 ///
 /// Asset paths are generally constructed (and visualized) as strings:
 ///
@@ -74,7 +74,7 @@ impl<'a> Display for AssetPath<'a> {
     }
 }
 
-/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`] or [`AssetPath::from<'static str>`].
+/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`].
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
     /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
@@ -320,7 +320,7 @@ impl<'a> AssetPath<'a> {
         AssetPath {
             source: self.source.into_owned(),
             path: self.path.into_owned(),
-            label: self.label.map(|l| l.into_owned()),
+            label: self.label.map(CowArc::into_owned),
         }
     }
 
@@ -448,10 +448,19 @@ impl<'a> AssetPath<'a> {
 
     /// Returns the full extension (including multiple '.' values).
     /// Ex: Returns `"config.ron"` for `"my_asset.config.ron"`
+    ///
+    /// Also strips out anything following a `?` to handle query parameters in URIs
     pub fn get_full_extension(&self) -> Option<String> {
         let file_name = self.path().file_name()?.to_str()?;
         let index = file_name.find('.')?;
-        let extension = file_name[index + 1..].to_lowercase();
+        let mut extension = file_name[index + 1..].to_lowercase();
+
+        // Strip off any query parameters
+        let query = extension.find('?');
+        if let Some(offset) = query {
+            extension.truncate(offset);
+        }
+
         Some(extension)
     }
 
@@ -930,5 +939,8 @@ mod tests {
 
         let result = AssetPath::from("http://a#Foo");
         assert_eq!(result.get_full_extension(), None);
+
+        let result = AssetPath::from("http://a.tar.bz2?foo=bar#Baz");
+        assert_eq!(result.get_full_extension(), Some("tar.bz2".to_string()));
     }
 }

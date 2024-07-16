@@ -81,17 +81,17 @@
 //! less ideal for this use case:
 //!
 //! 1. The level 1 spherical harmonic coefficients can be negative. That
-//! prevents the use of the efficient [RGB9E5 texture format], which only
-//! encodes unsigned floating point numbers, and forces the use of the
-//! less-efficient [RGBA16F format] if hardware interpolation is desired.
+//!     prevents the use of the efficient [RGB9E5 texture format], which only
+//!     encodes unsigned floating point numbers, and forces the use of the
+//!     less-efficient [RGBA16F format] if hardware interpolation is desired.
 //!
 //! 2. As an alternative to RGBA16F, level 1 spherical harmonics can be
-//! normalized and scaled to the SH0 base color, as [Frostbite] does. This
-//! allows them to be packed in standard LDR RGBA8 textures. However, this
-//! prevents the use of hardware trilinear filtering, as the nonuniform scale
-//! factor means that hardware interpolation no longer produces correct results.
-//! The 8 texture fetches needed to interpolate between voxels can be upwards of
-//! twice as slow as the hardware interpolation.
+//!     normalized and scaled to the SH0 base color, as [Frostbite] does. This
+//!     allows them to be packed in standard LDR RGBA8 textures. However, this
+//!     prevents the use of hardware trilinear filtering, as the nonuniform scale
+//!     factor means that hardware interpolation no longer produces correct results.
+//!     The 8 texture fetches needed to interpolate between voxels can be upwards of
+//!     twice as slow as the hardware interpolation.
 //!
 //! The following chart summarizes the costs and benefits of ambient cubes,
 //! level 1 spherical harmonics, and level 2 spherical harmonics:
@@ -140,7 +140,7 @@ use bevy_render::{
         TextureSampleType, TextureView,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, Image},
+    texture::{FallbackImage, GpuImage, Image},
 };
 use std::{num::NonZeroU32, ops::Deref};
 
@@ -212,7 +212,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// the view, as well as the sampler.
     pub(crate) fn get(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
@@ -236,7 +236,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// arrays are available on the current platform.
     fn get_multiple(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         let mut texture_views = vec![];
@@ -269,7 +269,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
     /// arrays aren't available on the current platform.
     fn get_single(
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
-        images: &'a RenderAssets<Image>,
+        images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         if let Some(irradiance_volumes) = render_view_irradiance_volumes {
@@ -322,7 +322,7 @@ impl LightProbeComponent for IrradianceVolume {
     // here.
     type ViewLightProbeInfo = ();
 
-    fn id(&self, image_assets: &RenderAssets<Image>) -> Option<Self::AssetId> {
+    fn id(&self, image_assets: &RenderAssets<GpuImage>) -> Option<Self::AssetId> {
         if image_assets.get(&self.voxels).is_none() {
             None
         } else {
@@ -336,7 +336,7 @@ impl LightProbeComponent for IrradianceVolume {
 
     fn create_render_view_light_probes(
         _: Option<&Self>,
-        _: &RenderAssets<Image>,
+        _: &RenderAssets<GpuImage>,
     ) -> RenderViewLightProbes<Self> {
         RenderViewLightProbes::new()
     }

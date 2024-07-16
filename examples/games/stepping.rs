@@ -32,11 +32,16 @@ impl SteppingPlugin {
 
 impl Plugin for SteppingPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Startup, build_stepping_hint);
+        if cfg!(not(feature = "bevy_debug_stepping")) {
+            return;
+        }
+
         // create and insert our debug schedule into the main schedule order.
         // We need an independent schedule so we have access to all other
         // schedules through the `Stepping` resource
         app.init_schedule(DebugSchedule);
-        let mut order = app.world.resource_mut::<MainScheduleOrder>();
+        let mut order = app.world_mut().resource_mut::<MainScheduleOrder>();
         order.insert_after(Update, DebugSchedule);
 
         // create our stepping resource
@@ -52,7 +57,6 @@ impl Plugin for SteppingPlugin {
             ui_left: self.left,
             systems: Vec::new(),
         })
-        .add_systems(Startup, build_help)
         .add_systems(
             DebugSchedule,
             (
@@ -81,10 +85,8 @@ fn initialized(state: Res<State>) -> bool {
     !state.systems.is_empty()
 }
 
-const FONT_SIZE: f32 = 20.0;
 const FONT_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
 const FONT_BOLD: &str = "fonts/FiraSans-Bold.ttf";
-const FONT_MEDIUM: &str = "fonts/FiraMono-Medium.ttf";
 
 #[derive(Component)]
 struct SteppingUi;
@@ -116,8 +118,8 @@ fn build_ui(
             format!("{:?}\n", label),
             TextStyle {
                 font: asset_server.load(FONT_BOLD),
-                font_size: FONT_SIZE,
                 color: FONT_COLOR,
+                ..default()
             },
         ));
 
@@ -142,9 +144,8 @@ fn build_ui(
             text_sections.push(TextSection::new(
                 "   ",
                 TextStyle {
-                    font: asset_server.load(FONT_MEDIUM),
-                    font_size: FONT_SIZE,
                     color: FONT_COLOR,
+                    ..default()
                 },
             ));
 
@@ -152,9 +153,8 @@ fn build_ui(
             text_sections.push(TextSection::new(
                 format!("{}\n", system.name()),
                 TextStyle {
-                    font: asset_server.load(FONT_MEDIUM),
-                    font_size: FONT_SIZE,
                     color: FONT_COLOR,
+                    ..default()
                 },
             ));
         }
@@ -182,14 +182,20 @@ fn build_ui(
     ));
 }
 
-fn build_help(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn build_stepping_hint(mut commands: Commands) {
+    let hint_text = if cfg!(feature = "bevy_debug_stepping") {
+        "Press ` to toggle stepping mode (S: step system, Space: step frame)"
+    } else {
+        "Bevy was compiled without stepping support. Run with `--features=bevy_debug_stepping` to enable stepping."
+    };
+    info!("{}", hint_text);
     // stepping description box
     commands.spawn((TextBundle::from_sections([TextSection::new(
-        "Press ` to toggle stepping mode (S: step system, Space: step frame)",
+        hint_text,
         TextStyle {
-            font: asset_server.load(FONT_MEDIUM),
             font_size: 18.0,
             color: FONT_COLOR,
+            ..default()
         },
     )])
     .with_style(Style {

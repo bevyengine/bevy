@@ -1,7 +1,7 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -16,12 +16,15 @@ pub mod wireframe;
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 #[cfg(feature = "meshlet")]
 pub mod experimental {
+    /// Render high-poly 3d meshes using an efficient GPU-driven method.
+    /// See [`MeshletPlugin`](meshlet::MeshletPlugin) and [`MeshletMesh`](meshlet::MeshletMesh) for details.
     pub mod meshlet {
         pub use crate::meshlet::*;
     }
 }
 
 mod bundle;
+mod cluster;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -34,9 +37,14 @@ mod pbr_material;
 mod prepass;
 mod render;
 mod ssao;
+mod ssr;
+mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
+use std::marker::PhantomData;
+
 pub use bundle::*;
+pub use cluster::*;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -48,6 +56,10 @@ pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
+pub use ssr::*;
+pub use volumetric_fog::{
+    FogVolume, FogVolumeBundle, VolumetricFogPlugin, VolumetricFogSettings, VolumetricLight,
+};
 
 pub mod prelude {
     #[doc(hidden)]
@@ -79,6 +91,12 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
+        /// Label for the volumetric lighting pass.
+        VolumetricFog,
+        /// Label for the compute shader instance data building pass.
+        GpuPreprocess,
+        /// Label for the screen space reflections pass.
+        ScreenSpaceReflections,
     }
 }
 
@@ -89,14 +107,17 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{CameraUpdateSystem, Projection},
+    camera::{
+        CameraProjection, CameraUpdateSystem, OrthographicProjection, PerspectiveProjection,
+        Projection,
+    },
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
     render_resource::Shader,
-    texture::Image,
-    view::VisibilitySystems,
+    texture::{GpuImage, Image},
+    view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -128,11 +149,16 @@ const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
-    /// Controls if the prepass is enabled for the StandardMaterial.
+    /// Controls if the prepass is enabled for the [`StandardMaterial`].
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     pub prepass_enabled: bool,
     /// Controls if [`DeferredPbrLightingPlugin`] is added.
     pub add_default_deferred_lighting_plugin: bool,
+    /// Controls if GPU [`MeshUniform`] building is enabled.
+    ///
+    /// This requires compute shader support and so will be forcibly disabled if
+    /// the platform doesn't support those.
+    pub use_gpu_instance_buffer_builder: bool,
 }
 
 impl Default for PbrPlugin {
@@ -140,6 +166,7 @@ impl Default for PbrPlugin {
         Self {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
+            use_gpu_instance_buffer_builder: true,
         }
     }
 }
@@ -261,7 +288,9 @@ impl Plugin for PbrPlugin {
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
+            .register_type::<VisibleMeshEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
@@ -274,13 +303,15 @@ impl Plugin for PbrPlugin {
             .register_type::<FogSettings>()
             .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
-            .init_resource::<GlobalVisiblePointLights>()
+            .init_resource::<GlobalVisibleClusterableObjects>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
-                MeshRenderPlugin,
+                MeshRenderPlugin {
+                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                },
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
                     ..Default::default()
@@ -292,6 +323,14 @@ impl Plugin for PbrPlugin {
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
+                PbrProjectionPlugin::<Projection>::default(),
+                PbrProjectionPlugin::<PerspectiveProjection>::default(),
+                PbrProjectionPlugin::<OrthographicProjection>::default(),
+                GpuMeshPreprocessPlugin {
+                    use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                },
+                VolumetricFogPlugin,
+                ScreenSpaceReflectionsPlugin,
             ))
             .configure_sets(
                 PostUpdate,
@@ -305,16 +344,12 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    assign_lights_to_clusters
+                    crate::assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
                         .after(CameraUpdateSystem),
-                    (
-                        clear_directional_light_cascades,
-                        build_directional_light_cascades::<Projection>,
-                    )
-                        .chain()
+                    clear_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystem::TransformPropagate)
                         .after(CameraUpdateSystem),
@@ -336,7 +371,11 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
-                    check_light_mesh_visibility
+                    check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
+                    (
+                        check_dir_light_mesh_visibility,
+                        check_point_light_mesh_visibility,
+                    )
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)
@@ -352,16 +391,18 @@ impl Plugin for PbrPlugin {
             app.add_plugins(DeferredPbrLightingPlugin);
         }
 
-        app.world.resource_mut::<Assets<StandardMaterial>>().insert(
-            &Handle::<StandardMaterial>::default(),
-            StandardMaterial {
-                base_color: Color::srgb(1.0, 0.0, 0.5),
-                unlit: true,
-                ..Default::default()
-            },
-        );
+        app.world_mut()
+            .resource_mut::<Assets<StandardMaterial>>()
+            .insert(
+                &Handle::<StandardMaterial>::default(),
+                StandardMaterial {
+                    base_color: Color::srgb(1.0, 0.0, 0.5),
+                    unlit: true,
+                    ..Default::default()
+                },
+            );
 
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
@@ -373,36 +414,45 @@ impl Plugin for PbrPlugin {
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
-                        .after(prepare_assets::<Image>),
+                        .after(prepare_assets::<GpuImage>),
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
             .init_resource::<LightMeta>();
 
-        let shadow_pass_node = ShadowPassNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
+        let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
+        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
         let draw_3d_graph = graph.get_sub_graph_mut(Core3d).unwrap();
         draw_3d_graph.add_node(NodePbr::ShadowPass, shadow_pass_node);
         draw_3d_graph.add_node_edge(NodePbr::ShadowPass, Node3d::StartMainPass);
-
-        render_app.ignore_ambiguity(
-            bevy_render::Render,
-            bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures,
-            bevy_render::batching::batch_and_prepare_sorted_render_phase::<
-                bevy_core_pipeline::core_3d::Transmissive3d,
-                MeshPipeline,
-            >,
-        );
     }
 
     fn finish(&self, app: &mut App) {
-        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         // Extract the required data from the main world
         render_app
             .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalLightMeta>();
+            .init_resource::<GlobalClusterableObjectMeta>();
+    }
+}
+
+/// [`CameraProjection`] specific PBR functionality.
+pub struct PbrProjectionPlugin<T: CameraProjection + Component>(PhantomData<T>);
+impl<T: CameraProjection + Component> Plugin for PbrProjectionPlugin<T> {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            PostUpdate,
+            build_directional_light_cascades::<T>
+                .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
+                .after(clear_directional_light_cascades),
+        );
+    }
+}
+impl<T: CameraProjection + Component> Default for PbrProjectionPlugin<T> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
