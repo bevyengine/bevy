@@ -714,7 +714,6 @@ impl Dir3A {
     ///     *dir = (dir * quaternion).fast_renormalize();
     /// }
     /// ```
-}
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
