@@ -631,8 +631,8 @@ pub fn update_spot_light_frusta(
         let view_backward = transform.back();
 
         let spot_world_from_view = spot_light_world_from_view(transform);
-        let spot_clip_from_view = spot_light_clip_from_view(
-            spot_light.outer_angle, spot_light.shadow_map_near_z);
+        let spot_clip_from_view =
+            spot_light_clip_from_view(spot_light.outer_angle, spot_light.shadow_map_near_z);
         let clip_from_world = spot_clip_from_view * spot_world_from_view.inverse();
 
         *frustum = Frustum::from_clip_from_world_custom_far(
