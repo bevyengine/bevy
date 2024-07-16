@@ -459,7 +459,7 @@ impl Dir3 {
 
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
-    /// 
+    ///
     /// # Example
     /// The following seemingly benign code would start accumulating errors over time,
     /// leading to `dir` eventually not being normalized anymore.
