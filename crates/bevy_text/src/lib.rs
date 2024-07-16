@@ -84,6 +84,8 @@ pub struct TextPlugin {
     ///
     /// For details on which directories are considered on each platform,
     /// refer to the source code of [`fontdb::Database::load_system_fonts`](https://docs.rs/fontdb/latest/fontdb/struct.Database.html#method.load_system_fonts).
+    ///
+    /// Considering the current API, the primary use case for this member variable is to enable system fonts as a fallback for missing glyphs.
     pub load_system_fonts: bool,
 }
 
