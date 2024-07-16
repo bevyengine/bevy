@@ -2192,13 +2192,13 @@ category = "Reflection"
 wasm = false
 
 [[example]]
-name = "trait_reflection"
-path = "examples/reflection/trait_reflection.rs"
+name = "type_data"
+path = "examples/reflection/type_data.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.trait_reflection]
-name = "Trait Reflection"
-description = "Allows reflection with trait objects"
+[package.metadata.example.type_data]
+name = "Type Data"
+description = "Demonstrates how to create and use type data"
 category = "Reflection"
 wasm = false
 
@@ -2237,11 +2237,11 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "post_processing"
-path = "examples/shader/post_processing.rs"
+name = "custom_post_processing"
+path = "examples/shader/custom_post_processing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.post_processing]
+[package.metadata.example.custom_post_processing]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -2571,6 +2571,17 @@ category = "ECS (Entity Component System)"
 wasm = true
 
 [[example]]
+name = "observer_propagation"
+path = "examples/ecs/observer_propagation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observer_propagation]
+name = "Observer Propagation"
+description = "Demonstrates event propagation with observers"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 doc-scrape-examples = true
@@ -2634,17 +2645,6 @@ doc-scrape-examples = true
 [package.metadata.example.borders]
 name = "Borders"
 description = "Demonstrates how to create a node with a border"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "rounded_borders"
-path = "examples/ui/rounded_borders.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.rounded_borders]
-name = "Rounded Borders"
-description = "Demonstrates how to create a node with a rounded border"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3263,6 +3263,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "fog_volumes"
+path = "examples/3d/fog_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fog_volumes]
+name = "Fog volumes"
+description = "Demonstrates fog volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "physics_in_fixed_timestep"
 path = "examples/movement/physics_in_fixed_timestep.rs"
 doc-scrape-examples = true
@@ -3271,6 +3282,17 @@ doc-scrape-examples = true
 name = "Run physics in a fixed timestep"
 description = "Handles input, physics, and rendering in an industry-standard way by using a fixed timestep"
 category = "Movement"
+wasm = true
+
+[[example]]
+name = "post_processing"
+path = "examples/3d/post_processing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.post_processing]
+name = "Built-in postprocessing"
+description = "Demonstrates the built-in postprocessing features"
+category = "3D Rendering"
 wasm = true
 
 [profile.wasm-release]
