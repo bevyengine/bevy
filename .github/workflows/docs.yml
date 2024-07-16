@@ -48,7 +48,7 @@ jobs:
           xkb: true
 
       - name: Install cargo-docs-rs
-        run: cargo install cargo-docs-rs
+        run: cargo install cargo-docs-rs --version ^0.1.12
 
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
