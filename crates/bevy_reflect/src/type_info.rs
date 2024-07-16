@@ -1,5 +1,6 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, ReflectKind, StructInfo, TupleInfo,
+    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, Reflect, ReflectKind, StructInfo, TupleInfo,
     TupleStructInfo, TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
@@ -81,6 +82,45 @@ pub trait Typed: Reflect + TypePath {
     /// [info]: TypeInfo
     fn type_info() -> &'static TypeInfo;
 }
+
+/// A wrapper trait around [`Typed`].
+///
+/// This trait is used to provide a way to get compile-time type information for types that
+/// do implement `Typed` while also allowing for types that do not implement `Typed` to be used.
+/// It's used instead of `Typed` directly to avoid making dynamic types also
+/// implement `Typed` in order to be used as active fields.
+///
+/// This trait has a blanket implementation for all types that implement `Typed`
+/// and manual implementations for all dynamic types (which simply return `None`).
+#[doc(hidden)]
+pub trait MaybeTyped: Reflect {
+    /// Returns the compile-time [info] for the underlying type, if it exists.
+    ///
+    /// [info]: TypeInfo
+    fn maybe_type_info() -> Option<&'static TypeInfo> {
+        None
+    }
+}
+
+impl<T: Typed> MaybeTyped for T {
+    fn maybe_type_info() -> Option<&'static TypeInfo> {
+        Some(T::type_info())
+    }
+}
+
+impl MaybeTyped for DynamicEnum {}
+
+impl MaybeTyped for DynamicTupleStruct {}
+
+impl MaybeTyped for DynamicStruct {}
+
+impl MaybeTyped for DynamicMap {}
+
+impl MaybeTyped for DynamicList {}
+
+impl MaybeTyped for DynamicArray {}
+
+impl MaybeTyped for DynamicTuple {}
 
 /// A [`TypeInfo`]-specific error.
 #[derive(Debug, Error)]
