@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::In,
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
-use bevy_hierarchy::BuildWorldChildren as _;
+use bevy_hierarchy::BuildChildren as _;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     Reflect, TypeRegistration, TypeRegistry,

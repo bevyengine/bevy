@@ -3,8 +3,8 @@ use bevy_utils::all_tuples;
 
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, ApplyError, FromReflect,
-    GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypeRegistration, TypeRegistry, Typed, UnnamedField,
+    GetTypeRegistration, MaybeTyped, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypePath, TypeRegistration, TypeRegistry, Typed, UnnamedField,
 };
 use crate::{ReflectKind, TypePathTable};
 use std::any::{Any, TypeId};
@@ -391,6 +391,33 @@ impl Reflect for DynamicTuple {
 
 impl_type_path!((in bevy_reflect) DynamicTuple);
 
+impl FromIterator<Box<dyn Reflect>> for DynamicTuple {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(fields: I) -> Self {
+        Self {
+            represented_type: None,
+            fields: fields.into_iter().collect(),
+        }
+    }
+}
+
+impl IntoIterator for DynamicTuple {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicTuple {
+    type Item = &'a dyn Reflect;
+    type IntoIter = TupleFieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
+    }
+}
+
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
 /// # Panics
@@ -483,7 +510,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut Formatter<'_>) -> std::fmt::Re
 
 macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
+        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Tuple for ($($name,)*) {
             #[inline]
             fn field(&self, index: usize) -> Option<&dyn Reflect> {
                 match index {
@@ -534,7 +561,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Reflect for ($($name,)*) {
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
@@ -601,7 +628,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect + TypePath + GetTypeRegistration),*> Typed for ($($name,)*) {
+        impl <$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
                 static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
@@ -614,7 +641,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect + TypePath + GetTypeRegistration),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + MaybeTyped + TypePath + GetTypeRegistration),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 TypeRegistration::of::<($($name,)*)>()
             }
@@ -624,7 +651,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: FromReflect + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
+        impl<$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
                 if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {
@@ -709,6 +736,34 @@ macro_rules! impl_type_path_tuple {
 }
 
 all_tuples!(impl_type_path_tuple, 0, 12, P);
+
+#[cfg(feature = "functions")]
+const _: () = {
+    macro_rules! impl_get_ownership_tuple {
+    ($($name: ident),*) => {
+        $crate::func::args::impl_get_ownership!(($($name,)*); <$($name),*>);
+    };
+}
+
+    all_tuples!(impl_get_ownership_tuple, 0, 12, P);
+
+    macro_rules! impl_from_arg_tuple {
+    ($($name: ident),*) => {
+        $crate::func::args::impl_from_arg!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+    };
+}
+
+    all_tuples!(impl_from_arg_tuple, 0, 12, P);
+
+    macro_rules! impl_into_return_tuple {
+    ($($name: ident),+) => {
+        $crate::func::impl_into_return!(($($name,)*); <$($name: FromReflect + MaybeTyped + TypePath + GetTypeRegistration),*>);
+    };
+}
+
+    // The unit type (i.e. `()`) is special-cased, so we skip implementing it here.
+    all_tuples!(impl_into_return_tuple, 1, 12, P);
+};
 
 #[cfg(test)]
 mod tests {

@@ -3,7 +3,7 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -88,14 +88,7 @@ fn setup(mut commands: Commands) {
     });
 
     commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 20.,
-                ..default()
-            },
-        )
-        .with_style(Style {
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
@@ -109,7 +102,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
 
     let Some(fps) = diag
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|fps| fps.smoothed())
+        .and_then(Diagnostic::smoothed)
     else {
         return;
     };

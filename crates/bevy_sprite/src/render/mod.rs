@@ -5,7 +5,7 @@ use crate::{
     ComputedTextureSlices, Sprite, WithSprite, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
-use bevy_color::LinearRgba;
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
     tonemapping::{
@@ -375,14 +375,15 @@ pub fn extract_sprites(
                     .map(|e| (commands.spawn_empty().id(), e)),
             );
         } else {
-            let atlas_rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let atlas_rect =
+                sheet.and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
             let rect = match (atlas_rect, sprite.rect) {
                 (None, None) => None,
                 (None, Some(sprite_rect)) => Some(sprite_rect),
-                (Some(atlas_rect), None) => Some(atlas_rect.as_rect()),
+                (Some(atlas_rect), None) => Some(atlas_rect),
                 (Some(atlas_rect), Some(mut sprite_rect)) => {
-                    sprite_rect.min += atlas_rect.min.as_vec2();
-                    sprite_rect.max += atlas_rect.min.as_vec2();
+                    sprite_rect.min += atlas_rect.min;
+                    sprite_rect.max += atlas_rect.min;
 
                     Some(sprite_rect)
                 }
@@ -605,10 +606,9 @@ pub fn prepare_sprite_image_bind_groups(
     for event in &events.images {
         match event {
             AssetEvent::Added { .. } |
-            AssetEvent::Unused { .. } |
             // Images don't have dependencies
             AssetEvent::LoadedWithDependencies { .. } => {}
-            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
+            AssetEvent::Unused { id } | AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
                 image_bind_groups.values.remove(id);
             }
         };

@@ -1,7 +1,9 @@
 use crate::{
     primitives::{Primitive2d, Primitive3d},
-    Quat, Rotation2d, Vec2, Vec3, Vec3A,
+    Quat, Rot2, Vec2, Vec3, Vec3A,
 };
+
+use core::f32::consts::FRAC_1_SQRT_2;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -105,6 +107,23 @@ impl Dir2 {
     /// The directional axes.
     pub const AXES: [Self; 2] = [Self::X, Self::Y];
 
+    /// The "north" direction, equivalent to [`Dir2::Y`].
+    pub const NORTH: Self = Self(Vec2::Y);
+    /// The "south" direction, equivalent to [`Dir2::NEG_Y`].
+    pub const SOUTH: Self = Self(Vec2::NEG_Y);
+    /// The "east" direction, equivalent to [`Dir2::X`].
+    pub const EAST: Self = Self(Vec2::X);
+    /// The "west" direction, equivalent to [`Dir2::NEG_X`].
+    pub const WEST: Self = Self(Vec2::NEG_X);
+    /// The "north-east" direction, between [`Dir2::NORTH`] and [`Dir2::EAST`].
+    pub const NORTH_EAST: Self = Self(Vec2::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+    /// The "north-west" direction, between [`Dir2::NORTH`] and [`Dir2::WEST`].
+    pub const NORTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2));
+    /// The "south-east" direction, between [`Dir2::SOUTH`] and [`Dir2::EAST`].
+    pub const SOUTH_EAST: Self = Self(Vec2::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+    /// The "south-west" direction, between [`Dir2::SOUTH`] and [`Dir2::WEST`].
+    pub const SOUTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
+
     /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -181,7 +200,48 @@ impl Dir2 {
     #[inline]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
         let angle = self.angle_between(rhs.0);
-        Rotation2d::radians(angle * s) * self
+        Rot2::radians(angle * s) * self
+    }
+
+    /// Get the rotation that rotates this direction to `other`.
+    #[inline]
+    pub fn rotation_to(self, other: Self) -> Rot2 {
+        // Rotate `self` to X-axis, then X-axis to `other`:
+        other.rotation_from_x() * self.rotation_to_x()
+    }
+
+    /// Get the rotation that rotates `other` to this direction.
+    #[inline]
+    pub fn rotation_from(self, other: Self) -> Rot2 {
+        other.rotation_to(self)
+    }
+
+    /// Get the rotation that rotates the X-axis to this direction.
+    #[inline]
+    pub fn rotation_from_x(self) -> Rot2 {
+        Rot2::from_sin_cos(self.0.y, self.0.x)
+    }
+
+    /// Get the rotation that rotates this direction to the X-axis.
+    #[inline]
+    pub fn rotation_to_x(self) -> Rot2 {
+        // (This is cheap, it just negates one component.)
+        self.rotation_from_x().inverse()
+    }
+
+    /// Get the rotation that rotates the Y-axis to this direction.
+    #[inline]
+    pub fn rotation_from_y(self) -> Rot2 {
+        // `x <- y`, `y <- -x` correspond to rotating clockwise by pi/2;
+        // this transforms the Y-axis into the X-axis, maintaining the relative position
+        // of our direction. Then we just use the same technique as `rotation_from_x`.
+        Rot2::from_sin_cos(-self.0.x, self.0.y)
+    }
+
+    /// Get the rotation that rotates this direction to the Y-axis.
+    #[inline]
+    pub fn rotation_to_y(self) -> Rot2 {
+        self.rotation_from_y().inverse()
     }
 }
 
@@ -227,10 +287,10 @@ impl std::ops::Mul<Dir2> for f32 {
     }
 }
 
-impl std::ops::Mul<Dir2> for Rotation2d {
+impl std::ops::Mul<Dir2> for Rot2 {
     type Output = Dir2;
 
-    /// Rotates the [`Dir2`] using a [`Rotation2d`].
+    /// Rotates the [`Dir2`] using a [`Rot2`].
     fn mul(self, direction: Dir2) -> Self::Output {
         let rotated = self * *direction;
 
@@ -743,6 +803,16 @@ mod tests {
             Dir2::X.slerp(Dir2::Y, 2.0 / 3.0),
             Dir2::from_xy(0.5, 0.75_f32.sqrt()).unwrap()
         );
+    }
+
+    #[test]
+    fn dir2_to_rotation2d() {
+        assert_relative_eq!(Dir2::EAST.rotation_to(Dir2::NORTH_EAST), Rot2::FRAC_PI_4);
+        assert_relative_eq!(Dir2::NORTH.rotation_from(Dir2::NORTH_EAST), Rot2::FRAC_PI_4);
+        assert_relative_eq!(Dir2::SOUTH.rotation_to_x(), Rot2::FRAC_PI_2);
+        assert_relative_eq!(Dir2::SOUTH.rotation_to_y(), Rot2::PI);
+        assert_relative_eq!(Dir2::NORTH_WEST.rotation_from_x(), Rot2::degrees(135.0));
+        assert_relative_eq!(Dir2::NORTH_WEST.rotation_from_y(), Rot2::FRAC_PI_4);
     }
 
     #[test]

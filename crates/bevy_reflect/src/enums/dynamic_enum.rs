@@ -427,3 +427,5 @@ impl Reflect for DynamicEnum {
 }
 
 impl_type_path!((in bevy_reflect) DynamicEnum);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicEnum);

@@ -5,8 +5,8 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    self as bevy_reflect, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, ApplyError, MaybeTyped, Reflect, ReflectKind, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -96,8 +96,10 @@ pub trait Map: Reflect {
 pub struct MapInfo {
     type_path: TypePathTable,
     type_id: TypeId,
+    key_info: fn() -> Option<&'static TypeInfo>,
     key_type_path: TypePathTable,
     key_type_id: TypeId,
+    value_info: fn() -> Option<&'static TypeInfo>,
     value_type_path: TypePathTable,
     value_type_id: TypeId,
     #[cfg(feature = "documentation")]
@@ -106,13 +108,18 @@ pub struct MapInfo {
 
 impl MapInfo {
     /// Create a new [`MapInfo`].
-    pub fn new<TMap: Map + TypePath, TKey: Reflect + TypePath, TValue: Reflect + TypePath>() -> Self
-    {
+    pub fn new<
+        TMap: Map + TypePath,
+        TKey: Reflect + MaybeTyped + TypePath,
+        TValue: Reflect + MaybeTyped + TypePath,
+    >() -> Self {
         Self {
             type_path: TypePathTable::of::<TMap>(),
             type_id: TypeId::of::<TMap>(),
+            key_info: TKey::maybe_type_info,
             key_type_path: TypePathTable::of::<TKey>(),
             key_type_id: TypeId::of::<TKey>(),
+            value_info: TValue::maybe_type_info,
             value_type_path: TypePathTable::of::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
             #[cfg(feature = "documentation")]
@@ -153,6 +160,14 @@ impl MapInfo {
         TypeId::of::<T>() == self.type_id
     }
 
+    /// The [`TypeInfo`] of the key type.
+    ///
+    /// Returns `None` if the key type does not contain static type information,
+    /// such as for dynamic types.
+    pub fn key_info(&self) -> Option<&'static TypeInfo> {
+        (self.key_info)()
+    }
+
     /// A representation of the type path of the key type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
@@ -168,6 +183,14 @@ impl MapInfo {
     /// Check if the given type matches the key type.
     pub fn key_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.key_type_id
+    }
+
+    /// The [`TypeInfo`] of the value type.
+    ///
+    /// Returns `None` if the value type does not contain static type information,
+    /// such as for dynamic types.
+    pub fn value_info(&self) -> Option<&'static TypeInfo> {
+        (self.value_info)()
     }
 
     /// A representation of the type path of the value type.
@@ -194,7 +217,30 @@ impl MapInfo {
     }
 }
 
-const HASH_ERROR: &str = "the given key does not support hashing";
+#[macro_export]
+macro_rules! hash_error {
+    ( $key:expr ) => {{
+        let type_path = (*$key).reflect_type_path();
+        if !$key.is_dynamic() {
+            format!(
+                "the given key of type `{}` does not support hashing",
+                type_path
+            )
+        } else {
+            match (*$key).get_represented_type_info() {
+                // Handle dynamic types that do not represent a type (i.e a plain `DynamicStruct`):
+                None => format!("the dynamic type `{}` does not support hashing", type_path),
+                // Handle dynamic types that do represent a type (i.e. a `DynamicStruct` proxying `Foo`):
+                Some(s) => format!(
+                    "the dynamic type `{}` (representing `{}`) does not support hashing",
+                    type_path,
+                    s.type_path()
+                ),
+            }
+        }
+        .as_str()
+    }}
+}
 
 /// An ordered mapping between reflected values.
 #[derive(Default)]
@@ -233,13 +279,13 @@ impl DynamicMap {
 impl Map for DynamicMap {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         self.indices
-            .get(&key.reflect_hash().expect(HASH_ERROR))
+            .get(&key.reflect_hash().expect(hash_error!(key)))
             .map(|index| &*self.values.get(*index).unwrap().1)
     }
 
     fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
         self.indices
-            .get(&key.reflect_hash().expect(HASH_ERROR))
+            .get(&key.reflect_hash().expect(hash_error!(key)))
             .cloned()
             .map(move |index| &mut *self.values.get_mut(index).unwrap().1)
     }
@@ -285,7 +331,10 @@ impl Map for DynamicMap {
         key: Box<dyn Reflect>,
         mut value: Box<dyn Reflect>,
     ) -> Option<Box<dyn Reflect>> {
-        match self.indices.entry(key.reflect_hash().expect(HASH_ERROR)) {
+        match self
+            .indices
+            .entry(key.reflect_hash().expect(hash_error!(key)))
+        {
             Entry::Occupied(entry) => {
                 let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
                 std::mem::swap(old_value, &mut value);
@@ -302,7 +351,7 @@ impl Map for DynamicMap {
     fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
         let index = self
             .indices
-            .remove(&key.reflect_hash().expect(HASH_ERROR))?;
+            .remove(&key.reflect_hash().expect(hash_error!(key)))?;
         let (_key, value) = self.values.remove(index);
         Some(value)
     }
@@ -391,6 +440,8 @@ impl Reflect for DynamicMap {
 }
 
 impl_type_path!((in bevy_reflect) DynamicMap);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicMap);
 
 impl Debug for DynamicMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -427,12 +478,41 @@ impl<'a> Iterator for MapIter<'a> {
     }
 }
 
+impl FromIterator<(Box<dyn Reflect>, Box<dyn Reflect>)> for DynamicMap {
+    fn from_iter<I: IntoIterator<Item = (Box<dyn Reflect>, Box<dyn Reflect>)>>(items: I) -> Self {
+        let mut map = Self::default();
+        for (key, value) in items.into_iter() {
+            map.insert_boxed(key, value);
+        }
+        map
+    }
+}
+
+impl<K: Reflect, V: Reflect> FromIterator<(K, V)> for DynamicMap {
+    fn from_iter<I: IntoIterator<Item = (K, V)>>(items: I) -> Self {
+        let mut map = Self::default();
+        for (key, value) in items.into_iter() {
+            map.insert(key, value);
+        }
+        map
+    }
+}
+
 impl IntoIterator for DynamicMap {
     type Item = (Box<dyn Reflect>, Box<dyn Reflect>);
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicMap {
+    type Item = (&'a dyn Reflect, &'a dyn Reflect);
+    type IntoIter = MapIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

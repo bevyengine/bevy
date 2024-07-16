@@ -1,6 +1,6 @@
 [package]
 name = "bevy_remote"
-version = "0.14.0-dev"
+version = "0.15.0-dev"
 edition = "2021"
 description = "The Bevy Remote Protocol"
 homepage = "https://bevyengine.org"
@@ -11,13 +11,13 @@ readme = "README.md"
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.14.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 
 # other
 anyhow = "1"

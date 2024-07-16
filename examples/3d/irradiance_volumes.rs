@@ -22,6 +22,9 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 use bevy::window::PrimaryWindow;
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
+
 // Rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.2;
 
@@ -50,7 +53,7 @@ static CLICK_TO_MOVE_HELP_TEXT: &str = "Left click: Move the object";
 
 static GIZMO_COLOR: Color = Color::Srgba(YELLOW);
 
-static VOXEL_TRANSFORM: Mat4 = Mat4::from_cols_array_2d(&[
+static VOXEL_FROM_WORLD: Mat4 = Mat4::from_cols_array_2d(&[
     [-42.317566, 0.0, 0.0, 0.0],
     [0.0, 0.0, 44.601563, 0.0],
     [0.0, 16.73776, 0.0, 0.0],
@@ -132,8 +135,8 @@ struct VoxelVisualizationExtension {
 
 #[derive(ShaderType, Debug, Clone)]
 struct VoxelVisualizationIrradianceVolumeInfo {
-    transform: Mat4,
-    inverse_transform: Mat4,
+    world_from_voxel: Mat4,
+    voxel_from_world: Mat4,
     resolution: UVec3,
     intensity: f32,
 }
@@ -236,13 +239,14 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         .insert(Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
+            ..Default::default()
         });
 }
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(SpatialBundle {
-            transform: Transform::from_matrix(VOXEL_TRANSFORM),
+            transform: Transform::from_matrix(VOXEL_FROM_WORLD),
             ..SpatialBundle::default()
         })
         .insert(IrradianceVolume {
@@ -354,10 +358,7 @@ impl AppStatus {
                 rotation_help_text,
                 switch_mesh_help_text
             ),
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }
@@ -474,11 +475,7 @@ fn handle_mouse_clicks(
     if !buttons.pressed(MouseButton::Left) {
         return;
     }
-    let Some(mouse_position) = windows
-        .iter()
-        .next()
-        .and_then(|window| window.cursor_position())
-    else {
+    let Some(mouse_position) = windows.iter().next().and_then(Window::cursor_position) else {
         return;
     };
     let Some((camera, camera_transform)) = cameras.iter().next() else {
@@ -506,16 +503,19 @@ fn handle_mouse_clicks(
 
 impl FromWorld for ExampleAssets {
     fn from_world(world: &mut World) -> Self {
-        let fox_animation = world.load_asset("models/animated/Fox.glb#Animation1");
+        let fox_animation =
+            world.load_asset(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb"));
         let (fox_animation_graph, fox_animation_node) =
             AnimationGraph::from_clip(fox_animation.clone());
 
         ExampleAssets {
             main_sphere: world.add_asset(Sphere::default().mesh().uv(32, 18)),
-            fox: world.load_asset("models/animated/Fox.glb#Scene0"),
+            fox: world.load_asset(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
             main_sphere_material: world.add_asset(Color::from(SILVER)),
-            main_scene: world
-                .load_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb#Scene0"),
+            main_scene: world.load_asset(
+                GltfAssetLabel::Scene(0)
+                    .from_asset("models/IrradianceVolumeExample/IrradianceVolumeExample.glb"),
+            ),
             irradiance_volume: world.load_asset("irradiance_volumes/Example.vxgi.ktx2"),
             fox_animation_graph: world.add_asset(fox_animation_graph),
             fox_animation_node,
@@ -571,8 +571,8 @@ fn create_cubes(
             base: StandardMaterial::from(Color::from(RED)),
             extension: VoxelVisualizationExtension {
                 irradiance_volume_info: VoxelVisualizationIrradianceVolumeInfo {
-                    transform: VOXEL_TRANSFORM.inverse(),
-                    inverse_transform: VOXEL_TRANSFORM,
+                    world_from_voxel: VOXEL_FROM_WORLD.inverse(),
+                    voxel_from_world: VOXEL_FROM_WORLD,
                     resolution: uvec3(
                         resolution.width,
                         resolution.height,
@@ -650,6 +650,6 @@ fn toggle_voxel_visibility(
 
 impl MaterialExtension for VoxelVisualizationExtension {
     fn fragment_shader() -> ShaderRef {
-        "shaders/irradiance_volume_voxel_visualization.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

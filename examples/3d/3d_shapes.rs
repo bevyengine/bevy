@@ -28,7 +28,9 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 14.0;
+const SHAPES_X_EXTENT: f32 = 14.0;
+const EXTRUSION_X_EXTENT: f32 = 16.0;
+const Z_EXTENT: f32 = 5.0;
 
 fn setup(
     mut commands: Commands,
@@ -53,6 +55,16 @@ fn setup(
         meshes.add(Sphere::default().mesh().uv(32, 18)),
     ];
 
+    let extrusions = [
+        meshes.add(Extrusion::new(Rectangle::default(), 1.)),
+        meshes.add(Extrusion::new(Capsule2d::default(), 1.)),
+        meshes.add(Extrusion::new(Annulus::default(), 1.)),
+        meshes.add(Extrusion::new(Circle::default(), 1.)),
+        meshes.add(Extrusion::new(Ellipse::default(), 1.)),
+        meshes.add(Extrusion::new(RegularPolygon::default(), 1.)),
+        meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
+    ];
+
     let num_shapes = shapes.len();
 
     for (i, shape) in shapes.into_iter().enumerate() {
@@ -61,9 +73,29 @@ fn setup(
                 mesh: shape,
                 material: debug_material.clone(),
                 transform: Transform::from_xyz(
-                    -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
+                    -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                     2.0,
-                    0.0,
+                    Z_EXTENT / 2.,
+                )
+                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+                ..default()
+            },
+            Shape,
+        ));
+    }
+
+    let num_extrusions = extrusions.len();
+
+    for (i, shape) in extrusions.into_iter().enumerate() {
+        commands.spawn((
+            PbrBundle {
+                mesh: shape,
+                material: debug_material.clone(),
+                transform: Transform::from_xyz(
+                    -EXTRUSION_X_EXTENT / 2.
+                        + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
+                    2.0,
+                    -Z_EXTENT / 2.,
                 )
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
@@ -86,30 +118,24 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10)),
         material: materials.add(Color::from(SILVER)),
         ..default()
     });
 
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
+        transform: Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..default()
     });
 
     commands.spawn(
-        TextBundle::from_section(
-            "Press space to toggle wireframes",
-            TextStyle {
-                font_size: 20.0,
+        TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
                 ..default()
-            },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
+            }),
     );
 }
 

@@ -1,8 +1,8 @@
 //! Mesh generation for [primitive shapes](bevy_math::primitives).
 //!
 //! Primitives that support meshing implement the [`Meshable`] trait.
-//! Calling [`mesh`](Meshable::mesh) will return either a [`Mesh`](super::Mesh) or a builder
-//! that can be used to specify shape-specific configuration for creating the [`Mesh`](super::Mesh).
+//! Calling [`mesh`](Meshable::mesh) will return either a [`Mesh`] or a builder
+//! that can be used to specify shape-specific configuration for creating the [`Mesh`].
 //!
 //! ```
 //! # use bevy_asset::Assets;
@@ -25,15 +25,17 @@ pub use dim2::*;
 mod dim3;
 pub use dim3::*;
 
+mod extrusion;
+pub use extrusion::*;
+
 use super::Mesh;
 
-/// A trait for shapes that can be turned into a [`Mesh`](super::Mesh).
+/// A trait for shapes that can be turned into a [`Mesh`].
 pub trait Meshable {
-    /// The output of [`Self::mesh`]. This can either be a [`Mesh`](super::Mesh)
-    /// or a [`MeshBuilder`] used for creating a [`Mesh`](super::Mesh).
-    type Output;
+    /// The output of [`Self::mesh`]. This will be a [`MeshBuilder`] used for creating a [`Mesh`].
+    type Output: MeshBuilder;
 
-    /// Creates a [`Mesh`](super::Mesh) for a shape.
+    /// Creates a [`Mesh`] for a shape.
     fn mesh(&self) -> Self::Output;
 }
 

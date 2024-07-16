@@ -20,7 +20,7 @@ pub(crate) fn item_struct(
     user_where_clauses_with_world: Option<&WhereClause>,
 ) -> proc_macro2::TokenStream {
     let item_attrs = quote!(
-            #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
+            #[doc = "Automatically generated [`WorldQuery`](#path::query::WorldQuery) item type for [`"]
             #[doc = stringify!(#struct_name)]
             #[doc = "`], returned when iterating over query results."]
             #[automatically_derived]
@@ -164,9 +164,9 @@ pub(crate) fn world_query_impl(
                 #( <#field_types>::update_component_access(&state.#named_field_idents, _access); )*
             }
 
-            fn init_state(initializer: &mut #path::component::ComponentInitializer) -> #state_struct_name #user_ty_generics {
+            fn init_state(world: &mut #path::world::World) -> #state_struct_name #user_ty_generics {
                 #state_struct_name {
-                    #(#named_field_idents: <#field_types>::init_state(initializer),)*
+                    #(#named_field_idents: <#field_types>::init_state(world),)*
                 }
             }
 

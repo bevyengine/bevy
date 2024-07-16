@@ -149,7 +149,8 @@ fn spawn_coated_glass_bubble_sphere(
 fn spawn_golf_ball(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/GolfBall/GolfBall.glb#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/GolfBall/GolfBall.glb")),
             transform: Transform::from_xyz(1.0, 1.0, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
             ..default()
         })
@@ -223,6 +224,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            ..Default::default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
@@ -236,7 +238,7 @@ fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
     commands.spawn(
         TextBundle {
             text: light_mode.create_help_text(),
-            ..TextBundle::default()
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -336,12 +338,6 @@ impl LightMode {
             LightMode::Directional => "Press Space to switch to a point light",
         };
 
-        Text::from_section(
-            help_text,
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
-        )
+        Text::from_section(help_text, TextStyle::default())
     }
 }

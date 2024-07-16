@@ -98,7 +98,7 @@ fn setup(
 // Spawns the cubes, light, and camera.
 fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/cubes/Cubes.glb#Scene0"),
+        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/cubes/Cubes.glb")),
         ..SceneBundle::default()
     });
 }
@@ -187,6 +187,7 @@ fn add_environment_map_to_camera(
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
                 brightness: 5000.0,
+                ..Default::default()
             });
     }
 }
@@ -286,10 +287,7 @@ impl AppStatus {
                 "{}\n{}\n{}",
                 self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT
             ),
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }

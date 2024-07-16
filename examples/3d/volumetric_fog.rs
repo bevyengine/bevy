@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping, Skybox},
     math::vec3,
-    pbr::{VolumetricFogSettings, VolumetricLight},
+    pbr::{FogVolumeBundle, VolumetricFogSettings, VolumetricLight},
     prelude::*,
 };
 
@@ -29,11 +29,14 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn the glTF scene.
     commands.spawn(SceneBundle {
-        scene: asset_server.load("models/VolumetricFogExample/VolumetricFogExample.glb#Scene0"),
+        scene: asset_server.load(
+            GltfAssetLabel::Scene(0)
+                .from_asset("models/VolumetricFogExample/VolumetricFogExample.glb"),
+        ),
         ..default()
     });
 
-    // Spawn the camera. Add the volumetric fog.
+    // Spawn the camera.
     commands
         .spawn(Camera3dBundle {
             transform: Transform::from_xyz(-1.7, 1.5, 4.5)
@@ -49,6 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 1000.0,
+            ..Default::default()
         })
         .insert(VolumetricFogSettings {
             // This value is explicitly set to 0 since we have no environment map light
@@ -56,15 +60,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         });
 
+    // Add the fog volume.
+    commands.spawn(FogVolumeBundle {
+        transform: Transform::from_scale(Vec3::splat(35.0)),
+        ..default()
+    });
+
     // Add the help text.
     commands.spawn(
         TextBundle {
             text: Text::from_section(
                 "Press WASD or the arrow keys to change the light direction",
-                TextStyle {
-                    font_size: 20.0,
-                    ..default()
-                },
+                TextStyle::default(),
             ),
             ..default()
         }

@@ -170,7 +170,7 @@ impl AssetProcessor {
     /// * Scan the processed [`AssetReader`] to build the current view of already processed assets.
     /// * Scan the unprocessed [`AssetReader`] and remove any final processed assets that are invalid or no longer exist.
     /// * For each asset in the unprocessed [`AssetReader`], kick off a new "process job", which will process the asset
-    /// (if the latest version of the asset has not been processed).
+    ///     (if the latest version of the asset has not been processed).
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub fn process_assets(&self) {
         let start_time = std::time::Instant::now();
@@ -1098,6 +1098,7 @@ pub(crate) struct ProcessorAssetInfo {
     /// * when the processor is running in parallel with an app
     /// * when processing assets in parallel, the processor might read an asset's `process_dependencies` when processing new versions of those dependencies
     ///     * this second scenario almost certainly isn't possible with the current implementation, but its worth protecting against
+    ///
     /// This lock defends against those scenarios by ensuring readers don't read while processed files are being written. And it ensures
     /// Because this lock is shared across meta and asset bytes, readers can ensure they don't read "old" versions of metadata with "new" asset data.
     pub(crate) file_transaction_lock: Arc<async_lock::RwLock<()>>,

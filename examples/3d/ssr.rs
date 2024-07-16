@@ -21,6 +21,9 @@ use bevy::{
     },
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
+
 // The speed of camera movement.
 const CAMERA_KEYBOARD_ZOOM_SPEED: f32 = 0.1;
 const CAMERA_KEYBOARD_ORBIT_SPEED: f32 = 0.02;
@@ -164,7 +167,8 @@ fn spawn_cube(
 fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             transform: Transform::from_scale(Vec3::splat(2.5)),
             ..default()
         })
@@ -242,6 +246,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
+            ..Default::default()
         })
         .insert(ScreenSpaceReflectionsBundle::default())
         .insert(Fxaa::default());
@@ -252,7 +257,7 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
     commands.spawn(
         TextBundle {
             text: create_text(app_settings),
-            ..TextBundle::default()
+            ..default()
         }
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -279,16 +284,13 @@ fn create_text(app_settings: &AppSettings) -> Text {
             },
             MOVE_CAMERA_HELP_TEXT
         ),
-        TextStyle {
-            font_size: 20.0,
-            ..default()
-        },
+        TextStyle::default(),
     )
 }
 
 impl MaterialExtension for Water {
     fn deferred_fragment_shader() -> ShaderRef {
-        "shaders/water_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }
 

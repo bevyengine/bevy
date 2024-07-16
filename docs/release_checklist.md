@@ -64,3 +64,26 @@
     1. Discord: Bevy
 
 ### Patch Post-Release
+
+## Release Candidate
+
+### RC Pre-Release
+
+1. Check appropriate milestone.
+2. Create a branch for the release.
+3. Bump version number for all crates, using the command from the "Release" workflow locally, with `rc` for the new version. At the time of writing this:
+    * `cargo release rc --workspace --no-publish --execute --no-tag --no-confirm --no-push --dependent-version upgrade --exclude ci --exclude errors --exclude bevy_mobile_example --exclude build-wasm-example`
+    * Change the commit message to be nicer
+4. Create tag on GitHub.
+5. Edit Github Release. Add link to the comparison between this rc and the previous version.
+
+### RC Release
+
+1. Release on crates.io
+    * `bash tools/publish.sh`
+2. Announce on:
+    1. Discord: Bevy, #dev-announcements
+
+### RC Post-Release
+
+1. Update Bevy version used for Bevy book code validation to latest release.

@@ -39,14 +39,20 @@ fn get_serializable<'a, E: Error>(
         ))
     })?;
 
-    let reflect_serialize = type_registry
-        .get_type_data::<ReflectSerialize>(info.type_id())
-        .ok_or_else(|| {
-            Error::custom(format_args!(
-                "Type '{}' did not register ReflectSerialize",
-                info.type_path(),
-            ))
-        })?;
+    let registration = type_registry.get(info.type_id()).ok_or_else(|| {
+        Error::custom(format_args!(
+            "Type `{}` is not registered in the type registry",
+            info.type_path(),
+        ))
+    })?;
+
+    let reflect_serialize = registration.data::<ReflectSerialize>().ok_or_else(|| {
+        Error::custom(format_args!(
+            "Type `{}` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
+            info.type_path(),
+        ))
+    })?;
+
     Ok(reflect_serialize.get_serializable(reflect_value))
 }
 
@@ -276,7 +282,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_struct(
             struct_info.type_path_table().ident().unwrap(),
             self.struct_value.field_len() - ignored_len,
@@ -329,7 +335,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_tuple_struct(
             tuple_struct_info.type_path_table().ident().unwrap(),
             self.tuple_struct.field_len() - ignored_len,
@@ -543,6 +549,7 @@ mod tests {
     use ron::ser::PrettyConfig;
     use serde::Serialize;
     use std::f32::consts::PI;
+    use std::ops::RangeInclusive;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -931,5 +938,37 @@ mod tests {
 }"#;
 
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_return_error_if_missing_registration() {
+        let value = RangeInclusive::<f32>::new(0.0, 1.0);
+        let registry = TypeRegistry::new();
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+        let error = ron::ser::to_string(&serializer).unwrap_err();
+        assert_eq!(
+            error,
+            ron::Error::Message(
+                "Type `core::ops::RangeInclusive<f32>` is not registered in the type registry"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn should_return_error_if_missing_type_data() {
+        let value = RangeInclusive::<f32>::new(0.0, 1.0);
+        let mut registry = TypeRegistry::new();
+        registry.register::<RangeInclusive<f32>>();
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+        let error = ron::ser::to_string(&serializer).unwrap_err();
+        assert_eq!(
+            error,
+            ron::Error::Message(
+                "Type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()
+            )
+        );
     }
 }
