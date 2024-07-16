@@ -1,8 +1,9 @@
 use crate::Reflect;
 
-/// The return type of a [`DynamicFunction`].
+/// The return type of a [`DynamicFunction`] or [`DynamicClosure`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicClosure`]: crate::func::DynamicClosure
 #[derive(Debug)]
 pub enum Return<'a> {
     /// The function returns nothing (i.e. it returns `()`).
@@ -60,15 +61,21 @@ impl<'a> Return<'a> {
 
 /// A trait for types that can be converted into a [`Return`] value.
 ///
+/// This trait exists so that types can be automatically converted into a [`Return`]
+/// by [`IntoFunction`].
+///
 /// This trait is used instead of a blanket [`Into`] implementation due to coherence issues:
 /// we can't implement `Into<Return>` for both `T` and `&T`/`&mut T`.
 ///
 /// This trait is automatically implemented when using the `Reflect` [derive macro].
 ///
+/// [`IntoFunction`]: crate::func::IntoFunction
 /// [derive macro]: derive@crate::Reflect
 pub trait IntoReturn {
     /// Converts [`Self`] into a [`Return`] value.
-    fn into_return<'a>(self) -> Return<'a>;
+    fn into_return<'a>(self) -> Return<'a>
+    where
+        Self: 'a;
 }
 
 impl IntoReturn for () {
@@ -111,7 +118,7 @@ macro_rules! impl_into_return {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
                 $crate::func::Return::Owned(Box::new(self))
             }
         }
@@ -125,7 +132,7 @@ macro_rules! impl_into_return {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
                 $crate::func::Return::Ref(self)
             }
         }
@@ -139,7 +146,7 @@ macro_rules! impl_into_return {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
                 $crate::func::Return::Mut(self)
             }
         }
