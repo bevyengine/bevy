@@ -17,6 +17,7 @@ pub mod bounding;
 pub mod common_traits;
 mod compass;
 pub mod cubic_splines;
+pub mod curve;
 mod direction;
 mod float_ord;
 mod isometry;
