@@ -3263,6 +3263,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "fog_volumes"
+path = "examples/3d/fog_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fog_volumes]
+name = "Fog volumes"
+description = "Demonstrates fog volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "physics_in_fixed_timestep"
 path = "examples/movement/physics_in_fixed_timestep.rs"
 doc-scrape-examples = true
