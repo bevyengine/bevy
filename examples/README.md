@@ -157,7 +157,7 @@ Example | Description
 [Physically Based Rendering](../examples/3d/pbr.rs) | Demonstrates use of Physically Based Rendering (PBR) properties
 [Reflection Probes](../examples/3d/reflection_probes.rs) | Demonstrates reflection probes
 [Render to Texture](../examples/3d/render_to_texture.rs) | Shows how to render to a texture, useful for mirrors, UI, or exporting images
-[Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Rotate the skybox and the environment map to align with a camera that uses the Z-axis as vertical.
+[Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously.
 [Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion
 [Screen Space Reflections](../examples/3d/ssr.rs) | Demonstrates screen space reflections with water ripples
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene

@@ -3303,7 +3303,7 @@ required-features = ["pbr_multi_layer_material_textures"]
 
 [package.metadata.example.rotate_environment_map]
 name = "Rotate Environment Map"
-description = "Rotate the skybox and the environment map to align with a camera that uses the Z-axis as vertical."
+description = "Demonstrates how to rotate the skybox and the environment map simultaneously."
 category = "3D Rendering"
 wasm = false
 
