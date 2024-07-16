@@ -152,6 +152,9 @@ macro_rules! plugin_group {
 }
 
 /// Combines multiple [`Plugin`]s into a single unit.
+///
+/// If you want an easier, but slightly more restrictive, method of implementing this trait, you
+/// may be interested in the [`plugin_group!`] macro.
 pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.
     fn build(self) -> PluginGroupBuilder;
