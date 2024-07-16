@@ -77,10 +77,10 @@
 //! Many of the traits in this module have default blanket implementations over a specific set of function signatures.
 //!
 //! These signatures are:
-//! - `fn(...) -> R`
-//! - `fn<'a>(&'a arg, ...) -> &'a R`
-//! - `fn<'a>(&'a mut arg, ...) -> &'a R`
-//! - `fn<'a>(&'a mut arg, ...) -> &'a mut R`
+//! - `(...) -> R`
+//! - `for<'a> (&'a arg, ...) -> &'a R`
+//! - `for<'a> (&'a mut arg, ...) -> &'a R`
+//! - `for<'a> (&'a mut arg, ...) -> &'a mut R`
 //!
 //! Where `...` represents 0 to 15 arguments (inclusive) of the form `T`, `&T`, or `&mut T`.
 //! The lifetime of any reference to the return type `R`, must be tied to a "receiver" argument

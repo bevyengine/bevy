@@ -68,10 +68,10 @@ pub trait ReflectFn<'env, Marker>: ReflectFnMut<'env, Marker> {
 /// Helper macro for implementing [`ReflectFn`] on Rust closures.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
-/// - `fn(arg0, arg1, ..., argN) -> R`
-/// - `fn(&Receiver, arg0, arg1, ..., argN) -> &R`
-/// - `fn(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
-/// - `fn(&mut Receiver, arg0, arg1, ..., argN) -> &R`
+/// - `Fn(arg0, arg1, ..., argN) -> R`
+/// - `Fn(&Receiver, arg0, arg1, ..., argN) -> &R`
+/// - `Fn(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
+/// - `Fn(&mut Receiver, arg0, arg1, ..., argN) -> &R`
 macro_rules! impl_reflect_fn {
     ($(($Arg:ident, $arg:ident)),*) => {
         // === (...) -> ReturnType === //

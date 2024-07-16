@@ -24,9 +24,11 @@ impl<F, Marker1, Marker2> IntoFunction<(Marker1, Marker2)> for F
 where
     F: ReflectFn<'static, Marker1>
         + TypedFunction<Marker2>
-        // Ideally, we'd only implement `IntoFunction` on actual `fn` types,
+        // Ideally, we'd only implement `IntoFunction` on actual function types
+        // (i.e. functions that do not capture their environment at all),
         // but this would only work if users first explicitly coerced their functions
-        // to a function pointer, which is not the best user experience.
+        // to a function pointer like `(add as fn(i32, i32) -> i32).into_function()`,
+        // which is certainly not the best user experience.
         // So as a compromise, we'll stick to allowing any type that implements
         // `ReflectFn` and `TypedFunction`, but also add the following trait bounds
         // that all `fn` types implement:

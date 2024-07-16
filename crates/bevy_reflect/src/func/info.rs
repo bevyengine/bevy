@@ -175,6 +175,7 @@ impl ReturnInfo {
 /// [unconstrained type parameters] when defining impls with generic arguments or return types.
 /// This `Marker` can be any type, provided it doesn't conflict with other implementations.
 ///
+/// [module-level documentation]: crate::func
 /// [`Typed`]: crate::Typed
 pub trait TypedFunction<Marker> {
     /// Get the [`FunctionInfo`] for this type.
@@ -189,10 +190,10 @@ pub trait TypedFunction<Marker> {
 /// Helper macro for implementing [`TypedFunction`] on Rust closures.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
-/// - `fn(arg0, arg1, ..., argN) -> R`
-/// - `fn(&Receiver, arg0, arg1, ..., argN) -> &R`
-/// - `fn(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
-/// - `fn(&mut Receiver, arg0, arg1, ..., argN) -> &R`
+/// - `FnMut(arg0, arg1, ..., argN) -> R`
+/// - `FnMut(&Receiver, arg0, arg1, ..., argN) -> &R`
+/// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
+/// - `FnMut(&mut Receiver, arg0, arg1, ..., argN) -> &R`
 macro_rules! impl_typed_function {
     ($(($Arg:ident, $arg:ident)),*) => {
         // === (...) -> ReturnType === //
