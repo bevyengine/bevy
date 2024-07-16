@@ -459,7 +459,25 @@ impl Dir3 {
 
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
-    /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
+    /// 
+    /// # Example
+    /// The following seemingly benign code would start accumulating errors over time,
+    /// leading to `dir` eventually not being normalized anymore.
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut dir: &mut Dir3) {
+    ///     let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    ///     *dir = quaternion * *dir;
+    /// }
+    /// ```
+    /// Instead, do the following.
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// fn system(mut dir: &mut Dir3) {
+    ///     let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    ///     *dir = (quaternion * *dir).fast_renormalize();
+    /// }
+    /// ```
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         // We numerically approximate the inverse square root by a Taylor series around 1
@@ -696,24 +714,7 @@ impl Dir3A {
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
     ///
-    /// # Example
-    /// The following seemingly benign code would start accumulating errors over time,
-    /// leading to `dir` eventually not being normalized anymore.
-    /// ```
-    /// # use bevy::prelude::*;
-    /// fn system(mut dir: Local<Dir3>) {
-    ///     let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
-    ///     dir *= quaternion;
-    /// }
-    /// ```
-    /// Instead, do the following.
-    /// ```
-    /// # use bevy::prelude::*;
-    /// fn system(mut dir: Local<Dir3>) {
-    ///     let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
-    ///     *dir = (dir * quaternion).fast_renormalize();
-    /// }
-    /// ```
+    /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
