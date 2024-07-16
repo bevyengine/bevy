@@ -145,7 +145,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 pub struct WakeUp;
 
 /// A wrapper type around [`winit::event_loop::EventLoopProxy`] with the specific
-/// [`winit::event::Event::UserEvent`] used in the [`winit_runner`].
+/// [`winit::event::Event::UserEvent`] used in the [`WinitPlugin`].
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///
