@@ -259,6 +259,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         (meshes, render_mesh_instances, mesh_allocator): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        // A borrow check workaround.
         let mesh_allocator = mesh_allocator.into_inner();
 
         let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.entity())
