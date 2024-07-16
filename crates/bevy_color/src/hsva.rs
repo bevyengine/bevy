@@ -157,7 +157,11 @@ impl From<Hwba> for Hsva {
     ) -> Self {
         // Based on https://en.wikipedia.org/wiki/HWB_color_model#Conversion
         let value = 1. - blackness;
-        let saturation = 1. - whiteness.checked_div(value).unwrap_or(1.);
+        let saturation = if value != 0. {
+            1. - (whiteness / value)
+        } else {
+            0.
+        };
 
         Hsva::new(hue, saturation, value, alpha)
     }
