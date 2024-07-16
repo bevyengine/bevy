@@ -100,6 +100,7 @@ use std::{
 /// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
 /// - `#[component(on_add = on_add_function)]`
 /// - `#[component(on_insert = on_insert_function)]`
+/// - `#[component(on_replace = on_replace_function)]`
 /// - `#[component(on_remove = on_remove_function)]`
 ///
 /// ```
@@ -114,8 +115,8 @@ use std::{
 /// // Another possible way of configuring hooks:
 /// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
 /// //
-/// // We don't have a remove hook, so we can leave it out:
-/// // #[component(on_remove = my_on_remove_hook)]
+/// // We don't have a replace or remove hook, so we can leave them out:
+/// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
 /// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
@@ -280,6 +281,7 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
     pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_replace: Option<ComponentHook>,
     pub(crate) on_remove: Option<ComponentHook>,
 }
 
@@ -312,6 +314,28 @@ impl ComponentHooks {
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_insert(hook)
             .expect("Component id: {:?}, already has an on_insert hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
+    /// such as being replaced (with `.insert`) or removed.
+    ///
+    /// If this component is inserted onto an entity that already has it, this hook will run before the value is replaced,
+    /// allowing access to the previous data just before it is dropped.
+    /// This hook does *not* run if the entity did not already have this component.
+    ///
+    /// An `on_replace` hook always runs before any `on_remove` hooks (if the component is being removed from the entity).
+    ///
+    /// # Warning
+    ///
+    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
+    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has an `on_replace` hook
+    pub fn on_replace(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_replace(hook)
+            .expect("Component id: {:?}, already has an on_replace hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
@@ -348,6 +372,19 @@ impl ComponentHooks {
             return None;
         }
         self.on_insert = Some(hook);
+        Some(self)
+    }
+
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed
+    ///
+    /// This is a fallible version of [`Self::on_replace`].
+    ///
+    /// Returns `None` if the component already has an `on_replace` hook.
+    pub fn try_on_replace(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_replace.is_some() {
+            return None;
+        }
+        self.on_replace = Some(hook);
         Some(self)
     }
 
@@ -441,6 +478,9 @@ impl ComponentInfo {
         }
         if self.hooks().on_insert.is_some() {
             flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
+        }
+        if self.hooks().on_replace.is_some() {
+            flags.insert(ArchetypeFlags::ON_REPLACE_HOOK);
         }
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);

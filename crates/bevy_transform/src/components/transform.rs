@@ -500,14 +500,15 @@ impl Transform {
 
     /// Transforms the given `point`, applying scale, rotation and translation.
     ///
-    /// If this [`Transform`] has a parent, this will transform a `point` that is
-    /// relative to the parent's [`Transform`] into one relative to this [`Transform`].
+    /// If this [`Transform`] has an ancestor entity with a [`Transform`] component,
+    /// [`Transform::transform_point`] will transform a point in local space into its
+    /// parent transform's space.
     ///
-    /// If this [`Transform`] does not have a parent, this will transform a `point`
-    /// that is in global space into one relative to this [`Transform`].
+    /// If this [`Transform`] does not have a parent, [`Transform::transform_point`] will
+    /// transform a point in local space into worldspace coordinates.
     ///
-    /// If you want to transform a `point` in global space to the local space of this [`Transform`],
-    /// consider using [`GlobalTransform::transform_point()`] instead.
+    /// If you always want to transform a point in local space to worldspace, or if you need
+    /// the inverse transformations, see [`GlobalTransform::transform_point()`].
     #[inline]
     pub fn transform_point(&self, mut point: Vec3) -> Vec3 {
         point = self.scale * point;
