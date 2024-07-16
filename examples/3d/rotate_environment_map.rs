@@ -5,9 +5,8 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::{GOLD, WHITE},
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
-    pbr::{CascadeShadowConfig, Cascades, CascadesVisibleEntities},
     prelude::*,
-    render::{primitives::CascadesFrusta, texture::ImageLoaderSettings},
+    render::texture::ImageLoaderSettings,
 };
 
 /// Entry point.

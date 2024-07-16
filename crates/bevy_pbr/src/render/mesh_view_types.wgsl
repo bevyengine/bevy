@@ -150,5 +150,6 @@ struct ScreenSpaceReflectionsSettings {
 };
 
 struct EnvironmentMapUniform {
+    // Transformation matrix for the environment cubemaps in world space.
     transform: mat4x4<f32>,
 };
