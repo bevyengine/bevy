@@ -457,7 +457,7 @@ macro_rules! impl_or_query_filter {
                 )*
 
                 // The required components remain the same as the original `access`.
-                _new_access.required = access.required.clone();
+                _new_access.required = std::mem::take(&mut access.required);
 
                 *access = _new_access;
             }
