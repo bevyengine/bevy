@@ -6,10 +6,8 @@
 use bevy::{
     prelude::*,
     utils::Duration,
-    window::{PresentMode, WindowPlugin},
-    winit::{EventLoopProxyWrapper, WinitSettings},
     window::{PresentMode, RequestRedraw, WindowPlugin},
-    winit::{EventLoopProxy, WakeUp, WinitSettings},
+    winit::{EventLoopProxyWrapper, WakeUp, WinitSettings},
 };
 
 fn main() {
