@@ -465,17 +465,22 @@ impl Dir3 {
     /// leading to `dir` eventually not being normalized anymore.
     /// ```
     /// # use bevy_math::prelude::*;
-    /// fn system(mut dir: &mut Dir3) {
-    ///     let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
-    ///     *dir = quaternion * *dir;
+    /// # let N: usize = 200;
+    /// let mut dir = Dir3::X;
+    /// let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    /// for i in 0..N {
+    ///     dir = quaternion * dir;
     /// }
     /// ```
     /// Instead, do the following.
     /// ```
     /// # use bevy_math::prelude::*;
-    /// fn system(mut dir: &mut Dir3) {
-    ///     let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
-    ///     *dir = (quaternion * *dir).fast_renormalize();
+    /// # let N: usize = 200;
+    /// let mut dir = Dir3::X;
+    /// let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    /// for i in 0..N {
+    ///     dir = quaternion * dir;
+    ///     dir = dir.fast_renormalize();
     /// }
     /// ```
     #[inline]
