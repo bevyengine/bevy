@@ -143,6 +143,10 @@ impl<P: VectorSpace> CubicHermite<P> {
     }
 
     /// The characteristic matrix for this spline construction.
+    ///
+    /// Each row of this matrix expresses the coefficients of a [`CubicSegment`] as a linear
+    /// combination of p_i, v_i, p_{i+1}, and v_{i+1}, where (p_i, v_i) and (p_{i+1}, v_{i+1})
+    /// are consecutive control points with tangents.
     #[inline]
     fn char_matrix(&self) -> [[f32; 4]; 4] {
         [
@@ -248,6 +252,9 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
     }
 
     /// The characteristic matrix for this spline construction.
+    ///
+    /// Each row of this matrix expresses the coefficients of a [`CubicSegment`] as a linear
+    /// combination of four consecutive control points.
     #[inline]
     fn char_matrix(&self) -> [[f32; 4]; 4] {
         let s = self.tension;
@@ -376,6 +383,9 @@ impl<P: VectorSpace> CubicBSpline<P> {
     }
 
     /// The characteristic matrix for this spline construction.
+    ///
+    /// Each row of this matrix expresses the coefficients of a [`CubicSegment`] as a linear
+    /// combination of four consecutive control points.
     #[inline]
     fn char_matrix(&self) -> [[f32; 4]; 4] {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
