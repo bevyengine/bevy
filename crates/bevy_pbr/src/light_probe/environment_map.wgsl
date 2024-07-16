@@ -58,10 +58,12 @@ fn compute_radiances(
         bindings::specular_environment_maps[query_result.texture_index]) - 1u);
 
     if (!found_diffuse_indirect) {
-        var irradiance_sample_dir = vec3(N.xy, -N.z);
+        var irradiance_sample_dir = N;
         // Rotating the world space ray direction by the environment light map transform matrix, it is 
         // equivalent to rotating the diffuse environment cubemap itself.
         irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
+        // Cube maps are left-handed so we negate the z coordinate.
+        irradiance_sample_dir.z = -irradiance_sample_dir.z;
         radiances.irradiance = textureSampleLevel(
             bindings::diffuse_environment_maps[query_result.texture_index],
             bindings::environment_map_sampler,
@@ -69,10 +71,12 @@ fn compute_radiances(
             0.0).rgb * query_result.intensity;
     }
 
-    var radiance_sample_dir = vec3(R.xy, -R.z);
+    var radiance_sample_dir = R;
     // Rotating the world space ray direction by the environment light map transform matrix, it is 
     // equivalent to rotating the specular environment cubemap itself.
     radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
+    // Cube maps are left-handed so we negate the z coordinate.
+    radiance_sample_dir.z = -radiance_sample_dir.z;
     radiances.radiance = textureSampleLevel(
         bindings::specular_environment_maps[query_result.texture_index],
         bindings::environment_map_sampler,
@@ -111,10 +115,12 @@ fn compute_radiances(
     let intensity = light_probes.intensity_for_view;
 
     if (!found_diffuse_indirect) {
-        var irradiance_sample_dir = vec3(N.xy, -N.z);
+        var irradiance_sample_dir = N;
         // Rotating the world space ray direction by the environment light map transform matrix, it is 
         // equivalent to rotating the diffuse environment cubemap itself.
         irradiance_sample_dir = (environment_map_uniform.transform * vec4(irradiance_sample_dir, 1.0)).xyz;
+        // Cube maps are left-handed so we negate the z coordinate.
+        irradiance_sample_dir.z = -irradiance_sample_dir.z;
         radiances.irradiance = textureSampleLevel(
             bindings::diffuse_environment_map,
             bindings::environment_map_sampler,
@@ -122,10 +128,12 @@ fn compute_radiances(
             0.0).rgb * intensity;
     }
 
-    var radiance_sample_dir = vec3(R.xy, -R.z);
+    var radiance_sample_dir = R;
     // Rotating the world space ray direction by the environment light map transform matrix, it is 
     // equivalent to rotating the specular environment cubemap itself.
     radiance_sample_dir = (environment_map_uniform.transform * vec4(radiance_sample_dir, 1.0)).xyz;
+    // Cube maps are left-handed so we negate the z coordinate.
+    radiance_sample_dir.z = -radiance_sample_dir.z;
     radiances.radiance = textureSampleLevel(
         bindings::specular_environment_map,
         bindings::environment_map_sampler,
