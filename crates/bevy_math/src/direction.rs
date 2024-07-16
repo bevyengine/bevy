@@ -246,6 +246,7 @@ impl Dir2 {
 
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
+    /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
@@ -458,24 +459,25 @@ impl Dir3 {
 
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
+    /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
-        // We numerically approximate the inverse square root by a taylor series around 1
+        // We numerically approximate the inverse square root by a Taylor series around 1
         // As we expect the error (x := length_squared - 1) to be small
-        // inverse_sqrt(length_squared) = (1 + x)^(-1/2) = 1 - 1/2 x + O(x^2)
-        // inverse_sqrt(length_squared) ~~ 1 - 1/2 (length_squared - 1) = 1/2 (3 - length_squared)
+        // inverse_sqrt(length_squared) = (1 + x)^(-1/2) = 1 - 1/2 x + O(x²)
+        // inverse_sqrt(length_squared) ≈ 1 - 1/2 (length_squared - 1) = 1/2 (3 - length_squared)
 
-        // Iterative calls to this method quickly converge to a normalised value,
-        // so long as the denormalisation is not large ~ O(1/10).
+        // Iterative calls to this method quickly converge to a normalized value,
+        // so long as the denormalization is not large ~ O(1/10).
         // One iteration can be described as:
-        // l_sq <- l_sq * (1 - 1/2 (l_sq - 1))^2;
+        // l_sq <- l_sq * (1 - 1/2 (l_sq - 1))²;
         // Rewriting in terms of the error x:
-        // 1 + x <- (1 + x) * (1 - 1/2 x)^2
-        // 1 + x <- (1 + x) * (1 - x + 1/4 x^2)
-        // 1 + x <- 1 - x + 1/4 x^2 + x - x^2 + 1/4 x^3
-        // x <- -1/4 x^2 (3 - x)
+        // 1 + x <- (1 + x) * (1 - 1/2 x)²
+        // 1 + x <- (1 + x) * (1 - x + 1/4 x²)
+        // 1 + x <- 1 - x + 1/4 x² + x - x² + 1/4 x³
+        // x <- -1/4 x² (3 - x)
         // If the error is small, say in a range of (-1/2, 1/2), then:
-        // |-1/4 x^2 (3 - x)| <= (3/4 + 1/4 * |x|) * x^2 <= (3/4 + 1/4 * 1/2) * x^2 < x^2 < 1/2 x
+        // |-1/4 x² (3 - x)| <= (3/4 + 1/4 * |x|) * x² <= (3/4 + 1/4 * 1/2) * x² < x² < 1/2 x
         // Therefore the sequence of iterates converges to 0 error as a second order method.
 
         let length_squared = self.0.length_squared();
@@ -693,10 +695,30 @@ impl Dir3A {
 
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
+    ///
+    /// # Example
+    /// The following seemingly benign code would start accumulating errors over time,
+    /// leading to `dir` eventually not being normalized anymore.
+    /// ```
+    /// # use bevy::prelude::*;
+    /// fn system(mut dir: Local<Dir3>) {
+    ///     let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    ///     dir *= quaternion;
+    /// }
+    /// ```
+    /// Instead, do the following.
+    /// ```
+    /// # use bevy::prelude::*;
+    /// fn system(mut dir: Local<Dir3>) {
+    ///     let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    ///     *dir = (dir * quaternion).fast_renormalize();
+    /// }
+    /// ```
+}
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.0.length_squared();
-        // Based on a taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
+        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
         Self(self * (0.5 * (3.0 - length_squared)))
     }
 }

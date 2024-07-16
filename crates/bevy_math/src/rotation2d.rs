@@ -228,10 +228,11 @@ impl Rot2 {
 
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
     /// Useful for preventing numerical error accumulation.
+    /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
     #[inline]
     pub fn fast_renormalize(self) -> Self {
         let length_squared = self.length_squared();
-        // Based on a taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
+        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
         let length_recip_approx = 0.5 * (3.0 - length_squared);
         Rot2 {
             sin: self.sin * length_recip_approx,
@@ -545,7 +546,7 @@ mod tests {
         let mut initially_normalized_rot = normalized_rotation;
         let mut fully_normalized_rot = normalized_rotation;
 
-        // Compute a 64x (=2^6) multiple of the rotation.
+        // Compute a 64x (=2⁶) multiple of the rotation.
         for _ in 0..6 {
             unnormalized_rot = unnormalized_rot * unnormalized_rot;
             renormalized_rot = renormalized_rot * renormalized_rot;
