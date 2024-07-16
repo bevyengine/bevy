@@ -1,318 +1,183 @@
+use std::panic::{RefUnwindSafe, UnwindSafe};
+
 use crate::func::function::DynamicFunction;
-use bevy_utils::all_tuples;
+use crate::func::{ReflectFn, TypedFunction};
 
 /// A trait for types that can be converted into a [`DynamicFunction`].
 ///
-/// # Blanket Implementation
+/// This trait is automatically implemented for many standard Rust functions
+/// that also implement [`ReflectFn`] and [`TypedFunction`].
 ///
-/// This trait has a blanket implementation that covers many functions, closures, and methods.
-/// And though it works for many cases, it does have some limitations.
+/// To handle types such as closures that capture references to their environment,
+/// see [`IntoClosure`] instead.
 ///
-/// ## Arguments
+/// See the [module-level documentation] for more information.
 ///
-/// Firstly, the function signature may only have up to 15 arguments
-/// (or 16 if the first argument is a mutable/immutable reference).
-/// This limitation is unfortunately due to the [lack of variadic generics] in Rust.
-///
-/// Each argument must implement [`FromArg`], [`GetOwnership`], and [`TypePath`].
-///
-///
-/// ```compile_fail
-/// # use bevy_reflect::func::IntoFunction;
-/// fn too_many_args(
-///   arg01: i32,
-///   arg02: i32,
-///   arg03: i32,
-///   arg04: i32,
-///   arg05: i32,
-///   arg06: i32,
-///   arg07: i32,
-///   arg08: i32,
-///   arg09: i32,
-///   arg10: i32,
-///   arg11: i32,
-///   arg12: i32,
-///   arg13: i32,
-///   arg14: i32,
-///   arg15: i32,
-///   arg16: i32,
-/// ) {
-///   // ...
-/// }
-///
-/// // This will fail to compile:
-/// too_many_args.into_function();
-/// ```
-///
-/// ## Return Type
-///
-/// Secondly, the allowed return type is dependent on the first argument of the function:
-/// - If the first argument is an immutable reference,
-/// then the return type may be either an owned type, a static reference type, or a reference type
-/// bound to the lifetime of the first argument.
-/// - If the first argument is a mutable reference,
-/// then the return type may be either an owned type, a static reference type, or be a mutable reference type
-/// bound to the lifetime of the first argument.
-/// - If the first argument is an owned type,
-/// then the return type may be either an owned type or a static reference type.
-///
-/// The return type must always implement [`GetOwnership`] and [`TypePath`].
-/// If it is either an owned type or a static reference type,
-/// then it must also implement [`IntoReturn`].
-/// Otherwise, it must also implement [`Reflect`].
-///
-/// Note that both `GetOwnership`, `TypePath`, and `IntoReturn` are automatically implemented
-/// when [deriving `Reflect`].
-///
-/// ```
-/// # use bevy_reflect::func::IntoFunction;
-/// fn owned_return(arg: i32) -> i32 { arg * 2 }
-/// fn ref_return(arg: &i32) -> &i32 { arg }
-/// fn mut_return(arg: &mut i32) -> &mut i32 { arg }
-/// fn static_return(arg: i32) -> &'static i32 { &123 }
-///
-/// owned_return.into_function();
-/// ref_return.into_function();
-/// mut_return.into_function();
-/// static_return.into_function();
-/// ```
-///
-/// [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
-/// [`FromArg`]: crate::func::args::FromArg
-/// [`GetOwnership`]: crate::func::args::GetOwnership
-/// [`TypePath`]: crate::TypePath
-/// [`IntoReturn`]: crate::func::IntoReturn
-/// [`Reflect`]: crate::Reflect
-/// [deriving `Reflect`]: derive@crate::Reflect
-pub trait IntoFunction<'env, Marker> {
+/// [`IntoClosure`]: crate::func::IntoClosure
+/// [module-level documentation]: crate::func
+pub trait IntoFunction<Marker> {
     /// Converts [`Self`] into a [`DynamicFunction`].
-    fn into_function(self) -> DynamicFunction<'env>;
+    fn into_function(self) -> DynamicFunction;
 }
 
-/// Helper macro that returns the number of tokens it receives.
-///
-/// This is used to get the argument count.
-///
-/// See [here] for details.
-///
-/// [here]: https://veykril.github.io/tlborm/decl-macros/building-blocks/counting.html#bit-twiddling
-macro_rules! count_tts {
-    () => { 0 };
-    ($odd:tt $($a:tt $b:tt)*) => { (count_tts!($($a)*) << 1) | 1 };
-    ($($a:tt $even:tt)*) => { count_tts!($($a)*) << 1 };
+impl<F, Marker1, Marker2> IntoFunction<(Marker1, Marker2)> for F
+where
+    F: ReflectFn<'static, Marker1>
+        + TypedFunction<Marker2>
+        // Ideally, we'd only implement `IntoFunction` on actual function types
+        // (i.e. functions that do not capture their environment at all),
+        // but this would only work if users first explicitly coerced their functions
+        // to a function pointer like `(add as fn(i32, i32) -> i32).into_function()`,
+        // which is certainly not the best user experience.
+        // So as a compromise, we'll stick to allowing any type that implements
+        // `ReflectFn` and `TypedFunction`, but also add the following trait bounds
+        // that all `fn` types implement:
+        + Clone
+        + Copy
+        + Send
+        + Sync
+        + Unpin
+        + UnwindSafe
+        + RefUnwindSafe
+        + 'static,
+{
+    fn into_function(self) -> DynamicFunction {
+        // Note that to further guarantee that `self` is a true `fn` type,
+        // we could add a compile time assertion that `F` is zero-sized.
+        // However, we don't do this because it would prevent users from
+        // converting function pointers into `DynamicFunction`s.
+
+        DynamicFunction::new(
+            move |args, info| self.reflect_call(args, info),
+            Self::function_info(),
+        )
+    }
 }
 
-/// Helper macro for implementing [`IntoFunction`] on Rust functions.
-///
-/// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
-/// - `fn(arg0, arg1, ..., argN) -> R`
-/// - `fn(&Receiver, arg0, arg1, ..., argN) -> &R`
-/// - `fn(&mut Receiver, arg0, arg1, ..., argN) -> &mut R`
-/// - `fn(&mut Receiver, arg0, arg1, ..., argN) -> &R`
-macro_rules! impl_into_function {
-    ($(($Arg:ident, $arg:ident)),*) => {
-        // === Owned Return === //
-        impl<'env, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn($($Arg),*) -> R> for F
-        where
-            $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
-            R: $crate::func::IntoReturn + $crate::func::args::GetOwnership + $crate::TypePath,
-            F: FnMut($($Arg),*) -> R + 'env,
-            F: for<'a> FnMut($($Arg::Item<'a>),*) -> R + 'env,
-        {
-            fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
-                const COUNT: usize = count_tts!($($Arg)*);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as bevy_reflect;
+    use crate::func::ArgList;
+    use bevy_reflect_derive::Reflect;
 
-                let info = $crate::func::FunctionInfo::new()
-                    .with_name(std::any::type_name::<F>())
-                    .with_args({
-                        #[allow(unused_mut)]
-                        let mut _index = 0;
-                        vec![
-                            $($crate::func::args::ArgInfo::new::<$Arg>({
-                                _index += 1;
-                                _index - 1
-                            }),)*
-                        ]
-                    })
-                    .with_return_info($crate::func::ReturnInfo::new::<R>());
+    #[test]
+    fn should_create_dynamic_function_from_function() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
 
-                $crate::func::DynamicFunction::new(move |args, _info| {
-                    if args.len() != COUNT {
-                        return Err($crate::func::error::FunctionError::InvalidArgCount {
-                            expected: COUNT,
-                            received: args.len(),
-                        });
-                    }
+        let func = add.into_function();
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+    }
 
-                    let [$($arg,)*] = args.take().try_into().expect("invalid number of arguments");
+    #[test]
+    fn should_create_dynamic_function_from_function_pointer() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
 
-                    #[allow(unused_mut)]
-                    let mut _index = 0;
-                    let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                        _index += 1;
-                        _info.args().get(_index - 1).expect("argument index out of bounds")
-                    })?,)*);
-                    Ok((self)($($arg,)*).into_return())
-                }, info)
+        let func = (add as fn(i32, i32) -> i32).into_function();
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+    }
+
+    #[test]
+    fn should_create_dynamic_function_from_anonymous_function() {
+        let func = (|a: i32, b: i32| a + b).into_function();
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+    }
+
+    #[test]
+    fn should_create_dynamic_function_from_method() {
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Foo(i32);
+
+        impl Foo {
+            pub fn add(&self, other: &Foo) -> Foo {
+                Foo(self.0 + other.0)
             }
         }
 
-        // === Ref Receiver + Ref Return === //
-        impl<'env, Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn(&Receiver, $($Arg),*) -> fn(&R)> for F
-        where
-            Receiver: $crate::Reflect + $crate::TypePath,
-            for<'a> &'a Receiver: $crate::func::args::GetOwnership,
-            R: $crate::Reflect + $crate::TypePath,
-            for<'a> &'a R: $crate::func::args::GetOwnership,
-            $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
-            F: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a R + 'env,
-            F: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a R + 'env,
-        {
-            fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
-                const COUNT: usize = count_tts!(Receiver $($Arg)*);
+        let foo_a = Foo(25);
+        let foo_b = Foo(75);
 
-                let info = $crate::func::FunctionInfo::new()
-                    .with_name(std::any::type_name::<F>())
-                    .with_args({
-                        #[allow(unused_mut)]
-                        let mut _index = 1;
-                        vec![
-                            $crate::func::args::ArgInfo::new::<&Receiver>(0),
-                            $($crate::func::args::ArgInfo::new::<$Arg>({
-                                _index += 1;
-                                _index - 1
-                            }),)*
-                        ]
-                    })
-                    .with_return_info($crate::func::ReturnInfo::new::<&R>());
+        let func = Foo::add.into_function();
+        let args = ArgList::new().push_ref(&foo_a).push_ref(&foo_b);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.downcast_ref::<Foo>(), Some(&Foo(100)));
+    }
 
-                $crate::func::DynamicFunction::new(move |args, _info| {
-                    if args.len() != COUNT {
-                        return Err($crate::func::error::FunctionError::InvalidArgCount {
-                            expected: COUNT,
-                            received: args.len(),
-                        });
-                    }
-
-                    let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                    let receiver = receiver.take_ref::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
-
-                    #[allow(unused_mut)]
-                    let mut _index = 1;
-                    let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                        _index += 1;
-                        _info.args().get(_index - 1).expect("argument index out of bounds")
-                    })?,)*);
-                    Ok($crate::func::Return::Ref((self)(receiver, $($arg,)*)))
-                }, info)
-            }
+    #[test]
+    fn should_allow_zero_args() {
+        fn foo() -> String {
+            String::from("Hello, World!")
         }
 
-        // === Mut Receiver + Mut Return === //
-        impl<'env, Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn(&mut Receiver, $($Arg),*) -> fn(&mut R)> for F
-        where
-            Receiver: $crate::Reflect + $crate::TypePath,
-            for<'a> &'a mut Receiver: $crate::func::args::GetOwnership,
-            R: $crate::Reflect + $crate::TypePath,
-            for<'a> &'a mut R: $crate::func::args::GetOwnership,
-            $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
-            F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut R + 'env,
-            F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut R + 'env,
-        {
-            fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
-                const COUNT: usize = count_tts!(Receiver $($Arg)*);
+        let func = foo.into_function();
+        let args = ArgList::new();
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(
+            result.downcast_ref::<String>(),
+            Some(&String::from("Hello, World!"))
+        );
+    }
 
-                let info = $crate::func::FunctionInfo::new()
-                    .with_name(std::any::type_name::<F>())
-                    .with_args({
-                        #[allow(unused_mut)]
-                        let mut _index = 1;
-                        vec![
-                            $crate::func::args::ArgInfo::new::<&mut Receiver>(0),
-                            $($crate::func::args::ArgInfo::new::<$Arg>({
-                                _index += 1;
-                                _index - 1
-                            }),)*
-                        ]
-                    })
-                    .with_return_info($crate::func::ReturnInfo::new::<&mut R>());
+    #[test]
+    fn should_allow_unit_return() {
+        fn foo(_: i32) {}
 
-                $crate::func::DynamicFunction::new(move |args, _info| {
-                    if args.len() != COUNT {
-                        return Err($crate::func::error::FunctionError::InvalidArgCount {
-                            expected: COUNT,
-                            received: args.len(),
-                        });
-                    }
+        let func = foo.into_function();
+        let args = ArgList::new().push_owned(123_i32);
+        let result = func.call(args).unwrap();
+        assert!(result.is_unit());
+    }
 
-                    let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                    let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
-
-                    #[allow(unused_mut)]
-                    let mut _index = 1;
-                    let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                        _index += 1;
-                        _info.args().get(_index - 1).expect("argument index out of bounds")
-                    })?,)*);
-                    Ok($crate::func::Return::Mut((self)(receiver, $($arg,)*)))
-                }, info)
-            }
+    #[test]
+    fn should_allow_reference_return() {
+        fn foo<'a>(value: &'a i32, _: String, _: &bool) -> &'a i32 {
+            value
         }
 
-        // === Mut Receiver + Ref Return === //
-        impl<'env, Receiver, $($Arg,)* R, F> $crate::func::IntoFunction<'env, fn(&mut Receiver, $($Arg),*) -> fn(&mut R) -> &R> for F
-        where
-            Receiver: $crate::Reflect + $crate::TypePath,
-            for<'a> &'a mut Receiver: $crate::func::args::GetOwnership,
-            R: $crate::Reflect + $crate::TypePath,
-            for<'a> &'a mut R: $crate::func::args::GetOwnership,
-            $($Arg: $crate::func::args::FromArg + $crate::func::args::GetOwnership + $crate::TypePath,)*
-            F: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a R + 'env,
-            F: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a R + 'env,
-        {
-            fn into_function(mut self) -> $crate::func::DynamicFunction<'env> {
-                const COUNT: usize = count_tts!(Receiver $($Arg)*);
+        let value: i32 = 123;
+        let func = foo.into_function();
+        let args = ArgList::new()
+            .push_ref(&value)
+            .push_owned(String::from("Hello, World!"))
+            .push_ref(&true);
+        let result = func.call(args).unwrap().unwrap_ref();
+        assert_eq!(result.downcast_ref::<i32>(), Some(&123));
+    }
 
-                let info = $crate::func::FunctionInfo::new()
-                    .with_name(std::any::type_name::<F>())
-                    .with_args({
-                        #[allow(unused_mut)]
-                        let mut _index = 1;
-                        vec![
-                            $crate::func::args::ArgInfo::new::<&mut Receiver>(0),
-                            $($crate::func::args::ArgInfo::new::<$Arg>({
-                                _index += 1;
-                                _index - 1
-                            }),)*
-                        ]
-                    })
-                    .with_return_info($crate::func::ReturnInfo::new::<&mut R>());
-
-                $crate::func::DynamicFunction::new(move |args, _info| {
-                    if args.len() != COUNT {
-                        return Err($crate::func::error::FunctionError::InvalidArgCount {
-                            expected: COUNT,
-                            received: args.len(),
-                        });
-                    }
-
-                    let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                    let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
-
-                    #[allow(unused_mut)]
-                    let mut _index = 1;
-                    let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                        _index += 1;
-                        _info.args().get(_index - 1).expect("argument index out of bounds")
-                    })?,)*);
-                    Ok($crate::func::Return::Ref((self)(receiver, $($arg,)*)))
-                }, info)
-            }
+    #[test]
+    fn should_allow_mutable_reference_return() {
+        fn foo<'a>(value: &'a mut i32, _: String, _: &bool) -> &'a mut i32 {
+            value
         }
-    };
+
+        let mut value: i32 = 123;
+        let func = foo.into_function();
+        let args = ArgList::new()
+            .push_mut(&mut value)
+            .push_owned(String::from("Hello, World!"))
+            .push_ref(&true);
+        let result = func.call(args).unwrap().unwrap_mut();
+        assert_eq!(result.downcast_mut::<i32>(), Some(&mut 123));
+    }
+
+    #[test]
+    fn should_default_with_function_type_name() {
+        fn foo() {}
+
+        let func = foo.into_function();
+        assert_eq!(
+            func.info().name(),
+            Some("bevy_reflect::func::into_function::tests::should_default_with_function_type_name::foo")
+        );
+    }
 }
-
-all_tuples!(impl_into_function, 0, 15, Arg, arg);

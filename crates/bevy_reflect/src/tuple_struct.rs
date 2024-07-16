@@ -1,7 +1,6 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, ApplyError, DynamicTuple, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
@@ -409,7 +408,8 @@ impl Reflect for DynamicTupleStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicTupleStruct);
-impl_function_traits!(DynamicTupleStruct);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicTupleStruct);
 
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -423,6 +423,33 @@ impl From<DynamicTuple> for DynamicTupleStruct {
             represented_type: None,
             fields: Box::new(value).drain(),
         }
+    }
+}
+
+impl FromIterator<Box<dyn Reflect>> for DynamicTupleStruct {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(fields: I) -> Self {
+        Self {
+            represented_type: None,
+            fields: fields.into_iter().collect(),
+        }
+    }
+}
+
+impl IntoIterator for DynamicTupleStruct {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicTupleStruct {
+    type Item = &'a dyn Reflect;
+    type IntoIter = TupleStructFieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
     }
 }
 
