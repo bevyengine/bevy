@@ -9,12 +9,11 @@ use bevy::{
         Skybox,
     },
     math::vec3,
-    pbr::{CubemapVisibleEntities, ShadowFilteringMethod},
+    pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
     prelude::*,
     render::{
         camera::TemporalJitter,
         primitives::{CubemapFrusta, Frustum},
-        view::VisibleEntities,
     },
 };
 
@@ -199,7 +198,7 @@ fn spawn_light(commands: &mut Commands, app_status: &AppStatus) {
         .insert(CubemapVisibleEntities::default())
         .insert(CubemapFrusta::default())
         // These two are needed for spot lights.
-        .insert(VisibleEntities::default())
+        .insert(VisibleMeshEntities::default())
         .insert(Frustum::default());
 }
 
