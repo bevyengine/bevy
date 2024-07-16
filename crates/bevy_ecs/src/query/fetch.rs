@@ -1861,24 +1861,29 @@ macro_rules! impl_anytuple_fetch {
                 )*)
             }
 
-            fn update_component_access(state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 // update the filters (Or<(With<$name>,)>)
                 let ($($name,)*) = state;
 
                 let mut _new_access = FilteredAccess::empty();
 
                 $(
-                    let mut intermediate = _access.clone();
+                    // Create an intermediate because `access`'s value needs to be preserved
+                    // for the next query data, and `_new_access` has to be modified only by `append_or` to it.
+                    let mut intermediate = access.clone();
                     $name::update_component_access($name, &mut intermediate);
                     _new_access.append_or(&intermediate);
                 )*
 
-                // we use an intermediate access because we only want to update the filter_sets, not the access
-                _access.filter_sets = _new_access.filter_sets;
+                // Of the accumulated `_new_access` we only care about the filter sets, not the access.
+                access.filter_sets = _new_access.filter_sets;
 
-                // update the access (add the read/writes)
-                // Option<T> updates the access but not the filter_sets
-                <($(Option<$name>,)*)>::update_component_access(state, _access);
+                // For the access we instead delegate to a tuple of `Option`s.
+                // This has essentially the same semantics of `AnyOf`, except that it doesn't
+                // require at least one of them to be `Some`.
+                // We however solve this by setting explicitly the `filter_sets` above.
+                // Also note that Option<T> updates the `access` but not the `filter_sets`.
+                <($(Option<$name>,)*)>::update_component_access(state, access);
 
             }
             #[allow(unused_variables)]

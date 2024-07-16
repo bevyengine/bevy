@@ -446,12 +446,15 @@ macro_rules! impl_or_query_filter {
                 let mut _new_access = FilteredAccess::empty();
 
                 $(
+                    // Create an intermediate because `access`'s value needs to be preserved
+                    // for the next filter, and `_new_access` has to be modified only by `append_or` to it.
                     let mut intermediate = access.clone();
                     $filter::update_component_access($filter, &mut intermediate);
                     _new_access.append_or(&intermediate);
                     _new_access.extend_access(&intermediate);
                 )*
 
+                // The required components remain the same as the original `access`.
                 _new_access.required = access.required.clone();
 
                 *access = _new_access;
