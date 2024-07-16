@@ -443,20 +443,16 @@ macro_rules! impl_or_query_filter {
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                let mut _new_access = access.clone();
-                let mut _not_first = false;
+                let mut _new_access = FilteredAccess::empty();
+
                 $(
-                    if _not_first {
-                        let mut intermediate = access.clone();
-                        $filter::update_component_access($filter, &mut intermediate);
-                        _new_access.append_or(&intermediate);
-                        _new_access.extend_access(&intermediate);
-                    } else {
-                        $filter::update_component_access($filter, &mut _new_access);
-                        _new_access.required = access.required.clone();
-                        _not_first = true;
-                    }
+                    let mut intermediate = access.clone();
+                    $filter::update_component_access($filter, &mut intermediate);
+                    _new_access.append_or(&intermediate);
+                    _new_access.extend_access(&intermediate);
                 )*
+
+                _new_access.required = access.required.clone();
 
                 *access = _new_access;
             }
