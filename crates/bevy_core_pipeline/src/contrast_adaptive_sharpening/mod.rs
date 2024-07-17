@@ -25,7 +25,7 @@ mod node;
 
 pub use node::CasNode;
 
-/// Applies a contrast adaptive sharpening (Cas) filter to the camera.
+/// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
 /// Cas is usually used in combination with shader based anti-aliasing methods
 /// such as FXAA or TAA to regain some of the lost detail from the blurring that they introduce.
@@ -210,7 +210,7 @@ impl SpecializedRenderPipeline for CasPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
         if key.denoise {
-            shader_defs.push("RCas_DENOISE".into());
+            shader_defs.push("RCAS_DENOISE".into());
         }
         RenderPipelineDescriptor {
             label: Some("contrast_adaptive_sharpening".into()),
