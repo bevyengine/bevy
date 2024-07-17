@@ -1,5 +1,5 @@
-//! An example to confirm that `bevy` doesn't have system order ambiguity with [`DefaultPlugins`]
-//! This is run in CI to ensure that this doesn't regress again.
+//! A test to confirm that `bevy` doesn't regress its system ambiguities count when using [`DefaultPlugins`].
+//! This is run in CI.
 
 use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings, ScheduleLabel},
@@ -16,7 +16,7 @@ pub fn get_ignored_ambiguous_system_schedules() -> Vec<Box<dyn ScheduleLabel>> {
     vec![
         Box::new(First),
         Box::new(PreUpdate),
-        //Box::new(Update),
+        Box::new(Update),
         Box::new(PostUpdate),
         Box::new(Last),
         Box::new(ExtractSchedule),
@@ -24,8 +24,8 @@ pub fn get_ignored_ambiguous_system_schedules() -> Vec<Box<dyn ScheduleLabel>> {
     ]
 }
 
-/// A test to confirm that `bevy` doesn't have system order ambiguity with [`DefaultPlugins`]
-/// This is run in CI to ensure that this doesn't regress again.
+/// A test to confirm that `bevy` doesn't regress its system ambiguities count when using [`DefaultPlugins`].
+/// This is run in CI.
 pub fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
