@@ -99,9 +99,9 @@ const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(6925381244141981602);
 
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
-pub struct CASPlugin;
+pub struct CasPlugin;
 
-impl Plugin for CASPlugin {
+impl Plugin for CasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
