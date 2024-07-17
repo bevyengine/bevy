@@ -47,12 +47,12 @@ pub fn main() {
 
     let ambiguities = count_ambiguities(sub_app);
     let mut unexpected_ambiguities = vec![];
-    for kv in ambiguities.0.iter() {
-        if ignored_schedules.iter().any(|label| **label == **kv.0) {
+    for (&label, &count) in ambiguities.0.iter() {
+        if ignored_schedules.contains(&label) {
             continue;
         }
-        if *kv.1 != 0 {
-            unexpected_ambiguities.push(kv.0);
+        if count != 0 {
+            unexpected_ambiguities.push(label);
         }
     }
     assert_eq!(
@@ -64,7 +64,7 @@ pub fn main() {
         ambiguities
     );
 
-    let total_ambiguities: usize = ambiguities.0.values().sum();
+    let total_ambiguities = ambiguities.total();
     assert_eq!(
         total_ambiguities, 82,
         "Main app does not have an expected conflicting systems count, \
@@ -77,7 +77,7 @@ pub fn main() {
     let sub_app = app.sub_app(RenderExtractApp);
 
     let ambiguities = count_ambiguities(sub_app);
-    let total_ambiguities: usize = ambiguities.0.values().sum();
+    let total_ambiguities = ambiguities.total();
     assert_eq!(
         total_ambiguities, 0,
         "RenderExtractApp contains conflicting systems.",
@@ -85,8 +85,14 @@ pub fn main() {
 }
 
 /// Contains the number of conflicting systems per schedule.
-#[derive(Debug)]
-struct AmibiguitiesCount(pub HashMap<InternedScheduleLabel, usize>);
+#[derive(Debug, Deref, DerefMut)]
+struct AmbiguitiesCount(pub HashMap<InternedScheduleLabel, usize>);
+
+impl AmbiguitiesCount {
+    fn total(&self) -> usize {
+        self.values().sum()
+    }
+}
 
 fn configure_ambiguity_detection(sub_app: &mut SubApp) {
     let ignored_ambiguous_systems = get_ignored_ambiguous_system_schedules();
@@ -108,13 +114,12 @@ fn configure_ambiguity_detection(sub_app: &mut SubApp) {
 }
 
 /// Returns the number of conflicting systems per schedule.
-fn count_ambiguities(sub_app: &SubApp) -> AmibiguitiesCount {
+fn count_ambiguities(sub_app: &SubApp) -> AmbiguitiesCount {
     let schedules = sub_app.world().resource::<Schedules>();
-    let mut ambiguities: bevy::utils::hashbrown::HashMap<InternedScheduleLabel, usize> =
-        HashMap::new();
+    let mut ambiguities = HashMap::new();
     for (_, schedule) in schedules.iter() {
         let ambiguities_in_schedule = schedule.graph().conflicting_systems().len();
         ambiguities.insert(schedule.label(), ambiguities_in_schedule);
     }
-    AmibiguitiesCount(ambiguities)
+    AmbiguitiesCount(ambiguities)
 }
