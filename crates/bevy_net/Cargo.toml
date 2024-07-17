@@ -10,23 +10,22 @@ bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
 bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
-static_init = "1.0.3"
-futures = "0.3.30"
 bytes = "1.6.0"
 bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
 
-quinn = { version = "0.11.2", optional = true, features = ["rustls", "ring"] }
-# same version as used by quinn, as to not increase compile times
-# it's hear becasue quinn seems not to have rexported some of its types from proto
-quinn-proto = { version = "0.11.2", optional = true }
+static_init = "1.0.3"
 
+#version used by quinn as of 0.11.2
+rustls = { version = "0.23.5", optional = true }
+
+quinn = { version = "0.11.2", optional = true, features = ["rustls"] }
 
 [features]
 default = []
 
 Udp = []
 Tcp = []
-QUIC = ["quinn", "quinn-proto"]
+QUIC = ["quinn", "rustls"]
 
 [lints]
 workspace = true

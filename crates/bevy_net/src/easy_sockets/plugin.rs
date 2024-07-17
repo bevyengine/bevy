@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::AssetPlugin;
-use crate::easy_sockets::quic::{Connection, RecvStream, SendStream};
+use crate::easy_sockets::net_buffer_types::quic::{Connection, RecvStream, SendStream};
 use crate::easy_sockets::socket_manager::{handle_socket_events_system, Sockets, update_ports_system};
 
 #[derive(Default)]
@@ -23,7 +23,8 @@ impl Plugin for SocketManagerPlugin {
                 handle_socket_events_system::<Connection>
             ));
         
+        //todo add initialization for Udp
         
-        todo!()
+        //todo add initialization for Tcp
     }
 }

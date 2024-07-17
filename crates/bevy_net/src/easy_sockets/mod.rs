@@ -5,17 +5,16 @@ use std::future::Future;
 use bevy_ecs::system::Resource;
 use bevy_tasks::futures_lite::{AsyncRead, AsyncWrite};
 use std::error::Error as StdError;
-use std::mem;
-use std::time::Duration;
 
 mod socket_manager;
 mod plugin;
 mod net_buffer_types;
 
+pub use socket_manager::Sockets;
 pub use net_buffer_types::*;
 pub use plugin::*;
 
-pub trait Buffer: Sized {
+trait Buffer: Sized {
     
     /// Read upto `target` bytes (or the minimum additional bytes for data integrity)
     /// extra from the io source and return how many were read, return an error

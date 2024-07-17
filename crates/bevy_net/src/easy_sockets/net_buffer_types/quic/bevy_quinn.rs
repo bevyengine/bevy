@@ -14,7 +14,6 @@ use std::task::{Context, Poll};
 use std::io::{ErrorKind, IoSliceMut};
 use std::io;
 use std::fmt::{Debug, Formatter};
-use crate::async_utils::IoTimer;
 
 /// A QUIC endpoint.
 ///
@@ -181,7 +180,7 @@ static RUNTIME: Arc<BevyQuinnRuntime> = Arc::new(BevyQuinnRuntime);
 
 impl Runtime for BevyQuinnRuntime {
     fn new_timer(&self, i: Instant) -> Pin<Box<dyn AsyncTimer>> {
-        Pin::new(Box::new(IoTimer::new(i)))
+        Box::pin(IoTimer::new(i))
     }
 
     fn spawn(&self, future: Pin<Box<dyn Future<Output=()> + Send>>) {
@@ -195,7 +194,7 @@ impl Runtime for BevyQuinnRuntime {
 
 struct QuinnUdp {
     state: UdpSocketState,
-    socket: UdpSocket,
+    socket: UdpSocket
 }
 
 impl Debug for QuinnUdp {
@@ -205,7 +204,7 @@ impl Debug for QuinnUdp {
 }
 
 impl QuinnUdp {
-    fn new(socket: UdpSocket) -> Result<QuinnUdp, std::io::Error> {
+    fn new(socket: UdpSocket) -> Result<QuinnUdp, io::Error> {
         #[cfg(any(
             target_os = "linux", target_os = "macos",
             target_os = "ios", target_os = "android", target_os = "windows"
@@ -214,7 +213,7 @@ impl QuinnUdp {
 
             Ok(Self {
                 state: UdpSocketState::new(UdpSockRef::from(&socket))?,
-                socket: socket,
+                socket: socket
             })
         }
     }
@@ -224,26 +223,29 @@ impl QuinnUdp {
 struct QuinnPoller(bool);
 
 impl UdpPoller for QuinnPoller {
-    fn poll_writable(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<std::io::Result<()>> {
+    //todo: create a more efficient implementation
+    fn poll_writable(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
         if self.0 {
-            Poll::Ready(Ok(()))
-        } else {
-            self.0 = true;
-            let waker = cx.waker().clone();
-            IoTaskPool::get().spawn(async move {
-                waker.wake()
-            }).detach();
-            Poll::Pending
+            return Poll::Ready(Ok(()))
         }
+        
+        self.0 = true;
+        
+        let waker = cx.waker().clone();
+        
+        IoTaskPool::get().spawn(async move {
+            waker.wake()
+        }).detach();
+        Poll::Pending
     }
 }
 
 impl AsyncUdpSocket for QuinnUdp {
     fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
-        Pin::new(Box::new(QuinnPoller(false)))
+        Box::pin(QuinnPoller(false))
     }
 
-    fn try_send(&self, transmit: &Transmit) -> std::io::Result<()> {
+    fn try_send(&self, transmit: &Transmit) -> io::Result<()> {
         #[cfg(any(
             target_os = "windows", target_os = "linux",
             target_os = "macos", target_os = "ios",
@@ -252,7 +254,7 @@ impl AsyncUdpSocket for QuinnUdp {
         self.state.send(UdpSockRef::from(&self.socket), transmit)
     }
 
-    fn poll_recv(&self, cx: &mut Context, bufs: &mut [IoSliceMut<'_>], meta: &mut [RecvMeta]) -> Poll<std::io::Result<usize>> {
+    fn poll_recv(&self, cx: &mut Context, bufs: &mut [IoSliceMut<'_>], meta: &mut [RecvMeta]) -> Poll<io::Result<usize>> {
         match self.state.recv(UdpSockRef::from(&self.socket), bufs, meta) {
             Ok(n) => {
                 Poll::Ready(Ok(n))
@@ -276,7 +278,56 @@ impl AsyncUdpSocket for QuinnUdp {
         }
     }
 
-    fn local_addr(&self) -> std::io::Result<SocketAddr> {
+    fn local_addr(&self) -> io::Result<SocketAddr> {
         self.socket.local_addr()
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct IoTimer {
+    expiry: Instant,
+}
+
+impl IoTimer {
+    pub fn new(expiry: Instant) -> Self {
+        Self {
+            expiry
+        }
+    }
+
+    pub fn reset(&mut self, new_expiry: Instant) -> &mut Self {
+        self.expiry = new_expiry;
+        self
+    }
+
+    pub fn expires(&self) -> Instant {
+        self.expiry
+    }
+}
+
+impl AsyncTimer for IoTimer {
+    fn reset(mut self: Pin<&mut Self>, i: Instant) {
+        self.expiry = i;
+    }
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<()> {
+        <Self as Future>::poll(self, cx)
+    }
+}
+
+impl Future for IoTimer {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let now = Instant::now();
+
+        if now >= self.expiry {
+            return Poll::Ready(())
+        }
+        let waker = cx.waker().clone();
+        IoTaskPool::get().spawn(async move {
+            waker.wake()
+        }).detach();
+        Poll::Pending
     }
 }

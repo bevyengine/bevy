@@ -8,8 +8,7 @@ use std::net::SocketAddr;
 use std::task::Context;
 use std::time::Duration;
 use bytes::Bytes;
-use futures::task::SpawnExt;
-use quinn::{ConnectError, ConnectionError, OpenUni, ReadError, SendDatagramError, VarInt, WriteError};
+use quinn::{ConnectError, ConnectionError, OpenUni, ReadError, SendDatagramError, VarInt, WriteError, ResetError};
 use quinn_proto::{ConnectionStats};
 use static_init::dynamic;
 use bevy_reflect::{impl_type_path, TypePath};
@@ -18,7 +17,13 @@ use bevy_tasks::futures_lite::future::yield_now;
 use crate::easy_sockets::{Buffer};
 use crate::easy_sockets::socket_manager::{Key, Sockets};
 
+pub use rustls;
+
 pub mod bevy_quinn;
+
+pub use quinn::{EndpointConfig, ServerConfig};
+
+pub use bevy_quinn::EndPoint;
 
 pub trait ToBytes {
     fn to_bytes(self) -> Bytes;
@@ -40,6 +45,23 @@ pub enum DataSendError {
     ConnectionLost(ConnectionError)
 }
 
+impl From<SendDatagramError> for DataSendError {
+    fn from(value: SendDatagramError) -> Self {
+        match value {
+            SendDatagramError::UnsupportedByPeer => {
+                Self::UnsupportedByPeer
+            }
+            SendDatagramError::Disabled => {
+                Self::Disabled
+            }
+            SendDatagramError::TooLarge => unreachable!(),
+            SendDatagramError::ConnectionLost(e) => {
+                Self::ConnectionLost(e)
+            }
+        }
+    }
+}
+
 #[derive(TypePath)]
 pub struct Connection {
     inner: quinn::Connection,
@@ -47,20 +69,61 @@ pub struct Connection {
     incoming: VecDeque<Bytes>,
     
     outgoing_result: Result<(), DataSendError>,
-    incoming_error: Option<ConnectError>,
+    incoming_error: Option<ConnectionError>,
 }
 
 impl Buffer for Connection {
     fn read_from_io(&mut self, target: usize) -> impl Future<Output=Result<usize, ()>> + Send {
-        todo!()
+        async {
+            match self.inner.read_datagram().await {
+                Ok(n) => {
+                    let len = n.len();
+                    self.incoming.push_back(n);
+                    Ok(len)
+                }
+                Err(e) => {
+                    self.incoming_error = Some(e);
+                    Err(())
+                }
+            }
+        }
     }
 
     fn write_to_io(&mut self, target: usize) -> impl Future<Output=Result<usize, ()>> + Send {
-        todo!()
+        async move {
+            let mut count = 0;
+            
+            while let Some(bytes) = self.outgoing.pop_front() {
+                let slice = bytes.slice(..bytes.len().min(target));
+                let len = slice.len();
+                
+                let remaining = bytes.len() - len;
+                
+                match self.inner.send_datagram_wait(slice).await {
+                    Ok(_) => {
+                        count += len;
+                        if remaining != 0 {
+                            self.outgoing.push_front(bytes.slice(len..));
+                        }
+                        count += len;
+                    }
+                    Err(e) => {
+                        self.outgoing_result = Err(e.into());
+                        return Err(())
+                    }
+                }
+            }
+            
+            if self.outgoing.len() == 0 {
+                Err(())
+            } else {
+                Ok(count)
+            }
+        }
     }
 
     fn additional_updates(&mut self) -> impl Future<Output=()> + Send {
-        todo!()
+        async {}
     }
 }
 
