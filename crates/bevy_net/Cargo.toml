@@ -15,17 +15,15 @@ bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
 
 static_init = "1.0.3"
 
-#version used by quinn as of 0.11.2
-rustls = { version = "0.23.5", optional = true }
-
-quinn = { version = "0.11.2", optional = true, features = ["rustls"] }
+quinn = { version = "0.11.2", optional = true, features = ["log", "platform-verifier"]}
 
 [features]
 default = []
 
-Udp = []
-Tcp = []
-QUIC = ["quinn", "rustls"]
+tls = ["quinn/rustls", "quinn/ring"]
+udp = []
+tcp = []
+quic = ["dep:quinn"]
 
 [lints]
 workspace = true

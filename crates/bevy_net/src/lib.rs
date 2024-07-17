@@ -1,6 +1,9 @@
+use std::io::{Read, Write};
+use std::net::ToSocketAddrs;
 
-use std::io::{Error, Read, Write};
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs, UdpSocket};
+#[cfg(feature = "tls")]
+pub use quinn::rustls;
 
-pub mod easy_sockets;
+#[cfg(feature = "quic")]
+pub mod quic;
 

@@ -345,7 +345,13 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 bevy_state = ["bevy_internal/bevy_state"]
 
 #todo you added this
-networking = ["bevy_internal/net"]
+quic = ["bevy_internal/quic"]
+
+tcp = ["bevy_internal/tcp"]
+
+udp = ["bevy_internal/udp"]
+
+tls = ["bevy_internal/tls"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
@@ -368,6 +374,13 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
 event-listener = "5.3.0"
+rustls-pemfile = "2.1.2"
+
+[[example]]
+name = "back_and_forth"
+path = "examples/networking/back_and_forth.rs"
+scrape-examples = true
+required-features = ["quic", "tls"]
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -3245,17 +3258,6 @@ name = "Anisotropy"
 description = "Displays an example model with anisotropy"
 category = "3D Rendering"
 wasm = false
-
-#todo don't forget you added this
-[[example]]
-name = "back and forth"
-path = "examples/networking/back_and_forth.rs"
-required-features = []
-
-[package.metadata.example.back_and_forth]
-name = "Back and forth"
-desciption = "idk some bluh bluh"
-category = "Networking"
 
 [profile.wasm-release]
 inherits = "release"

@@ -196,7 +196,13 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 bevy_state = ["dep:bevy_state"]
 
 #todo don't forget you added this
-net = ["dep:bevy_net"]
+quic = ["bevy_net/quic"]
+
+tcp = ["bevy_net/tcp"]
+
+udp = ["bevy_net/tcp"]
+
+tls = ["bevy_net/tls"]
 
 [dependencies]
 # bevy
@@ -241,7 +247,7 @@ bevy_ui = { path = "../bevy_ui", optional = true, version = "0.14.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.14.0-dev" }
 
 #todo don't forget you added this
-bevy_net = { path = "../bevy_net", optional = true, version = "0.14.0-dev" }
+bevy_net = { path = "../bevy_net", version = "0.14.0-dev", default-features = false }
 
 [lints]
 workspace = true

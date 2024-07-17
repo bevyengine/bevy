@@ -1,19 +1,18 @@
-///! A port of the [`quinn`] api and runtime to bevy
-
-use quinn::{Accept, AsyncTimer, AsyncUdpSocket, ClientConfig, ConnectError, Connecting, Endpoint, EndpointConfig, Runtime, ServerConfig, UdpPoller, VarInt};
-use static_init::dynamic;
-use std::sync::Arc;
-use std::ops::{Deref, DerefMut};
-use std::time::Instant;
-use std::pin::Pin;
-use std::future::Future;
-use bevy_tasks::IoTaskPool;
-use std::net::{SocketAddr, UdpSocket};
-use quinn::udp::{RecvMeta, Transmit, UdpSocketState, UdpSockRef};
-use std::task::{Context, Poll};
-use std::io::{ErrorKind, IoSliceMut};
-use std::io;
 use std::fmt::{Debug, Formatter};
+use std::future::Future;
+use std::io;
+use std::io::{ErrorKind, IoSliceMut};
+use std::net::{SocketAddr, UdpSocket};
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
+use std::time::Instant;
+use quinn::udp::{RecvMeta, Transmit, UdpSocketState, UdpSockRef};
+
+use static_init::dynamic;
+use bevy_tasks::IoTaskPool;
+
+pub use quinn::*;
 
 /// A QUIC endpoint.
 ///
@@ -22,23 +21,9 @@ use std::fmt::{Debug, Formatter};
 ///
 /// May be cloned to obtain another handle to the same endpoint.
 ///
-/// This type is a continuant wrapper around [Endpoint], and can be dereferenced to it.
+/// This type is a conviniant wrapper around [Endpoint].
 #[derive(Debug, Clone)]
 pub struct EndPoint(Endpoint);
-
-impl Deref for EndPoint {
-    type Target = Endpoint;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for EndPoint {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
 
 impl EndPoint {
 
@@ -58,7 +43,13 @@ impl EndPoint {
     /// addresses. Portable applications should bind an address that matches the family they wish to
     /// communicate within.
     pub fn server(config: ServerConfig, addr: SocketAddr) -> io::Result<Self> {
-        Ok(Self(Endpoint::server(config, addr)?))
+        Ok(
+            Self::new(
+                EndpointConfig::default(),
+                Some(config),
+                UdpSocket::bind(addr)?
+            )?
+        )
     }
 
     /// Helper to construct an endpoint for use with outgoing connections only
@@ -72,7 +63,13 @@ impl EndPoint {
     /// addresses. Portable applications should bind an address that matches the family they wish to
     /// communicate within.
     pub fn client(addr: SocketAddr) -> io::Result<Self> {
-        Ok(Self(Endpoint::client(addr)?))
+        Ok(
+            Self::new(
+                EndpointConfig::default(),
+                None,
+                UdpSocket::bind(addr)?
+            )?
+        )
     }
 
     /// Get the next incoming connection attempt from a client
@@ -106,6 +103,7 @@ impl EndPoint {
     ) -> Result<Connecting, ConnectError> {
         self.0.connect(addr, server_name)
     }
+
 
     /// Connect to a remote endpoint using a custom configuration.
     ///
@@ -187,7 +185,7 @@ impl Runtime for BevyQuinnRuntime {
         IoTaskPool::get().spawn(future).detach();
     }
 
-    fn wrap_udp_socket(&self, t: UdpSocket) -> std::io::Result<Arc<dyn AsyncUdpSocket>> {
+    fn wrap_udp_socket(&self, t: UdpSocket) -> io::Result<Arc<dyn AsyncUdpSocket>> {
         Ok(Arc::new(QuinnUdp::new(t)?))
     }
 }
@@ -205,17 +203,10 @@ impl Debug for QuinnUdp {
 
 impl QuinnUdp {
     fn new(socket: UdpSocket) -> Result<QuinnUdp, io::Error> {
-        #[cfg(any(
-            target_os = "linux", target_os = "macos",
-            target_os = "ios", target_os = "android", target_os = "windows"
-        ))]
-        {
-
-            Ok(Self {
-                state: UdpSocketState::new(UdpSockRef::from(&socket))?,
-                socket: socket
-            })
-        }
+        Ok(Self {
+            state: UdpSocketState::new(UdpSockRef::from(&socket))?,
+            socket: socket
+        })
     }
 }
 
@@ -228,11 +219,11 @@ impl UdpPoller for QuinnPoller {
         if self.0 {
             return Poll::Ready(Ok(()))
         }
-        
+
         self.0 = true;
-        
+
         let waker = cx.waker().clone();
-        
+
         IoTaskPool::get().spawn(async move {
             waker.wake()
         }).detach();
@@ -246,11 +237,6 @@ impl AsyncUdpSocket for QuinnUdp {
     }
 
     fn try_send(&self, transmit: &Transmit) -> io::Result<()> {
-        #[cfg(any(
-            target_os = "windows", target_os = "linux",
-            target_os = "macos", target_os = "ios",
-            target_os = "android"
-        ))]
         self.state.send(UdpSockRef::from(&self.socket), transmit)
     }
 
