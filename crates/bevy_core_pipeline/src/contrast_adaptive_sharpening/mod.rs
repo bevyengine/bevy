@@ -27,10 +27,10 @@ pub use node::CasNode;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
-/// Cas is usually used in combination with shader based anti-aliasing methods
+/// CAS is usually used in combination with shader based anti-aliasing methods
 /// such as FXAA or TAA to regain some of the lost detail from the blurring that they introduce.
 ///
-/// Cas is designed to adjust the amount of sharpening applied to different areas of an image
+/// CAS is designed to adjust the amount of sharpening applied to different areas of an image
 /// based on the local contrast. This can help avoid over-sharpening areas with high contrast
 /// and under-sharpening areas with low contrast.
 ///
@@ -49,7 +49,7 @@ pub struct ContrastAdaptiveSharpeningSettings {
     /// Whether to try and avoid sharpening areas that are already noisy.
     ///
     /// You probably shouldn't use this, and just leave it set to false.
-    /// You should generally apply any sort of film grain or similar effects after Cas
+    /// You should generally apply any sort of film grain or similar effects after CAS
     /// and upscaling to avoid artifacts.
     pub denoise: bool,
 }
@@ -69,7 +69,7 @@ impl Default for ContrastAdaptiveSharpeningSettings {
 pub struct DenoiseCas(bool);
 
 /// The uniform struct extracted from [`ContrastAdaptiveSharpeningSettings`] attached to a [`Camera`].
-/// Will be available for use in the Cas shader.
+/// Will be available for use in the CAS shader.
 #[doc(hidden)]
 #[derive(Component, ShaderType, Clone)]
 pub struct CasUniform {
@@ -98,7 +98,7 @@ impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
 const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(6925381244141981602);
 
-/// Adds Support for Contrast Adaptive Sharpening (Cas).
+/// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct CasPlugin;
 
 impl Plugin for CasPlugin {
