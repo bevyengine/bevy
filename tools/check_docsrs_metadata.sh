@@ -39,7 +39,6 @@ PUBLIC_CRATES=$(
 echo Validating all crates...
 
 INVALID_CRATES=$(echo $PUBLIC_CRATES | jq "[.[] | select(.docsrs != $DOCSRS_METADATA)]")
-# INVALID_CRATES=$(echo $PUBLIC_CRATES | jq "[.[] | select(.name == \"yef\")]")
 
 PUBLIC_CRATES_LEN=$(echo $PUBLIC_CRATES | jq 'length')
 
