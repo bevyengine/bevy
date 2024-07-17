@@ -12,7 +12,7 @@ use std::ops::Mul;
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
+///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -222,8 +222,8 @@ impl Transform {
     /// Get the unit vector in the local `X` direction.
     #[inline]
     pub fn local_x(&self) -> Dir3 {
-        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Dir3::new(self.rotation * Vec3::X).unwrap()
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::X)
     }
 
     /// Equivalent to [`-local_x()`][Transform::local_x()]
@@ -241,8 +241,8 @@ impl Transform {
     /// Get the unit vector in the local `Y` direction.
     #[inline]
     pub fn local_y(&self) -> Dir3 {
-        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Dir3::new(self.rotation * Vec3::Y).unwrap()
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::Y)
     }
 
     /// Equivalent to [`local_y()`][Transform::local_y]
@@ -260,8 +260,8 @@ impl Transform {
     /// Get the unit vector in the local `Z` direction.
     #[inline]
     pub fn local_z(&self) -> Dir3 {
-        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Dir3::new(self.rotation * Vec3::Z).unwrap()
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::Z)
     }
 
     /// Equivalent to [`-local_z()`][Transform::local_z]
@@ -500,14 +500,15 @@ impl Transform {
 
     /// Transforms the given `point`, applying scale, rotation and translation.
     ///
-    /// If this [`Transform`] has a parent, this will transform a `point` that is
-    /// relative to the parent's [`Transform`] into one relative to this [`Transform`].
+    /// If this [`Transform`] has an ancestor entity with a [`Transform`] component,
+    /// [`Transform::transform_point`] will transform a point in local space into its
+    /// parent transform's space.
     ///
-    /// If this [`Transform`] does not have a parent, this will transform a `point`
-    /// that is in global space into one relative to this [`Transform`].
+    /// If this [`Transform`] does not have a parent, [`Transform::transform_point`] will
+    /// transform a point in local space into worldspace coordinates.
     ///
-    /// If you want to transform a `point` in global space to the local space of this [`Transform`],
-    /// consider using [`GlobalTransform::transform_point()`] instead.
+    /// If you always want to transform a point in local space to worldspace, or if you need
+    /// the inverse transformations, see [`GlobalTransform::transform_point()`].
     #[inline]
     pub fn transform_point(&self, mut point: Vec3) -> Vec3 {
         point = self.scale * point;

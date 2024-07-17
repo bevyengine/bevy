@@ -12,6 +12,7 @@ use crate::{
     world::command_queue::RawCommandQueue,
     world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
 };
+use bevy_ptr::OwningPtr;
 use bevy_utils::tracing::{error, info};
 pub use parallel_scope::*;
 
@@ -235,8 +236,7 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
-    /// and returns its corresponding [`EntityCommands`].
+    /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding [`EntityCommands`].
     ///
     /// See [`World::spawn_empty`] for more details.
     ///
@@ -750,13 +750,21 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
     /// isn't scoped to specific targets.
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(&mut self, event: impl Event) {
         self.add(TriggerEvent { event, targets: () });
     }
 
     /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
     /// watches those targets.
-    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
+    pub fn trigger_targets(
+        &mut self,
+        event: impl Event,
+        targets: impl TriggerTargets + Send + Sync + 'static,
+    ) {
         self.add(TriggerEvent { event, targets });
     }
 
@@ -928,6 +936,50 @@ impl EntityCommands<'_> {
     /// ```
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(insert(bundle))
+    }
+
+    /// Adds a dynamic component to an entity.
+    ///
+    /// See [`EntityWorldMut::insert_by_id`] for more information.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
+    /// To avoid a panic in this case, use the command [`Self::try_insert_by_id`] instead.
+    ///
+    /// # Safety
+    ///
+    /// - [`ComponentId`] must be from the same world as `self`.
+    /// - `T` must have the same layout as the one passed during `component_id` creation.
+    pub unsafe fn insert_by_id<T: Send + 'static>(
+        &mut self,
+        component_id: ComponentId,
+        value: T,
+    ) -> &mut Self {
+        // SAFETY: same invariants as parent call
+        self.add(unsafe {insert_by_id(component_id, value, move |entity| {
+            panic!("error[B0003]: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>());
+        })});
+        self
+    }
+
+    /// Attempts to add a dynamic component to an entity.
+    ///
+    /// See [`EntityWorldMut::insert_by_id`] for more information.
+    ///
+    /// # Safety
+    ///
+    /// - [`ComponentId`] must be from the same world as `self`.
+    /// - `T` must have the same layout as the one passed during `component_id` creation.
+    pub unsafe fn try_insert_by_id<T: Send + 'static>(
+        &mut self,
+        component_id: ComponentId,
+        value: T,
+    ) -> &mut Self {
+        // SAFETY: same invariants as parent call
+        self.add(unsafe { insert_by_id(component_id, value, |_| {}) });
+        self
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -1144,7 +1196,7 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
-    /// Creates an [`Observer`](crate::observer::Observer) listening for a trigger of type `T` that targets this entity.
+    /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
@@ -1231,7 +1283,7 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert(bundle);
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
         }
     }
 }
@@ -1241,6 +1293,31 @@ fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert(bundle);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that attempts to add the dynamic component to an entity.
+///
+/// # Safety
+///
+/// - The returned `EntityCommand` must be queued for the world where `component_id` was created.
+/// - `T` must be the type represented by `component_id`.
+unsafe fn insert_by_id<T: Send + 'static>(
+    component_id: ComponentId,
+    value: T,
+    on_none_entity: impl FnOnce(Entity) + Send + 'static,
+) -> impl EntityCommand {
+    move |entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            // SAFETY:
+            // - `component_id` safety is ensured by the caller
+            // - `ptr` is valid within the `make` block;
+            OwningPtr::make(value, |ptr| unsafe {
+                entity.insert_by_id(component_id, ptr);
+            });
+        } else {
+            on_none_entity(entity);
         }
     }
 }
@@ -1308,7 +1385,7 @@ fn log_components(entity: Entity, world: &mut World) {
         .inspect_entity(entity)
         .map(ComponentInfo::name)
         .collect();
-    info!("Entity {:?}: {:?}", entity, debug_infos);
+    info!("Entity {entity}: {debug_infos:?}");
 }
 
 fn observe<E: Event, B: Bundle, M>(

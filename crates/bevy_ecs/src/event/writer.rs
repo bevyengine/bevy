@@ -65,7 +65,7 @@ pub struct EventWriter<'w, E: Event> {
 }
 
 impl<'w, E: Event> EventWriter<'w, E> {
-    /// Sends an `event`, which can later be read by [`EventReader`]s.
+    /// Sends an `event`, which can later be read by [`EventReader`](super::EventReader)s.
     /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
     /// See [`Events`] for details.
@@ -73,7 +73,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
         self.events.send(event)
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
     ///

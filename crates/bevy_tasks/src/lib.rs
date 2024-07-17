@@ -8,7 +8,9 @@
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
+#[cfg_attr(target_arch = "wasm32", path = "wasm_task.rs")]
 mod task;
+
 pub use task::Task;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
@@ -19,7 +21,7 @@ pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
 mod single_threaded_task_pool;
 #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-pub use single_threaded_task_pool::{FakeTask, Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
+pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]
