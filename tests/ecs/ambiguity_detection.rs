@@ -48,7 +48,10 @@ pub fn main() {
     let ambiguities = count_ambiguities(sub_app);
     let mut unexpected_ambiguities = vec![];
     for (&label, &count) in ambiguities.0.iter() {
-        if ignored_schedules.contains(&label) {
+        if ignored_schedules
+            .iter()
+            .any(|label_to_ignore| **label_to_ignore == *label)
+        {
             continue;
         }
         if count != 0 {
