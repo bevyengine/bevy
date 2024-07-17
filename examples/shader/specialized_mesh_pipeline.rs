@@ -129,7 +129,7 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
             return;
         };
         // Creating this pipeline needs the RenderDevice and RenderQueue
-        // which are only available once rendering plugins are initalized.
+        // which are only available once rendering plugins are initialized.
         render_app.init_resource::<CustomMeshPipeline>();
     }
 }
