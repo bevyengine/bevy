@@ -261,12 +261,11 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 stencil: default(),
                 bias: default(),
             }),
-            // This is isn't required, but if you can support MSAA
-            // it's generally recommended to specialize your pipeline for it
+            // It's generally recommended to specialize your pipeline for MSAA,
+            // but it's not always possible
             multisample: MultisampleState {
                 count: mesh_key.msaa_samples(),
-                mask: !0,
-                alpha_to_coverage_enabled: false,
+                ..MultisampleState::default()
             },
         })
     }
