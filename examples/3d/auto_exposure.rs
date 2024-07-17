@@ -54,6 +54,7 @@ fn setup(
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: bevy::pbr::light_consts::lux::DIRECT_SUNLIGHT,
+            ..Default::default()
         },
     ));
 
@@ -111,7 +112,7 @@ fn setup(
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
-            intensity: 5000.0,
+            intensity: 2000.0,
             ..default()
         },
         transform: Transform::from_xyz(0.0, 0.0, 0.0),
@@ -131,21 +132,17 @@ fn setup(
         ..default()
     });
 
-    let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 18.0,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     commands.spawn(
         TextBundle::from_section(
-            "Left / Right — Rotate Camera\nC — Toggle Compensation Curve\nM — Toggle Metering Mask\nV — Visualize Metering Mask",
+            "Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask",
             text_style.clone(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );

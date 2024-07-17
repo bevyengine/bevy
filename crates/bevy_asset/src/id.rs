@@ -288,13 +288,17 @@ impl Hash for UntypedAssetId {
     }
 }
 
+impl Ord for UntypedAssetId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.type_id()
+            .cmp(&other.type_id())
+            .then_with(|| self.internal().cmp(&other.internal()))
+    }
+}
+
 impl PartialOrd for UntypedAssetId {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self.type_id() != other.type_id() {
-            None
-        } else {
-            Some(self.internal().cmp(&other.internal()))
-        }
+        Some(self.cmp(other))
     }
 }
 

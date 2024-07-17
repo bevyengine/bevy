@@ -1,13 +1,10 @@
 //! The generic input type.
 
 use bevy_ecs::system::Resource;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
-
-// unused import, but needed for intra doc link to work
-#[allow(unused_imports)]
-use bevy_ecs::schedule::State;
 
 /// A "press-able" input of type `T`.
 ///
@@ -23,8 +20,8 @@ use bevy_ecs::schedule::State;
 /// ## Multiple systems
 ///
 /// In case multiple systems are checking for [`ButtonInput::just_pressed`] or [`ButtonInput::just_released`]
-/// but only one should react, for example in the case of triggering
-/// [`State`] change, you should consider clearing the input state, either by:
+/// but only one should react, for example when modifying a
+/// [`Resource`], you should consider clearing the input state, either by:
 ///
 /// * Using [`ButtonInput::clear_just_pressed`] or [`ButtonInput::clear_just_released`] instead.
 /// * Calling [`ButtonInput::clear`] or [`ButtonInput::reset`] immediately after the state change.
@@ -156,8 +153,8 @@ use bevy_ecs::schedule::State;
 ///
 ///[`ResMut`]: bevy_ecs::system::ResMut
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
-#[derive(Debug, Clone, Resource, Reflect)]
-#[reflect(Default)]
+#[derive(Debug, Clone, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
@@ -302,12 +299,10 @@ where
 
 #[cfg(test)]
 mod test {
-    use bevy_reflect::TypePath;
-
     use crate::ButtonInput;
 
     /// Used for testing the functionality of [`ButtonInput`].
-    #[derive(TypePath, Copy, Clone, Eq, PartialEq, Hash)]
+    #[derive(Copy, Clone, Eq, PartialEq, Hash)]
     enum DummyInput {
         Input1,
         Input2,

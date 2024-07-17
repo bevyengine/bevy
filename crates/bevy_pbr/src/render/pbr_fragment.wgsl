@@ -40,7 +40,7 @@ fn pbr_input_from_vertex_output(
     pbr_input.flags = mesh[in.instance_index].flags;
 #endif
 
-    pbr_input.is_orthographic = view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
     pbr_input.V = pbr_functions::calculate_view(in.world_position, pbr_input.is_orthographic);
     pbr_input.frag_coord = in.position;
     pbr_input.world_position = in.world_position;
@@ -91,7 +91,15 @@ fn pbr_input_from_standard_material(
 
 #ifdef VERTEX_UVS
     let uv_transform = pbr_bindings::material.uv_transform;
+#ifdef VERTEX_UVS_A
     var uv = (uv_transform * vec3(in.uv, 1.0)).xy;
+#endif
+
+#ifdef VERTEX_UVS_B
+    var uv_b = (uv_transform * vec3(in.uv_b, 1.0)).xy;
+#else
+    var uv_b = uv;
+#endif
 
 #ifdef VERTEX_TANGENTS
     if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DEPTH_MAP_BIT) != 0u) {
@@ -101,6 +109,7 @@ fn pbr_input_from_standard_material(
         let B = in.world_tangent.w * cross(N, T);
         // Transform V from fragment to camera in world space to tangent space.
         let Vt = vec3(dot(V, T), dot(V, B), dot(V, N));
+#ifdef VERTEX_UVS_A
         uv = parallaxed_uv(
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -111,6 +120,22 @@ fn pbr_input_from_standard_material(
             // about.
             -Vt,
         );
+#endif
+
+#ifdef VERTEX_UVS_B
+        uv_b = parallaxed_uv(
+            pbr_bindings::material.parallax_depth_scale,
+            pbr_bindings::material.max_parallax_layer_count,
+            pbr_bindings::material.max_relief_mapping_search_steps,
+            uv_b,
+            // Flip the direction of Vt to go toward the surface to make the
+            // parallax mapping algorithm easier to understand and reason
+            // about.
+            -Vt,
+        );
+#else
+        uv_b = uv;
+#endif
     }
 #endif // VERTEX_TANGENTS
 
@@ -118,7 +143,11 @@ fn pbr_input_from_standard_material(
         pbr_input.material.base_color *= pbr_functions::sample_texture(
             pbr_bindings::base_color_texture,
             pbr_bindings::base_color_sampler,
+#ifdef STANDARD_MATERIAL_BASE_COLOR_UV_B
+            uv_b,
+#else
             uv,
+#endif
             bias,
         );
 
@@ -149,16 +178,19 @@ fn pbr_input_from_standard_material(
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 
         // emissive
-        // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #ifdef VERTEX_UVS
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
             emissive = vec4<f32>(emissive.rgb * pbr_functions::sample_texture(
                 pbr_bindings::emissive_texture,
                 pbr_bindings::emissive_sampler,
+#ifdef STANDARD_MATERIAL_EMISSIVE_UV_B
+                uv_b,
+#else
                 uv,
+#endif
                 bias,
-            ).rgb, 1.0);
+            ).rgb, emissive.a);
         }
 #endif
         pbr_input.material.emissive = emissive;
@@ -172,7 +204,11 @@ fn pbr_input_from_standard_material(
             let metallic_roughness = pbr_functions::sample_texture(
                 pbr_bindings::metallic_roughness_texture,
                 pbr_bindings::metallic_roughness_sampler,
+#ifdef STANDARD_MATERIAL_METALLIC_ROUGHNESS_UV_B
+                uv_b,
+#else
                 uv,
+#endif
                 bias,
             );
             // Sampling from GLTF standard channels for now
@@ -191,7 +227,11 @@ fn pbr_input_from_standard_material(
             pbr_input.material.clearcoat *= pbr_functions::sample_texture(
                 pbr_bindings::clearcoat_texture,
                 pbr_bindings::clearcoat_sampler,
+#ifdef STANDARD_MATERIAL_CLEARCOAT_UV_B
+                uv_b,
+#else
                 uv,
+#endif
                 bias,
             ).r;
         }
@@ -206,7 +246,11 @@ fn pbr_input_from_standard_material(
             pbr_input.material.clearcoat_perceptual_roughness *= pbr_functions::sample_texture(
                 pbr_bindings::clearcoat_roughness_texture,
                 pbr_bindings::clearcoat_roughness_sampler,
+#ifdef STANDARD_MATERIAL_CLEARCOAT_ROUGHNESS_UV_B
+                uv_b,
+#else
                 uv,
+#endif
                 bias,
             ).g;
         }
@@ -214,48 +258,66 @@ fn pbr_input_from_standard_material(
 #endif  // VERTEX_UVS
 
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
+#ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TRANSMISSION_TEXTURE_BIT) != 0u) {
             specular_transmission *= pbr_functions::sample_texture(
                 pbr_bindings::specular_transmission_texture,
                 pbr_bindings::specular_transmission_sampler,
+#ifdef STANDARD_MATERIAL_SPECULAR_TRANSMISSION_UV_B
+                uv_b,
+#else
                 uv,
+#endif
                 bias,
             ).r;
         }
 #endif
+#endif
         pbr_input.material.specular_transmission = specular_transmission;
 
         var thickness: f32 = pbr_bindings::material.thickness;
+#ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_THICKNESS_TEXTURE_BIT) != 0u) {
             thickness *= pbr_functions::sample_texture(
                 pbr_bindings::thickness_texture,
                 pbr_bindings::thickness_sampler,
+#ifdef STANDARD_MATERIAL_THICKNESS_UV_B
+                uv_b,
+#else
                 uv,
+#endif
                 bias,
             ).g;
         }
+#endif
 #endif
         // scale thickness, accounting for non-uniform scaling (e.g. a “squished” mesh)
         // TODO: Meshlet support
 #ifndef MESHLET_MESH_MATERIAL_PASS
         thickness *= length(
-            (transpose(mesh[in.instance_index].model) * vec4(pbr_input.N, 0.0)).xyz
+            (transpose(mesh[in.instance_index].world_from_local) * vec4(pbr_input.N, 0.0)).xyz
         );
 #endif
         pbr_input.material.thickness = thickness;
 
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
+#ifdef VERTEX_UVS
 #ifdef PBR_TRANSMISSION_TEXTURES_SUPPORTED
         if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DIFFUSE_TRANSMISSION_TEXTURE_BIT) != 0u) {
             diffuse_transmission *= pbr_functions::sample_texture(
                 pbr_bindings::diffuse_transmission_texture,
                 pbr_bindings::diffuse_transmission_sampler,
+#ifdef STANDARD_MATERIAL_DIFFUSE_TRANSMISSION_UV_B
+                uv_b,
+#else
                 uv,
+#endif
                 bias,
             ).a;
         }
+#endif
 #endif
         pbr_input.material.diffuse_transmission = diffuse_transmission;
 
@@ -266,7 +328,11 @@ fn pbr_input_from_standard_material(
             diffuse_occlusion *= pbr_functions::sample_texture(
                 pbr_bindings::occlusion_texture,
                 pbr_bindings::occlusion_sampler,
+#ifdef STANDARD_MATERIAL_OCCLUSION_UV_B
+                uv_b,
+#else
                 uv,
+#endif
                 bias,
             ).r;
         }
@@ -291,23 +357,27 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 #ifdef VERTEX_TANGENTS
 
+        let TBN = pbr_functions::calculate_tbn_mikktspace(pbr_input.world_normal, in.world_tangent);
+
 #ifdef STANDARD_MATERIAL_NORMAL_MAP
 
         let Nt = pbr_functions::sample_texture(
             pbr_bindings::normal_map_texture,
             pbr_bindings::normal_map_sampler,
-            uv,
+#ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
+                uv_b,
+#else
+                uv,
+#endif
             bias,
         ).rgb;
 
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
-            pbr_input.world_normal,
+            TBN,
             double_sided,
             is_front,
-            in.world_tangent,
             Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_NORMAL_MAP
@@ -323,18 +393,20 @@ fn pbr_input_from_standard_material(
         let clearcoat_Nt = pbr_functions::sample_texture(
             pbr_bindings::clearcoat_normal_texture,
             pbr_bindings::clearcoat_normal_sampler,
-            uv,
+#ifdef STANDARD_MATERIAL_CLEARCOAT_NORMAL_UV_B
+                uv_b,
+#else
+                uv,
+#endif
             bias,
         ).rgb;
 
         pbr_input.clearcoat_N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
-            pbr_input.world_normal,
+            TBN,
             double_sided,
             is_front,
-            in.world_tangent,
             clearcoat_Nt,
-            view.mip_bias,
         );
 
 #endif  // STANDARD_MATERIAL_CLEARCOAT_NORMAL_MAP
@@ -343,6 +415,49 @@ fn pbr_input_from_standard_material(
 
 #endif  // VERTEX_TANGENTS
 #endif  // VERTEX_UVS
+
+        // Take anisotropy into account.
+        //
+        // This code comes from the `KHR_materials_anisotropy` spec:
+        // <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md#individual-lights>
+#ifdef PBR_ANISOTROPY_TEXTURE_SUPPORTED
+#ifdef VERTEX_TANGENTS
+#ifdef STANDARD_MATERIAL_ANISOTROPY
+
+        var anisotropy_strength = pbr_bindings::material.anisotropy_strength;
+        var anisotropy_direction = pbr_bindings::material.anisotropy_rotation;
+
+        // Adjust based on the anisotropy map if there is one.
+        if ((pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ANISOTROPY_TEXTURE_BIT) != 0u) {
+            let anisotropy_texel = pbr_functions::sample_texture(
+                pbr_bindings::anisotropy_texture,
+                pbr_bindings::anisotropy_sampler,
+#ifdef STANDARD_MATERIAL_ANISOTROPY_UV_B
+                uv_b,
+#else   // STANDARD_MATERIAL_ANISOTROPY_UV_B
+                uv,
+#endif  // STANDARD_MATERIAL_ANISOTROPY_UV_B
+                bias,
+            ).rgb;
+
+            let anisotropy_direction_from_texture = normalize(anisotropy_texel.rg * 2.0 - 1.0);
+            // Rotate by the anisotropy direction.
+            anisotropy_direction =
+                mat2x2(anisotropy_direction.xy, anisotropy_direction.yx * vec2(-1.0, 1.0)) *
+                anisotropy_direction_from_texture;
+            anisotropy_strength *= anisotropy_texel.b;
+        }
+
+        pbr_input.anisotropy_strength = anisotropy_strength;
+
+        let anisotropy_T = normalize(TBN * vec3(anisotropy_direction, 0.0));
+        let anisotropy_B = normalize(cross(pbr_input.world_normal, anisotropy_T));
+        pbr_input.anisotropy_T = anisotropy_T;
+        pbr_input.anisotropy_B = anisotropy_B;
+
+#endif  // STANDARD_MATERIAL_ANISOTROPY
+#endif  // VERTEX_TANGENTS
+#endif  // PBR_ANISOTROPY_TEXTURE_SUPPORTED
 
 #endif  // LOAD_PREPASS_NORMALS
 

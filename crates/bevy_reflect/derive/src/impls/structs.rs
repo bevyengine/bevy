@@ -18,7 +18,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 .data
                 .ident
                 .as_ref()
-                .map(|i| i.to_string())
+                .map(ToString::to_string)
                 .unwrap_or_else(|| field.declaration_index.to_string())
         })
         .collect::<Vec<String>>();
@@ -26,7 +26,6 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         .active_fields()
         .map(|field| ident_or_index(field.data.ident.as_ref(), field.declaration_index))
         .collect::<Vec<_>>();
-    let field_types = reflect_struct.active_types();
     let field_count = field_idents.len();
     let field_indices = (0..field_count).collect::<Vec<usize>>();
 
@@ -46,50 +45,20 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
         });
 
-    #[cfg(feature = "documentation")]
-    let field_generator = {
-        let docs = reflect_struct
-            .active_fields()
-            .map(|field| ToTokens::to_token_stream(&field.doc));
-        quote! {
-            #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names).with_docs(#docs) ,)*
-        }
-    };
-
-    #[cfg(not(feature = "documentation"))]
-    let field_generator = {
-        quote! {
-            #(#bevy_reflect_path::NamedField::new::<#field_types>(#field_names) ,)*
-        }
-    };
-
-    #[cfg(feature = "documentation")]
-    let info_generator = {
-        let doc = reflect_struct.meta().doc();
-        quote! {
-            #bevy_reflect_path::StructInfo::new::<Self>(&fields).with_docs(#doc)
-        }
-    };
-
-    #[cfg(not(feature = "documentation"))]
-    let info_generator = {
-        quote! {
-            #bevy_reflect_path::StructInfo::new::<Self>(&fields)
-        }
-    };
-
     let where_clause_options = reflect_struct.where_clause_options();
     let typed_impl = impl_typed(
         reflect_struct.meta(),
         &where_clause_options,
-        quote! {
-            let fields = [#field_generator];
-            let info = #info_generator;
-            #bevy_reflect_path::TypeInfo::Struct(info)
-        },
+        reflect_struct.to_info_tokens(false),
     );
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
+
+    #[cfg(not(feature = "functions"))]
+    let function_impls = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "functions")]
+    let function_impls =
+        crate::impls::impl_function_traits(reflect_struct.meta(), &where_clause_options);
 
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
 
@@ -107,6 +76,8 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         #typed_impl
 
         #type_path_impl
+
+        #function_impls
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_path #ty_generics #where_reflect_clause {
             fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
@@ -208,29 +179,37 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
             }
 
             #[inline]
-            fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
                 if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
                     for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
                         let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
-                        #bevy_reflect_path::Struct::field_mut(self, name).map(|v| v.apply(value));
+                        if let #FQOption::Some(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
+                           #bevy_reflect_path::Reflect::try_apply(v, value)?;
+                        }
                     }
                 } else {
-                    panic!("Attempted to apply non-struct type to struct type.");
+                    return #FQResult::Err(
+                        #bevy_reflect_path::ApplyError::MismatchedKinds {
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(value),
+                            to_kind: #bevy_reflect_path::ReflectKind::Struct
+                        }
+                    );
                 }
+                #FQResult::Ok(())
             }
-
+            #[inline]
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::Struct
             }
-
+            #[inline]
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::Struct(self)
             }
-
+            #[inline]
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
-
+            #[inline]
             fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Struct(self)
             }

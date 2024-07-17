@@ -135,10 +135,7 @@ fn main() {
     // Lastly, while dynamic types are commonly generated via reflection methods like
     // `Reflect::clone_value` or via the reflection deserializers,
     // you can also construct them manually.
-    let mut my_dynamic_list = DynamicList::default();
-    my_dynamic_list.push(1u32);
-    my_dynamic_list.push(2u32);
-    my_dynamic_list.push(3u32);
+    let mut my_dynamic_list = DynamicList::from_iter([1u32, 2u32, 3u32]);
 
     // This is useful when you just need to apply some subset of changes to a type.
     let mut my_list: Vec<u32> = Vec::new();
@@ -167,7 +164,7 @@ fn main() {
 
     // 2. `DynamicArray`
     {
-        let dynamic_array = DynamicArray::from_vec(vec![1u32, 2u32, 3u32]);
+        let dynamic_array = DynamicArray::from_iter([1u32, 2u32, 3u32]);
 
         let mut my_array = [0u32; 3];
         my_array.apply(&dynamic_array);
@@ -176,10 +173,7 @@ fn main() {
 
     // 3. `DynamicList`
     {
-        let mut dynamic_list = DynamicList::default();
-        dynamic_list.push(1u32);
-        dynamic_list.push(2u32);
-        dynamic_list.push(3u32);
+        let dynamic_list = DynamicList::from_iter([1u32, 2u32, 3u32]);
 
         let mut my_list: Vec<u32> = Vec::new();
         my_list.apply(&dynamic_list);
@@ -188,10 +182,7 @@ fn main() {
 
     // 4. `DynamicMap`
     {
-        let mut dynamic_map = DynamicMap::default();
-        dynamic_map.insert("x", 1u32);
-        dynamic_map.insert("y", 2u32);
-        dynamic_map.insert("z", 3u32);
+        let dynamic_map = DynamicMap::from_iter([("x", 1u32), ("y", 2u32), ("z", 3u32)]);
 
         let mut my_map: HashMap<&str, u32> = HashMap::new();
         my_map.apply(&dynamic_map);

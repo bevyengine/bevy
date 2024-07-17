@@ -11,6 +11,8 @@ crates=(
     bevy_reflect
     bevy_ecs/macros
     bevy_ecs
+    bevy_state/macros
+    bevy_state
     bevy_app
     bevy_time
     bevy_log
@@ -45,6 +47,7 @@ crates=(
     bevy_internal
     bevy_dylib
     bevy_color
+    bevy_picking
 )
 
 if [ -n "$(git status --porcelain)" ]; then

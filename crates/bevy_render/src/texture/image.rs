@@ -109,6 +109,26 @@ impl ImageFormat {
             ImageFormat::Basis | ImageFormat::Ktx2 => return None,
         })
     }
+
+    pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
+        Some(match format {
+            image::ImageFormat::Avif => ImageFormat::Avif,
+            image::ImageFormat::Bmp => ImageFormat::Bmp,
+            image::ImageFormat::Dds => ImageFormat::Dds,
+            image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
+            image::ImageFormat::Gif => ImageFormat::Gif,
+            image::ImageFormat::OpenExr => ImageFormat::OpenExr,
+            image::ImageFormat::Hdr => ImageFormat::Hdr,
+            image::ImageFormat::Ico => ImageFormat::Ico,
+            image::ImageFormat::Jpeg => ImageFormat::Jpeg,
+            image::ImageFormat::Png => ImageFormat::Png,
+            image::ImageFormat::Pnm => ImageFormat::Pnm,
+            image::ImageFormat::Tga => ImageFormat::Tga,
+            image::ImageFormat::Tiff => ImageFormat::Tiff,
+            image::ImageFormat::WebP => ImageFormat::WebP,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Asset, Reflect, Debug, Clone)]
@@ -438,7 +458,7 @@ impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
     fn from(value: wgpu::SamplerDescriptor) -> Self {
         ImageSamplerDescriptor {
-            label: value.label.map(|l| l.to_string()),
+            label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
             address_mode_v: value.address_mode_v.into(),
             address_mode_w: value.address_mode_w.into(),
@@ -511,6 +531,38 @@ impl Image {
         image
     }
 
+    /// A transparent white 1x1x1 image.
+    ///
+    /// Contrast to [`Image::default`], which is opaque.
+    pub fn transparent() -> Image {
+        // We rely on the default texture format being RGBA8UnormSrgb
+        // when constructing a transparent color from bytes.
+        // If this changes, this function will need to be updated.
+        let format = TextureFormat::bevy_default();
+        debug_assert!(format.pixel_size() == 4);
+        let data = vec![255, 255, 255, 0];
+        Image {
+            data,
+            texture_descriptor: wgpu::TextureDescriptor {
+                size: Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                format,
+                dimension: TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
+        }
+    }
+
     /// Creates a new image from raw binary data and the corresponding metadata, by filling
     /// the image data with the `pixel` data repeated multiple times.
     ///
@@ -532,11 +584,13 @@ impl Image {
         debug_assert_eq!(
             pixel.len() % format.pixel_size(),
             0,
-            "Must not have incomplete pixel data."
+            "Must not have incomplete pixel data (pixel size is {}B).",
+            format.pixel_size(),
         );
         debug_assert!(
             pixel.len() <= value.data.len(),
-            "Fill data must fit within pixel buffer."
+            "Fill data must fit within pixel buffer (expected {}B).",
+            value.data.len(),
         );
 
         for current_pixel in value.data.chunks_exact_mut(pixel.len()) {

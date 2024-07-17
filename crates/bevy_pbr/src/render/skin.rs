@@ -1,5 +1,6 @@
+use std::mem;
+
 use bevy_asset::Assets;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
@@ -22,7 +23,7 @@ pub struct SkinIndex {
 }
 
 impl SkinIndex {
-    /// Index to be in address space based on [`SkinUniform`] size.
+    /// Index to be in address space based on the size of a skin uniform.
     const fn new(start: usize) -> Self {
         SkinIndex {
             index: (start * std::mem::size_of::<Mat4>()) as u32,
@@ -30,19 +31,44 @@ impl SkinIndex {
     }
 }
 
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinIndices(EntityHashMap<SkinIndex>);
+/// Maps each skinned mesh to the applicable offset within the [`SkinUniforms`]
+/// buffer.
+///
+/// We store both the current frame's joint matrices and the previous frame's
+/// joint matrices for the purposes of motion vector calculation.
+#[derive(Default, Resource)]
+pub struct SkinIndices {
+    /// Maps each skinned mesh to the applicable offset within
+    /// [`SkinUniforms::current_buffer`].
+    pub current: EntityHashMap<SkinIndex>,
 
-// Notes on implementation: see comment on top of the `extract_skins` system.
-#[derive(Resource)]
-pub struct SkinUniform {
-    pub buffer: RawBufferVec<Mat4>,
+    /// Maps each skinned mesh to the applicable offset within
+    /// [`SkinUniforms::prev_buffer`].
+    pub prev: EntityHashMap<SkinIndex>,
 }
 
-impl Default for SkinUniform {
+/// The GPU buffers containing joint matrices for all skinned meshes.
+///
+/// This is double-buffered: we store the joint matrices of each mesh for the
+/// previous frame in addition to those of each mesh for the current frame. This
+/// is for motion vector calculation. Every frame, we swap buffers and overwrite
+/// the joint matrix buffer from two frames ago with the data for the current
+/// frame.
+///
+/// Notes on implementation: see comment on top of the `extract_skins` system.
+#[derive(Resource)]
+pub struct SkinUniforms {
+    /// Stores all the joint matrices for skinned meshes in the current frame.
+    pub current_buffer: RawBufferVec<Mat4>,
+    /// Stores all the joint matrices for skinned meshes in the previous frame.
+    pub prev_buffer: RawBufferVec<Mat4>,
+}
+
+impl Default for SkinUniforms {
     fn default() -> Self {
         Self {
-            buffer: RawBufferVec::new(BufferUsages::UNIFORM),
+            current_buffer: RawBufferVec::new(BufferUsages::UNIFORM),
+            prev_buffer: RawBufferVec::new(BufferUsages::UNIFORM),
         }
     }
 }
@@ -50,15 +76,20 @@ impl Default for SkinUniform {
 pub fn prepare_skins(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut uniform: ResMut<SkinUniform>,
+    mut uniform: ResMut<SkinUniforms>,
 ) {
-    if uniform.buffer.is_empty() {
+    if uniform.current_buffer.is_empty() {
         return;
     }
 
-    let len = uniform.buffer.len();
-    uniform.buffer.reserve(len, &render_device);
-    uniform.buffer.write_buffer(&render_device, &render_queue);
+    let len = uniform.current_buffer.len();
+    uniform.current_buffer.reserve(len, &render_device);
+    uniform
+        .current_buffer
+        .write_buffer(&render_device, &render_queue);
+
+    // We don't need to write `uniform.prev_buffer` because we already wrote it
+    // last frame, and the data should still be on the GPU.
 }
 
 // Notes on implementation:
@@ -88,14 +119,22 @@ pub fn prepare_skins(
 // which normally only support fixed size arrays. You just have to make sure
 // in the shader that you only read the values that are valid for that binding.
 pub fn extract_skins(
-    mut skin_indices: ResMut<SkinIndices>,
-    mut uniform: ResMut<SkinUniform>,
+    skin_indices: ResMut<SkinIndices>,
+    uniform: ResMut<SkinUniforms>,
     query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joints: Extract<Query<&GlobalTransform>>,
 ) {
-    uniform.buffer.clear();
-    skin_indices.clear();
+    // Borrow check workaround.
+    let (skin_indices, uniform) = (skin_indices.into_inner(), uniform.into_inner());
+
+    // Swap buffers. We need to keep the previous frame's buffer around for the
+    // purposes of motion vector computation.
+    mem::swap(&mut skin_indices.current, &mut skin_indices.prev);
+    mem::swap(&mut uniform.current_buffer, &mut uniform.prev_buffer);
+    skin_indices.current.clear();
+    uniform.current_buffer.clear();
+
     let mut last_start = 0;
 
     // PERF: This can be expensive, can we move this to prepare?
@@ -103,7 +142,7 @@ pub fn extract_skins(
         if !view_visibility.get() {
             continue;
         }
-        let buffer = &mut uniform.buffer;
+        let buffer = &mut uniform.current_buffer;
         let Some(inverse_bindposes) = inverse_bindposes.get(&skin.inverse_bindposes) else {
             continue;
         };
@@ -130,12 +169,12 @@ pub fn extract_skins(
             buffer.push(Mat4::ZERO);
         }
 
-        skin_indices.insert(entity, SkinIndex::new(start));
+        skin_indices.current.insert(entity, SkinIndex::new(start));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings
-    while uniform.buffer.len() - last_start < MAX_JOINTS {
-        uniform.buffer.push(Mat4::ZERO);
+    while uniform.current_buffer.len() - last_start < MAX_JOINTS {
+        uniform.current_buffer.push(Mat4::ZERO);
     }
 }
 

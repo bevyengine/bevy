@@ -43,7 +43,7 @@ pub mod prelude {
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
-        mesh::{morph::MorphWeights, primitives::Meshable, Mesh},
+        mesh::{morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
@@ -58,13 +58,13 @@ use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
-use bevy_window::{PrimaryWindow, RawHandleWrapper};
+use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
-use crate::mesh::GpuMesh;
+use crate::mesh::RenderMesh;
 use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
@@ -115,7 +115,7 @@ pub enum RenderSet {
     /// Queue drawable entities as phase items in render phases ready for
     /// sorting (if necessary)
     Queue,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<GpuMesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
     QueueMeshes,
     // TODO: This could probably be moved in favor of a system ordering
     // abstraction in `Render` or `Queue`
@@ -165,7 +165,11 @@ impl Render {
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<GpuMesh>));
+        schedule.configure_sets(
+            QueueMeshes
+                .in_set(Queue)
+                .after(prepare_assets::<RenderMesh>),
+        );
         schedule.configure_sets(
             (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()
@@ -268,10 +272,9 @@ impl Plugin for RenderPlugin {
                     ));
 
                     let mut system_state: SystemState<
-                        Query<&RawHandleWrapper, With<PrimaryWindow>>,
+                        Query<&RawHandleWrapperHolder, With<PrimaryWindow>>,
                     > = SystemState::new(app.world_mut());
                     let primary_window = system_state.get(app.world()).get_single().ok().cloned();
-
                     let settings = render_creation.clone();
                     let async_renderer = async move {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -282,11 +285,20 @@ impl Plugin for RenderPlugin {
                         });
 
                         // SAFETY: Plugins should be set up on the main thread.
-                        let surface = primary_window.map(|wrapper| unsafe {
-                            let handle = wrapper.get_handle();
-                            instance
-                                .create_surface(handle)
-                                .expect("Failed to create wgpu surface")
+                        let surface = primary_window.and_then(|wrapper| unsafe {
+                            let maybe_handle = wrapper.0.lock().expect(
+                                "Couldn't get the window handle in time for renderer initialization",
+                            );
+                            if let Some(wrapper) = maybe_handle.as_ref() {
+                                let handle = wrapper.get_handle();
+                                Some(
+                                    instance
+                                        .create_surface(handle)
+                                        .expect("Failed to create wgpu surface"),
+                                )
+                            } else {
+                                None
+                            }
                         });
 
                         let request_adapter_options = wgpu::RequestAdapterOptions {

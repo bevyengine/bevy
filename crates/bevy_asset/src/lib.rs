@@ -27,6 +27,7 @@ mod folder;
 mod handle;
 mod id;
 mod loader;
+mod loader_builders;
 mod path;
 mod reflect;
 mod server;
@@ -40,6 +41,9 @@ pub use futures_lite::{AsyncReadExt, AsyncWriteExt};
 pub use handle::*;
 pub use id::*;
 pub use loader::*;
+pub use loader_builders::{
+    DirectNestedLoader, NestedLoader, UntypedDirectNestedLoader, UntypedNestedLoader,
+};
 pub use path::*;
 pub use reflect::*;
 pub use server::*;
@@ -55,7 +59,6 @@ use bevy_app::{App, Last, Plugin, PreUpdate};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
-    system::Resource,
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
@@ -90,6 +93,8 @@ pub struct AssetPlugin {
     pub watch_for_changes_override: Option<bool>,
     /// The [`AssetMode`] to use for this server.
     pub mode: AssetMode,
+    /// How/If asset meta files should be checked.
+    pub meta_check: AssetMetaCheck,
 }
 
 #[derive(Debug)]
@@ -118,8 +123,7 @@ pub enum AssetMode {
 
 /// Configures how / if meta files will be checked. If an asset's meta file is not checked, the default meta for the asset
 /// will be used.
-// TODO: To avoid breaking Bevy 0.12 users in 0.12.1, this is a Resource. In Bevy 0.13 this should be changed to a field on AssetPlugin (if it is still needed).
-#[derive(Debug, Default, Clone, Resource)]
+#[derive(Debug, Default, Clone)]
 pub enum AssetMetaCheck {
     /// Always check if assets have meta files. If the meta does not exist, the default meta will be used.
     #[default]
@@ -137,6 +141,7 @@ impl Default for AssetPlugin {
             file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
+            meta_check: AssetMetaCheck::default(),
         }
     }
 }
@@ -171,16 +176,11 @@ impl Plugin for AssetPlugin {
                 AssetMode::Unprocessed => {
                     let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                     let sources = builders.build_sources(watch, false);
-                    let meta_check = app
-                        .world()
-                        .get_resource::<AssetMetaCheck>()
-                        .cloned()
-                        .unwrap_or_else(AssetMetaCheck::default);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
                         sources,
                         AssetServerMode::Unprocessed,
-                        meta_check,
+                        self.meta_check.clone(),
                         watch,
                     ));
                 }
@@ -227,6 +227,11 @@ impl Plugin for AssetPlugin {
     }
 }
 
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `Asset`",
+    label = "invalid `Asset`",
+    note = "consider annotating `{Self}` with `#[derive(Asset)]`"
+)]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
 pub trait VisitAssetDependencies {
@@ -301,8 +306,8 @@ pub trait AssetApp {
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
     /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    /// mutable access to this resource this causes a conflict, but they rarely actually
-    /// modify the same underlying asset.
+    ///     mutable access to this resource this causes a conflict, but they rarely actually
+    ///     modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -449,13 +454,12 @@ mod tests {
     use bevy_core::TaskPoolPlugin;
     use bevy_ecs::prelude::*;
     use bevy_ecs::{
-        event::ManualEventReader,
+        event::EventCursor,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
     use bevy_utils::{Duration, HashMap};
-    use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::{path::Path, sync::Arc};
     use thiserror::Error;
@@ -505,7 +509,7 @@ mod tests {
 
         async fn load<'a>(
             &'a self,
-            reader: &'a mut Reader<'_>,
+            reader: &'a mut dyn Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
@@ -514,12 +518,15 @@ mod tests {
             let mut ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
             let mut embedded = String::new();
             for dep in ron.embedded_dependencies {
-                let loaded = load_context.load_direct(&dep).await.map_err(|_| {
-                    Self::Error::CannotLoadDependency {
+                let loaded = load_context
+                    .loader()
+                    .direct()
+                    .load::<CoolText>(&dep)
+                    .await
+                    .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
-                    }
-                })?;
-                let cool = loaded.get::<CoolText>().unwrap();
+                    })?;
+                let cool = loaded.get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {
@@ -576,13 +583,13 @@ mod tests {
         async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError> {
+        ) -> Result<impl bevy_asset::io::Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
         async fn read<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
+        ) -> Result<impl bevy_asset::io::Reader + 'a, bevy_asset::io::AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -1293,7 +1300,7 @@ mod tests {
         gate_opener.open(b_path);
         gate_opener.open(c_path);
 
-        let mut reader = ManualEventReader::default();
+        let mut reader = EventCursor::default();
         run_app_until(&mut app, |world| {
             let events = world.resource::<Events<AssetEvent<LoadedFolder>>>();
             let asset_server = world.resource::<AssetServer>();
@@ -1503,6 +1510,7 @@ mod tests {
         Empty,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1511,6 +1519,7 @@ mod tests {
         embedded: TestAsset,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

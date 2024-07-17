@@ -94,6 +94,20 @@ pub struct WindowClosed {
     pub window: Entity,
 }
 
+/// An event that is sent whenever a window is closing. This will be sent when
+/// after a [`WindowCloseRequested`] event is received and the window is in the process of closing.
+#[derive(Event, Debug, Clone, PartialEq, Eq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct WindowClosing {
+    /// Window that has been requested to close and is the process of closing.
+    pub window: Entity,
+}
+
 /// An event that is sent whenever a window is destroyed by the underlying window system.
 ///
 /// Note that if your application only has a single window, this event may be your last chance to
@@ -374,13 +388,28 @@ pub struct WindowThemeChanged {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub enum ApplicationLifetime {
-    /// The application just started.
-    Started,
+pub enum AppLifecycle {
+    /// The application is not started yet.
+    Idle,
+    /// The application is running.
+    Running,
+    /// The application is going to be suspended.
+    /// Applications have one frame to react to this event before being paused in the background.
+    WillSuspend,
     /// The application was suspended.
-    ///
-    /// On Android, applications have one frame to react to this event before being paused in the background.
     Suspended,
-    /// The application was resumed.
-    Resumed,
+    /// The application is going to be resumed.
+    /// Applications have one extra frame to react to this event before being fully resumed.
+    WillResume,
+}
+
+impl AppLifecycle {
+    /// Return `true` if the app can be updated.
+    #[inline]
+    pub fn is_active(&self) -> bool {
+        match self {
+            Self::Idle | Self::Suspended => false,
+            Self::Running | Self::WillSuspend | Self::WillResume => true,
+        }
+    }
 }
