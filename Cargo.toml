@@ -365,6 +365,7 @@ ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
+bevy_render = { path = "crates/bevy_render", version = "0.15.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.12"
@@ -2979,6 +2980,14 @@ name = "Window Settings"
 description = "Demonstrates customizing default window settings"
 category = "Window"
 wasm = true
+
+[[example]]
+name = "ambiguity_detection"
+path = "tests/ecs/ambiguity_detection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ambiguity_detection]
+hidden = true
 
 [[example]]
 name = "resizing"
