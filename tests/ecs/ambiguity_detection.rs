@@ -9,7 +9,7 @@ use bevy::{
 use bevy_render::{pipelined_rendering::RenderExtractApp, Render, RenderApp};
 
 /// FIXME: bevy should not have any ambiguities, but it takes time to clean these up,
-/// so we're juste ignoring those for now.
+/// so we're just ignoring those for now.
 ///
 /// See [#7386](https://github.com/bevyengine/bevy/issues/7386) for relevant issue.
 pub fn get_ignored_ambiguous_system_schedules() -> Vec<Box<dyn ScheduleLabel>> {
