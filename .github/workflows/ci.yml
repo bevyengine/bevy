@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -63,7 +63,7 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
@@ -84,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -100,7 +100,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: wasm32-unknown-unknown
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown
 
@@ -115,7 +115,7 @@ jobs:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           targets: wasm32-unknown-unknown
           components: rust-src
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
@@ -183,7 +183,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
         run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
@@ -230,7 +230,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -331,7 +331,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.msrv.outputs.msrv }}
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Run cargo check
@@ -377,7 +377,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:

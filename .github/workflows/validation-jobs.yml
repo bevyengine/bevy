@@ -27,7 +27,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: Leafwing-Studios/cargo-cache@v1
+      - uses: Leafwing-Studios/cargo-cache@v2
 
       # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
