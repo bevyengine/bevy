@@ -111,17 +111,17 @@ fn setup(mut commands: Commands) {
 #[derive(Clone, Copy, Resource, Default)]
 enum SplineMode {
     #[default]
-    HermiteSpline,
-    CardinalSpline,
-    BSpline,
+    Hermite,
+    Cardinal,
+    B,
 }
 
 impl std::fmt::Display for SplineMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SplineMode::HermiteSpline => f.write_str("Hermite"),
-            SplineMode::CardinalSpline => f.write_str("Cardinal"),
-            SplineMode::BSpline => f.write_str("B"),
+            SplineMode::Hermite => f.write_str("Hermite"),
+            SplineMode::Cardinal => f.write_str("Cardinal"),
+            SplineMode::B => f.write_str("B"),
         }
     }
 }
@@ -178,7 +178,7 @@ fn update_curve(
         return;
     }
 
-    *curve = form_curve(&*control_points, *spline_mode, *cycling_mode);
+    *curve = form_curve(&control_points, *spline_mode, *cycling_mode);
 }
 
 /// This system uses gizmos to draw the current [`Curve`] by breaking it up into a large number
@@ -207,7 +207,7 @@ fn draw_control_points(
     for &(point, tangent) in &control_points.points_and_tangents {
         gizmos.circle_2d(point, 10.0, Color::srgb(0.0, 1.0, 0.0));
 
-        if matches!(*spline_mode, SplineMode::HermiteSpline) {
+        if matches!(*spline_mode, SplineMode::Hermite) {
             gizmos.arrow_2d(point, point + tangent, Color::srgb(1.0, 0.0, 0.0));
         }
     }
@@ -225,7 +225,7 @@ fn form_curve(
         control_points.points_and_tangents.iter().copied().unzip();
 
     match spline_mode {
-        SplineMode::HermiteSpline => {
+        SplineMode::Hermite => {
             if points.len() < 2 {
                 Curve::default()
             } else {
@@ -236,7 +236,7 @@ fn form_curve(
                 })
             }
         }
-        SplineMode::CardinalSpline => {
+        SplineMode::Cardinal => {
             if points.len() < 2 {
                 Curve::default()
             } else {
@@ -247,7 +247,7 @@ fn form_curve(
                 })
             }
         }
-        SplineMode::BSpline => {
+        SplineMode::B => {
             if matches!(cycling_mode, CyclingMode::NotCyclic) && points.len() < 4
                 || matches!(cycling_mode, CyclingMode::Cyclic) && points.len() < 2
             {
@@ -331,7 +331,7 @@ fn handle_mouse_move(
     mut mouse_position: ResMut<MousePosition>,
 ) {
     if let Some(cursor_event) = cursor_events.read().last() {
-        mouse_position.0 = Some(cursor_event.position)
+        mouse_position.0 = Some(cursor_event.position);
     }
 }
 
@@ -359,11 +359,11 @@ fn handle_mouse_press(
                 if edit_move.start.is_some() {
                     // If the edit move already has a start, press event should do nothing.
                     continue;
-                } else {
-                    // Otherwise, this press represents the start of the edit move.
-                    edit_move.start = Some(mouse_pos);
                 }
+                // This press represents the start of the edit move.
+                edit_move.start = Some(mouse_pos);
             }
+
             ButtonState::Released => {
                 // Release is only meaningful if we started an edit move.
                 let Some(start) = edit_move.start else {
@@ -436,9 +436,9 @@ fn handle_keypress(
     // S => change spline mode
     if keyboard.just_pressed(KeyCode::KeyS) {
         *spline_mode = match *spline_mode {
-            SplineMode::HermiteSpline => SplineMode::CardinalSpline,
-            SplineMode::CardinalSpline => SplineMode::BSpline,
-            SplineMode::BSpline => SplineMode::HermiteSpline,
+            SplineMode::Hermite => SplineMode::Cardinal,
+            SplineMode::Cardinal => SplineMode::B,
+            SplineMode::B => SplineMode::Hermite,
         }
     }
 
