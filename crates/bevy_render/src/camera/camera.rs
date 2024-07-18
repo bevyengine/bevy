@@ -510,8 +510,8 @@ impl Default for CameraOutputMode {
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
-#[derive(Component, Deref, DerefMut, Reflect, Clone)]
-#[reflect_value(Component)]
+#[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
+#[reflect_value(Component, Debug)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
