@@ -106,7 +106,7 @@ impl NormalizedWindowRef {
 /// Because this component is synchronized with `winit`, it can be used to perform
 /// OS-integrated windowing operations. For example, here's a simple system
 /// to change the window mode:
-//
+///
 /// ```
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::Query;
