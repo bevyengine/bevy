@@ -1705,7 +1705,6 @@ impl<'a> GltfTreeIterator<'a> {
     fn try_new(gltf: &'a gltf::Gltf) -> Result<Self, GltfError> {
         let nodes = gltf.nodes().collect::<Vec<_>>();
 
-        let mut has_errored = false;
         let mut empty_children = VecDeque::new();
         let mut parents = vec![None; nodes.len()];
         let mut unprocessed_nodes = nodes
@@ -1717,12 +1716,8 @@ impl<'a> GltfTreeIterator<'a> {
                     .map(|child| child.index())
                     .collect::<HashSet<_>>();
                 for &child in &children {
-                    if let Some(parent) = parents.get_mut(child) {
-                        *parent = Some(i);
-                    } else if !has_errored {
-                        has_errored = true;
-                        warn!("Unexpected child in GLTF Mesh {}", child);
-                    }
+                    let parent = parents.get_mut(child).unwrap();
+                    *parent = Some(i);
                 }
                 if children.is_empty() {
                     empty_children.push_back(i);
