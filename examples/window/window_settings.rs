@@ -5,7 +5,7 @@ use bevy::{
     core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    window::{CursorGrabMode, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme},
 };
 
 fn main() {

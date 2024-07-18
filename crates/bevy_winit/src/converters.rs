@@ -6,7 +6,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
+use bevy_window::{EnabledButtons, SystemCursorIcon, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 pub fn convert_keyboard_input(
@@ -625,6 +625,46 @@ pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::Nativ
         NativeKey::Windows(v) => bevy_input::keyboard::NativeKey::Windows(*v),
         NativeKey::Xkb(v) => bevy_input::keyboard::NativeKey::Xkb(*v),
         NativeKey::Web(v) => bevy_input::keyboard::NativeKey::Web(v.clone()),
+    }
+}
+
+/// Converts a [`SystemCursorIcon`] to a [`winit::window::CursorIcon`].
+pub fn convert_system_cursor_icon(cursor_icon: SystemCursorIcon) -> winit::window::CursorIcon {
+    match cursor_icon {
+        SystemCursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,
+        SystemCursorIcon::Pointer => winit::window::CursorIcon::Pointer,
+        SystemCursorIcon::Move => winit::window::CursorIcon::Move,
+        SystemCursorIcon::Text => winit::window::CursorIcon::Text,
+        SystemCursorIcon::Wait => winit::window::CursorIcon::Wait,
+        SystemCursorIcon::Help => winit::window::CursorIcon::Help,
+        SystemCursorIcon::Progress => winit::window::CursorIcon::Progress,
+        SystemCursorIcon::NotAllowed => winit::window::CursorIcon::NotAllowed,
+        SystemCursorIcon::ContextMenu => winit::window::CursorIcon::ContextMenu,
+        SystemCursorIcon::Cell => winit::window::CursorIcon::Cell,
+        SystemCursorIcon::VerticalText => winit::window::CursorIcon::VerticalText,
+        SystemCursorIcon::Alias => winit::window::CursorIcon::Alias,
+        SystemCursorIcon::Copy => winit::window::CursorIcon::Copy,
+        SystemCursorIcon::NoDrop => winit::window::CursorIcon::NoDrop,
+        SystemCursorIcon::Grab => winit::window::CursorIcon::Grab,
+        SystemCursorIcon::Grabbing => winit::window::CursorIcon::Grabbing,
+        SystemCursorIcon::AllScroll => winit::window::CursorIcon::AllScroll,
+        SystemCursorIcon::ZoomIn => winit::window::CursorIcon::ZoomIn,
+        SystemCursorIcon::ZoomOut => winit::window::CursorIcon::ZoomOut,
+        SystemCursorIcon::EResize => winit::window::CursorIcon::EResize,
+        SystemCursorIcon::NResize => winit::window::CursorIcon::NResize,
+        SystemCursorIcon::NeResize => winit::window::CursorIcon::NeResize,
+        SystemCursorIcon::NwResize => winit::window::CursorIcon::NwResize,
+        SystemCursorIcon::SResize => winit::window::CursorIcon::SResize,
+        SystemCursorIcon::SeResize => winit::window::CursorIcon::SeResize,
+        SystemCursorIcon::SwResize => winit::window::CursorIcon::SwResize,
+        SystemCursorIcon::WResize => winit::window::CursorIcon::WResize,
+        SystemCursorIcon::EwResize => winit::window::CursorIcon::EwResize,
+        SystemCursorIcon::NsResize => winit::window::CursorIcon::NsResize,
+        SystemCursorIcon::NeswResize => winit::window::CursorIcon::NeswResize,
+        SystemCursorIcon::NwseResize => winit::window::CursorIcon::NwseResize,
+        SystemCursorIcon::ColResize => winit::window::CursorIcon::ColResize,
+        SystemCursorIcon::RowResize => winit::window::CursorIcon::RowResize,
+        _ => winit::window::CursorIcon::Default,
     }
 }
 

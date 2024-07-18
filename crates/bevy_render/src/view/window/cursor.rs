@@ -8,21 +8,17 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::tracing::warn;
-use bevy_window::Window;
-use bevy_winit::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor};
+use bevy_window::{SystemCursorIcon, Window};
+use bevy_winit::{
+    convert_system_cursor_icon, CursorSource, CustomCursorCache, CustomCursorCacheKey,
+    PendingCursor,
+};
 use wgpu::TextureFormat;
 
 use crate::prelude::Image;
 
-use super::system_cursor::SystemCursorIcon;
-
 /// Insert into a window entity to set the cursor for that window.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
 #[reflect(Component, Debug, Default)]
 pub enum CursorIcon {
     /// Custom cursor image.
@@ -33,7 +29,7 @@ pub enum CursorIcon {
 
 impl Default for CursorIcon {
     fn default() -> Self {
-        CursorIcon::System(SystemCursorIcon::Default)
+        CursorIcon::System(Default::default())
     }
 }
 
@@ -51,11 +47,6 @@ impl From<CustomCursor> for CursorIcon {
 
 /// Custom cursor image data.
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
 pub enum CustomCursor {
     /// Image to use as a cursor.
     Image {
@@ -147,7 +138,7 @@ pub fn update_cursors(
                 }
             }
             CursorIcon::System(system_cursor_icon) => {
-                CursorSource::System(convert_system_cursor(*system_cursor_icon))
+                CursorSource::System(convert_system_cursor_icon(*system_cursor_icon))
             }
         };
 
@@ -178,44 +169,5 @@ fn image_to_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
                 .collect(),
         ),
         _ => None,
-    }
-}
-
-pub fn convert_system_cursor(system_cursor_icon: SystemCursorIcon) -> bevy_winit::CursorIcon {
-    match system_cursor_icon {
-        SystemCursorIcon::Crosshair => bevy_winit::CursorIcon::Crosshair,
-        SystemCursorIcon::Pointer => bevy_winit::CursorIcon::Pointer,
-        SystemCursorIcon::Move => bevy_winit::CursorIcon::Move,
-        SystemCursorIcon::Text => bevy_winit::CursorIcon::Text,
-        SystemCursorIcon::Wait => bevy_winit::CursorIcon::Wait,
-        SystemCursorIcon::Help => bevy_winit::CursorIcon::Help,
-        SystemCursorIcon::Progress => bevy_winit::CursorIcon::Progress,
-        SystemCursorIcon::NotAllowed => bevy_winit::CursorIcon::NotAllowed,
-        SystemCursorIcon::ContextMenu => bevy_winit::CursorIcon::ContextMenu,
-        SystemCursorIcon::Cell => bevy_winit::CursorIcon::Cell,
-        SystemCursorIcon::VerticalText => bevy_winit::CursorIcon::VerticalText,
-        SystemCursorIcon::Alias => bevy_winit::CursorIcon::Alias,
-        SystemCursorIcon::Copy => bevy_winit::CursorIcon::Copy,
-        SystemCursorIcon::NoDrop => bevy_winit::CursorIcon::NoDrop,
-        SystemCursorIcon::Grab => bevy_winit::CursorIcon::Grab,
-        SystemCursorIcon::Grabbing => bevy_winit::CursorIcon::Grabbing,
-        SystemCursorIcon::AllScroll => bevy_winit::CursorIcon::AllScroll,
-        SystemCursorIcon::ZoomIn => bevy_winit::CursorIcon::ZoomIn,
-        SystemCursorIcon::ZoomOut => bevy_winit::CursorIcon::ZoomOut,
-        SystemCursorIcon::EResize => bevy_winit::CursorIcon::EResize,
-        SystemCursorIcon::NResize => bevy_winit::CursorIcon::NResize,
-        SystemCursorIcon::NeResize => bevy_winit::CursorIcon::NeResize,
-        SystemCursorIcon::NwResize => bevy_winit::CursorIcon::NwResize,
-        SystemCursorIcon::SResize => bevy_winit::CursorIcon::SResize,
-        SystemCursorIcon::SeResize => bevy_winit::CursorIcon::SeResize,
-        SystemCursorIcon::SwResize => bevy_winit::CursorIcon::SwResize,
-        SystemCursorIcon::WResize => bevy_winit::CursorIcon::WResize,
-        SystemCursorIcon::EwResize => bevy_winit::CursorIcon::EwResize,
-        SystemCursorIcon::NsResize => bevy_winit::CursorIcon::NsResize,
-        SystemCursorIcon::NeswResize => bevy_winit::CursorIcon::NeswResize,
-        SystemCursorIcon::NwseResize => bevy_winit::CursorIcon::NwseResize,
-        SystemCursorIcon::ColResize => bevy_winit::CursorIcon::ColResize,
-        SystemCursorIcon::RowResize => bevy_winit::CursorIcon::RowResize,
-        _ => bevy_winit::CursorIcon::Default,
     }
 }

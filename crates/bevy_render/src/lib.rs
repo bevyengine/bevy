@@ -48,10 +48,7 @@ pub mod prelude {
         spatial_bundle::SpatialBundle,
         texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
         view::{
-            window::{
-                cursor::{CursorIcon, CustomCursor},
-                system_cursor::SystemCursorIcon,
-            },
+            window::cursor::{CursorIcon, CustomCursor},
             InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle,
         },
         ExtractSchedule,

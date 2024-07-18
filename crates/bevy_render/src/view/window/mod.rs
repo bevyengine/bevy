@@ -14,6 +14,7 @@ use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
+use bevy_winit::CustomCursorCache;
 use std::{
     num::NonZeroU32,
     ops::{Deref, DerefMut},
@@ -26,7 +27,6 @@ use wgpu::{
 
 pub mod cursor;
 pub mod screenshot;
-pub mod system_cursor;
 
 use screenshot::{
     ScreenshotManager, ScreenshotPlugin, ScreenshotPreparedState, ScreenshotToScreenPipeline,
@@ -41,6 +41,7 @@ pub struct WindowRenderPlugin;
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin)
+            .init_resource::<CustomCursorCache>()
             .add_systems(Last, update_cursors);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
