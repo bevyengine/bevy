@@ -555,7 +555,7 @@ pub struct CursorOptions {
     /// ## Platform-specific
     ///
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    ///     To stop the cursor from leaving the window, change [`Cursor::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
+    ///     To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub visible: bool,
@@ -865,7 +865,7 @@ impl From<DVec2> for WindowResolution {
     }
 }
 
-/// Defines if and how the [`Cursor`] is grabbed by a [`Window`].
+/// Defines if and how the cursor is grabbed by a [`Window`].
 ///
 /// ## Platform-specific
 ///

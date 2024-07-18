@@ -73,7 +73,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// The icon to display for a [`Window`](crate::window::Window)'s [`Cursor`](crate::window::Cursor).
+/// The icon to display for a window.
 ///
 /// Examples of all of these cursors can be found [here](https://www.w3schools.com/cssref/playit.php?filename=playcss_cursor&preval=crosshair).
 /// This `enum` is simply a copy of a similar `enum` found in [`winit`](https://docs.rs/winit/latest/winit/window/enum.CursorIcon.html).
