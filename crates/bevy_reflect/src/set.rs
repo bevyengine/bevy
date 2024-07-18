@@ -11,7 +11,7 @@ use crate::{
 
 /// A trait used to power [set-like] operations via [reflection].
 ///
-/// Sets contain zero or more entries of a value, and correspond to types like [`HashSet`]. The
+/// Sets contain zero or more entries of a fixed type, and correspond to types like [`HashSet`]. The
 /// order of these entries is not guaranteed by this trait.
 ///
 /// # Hashing
@@ -167,7 +167,7 @@ impl SetInfo {
     }
 }
 
-/// An ordered mapping between reflected values.
+/// An ordered set of reflected values.
 #[derive(Default)]
 pub struct DynamicSet {
     represented_type: Option<&'static TypeInfo>,
@@ -476,7 +476,9 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
 pub fn set_apply<M: Set>(a: &mut M, b: &dyn Reflect) {
     if let ReflectRef::Set(set_value) = b.reflect_ref() {
         for b_value in set_value.iter() {
-            if a.get(b_value).is_none() {
+            if let Some(a_value) = a.get_mut(b_value) {
+                a_value.apply(b_value);
+            } else {
                 a.insert_boxed(b_value.clone_value());
             }
         }
