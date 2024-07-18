@@ -8,8 +8,7 @@ use crate::{
     prelude::Image,
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages, RenderAssets},
-    render_resource::{Buffer, TextureView, VertexBufferLayout},
-    renderer::RenderDevice,
+    render_resource::{TextureView, VertexBufferLayout},
     texture::GpuImage,
 };
 use bevy_asset::{Asset, Handle};
@@ -24,10 +23,7 @@ use bevy_utils::tracing::{error, warn};
 use bytemuck::cast_slice;
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
-use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
-    VertexStepMode,
-};
+use wgpu::{IndexFormat, VertexAttribute, VertexFormat, VertexStepMode};
 
 use super::{MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 
@@ -1660,42 +1656,51 @@ impl BaseMeshPipelineKey {
     }
 }
 
-/// The GPU-representation of a [`Mesh`].
-/// Consists of a vertex data buffer and an optional index data buffer.
+/// The render world representation of a [`Mesh`].
 #[derive(Debug, Clone)]
-pub struct GpuMesh {
-    /// Contains all attribute data for each vertex.
-    pub vertex_buffer: Buffer,
+pub struct RenderMesh {
+    /// The number of vertices in the mesh.
     pub vertex_count: u32,
+
+    /// Morph targets for the mesh, if present.
     pub morph_targets: Option<TextureView>,
-    pub buffer_info: GpuBufferInfo,
+
+    /// Information about the mesh data buffers, including whether the mesh uses
+    /// indices or not.
+    pub buffer_info: RenderMeshBufferInfo,
+
+    /// Precomputed pipeline key bits for this mesh.
     pub key_bits: BaseMeshPipelineKey,
+
+    /// A reference to the vertex buffer layout.
+    ///
+    /// Combined with [`RenderMesh::buffer_info`], this specifies the complete
+    /// layout of the buffers associated with this mesh.
     pub layout: MeshVertexBufferLayoutRef,
 }
 
-impl GpuMesh {
+impl RenderMesh {
+    /// Returns the primitive topology of this mesh (triangles, triangle strips,
+    /// etc.)
     #[inline]
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.key_bits.primitive_topology()
     }
 }
 
-/// The index/vertex buffer info of a [`GpuMesh`].
+/// The index/vertex buffer info of a [`RenderMesh`].
 #[derive(Debug, Clone)]
-pub enum GpuBufferInfo {
+pub enum RenderMeshBufferInfo {
     Indexed {
-        /// Contains all index data of a mesh.
-        buffer: Buffer,
         count: u32,
         index_format: IndexFormat,
     },
     NonIndexed,
 }
 
-impl RenderAsset for GpuMesh {
+impl RenderAsset for RenderMesh {
     type SourceAsset = Mesh;
     type Param = (
-        SRes<RenderDevice>,
         SRes<RenderAssets<GpuImage>>,
         SResMut<MeshVertexBufferLayouts>,
     );
@@ -1717,12 +1722,10 @@ impl RenderAsset for GpuMesh {
         Some(vertex_size * vertex_count + index_bytes)
     }
 
-    /// Converts the extracted mesh a into [`GpuMesh`].
+    /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
         mesh: Self::SourceAsset,
-        (render_device, images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<
-            Self::Param,
-        >,
+        (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets.as_ref() {
             Some(mt) => {
@@ -1734,25 +1737,12 @@ impl RenderAsset for GpuMesh {
             None => None,
         };
 
-        let vertex_buffer_data = mesh.get_vertex_buffer_data();
-        let vertex_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
-            usage: BufferUsages::VERTEX,
-            label: Some("Mesh Vertex Buffer"),
-            contents: &vertex_buffer_data,
-        });
-
-        let buffer_info = if let Some(data) = mesh.get_index_buffer_bytes() {
-            GpuBufferInfo::Indexed {
-                buffer: render_device.create_buffer_with_data(&BufferInitDescriptor {
-                    usage: BufferUsages::INDEX,
-                    contents: data,
-                    label: Some("Mesh Index Buffer"),
-                }),
-                count: mesh.indices().unwrap().len() as u32,
-                index_format: mesh.indices().unwrap().into(),
-            }
-        } else {
-            GpuBufferInfo::NonIndexed
+        let buffer_info = match mesh.indices() {
+            Some(indices) => RenderMeshBufferInfo::Indexed {
+                count: indices.len() as u32,
+                index_format: indices.into(),
+            },
+            None => RenderMeshBufferInfo::NonIndexed,
         };
 
         let mesh_vertex_buffer_layout =
@@ -1764,8 +1754,7 @@ impl RenderAsset for GpuMesh {
             mesh.morph_targets.is_some(),
         );
 
-        Ok(GpuMesh {
-            vertex_buffer,
+        Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,

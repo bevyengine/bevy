@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
-    mesh::{GpuMesh, MeshVertexBufferLayoutRef},
+    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
@@ -369,7 +369,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,

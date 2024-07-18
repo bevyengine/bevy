@@ -1,6 +1,6 @@
 mod prepass_bindings;
 
-use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
+use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
 use bevy_render::render_resource::binding_types::uniform_buffer;
 use bevy_render::view::WithMesh;
 pub use prepass_bindings::*;
@@ -679,7 +679,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,

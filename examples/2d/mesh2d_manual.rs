@@ -11,7 +11,7 @@ use bevy::{
     math::FloatOrd,
     prelude::*,
     render::{
-        mesh::{GpuMesh, Indices, MeshVertexAttribute},
+        mesh::{Indices, MeshVertexAttribute, RenderMesh},
         render_asset::{RenderAssetUsages, RenderAssets},
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
@@ -351,7 +351,7 @@ pub fn queue_colored_mesh2d(
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(Entity, &VisibleEntities, &ExtractedView, &Msaa)>,

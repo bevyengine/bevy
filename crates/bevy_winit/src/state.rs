@@ -37,8 +37,8 @@ use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use crate::accessibility::AccessKitAdapters;
 use crate::system::CachedWindow;
 use crate::{
-    converters, create_windows, AppSendEvent, CreateWindowParams, UpdateMode, WinitEvent,
-    WinitSettings, WinitWindows,
+    converters, create_windows, AppSendEvent, CreateWindowParams, EventLoopProxyWrapper,
+    UpdateMode, WinitEvent, WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -763,7 +763,7 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
         .unwrap();
 
     app.world_mut()
-        .insert_non_send_resource(event_loop.create_proxy());
+        .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
 
     let mut runner_state = WinitAppRunnerState::new(app);
 

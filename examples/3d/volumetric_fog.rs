@@ -3,7 +3,7 @@
 use bevy::{
     core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping, Skybox},
     math::vec3,
-    pbr::{VolumetricFogSettings, VolumetricLight},
+    pbr::{FogVolumeBundle, VolumetricFogSettings, VolumetricLight},
     prelude::*,
 };
 
@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    // Spawn the camera. Add the volumetric fog.
+    // Spawn the camera.
     commands
         .spawn(Camera3dBundle {
             transform: Transform::from_xyz(-1.7, 1.5, 4.5)
@@ -59,6 +59,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ambient_intensity: 0.0,
             ..default()
         });
+
+    // Add the fog volume.
+    commands.spawn(FogVolumeBundle {
+        transform: Transform::from_scale(Vec3::splat(35.0)),
+        ..default()
+    });
 
     // Add the help text.
     commands.spawn(

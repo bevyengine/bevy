@@ -57,7 +57,9 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-pub use volumetric_fog::*;
+pub use volumetric_fog::{
+    FogVolume, FogVolumeBundle, VolumetricFogPlugin, VolumetricFogSettings, VolumetricLight,
+};
 
 pub mod prelude {
     #[doc(hidden)]

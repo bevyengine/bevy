@@ -12,7 +12,9 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{GpuBufferInfo, GpuMesh, MeshVertexBufferLayoutRef},
+        mesh::{
+            allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+        },
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -116,7 +118,7 @@ fn queue_custom(
     custom_pipeline: Res<CustomPipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<CustomPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    meshes: Res<RenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<Entity, With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
@@ -240,7 +242,11 @@ type DrawCustom = (
 struct DrawMeshInstanced;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
-    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderMeshInstances>);
+    type Param = (
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<RenderMeshInstances>,
+        SRes<MeshAllocator>,
+    );
     type ViewQuery = ();
     type ItemQuery = Read<InstanceBuffer>;
 
@@ -249,9 +255,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         item: &P,
         _view: (),
         instance_buffer: Option<&'w InstanceBuffer>,
-        (meshes, render_mesh_instances): SystemParamItem<'w, '_, Self::Param>,
+        (meshes, render_mesh_instances, mesh_allocator): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        // A borrow check workaround.
+        let mesh_allocator = mesh_allocator.into_inner();
+
         let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.entity())
         else {
             return RenderCommandResult::Failure;
@@ -262,20 +271,34 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         let Some(instance_buffer) = instance_buffer else {
             return RenderCommandResult::Failure;
         };
+        let Some(vertex_buffer_slice) =
+            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)
+        else {
+            return RenderCommandResult::Failure;
+        };
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
         pass.set_vertex_buffer(1, instance_buffer.buffer.slice(..));
 
         match &gpu_mesh.buffer_info {
-            GpuBufferInfo::Indexed {
-                buffer,
+            RenderMeshBufferInfo::Indexed {
                 index_format,
                 count,
             } => {
-                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                pass.draw_indexed(0..*count, 0, 0..instance_buffer.length as u32);
+                let Some(index_buffer_slice) =
+                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)
+                else {
+                    return RenderCommandResult::Failure;
+                };
+
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(
+                    index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                    vertex_buffer_slice.range.start as i32,
+                    0..instance_buffer.length as u32,
+                );
             }
-            GpuBufferInfo::NonIndexed => {
+            RenderMeshBufferInfo::NonIndexed => {
                 pass.draw(0..gpu_mesh.vertex_count, 0..instance_buffer.length as u32);
             }
         }
