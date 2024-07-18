@@ -863,7 +863,8 @@ impl_type_path!(::bevy_utils::FixedState);
 
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
 impl_type_path!(::std::collections::HashSet<V, S>);
-impl_function_traits!(::std::collections::HashSet<V, S>;
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
@@ -872,7 +873,8 @@ impl_function_traits!(::std::collections::HashSet<V, S>;
 
 impl_reflect_for_hashset!(::bevy_utils::hashbrown::HashSet<V,S>);
 impl_type_path!(::bevy_utils::hashbrown::HashSet<V, S>);
-impl_function_traits!(::bevy_utils::hashbrown::HashSet<V, S>;
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync

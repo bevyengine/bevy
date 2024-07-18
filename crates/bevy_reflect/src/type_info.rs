@@ -244,6 +244,7 @@ impl TypeInfo {
             Self::List(_) => ReflectKind::List,
             Self::Array(_) => ReflectKind::Array,
             Self::Map(_) => ReflectKind::Map,
+            Self::Set(_) => ReflectKind::Set,
             Self::Enum(_) => ReflectKind::Enum,
             Self::Value(_) => ReflectKind::Value,
         }
