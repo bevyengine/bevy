@@ -105,16 +105,16 @@ impl NormalizedWindowRef {
 ///
 /// Because this component is synchronized with `winit`, it can be used to perform
 /// OS-integrated windowing operations. For example, here's a simple system
-/// to change the cursor type:
-///
+/// to change the window mode:
+//
 /// ```
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_window::{NativeCursorIcon, PrimaryWindow, Window};
-/// fn change_cursor(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+/// # use bevy_window::{WindowMode, PrimaryWindow, Window};
+/// fn change_window_mode(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
 ///     // Query returns one window typically.
 ///     for mut window in windows.iter_mut() {
-///         window.cursor.icon = NativeCursorIcon::Wait.into();
+///         window.mode = WindowMode::Fullscreen;
 ///     }
 /// }
 /// ```
