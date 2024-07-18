@@ -47,7 +47,13 @@ pub mod prelude {
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{image_texture_conversion::IntoDynamicImageError, Image, ImagePlugin},
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
+        view::{
+            window::{
+                cursor::{CursorIcon, CustomCursor},
+                system_cursor::SystemCursorIcon,
+            },
+            InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle,
+        },
         ExtractSchedule,
     };
 }

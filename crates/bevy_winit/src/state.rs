@@ -16,7 +16,6 @@ use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use bevy_utils::{HashMap, Instant};
-use bevy_window::{CursorIcon, CustomCursor};
 use std::marker::PhantomData;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
@@ -36,7 +35,6 @@ use bevy_window::{
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 use crate::accessibility::AccessKitAdapters;
-use crate::converters::convert_native_cursor_icon;
 use crate::system::CachedWindow;
 use crate::{
     converters, create_windows, AppSendEvent, CreateWindowParams, EventLoopProxyWrapper,
@@ -87,7 +85,7 @@ struct WinitAppRunnerState<T: Event> {
 
 impl<T: Event> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
-        app.add_event::<T>().init_resource::<CursorCache>();
+        app.add_event::<T>().init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
@@ -133,11 +131,36 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 }
 
-#[derive(Debug, Clone, Default, Resource)]
-struct CursorCache {
-    current: CursorIcon,
-    cache: HashMap<CustomCursor, winit::window::Cursor>,
+/// Identifiers for custom cursors used in caching.
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum CustomCursorCacheKey {
+    /// u128 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
+    Asset(u128),
+    /// A URL to a cursor.
+    Url(String),
 }
+
+/// Caches custom cursors. On many platforms, creating custom cursors is expensive, especially on
+/// the web.
+#[derive(Debug, Clone, Default, Resource)]
+pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::CustomCursor>);
+
+/// A source for a cursor. Is created in `bevy_render` and consumed by the winit event loop.
+#[derive(Debug)]
+pub enum CursorSource {
+    /// A custom cursor was identified to be cached, no reason to recreate it.
+    CustomCached(CustomCursorCacheKey),
+    /// A custom cursor was not cached, so it needs to be created by the winit event loop.
+    Custom((CustomCursorCacheKey, winit::window::CustomCursorSource)),
+    /// A system cursor was requested.
+    System(winit::window::CursorIcon),
+}
+
+/// Component that indicates what cursor should be used for a window. Inserted
+/// automatically after changing `CursorIcon` and consumed by the winit event
+/// loop.
+#[derive(Component, Debug)]
+pub struct PendingCursor(pub Option<CursorSource>);
 
 impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
@@ -758,45 +781,36 @@ impl<T: Event> WinitAppRunnerState<T> {
     fn update_cursors(&mut self, event_loop: &ActiveEventLoop) {
         let mut windows_state: SystemState<(
             NonSendMut<WinitWindows>,
-            ResMut<CursorCache>,
-            Query<(Entity, &Window)>,
+            ResMut<CustomCursorCache>,
+            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
-        let (winit_windows, mut cursor_cache, windows) = windows_state.get_mut(self.world_mut());
+        let (winit_windows, mut cursor_cache, mut windows) =
+            windows_state.get_mut(self.world_mut());
 
-        for (entity, window) in windows.iter() {
-            if window.cursor.icon != cursor_cache.current {
-                cursor_cache.current = window.cursor.icon.clone();
-                let Some(winit_window) = winit_windows.get_window(entity) else {
-                    continue;
-                };
+        for (entity, mut pending_cursor) in windows.iter_mut() {
+            let Some(winit_window) = winit_windows.get_window(entity) else {
+                continue;
+            };
+            let Some(pending_cursor) = pending_cursor.0.take() else {
+                continue;
+            };
 
-                match &window.cursor.icon {
-                    CursorIcon::Custom(custom_cursor) => {
-                        match converters::convert_custom_cursor(custom_cursor) {
-                            Some(winit_cursor_source) => {
-                                if let Some(cached_cursor) = cursor_cache.cache.get(custom_cursor) {
-                                    winit_window.set_cursor(cached_cursor.clone());
-                                    continue;
-                                }
-
-                                let winit_custom_cursor =
-                                    event_loop.create_custom_cursor(winit_cursor_source);
-                                cursor_cache.cache.insert(
-                                    custom_cursor.clone(),
-                                    winit_custom_cursor.clone().into(),
-                                );
-                                winit_window.set_cursor(winit_custom_cursor);
-                            }
-                            None => {
-                                winit_window.set_cursor(winit::window::Cursor::default());
-                            }
-                        }
-                    }
-                    CursorIcon::Native(native_cursor) => {
-                        winit_window.set_cursor(convert_native_cursor_icon(*native_cursor));
-                    }
+            let final_cursor: winit::window::Cursor = match pending_cursor {
+                CursorSource::CustomCached(cache_key) => {
+                    let Some(cached_cursor) = cursor_cache.0.get(&cache_key) else {
+                        error!("Cursor should have been cached, but was not found");
+                        continue;
+                    };
+                    cached_cursor.clone().into()
                 }
-            }
+                CursorSource::Custom((cache_key, cursor)) => {
+                    let custom_cursor = event_loop.create_custom_cursor(cursor);
+                    cursor_cache.0.insert(cache_key, custom_cursor.clone());
+                    custom_cursor.into()
+                }
+                CursorSource::System(system_cursor) => system_cursor.into(),
+            };
+            winit_window.set_cursor(final_cursor);
         }
     }
 }

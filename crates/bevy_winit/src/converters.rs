@@ -5,9 +5,8 @@ use bevy_input::{
     touch::{ForceTouch, TouchInput, TouchPhase},
     ButtonState,
 };
-use bevy_log::warn;
 use bevy_math::Vec2;
-use bevy_window::{CustomCursor, EnabledButtons, NativeCursorIcon, WindowLevel, WindowTheme};
+use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 pub fn convert_keyboard_input(
@@ -626,86 +625,6 @@ pub fn convert_native_key(native_key: &NativeKey) -> bevy_input::keyboard::Nativ
         NativeKey::Windows(v) => bevy_input::keyboard::NativeKey::Windows(*v),
         NativeKey::Xkb(v) => bevy_input::keyboard::NativeKey::Xkb(*v),
         NativeKey::Web(v) => bevy_input::keyboard::NativeKey::Web(v.clone()),
-    }
-}
-
-pub fn convert_native_cursor_icon(cursor_icon: NativeCursorIcon) -> winit::window::CursorIcon {
-    match cursor_icon {
-        NativeCursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,
-        NativeCursorIcon::Pointer => winit::window::CursorIcon::Pointer,
-        NativeCursorIcon::Move => winit::window::CursorIcon::Move,
-        NativeCursorIcon::Text => winit::window::CursorIcon::Text,
-        NativeCursorIcon::Wait => winit::window::CursorIcon::Wait,
-        NativeCursorIcon::Help => winit::window::CursorIcon::Help,
-        NativeCursorIcon::Progress => winit::window::CursorIcon::Progress,
-        NativeCursorIcon::NotAllowed => winit::window::CursorIcon::NotAllowed,
-        NativeCursorIcon::ContextMenu => winit::window::CursorIcon::ContextMenu,
-        NativeCursorIcon::Cell => winit::window::CursorIcon::Cell,
-        NativeCursorIcon::VerticalText => winit::window::CursorIcon::VerticalText,
-        NativeCursorIcon::Alias => winit::window::CursorIcon::Alias,
-        NativeCursorIcon::Copy => winit::window::CursorIcon::Copy,
-        NativeCursorIcon::NoDrop => winit::window::CursorIcon::NoDrop,
-        NativeCursorIcon::Grab => winit::window::CursorIcon::Grab,
-        NativeCursorIcon::Grabbing => winit::window::CursorIcon::Grabbing,
-        NativeCursorIcon::AllScroll => winit::window::CursorIcon::AllScroll,
-        NativeCursorIcon::ZoomIn => winit::window::CursorIcon::ZoomIn,
-        NativeCursorIcon::ZoomOut => winit::window::CursorIcon::ZoomOut,
-        NativeCursorIcon::EResize => winit::window::CursorIcon::EResize,
-        NativeCursorIcon::NResize => winit::window::CursorIcon::NResize,
-        NativeCursorIcon::NeResize => winit::window::CursorIcon::NeResize,
-        NativeCursorIcon::NwResize => winit::window::CursorIcon::NwResize,
-        NativeCursorIcon::SResize => winit::window::CursorIcon::SResize,
-        NativeCursorIcon::SeResize => winit::window::CursorIcon::SeResize,
-        NativeCursorIcon::SwResize => winit::window::CursorIcon::SwResize,
-        NativeCursorIcon::WResize => winit::window::CursorIcon::WResize,
-        NativeCursorIcon::EwResize => winit::window::CursorIcon::EwResize,
-        NativeCursorIcon::NsResize => winit::window::CursorIcon::NsResize,
-        NativeCursorIcon::NeswResize => winit::window::CursorIcon::NeswResize,
-        NativeCursorIcon::NwseResize => winit::window::CursorIcon::NwseResize,
-        NativeCursorIcon::ColResize => winit::window::CursorIcon::ColResize,
-        NativeCursorIcon::RowResize => winit::window::CursorIcon::RowResize,
-        _ => winit::window::CursorIcon::Default,
-    }
-}
-
-pub fn convert_custom_cursor(
-    custom_cursor: &CustomCursor,
-) -> Option<winit::window::CustomCursorSource> {
-    match custom_cursor {
-        CustomCursor::Image {
-            rgba,
-            width,
-            height,
-            hotspot_x,
-            hotspot_y,
-        } => {
-            match winit::window::CustomCursor::from_rgba(
-                rgba.clone(),
-                *width,
-                *height,
-                *hotspot_x,
-                *hotspot_y,
-            ) {
-                Ok(cursor) => Some(cursor),
-                Err(err) => {
-                    warn!("Failed to initialize custom cursor: {:?}", err);
-                    None
-                }
-            }
-        }
-        #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-        CustomCursor::Url {
-            url,
-            hotspot_x,
-            hotspot_y,
-        } => {
-            use winit::platform::web::CustomCursorExtWebSys;
-            Some(winit::window::CustomCursor::from_url(
-                url.clone(),
-                *hotspot_x,
-                *hotspot_y,
-            ))
-        }
     }
 }
 

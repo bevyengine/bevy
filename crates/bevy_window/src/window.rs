@@ -12,8 +12,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
 
-use crate::NativeCursorIcon;
-
 /// Marker [`Component`] for the window considered the primary window.
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
@@ -128,8 +126,9 @@ impl NormalizedWindowRef {
 )]
 #[reflect(Component, Default)]
 pub struct Window {
-    /// The cursor of this window.
-    pub cursor: Cursor,
+    /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
+    /// window entity.
+    pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used.
@@ -316,7 +315,7 @@ impl Default for Window {
         Self {
             title: "App".to_owned(),
             name: None,
-            cursor: Default::default(),
+            cursor_options: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
@@ -542,76 +541,6 @@ impl WindowResizeConstraints {
     }
 }
 
-/// Cursor icon.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, Default)]
-pub enum CursorIcon {
-    /// Custom cursor image data.
-    Custom(CustomCursor),
-    /// Native cursor icon.
-    Native(NativeCursorIcon),
-}
-
-impl Default for CursorIcon {
-    fn default() -> Self {
-        CursorIcon::Native(NativeCursorIcon::Default)
-    }
-}
-
-impl From<NativeCursorIcon> for CursorIcon {
-    fn from(icon: NativeCursorIcon) -> Self {
-        CursorIcon::Native(icon)
-    }
-}
-
-impl From<CustomCursor> for CursorIcon {
-    fn from(cursor: CustomCursor) -> Self {
-        CursorIcon::Custom(cursor)
-    }
-}
-
-/// Custom cursor image data.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum CustomCursor {
-    /// Image data in RGBA format. Cursor creation can fail if the image data is invalid.
-    /// Rgba data must be a multiple of 4 bytes in length. Width times height must match
-    /// the length of the data / 4. The hotspot must be within the image bounds.
-    /// `image_to_rgba_pixels` can be used to convert an `Image` to RGBA pixels.
-    Image {
-        /// RGBA pixel values for the image. Not premultiplied.
-        rgba: Vec<u8>,
-        /// Width of the image in pixels.
-        width: u16,
-        /// Height of the image in pixels.
-        height: u16,
-        /// X-coordinate of the hotspot in pixels.
-        hotspot_x: u16,
-        /// Y-coordinate of the hotspot in pixels.
-        hotspot_y: u16,
-    },
-    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-    /// A URL to an image to use as the cursor. Cursor creation can fail if the image is invalid or
-    /// not reachable.
-    Url {
-        /// Web URL to an image to use as the cursor. PNGs preferred.
-        url: String,
-        /// X-coordinate of the hotspot in pixels.
-        hotspot_x: u16,
-        /// Y-coordinate of the hotspot in pixels.
-        hotspot_y: u16,
-    },
-}
-
 /// Cursor data for a [`Window`].
 #[derive(Debug, Clone, Reflect)]
 #[cfg_attr(
@@ -620,10 +549,7 @@ pub enum CustomCursor {
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, Default)]
-pub struct Cursor {
-    /// What the cursor should look like while inside the window.
-    pub icon: CursorIcon,
-
+pub struct CursorOptions {
     /// Whether the cursor is visible or not.
     ///
     /// ## Platform-specific
@@ -653,10 +579,9 @@ pub struct Cursor {
     pub hit_test: bool,
 }
 
-impl Default for Cursor {
+impl Default for CursorOptions {
     fn default() -> Self {
-        Cursor {
-            icon: Default::default(),
+        CursorOptions {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,

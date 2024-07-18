@@ -6,7 +6,7 @@ use crate::{
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Last, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 #[cfg(target_os = "linux")]
 use bevy_utils::warn_once;
@@ -24,17 +24,24 @@ use wgpu::{
     TextureViewDescriptor,
 };
 
+pub mod cursor;
 pub mod screenshot;
+pub mod system_cursor;
 
 use screenshot::{
     ScreenshotManager, ScreenshotPlugin, ScreenshotPreparedState, ScreenshotToScreenPipeline,
 };
 
+use self::cursor::update_cursors;
+
+use super::Msaa;
+
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ScreenshotPlugin);
+        app.add_plugins(ScreenshotPlugin)
+            .add_systems(Last, update_cursors);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

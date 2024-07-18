@@ -225,16 +225,16 @@ impl WinitWindows {
         );
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
-        if window.cursor.grab_mode != CursorGrabMode::None {
-            attempt_grab(&winit_window, window.cursor.grab_mode);
+        if window.cursor_options.grab_mode != CursorGrabMode::None {
+            attempt_grab(&winit_window, window.cursor_options.grab_mode);
         }
 
-        winit_window.set_cursor_visible(window.cursor.visible);
+        winit_window.set_cursor_visible(window.cursor_options.visible);
 
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
-        if !window.cursor.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
+        if !window.cursor_options.hit_test {
+            if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
                 warn!(
                     "Could not set cursor hit test for window {:?}: {:?}",
                     window.title, err
