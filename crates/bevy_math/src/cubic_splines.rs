@@ -60,8 +60,10 @@ impl<P: VectorSpace> CubicBezier<P> {
     }
 }
 impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
+    type Error = CubicBezierError;
+
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
         // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
         // See section 4.2 and equation 11.
@@ -76,11 +78,21 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
             .control_points
             .iter()
             .map(|p| CubicSegment::coefficients(*p, char_matrix))
-            .collect();
+            .collect_vec();
 
-        CubicCurve { segments }
+        if segments.is_empty() {
+            Err(CubicBezierError)
+        } else {
+            Ok(CubicCurve { segments })
+        }
     }
 }
+
+/// An error returned during cubic curve generation for cubic Bezier curves indicating that a
+/// segment of control points was not present.
+#[derive(Clone, Debug, Error)]
+#[error("Unable to generate cubic curve: at least one set of control points is required")]
+pub struct CubicBezierError;
 
 /// A spline interpolated continuously between the nearest two control points, with the position and
 /// velocity of the curve specified at both control points. This curve passes through all control
@@ -158,8 +170,10 @@ impl<P: VectorSpace> CubicHermite<P> {
     }
 }
 impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .control_points
             .windows(2)
@@ -167,14 +181,23 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
                 let (p0, v0, p1, v1) = (p[0].0, p[0].1, p[1].0, p[1].1);
                 CubicSegment::coefficients([p0, v0, p1, v1], self.char_matrix())
             })
-            .collect();
+            .collect_vec();
 
-        CubicCurve { segments }
+        if segments.is_empty() {
+            Err(InsufficientDataError {
+                expected: 2,
+                given: self.control_points.len(),
+            })
+        } else {
+            Ok(CubicCurve { segments })
+        }
     }
 }
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve_cyclic(&self) -> CubicCurve<P> {
+    fn to_curve_cyclic(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .control_points
             .iter()
@@ -183,9 +206,16 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
                 let (p0, v0, p1, v1) = (j0.0, j0.1, j1.0, j1.1);
                 CubicSegment::coefficients([p0, v0, p1, v1], self.char_matrix())
             })
-            .collect();
+            .collect_vec();
 
-        CubicCurve { segments }
+        if segments.is_empty() {
+            Err(InsufficientDataError {
+                expected: 2,
+                given: self.control_points.len(),
+            })
+        } else {
+            Ok(CubicCurve { segments })
+        }
     }
 }
 
@@ -267,13 +297,18 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
     }
 }
 impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let length = self.control_points.len();
 
         // Early return to avoid accessing an invalid index
         if length < 2 {
-            return CubicCurve { segments: vec![] };
+            return Err(InsufficientDataError {
+                expected: 2,
+                given: self.control_points.len(),
+            });
         }
 
         // Extend the list of control points by mirroring the last second-to-last control points on each end;
@@ -292,18 +327,23 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
             .map(|(&p0, &p1, &p2, &p3)| {
                 CubicSegment::coefficients([p0, p1, p2, p3], self.char_matrix())
             })
-            .collect();
+            .collect_vec();
 
-        CubicCurve { segments }
+        Ok(CubicCurve { segments })
     }
 }
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve_cyclic(&self) -> CubicCurve<P> {
+    fn to_curve_cyclic(&self) -> Result<CubicCurve<P>, Self::Error> {
         let len = self.control_points.len();
 
-        if len == 0 {
-            return CubicCurve { segments: vec![] };
+        if len < 2 {
+            return Err(InsufficientDataError {
+                expected: 2,
+                given: self.control_points.len(),
+            });
         }
 
         // This would ordinarily be the last segment, but we pick it out so that we can make it first
@@ -331,7 +371,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
         segments.push(first_segment);
         segments.extend(later_segments);
 
-        CubicCurve { segments }
+        Ok(CubicCurve { segments })
     }
 }
 
@@ -406,34 +446,52 @@ impl<P: VectorSpace> CubicBSpline<P> {
     }
 }
 impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .control_points
             .windows(4)
             .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], self.char_matrix()))
-            .collect();
+            .collect_vec();
 
-        CubicCurve { segments }
+        if segments.is_empty() {
+            Err(InsufficientDataError {
+                expected: 4,
+                given: self.control_points.len(),
+            })
+        } else {
+            Ok(CubicCurve { segments })
+        }
     }
 }
 
 impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve_cyclic(&self) -> CubicCurve<P> {
+    fn to_curve_cyclic(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .control_points
             .iter()
             .circular_tuple_windows()
             .map(|(&a, &b, &c, &d)| CubicSegment::coefficients([a, b, c, d], self.char_matrix()))
-            .collect();
+            .collect_vec();
 
         // Note that the parametrization is consistent with the one for `to_curve` but with
         // the extra curve segments all tacked on at the end. This might be slightly counter-intuitive,
         // since it means the first segment doesn't go "between" the first two control points, but
         // between the second and third instead.
 
-        CubicCurve { segments }
+        if segments.is_empty() {
+            Err(InsufficientDataError {
+                expected: 2,
+                given: self.control_points.len(),
+            })
+        } else {
+            Ok(CubicCurve { segments })
+        }
     }
 }
 
@@ -687,8 +745,10 @@ impl<P: VectorSpace> CubicNurbs<P> {
     }
 }
 impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve(&self) -> RationalCurve<P> {
+    fn to_curve(&self) -> Result<RationalCurve<P>, Self::Error> {
         let segments = self
             .control_points
             .windows(4)
@@ -710,8 +770,15 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
                     matrix,
                 )
             })
-            .collect();
-        RationalCurve { segments }
+            .collect_vec();
+        if segments.is_empty() {
+            Err(InsufficientDataError {
+                expected: 4,
+                given: self.control_points.len(),
+            })
+        } else {
+            Ok(RationalCurve { segments })
+        }
     }
 }
 
@@ -746,8 +813,10 @@ impl<P: VectorSpace> LinearSpline<P> {
     }
 }
 impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .points
             .windows(2)
@@ -758,13 +827,23 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
                     coeff: [a, b - a, P::default(), P::default()],
                 }
             })
-            .collect();
-        CubicCurve { segments }
+            .collect_vec();
+
+        if segments.is_empty() {
+            Err(InsufficientDataError {
+                expected: 2,
+                given: self.points.len(),
+            })
+        } else {
+            Ok(CubicCurve { segments })
+        }
     }
 }
 impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
+    type Error = InsufficientDataError;
+
     #[inline]
-    fn to_curve_cyclic(&self) -> CubicCurve<P> {
+    fn to_curve_cyclic(&self) -> Result<CubicCurve<P>, Self::Error> {
         let segments = self
             .points
             .iter()
@@ -772,24 +851,46 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
             .map(|(&a, &b)| CubicSegment {
                 coeff: [a, b - a, P::default(), P::default()],
             })
-            .collect();
-        CubicCurve { segments }
+            .collect_vec();
+
+        if segments.is_empty() {
+            Err(InsufficientDataError {
+                expected: 2,
+                given: self.points.len(),
+            })
+        } else {
+            Ok(CubicCurve { segments })
+        }
     }
+}
+
+/// An error indicating that a spline construction didn't have enough control points to generate a curve.
+#[derive(Clone, Debug, Error)]
+#[error("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
+pub struct InsufficientDataError {
+    expected: usize,
+    given: usize,
 }
 
 /// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
 pub trait CubicGenerator<P: VectorSpace> {
+    /// An error type indicating why construction might fail.
+    type Error;
+
     /// Build a [`CubicCurve`] by computing the interpolation coefficients for each curve segment.
-    fn to_curve(&self) -> CubicCurve<P>;
+    fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error>;
 }
 
 /// Implement this on cubic splines that can generate a cyclic cubic curve from their spline parameters.
 ///
 /// This makes sense only when the control data can be interpreted cyclically.
 pub trait CyclicCubicGenerator<P: VectorSpace> {
+    /// An error type indicating why construction might fail.
+    type Error;
+
     /// Build a cyclic [`CubicCurve`] by computing the interpolation coefficients for each curve segment,
     /// treating the control data as cyclic so that the result is a closed curve.
-    fn to_curve_cyclic(&self) -> CubicCurve<P>;
+    fn to_curve_cyclic(&self) -> Result<CubicCurve<P>, Self::Error>;
 }
 
 /// A segment of a cubic curve, used to hold precomputed coefficients for fast interpolation.
@@ -858,7 +959,9 @@ impl CubicSegment<Vec2> {
     /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
-        let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
+        let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]])
+            .to_curve()
+            .unwrap(); // Succeeds because resulting curve is guaranteed to have one segment
         bezier.segments[0]
     }
 
@@ -959,8 +1062,8 @@ impl CubicSegment<Vec2> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCurve<P: VectorSpace> {
-    /// Segments of the curve
-    pub segments: Vec<CubicSegment<P>>,
+    /// The segments comprising the curve. This must always be nonempty.
+    segments: Vec<CubicSegment<P>>,
 }
 
 impl<P: VectorSpace> CubicCurve<P> {
@@ -1082,8 +1185,11 @@ impl<P: VectorSpace> IntoIterator for CubicCurve<P> {
 
 /// Implement this on cubic splines that can generate a rational cubic curve from their spline parameters.
 pub trait RationalGenerator<P: VectorSpace> {
+    /// An error type indicating why construction might fail.
+    type Error;
+
     /// Build a [`RationalCurve`] by computing the interpolation coefficients for each curve segment.
-    fn to_curve(&self) -> RationalCurve<P>;
+    fn to_curve(&self) -> Result<RationalCurve<P>, Self::Error>;
 }
 
 /// A segment of a rational cubic curve, used to hold precomputed coefficients for fast interpolation.
@@ -1221,8 +1327,8 @@ impl<P: VectorSpace> RationalSegment<P> {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct RationalCurve<P: VectorSpace> {
-    /// The segments in the curve
-    pub segments: Vec<RationalSegment<P>>,
+    /// The segments comprising the curve. This must always be nonempty.
+    segments: Vec<RationalSegment<P>>,
 }
 
 impl<P: VectorSpace> RationalCurve<P> {
@@ -1401,7 +1507,7 @@ mod tests {
             vec2(5.0, 3.0),
             vec2(9.0, 8.0),
         ]];
-        let bezier = CubicBezier::new(points).to_curve();
+        let bezier = CubicBezier::new(points).to_curve().unwrap();
         for i in 0..=N_SAMPLES {
             let t = i as f32 / N_SAMPLES as f32; // Check along entire length
             assert!(bezier.position(t).distance(cubic_manual(t, points[0])) <= FLOAT_EQ);
@@ -1458,7 +1564,9 @@ mod tests {
 
         let tension = 0.2;
         let [p0, p1, p2, p3] = [vec2(-1., -2.), vec2(0., 1.), vec2(1., 2.), vec2(-2., 1.)];
-        let curve = CubicCardinalSpline::new(tension, [p0, p1, p2, p3]).to_curve();
+        let curve = CubicCardinalSpline::new(tension, [p0, p1, p2, p3])
+            .to_curve()
+            .unwrap();
 
         // Positions at segment endpoints
         assert!(curve.position(0.).abs_diff_eq(p0, FLOAT_EQ));
@@ -1496,7 +1604,7 @@ mod tests {
             vec2(0.0, 0.0),
         ];
 
-        let b_spline = CubicBSpline::new(points).to_curve();
+        let b_spline = CubicBSpline::new(points).to_curve().unwrap();
         let rational_b_spline = RationalCurve::from(b_spline.clone());
 
         /// Tests if two vectors of points are approximately the same
@@ -1554,7 +1662,7 @@ mod tests {
         let weights = [1.0, weight, weight, 1.0];
         let knots = [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0];
         let spline = CubicNurbs::new(points, Some(weights), Some(knots)).unwrap();
-        let curve = spline.to_curve();
+        let curve = spline.to_curve().unwrap();
         for (i, point) in curve.iter_positions(10).enumerate() {
             assert!(
                 f32::abs(point.length() - 1.0) < EPSILON,
