@@ -73,6 +73,10 @@ pub trait Struct: Reflect {
 
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
+
+    /// Returns the structs [`StructInfo`].
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_kind_info(&self) -> Option<&StructInfo>;
 }
 
 /// A container for compile-time named struct info.
@@ -395,6 +399,11 @@ impl Struct for DynamicStruct {
                 .map(|value| value.clone_value())
                 .collect(),
         }
+    }
+
+    fn get_represented_kind_info(&self) -> Option<&StructInfo> {
+        let type_info = self.get_represented_type_info()?;
+        type_info.as_struct().ok()
     }
 }
 

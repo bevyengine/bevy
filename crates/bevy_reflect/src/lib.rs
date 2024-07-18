@@ -1752,6 +1752,18 @@ mod tests {
     }
 
     #[test]
+    fn get_represented_kind_info() {
+        #[derive(Reflect)]
+        struct SomeStruct;
+
+        let ReflectRef::Struct(dyn_struct) = SomeStruct.reflect_ref() else {
+            unreachable!()
+        };
+
+        let _: &StructInfo = dyn_struct.get_represented_kind_info().unwrap();
+    }
+
+    #[test]
     fn should_permit_higher_ranked_lifetimes() {
         #[derive(Reflect)]
         #[reflect(from_reflect = false)]

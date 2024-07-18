@@ -129,6 +129,11 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
                 dynamic
             }
+
+            fn get_represented_kind_info(&self) -> #FQOption<&#bevy_reflect_path::StructInfo> {
+                let type_info = #bevy_reflect_path::Reflect::get_represented_type_info(self)?;
+                type_info.as_struct().ok()
+            }
         }
 
         impl #impl_generics #bevy_reflect_path::Reflect for #struct_path #ty_generics #where_reflect_clause {
