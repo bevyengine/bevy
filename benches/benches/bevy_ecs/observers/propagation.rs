@@ -1,99 +1,66 @@
-use bevy_app::{App, First, Startup};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::{Event, EventWriter},
     observer::Trigger,
-    query::{Or, With, Without},
-    system::{Commands, EntityCommands, Query},
+    world::World,
 };
 use bevy_hierarchy::{BuildChildren, Children, Parent};
-use bevy_internal::MinimalPlugins;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use rand::{prelude::SliceRandom, SeedableRng};
 use rand::{seq::IteratorRandom, Rng};
+use rand_chacha::ChaCha8Rng;
 
 const DENSITY: usize = 20; // percent of nodes with listeners
 const ENTITY_DEPTH: usize = 64;
 const ENTITY_WIDTH: usize = 200;
 const N_EVENTS: usize = 500;
+fn deterministic_rand() -> ChaCha8Rng {
+    ChaCha8Rng::seed_from_u64(42)
+}
 
 pub fn event_propagation(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("event_propagation");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
-    group.bench_function("baseline", |bencher| {
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins)
-            .add_systems(Startup, spawn_listener_hierarchy);
-        app.update();
-
-        bencher.iter(|| {
-            black_box(app.update());
-        });
-    });
-
     group.bench_function("single_event_type", |bencher| {
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins)
-            .add_systems(
-                Startup,
-                (
-                    spawn_listener_hierarchy,
-                    add_listeners_to_hierarchy::<DENSITY, 1>,
-                ),
-            )
-            .add_systems(First, send_events::<1, N_EVENTS>);
-        app.update();
+        let mut world = World::new();
+        let (roots, leaves, nodes) = spawn_listener_hierarchy(&mut world);
+        add_listeners_to_hierarchy::<DENSITY, 1>(&roots, &leaves, &nodes, &mut world);
 
         bencher.iter(|| {
-            black_box(app.update());
+            send_events::<1, N_EVENTS>(&mut world, &leaves);
         });
     });
 
     group.bench_function("single_event_type_no_listeners", |bencher| {
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins)
-            .add_systems(
-                Startup,
-                (
-                    spawn_listener_hierarchy,
-                    add_listeners_to_hierarchy::<DENSITY, 1>,
-                ),
-            )
-            .add_systems(First, send_events::<9, N_EVENTS>);
-        app.update();
+        let mut world = World::new();
+        let (roots, leaves, nodes) = spawn_listener_hierarchy(&mut world);
+        add_listeners_to_hierarchy::<DENSITY, 1>(&roots, &leaves, &nodes, &mut world);
 
         bencher.iter(|| {
-            black_box(app.update());
+            // no listeners to observe TestEvent<9>
+            send_events::<9, N_EVENTS>(&mut world, &leaves);
         });
     });
 
     group.bench_function("four_event_types", |bencher| {
-        let mut app = App::new();
+        let mut world = World::new();
+        let (roots, leaves, nodes) = spawn_listener_hierarchy(&mut world);
         const FRAC_N_EVENTS_4: usize = N_EVENTS / 4;
         const FRAC_DENSITY_4: usize = DENSITY / 4;
-
-        app.add_plugins(MinimalPlugins)
-            .add_systems(
-                Startup,
-                (
-                    spawn_listener_hierarchy,
-                    add_listeners_to_hierarchy::<FRAC_DENSITY_4, 1>,
-                    add_listeners_to_hierarchy::<FRAC_DENSITY_4, 2>,
-                    add_listeners_to_hierarchy::<FRAC_DENSITY_4, 3>,
-                    add_listeners_to_hierarchy::<FRAC_DENSITY_4, 4>,
-                ),
-            )
-            .add_systems(First, send_events::<1, FRAC_N_EVENTS_4>)
-            .add_systems(First, send_events::<2, FRAC_N_EVENTS_4>)
-            .add_systems(First, send_events::<3, FRAC_N_EVENTS_4>)
-            .add_systems(First, send_events::<4, FRAC_N_EVENTS_4>);
-        app.update();
+        add_listeners_to_hierarchy::<FRAC_DENSITY_4, 1>(&roots, &leaves, &nodes, &mut world);
+        add_listeners_to_hierarchy::<FRAC_DENSITY_4, 2>(&roots, &leaves, &nodes, &mut world);
+        add_listeners_to_hierarchy::<FRAC_DENSITY_4, 3>(&roots, &leaves, &nodes, &mut world);
+        add_listeners_to_hierarchy::<FRAC_DENSITY_4, 4>(&roots, &leaves, &nodes, &mut world);
 
         bencher.iter(|| {
-            black_box(app.update());
+            send_events::<1, FRAC_N_EVENTS_4>(&mut world, &leaves);
+            send_events::<2, FRAC_N_EVENTS_4>(&mut world, &leaves);
+            send_events::<3, FRAC_N_EVENTS_4>(&mut world, &leaves);
+            send_events::<4, FRAC_N_EVENTS_4>(&mut world, &leaves);
         });
     });
 
@@ -108,44 +75,54 @@ impl<const N: usize> Event for TestEvent<N> {
     const AUTO_PROPAGATE: bool = true;
 }
 
-fn send_events<const N: usize, const N_EVENTS: usize>(
-    mut commands: Commands,
-    entities: Query<Entity, Without<Children>>,
-) {
-    let target = entities.iter().choose(&mut rand::thread_rng()).unwrap();
+fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &Vec<Entity>) {
+    let target = leaves.iter().choose(&mut rand::thread_rng()).unwrap();
+
     (0..N_EVENTS).for_each(|_| {
-        commands.trigger_targets(TestEvent::<N> {}, target);
+        world.trigger_targets(TestEvent::<N> {}, *target);
     });
 }
 
-fn spawn_listener_hierarchy(mut commands: Commands) {
+fn spawn_listener_hierarchy(world: &mut World) -> (Vec<Entity>, Vec<Entity>, Vec<Entity>) {
+    let mut roots = vec![];
+    let mut leaves = vec![];
+    let mut nodes = vec![];
     for _ in 0..ENTITY_WIDTH {
-        let mut parent = commands.spawn_empty().id();
+        let mut parent = world.spawn_empty().id();
+        roots.push(parent);
         for _ in 0..ENTITY_DEPTH {
-            let child = commands.spawn_empty().id();
-            commands.entity(parent).add_child(child);
+            let child = world.spawn_empty().id();
+            nodes.push(child);
+
+            world.entity_mut(parent).add_child(child);
             parent = child;
+        }
+        nodes.pop();
+        leaves.push(parent);
+    }
+    (roots, leaves, nodes)
+}
+
+fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
+    roots: &Vec<Entity>,
+    leaves: &Vec<Entity>,
+    nodes: &Vec<Entity>,
+    world: &mut World,
+) {
+    for e in roots.iter() {
+        world.entity_mut(*e).observe(empty_listener::<N>);
+    }
+    for e in leaves.iter() {
+        world.entity_mut(*e).observe(empty_listener::<N>);
+    }
+    let mut rng = deterministic_rand();
+    for e in nodes.iter() {
+        if rng.gen_bool(DENSITY as f64 / 100.0) {
+            world.entity_mut(*e).observe(empty_listener::<N>);
         }
     }
 }
 
-fn empty_listener<const N: usize>(_trigger: Trigger<TestEvent<N>>) {}
-
-fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
-    mut commands: Commands,
-    roots_and_leaves: Query<Entity, Or<(Without<Parent>, Without<Children>)>>,
-    nodes: Query<Entity, (With<Parent>, With<Children>)>,
-) {
-    for entity in &roots_and_leaves {
-        commands.entity(entity).observe(empty_listener::<N>);
-    }
-    for entity in &nodes {
-        maybe_insert_listener::<DENSITY, N>(&mut commands.entity(entity));
-    }
-}
-
-fn maybe_insert_listener<const DENSITY: usize, const N: usize>(commands: &mut EntityCommands) {
-    if rand::thread_rng().gen_bool(DENSITY as f64 / 100.0) {
-        commands.observe(empty_listener::<N>);
-    }
+fn empty_listener<const N: usize>(trigger: Trigger<TestEvent<N>>) {
+    black_box(trigger);
 }
