@@ -1758,7 +1758,7 @@ mod tests {
 
         let dyn_struct: &dyn Struct = &SomeStruct;
 
-        let _: &StructInfo = dyn_struct.get_represented_kind_info().unwrap();
+        let _: &StructInfo = dyn_struct.get_represented_struct_info().unwrap();
     }
 
     #[test]
