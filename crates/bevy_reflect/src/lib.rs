@@ -1756,9 +1756,7 @@ mod tests {
         #[derive(Reflect)]
         struct SomeStruct;
 
-        let ReflectRef::Struct(dyn_struct) = SomeStruct.reflect_ref() else {
-            unreachable!()
-        };
+        let dyn_struct: &dyn Struct = &SomeStruct;
 
         let _: &StructInfo = dyn_struct.get_represented_kind_info().unwrap();
     }
