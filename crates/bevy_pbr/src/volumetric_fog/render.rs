@@ -603,8 +603,15 @@ pub fn prepare_volumetric_fog_pipelines(
 ) {
     let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
 
-    for (entity, view, msaa, normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass) in
-        view_targets.iter()
+    for (
+        entity,
+        view,
+        msaa,
+        normal_prepass,
+        depth_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
         let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(*msaa);
