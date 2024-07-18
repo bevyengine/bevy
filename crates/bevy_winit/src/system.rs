@@ -6,7 +6,10 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::tracing::{error, info, warn};
+use bevy_utils::{
+    tracing::{error, info, warn},
+    HashMap,
+};
 use bevy_window::{
     ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
     WindowMode, WindowResized, WindowWrapper,
@@ -78,9 +81,12 @@ pub fn create_windows<F: QueryFilter + 'static>(
             .resolution
             .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
-        commands.entity(entity).insert(CachedWindow {
-            window: window.clone(),
-        });
+        commands.entity(entity).insert((
+            CachedWindow {
+                window: window.clone(),
+            },
+            WinitWindowPressedKeys::default(),
+        ));
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
             let mut entity = commands.entity(entity);
@@ -427,4 +433,14 @@ pub(crate) fn changed_windows(
 
         cache.window = window.clone();
     }
+}
+
+#[derive(Default, Component)]
+pub struct WinitWindowPressedKeys(pub HashMap<winit::keyboard::PhysicalKey, PressedKey>);
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct PressedKey {
+    pub logical_key: winit::keyboard::Key,
+    pub physical_key: winit::keyboard::PhysicalKey,
+    pub location: winit::keyboard::KeyLocation,
 }
