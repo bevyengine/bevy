@@ -78,8 +78,7 @@ pub trait Struct: Reflect {
     ///
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
-        let type_info = self.get_represented_type_info()?;
-        type_info.as_struct().ok()
+        self.get_represented_type_info()?.as_struct().ok()
     }
 }
 
