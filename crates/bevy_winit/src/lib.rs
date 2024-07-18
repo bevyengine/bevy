@@ -26,9 +26,12 @@ use bevy_ecs::prelude::*;
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
 pub use converters::convert_system_cursor_icon;
 pub use state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor};
+
 pub use system::create_windows;
 use system::{changed_windows, despawn_windows};
 pub use winit::event_loop::EventLoopProxy;
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
+pub use winit::platform::web::CustomCursorExtWebSys;
 pub use winit::window::{CursorIcon, CustomCursor, CustomCursorSource};
 pub use winit_config::*;
 pub use winit_event::*;

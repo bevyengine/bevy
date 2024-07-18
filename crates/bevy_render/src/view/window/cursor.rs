@@ -120,19 +120,17 @@ pub fn update_cursors(
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)
                 } else {
-                    use winit::platform::web::CustomCursorExtWebSys;
+                    use bevy_winit::CustomCursorExtWebSys;
 
-                    let source = match winit::window::CustomCursor::from_url(
-                        url.clone(),
-                        hotspot.0,
-                        hotspot.1,
-                    ) {
-                        Ok(source) => source,
-                        Err(err) => {
-                            warn!("Cursor image {url:?} is invalid: {err}");
-                            continue;
-                        }
-                    };
+                    let source =
+                        match bevy_winit::CustomCursor::from_url(url.clone(), hotspot.0, hotspot.1)
+                        {
+                            Ok(source) => source,
+                            Err(err) => {
+                                warn!("Cursor image {url:?} is invalid: {err}");
+                                continue;
+                            }
+                        };
 
                     CursorSource::Custom((cache_key, source))
                 }
