@@ -65,5 +65,5 @@ bevy_log = { path = "../bevy_log", version = "0.15.0-dev" }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options"]
 all-features = true

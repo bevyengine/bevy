@@ -30,5 +30,5 @@ uuid = { version = "1.1", features = ["v4"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options"]
 all-features = true
