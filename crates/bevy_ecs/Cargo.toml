@@ -27,6 +27,7 @@ bevy_ecs_macros = { path = "macros", version = "0.15.0-dev" }
 petgraph = "0.6"
 bitflags = "2.3"
 concurrent-queue = "2.4.0"
+smallvec = {  version = "1.13", features = ["const_generics", "const_new"] }
 fixedbitset = "0.5"
 serde = { version = "1", optional = true, default-features = false }
 thiserror = "1.0"
