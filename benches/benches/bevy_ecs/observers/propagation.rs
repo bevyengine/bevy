@@ -8,6 +8,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{BuildChildren, Children, Parent};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use rand::{prelude::SliceRandom, SeedableRng};
 use rand::{seq::IteratorRandom, Rng};
 use rand_chacha::ChaCha8Rng;
 
@@ -24,22 +25,9 @@ pub fn event_propagation(criterion: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
-    group.bench_function("base", |bencher| {
-        let mut world = World::new();
-        let approx_invoke_per_iter = (N_EVENTS * (ENTITY_DEPTH + 1)) * DENSITY / 100;
-        let mut entities = vec![];
-        for _ in 0..approx_invoke_per_iter {
-            entities.push(world.spawn_empty().observe(empty_listener_base).id());
-        }
-        entities.shuffle(&mut deterministic_rand());
-        bencher.iter(|| {
-            send_base_event(&mut world, &entities);
-        });
-    });
     group.bench_function("single_event_type", |bencher| {
         let mut world = World::new();
         let (roots, leaves, nodes) = spawn_listener_hierarchy(&mut world);
-        assert!(roots.len() + leaves.len() + nodes.len() == (ENTITY_DEPTH + 1) * ENTITY_WIDTH);
         add_listeners_to_hierarchy::<DENSITY, 1>(&roots, &leaves, &nodes, &mut world);
 
         bencher.iter(|| {
@@ -79,8 +67,6 @@ pub fn event_propagation(criterion: &mut Criterion) {
     group.finish();
 }
 
-#[derive(Clone, Event)]
-struct EventBase;
 #[derive(Clone, Component)]
 struct TestEvent<const N: usize> {}
 
@@ -95,10 +81,6 @@ fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves:
     (0..N_EVENTS).for_each(|_| {
         world.trigger_targets(TestEvent::<N> {}, *target);
     });
-}
-
-fn send_base_event(world: &mut World, entities: &Vec<Entity>) {
-    world.trigger_targets(EventBase, entities);
 }
 
 fn spawn_listener_hierarchy(world: &mut World) -> (Vec<Entity>, Vec<Entity>, Vec<Entity>) {
@@ -135,16 +117,12 @@ fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
     }
     let mut rng = deterministic_rand();
     for e in nodes.iter() {
-        if rng().gen_bool(DENSITY as f64 / 100.0) {
+        if rng.gen_bool(DENSITY as f64 / 100.0) {
             world.entity_mut(*e).observe(empty_listener::<N>);
         }
     }
 }
 
 fn empty_listener<const N: usize>(trigger: Trigger<TestEvent<N>>) {
-    black_box(trigger);
-}
-
-fn empty_listener_base(trigger: Trigger<EventBase>) {
     black_box(trigger);
 }
