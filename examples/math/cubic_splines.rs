@@ -151,9 +151,9 @@ struct Curve {
     inner: Option<CubicCurve<Vec2>>,
 }
 
-impl From<CubicCurve<Vec2>> for Curve {
-    fn from(value: CubicCurve<Vec2>) -> Self {
-        Self { inner: Some(value) }
+impl From<Option<CubicCurve<Vec2>>> for Curve {
+    fn from(value: Option<CubicCurve<Vec2>>) -> Self {
+        Self { inner: value }
     }
 }
 
@@ -188,7 +188,7 @@ fn draw_curve(curve: Res<Curve>, mut gizmos: Gizmos) {
         return;
     };
     // Scale resolution with curve length so it doesn't degrade as the length increases.
-    let resolution = 100 * curve.segments.len();
+    let resolution = 100 * curve.segments().len();
     gizmos.linestrip(
         curve.iter_positions(resolution).map(|pt| pt.extend(0.0)),
         Color::srgb(1.0, 1.0, 1.0),
@@ -226,39 +226,25 @@ fn form_curve(
 
     match spline_mode {
         SplineMode::Hermite => {
-            if points.len() < 2 {
-                Curve::default()
-            } else {
-                let spline = CubicHermite::new(points, tangents);
-                Curve::from(match cycling_mode {
-                    CyclingMode::NotCyclic => spline.to_curve(),
-                    CyclingMode::Cyclic => spline.to_curve_cyclic(),
-                })
-            }
+            let spline = CubicHermite::new(points, tangents);
+            Curve::from(match cycling_mode {
+                CyclingMode::NotCyclic => spline.to_curve().ok(),
+                CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
+            })
         }
         SplineMode::Cardinal => {
-            if points.len() < 2 {
-                Curve::default()
-            } else {
-                let spline = CubicCardinalSpline::new_catmull_rom(points);
-                Curve::from(match cycling_mode {
-                    CyclingMode::NotCyclic => spline.to_curve(),
-                    CyclingMode::Cyclic => spline.to_curve_cyclic(),
-                })
-            }
+            let spline = CubicCardinalSpline::new_catmull_rom(points);
+            Curve::from(match cycling_mode {
+                CyclingMode::NotCyclic => spline.to_curve().ok(),
+                CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
+            })
         }
         SplineMode::B => {
-            if matches!(cycling_mode, CyclingMode::NotCyclic) && points.len() < 4
-                || matches!(cycling_mode, CyclingMode::Cyclic) && points.len() < 2
-            {
-                Curve::default()
-            } else {
-                let spline = CubicBSpline::new(points);
-                Curve::from(match cycling_mode {
-                    CyclingMode::NotCyclic => spline.to_curve(),
-                    CyclingMode::Cyclic => spline.to_curve_cyclic(),
-                })
-            }
+            let spline = CubicBSpline::new(points);
+            Curve::from(match cycling_mode {
+                CyclingMode::NotCyclic => spline.to_curve().ok(),
+                CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
+            })
         }
     }
 }
