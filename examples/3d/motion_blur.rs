@@ -24,7 +24,7 @@ fn main() {
 
 fn setup_camera(mut commands: Commands, asset_server: Res<AssetServer>) {
     let skybox_handle = asset_server
-        .load::<Image>("environment_maps/kloofendal_48d_partly_cloudy_puresky_4k_cubemap.ktx2");
+        .load::<Image>("environment_maps/kloofendal_48d_partly_cloudy_puresky_4k_specular.ktx2");
     let skybox_diffuse = asset_server
         .load::<Image>("environment_maps/kloofendal_48d_partly_cloudy_puresky_4k_diffuse.ktx2");
     let skybox_spec = asset_server
