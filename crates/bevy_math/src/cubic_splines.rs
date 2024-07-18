@@ -1067,6 +1067,17 @@ pub struct CubicCurve<P: VectorSpace> {
 }
 
 impl<P: VectorSpace> CubicCurve<P> {
+    /// Create a new curve from a collection of segments. If the collection of segments is empty,
+    /// a curve cannot be built and `None` will be returned instead.
+    pub fn from_segments(segments: impl Into<Vec<CubicSegment<P>>>) -> Option<Self> {
+        let segments: Vec<_> = segments.into();
+        if segments.is_empty() {
+            None
+        } else {
+            Some(Self { segments })
+        }
+    }
+
     /// Compute the position of a point on the cubic curve at the parametric value `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
@@ -1332,6 +1343,17 @@ pub struct RationalCurve<P: VectorSpace> {
 }
 
 impl<P: VectorSpace> RationalCurve<P> {
+    /// Create a new curve from a collection of segments. If the collection of segments is empty,
+    /// a curve cannot be built and `None` will be returned instead.
+    pub fn from_segments(segments: impl Into<Vec<RationalSegment<P>>>) -> Option<Self> {
+        let segments: Vec<_> = segments.into();
+        if segments.is_empty() {
+            None
+        } else {
+            Some(Self { segments })
+        }
+    }
+
     /// Compute the position of a point on the curve at the parametric value `t`.
     ///
     /// Note that `t` varies from `0..=(n_points - 3)`.
