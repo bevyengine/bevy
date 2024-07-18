@@ -467,10 +467,14 @@ impl ViewNode for VolumetricFogNode {
 
                     render_pass
                         .set_index_buffer(*index_buffer_slice.buffer.slice(..), *index_format);
-                    render_pass.draw_indexed(0..*count, 0, 0..1);
+                    render_pass.draw_indexed(
+                        index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                        vertex_buffer_slice.range.start as i32,
+                        0..1,
+                    );
                 }
                 RenderMeshBufferInfo::NonIndexed => {
-                    render_pass.draw(0..render_mesh.vertex_count, 0..1);
+                    render_pass.draw(vertex_buffer_slice.range, 0..1);
                 }
             }
         }
