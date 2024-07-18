@@ -41,7 +41,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ]];
-/// let bezier = CubicBezier::new(points).to_curve();
+/// let bezier = CubicBezier::new(points).to_curve().unwrap();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
 #[derive(Clone, Debug)]
@@ -132,7 +132,7 @@ pub struct CubicBezierError;
 ///     vec2(0.0, 1.0),
 ///     vec2(0.0, 1.0),
 /// ];
-/// let hermite = CubicHermite::new(points, tangents).to_curve();
+/// let hermite = CubicHermite::new(points, tangents).to_curve().unwrap();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
 ///
@@ -250,7 +250,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ];
-/// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
+/// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve().unwrap();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
 ///
@@ -403,7 +403,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ];
-/// let b_spline = CubicBSpline::new(points).to_curve();
+/// let b_spline = CubicBSpline::new(points).to_curve().unwrap();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
 ///
@@ -571,7 +571,8 @@ pub enum CubicNurbsError {
 /// let knots = [0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0];
 /// let nurbs = CubicNurbs::new(points, Some(weights), Some(knots))
 ///     .expect("NURBS construction failed!")
-///     .to_curve();
+///     .to_curve()
+///     .unwrap();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
 #[derive(Clone, Debug)]
