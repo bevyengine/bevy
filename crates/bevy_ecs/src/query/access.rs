@@ -54,7 +54,7 @@ pub(crate) struct SortedSmallVec<const N: usize>(SmallVec<[usize; N]>);
 impl<const N: usize> IntoIterator for SortedSmallVec<N> {
 
     type Item = usize;
-    type IntoIter = SmallVec<[usize; N]>::IntoIter;
+    type IntoIter = <SmallVec<[usize; N]> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -106,25 +106,23 @@ impl<const N: usize> SortedSmallVec<N> {
     }
 
     /// Adds all the elements from `other` into this vector. (skipping duplicates)
-    fn extend<I: IntoIterator<Item = usize>>(&mut self, other: I) {
+    fn union_with(&mut self, other: &Self) {
         let mut i = 0;
-        let mut other_iter = other.into_iter();
-        let mut other_val = other_iter.next();
-        while i < self.len() && other_val.is_some() {
-            let val_j = other_val.unwrap();
-            if self.0[i] < val_j {
+        let mut j = 0;
+        while i < self.len() && j < other.len() {
+            if self.0[i] < other.0[j] {
                 i += 1;
-            } else if self.0[i] > val_j {
-                self.0.insert(i, val_j);
-                other_val = other_iter.next();
+            } else if self.0[i] > other.0[j] {
+                self.0.insert(i, other.0[j]);
+                j += 1;
             } else {
                 i += 1;
-                other_val = other_iter.next();
+                j += 1;
             }
         }
-        while let Some(val_j) = other_val {
-            self.0.push(val_j);
-            other_val = other_iter.next();
+        while j < other.len() {
+            self.0.push(other.0[j]);
+            j += 1;
         }
     }
 
@@ -189,15 +187,12 @@ impl<const N: usize> SortedSmallVec<N> {
 
     /// Returns true if the two vectors have no common elements.
     fn is_disjoint(&self, other: &Self) -> bool {
-        // TODO: avoid alloc by building an iterator similar to Difference?
-        self.intersection(other).is_empty()
+        self.intersection(other).next().is_none()
     }
 
     /// Returns true if all the elements in `self` are also in `other`.
     fn is_subset(&self, other: &Self) -> bool {
-        // self.difference(other).next().is_none()
-        // TODO: avoid alloc
-        self.difference(other).collect::<Vec<_>>().is_empty()
+        self.difference(other).next().is_none()
     }
 }
 
@@ -469,8 +464,8 @@ impl<T: SparseSetIndex> Access<T> {
             conflicts.union_with(&self.reads_and_writes);
         }
 
-        conflicts.union_with(&self.writes.intersection(&other.reads_and_writes));
-        conflicts.union_with(&self.reads_and_writes.intersection(&other.writes));
+        conflicts.extend(self.writes.intersection(&other.reads_and_writes));
+        conflicts.extend(self.reads_and_writes.intersection(&other.writes));
         conflicts.ones()
             .map(SparseSetIndex::get_sparse_set_index)
             .collect()
@@ -888,12 +883,12 @@ mod tests {
     fn sorted_vec_union() {
         let mut a = SortedSmallVec(SmallVec::from([1, 3, 4]));
         let b = SortedSmallVec(SmallVec::from([2, 3, 5]));
-        a.union_with(b);
+        a.union_with(&b);
         assert_eq!(a.0, SmallVec::from([1, 2, 3, 4, 5]));
 
         let mut a = SortedSmallVec(SmallVec::from([2, 3, 4]));
         let b = SortedSmallVec(SmallVec::from([1, 4, 5]));
-        a.union_with(b);
+        a.union_with(&b);
         assert_eq!(a.0, SmallVec::from([1, 2, 3, 4, 5]));
     }
 
@@ -901,11 +896,11 @@ mod tests {
     fn sorted_vec_intersection() {
         let a = SortedSmallVec(SmallVec::from([1, 3, 4, 6]));
         let b = SortedSmallVec(smallvec![7, 8]);
-        assert_eq!(a.difference(&b).collect::<Vec<_>>(), vec![]);
+        assert_eq!(a.intersection(&b).collect::<Vec<_>>(), vec![]);
 
         let a = SortedSmallVec(SmallVec::from([2, 3, 4]));
         let b = SortedSmallVec(SmallVec::from([1, 3, 5]));
-        assert_eq!(a.difference(&b).collect::<Vec<_>>(), vec![3]);
+        assert_eq!(a.intersection(&b).collect::<Vec<_>>(), vec![3]);
     }
 
     #[test]
