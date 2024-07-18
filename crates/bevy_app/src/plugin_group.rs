@@ -2,7 +2,159 @@ use crate::{App, AppError, Plugin};
 use bevy_utils::{tracing::debug, tracing::warn, TypeIdMap};
 use std::any::TypeId;
 
+/// A macro for generating a well-documented [`PluginGroup`] from a list of [`Plugin`] paths.
+///
+/// Every plugin must implement the [`Default`] trait.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_app::*;
+/// #
+/// # mod velocity {
+/// #     use bevy_app::*;
+/// #     #[derive(Default)]
+/// #     pub struct VelocityPlugin;
+/// #     impl Plugin for VelocityPlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// #
+/// # mod collision {
+/// #     pub mod capsule {
+/// #         use bevy_app::*;
+/// #         #[derive(Default)]
+/// #         pub struct CapsuleCollisionPlugin;
+/// #         impl Plugin for CapsuleCollisionPlugin { fn build(&self, _: &mut App) {} }
+/// #     }
+/// # }
+/// #
+/// # #[derive(Default)]
+/// # pub struct TickratePlugin;
+/// # impl Plugin for TickratePlugin { fn build(&self, _: &mut App) {} }
+/// #
+/// # mod features {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)]
+/// #   pub struct ForcePlugin;
+/// #   impl Plugin for ForcePlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// #
+/// # mod web {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)]
+/// #   pub struct WebCompatibilityPlugin;
+/// #   impl Plugin for WebCompatibilityPlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// #
+/// # mod internal {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)]
+/// #   pub struct InternalPlugin;
+/// #   impl Plugin for InternalPlugin { fn build(&self, _: &mut App) {} }
+/// # }
+/// #
+/// plugin_group! {
+///     /// Doc comments and annotations are supported: they will be added to the generated plugin
+///     /// group.
+///     #[derive(Debug)]
+///     pub struct PhysicsPlugins {
+///         // If referencing a plugin within the same module, you must prefix it with a colon `:`.
+///         :TickratePlugin,
+///         // If referencing a plugin within a different module, there must be three colons `:::`
+///         // between the final module and the plugin name.
+///         collision::capsule:::CapsuleCollisionPlugin,
+///         velocity:::VelocityPlugin,
+///         // If you feature-flag a plugin, it will be automatically documented. There can only be
+///         // one automatically documented feature flag, and it must be first. All other
+///         // `#[cfg()]` attributes must be wrapped by `#[custom()]`.
+///         #[cfg(feature = "external_forces")]
+///         features:::ForcePlugin,
+///         // More complicated `#[cfg()]`s and annotations are not supported by automatic doc
+///         // generation, in which case you must wrap it in `#[custom()]`.
+///         #[custom(cfg(target_arch = "wasm32"))]
+///         web:::WebCompatibilityPlugin,
+///         // You can hide plugins from documentation. Due to macro limitations, hidden plugins
+///         // must be last.
+///         #[doc(hidden)]
+///         internal:::InternalPlugin
+///     }
+///     /// You may add doc comments after the plugin group as well. They will be appended after
+///     /// the documented list of plugins.
+/// }
+/// ```
+#[macro_export]
+macro_rules! plugin_group {
+    {
+        $(#[$group_meta:meta])*
+        $vis:vis struct $group:ident {
+            $(
+                $(#[cfg(feature = $plugin_feature:literal)])?
+                $(#[custom($plugin_meta:meta)])*
+                $($plugin_path:ident::)* : $plugin_name:ident
+            ),*
+            $(
+                $(,)?$(
+                    #[doc(hidden)]
+                    $(#[cfg(feature = $hidden_plugin_feature:literal)])?
+                    $(#[custom($hidden_plugin_meta:meta)])*
+                    $($hidden_plugin_path:ident::)* : $hidden_plugin_name:ident
+                ),+
+            )?
+
+            $(,)?
+        }
+        $($(#[doc = $post_doc:literal])+)?
+    } => {
+        $(#[$group_meta])*
+        ///
+        $(#[doc = concat!(
+            " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
+            $(, " - with feature `", $plugin_feature, "`")?
+        )])*
+        $(
+            ///
+            $(#[doc = $post_doc])+
+        )?
+        $vis struct $group;
+
+        impl $crate::PluginGroup for $group {
+            fn build(self) -> $crate::PluginGroupBuilder {
+                let mut group = $crate::PluginGroupBuilder::start::<Self>();
+
+                $(
+                    $(#[cfg(feature = $plugin_feature)])?
+                    $(#[$plugin_meta])*
+                    {
+                        const _: () = {
+                            const fn check_default<T: Default>() {}
+                            check_default::<$($plugin_path::)*$plugin_name>();
+                        };
+
+                        group = group.add(<$($plugin_path::)*$plugin_name>::default());
+                    }
+                )*
+                $($(
+                    $(#[cfg(feature = $hidden_plugin_feature)])?
+                    $(#[$hidden_plugin_meta])*
+                    {
+                        const _: () = {
+                            const fn check_default<T: Default>() {}
+                            check_default::<$($hidden_plugin_path::)*$hidden_plugin_name>();
+                        };
+
+                        group = group.add(<$($hidden_plugin_path::)*$hidden_plugin_name>::default());
+                    }
+                )+)?
+
+                group
+            }
+        }
+    };
+}
+
 /// Combines multiple [`Plugin`]s into a single unit.
+///
+/// If you want an easier, but slightly more restrictive, method of implementing this trait, you
+/// may be interested in the [`plugin_group!`] macro.
 pub trait PluginGroup: Sized {
     /// Configures the [`Plugin`]s that are to be added.
     fn build(self) -> PluginGroupBuilder;

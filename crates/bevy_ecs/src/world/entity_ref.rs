@@ -1224,11 +1224,19 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
-                deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    ON_REPLACE,
+                    self.entity,
+                    &archetype.components().collect::<Vec<ComponentId>>(),
+                );
             }
             deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
-                deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    self.entity,
+                    &archetype.components().collect::<Vec<ComponentId>>(),
+                );
             }
         }
 
@@ -1435,11 +1443,11 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
 ) {
     deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_components());
     if archetype.has_replace_observer() {
-        deferred_world.trigger_observers(ON_REPLACE, entity, bundle_info.iter_components());
+        deferred_world.trigger_observers(ON_REPLACE, entity, bundle_info.components());
     }
     deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_components());
     if archetype.has_remove_observer() {
-        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_components());
+        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.components());
     }
 }
 

@@ -141,6 +141,7 @@ Example | Description
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
+[Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
@@ -334,6 +335,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Cubic Splines](../examples/math/cubic_splines.rs) | Exhibits different modes of constructing cubic curves using splines
 [Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them.
 [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives
 [Rendering Primitives](../examples/math/render_primitives.rs) | Shows off rendering for all math primitives as both Meshes and Gizmos
