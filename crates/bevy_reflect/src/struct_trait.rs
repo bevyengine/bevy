@@ -74,8 +74,6 @@ pub trait Struct: Reflect {
     /// Clones the struct into a [`DynamicStruct`].
     fn clone_dynamic(&self) -> DynamicStruct;
 
-    /// Returns the struct's [`StructInfo`].
-    ///
     /// Will return `None` if [`TypeInfo`] is not available.
     fn get_represented_struct_info(&self) -> Option<&'static StructInfo> {
         self.get_represented_type_info()?.as_struct().ok()

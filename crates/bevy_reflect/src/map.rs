@@ -89,6 +89,11 @@ pub trait Map: Reflect {
     /// If the map did not have this key present, `None` is returned.
     /// If the map did have this key present, the removed value is returned.
     fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>>;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_map_info(&self) -> Option<&'static MapInfo> {
+        self.get_represented_type_info()?.as_map().ok()
+    }
 }
 
 /// A container for compile-time map info.
