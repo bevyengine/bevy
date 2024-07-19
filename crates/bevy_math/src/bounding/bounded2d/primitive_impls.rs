@@ -2,9 +2,9 @@
 
 use crate::{
     primitives::{
-        Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector, CircularSegment,
-        Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus,
-        Segment2d, Triangle2d,
+        Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
+        CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon,
+        Rhombus, Segment2d, Triangle2d,
     },
     Dir2, Mat2, Rot2, Vec2,
 };
@@ -160,6 +160,16 @@ impl Bounded2d for Ellipse {
 
     fn bounding_circle(&self, translation: Vec2, _rotation: impl Into<Rot2>) -> BoundingCircle {
         BoundingCircle::new(translation, self.semi_major())
+    }
+}
+
+impl Bounded2d for Annulus {
+    fn aabb_2d(&self, translation: Vec2, _rotation: impl Into<Rot2>) -> Aabb2d {
+        Aabb2d::new(translation, Vec2::splat(self.outer_circle.radius))
+    }
+
+    fn bounding_circle(&self, translation: Vec2, _rotation: impl Into<Rot2>) -> BoundingCircle {
+        BoundingCircle::new(translation, self.outer_circle.radius)
     }
 }
 
@@ -406,8 +416,9 @@ mod tests {
     use crate::{
         bounding::Bounded2d,
         primitives::{
-            Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d, Plane2d,
-            Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
+            Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
+            Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
+            Triangle2d,
         },
         Dir2,
     };
@@ -726,6 +737,20 @@ mod tests {
         let bounding_circle = ellipse.bounding_circle(translation, 0.0);
         assert_eq!(bounding_circle.center, translation);
         assert_eq!(bounding_circle.radius(), 1.0);
+    }
+
+    #[test]
+    fn annulus() {
+        let annulus = Annulus::new(1.0, 2.0);
+        let translation = Vec2::new(2.0, 1.0);
+
+        let aabb = annulus.aabb_2d(translation, 1.0);
+        assert_eq!(aabb.min, Vec2::new(0.0, -1.0));
+        assert_eq!(aabb.max, Vec2::new(4.0, 3.0));
+
+        let bounding_circle = annulus.bounding_circle(translation, 1.0);
+        assert_eq!(bounding_circle.center, translation);
+        assert_eq!(bounding_circle.radius(), 2.0);
     }
 
     #[test]

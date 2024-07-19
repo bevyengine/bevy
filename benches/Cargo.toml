@@ -12,11 +12,13 @@ rand_chacha = "0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
 bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
+bevy_hierarchy = { path = "../crates/bevy_hierarchy" }
+bevy_internal = { path = "../crates/bevy_internal" }
+bevy_math = { path = "../crates/bevy_math" }
 bevy_reflect = { path = "../crates/bevy_reflect" }
+bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
-bevy_math = { path = "../crates/bevy_math" }
-bevy_render = { path = "../crates/bevy_render" }
 
 [profile.release]
 opt-level = 3

@@ -1,23 +1,32 @@
-use crate::func::args::{Arg, ArgError, ArgInfo};
+use crate::func::args::{Arg, ArgError};
 
 /// A trait for types that can be created from an [`Arg`].
+///
+/// This trait exists so that types can be automatically converted into an [`Arg`]
+/// by [`IntoFunction`] so they can be passed to a [`DynamicFunction`] in an [`ArgList`].
 ///
 /// This trait is used instead of a blanket [`From`] implementation due to coherence issues:
 /// we can't implement `From<T>` for both `T` and `&T`/`&mut T`.
 ///
 /// This trait is automatically implemented when using the `Reflect` [derive macro].
 ///
+/// [`IntoFunction`]: crate::func::IntoFunction
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`ArgList`]: crate::func::args::ArgList
 /// [derive macro]: derive@crate::Reflect
 pub trait FromArg {
-    /// The type of the item created from the argument.
+    /// The type to convert into.
     ///
     /// This should almost always be the same as `Self`, but with the lifetime `'a`.
-    type Item<'a>;
+    ///
+    /// The reason we use a separate associated type is to allow for the lifetime
+    /// to be tied to the argument, rather than the type itself.
+    type This<'a>;
 
     /// Creates an item from an argument.
     ///
     /// The argument must be of the expected type and ownership.
-    fn from_arg<'a>(arg: Arg<'a>, info: &ArgInfo) -> Result<Self::Item<'a>, ArgError>;
+    fn from_arg(arg: Arg) -> Result<Self::This<'_>, ArgError>;
 }
 
 /// Implements the [`FromArg`] trait for the given type.
@@ -54,12 +63,9 @@ macro_rules! impl_from_arg {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            type Item<'from_arg> = $ty;
-            fn from_arg<'from_arg>(
-                arg: $crate::func::args::Arg<'from_arg>,
-                info: &$crate::func::args::ArgInfo,
-            ) -> Result<Self::Item<'from_arg>, $crate::func::args::ArgError> {
-                arg.take_owned(info)
+            type This<'from_arg> = $ty;
+            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
+                arg.take_owned()
             }
         }
 
@@ -72,12 +78,9 @@ macro_rules! impl_from_arg {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            type Item<'from_arg> = &'from_arg $ty;
-            fn from_arg<'from_arg>(
-                arg: $crate::func::args::Arg<'from_arg>,
-                info: &$crate::func::args::ArgInfo,
-            ) -> Result<Self::Item<'from_arg>, $crate::func::args::ArgError> {
-                arg.take_ref(info)
+            type This<'from_arg> = &'from_arg $ty;
+            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
+                arg.take_ref()
             }
         }
 
@@ -90,12 +93,9 @@ macro_rules! impl_from_arg {
                 $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            type Item<'from_arg> = &'from_arg mut $ty;
-            fn from_arg<'from_arg>(
-                arg: $crate::func::args::Arg<'from_arg>,
-                info: &$crate::func::args::ArgInfo,
-            ) -> Result<Self::Item<'from_arg>, $crate::func::args::ArgError> {
-                arg.take_mut(info)
+            type This<'from_arg> = &'from_arg mut $ty;
+            fn from_arg(arg: $crate::func::args::Arg) -> Result<Self::This<'_>, $crate::func::args::ArgError> {
+                arg.take_mut()
             }
         }
     };

@@ -57,7 +57,9 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-pub use volumetric_fog::*;
+pub use volumetric_fog::{
+    FogVolume, FogVolumeBundle, VolumetricFogPlugin, VolumetricFogSettings, VolumetricLight,
+};
 
 pub mod prelude {
     #[doc(hidden)]
@@ -288,6 +290,7 @@ impl Plugin for PbrPlugin {
             .register_type::<CascadeShadowConfig>()
             .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
+            .register_type::<VisibleMeshEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()

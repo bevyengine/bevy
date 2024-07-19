@@ -229,7 +229,7 @@ impl Dir2 {
         self.rotation_from_x().inverse()
     }
 
-    /// Get the rotation that rotates this direction to the Y-axis.
+    /// Get the rotation that rotates the Y-axis to this direction.
     #[inline]
     pub fn rotation_from_y(self) -> Rot2 {
         // `x <- y`, `y <- -x` correspond to rotating clockwise by pi/2;
@@ -238,7 +238,7 @@ impl Dir2 {
         Rot2::from_sin_cos(-self.0.x, self.0.y)
     }
 
-    /// Get the rotation that rotates the Y-axis to this direction.
+    /// Get the rotation that rotates this direction to the Y-axis.
     #[inline]
     pub fn rotation_to_y(self) -> Rot2 {
         self.rotation_from_y().inverse()

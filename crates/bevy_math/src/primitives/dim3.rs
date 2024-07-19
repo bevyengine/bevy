@@ -625,6 +625,10 @@ impl Default for Cone {
 }
 
 impl Cone {
+    /// Create a new [`Cone`] from a radius and height.
+    pub fn new(radius: f32, height: f32) -> Self {
+        Self { radius, height }
+    }
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]
     pub fn base(&self) -> Circle {

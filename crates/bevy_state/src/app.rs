@@ -1,9 +1,5 @@
-use bevy_app::{App, MainScheduleOrder, Plugin, PreUpdate, Startup, SubApp};
-use bevy_ecs::{
-    event::Events,
-    schedule::{IntoSystemConfigs, ScheduleLabel},
-    world::FromWorld,
-};
+use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
+use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
 use bevy_utils::{tracing::warn, warn_once};
 
 use crate::state::{
@@ -73,7 +69,9 @@ impl AppExtStates for SubApp {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            let schedule = self.get_schedule_mut(StateTransition).expect(
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
+            );
             S::register_state(schedule);
             let state = self.world().resource::<State<S>>().get().clone();
             self.world_mut().send_event(StateTransitionEvent {
@@ -94,7 +92,9 @@ impl AppExtStates for SubApp {
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
                 .add_event::<StateTransitionEvent<S>>();
-            let schedule = self.get_schedule_mut(StateTransition).unwrap();
+            let schedule = self.get_schedule_mut(StateTransition).expect(
+                "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
+            );
             S::register_state(schedule);
             self.world_mut().send_event(StateTransitionEvent {
                 exited: None,
@@ -211,13 +211,15 @@ impl AppExtStates for App {
 }
 
 /// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state processing.
+#[derive(Default)]
 pub struct StatesPlugin;
 
 impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
         let mut schedule = app.world_mut().resource_mut::<MainScheduleOrder>();
         schedule.insert_after(PreUpdate, StateTransition);
-        setup_state_transitions_in_world(app.world_mut(), Some(Startup.intern()));
+        schedule.insert_startup_before(PreStartup, StateTransition);
+        setup_state_transitions_in_world(app.world_mut());
     }
 }
 

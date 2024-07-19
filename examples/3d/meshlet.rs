@@ -16,7 +16,8 @@ use bevy::{
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
 
-const ASSET_URL: &str = "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh";
+const ASSET_URL: &str =
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
     if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
@@ -55,6 +56,7 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
+            ..default()
         },
         CameraController::default(),
     ));
