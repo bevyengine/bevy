@@ -4,17 +4,19 @@ use bevy_ecs::{
     prelude::{Changed, Component},
     query::QueryFilter,
     removal_detection::RemovedComponents,
-    system::{NonSendMut, Query, SystemParamItem},
+    system::{Local, NonSendMut, Query, SystemParamItem},
 };
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
     ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
-    WindowMode, WindowResized,
+    WindowMode, WindowResized, WindowWrapper,
 };
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 
+use bevy_app::AppExit;
+use bevy_ecs::prelude::EventReader;
 use bevy_ecs::query::With;
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
@@ -74,7 +76,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
 
         window
             .resolution
-            .set_scale_factor(winit_window.scale_factor() as f32);
+            .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
         commands.entity(entity).insert(CachedWindow {
             window: window.clone(),
@@ -116,14 +118,19 @@ pub fn create_windows<F: QueryFilter + 'static>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
-    window_entities: Query<&Window>,
+    window_entities: Query<Entity, With<Window>>,
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
+    mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
+    mut exit_events: EventReader<AppExit>,
 ) {
+    // Drop all the windows that are waiting to be closed
+    windows_to_drop.clear();
     for window in closing.iter() {
         closing_events.send(WindowClosing { window });
     }
@@ -133,8 +140,23 @@ pub(crate) fn despawn_windows(
         // rather than having the component added
         // and removed in the same frame.
         if !window_entities.contains(window) {
-            winit_windows.remove_window(window);
+            if let Some(window) = winit_windows.remove_window(window) {
+                // Keeping WindowWrapper that are dropped for one frame
+                // Otherwise the last `Arc` of the window could be in the rendering thread, and dropped there
+                // This would hang on macOS
+                // Keeping the wrapper and dropping it next frame in this system ensure its dropped in the main thread
+                windows_to_drop.push(window);
+            }
             closed_events.send(WindowClosed { window });
+        }
+    }
+
+    // On macOS, when exiting, we need to tell the rendering thread the windows are about to
+    // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
+    if !exit_events.is_empty() {
+        exit_events.clear();
+        for window in window_entities.iter() {
+            closing_events.send(WindowClosing { window });
         }
     }
 }
@@ -201,7 +223,10 @@ pub(crate) fn changed_windows(
         }
 
         if window.resolution != cache.window.resolution {
-            let mut physical_size = winit_window.inner_size();
+            let mut physical_size = PhysicalSize::new(
+                window.resolution.physical_width(),
+                window.resolution.physical_height(),
+            );
 
             let cached_physical_size = PhysicalSize::new(
                 cache.window.physical_width(),

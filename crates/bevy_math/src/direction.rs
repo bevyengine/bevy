@@ -1,6 +1,6 @@
 use crate::{
     primitives::{Primitive2d, Primitive3d},
-    Quat, Rotation2d, Vec2, Vec3, Vec3A,
+    Quat, Rot2, Vec2, Vec3, Vec3A,
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;
@@ -200,47 +200,47 @@ impl Dir2 {
     #[inline]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
         let angle = self.angle_between(rhs.0);
-        Rotation2d::radians(angle * s) * self
+        Rot2::radians(angle * s) * self
     }
 
     /// Get the rotation that rotates this direction to `other`.
     #[inline]
-    pub fn rotation_to(self, other: Self) -> Rotation2d {
+    pub fn rotation_to(self, other: Self) -> Rot2 {
         // Rotate `self` to X-axis, then X-axis to `other`:
         other.rotation_from_x() * self.rotation_to_x()
     }
 
     /// Get the rotation that rotates `other` to this direction.
     #[inline]
-    pub fn rotation_from(self, other: Self) -> Rotation2d {
+    pub fn rotation_from(self, other: Self) -> Rot2 {
         other.rotation_to(self)
     }
 
     /// Get the rotation that rotates the X-axis to this direction.
     #[inline]
-    pub fn rotation_from_x(self) -> Rotation2d {
-        Rotation2d::from_sin_cos(self.0.y, self.0.x)
+    pub fn rotation_from_x(self) -> Rot2 {
+        Rot2::from_sin_cos(self.0.y, self.0.x)
     }
 
     /// Get the rotation that rotates this direction to the X-axis.
     #[inline]
-    pub fn rotation_to_x(self) -> Rotation2d {
+    pub fn rotation_to_x(self) -> Rot2 {
         // (This is cheap, it just negates one component.)
         self.rotation_from_x().inverse()
     }
 
-    /// Get the rotation that rotates this direction to the Y-axis.
+    /// Get the rotation that rotates the Y-axis to this direction.
     #[inline]
-    pub fn rotation_from_y(self) -> Rotation2d {
+    pub fn rotation_from_y(self) -> Rot2 {
         // `x <- y`, `y <- -x` correspond to rotating clockwise by pi/2;
         // this transforms the Y-axis into the X-axis, maintaining the relative position
         // of our direction. Then we just use the same technique as `rotation_from_x`.
-        Rotation2d::from_sin_cos(-self.0.x, self.0.y)
+        Rot2::from_sin_cos(-self.0.x, self.0.y)
     }
 
-    /// Get the rotation that rotates the Y-axis to this direction.
+    /// Get the rotation that rotates this direction to the Y-axis.
     #[inline]
-    pub fn rotation_to_y(self) -> Rotation2d {
+    pub fn rotation_to_y(self) -> Rot2 {
         self.rotation_from_y().inverse()
     }
 }
@@ -287,10 +287,10 @@ impl std::ops::Mul<Dir2> for f32 {
     }
 }
 
-impl std::ops::Mul<Dir2> for Rotation2d {
+impl std::ops::Mul<Dir2> for Rot2 {
     type Output = Dir2;
 
-    /// Rotates the [`Dir2`] using a [`Rotation2d`].
+    /// Rotates the [`Dir2`] using a [`Rot2`].
     fn mul(self, direction: Dir2) -> Self::Output {
         let rotated = self * *direction;
 
@@ -807,21 +807,12 @@ mod tests {
 
     #[test]
     fn dir2_to_rotation2d() {
-        assert_relative_eq!(
-            Dir2::EAST.rotation_to(Dir2::NORTH_EAST),
-            Rotation2d::FRAC_PI_4
-        );
-        assert_relative_eq!(
-            Dir2::NORTH.rotation_from(Dir2::NORTH_EAST),
-            Rotation2d::FRAC_PI_4
-        );
-        assert_relative_eq!(Dir2::SOUTH.rotation_to_x(), Rotation2d::FRAC_PI_2);
-        assert_relative_eq!(Dir2::SOUTH.rotation_to_y(), Rotation2d::PI);
-        assert_relative_eq!(
-            Dir2::NORTH_WEST.rotation_from_x(),
-            Rotation2d::degrees(135.0)
-        );
-        assert_relative_eq!(Dir2::NORTH_WEST.rotation_from_y(), Rotation2d::FRAC_PI_4);
+        assert_relative_eq!(Dir2::EAST.rotation_to(Dir2::NORTH_EAST), Rot2::FRAC_PI_4);
+        assert_relative_eq!(Dir2::NORTH.rotation_from(Dir2::NORTH_EAST), Rot2::FRAC_PI_4);
+        assert_relative_eq!(Dir2::SOUTH.rotation_to_x(), Rot2::FRAC_PI_2);
+        assert_relative_eq!(Dir2::SOUTH.rotation_to_y(), Rot2::PI);
+        assert_relative_eq!(Dir2::NORTH_WEST.rotation_from_x(), Rot2::degrees(135.0));
+        assert_relative_eq!(Dir2::NORTH_WEST.rotation_from_y(), Rot2::FRAC_PI_4);
     }
 
     #[test]

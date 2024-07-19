@@ -30,7 +30,7 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
-use bevy_ecs::event::signal_event_update_system;
+use bevy_ecs::event::{signal_event_update_system, EventRegistry, ShouldUpdateEvents};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
@@ -65,8 +65,11 @@ impl Plugin for TimePlugin {
         app.add_systems(First, time_system.in_set(TimeSystem))
             .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
 
-        // ensure the events are not dropped until `FixedMain` systems can observe them
+        // Ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);
+        let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
+        // We need to start in a waiting state so that the events are not updated until the first fixed update
+        event_registry.should_update = ShouldUpdateEvents::Waiting;
     }
 }
 
@@ -107,7 +110,7 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is
 /// sent from there to this system through channels. Otherwise the time is updated in this system.
-fn time_system(
+pub fn time_system(
     mut real_time: ResMut<Time<Real>>,
     mut virtual_time: ResMut<Time<Virtual>>,
     mut time: ResMut<Time>,
@@ -141,9 +144,13 @@ fn time_system(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy};
-    use bevy_app::{App, Startup, Update};
-    use bevy_ecs::event::{Event, EventReader, EventWriter};
+    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
+    use bevy_app::{App, FixedUpdate, Startup, Update};
+    use bevy_ecs::{
+        event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
+        system::{Local, Res, ResMut, Resource},
+    };
+    use bevy_utils::Duration;
     use std::error::Error;
 
     #[derive(Event)]
@@ -157,6 +164,91 @@ mod tests {
                 .send(T::default())
                 .expect("Failed to send drop signal");
         }
+    }
+
+    #[derive(Event)]
+    struct DummyEvent;
+
+    #[derive(Resource, Default)]
+    struct FixedUpdateCounter(u8);
+
+    fn count_fixed_updates(mut counter: ResMut<FixedUpdateCounter>) {
+        counter.0 += 1;
+    }
+
+    fn report_time(
+        mut frame_count: Local<u64>,
+        virtual_time: Res<Time<Virtual>>,
+        fixed_time: Res<Time<Fixed>>,
+    ) {
+        println!(
+            "Virtual time on frame {}: {:?}",
+            *frame_count,
+            virtual_time.elapsed()
+        );
+        println!(
+            "Fixed time on frame {}: {:?}",
+            *frame_count,
+            fixed_time.elapsed()
+        );
+
+        *frame_count += 1;
+    }
+
+    #[test]
+    fn fixed_main_schedule_should_run_with_time_plugin_enabled() {
+        // Set the time step to just over half the fixed update timestep
+        // This way, it will have not accumulated enough time to run the fixed update after one update
+        // But will definitely have enough time after two updates
+        let fixed_update_timestep = Time::<Fixed>::default().timestep();
+        let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
+
+        let mut app = App::new();
+        app.add_plugins(TimePlugin)
+            .add_systems(FixedUpdate, count_fixed_updates)
+            .add_systems(Update, report_time)
+            .init_resource::<FixedUpdateCounter>()
+            .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
+
+        // Frame 0
+        // Fixed update should not have run yet
+        app.update();
+
+        assert!(Duration::ZERO < fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 0, "Fixed update should not have run yet");
+
+        // Frame 1
+        // Fixed update should not have run yet
+        app.update();
+
+        assert!(time_step < fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 0, "Fixed update should not have run yet");
+
+        // Frame 2
+        // Fixed update should have run now
+        app.update();
+
+        assert!(2 * time_step > fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 1, "Fixed update should have run once");
+
+        // Frame 3
+        // Fixed update should have run exactly once still
+        app.update();
+
+        assert!(3 * time_step < 2 * fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 1, "Fixed update should have run once");
+
+        // Frame 4
+        // Fixed update should have run twice now
+        app.update();
+
+        assert!(4 * time_step > 2 * fixed_update_timestep);
+        let counter = app.world().resource::<FixedUpdateCounter>();
+        assert_eq!(counter.0, 2, "Fixed update should have run twice");
     }
 
     #[test]
@@ -198,5 +290,76 @@ mod tests {
         let _drop_signal = rx1.try_recv()?;
         // Check event type 2 has been dropped
         rx2.try_recv()
+    }
+
+    #[test]
+    fn event_update_should_wait_for_fixed_main() {
+        // Set the time step to just over half the fixed update timestep
+        // This way, it will have not accumulated enough time to run the fixed update after one update
+        // But will definitely have enough time after two updates
+        let fixed_update_timestep = Time::<Fixed>::default().timestep();
+        let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
+
+        fn send_event(mut events: ResMut<Events<DummyEvent>>) {
+            events.send(DummyEvent);
+        }
+
+        let mut app = App::new();
+        app.add_plugins(TimePlugin)
+            .add_event::<DummyEvent>()
+            .init_resource::<FixedUpdateCounter>()
+            .add_systems(Startup, send_event)
+            .add_systems(FixedUpdate, count_fixed_updates)
+            .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
+
+        for frame in 0..10 {
+            app.update();
+            let fixed_updates_seen = app.world().resource::<FixedUpdateCounter>().0;
+            let events = app.world().resource::<Events<DummyEvent>>();
+            let n_total_events = events.len();
+            let n_current_events = events.iter_current_update_events().count();
+            let event_registry = app.world().resource::<EventRegistry>();
+            let should_update = event_registry.should_update;
+
+            println!("Frame {frame}, {fixed_updates_seen} fixed updates seen. Should update: {should_update:?}");
+            println!("Total events: {n_total_events} | Current events: {n_current_events}",);
+
+            match frame {
+                0 | 1 => {
+                    assert_eq!(fixed_updates_seen, 0);
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 1);
+                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                }
+                2 => {
+                    assert_eq!(fixed_updates_seen, 1); // Time to trigger event updates
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 1);
+                    assert_eq!(should_update, ShouldUpdateEvents::Ready); // Prepping first update
+                }
+                3 => {
+                    assert_eq!(fixed_updates_seen, 1);
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 0); // First update has occurred
+                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                }
+                4 => {
+                    assert_eq!(fixed_updates_seen, 2); // Time to trigger the second update
+                    assert_eq!(n_total_events, 1);
+                    assert_eq!(n_current_events, 0);
+                    assert_eq!(should_update, ShouldUpdateEvents::Ready); // Prepping second update
+                }
+                5 => {
+                    assert_eq!(fixed_updates_seen, 2);
+                    assert_eq!(n_total_events, 0); // Second update has occurred
+                    assert_eq!(n_current_events, 0);
+                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                }
+                _ => {
+                    assert_eq!(n_total_events, 0); // No more events are sent
+                    assert_eq!(n_current_events, 0);
+                }
+            }
+        }
     }
 }

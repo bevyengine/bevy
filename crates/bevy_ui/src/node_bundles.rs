@@ -15,7 +15,9 @@ use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{BreakLineOn, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle};
+use bevy_text::{
+    BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
+};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node.
@@ -23,7 +25,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 /// Contains the [`Node`] component and other components required to make a container.
 ///
 /// See [`node_bundles`](crate::node_bundles) for more specialized bundles like [`TextBundle`].
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct NodeBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -58,26 +60,6 @@ pub struct NodeBundle {
     pub z_index: ZIndex,
 }
 
-impl Default for NodeBundle {
-    fn default() -> Self {
-        NodeBundle {
-            // Transparent background
-            background_color: Color::NONE.into(),
-            border_color: Color::NONE.into(),
-            border_radius: BorderRadius::default(),
-            node: Default::default(),
-            style: Default::default(),
-            focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
-}
-
 /// A UI node that is an image
 ///
 /// # Extra behaviours
@@ -94,8 +76,12 @@ pub struct ImageBundle {
     pub style: Style,
     /// The calculated size based on the given image
     pub calculated_size: ContentSize,
-    /// The image of the node
+    /// The image of the node.
+    ///
+    /// To tint the image, change the `color` field of this component.
     pub image: UiImage,
+    /// The color of the background that will fill the containing node.
+    pub background_color: BackgroundColor,
     /// The size of the image in pixels
     ///
     /// This component is set automatically
@@ -176,7 +162,7 @@ pub struct AtlasImageBundle {
 ///
 /// The positioning of this node is controlled by the UI layout system. If you need manual control,
 /// use [`Text2dBundle`](bevy_text::Text2dBundle).
-#[derive(Bundle, Debug)]
+#[derive(Bundle, Debug, Default)]
 pub struct TextBundle {
     /// Describes the logical size of the node
     pub node: Node,
@@ -185,6 +171,8 @@ pub struct TextBundle {
     pub style: Style,
     /// Contains the text of the node
     pub text: Text,
+    /// Cached cosmic buffer for layout
+    pub buffer: CosmicBuffer,
     /// Text layout information
     pub text_layout_info: TextLayoutInfo,
     /// Text system flags
@@ -212,29 +200,6 @@ pub struct TextBundle {
     pub z_index: ZIndex,
     /// The background color that will fill the containing node
     pub background_color: BackgroundColor,
-}
-
-#[cfg(feature = "bevy_text")]
-impl Default for TextBundle {
-    fn default() -> Self {
-        Self {
-            text: Default::default(),
-            text_layout_info: Default::default(),
-            text_flags: Default::default(),
-            calculated_size: Default::default(),
-            node: Default::default(),
-            style: Default::default(),
-            focus_policy: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
-            z_index: Default::default(),
-            // Transparent background
-            background_color: BackgroundColor(Color::NONE),
-        }
-    }
 }
 
 #[cfg(feature = "bevy_text")]
@@ -321,6 +286,8 @@ pub struct ButtonBundle {
     pub border_radius: BorderRadius,
     /// The image of the node
     pub image: UiImage,
+    /// The background color that will fill the containing node
+    pub background_color: BackgroundColor,
     /// The transform of the node
     ///
     /// This component is automatically managed by the UI layout system.
@@ -348,9 +315,10 @@ impl Default for ButtonBundle {
             style: Default::default(),
             interaction: Default::default(),
             focus_policy: FocusPolicy::Block,
-            border_color: BorderColor(Color::NONE),
-            border_radius: BorderRadius::default(),
+            border_color: Default::default(),
+            border_radius: Default::default(),
             image: Default::default(),
+            background_color: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),

@@ -21,6 +21,9 @@ use bevy::{
     },
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/water_material.wgsl";
+
 // The speed of camera movement.
 const CAMERA_KEYBOARD_ZOOM_SPEED: f32 = 0.1;
 const CAMERA_KEYBOARD_ORBIT_SPEED: f32 = 0.02;
@@ -239,10 +242,12 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 5000.0,
+            ..default()
         })
         .insert(Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             brightness: 5000.0,
+            ..default()
         })
         .insert(ScreenSpaceReflectionsBundle::default())
         .insert(Fxaa::default());
@@ -286,7 +291,7 @@ fn create_text(app_settings: &AppSettings) -> Text {
 
 impl MaterialExtension for Water {
     fn deferred_fragment_shader() -> ShaderRef {
-        "shaders/water_material.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }
 

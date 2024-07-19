@@ -22,7 +22,7 @@
 
 @compute
 @workgroup_size(128, 1, 1) // 128 threads per workgroup, 1 cluster per thread
-fn cull_meshlets(
+fn cull_clusters(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(num_workgroups) num_workgroups: vec3<u32>,
     @builtin(local_invocation_id) local_invocation_id: vec3<u32>,
@@ -85,8 +85,7 @@ fn cull_meshlets(
     let culling_bounding_sphere_center_view_space = (view.view_from_world * vec4(culling_bounding_sphere_center.xyz, 1.0)).xyz;
 
     let aabb = project_view_space_sphere_to_screen_space_aabb(culling_bounding_sphere_center_view_space, culling_bounding_sphere_radius);
-    // Halve the view-space AABB size as the depth pyramid is half the view size
-    let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0)) * 0.5;
+    let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
     let width = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
     let height = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
     let depth_level = max(0, i32(ceil(log2(max(width, height))))); // TODO: Naga doesn't like this being a u32
@@ -100,25 +99,27 @@ fn cull_meshlets(
     let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
 
     // Check whether or not the cluster would be occluded if drawn
-    var meshlet_visible: bool;
+    var cluster_visible: bool;
     if view.clip_from_view[3][3] == 1.0 {
         // Orthographic
         let sphere_depth = view.clip_from_view[3][2] + (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius) * view.clip_from_view[2][2];
-        meshlet_visible = sphere_depth >= occluder_depth;
+        cluster_visible = sphere_depth >= occluder_depth;
     } else {
         // Perspective
         let sphere_depth = -view.clip_from_view[3][2] / (culling_bounding_sphere_center_view_space.z + culling_bounding_sphere_radius);
-        meshlet_visible = sphere_depth >= occluder_depth;
+        cluster_visible = sphere_depth >= occluder_depth;
     }
 
     // Write if the cluster should be occlusion tested in the second pass
 #ifdef MESHLET_FIRST_CULLING_PASS
-    let second_pass_candidate = u32(!meshlet_visible) << cluster_id % 32u;
-    atomicOr(&meshlet_second_pass_candidates[cluster_id / 32u], second_pass_candidate);
+    if !cluster_visible {
+        let bit = 1u << cluster_id % 32u;
+        atomicOr(&meshlet_second_pass_candidates[cluster_id / 32u], bit);
+    }
 #endif
 
     // Append a list of this cluster's triangles to draw if not culled
-    if meshlet_visible {
+    if cluster_visible {
         let meshlet_triangle_count = meshlets[meshlet_id].triangle_count;
         let buffer_start = atomicAdd(&draw_indirect_args.vertex_count, meshlet_triangle_count * 3u) / 3u;
         let cluster_id_packed = cluster_id << 6u;

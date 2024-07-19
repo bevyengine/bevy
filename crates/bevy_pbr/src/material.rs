@@ -25,7 +25,7 @@ use bevy_render::{
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{GpuMesh, MeshVertexBufferLayoutRef},
+    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::*,
@@ -282,12 +282,18 @@ where
             #[cfg(feature = "meshlet")]
             render_app.add_systems(
                 Render,
-                (
-                    prepare_material_meshlet_meshes_main_opaque_pass::<M>,
-                    queue_material_meshlet_meshes::<M>,
-                )
-                    .chain()
-                    .in_set(RenderSet::Queue)
+                queue_material_meshlet_meshes::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .run_if(resource_exists::<MeshletGpuScene>),
+            );
+
+            #[cfg(feature = "meshlet")]
+            render_app.add_systems(
+                Render,
+                prepare_material_meshlet_meshes_main_opaque_pass::<M>
+                    .in_set(RenderSet::QueueMeshes)
+                    .after(prepare_assets::<PreparedMaterial<M>>)
+                    .before(queue_material_meshlet_meshes::<M>)
                     .run_if(resource_exists::<MeshletGpuScene>),
             );
         }
@@ -531,7 +537,7 @@ pub fn queue_material_meshes<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
@@ -757,11 +763,15 @@ pub fn queue_material_meshes<M: Material>(
                         let bin_key = Opaque3dBinKey {
                             draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
-                            asset_id: mesh_instance.mesh_asset_id,
+                            asset_id: mesh_instance.mesh_asset_id.into(),
                             material_bind_group_id: material.get_bind_group_id().0,
                             lightmap_image,
                         };
-                        opaque_phase.add(bin_key, *visible_entity, mesh_instance.should_batch());
+                        opaque_phase.add(
+                            bin_key,
+                            *visible_entity,
+                            BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
+                        );
                     }
                 }
                 // Alpha mask
@@ -781,13 +791,13 @@ pub fn queue_material_meshes<M: Material>(
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
-                            asset_id: mesh_instance.mesh_asset_id,
+                            asset_id: mesh_instance.mesh_asset_id.into(),
                             material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_phase.add(
                             bin_key,
                             *visible_entity,
-                            mesh_instance.should_batch(),
+                            BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
                 }

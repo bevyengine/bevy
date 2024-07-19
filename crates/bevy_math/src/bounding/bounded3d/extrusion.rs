@@ -13,30 +13,26 @@ use crate::{bounding::Bounded2d, primitives::Circle};
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
 
-impl Bounded3d for Extrusion<Circle> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl BoundedExtrusion for Circle {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Reference: http://iquilezles.org/articles/diskbbox/
 
         let segment_dir = rotation * Vec3::Z;
-        let top = (segment_dir * self.half_depth).abs();
+        let top = (segment_dir * half_depth).abs();
 
-        let e = Vec3::ONE - segment_dir * segment_dir;
-        let half_size = self.base_shape.radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
+        let e = (Vec3::ONE - segment_dir * segment_dir).max(Vec3::ZERO);
+        let half_size = self.radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         Aabb3d {
             min: (translation - half_size - top).into(),
             max: (translation + half_size + top).into(),
         }
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl Bounded3d for Extrusion<Ellipse> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        let Vec2 { x: a, y: b } = self.base_shape.half_size;
+impl BoundedExtrusion for Ellipse {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let Vec2 { x: a, y: b } = self.half_size;
         let normal = rotation * Vec3::Z;
         let conjugate_rot = rotation.conjugate();
 
@@ -59,20 +55,15 @@ impl Bounded3d for Extrusion<Ellipse> {
             rotation * Vec3::new(x, y, 0.)
         });
 
-        let half_size =
-            Vec3::new(max_x.x, max_y.y, max_z.z).abs() + (normal * self.half_depth).abs();
+        let half_size = Vec3::new(max_x.x, max_y.y, max_z.z).abs() + (normal * half_depth).abs();
         Aabb3d::new(translation, half_size)
-    }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
     }
 }
 
-impl Bounded3d for Extrusion<Line2d> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        let dir = rotation * self.base_shape.direction.extend(0.);
-        let half_depth = (rotation * Vec3::new(0., 0., self.half_depth)).abs();
+impl BoundedExtrusion for Line2d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let dir = rotation * self.direction.extend(0.);
+        let half_depth = (rotation * Vec3::new(0., 0., half_depth)).abs();
 
         let max = f32::MAX / 2.;
         let half_size = Vec3::new(
@@ -83,217 +74,191 @@ impl Bounded3d for Extrusion<Line2d> {
 
         Aabb3d::new(translation, half_size)
     }
-
-    fn bounding_sphere(&self, translation: Vec3, _rotation: Quat) -> BoundingSphere {
-        BoundingSphere::new(translation, f32::MAX / 2.)
-    }
 }
 
-impl Bounded3d for Extrusion<Segment2d> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
-        let half_size = rotation * self.base_shape.point1().extend(0.);
-        let depth = rotation * Vec3::new(0., 0., self.half_depth);
+impl BoundedExtrusion for Segment2d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let half_size = rotation * self.point1().extend(0.);
+        let depth = rotation * Vec3::new(0., 0., half_depth);
 
         Aabb3d::new(translation, half_size.abs() + depth.abs())
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl<const N: usize> Bounded3d for Extrusion<Polyline2d<N>> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl<const N: usize> BoundedExtrusion for Polyline2d<N> {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         let aabb = Aabb3d::from_point_cloud(
             translation,
             rotation,
-            self.base_shape.vertices.map(|v| v.extend(0.)).into_iter(),
+            self.vertices.map(|v| v.extend(0.)).into_iter(),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
+        let depth = rotation * Vec3A::new(0., 0., half_depth);
 
         aabb.grow(depth.abs())
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl Bounded3d for Extrusion<BoxedPolyline2d> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl BoundedExtrusion for BoxedPolyline2d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         let aabb = Aabb3d::from_point_cloud(
             translation,
             rotation,
-            self.base_shape.vertices.iter().map(|v| v.extend(0.)),
+            self.vertices.iter().map(|v| v.extend(0.)),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
+        let depth = rotation * Vec3A::new(0., 0., half_depth);
 
         aabb.grow(depth.abs())
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl Bounded3d for Extrusion<Triangle2d> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl BoundedExtrusion for Triangle2d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         let aabb = Aabb3d::from_point_cloud(
             translation,
             rotation,
-            self.base_shape.vertices.iter().map(|v| v.extend(0.)),
+            self.vertices.iter().map(|v| v.extend(0.)),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
+        let depth = rotation * Vec3A::new(0., 0., half_depth);
 
         aabb.grow(depth.abs())
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl Bounded3d for Extrusion<Rectangle> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl BoundedExtrusion for Rectangle {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         Cuboid {
-            half_size: self.base_shape.half_size.extend(self.half_depth),
+            half_size: self.half_size.extend(half_depth),
         }
         .aabb_3d(translation, rotation)
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl<const N: usize> Bounded3d for Extrusion<Polygon<N>> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl<const N: usize> BoundedExtrusion for Polygon<N> {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         let aabb = Aabb3d::from_point_cloud(
             translation,
             rotation,
-            self.base_shape.vertices.map(|v| v.extend(0.)).into_iter(),
+            self.vertices.map(|v| v.extend(0.)).into_iter(),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
+        let depth = rotation * Vec3A::new(0., 0., half_depth);
 
         aabb.grow(depth.abs())
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl Bounded3d for Extrusion<BoxedPolygon> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl BoundedExtrusion for BoxedPolygon {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         let aabb = Aabb3d::from_point_cloud(
             translation,
             rotation,
-            self.base_shape.vertices.iter().map(|v| v.extend(0.)),
+            self.vertices.iter().map(|v| v.extend(0.)),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
+        let depth = rotation * Vec3A::new(0., 0., half_depth);
 
         aabb.grow(depth.abs())
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl Bounded3d for Extrusion<RegularPolygon> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl BoundedExtrusion for RegularPolygon {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         let aabb = Aabb3d::from_point_cloud(
             translation,
             rotation,
-            self.base_shape
-                .vertices(0.)
-                .into_iter()
-                .map(|v| v.extend(0.)),
+            self.vertices(0.).into_iter().map(|v| v.extend(0.)),
         );
-        let depth = rotation * Vec3A::new(0., 0., self.half_depth);
+        let depth = rotation * Vec3A::new(0., 0., half_depth);
 
         aabb.grow(depth.abs())
     }
-
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
-    }
 }
 
-impl Bounded3d for Extrusion<Capsule2d> {
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+impl BoundedExtrusion for Capsule2d {
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
         let aabb = Cylinder {
-            half_height: self.half_depth,
-            radius: self.base_shape.radius,
+            half_height: half_depth,
+            radius: self.radius,
         }
         .aabb_3d(Vec3::ZERO, rotation * Quat::from_rotation_x(FRAC_PI_2));
 
-        let up = rotation * Vec3::new(0., self.base_shape.half_length, 0.);
+        let up = rotation * Vec3::new(0., self.half_length, 0.);
         let half_size = Into::<Vec3>::into(aabb.max) + up.abs();
         Aabb3d::new(translation, half_size)
     }
+}
+
+impl<T: BoundedExtrusion> Bounded3d for Extrusion<T> {
+    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
+        self.base_shape
+            .extrusion_aabb_3d(self.half_depth, translation, rotation)
+    }
 
     fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere {
-        extrusion_bounding_sphere(self, translation, rotation)
+        self.base_shape
+            .extrusion_bounding_sphere(self.half_depth, translation, rotation)
     }
 }
 
-/// Computes the axis aligned bounding box ([`Aabb3d`]) for an extrusion given its translation and rotation.
-pub fn extrusion_bounding_box<T: Primitive2d + Bounded2d>(
-    extrusion: &Extrusion<T>,
-    translation: Vec3,
-    rotation: Quat,
-) -> Aabb3d {
-    let cap_normal = rotation * Vec3::Z;
-    let conjugate_rot = rotation.conjugate();
+/// A trait implemented on 2D shapes which determines the 3D bounding volumes of their extrusions.
+///
+/// Since default implementations can be inferred from 2D bounding volumes, this allows a `Bounded2d`
+/// implementation on some shape `MyShape` to be extrapolated to a `Bounded3d` implementation on
+/// `Extrusion<MyShape>` without supplying any additional data; e.g.:
+/// `impl BoundedExtrusion for MyShape {}`
+pub trait BoundedExtrusion: Primitive2d + Bounded2d {
+    /// Get an axis-aligned bounding box for an extrusion with this shape as a base and the given `half_depth`, transformed by the given `translation` and `rotation`.
+    fn extrusion_aabb_3d(&self, half_depth: f32, translation: Vec3, rotation: Quat) -> Aabb3d {
+        let cap_normal = rotation * Vec3::Z;
+        let conjugate_rot = rotation.conjugate();
 
-    // The `(halfsize, offset)` for each axis
-    let axis_values = Vec3::AXES.map(|ax| {
-        // This is the direction of the line of intersection of a plane with the `ax` normal and the plane containing the cap of the extrusion.
-        let intersect_line = ax.cross(cap_normal);
-        if intersect_line.length_squared() <= f32::EPSILON {
-            return (0., 0.);
-        };
+        // The `(halfsize, offset)` for each axis
+        let axis_values = Vec3::AXES.map(|ax| {
+            // This is the direction of the line of intersection of a plane with the `ax` normal and the plane containing the cap of the extrusion.
+            let intersect_line = ax.cross(cap_normal);
+            if intersect_line.length_squared() <= f32::EPSILON {
+                return (0., 0.);
+            };
 
-        // This is the normal vector of the intersection line rotated to be in the XY-plane
-        let line_normal = (conjugate_rot * intersect_line).yx();
-        let angle = line_normal.to_angle();
+            // This is the normal vector of the intersection line rotated to be in the XY-plane
+            let line_normal = (conjugate_rot * intersect_line).yx();
+            let angle = line_normal.to_angle();
 
-        // Since the plane containing the caps of the extrusion is not guaranteed to be orthgonal to the `ax` plane, only a certain "scale" factor
-        // of the `Aabb2d` will actually go towards the dimensions of the `Aabb3d`
-        let scale = cap_normal.reject_from(ax).length();
+            // Since the plane containing the caps of the extrusion is not guaranteed to be orthgonal to the `ax` plane, only a certain "scale" factor
+            // of the `Aabb2d` will actually go towards the dimensions of the `Aabb3d`
+            let scale = cap_normal.reject_from(ax).length();
 
-        // Calculate the `Aabb2d` of the base shape. The shape is rotated so that the line of intersection is parallel to the Y axis in the `Aabb2d` calculations.
-        // This guarantees that the X value of the `Aabb2d` is closest to the `ax` plane
-        let aabb2d = extrusion.base_shape.aabb_2d(Vec2::ZERO, angle);
-        (aabb2d.half_size().x * scale, aabb2d.center().x * scale)
-    });
+            // Calculate the `Aabb2d` of the base shape. The shape is rotated so that the line of intersection is parallel to the Y axis in the `Aabb2d` calculations.
+            // This guarantees that the X value of the `Aabb2d` is closest to the `ax` plane
+            let aabb2d = self.aabb_2d(Vec2::ZERO, angle);
+            (aabb2d.half_size().x * scale, aabb2d.center().x * scale)
+        });
 
-    let offset = Vec3A::from_array(axis_values.map(|(_, offset)| offset));
-    let cap_size = Vec3A::from_array(axis_values.map(|(max_val, _)| max_val)).abs();
-    let depth = rotation * Vec3A::new(0., 0., extrusion.half_depth);
+        let offset = Vec3A::from_array(axis_values.map(|(_, offset)| offset));
+        let cap_size = Vec3A::from_array(axis_values.map(|(max_val, _)| max_val)).abs();
+        let depth = rotation * Vec3A::new(0., 0., half_depth);
 
-    Aabb3d::new(Vec3A::from(translation) - offset, cap_size + depth.abs())
-}
+        Aabb3d::new(Vec3A::from(translation) - offset, cap_size + depth.abs())
+    }
 
-/// Computes the [`BoundingSphere`] for an extrusion given its translation and rotation.
-pub fn extrusion_bounding_sphere<T: Primitive2d + Bounded2d>(
-    extrusion: &Extrusion<T>,
-    translation: Vec3,
-    rotation: Quat,
-) -> BoundingSphere {
-    // We calculate the bounding circle of the base shape.
-    // Since each of the extrusions bases will have the same distance from its center,
-    // and they are just shifted along the Z-axis, the minimum bounding sphere will be the bounding sphere
-    // of the cylinder defined by the two bounding circles of the bases for any base shape
-    let BoundingCircle {
-        center,
-        circle: Circle { radius },
-    } = extrusion.base_shape.bounding_circle(Vec2::ZERO, 0.);
-    let radius = radius.hypot(extrusion.half_depth);
-    let center = translation + rotation * center.extend(0.);
+    /// Get a bounding sphere for an extrusion of the `base_shape` with the given `half_depth` with the given translation and rotation
+    fn extrusion_bounding_sphere(
+        &self,
+        half_depth: f32,
+        translation: Vec3,
+        rotation: Quat,
+    ) -> BoundingSphere {
+        // We calculate the bounding circle of the base shape.
+        // Since each of the extrusions bases will have the same distance from its center,
+        // and they are just shifted along the Z-axis, the minimum bounding sphere will be the bounding sphere
+        // of the cylinder defined by the two bounding circles of the bases for any base shape
+        let BoundingCircle {
+            center,
+            circle: Circle { radius },
+        } = self.bounding_circle(Vec2::ZERO, 0.);
+        let radius = radius.hypot(half_depth);
+        let center = translation + rotation * center.extend(0.);
 
-    BoundingSphere::new(center, radius)
+        BoundingSphere::new(center, radius)
+    }
 }
 
 #[cfg(test)]

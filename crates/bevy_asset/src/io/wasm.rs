@@ -51,7 +51,7 @@ fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_
 }
 
 impl HttpWasmAssetReader {
-    async fn fetch_bytes<'a>(&self, path: PathBuf) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn fetch_bytes<'a>(&self, path: PathBuf) -> Result<impl Reader, AssetReaderError> {
         // The JS global scope includes a self-reference via a specialising name, which can be used to determine the type of global context available.
         let global: Global = js_sys::global().unchecked_into();
         let promise = if !global.window().is_undefined() {
@@ -77,7 +77,7 @@ impl HttpWasmAssetReader {
             200 => {
                 let data = JsFuture::from(resp.array_buffer().unwrap()).await.unwrap();
                 let bytes = Uint8Array::new(&data).to_vec();
-                let reader: Box<Reader> = Box::new(VecReader::new(bytes));
+                let reader = VecReader::new(bytes);
                 Ok(reader)
             }
             404 => Err(AssetReaderError::NotFound(path)),
@@ -87,12 +87,12 @@ impl HttpWasmAssetReader {
 }
 
 impl AssetReader for HttpWasmAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let path = self.root_path.join(path);
         self.fetch_bytes(path).await
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let meta_path = get_meta_path(&self.root_path.join(path));
         self.fetch_bytes(meta_path).await
     }

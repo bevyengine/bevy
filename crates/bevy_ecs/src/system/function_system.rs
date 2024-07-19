@@ -5,7 +5,7 @@ use crate::{
     query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
-    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
 use bevy_utils::all_tuples;
@@ -54,6 +54,20 @@ impl SystemMeta {
     #[inline]
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Sets the name of of this system.
+    ///
+    /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    pub fn set_name(&mut self, new_name: impl Into<Cow<'static, str>>) {
+        let new_name: Cow<'static, str> = new_name.into();
+        #[cfg(feature = "trace")]
+        {
+            let name = new_name.as_ref();
+            self.system_span = info_span!("system", name = name);
+            self.commands_span = info_span!("system_commands", name = name);
+        }
+        self.name = new_name;
     }
 
     /// Returns true if the system is [`Send`].
@@ -399,8 +413,8 @@ where
     F: SystemParamFunction<Marker>,
 {
     func: F,
-    param_state: Option<<F::Param as SystemParam>::State>,
-    system_meta: SystemMeta,
+    pub(crate) param_state: Option<<F::Param as SystemParam>::State>,
+    pub(crate) system_meta: SystemMeta,
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -421,6 +435,14 @@ where
             archetype_generation: ArchetypeGeneration::initial(),
             marker: PhantomData,
         }
+    }
+
+    /// Return this system with a new name.
+    ///
+    /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
+        self.system_meta.set_name(new_name.into());
+        self
     }
 }
 
@@ -540,6 +562,12 @@ where
     fn apply_deferred(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
         F::Param::apply(param_state, &self.system_meta, world);
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
+        F::Param::queue(param_state, &self.system_meta, world);
     }
 
     #[inline]
