@@ -1616,6 +1616,15 @@ mod tests {
         assert!(world.contains_resource::<W<f64>>());
     }
 
+    fn is_send<T: Send>() {}
+    fn is_sync<T: Sync>() {}
+
+    #[test]
+    fn test_commands_are_send_and_sync() {
+        is_send::<Commands>();
+        is_sync::<Commands>();
+    }
+
     #[test]
     fn append() {
         let mut world = World::default();
