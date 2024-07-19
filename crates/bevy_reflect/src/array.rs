@@ -1,6 +1,6 @@
 use crate::{
-    self as bevy_reflect, utility::reflect_hasher, ApplyError, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, utility::reflect_hasher, ApplyError, MaybeTyped, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use std::{
@@ -69,7 +69,7 @@ pub trait Array: Reflect {
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             represented_type: self.get_represented_type_info(),
-            values: self.iter().map(|value| value.clone_value()).collect(),
+            values: self.iter().map(Reflect::clone_value).collect(),
         }
     }
 }
@@ -79,6 +79,7 @@ pub trait Array: Reflect {
 pub struct ArrayInfo {
     type_path: TypePathTable,
     type_id: TypeId,
+    item_info: fn() -> Option<&'static TypeInfo>,
     item_type_path: TypePathTable,
     item_type_id: TypeId,
     capacity: usize,
@@ -93,10 +94,13 @@ impl ArrayInfo {
     ///
     /// * `capacity`: The maximum capacity of the underlying array.
     ///
-    pub fn new<TArray: Array + TypePath, TItem: Reflect + TypePath>(capacity: usize) -> Self {
+    pub fn new<TArray: Array + TypePath, TItem: Reflect + MaybeTyped + TypePath>(
+        capacity: usize,
+    ) -> Self {
         Self {
             type_path: TypePathTable::of::<TArray>(),
             type_id: TypeId::of::<TArray>(),
+            item_info: TItem::maybe_type_info,
             item_type_path: TypePathTable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
@@ -141,6 +145,14 @@ impl ArrayInfo {
     /// Check if the given type matches the array type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [`TypeInfo`] of the array item.
+    ///
+    /// Returns `None` if the array item does not contain static type information,
+    /// such as for dynamic types.
+    pub fn item_info(&self) -> Option<&'static TypeInfo> {
+        (self.item_info)()
     }
 
     /// A representation of the type path of the array item.
@@ -191,15 +203,9 @@ impl DynamicArray {
         }
     }
 
+    #[deprecated(since = "0.15.0", note = "use from_iter")]
     pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
-        Self {
-            represented_type: None,
-            values: values
-                .into_iter()
-                .map(|field| Box::new(field) as Box<dyn Reflect>)
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
-        }
+        Self::from_iter(values)
     }
 
     /// Sets the [type] to be represented by this `DynamicArray`.
@@ -357,7 +363,46 @@ impl Array for DynamicArray {
     }
 }
 
+impl FromIterator<Box<dyn Reflect>> for DynamicArray {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(values: I) -> Self {
+        Self {
+            represented_type: None,
+            values: values.into_iter().collect::<Vec<_>>().into_boxed_slice(),
+        }
+    }
+}
+
+impl<T: Reflect> FromIterator<T> for DynamicArray {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
+        values
+            .into_iter()
+            .map(|value| Box::new(value).into_reflect())
+            .collect()
+    }
+}
+
+impl IntoIterator for DynamicArray {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_vec().into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicArray {
+    type Item = &'a dyn Reflect;
+    type IntoIter = ArrayIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 impl_type_path!((in bevy_reflect) DynamicArray);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicArray);
+
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {
     array: &'a dyn Array,

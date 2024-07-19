@@ -201,7 +201,7 @@ pub fn calculate_bounds_2d(
             .or_else(|| sprite.rect.map(|rect| rect.size()))
             .or_else(|| match atlas {
                 // We default to the texture size for regular sprites
-                None => images.get(texture_handle).map(|image| image.size_f32()),
+                None => images.get(texture_handle).map(Image::size_f32),
                 // We default to the drawn rect for atlas sprites
                 Some(atlas) => atlas
                     .texture_rect(&atlases)

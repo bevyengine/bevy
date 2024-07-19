@@ -6,6 +6,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut, Resource},
 };
+use bevy_math::{Mat4, Quat};
 use bevy_render::{
     camera::Exposure,
     extract_component::{
@@ -22,9 +23,10 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
+use bevy_transform::components::Transform;
 use prepass::{SkyboxPrepassPipeline, SKYBOX_PREPASS_SHADER_HANDLE};
 
-use crate::core_3d::CORE_3D_DEPTH_FORMAT;
+use crate::{core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms};
 
 const SKYBOX_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(55594763423201);
 
@@ -53,6 +55,7 @@ impl Plugin for SkyboxPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<SkyboxPipeline>>()
             .init_resource::<SpecializedRenderPipelines<SkyboxPrepassPipeline>>()
+            .init_resource::<PreviousViewUniforms>()
             .add_systems(
                 Render,
                 (
@@ -89,6 +92,21 @@ pub struct Skybox {
     /// After applying this multiplier to the image samples, the resulting values should
     /// be in units of [cd/m^2](https://en.wikipedia.org/wiki/Candela_per_square_metre).
     pub brightness: f32,
+
+    /// View space rotation applied to the skybox cubemap.
+    /// This is useful for users who require a different axis, such as the Z-axis, to serve
+    /// as the vertical axis.
+    pub rotation: Quat,
+}
+
+impl Default for Skybox {
+    fn default() -> Self {
+        Skybox {
+            image: Handle::default(),
+            brightness: 0.0,
+            rotation: Quat::IDENTITY,
+        }
+    }
 }
 
 impl ExtractComponent for Skybox {
@@ -98,13 +116,16 @@ impl ExtractComponent for Skybox {
 
     fn extract_component((skybox, exposure): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         let exposure = exposure
-            .map(|e| e.exposure())
+            .map(Exposure::exposure)
             .unwrap_or_else(|| Exposure::default().exposure());
 
         Some((
             skybox.clone(),
             SkyboxUniforms {
                 brightness: skybox.brightness * exposure,
+                transform: Transform::from_rotation(skybox.rotation)
+                    .compute_matrix()
+                    .inverse(),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 _wasm_padding_8b: 0,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -120,6 +141,7 @@ impl ExtractComponent for Skybox {
 #[derive(Component, ShaderType, Clone)]
 pub struct SkyboxUniforms {
     brightness: f32,
+    transform: Mat4,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
     _wasm_padding_8b: u32,
     #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]

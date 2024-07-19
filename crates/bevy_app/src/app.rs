@@ -4,7 +4,7 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::{event_update_system, ManualEventReader},
+    event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -242,7 +242,7 @@ impl App {
         let main = self.main_mut();
         main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Finished;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.finish());
+        self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
@@ -256,12 +256,12 @@ impl App {
         let main = self.main_mut();
         main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Cleaned;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.cleanup());
+        self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
     }
 
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
-        self.sub_apps.iter().any(|s| s.is_building_plugins())
+        self.sub_apps.iter().any(SubApp::is_building_plugins)
     }
 
     /// Adds one or more systems to the given schedule in this app's [`Schedules`].
@@ -318,7 +318,7 @@ impl App {
     }
 
     /// Initializes `T` event handling by inserting an event queue resource ([`Events::<T>`])
-    /// and scheduling an [`event_update_system`] in [`First`](crate::First).
+    /// and scheduling an [`event_update_system`] in [`First`].
     ///
     /// See [`Events`] for information on how to define events.
     ///
@@ -818,7 +818,7 @@ impl App {
     /// This should be called after every [`update()`](App::update) otherwise you risk
     /// dropping possible [`AppExit`] events.
     pub fn should_exit(&self) -> Option<AppExit> {
-        let mut reader = ManualEventReader::default();
+        let mut reader = EventCursor::default();
 
         let events = self.world().get_resource::<Events<AppExit>>()?;
         let mut events = reader.read(events);

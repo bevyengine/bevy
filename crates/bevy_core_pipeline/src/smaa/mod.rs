@@ -15,7 +15,7 @@
 //! pinch, you can simply use the default settings (via the [`Default`] trait)
 //! for a high-quality, high-performance appearance. When using SMAA, you will
 //! likely want to turn the default MSAA off by inserting the
-//! [`bevy_render::Msaa::Off`] resource into the [`App`].
+//! [`bevy_render::view::Msaa::Off`] resource into the [`App`].
 //!
 //! Those who have used SMAA in other engines should be aware that Bevy doesn't
 //! yet support the following more advanced features of SMAA:
@@ -31,7 +31,9 @@
 //! [SMAA]: https://www.iryoku.com/smaa/
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, load_internal_binary_asset, Handle};
+#[cfg(feature = "smaa_luts")]
+use bevy_asset::load_internal_binary_asset;
+use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -47,7 +49,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_graph::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
@@ -65,15 +67,19 @@ use bevy_render::{
         VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, CachedTexture, CompressedImageFormats, GpuImage, Image, ImageFormat,
-        ImageSampler, ImageType, TextureCache,
-    },
+    texture::{BevyDefault, CachedTexture, GpuImage, Image, TextureCache},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
+#[cfg(feature = "smaa_luts")]
+use bevy_render::{
+    render_asset::RenderAssetUsages,
+    texture::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType},
+};
 use bevy_utils::prelude::default;
 
+#[cfg(not(feature = "smaa_luts"))]
+use crate::tonemapping::lut_placeholder;
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -287,6 +293,7 @@ impl Plugin for SmaaPlugin {
 
         // Load the two lookup textures. These are compressed textures in KTX2
         // format.
+        #[cfg(feature = "smaa_luts")]
         load_internal_binary_asset!(
             app,
             SMAA_AREA_LUT_TEXTURE_HANDLE,
@@ -304,6 +311,7 @@ impl Plugin for SmaaPlugin {
             .expect("Failed to load SMAA area LUT")
         );
 
+        #[cfg(feature = "smaa_luts")]
         load_internal_binary_asset!(
             app,
             SMAA_SEARCH_LUT_TEXTURE_HANDLE,
@@ -320,6 +328,16 @@ impl Plugin for SmaaPlugin {
             )
             .expect("Failed to load SMAA search LUT")
         );
+
+        #[cfg(not(feature = "smaa_luts"))]
+        app.world_mut()
+            .resource_mut::<bevy_asset::Assets<Image>>()
+            .insert(SMAA_AREA_LUT_TEXTURE_HANDLE.id(), lut_placeholder());
+
+        #[cfg(not(feature = "smaa_luts"))]
+        app.world_mut()
+            .resource_mut::<bevy_asset::Assets<Image>>()
+            .insert(SMAA_SEARCH_LUT_TEXTURE_HANDLE.id(), lut_placeholder());
 
         app.add_plugins(ExtractComponentPlugin::<SmaaSettings>::default())
             .register_type::<SmaaSettings>();

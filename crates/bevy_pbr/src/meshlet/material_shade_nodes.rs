@@ -7,8 +7,8 @@ use super::{
     MeshletGpuScene,
 };
 use crate::{
-    MeshViewBindGroup, PrepassViewBindGroup, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    MeshViewBindGroup, PrepassViewBindGroup, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_core_pipeline::prepass::{
     MotionVectorPrepass, PreviousViewUniformOffset, ViewPrepassTextures,
@@ -41,6 +41,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         &'static ViewFogUniformOffset,
         &'static ViewLightProbesUniformOffset,
         &'static ViewScreenSpaceReflectionsUniformOffset,
+        &'static ViewEnvironmentMapUniformOffset,
         &'static MeshletViewMaterialsMainOpaquePass,
         &'static MeshletViewBindGroups,
         &'static MeshletViewResources,
@@ -59,6 +60,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_environment_map_offset,
             meshlet_view_materials,
             meshlet_view_bind_groups,
             meshlet_view_resources,
@@ -111,6 +113,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_environment_map_offset,
             ],
         );
         render_pass.set_bind_group(1, meshlet_material_shade_bind_group, &[]);

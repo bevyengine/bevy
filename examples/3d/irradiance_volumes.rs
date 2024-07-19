@@ -239,6 +239,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         .insert(Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
+            ..default()
         });
 }
 
@@ -474,11 +475,7 @@ fn handle_mouse_clicks(
     if !buttons.pressed(MouseButton::Left) {
         return;
     }
-    let Some(mouse_position) = windows
-        .iter()
-        .next()
-        .and_then(|window| window.cursor_position())
-    else {
+    let Some(mouse_position) = windows.iter().next().and_then(Window::cursor_position) else {
         return;
     };
     let Some((camera, camera_transform)) = cameras.iter().next() else {

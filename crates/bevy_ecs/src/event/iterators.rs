@@ -1,11 +1,11 @@
 use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::batching::BatchingStrategy;
-use bevy_ecs::event::{Event, EventId, EventInstance, Events, ManualEventReader};
+use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
 use bevy_utils::detailed_trace;
 use std::{iter::Chain, slice::Iter};
 
-/// An iterator that yields any unread events from an [`EventReader`] or [`ManualEventReader`].
+/// An iterator that yields any unread events from an [`EventReader`](super::EventReader) or [`EventCursor`].
 #[derive(Debug)]
 pub struct EventIterator<'a, E: Event> {
     iter: EventIteratorWithId<'a, E>,
@@ -43,17 +43,17 @@ impl<'a, E: Event> ExactSizeIterator for EventIterator<'a, E> {
     }
 }
 
-/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`ManualEventReader`].
+/// An iterator that yields any unread events (and their IDs) from an [`EventReader`](super::EventReader) or [`EventCursor`].
 #[derive(Debug)]
 pub struct EventIteratorWithId<'a, E: Event> {
-    reader: &'a mut ManualEventReader<E>,
+    reader: &'a mut EventCursor<E>,
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
     unread: usize,
 }
 
 impl<'a, E: Event> EventIteratorWithId<'a, E> {
     /// Creates a new iterator that yields any `events` that have not yet been seen by `reader`.
-    pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
+    pub fn new(reader: &'a mut EventCursor<E>, events: &'a Events<E>) -> Self {
         let a_index = reader
             .last_event_count
             .saturating_sub(events.events_a.start_event_count);
@@ -139,10 +139,10 @@ impl<'a, E: Event> ExactSizeIterator for EventIteratorWithId<'a, E> {
 }
 
 /// A parallel iterator over `Event`s.
-#[derive(Debug)]
 #[cfg(feature = "multi_threaded")]
+#[derive(Debug)]
 pub struct EventParIter<'a, E: Event> {
-    reader: &'a mut ManualEventReader<E>,
+    reader: &'a mut EventCursor<E>,
     slices: [&'a [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
     unread: usize,
@@ -151,7 +151,7 @@ pub struct EventParIter<'a, E: Event> {
 #[cfg(feature = "multi_threaded")]
 impl<'a, E: Event> EventParIter<'a, E> {
     /// Creates a new parallel iterator over `events` that have not yet been seen by `reader`.
-    pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
+    pub fn new(reader: &'a mut EventCursor<E>, events: &'a Events<E>) -> Self {
         let a_index = reader
             .last_event_count
             .saturating_sub(events.events_a.start_event_count);
@@ -224,7 +224,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
                 .batching_strategy
                 .calc_batch_size(|| self.len(), thread_count);
             let chunks = self.slices.map(|s| s.chunks_exact(batch_size));
-            let remainders = chunks.each_ref().map(|c| c.remainder());
+            let remainders = chunks.each_ref().map(std::slice::ChunksExact::remainder);
 
             pool.scope(|scope| {
                 for batch in chunks.into_iter().flatten().chain(remainders) {
