@@ -314,17 +314,19 @@ impl Mesh {
     /// Returns an iterator that yields references to the data of each vertex attribute.
     pub fn attributes(
         &self,
-    ) -> impl Iterator<Item = (MeshVertexAttributeId, &VertexAttributeValues)> {
-        self.attributes.iter().map(|(id, data)| (*id, &data.values))
+    ) -> impl Iterator<Item = (&MeshVertexAttribute, &VertexAttributeValues)> {
+        self.attributes
+            .values()
+            .map(|data| (&data.attribute, &data.values))
     }
 
     /// Returns an iterator that yields mutable references to the data of each vertex attribute.
     pub fn attributes_mut(
         &mut self,
-    ) -> impl Iterator<Item = (MeshVertexAttributeId, &mut VertexAttributeValues)> {
+    ) -> impl Iterator<Item = (&MeshVertexAttribute, &mut VertexAttributeValues)> {
         self.attributes
-            .iter_mut()
-            .map(|(id, data)| (*id, &mut data.values))
+            .values_mut()
+            .map(|data| (&data.attribute, &mut data.values))
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
@@ -747,9 +749,9 @@ impl Mesh {
             .len();
 
         // Extend attributes of `self` with attributes of `other`.
-        for (id, values) in self.attributes_mut() {
+        for (attribute, values) in self.attributes_mut() {
             let enum_variant_name = values.enum_variant_name();
-            if let Some(other_values) = other.attribute(id) {
+            if let Some(other_values) = other.attribute(attribute.id) {
                 match (values, other_values) {
                     (Float32(vec1), Float32(vec2)) => vec1.extend(vec2),
                     (Sint32(vec1), Sint32(vec2)) => vec1.extend(vec2),
@@ -1210,7 +1212,7 @@ impl core::ops::Mul<Mesh> for Transform {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct MeshVertexAttribute {
     /// The friendly name of the vertex attribute
     pub name: &'static str,
