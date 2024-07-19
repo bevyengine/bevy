@@ -6,6 +6,7 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
+use bevy_input::keyboard::{Key, KeyCode};
 use bevy_utils::{
     tracing::{error, info, warn},
     HashMap,
@@ -435,12 +436,7 @@ pub(crate) fn changed_windows(
     }
 }
 
+/// This keeps track of which keys are pressed on each window.
+/// When a window is unfocused, it's used to send key release events for all the currently held keys.
 #[derive(Default, Component)]
-pub struct WinitWindowPressedKeys(pub HashMap<winit::keyboard::PhysicalKey, PressedKey>);
-
-#[derive(PartialEq, Eq, Hash)]
-pub struct PressedKey {
-    pub logical_key: winit::keyboard::Key,
-    pub physical_key: winit::keyboard::PhysicalKey,
-    pub location: winit::keyboard::KeyLocation,
-}
+pub struct WinitWindowPressedKeys(pub(crate) HashMap<KeyCode, Key>);

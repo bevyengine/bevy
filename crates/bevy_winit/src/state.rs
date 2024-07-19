@@ -36,8 +36,7 @@ use bevy_window::{
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 use crate::accessibility::AccessKitAdapters;
-use crate::converters::{convert_logical_key, convert_physical_key_code};
-use crate::system::{CachedWindow, PressedKey, WinitWindowPressedKeys};
+use crate::system::{CachedWindow, WinitWindowPressedKeys};
 use crate::{
     converters, create_windows, AppSendEvent, CreateWindowParams, EventLoopProxyWrapper,
     UpdateMode, WinitEvent, WinitSettings, WinitWindows,
@@ -241,22 +240,17 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 // Winit sends "synthetic" key press & release events when the window gains focus and loses focus respectively.
                 // Synthetic key presses are almost never needed so we ignore them.
                 // Synthetic key releases are not yet handled on all platforms by winit, so we ignore them,
-                // and implement them ourselves by keeping track of the keyboard state (See the `WinitWindowKeyboardState` component)
+                // and implement them ourselves by keeping track of the keyboard state (See the `WinitWindowPressedKeys` component)
                 //
                 // https://github.com/rust-windowing/winit/issues/1272
                 is_synthetic: false,
                 ..
             } => {
-                // Process the keyboard input event, as long as it's not a synthetic key press.
+                let keyboard_input = converters::convert_keyboard_input(event, window);
                 if event.state.is_pressed() {
-                    pressed_keys.0.insert(
-                        event.physical_key,
-                        PressedKey {
-                            logical_key: event.logical_key.clone(),
-                            physical_key: event.physical_key,
-                            location: event.location,
-                        },
-                    );
+                    pressed_keys
+                        .0
+                        .insert(keyboard_input.key_code, keyboard_input.logical_key.clone());
 
                     if let Some(char) = &event.text {
                         let char = char.clone();
@@ -264,10 +258,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                         self.winit_events.send(ReceivedCharacter { window, char });
                     }
                 } else {
-                    pressed_keys.0.remove(&event.physical_key);
+                    pressed_keys.0.remove(&keyboard_input.key_code);
                 }
-                self.winit_events
-                    .send(converters::convert_keyboard_input(event, window));
+                self.winit_events.send(keyboard_input);
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -343,10 +336,10 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 win.focused = focused;
                 self.winit_events.send(WindowFocused { window, focused });
                 if !focused {
-                    for (_, key) in pressed_keys.0.drain() {
+                    for (key_code, logical_key) in pressed_keys.0.drain() {
                         self.winit_events.send(KeyboardInput {
-                            key_code: convert_physical_key_code(key.physical_key),
-                            logical_key: convert_logical_key(&key.logical_key),
+                            key_code,
+                            logical_key,
                             state: bevy_input::ButtonState::Released,
                             repeat: false,
                             window,
