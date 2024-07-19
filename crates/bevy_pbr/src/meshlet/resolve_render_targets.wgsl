@@ -14,7 +14,7 @@ fn resolve_material_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f3
     let depth = visibility >> 32u;
     if depth == 0lu { return 0.0; }
 
-    let cluster_id = u32(visibility & 4294967232lu) >> 6u;
+    let cluster_id = u32(visibility) >> 6u;
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let material_id = meshlet_instance_material_ids[instance_id];
     return f32(material_id) / 65535.0;
