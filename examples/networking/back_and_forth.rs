@@ -3,15 +3,18 @@ use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{Read};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use rustls_pemfile::{Item, read_all};
-use bevy::net::quic::{ConnectionError, EndPoint, ServerConfig};
-use bevy::net::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
+use bevy::net::quic::{ClientConfig, ConnectionError, EndPoint, ServerConfig};
+use bevy::net::quic::crypto::rustls;
+use bevy::net::quic::crypto::rustls::QuicClientConfig;
+use bevy::net::rustls::pki_types::{CertificateDer, PrivatePkcs1KeyDer, PrivatePkcs8KeyDer};
 
 use bevy::prelude::*;
 use bevy::tasks::IoTaskPool;
 
-fn load_cert() -> (CertificateDer<'static>, PrivatePkcs8KeyDer<'static>) {
+fn load_cert() -> (CertificateDer<'static>, PrivatePkcs1KeyDer<'static>) {
     #[cfg(not(target_os = "windows"))]
     let mut f= File::open(Path::new(r"../../assets/crypto/bevy_emaple_cert.pem")).unwrap();
     #[cfg(target_os = "windows")]
@@ -20,30 +23,44 @@ fn load_cert() -> (CertificateDer<'static>, PrivatePkcs8KeyDer<'static>) {
     let mut bytes = vec![];
     
     f.read_to_end(&mut bytes).unwrap();
-    
+
+    let mut cert = None;
+    let mut key = None;
+
+
     for item in read_all(&mut VecDeque::from(bytes))  {
 
         match item.unwrap() {
-            Item::X509Certificate(_) => {todo!()}
-            Item::Pkcs1Key(_) => {todo!()}
-            Item::Pkcs8Key(_) => {todo!()}
-            Item::Sec1Key(_) => {todo!()}
-            Item::Crl(_) => {todo!()}
-            Item::Csr(_) => {todo!()}
-            _ => {unimplemented!()}
+            Item::X509Certificate(certder) => {
+                cert = Some(certder.to_owned());
+            }
+            Item::Pkcs1Key(k) => {
+                key = Some(k);
+            }
+            _ => {}
         }
-        
-        todo!()
     }
 
-    unimplemented!("no certificate or and/or private key was found");
+    assert!(cert.is_some() && key.is_some());
+
+    (cert.unwrap(), key.unwrap())
 }
 
 fn end_points() -> (EndPoint, EndPoint) {
     let (cert, key) = load_cert();
-    
-    let client_endpoint = EndPoint::client("[::]:0".parse().unwrap()).unwrap();
-    
+
+    let mut client_endpoint = EndPoint::client("[::]:0".parse().unwrap()).unwrap();
+
+    client_endpoint.set_default_client_config(
+        ClientConfig::new(
+            Arc::new(
+                QuicClientConfig::with_initial(
+                    Arc::new(rustls::)
+                )
+            )
+        )
+    )
+
     let server_endpoint = EndPoint::server(
         ServerConfig::with_single_cert(
             vec![cert], key.into()).unwrap(), 
@@ -55,7 +72,7 @@ fn end_points() -> (EndPoint, EndPoint) {
 
 fn start_ping_pong() {
     let (client, server) = end_points();
-    
+
     let server_addr = server.local_addr().unwrap();
     let client_addr = client.local_addr().unwrap();
     
@@ -87,7 +104,7 @@ fn start_ping_pong() {
                 println!("client sent a ping");
                 let data = client_connection.read_datagram().await.unwrap();
                 assert!(data.len() == 1 && data[0] == 1);
-                println!("client servers pong")
+                println!("client servers pong");
             }
         }).detach();
 
@@ -97,7 +114,7 @@ fn start_ping_pong() {
                 assert!(data.len() == 1 && data[0] == 0);
                 println!("server received clients ping");
                 server_connection.send_datagram(vec![1].into()).unwrap();
-                println!("server send client a pong")
+                println!("server send client a pong");
             }
         }).detach();
     }).detach();
