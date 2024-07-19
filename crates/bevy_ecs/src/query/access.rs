@@ -4,7 +4,7 @@ use core::fmt;
 use std::marker::PhantomData;
 use smallvec::SmallVec;
 
-const ACCESS_SMALL_VEC_SIZE: usize = 64;
+const ACCESS_SMALL_VEC_SIZE: usize = 8;
 
 /// Tracks read and write access to specific elements in a collection.
 ///

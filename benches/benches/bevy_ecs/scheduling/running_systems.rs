@@ -119,7 +119,7 @@ pub fn contrived(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("contrived");
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(3));
-    for entity_bunches in 1..6 {
+    for entity_bunches in 1..2 {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.0), D(0.0))));
