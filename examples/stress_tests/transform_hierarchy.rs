@@ -18,7 +18,12 @@
 //! | `humanoids_inactive` | 4000 humanoid rigs. Only 10 are active.                           |
 //! | `humanoids_mixed`    | 2000 active and 2000 inactive humanoid rigs.                      |
 
-use bevy::{log::LogPlugin, prelude::*};
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    log::LogPlugin,
+    prelude::*,
+    window::{PresentMode, WindowResolution},
+};
 use rand::Rng;
 
 /// pre-defined test configurations with name
@@ -183,7 +188,19 @@ fn main() {
 
     App::new()
         .insert_resource(cfg)
-        .add_plugins((MinimalPlugins, TransformPlugin, LogPlugin::default()))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: WindowResolution::new(1920.0, 1080.0)
+                        .with_scale_factor_override(1.0),
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
+                ..default()
+            }),
+            FrameTimeDiagnosticsPlugin,
+            LogDiagnosticsPlugin::default(),
+        ))
         .add_systems(Startup, setup)
         // Updating transforms *must* be done before `PostUpdate`
         // or the hierarchy will momentarily be in an invalid state.
