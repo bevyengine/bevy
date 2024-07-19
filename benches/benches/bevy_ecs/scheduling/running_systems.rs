@@ -123,7 +123,7 @@ pub fn contrived(criterion: &mut Criterion) {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (C(0.0), D(0.0))));
-        for system_amount in 0..5 {
+        for system_amount in 50..51 {
             let mut schedule = Schedule::default();
             schedule.add_systems((s_0, s_1, s_2));
             for _ in 0..system_amount {
