@@ -1865,7 +1865,7 @@ macro_rules! impl_anytuple_fetch {
                 // update the filters (Or<(With<$name>,)>)
                 let ($($name,)*) = state;
 
-                let mut _new_access = FilteredAccess::empty();
+                let mut _new_access = FilteredAccess::matches_nothing();
 
                 $(
                     // Create an intermediate because `access`'s value needs to be preserved
