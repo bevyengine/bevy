@@ -16,7 +16,6 @@ use bevy_ecs::{
 };
 use bevy_math::Vec4;
 use bevy_render::{
-    extract_component::ComponentUniforms,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::RenderAssets,
     render_resource::{binding_types::*, *},
@@ -42,9 +41,9 @@ use crate::{
         self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
         IRRADIANCE_VOLUMES_ARE_USABLE,
     },
-    prepass, EnvironmentMapUniform, FogMeta, GlobalClusterableObjectMeta, GpuClusterableObjects,
-    GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline,
-    MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionTextures,
+    prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
+    GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
+    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionTextures,
     ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
     ViewClusterBindings, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
@@ -452,10 +451,7 @@ pub fn prepare_mesh_view_bind_groups(
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalClusterableObjectMeta>,
     fog_meta: Res<FogMeta>,
-    (view_uniforms, environment_map_uniforms): (
-        Res<ViewUniforms>,
-        Res<ComponentUniforms<EnvironmentMapUniform>>,
-    ),
+    (view_uniforms, environment_map_uniform): (Res<ViewUniforms>, Res<EnvironmentMapUniformBuffer>),
     views: Query<(
         Entity,
         &ViewShadowBindings,
@@ -499,7 +495,7 @@ pub fn prepare_mesh_view_bind_groups(
         light_probes_buffer.binding(),
         visibility_ranges.buffer().buffer(),
         ssr_buffer.binding(),
-        environment_map_uniforms.binding(),
+        environment_map_uniform.binding(),
     ) {
         for (
             entity,

@@ -15,7 +15,6 @@ use bevy_ecs::{
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    extract_component::{ExtractComponentPlugin, UniformComponentPlugin},
     extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
@@ -26,7 +25,7 @@ use bevy_render::{
     view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::prelude::GlobalTransform;
+use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bevy_utils::{tracing::error, HashMap};
 
 use std::hash::Hash;
@@ -305,6 +304,23 @@ pub struct EnvironmentMapUniform {
     transform: Mat4,
 }
 
+impl Default for EnvironmentMapUniform {
+    fn default() -> Self {
+        EnvironmentMapUniform {
+            transform: Mat4::IDENTITY,
+        }
+    }
+}
+
+/// A GPU buffer that stores the environment map settings for each view.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct EnvironmentMapUniformBuffer(pub DynamicUniformBuffer<EnvironmentMapUniform>);
+
+/// A component that stores the offset within the
+/// [`EnvironmentMapUniformBuffer`] for each view.
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ViewEnvironmentMapUniformOffset(u32);
+
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -329,10 +345,6 @@ impl Plugin for LightProbePlugin {
         app.register_type::<LightProbe>()
             .register_type::<EnvironmentMapLight>()
             .register_type::<IrradianceVolume>();
-        app.add_plugins((
-            ExtractComponentPlugin::<EnvironmentMapLight>::default(),
-            UniformComponentPlugin::<EnvironmentMapUniform>::default(),
-        ));
     }
 
     fn finish(&self, app: &mut App) {
@@ -343,12 +355,59 @@ impl Plugin for LightProbePlugin {
         render_app
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
+            .init_resource::<EnvironmentMapUniformBuffer>()
+            .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
                 Render,
-                upload_light_probes.in_set(RenderSet::PrepareResources),
+                (upload_light_probes, prepare_environment_uniform_buffer)
+                    .in_set(RenderSet::PrepareResources),
             );
+    }
+}
+
+pub fn prepare_environment_uniform_buffer(
+    mut commands: Commands,
+    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
+    mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    let Some(mut writer) =
+        environment_uniform_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
+    else {
+        return;
+    };
+
+    for (view, environment_uniform) in views.iter() {
+        let uniform_offset = match environment_uniform {
+            None => 0,
+            Some(environment_uniform) => writer.write(environment_uniform),
+        };
+        commands
+            .entity(view)
+            .insert(ViewEnvironmentMapUniformOffset(uniform_offset));
+    }
+}
+
+fn gather_environment_map_uniform(
+    view_query: Extract<Query<(Entity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
+    mut commands: Commands,
+) {
+    for (view_entity, environment_map_light) in view_query.iter() {
+        let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
+            EnvironmentMapUniform {
+                transform: Transform::from_rotation(environment_map_light.rotation)
+                    .compute_matrix()
+                    .inverse(),
+            }
+        } else {
+            EnvironmentMapUniform::default()
+        };
+        commands
+            .get_or_spawn(view_entity)
+            .insert(environment_map_uniform);
     }
 }
 

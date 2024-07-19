@@ -1765,11 +1765,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("TONEMAP_IN_SHADER".into());
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
-                20,
+                21,
             ));
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
-                21,
+                22,
             ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
@@ -2096,6 +2096,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemQuery = ();
@@ -2103,10 +2104,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_light_probes, view_ssr, mesh_view_bind_group): ROQueryItem<
-            'w,
-            Self::ViewQuery,
-        >,
+        (
+            view_uniform,
+            view_lights,
+            view_fog,
+            view_light_probes,
+            view_ssr,
+            view_environment_map,
+            mesh_view_bind_group,
+        ): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -2120,6 +2126,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_fog.offset,
                 **view_light_probes,
                 **view_ssr,
+                **view_environment_map,
             ],
         );
 

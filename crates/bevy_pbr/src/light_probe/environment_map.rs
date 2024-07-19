@@ -53,7 +53,6 @@ use bevy_ecs::{
 use bevy_math::Quat;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_component::ExtractComponent,
     extract_instances::ExtractInstance,
     prelude::SpatialBundle,
     render_asset::RenderAssets,
@@ -65,7 +64,6 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage, Image},
 };
-use bevy_transform::components::Transform;
 
 use std::num::NonZeroU32;
 use std::ops::Deref;
@@ -106,20 +104,6 @@ pub struct EnvironmentMapLight {
     /// This is useful for users who require a different axis, such as the Z-axis, to serve
     /// as the vertical axis.
     pub rotation: Quat,
-}
-
-impl ExtractComponent for EnvironmentMapLight {
-    type QueryData = &'static Self;
-    type QueryFilter = ();
-    type Out = EnvironmentMapUniform;
-
-    fn extract_component(light: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(EnvironmentMapUniform {
-            transform: Transform::from_rotation(light.rotation)
-                .compute_matrix()
-                .inverse(),
-        })
-    }
 }
 
 impl Default for EnvironmentMapLight {
@@ -240,7 +224,7 @@ pub(crate) fn get_bind_group_layout_entries(
         texture_cube_binding,
         texture_cube_binding,
         binding_types::sampler(SamplerBindingType::Filtering),
-        uniform_buffer::<EnvironmentMapUniform>(false).visibility(ShaderStages::FRAGMENT),
+        uniform_buffer::<EnvironmentMapUniform>(true).visibility(ShaderStages::FRAGMENT),
     ]
 }
 
