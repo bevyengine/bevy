@@ -238,9 +238,10 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::KeyboardInput {
                 ref event,
                 // Winit sends "synthetic" key press & release events when the window gains focus and loses focus respectively.
-                // Synthetic key presses are almost never needed so we ignore them.
-                // Synthetic key releases are not yet handled on all platforms by winit, so we ignore them,
-                // and implement them ourselves by keeping track of the keyboard state (See the `WinitWindowPressedKeys` component)
+                // Synthetic key presses are usually unexpected so we ignore them.
+                // Synthetic key releases are usually expected, but not yet handled on all platforms by winit,
+                // so we ignore them too, and implement them ourselves by keeping track of the keyboard state
+                // (See the `WinitWindowPressedKeys` component)
                 //
                 // https://github.com/rust-windowing/winit/issues/1272
                 is_synthetic: false,

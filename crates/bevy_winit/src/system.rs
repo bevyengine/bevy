@@ -437,6 +437,6 @@ pub(crate) fn changed_windows(
 }
 
 /// This keeps track of which keys are pressed on each window.
-/// When a window is unfocused, it's used to send key release events for all the currently held keys.
+/// When a window is unfocused, this is used to send key release events for all the currently held keys.
 #[derive(Default, Component)]
 pub struct WinitWindowPressedKeys(pub(crate) HashMap<KeyCode, Key>);
