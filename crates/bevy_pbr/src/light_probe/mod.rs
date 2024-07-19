@@ -367,30 +367,9 @@ impl Plugin for LightProbePlugin {
     }
 }
 
-pub fn prepare_environment_uniform_buffer(
-    mut commands: Commands,
-    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
-    mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-) {
-    let Some(mut writer) =
-        environment_uniform_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
-    else {
-        return;
-    };
-
-    for (view, environment_uniform) in views.iter() {
-        let uniform_offset = match environment_uniform {
-            None => 0,
-            Some(environment_uniform) => writer.write(environment_uniform),
-        };
-        commands
-            .entity(view)
-            .insert(ViewEnvironmentMapUniformOffset(uniform_offset));
-    }
-}
-
+/// Extracts [`EnvironmentMapLight`] from views and creates [`EnvironmentMapUniform`] for them.
+/// Compared to the [`ExtractComponentPlugin`], this implementation will create a default instance
+/// if one does not already exist.
 fn gather_environment_map_uniform(
     view_query: Extract<Query<(Entity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
     mut commands: Commands,
@@ -464,6 +443,32 @@ fn gather_light_probes<C>(
                 .get_or_spawn(view_entity)
                 .insert(render_view_light_probes);
         }
+    }
+}
+
+/// Gathers up environment map settings for each applicable view and
+/// writes them into a GPU buffer.
+pub fn prepare_environment_uniform_buffer(
+    mut commands: Commands,
+    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
+    mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    let Some(mut writer) =
+        environment_uniform_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
+    else {
+        return;
+    };
+
+    for (view, environment_uniform) in views.iter() {
+        let uniform_offset = match environment_uniform {
+            None => 0,
+            Some(environment_uniform) => writer.write(environment_uniform),
+        };
+        commands
+            .entity(view)
+            .insert(ViewEnvironmentMapUniformOffset(uniform_offset));
     }
 }
 
