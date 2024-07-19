@@ -604,7 +604,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     (
                         child.index(),
                         load_context
-                            .get_label_handle(format!("{}", GltfAssetLabel::Node(node.index()))),
+                            .get_label_handle(format!("{}", GltfAssetLabel::Node(child.index()))),
                     )
                 })
                 .collect::<Vec<_>>(),
