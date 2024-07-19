@@ -742,6 +742,7 @@ impl PipelineCache {
                 let compilation_options = PipelineCompilationOptions {
                     constants: &std::collections::HashMap::new(),
                     zero_initialize_workgroup_memory: false,
+                    vertex_pulling_transform: Default::default(),
                 };
 
                 let descriptor = RawRenderPipelineDescriptor {
@@ -767,6 +768,7 @@ impl PipelineCache {
                             // TODO: Should this be the same as the vertex compilation options?
                             compilation_options,
                         }),
+                    cache: None,
                 };
 
                 Ok(Pipeline::RenderPipeline(
@@ -822,7 +824,9 @@ impl PipelineCache {
                     compilation_options: PipelineCompilationOptions {
                         constants: &std::collections::HashMap::new(),
                         zero_initialize_workgroup_memory: false,
+                        vertex_pulling_transform: Default::default(),
                     },
+                    cache: None,
                 };
 
                 Ok(Pipeline::ComputePipeline(
