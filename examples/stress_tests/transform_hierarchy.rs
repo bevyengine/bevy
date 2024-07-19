@@ -20,7 +20,6 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    log::LogPlugin,
     prelude::*,
     window::{PresentMode, WindowResolution},
 };
