@@ -62,19 +62,15 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// // We start by defining the shape of the function:
 /// let info = FunctionInfo::new()
 ///   .with_name("append")
-///   .with_args(vec![
-///     ArgInfo::new::<String>(0).with_name("value"),
-///     ArgInfo::new::<&mut Vec<String>>(1).with_name("list"),
-///   ])
-///   .with_return_info(
-///     ReturnInfo::new::<&mut String>()
-///   );
+///   .with_arg::<String>("value")
+///   .with_arg::<&mut Vec<String>>("list")
+///   .with_return::<&mut String>();
 ///
 /// // Then we define the dynamic function, which will be used to call our `append` function:
-/// let mut func = DynamicFunction::new(|mut args, info| {
-///   // Arguments are popped from the list in reverse order:
-///   let arg1 = args.pop().unwrap().take_mut::<Vec<String>>(&info.args()[1]).unwrap();
-///   let arg0 = args.pop().unwrap().take_owned::<String>(&info.args()[0]).unwrap();
+/// let mut func = DynamicFunction::new(|mut args| {
+///   // Arguments are removed from the list in order:
+///   let arg0 = args.take::<String>()?;
+///   let arg1 = args.take::<&mut Vec<String>>()?;
 ///
 ///   // Then we can call our function and return the result:
 ///   Ok(Return::Mut(append(arg0, arg1)))
@@ -97,7 +93,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// [module-level documentation]: crate::func
 pub struct DynamicFunction {
     info: FunctionInfo,
-    func: Arc<dyn for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>,
+    func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>,
 }
 
 impl DynamicFunction {
@@ -106,8 +102,8 @@ impl DynamicFunction {
     /// The given function can be used to call out to a regular function, closure, or method.
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
-    /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> Fn(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'static>(
+    /// This info may be used by consumers of the function for validation and debugging.
+    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
@@ -130,8 +126,8 @@ impl DynamicFunction {
 
     /// Set the arguments of the function.
     ///
-    /// It is very important that the arguments match the intended function signature,
-    /// as this is used to validate arguments passed to the function.
+    /// It's important that the arguments match the intended function signature,
+    /// as this can be used by consumers of the function for validation and debugging.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.info = self.info.with_args(args);
         self
@@ -159,7 +155,7 @@ impl DynamicFunction {
     /// assert_eq!(result.take::<i32>().unwrap(), 100);
     /// ```
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func)(args, &self.info)
+        (self.func)(args)
     }
 
     /// Returns the function info.
@@ -212,6 +208,7 @@ impl IntoFunction<()> for DynamicFunction {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::func::Return;
 
     #[test]
     fn should_overwrite_function_name() {
@@ -229,5 +226,35 @@ mod tests {
 
         let function: DynamicFunction = make_function(|| {});
         let _: DynamicFunction = make_function(function);
+    }
+
+    #[test]
+    fn should_allow_manual_function_construction() {
+        #[allow(clippy::ptr_arg)]
+        fn get(index: usize, list: &Vec<String>) -> &String {
+            &list[index]
+        }
+
+        let func = DynamicFunction::new(
+            |mut args| {
+                let list = args.pop::<&Vec<String>>()?;
+                let index = args.pop::<usize>()?;
+                Ok(Return::Ref(get(index, list)))
+            },
+            FunctionInfo::new()
+                .with_name("get")
+                .with_arg::<usize>("index")
+                .with_arg::<&Vec<String>>("list")
+                .with_return::<&String>(),
+        );
+
+        let list = vec![String::from("foo")];
+        let value = func
+            .call(ArgList::new().push_owned(0_usize).push_ref(&list))
+            .unwrap()
+            .unwrap_ref()
+            .downcast_ref::<String>()
+            .unwrap();
+        assert_eq!(value, "foo");
     }
 }

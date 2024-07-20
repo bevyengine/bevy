@@ -47,10 +47,7 @@ where
         // However, we don't do this because it would prevent users from
         // converting function pointers into `DynamicFunction`s.
 
-        DynamicFunction::new(
-            move |args, info| self.reflect_call(args, info),
-            Self::function_info(),
-        )
+        DynamicFunction::new(move |args| self.reflect_call(args), Self::function_info())
     }
 }
 

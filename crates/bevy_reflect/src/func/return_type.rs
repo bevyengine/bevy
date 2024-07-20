@@ -61,11 +61,15 @@ impl<'a> Return<'a> {
 
 /// A trait for types that can be converted into a [`Return`] value.
 ///
+/// This trait exists so that types can be automatically converted into a [`Return`]
+/// by [`IntoFunction`].
+///
 /// This trait is used instead of a blanket [`Into`] implementation due to coherence issues:
 /// we can't implement `Into<Return>` for both `T` and `&T`/`&mut T`.
 ///
 /// This trait is automatically implemented when using the `Reflect` [derive macro].
 ///
+/// [`IntoFunction`]: crate::func::IntoFunction
 /// [derive macro]: derive@crate::Reflect
 pub trait IntoReturn {
     /// Converts [`Self`] into a [`Return`] value.

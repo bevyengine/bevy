@@ -13,7 +13,7 @@ pub enum FunctionError {
     ArgError(#[from] ArgError),
     /// The number of arguments provided does not match the expected number.
     #[error("expected {expected} arguments but received {received}")]
-    InvalidArgCount { expected: usize, received: usize },
+    ArgCountMismatch { expected: usize, received: usize },
 }
 
 /// The result of calling a dynamic [`DynamicFunction`] or [`DynamicClosure`].

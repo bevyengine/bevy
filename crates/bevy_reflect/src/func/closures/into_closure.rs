@@ -21,10 +21,7 @@ where
     F: ReflectFn<'env, Marker1> + TypedFunction<Marker2> + 'env,
 {
     fn into_closure(self) -> DynamicClosure<'env> {
-        DynamicClosure::new(
-            move |args, info| self.reflect_call(args, info),
-            Self::function_info(),
-        )
+        DynamicClosure::new(move |args| self.reflect_call(args), Self::function_info())
     }
 }
 
