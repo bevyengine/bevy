@@ -1124,7 +1124,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
 /// An [`Iterator`] over randomized query results of a [`Query`](crate::system::Query).
 ///
 /// This type is created by the [`QueryIter::randomize`] method.
-type QueryRandomIter<'w, 's, D, F, I> = QuerySortedIter<'w, 's, D, F, I>;
+pub type QueryRandomIter<'w, 's, D, F, I> = QuerySortedIter<'w, 's, D, F, I>;
 
 /// An [`Iterator`] over the query items generated from an iterator of [`Entity`]s.
 ///
