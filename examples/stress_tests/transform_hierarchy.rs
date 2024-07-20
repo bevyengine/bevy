@@ -21,7 +21,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{ExitCondition, PresentMode, WindowResolution},
+    window::ExitCondition,
 };
 use rand::Rng;
 
