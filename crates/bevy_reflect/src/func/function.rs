@@ -253,7 +253,7 @@ mod tests {
             .call(ArgList::new().push_owned(0_usize).push_ref(&list))
             .unwrap()
             .unwrap_ref()
-            .downcast_ref::<String>()
+            .try_downcast_ref::<String>()
             .unwrap();
         assert_eq!(value, "foo");
     }
