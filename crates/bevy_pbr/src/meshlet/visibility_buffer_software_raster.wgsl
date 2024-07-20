@@ -19,7 +19,7 @@
 
 /// Compute shader for rasterizing small clusters into a visibility buffer.
 
-var<workgroup> screen_space_vertices: array<vec3f, 64>;
+var<workgroup> viewport_vertices: array<vec3f, 64>;
 
 @compute
 @workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 vertex/triangle per thread, 1 cluster per workgroup
@@ -37,7 +37,7 @@ fn rasterize_cluster(
         let meshlet_vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
         let vertex = unpack_meshlet_vertex(meshlet_vertex_data[meshlet_vertex_id]);
 
-        // Project vertex to screen space
+        // Project vertex to viewport space
         let instance_id = meshlet_cluster_instance_ids[cluster_id];
         let instance_uniform = meshlet_instance_uniforms[instance_id];
         let world_from_local = affine3_to_square(instance_uniform.world_from_local);
@@ -48,11 +48,10 @@ fn rasterize_cluster(
         clip_position.z = min(clip_position.z, 1.0);
     #endif
         let ndc_position = clip_position.xyz / clip_position.w;
-        let screen_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
-        let screen_position = vec3(screen_position_xy, ndc_position.z);
+        let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
 
-        // Write screen space vertex to workgroup shared memory
-        screen_space_vertices[vertex_id] = screen_position;
+        // Write vertex to workgroup shared memory
+        viewport_vertices[vertex_id] = vec3(viewport_position_xy, ndc_position.z);
     }
 
     workgroupBarrier();
@@ -62,9 +61,9 @@ fn rasterize_cluster(
     if triangle_id >= meshlet.triangle_count { return; }
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
     let vertex_ids = vec3(get_meshlet_index(index_ids[0]), get_meshlet_index(index_ids[1]), get_meshlet_index(index_ids[2]));
-    let vertex_0 = screen_space_vertices[vertex_ids[0]];
-    let vertex_1 = screen_space_vertices[vertex_ids[1]];
-    let vertex_2 = screen_space_vertices[vertex_ids[2]];
+    let vertex_0 = viewport_vertices[vertex_ids[0]];
+    let vertex_1 = viewport_vertices[vertex_ids[1]];
+    let vertex_2 = viewport_vertices[vertex_ids[2]];
 
     // Compute triangle bounding box
     var min_x = floor(min3(vertex_0.x, vertex_1.x, vertex_2.x));
@@ -86,7 +85,7 @@ fn rasterize_cluster(
         edge_function(vertex_2.xy, vertex_0.xy, vec2(min_x, min_y) + 0.5),
         edge_function(vertex_0.xy, vertex_1.xy, vec2(min_x, min_y) + 0.5),
     );
-    let double_triangle_area = edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy);
+    let inverse_double_triangle_area = 1.0 / edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy);
 
     let vertices_z = vec3(vertex_0.z, vertex_1.z, vertex_2.z);
     let view_width = u32(view.viewport.z);
@@ -97,14 +96,10 @@ fn rasterize_cluster(
         var w = w_row;
 
         for (var x = min_x; x <= max_x; x += 1.0) {
-            // Use pixel center
-            let x = x + 0.5;
-            let y = y + 0.5;
-
             // Check if point at pixel is within triangle
             if min3(w[0], w[1], w[2]) >= 0.0 {
                 // Interpolate vertex depth for the current pixel
-                let z = dot(w / double_triangle_area, vertices_z);
+                let z = dot(w * inverse_double_triangle_area, vertices_z);
 
                 // Write pixel to visibility buffer
                 let frag_coord_1d = u32(y) * view_width + u32(x);

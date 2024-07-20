@@ -133,7 +133,7 @@ fn cull_clusters(
     aabb_width_pixels = (aabb.z - aabb.x) * view.viewport.z;
     aabb_height_pixels = (aabb.w - aabb.y) * view.viewport.w;
 #endif
-    let cluster_is_small = all(vec2(aabb_width_pixels, aabb_height_pixels) < vec2(32.0));
+    let cluster_is_small = all(vec2(aabb_width_pixels, aabb_height_pixels) < vec2(32.0)); // TODO: Nanite does something different. Come up with my own heuristic.
 
     // TODO: Also check if needs depth clipping
     if cluster_is_small {
