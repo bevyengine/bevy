@@ -1,3 +1,5 @@
+use bevy_utils::RandomState;
+
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
@@ -10,6 +12,7 @@ use std::{
     borrow::Borrow,
     cmp::Ordering,
     fmt::{self, Debug, Formatter},
+    hash::{BuildHasher, Hash, Hasher},
     iter::FusedIterator,
     mem::MaybeUninit,
     ops::Range,
@@ -165,6 +168,32 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             accum = func(accum, item);
         }
         accum
+    }
+
+    /// Randomizes the order of all query items within a new iterator.
+    ///
+    /// This method produces a new order with each call.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
+    ///
+    pub fn randomize(
+        self,
+    ) -> QueryRandomIter<
+        'w,
+        's,
+        D,
+        F,
+        impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+    > {
+        // FIXME: This uses AHash, it could be made faster with `EntityHash`.
+        // However, `EntityHasher` currently does not have a `RandomState` equivalent.
+        let mut hasher = RandomState::new().build_hasher();
+        self.sort_by_cached_key::<Entity, _>(move |e| {
+            e.hash(&mut hasher);
+            hasher.finish()
+        })
     }
 
     /// Sorts all query items into a new iterator, using the query lens as a key.
@@ -1070,6 +1099,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
         f.debug_struct("QuerySortedIter").finish()
     }
 }
+
+/// An [`Iterator`] over randomized query results of a [`Query`](crate::system::Query).
+///
+/// This type is created by the [`QueryIter::randomize`] method.
+type QueryRandomIter<'w, 's, D, F, I> = QuerySortedIter<'w, 's, D, F, I>;
 
 /// An [`Iterator`] over the query items generated from an iterator of [`Entity`]s.
 ///
