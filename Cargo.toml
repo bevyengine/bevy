@@ -365,6 +365,7 @@ ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
+bevy_render = { path = "crates/bevy_render", version = "0.15.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.12"
@@ -2981,6 +2982,14 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "ambiguity_detection"
+path = "tests/ecs/ambiguity_detection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ambiguity_detection]
+hidden = true
+
+[[example]]
 name = "resizing"
 path = "tests/window/resizing.rs"
 doc-scrape-examples = true
@@ -3035,6 +3044,17 @@ doc-scrape-examples = true
 name = "UI Material"
 description = "Demonstrates creating and using custom Ui materials"
 category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "cubic_splines"
+path = "examples/math/cubic_splines.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.cubic_splines]
+name = "Cubic Splines"
+description = "Exhibits different modes of constructing cubic curves using splines"
+category = "Math"
 wasm = true
 
 [[example]]
@@ -3294,6 +3314,18 @@ name = "Built-in postprocessing"
 description = "Demonstrates the built-in postprocessing features"
 category = "3D Rendering"
 wasm = true
+
+[[example]]
+name = "rotate_environment_map"
+path = "examples/3d/rotate_environment_map.rs"
+doc-scrape-examples = true
+required-features = ["pbr_multi_layer_material_textures"]
+
+[package.metadata.example.rotate_environment_map]
+name = "Rotate Environment Map"
+description = "Demonstrates how to rotate the skybox and the environment map simultaneously"
+category = "3D Rendering"
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"
