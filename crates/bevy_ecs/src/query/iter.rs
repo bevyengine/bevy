@@ -178,6 +178,20 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     ///
+    /// # Example
+    /// 
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut world = World::new();
+    /// # fn system(query: Query<()>) {
+    /// // Fetch random query item!
+    /// let random_item = query.iter().randomize().take(1);
+    /// # }
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(system);
+    /// # schedule.run(&mut world);
+    /// ```
     pub fn randomize(
         self,
     ) -> QueryRandomIter<
