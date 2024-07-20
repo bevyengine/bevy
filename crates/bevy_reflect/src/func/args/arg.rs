@@ -1,4 +1,4 @@
-use crate::func::args::{ArgError, ArgInfo, Ownership};
+use crate::func::args::{ArgError, FromArg, Ownership};
 use crate::{PartialReflect, Reflect, TypePath};
 use std::ops::Deref;
 
@@ -83,7 +83,7 @@ impl<'a> Arg<'a> {
     /// ```
     pub fn take_owned<T: Reflect + TypePath>(self) -> Result<T, ArgError> {
         match self.value {
-            ArgValue::Owned(arg) => arg.take().map_err(|arg| ArgError::UnexpectedType {
+            ArgValue::Owned(arg) => arg.try_take().map_err(|arg| ArgError::UnexpectedType {
                 index: self.index,
                 expected: std::borrow::Cow::Borrowed(T::type_path()),
                 received: std::borrow::Cow::Owned(arg.reflect_type_path().to_string()),
@@ -186,13 +186,13 @@ impl<'a> Arg<'a> {
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Debug)]
 pub enum ArgValue<'a> {
-    Owned(Box<dyn Reflect>),
-    Ref(&'a dyn Reflect),
-    Mut(&'a mut dyn Reflect),
+    Owned(Box<dyn PartialReflect>),
+    Ref(&'a dyn PartialReflect),
+    Mut(&'a mut dyn PartialReflect),
 }
 
 impl<'a> Deref for ArgValue<'a> {
-    type Target = dyn Reflect;
+    type Target = dyn PartialReflect;
 
     fn deref(&self) -> &Self::Target {
         match self {
