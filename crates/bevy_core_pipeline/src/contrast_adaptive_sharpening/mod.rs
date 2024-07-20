@@ -183,7 +183,7 @@ impl FromWorld for CasPipeline {
                 (
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     sampler(SamplerBindingType::Filtering),
-                    // Cas Settings
+                    // CAS Settings
                     uniform_buffer::<CasUniform>(true),
                 ),
             ),
