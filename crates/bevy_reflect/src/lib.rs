@@ -59,7 +59,7 @@
 //! * `Reflect`, since it provides a stronger type-correctness guarantee,
 //!   is the trait used to interact with [the type registry].
 //!
-//! ## Converting between `dyn PartialReflect` and `dyn Reflect`
+//! ## Converting between `PartialReflect` and `Reflect`
 //!
 //! Since `T: Reflect` implies `T: PartialReflect`, conversion from a `dyn Reflect` to a `dyn PartialReflect`
 //! trait object (upcasting) is infallible and can be performed with one of the following methods.
