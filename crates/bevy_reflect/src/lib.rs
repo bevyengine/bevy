@@ -100,7 +100,7 @@
 //!
 //! We can implement `Reflect` on any type that satisfies _both_ of the following conditions:
 //! * The type implements `Any`, `Send`, and `Sync`.
-//!   This is true if and only if the type itself has a [`'static` lifetime].
+//!   For the `Any` requirement to be satisfied, the type itself must have a [`'static` lifetime].
 //! * All fields and sub-elements themselves implement `Reflect`
 //!   (see the [derive macro documentation] for details on how to ignore certain fields when deriving).
 //!

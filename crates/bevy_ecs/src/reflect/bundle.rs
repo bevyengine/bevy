@@ -4,7 +4,7 @@
 //! This module exports two types: [`ReflectBundleFns`] and [`ReflectBundle`].
 //!
 //! Same as [`super::component`], but for bundles.
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 
 use crate::{
     prelude::Bundle,
@@ -183,7 +183,7 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
 }
 
 fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &TypeRegistry) {
-    let Some(type_id) = field.try_as_reflect().map(|field| field.type_id()) else {
+    let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
         panic!(
             "`{}` did not implement `Reflect`",
             field.reflect_type_path()
@@ -206,7 +206,7 @@ fn apply_or_insert_field(
     field: &dyn PartialReflect,
     registry: &TypeRegistry,
 ) {
-    let Some(type_id) = field.try_as_reflect().map(|field| field.type_id()) else {
+    let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
         panic!(
             "`{}` did not implement `Reflect`",
             field.reflect_type_path()

@@ -11,7 +11,7 @@ use bevy::reflect::func::{
     ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionInfo, IntoClosure,
     IntoClosureMut, IntoFunction, Return, ReturnInfo,
 };
-use bevy::reflect::Reflect;
+use bevy::reflect::{PartialReflect, Reflect};
 
 // Note that the `dbg!` invocations are used purely for demonstration purposes
 // and are not strictly necessary for the example to work.
@@ -53,8 +53,8 @@ fn main() {
 
     // The `Return` value can be pattern matched or unwrapped to get the underlying reflection data.
     // For the sake of brevity, we'll just unwrap it here and downcast it to the expected type of `i32`.
-    let value: Box<dyn Reflect> = return_value.unwrap_owned();
-    assert_eq!(value.take::<i32>().unwrap(), 4);
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<i32>().unwrap(), 4);
 
     // The same can also be done for closures that capture references to their environment.
     // Closures that capture their environment immutably can be converted into a `DynamicClosure`
@@ -65,8 +65,8 @@ fn main() {
     let function: DynamicClosure = dbg!(clamp.into_closure());
     let args = dbg!(ArgList::new().push_owned(2_i32));
     let return_value = dbg!(function.call(args).unwrap());
-    let value: Box<dyn Reflect> = return_value.unwrap_owned();
-    assert_eq!(value.take::<i32>().unwrap(), 5);
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<i32>().unwrap(), 5);
 
     // We can also handle closures that capture their environment mutably
     // using the `IntoClosureMut` trait.
@@ -113,8 +113,8 @@ fn main() {
     let get_value = dbg!(Data::get_value.into_function());
     let args = dbg!(ArgList::new().push_ref(&data));
     let return_value = dbg!(get_value.call(args).unwrap());
-    let value: &dyn Reflect = return_value.unwrap_ref();
-    assert_eq!(value.downcast_ref::<String>().unwrap(), "Hello, world!");
+    let value: &dyn PartialReflect = return_value.unwrap_ref();
+    assert_eq!(value.try_downcast_ref::<String>().unwrap(), "Hello, world!");
 
     // Lastly, for more complex use cases, you can always create a custom `DynamicFunction` manually.
     // This is useful for functions that can't be converted via the `IntoFunction` trait.
@@ -162,9 +162,9 @@ fn main() {
 
     let args = dbg!(ArgList::new().push_owned(5_i32).push_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
+    assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
 
     let args = dbg!(ArgList::new().push_owned(500_i32).push_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
+    assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
 }

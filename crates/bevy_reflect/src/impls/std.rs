@@ -1274,14 +1274,6 @@ impl PartialReflect for Cow<'static, str> {
         fmt::Debug::fmt(self, f)
     }
 
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
-    }
-
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
             self.clone_from(value);
@@ -1636,14 +1628,6 @@ impl PartialReflect for &'static str {
         fmt::Debug::fmt(&self, f)
     }
 
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
-    }
-
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
             self.clone_from(value);
@@ -1775,14 +1759,6 @@ impl PartialReflect for &'static Path {
             Some(std::cmp::PartialEq::eq(self, value))
         } else {
             Some(false)
-        }
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            self.clone_from(value);
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
         }
     }
 
@@ -1921,14 +1897,6 @@ impl PartialReflect for Cow<'static, Path> {
 
     fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self, f)
-    }
-
-    fn apply(&mut self, value: &dyn PartialReflect) {
-        if let Some(value) = value.try_downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            panic!("Value is not a {}.", Self::type_path());
-        }
     }
 
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {

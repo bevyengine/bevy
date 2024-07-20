@@ -70,7 +70,7 @@ mod tests {
         let func = add.into_function();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+        assert_eq!(result.try_downcast_ref::<i32>(), Some(&100));
     }
 
     #[test]
@@ -82,7 +82,7 @@ mod tests {
         let func = (add as fn(i32, i32) -> i32).into_function();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+        assert_eq!(result.try_downcast_ref::<i32>(), Some(&100));
     }
 
     #[test]
@@ -90,7 +90,7 @@ mod tests {
         let func = (|a: i32, b: i32| a + b).into_function();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+        assert_eq!(result.try_downcast_ref::<i32>(), Some(&100));
     }
 
     #[test]
@@ -110,7 +110,7 @@ mod tests {
         let func = Foo::add.into_function();
         let args = ArgList::new().push_ref(&foo_a).push_ref(&foo_b);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.downcast_ref::<Foo>(), Some(&Foo(100)));
+        assert_eq!(result.try_downcast_ref::<Foo>(), Some(&Foo(100)));
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod tests {
         let args = ArgList::new();
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(
-            result.downcast_ref::<String>(),
+            result.try_downcast_ref::<String>(),
             Some(&String::from("Hello, World!"))
         );
     }
@@ -151,7 +151,7 @@ mod tests {
             .push_owned(String::from("Hello, World!"))
             .push_ref(&true);
         let result = func.call(args).unwrap().unwrap_ref();
-        assert_eq!(result.downcast_ref::<i32>(), Some(&123));
+        assert_eq!(result.try_downcast_ref::<i32>(), Some(&123));
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod tests {
             .push_owned(String::from("Hello, World!"))
             .push_ref(&true);
         let result = func.call(args).unwrap().unwrap_mut();
-        assert_eq!(result.downcast_mut::<i32>(), Some(&mut 123));
+        assert_eq!(result.try_downcast_mut::<i32>(), Some(&mut 123));
     }
 
     #[test]
