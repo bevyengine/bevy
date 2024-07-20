@@ -15,6 +15,7 @@ use bevy_ecs::{
 use std::{marker::PhantomData, ops::Deref};
 
 pub use bevy_render_macros::ExtractComponent;
+pub use bevy_utils::EntityHashMap;
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].
 #[derive(Component)]
@@ -155,6 +156,9 @@ fn prepare_uniform_components<C>(
     commands.insert_or_spawn_batch(entities);
 }
 
+#[derive(Resource)]
+pub struct MainToRenderEntityMap(pub EntityHashMap<Entity, Entity>);
+
 /// This plugin extracts the components into the "render world".
 ///
 /// Therefore it sets up the [`ExtractSchedule`] step
@@ -185,6 +189,7 @@ impl<C, F> ExtractComponentPlugin<C, F> {
 impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
     fn build(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.insert_resource(MainToRenderEntityMap(EntityHashMap::default()));
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible_components::<C>);
             } else {
@@ -205,36 +210,47 @@ impl<T: Asset> ExtractComponent for Handle<T> {
     }
 }
 
+#[derive(Component)]
+struct Mayfly;
+
 /// This system extracts all components of the corresponding [`ExtractComponent`] type.
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
-    mut previous_len: Local<usize>,
+    mut map: ResMut<MainToRenderEntityMap>,
     query: Extract<Query<(Entity, C::QueryData), C::QueryFilter>>,
 ) {
-    let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
-            values.push((entity, component));
+            if map.0.contains_key(&entity) {
+                println!("Hey, we've seen this one before!");
+                let render_entity = map.0.get(&entity).unwrap();
+                commands.insert_or_spawn_batch([(*render_entity, component)]);
+            } else {
+                println!("This is new!");
+                let id = commands.spawn((component, Mayfly{})).id();
+                map.0.insert(entity, id);
+            }
         }
     }
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
 }
 
 /// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
-    mut previous_len: Local<usize>,
+    mut map: ResMut<MainToRenderEntityMap>,
     query: Extract<Query<(Entity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
-    let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
-        if view_visibility.get() {
-            if let Some(component) = C::extract_component(query_item) {
-                values.push((entity, component));
+        if let Some(component) = C::extract_component(query_item) {
+            if view_visibility.get() {
+                if map.0.contains_key(&entity) {
+                    let render_entity = map.0.get(&entity).unwrap();
+                    commands.insert_or_spawn_batch([(*render_entity, component)]);
+                } else {
+                    let id = commands.spawn(component).id();
+                    map.0.insert(entity, id);
+                }
             }
         }
     }
-    *previous_len = values.len();
-    commands.insert_or_spawn_batch(values);
 }
