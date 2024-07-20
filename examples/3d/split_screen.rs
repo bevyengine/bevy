@@ -68,12 +68,6 @@ fn setup(
                     camera: Camera {
                         // Renders cameras with different priorities to prevent ambiguities
                         order: index as isize,
-                        // Don't clear after the first camera because the first camera already cleared the entire window
-                        clear_color: if index > 0 {
-                            ClearColorConfig::None
-                        } else {
-                            ClearColorConfig::default()
-                        },
                         ..default()
                     },
                     ..default()
