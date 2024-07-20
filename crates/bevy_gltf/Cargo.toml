@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-dds = ["bevy_render/dds"]
+dds = ["bevy_render/dds", "bevy_core_pipeline/dds"]
 pbr_transmission_textures = ["bevy_pbr/pbr_transmission_textures"]
 pbr_multi_layer_material_textures = []
 pbr_anisotropy_texture = []
