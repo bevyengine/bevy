@@ -26,15 +26,60 @@
 //! It's important to note that because of missing features in Rust,
 //! there are some [limitations] with this crate.
 //!
-//! # The `Reflect` Trait
+//! # The `Reflect` and `PartialReflect` traits
 //!
-//! At the core of [`bevy_reflect`] is the [`Reflect`] trait.
+//! At the root of [`bevy_reflect`] is the [`PartialReflect`] trait.
 //!
-//! One of its primary purposes is to allow all implementors to be passed around
-//! as a `dyn Reflect` trait object.
-//! This allows any such type to be operated upon completely dynamically (at a small [runtime cost]).
+//! Its purpose is to allow dynamic [introspection] of values,
+//! following Rust's type system through a system of [subtraits].
 //!
-//! Implementing the trait is easily done using the provided [derive macro]:
+//! Its primary purpose is to allow all implementors to be passed around
+//! as a `dyn PartialReflect` trait object in one of the following forms:
+//! * `&dyn PartialReflect`
+//! * `&mut dyn PartialReflect`
+//! * `Box<dyn PartialReflect>`
+//!
+//! This allows values of types implementing `PartialReflect`
+//! to be operated upon completely dynamically (at a small [runtime cost]).
+//!
+//! Building on `PartialReflect` is the [`Reflect`] trait.
+//!
+//! `PartialReflect` is a supertrait of `Reflect`
+//! so any type implementing `Reflect` implements `PartialReflect` by definition.
+//! `dyn Reflect` trait objects can be used similarly to `dyn PartialReflect`,
+//! but `Reflect` is also often used in trait bounds (like `T: Reflect`).
+//!
+//! The distinction between `PartialReflect` and `Reflect` is summarised in the following:
+//! * `PartialReflect` is a trait for interacting with values under `bevy_reflect`'s data model.
+//!   This means values implementing `PartialReflect` can be dynamically constructed and introspected.
+//! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect`
+//!   on types which additionally implement `Reflect` mirrors the structure of a single Rust type.
+//! * This means `dyn Reflect` trait objects can be directly downcasted to concrete types,
+//!   where `dyn PartialReflect` trait object cannot.
+//! * `Reflect`, since it provides a stronger type-correctness guarantee,
+//!   is the trait used to interact with [the type registry].
+//!
+//! ## Converting between `dyn PartialReflect` and `dyn Reflect`
+//!
+//! Since `T: Reflect` implies `T: PartialReflect`, conversion from a `dyn Reflect` to a `dyn PartialReflect`
+//! trait object (upcasting) is infallible and can be performed with one of the following methods.
+//! Note that these are temporary while [the language feature for dyn upcasting coercion] is experimental:
+//! * [`PartialReflect::as_partial_reflect`] for `&dyn PartialReflect`
+//! * [`PartialReflect::as_partial_reflect_mut`] for `&mut dyn PartialReflect`
+//! * [`PartialReflect::into_partial_reflect`] for `Box<dyn PartialReflect>`
+//!
+//! For conversion in the other direction --- downcasting `dyn PartialReflect` to `dyn Reflect`,
+//! there are fallible methods:
+//! * [`PartialReflect::try_as_reflect`] for `&dyn Reflect`
+//! * [`PartialReflect::try_as_reflect_mut`] for `&mut dyn Reflect`
+//! * [`PartialReflect::try_into_reflect`] for `Box<dyn Reflect>`
+//!
+//! Additionally, [`FromReflect::from_reflect`] can be used to convert a `dyn PartialReflect` to a concrete type
+//! which implements `Reflect`.
+//!
+//! # Implementing `Reflect`
+//!
+//! Implementing `Reflect` (and `PartialReflect`) is easily done using the provided [derive macro]:
 //!
 //! ```
 //! # use bevy_reflect::Reflect;
@@ -54,7 +99,7 @@
 //! ## Requirements
 //!
 //! We can implement `Reflect` on any type that satisfies _both_ of the following conditions:
-//! * The type implements `Any`.
+//! * The type implements `Any`, `Send`, and `Sync`.
 //!   This is true if and only if the type itself has a [`'static` lifetime].
 //! * All fields and sub-elements themselves implement `Reflect`
 //!   (see the [derive macro documentation] for details on how to ignore certain fields when deriving).
@@ -63,11 +108,11 @@
 //! * All fields and sub-elements must implement [`FromReflect`]—
 //!     another important reflection trait discussed in a later section.
 //!
-//! # The `Reflect` Subtraits
+//! # The Reflection Subtraits
 //!
-//! Since [`Reflect`] is meant to cover any and every type, this crate also comes with a few
-//! more traits to accompany `Reflect` and provide more specific interactions.
-//! We refer to these traits as the _reflection subtraits_ since they all have `Reflect` as a supertrait.
+//! Since [`PartialReflect`] is meant to cover any and every type, this crate also comes with a few
+//! more traits to accompany `PartialReflect` and provide more specific interactions.
+//! We refer to these traits as the _reflection subtraits_ since they all have `PartialReflect` as a supertrait.
 //! The current list of reflection subtraits include:
 //! * [`Tuple`]
 //! * [`Array`]
@@ -95,8 +140,8 @@
 //! assert_eq!(Some(&123), foo.try_downcast_ref::<i32>());
 //! ```
 //!
-//! Since most data is passed around as `dyn Reflect`,
-//! the `Reflect` trait has methods for going to and from these subtraits.
+//! Since most data is passed around as `dyn PartialReflect` or `dyn Reflect` trait objects,
+//! the `PartialReflect` trait has methods for going to and from these subtraits.
 //!
 //! [`PartialReflect::reflect_kind`], [`PartialReflect::reflect_ref`],
 //! [`PartialReflect::reflect_mut`], and [`PartialReflect::reflect_owned`] all return
@@ -175,7 +220,7 @@
 //! This is known as "patching" and is done using the [`PartialReflect::apply`] and [`PartialReflect::try_apply`] methods.
 //!
 //! ```
-//! # use bevy_reflect::{DynamicEnum, PartialReflect, Reflect};
+//! # use bevy_reflect::{DynamicEnum, PartialReflect};
 //! let mut value = Some(123_i32);
 //! let patch = DynamicEnum::new("None", ());
 //! value.apply(&patch);
@@ -239,7 +284,7 @@
 //!
 //! # Path navigation
 //!
-//! The [`GetPath`] trait allows accessing arbitrary nested fields of a [`Reflect`] type.
+//! The [`GetPath`] trait allows accessing arbitrary nested fields of an [`PartialReflect`] type.
 //!
 //! Using `GetPath`, it is possible to use a path string to access a specific field
 //! of a reflected type.
@@ -306,7 +351,8 @@
 //! ## Reflecting Traits
 //!
 //! Type data doesn't have to be tied to a trait, but it's often extremely useful to create trait type data.
-//! These allow traits to be used directly on a `dyn Reflect` while utilizing the underlying type's implementation.
+//! These allow traits to be used directly on a `dyn Reflect` (and not a `dyn PartialReflect`)
+//! while utilizing the underlying type's implementation.
 //!
 //! For any [object-safe] trait, we can easily generate a corresponding `ReflectTrait` type for our trait
 //! using the [`#[reflect_trait]`](reflect_trait) macro.
@@ -449,7 +495,11 @@
 //! [Bevy]: https://bevyengine.org/
 //! [limitations]: #limitations
 //! [`bevy_reflect`]: crate
+//! [introspection]: https://en.wikipedia.org/wiki/Type_introspection
+//! [subtraits]: #the-reflection-subtraits
+//! [the type registry]: #type-registration
 //! [runtime cost]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html#trait-objects-perform-dynamic-dispatch
+//! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [derive macro documentation]: derive@crate::Reflect

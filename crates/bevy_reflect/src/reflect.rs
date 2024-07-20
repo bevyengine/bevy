@@ -168,19 +168,22 @@ impl std::fmt::Display for ReflectKind {
     }
 }
 
-/// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
+/// The foundational trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
 ///
-/// It's recommended to use the [derive macro] rather than manually implementing this trait.
-/// Doing so will automatically implement many other useful traits for reflection,
+/// This is a supertrait of [`Reflect`],
+/// meaning any type which implements `Reflect` implements `PartialReflect` by definition.
+///
+/// It's recommended to use [the derive macro for `Reflect`] rather than manually implementing this trait.
+/// Doing so will automatically implement this trait as well as many other useful traits for reflection,
 /// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
 /// See the [crate-level documentation] to see how this trait and its subtraits can be used.
 ///
 /// [`bevy_reflect`]: crate
-/// [derive macro]: bevy_reflect_derive::Reflect
+/// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be reflected",
+    message = "`{Self}` can not be introspected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait PartialReflect: DynamicTypePath + Send + Sync
@@ -205,13 +208,19 @@ where
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
-    /// Casts this type to a boxed reflected value.
+    /// Casts this type to a boxed, reflected value.
+    ///
+    /// This is useful for coercing trait objects.
     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect>;
 
     /// Casts this type to a reflected value.
+    ///
+    /// This is useful for coercing trait objects.
     fn as_partial_reflect(&self) -> &dyn PartialReflect;
 
-    /// Casts this type to a mutable reflected value.
+    /// Casts this type to a mutable, reflected value.
+    ///
+    /// This is useful for coercing trait objects.
     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect;
 
     /// Attempts to cast this type to a boxed, [fully-reflected] value.
@@ -224,14 +233,14 @@ where
     /// [fully-reflected]: Reflect
     fn try_as_reflect(&self) -> Option<&dyn Reflect>;
 
-    /// Attempts to cast this type to a mutable [fully-reflected] value.
+    /// Attempts to cast this type to a mutable, [fully-reflected] value.
     ///
     /// [fully-reflected]: Reflect
     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect>;
 
     /// Applies a reflected value to this value.
     ///
-    /// If a type implements a subtrait of `Reflect`, then the semantics of this
+    /// If a type implements an [introspection subtrait], then the semantics of this
     /// method are as follows:
     /// - If `T` is a [`Struct`], then the value of each named field of `value` is
     ///   applied to the corresponding named field of `self`. Fields which are
@@ -258,6 +267,7 @@ where
     /// or none of the above depending on the kind of type. For lists and maps, use the
     /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
     ///
+    /// [introspection subtrait]: crate#the-introspection-subtraits
     /// [`list_apply`]: crate::list_apply
     /// [`map_apply`]: crate::map_apply
     ///
@@ -373,6 +383,20 @@ where
     }
 }
 
+/// A core trait of [`bevy_reflect`], used for downcasting to concrete types.
+///
+/// This is a subtrait of [`PartialReflect`],
+/// meaning any type which implements `Reflect` implements `PartialReflect` by definition.
+///
+/// It's recommended to use [the derive macro] rather than manually implementing this trait.
+/// Doing so will automatically implement this trait, [`PartialReflect`] and many other useful traits for reflection,
+/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
+///
+/// See the [crate-level documentation] to see how this trait can be used.
+///
+/// [`bevy_reflect`]: crate
+/// [the derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` can not be fully reflected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
@@ -393,7 +417,7 @@ pub trait Reflect: PartialReflect + Any {
     /// Casts this type to a fully-reflected value.
     fn as_reflect(&self) -> &dyn Reflect;
 
-    /// Casts this type to a mutable fully-reflected value.
+    /// Casts this type to a mutable, fully-reflected value.
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 
     /// Performs a type-checked assignment of a reflected value to this value.
@@ -468,7 +492,7 @@ impl TypePath for dyn PartialReflect {
     }
 
     fn short_type_path() -> &'static str {
-        "dyn Reflect"
+        "dyn PartialReflect"
     }
 }
 
