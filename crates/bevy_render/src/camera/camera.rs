@@ -61,7 +61,7 @@ impl Default for Viewport {
     fn default() -> Self {
         Self {
             physical_position: Default::default(),
-            physical_size: Default::default(),
+            physical_size: UVec2::new(1, 1),
             depth: 0.0..1.0,
         }
     }
