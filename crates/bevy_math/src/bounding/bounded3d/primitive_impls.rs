@@ -125,7 +125,7 @@ impl Bounded3d for Cylinder {
         let top = segment_dir * self.half_height;
         let bottom = -top;
 
-        let e = Vec3::ONE - segment_dir * segment_dir;
+        let e = (Vec3::ONE - segment_dir * segment_dir).max(Vec3::ZERO);
         let half_size = self.radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         Aabb3d {
@@ -169,11 +169,11 @@ impl Bounded3d for Cone {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Reference: http://iquilezles.org/articles/diskbbox/
 
-        let top = rotation * Vec3::Y * 0.5 * self.height;
+        let segment_dir = rotation * Vec3::Y;
+        let top = segment_dir * 0.5 * self.height;
         let bottom = -top;
-        let segment = bottom - top;
 
-        let e = 1.0 - segment * segment / segment.length_squared();
+        let e = (Vec3::ONE - segment_dir * segment_dir).max(Vec3::ZERO);
         let half_extents = Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         Aabb3d {
@@ -203,11 +203,11 @@ impl Bounded3d for ConicalFrustum {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Reference: http://iquilezles.org/articles/diskbbox/
 
-        let top = rotation * Vec3::Y * 0.5 * self.height;
+        let segment_dir = rotation * Vec3::Y;
+        let top = segment_dir * 0.5 * self.height;
         let bottom = -top;
-        let segment = bottom - top;
 
-        let e = 1.0 - segment * segment / segment.length_squared();
+        let e = (Vec3::ONE - segment_dir * segment_dir).max(Vec3::ZERO);
         let half_extents = Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         Aabb3d {
@@ -286,7 +286,7 @@ impl Bounded3d for Torus {
         // Compute the AABB of a flat disc with the major radius of the torus.
         // Reference: http://iquilezles.org/articles/diskbbox/
         let normal = rotation * Vec3::Y;
-        let e = 1.0 - normal * normal;
+        let e = (Vec3::ONE - normal * normal).max(Vec3::ZERO);
         let disc_half_size = self.major_radius * Vec3::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
 
         // Expand the disc by the minor radius to get the torus half-size

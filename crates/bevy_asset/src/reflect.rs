@@ -3,7 +3,7 @@ use std::any::{Any, TypeId};
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{FromReflect, FromType, Reflect};
 
-use crate::{Asset, Assets, Handle, UntypedAssetId, UntypedHandle};
+use crate::{Asset, AssetId, Assets, Handle, UntypedAssetId, UntypedHandle};
 
 /// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
@@ -160,7 +160,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             },
             ids: |world| {
                 let assets = world.resource::<Assets<A>>();
-                Box::new(assets.ids().map(|i| i.untyped()))
+                Box::new(assets.ids().map(AssetId::untyped))
             },
             remove: |world, handle| {
                 let mut assets = world.resource_mut::<Assets<A>>();

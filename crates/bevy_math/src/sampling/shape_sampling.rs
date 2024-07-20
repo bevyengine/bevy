@@ -164,30 +164,30 @@ impl ShapeSample for Circle {
     }
 }
 
+/// Boundary sampling for unit-spheres
+#[inline]
+fn sample_unit_sphere_boundary<R: Rng + ?Sized>(rng: &mut R) -> Vec3 {
+    let z = rng.gen_range(-1f32..=1f32);
+    let (a_sin, a_cos) = rng.gen_range(-PI..=PI).sin_cos();
+    let c = (1f32 - z * z).sqrt();
+    let x = a_sin * c;
+    let y = a_cos * c;
+
+    Vec3::new(x, y, z)
+}
+
 impl ShapeSample for Sphere {
     type Output = Vec3;
 
     fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // https://mathworld.wolfram.com/SpherePointPicking.html
-        let theta = rng.gen_range(0.0..TAU);
-        let phi = rng.gen_range(-1.0_f32..1.0).acos();
         let r_cubed = rng.gen_range(0.0..=(self.radius * self.radius * self.radius));
         let r = r_cubed.cbrt();
-        Vec3 {
-            x: r * phi.sin() * theta.cos(),
-            y: r * phi.sin() * theta.sin(),
-            z: r * phi.cos(),
-        }
+
+        r * sample_unit_sphere_boundary(rng)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        let theta = rng.gen_range(0.0..TAU);
-        let phi = rng.gen_range(-1.0_f32..1.0).acos();
-        Vec3 {
-            x: self.radius * phi.sin() * theta.cos(),
-            y: self.radius * phi.sin() * theta.sin(),
-            z: self.radius * phi.cos(),
-        }
+        self.radius * sample_unit_sphere_boundary(rng)
     }
 }
 
@@ -390,7 +390,7 @@ impl ShapeSample for Tetrahedron {
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
         let triangles = self.faces();
-        let areas = triangles.iter().map(|t| t.area());
+        let areas = triangles.iter().map(Measured2d::area);
 
         if areas.clone().sum::<f32>() > 0.0 {
             // There is at least one triangle with nonzero area, so this unwrap succeeds.

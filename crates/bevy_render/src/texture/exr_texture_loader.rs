@@ -2,10 +2,7 @@ use crate::{
     render_asset::RenderAssetUsages,
     texture::{Image, TextureFormatPixelInfo},
 };
-use bevy_asset::{
-    io::{AsyncReadExt, Reader},
-    AssetLoader, LoadContext,
-};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use image::ImageDecoder;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -37,7 +34,7 @@ impl AssetLoader for ExrTextureLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         settings: &'a Self::Settings,
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {

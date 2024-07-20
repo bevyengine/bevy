@@ -154,13 +154,17 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         &self,
         where_clause: Option<&WhereClause>,
     ) -> proc_macro2::TokenStream {
+        let type_path = self.meta.type_path();
+        let (_, ty_generics, _) = self.meta.type_path().generics().split_for_impl();
+
         let required_bounds = self.required_bounds();
+
         // Maintain existing where clause, if any.
         let mut generic_where_clause = if let Some(where_clause) = where_clause {
             let predicates = where_clause.predicates.iter();
-            quote! {where Self: #required_bounds, #(#predicates,)*}
+            quote! {where #type_path #ty_generics: #required_bounds, #(#predicates,)*}
         } else {
-            quote!(where Self: #required_bounds,)
+            quote!(where #type_path #ty_generics: #required_bounds,)
         };
 
         // Add additional reflection trait bounds
@@ -223,6 +227,9 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
                 quote!(
                     #ty : #reflect_bound
                         + #bevy_reflect_path::TypePath
+                        // Needed for `Typed` impls
+                        + #bevy_reflect_path::MaybeTyped
+                        // Needed for `GetTypeRegistration` impls
                         + #bevy_reflect_path::__macro_exports::RegisterForReflection
                 )
             }))

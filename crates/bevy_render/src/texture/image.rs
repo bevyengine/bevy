@@ -458,7 +458,7 @@ impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
     fn from(value: wgpu::SamplerDescriptor) -> Self {
         ImageSamplerDescriptor {
-            label: value.label.map(|l| l.to_string()),
+            label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
             address_mode_v: value.address_mode_v.into(),
             address_mode_w: value.address_mode_w.into(),

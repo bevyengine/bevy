@@ -408,6 +408,8 @@ impl Reflect for DynamicTupleStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicTupleStruct);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicTupleStruct);
 
 impl Debug for DynamicTupleStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -421,6 +423,33 @@ impl From<DynamicTuple> for DynamicTupleStruct {
             represented_type: None,
             fields: Box::new(value).drain(),
         }
+    }
+}
+
+impl FromIterator<Box<dyn Reflect>> for DynamicTupleStruct {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(fields: I) -> Self {
+        Self {
+            represented_type: None,
+            fields: fields.into_iter().collect(),
+        }
+    }
+}
+
+impl IntoIterator for DynamicTupleStruct {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicTupleStruct {
+    type Item = &'a dyn Reflect;
+    type IntoIter = TupleStructFieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
     }
 }
 
@@ -481,7 +510,7 @@ pub fn tuple_struct_debug(
     let mut debug = f.debug_tuple(
         dyn_tuple_struct
             .get_represented_type_info()
-            .map(|s| s.type_path())
+            .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );
     for field in dyn_tuple_struct.iter_fields() {

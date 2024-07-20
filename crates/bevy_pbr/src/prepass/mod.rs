@@ -102,8 +102,7 @@ where
             )
             .init_resource::<PrepassViewBindGroup>()
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
-            .init_resource::<PreviousViewUniforms>();
+            .allow_ambiguous_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -852,6 +851,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
+            mesh_instance
+                .material_bind_group_id
+                .set(material.get_bind_group_id());
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
@@ -861,22 +863,22 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             OpaqueNoLightmap3dBinKey {
                                 draw_function: opaque_draw_deferred,
                                 pipeline: pipeline_id,
-                                asset_id: mesh_instance.mesh_asset_id,
+                                asset_id: mesh_instance.mesh_asset_id.into(),
                                 material_bind_group_id: material.get_bind_group_id().0,
                             },
                             *visible_entity,
-                            mesh_instance.should_batch(),
+                            BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
                         opaque_phase.add(
                             OpaqueNoLightmap3dBinKey {
                                 draw_function: opaque_draw_prepass,
                                 pipeline: pipeline_id,
-                                asset_id: mesh_instance.mesh_asset_id,
+                                asset_id: mesh_instance.mesh_asset_id.into(),
                                 material_bind_group_id: material.get_bind_group_id().0,
                             },
                             *visible_entity,
-                            mesh_instance.should_batch(),
+                            BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
                 }
@@ -886,25 +888,25 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_deferred,
-                            asset_id: mesh_instance.mesh_asset_id,
+                            asset_id: mesh_instance.mesh_asset_id.into(),
                             material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_deferred_phase.as_mut().unwrap().add(
                             bin_key,
                             *visible_entity,
-                            mesh_instance.should_batch(),
+                            BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
                         let bin_key = OpaqueNoLightmap3dBinKey {
                             pipeline: pipeline_id,
                             draw_function: alpha_mask_draw_prepass,
-                            asset_id: mesh_instance.mesh_asset_id,
+                            asset_id: mesh_instance.mesh_asset_id.into(),
                             material_bind_group_id: material.get_bind_group_id().0,
                         };
                         alpha_mask_phase.add(
                             bin_key,
                             *visible_entity,
-                            mesh_instance.should_batch(),
+                            BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                         );
                     }
                 }
