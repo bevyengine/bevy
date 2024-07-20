@@ -28,6 +28,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -44,6 +47,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -64,6 +70,9 @@ jobs:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-permissive-provenance -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
@@ -85,6 +94,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
@@ -101,6 +113,9 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown
 
@@ -116,6 +131,9 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rust-src
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
@@ -184,6 +202,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
         run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
@@ -231,6 +252,9 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -332,6 +356,9 @@ jobs:
         with:
           toolchain: ${{ steps.msrv.outputs.msrv }}
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Run cargo check
@@ -378,6 +405,9 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:

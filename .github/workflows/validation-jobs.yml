@@ -28,6 +28,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          # Only save if we're running on the main branch, so that other branches can also use this cache.
+          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
 
       # TODO: remove x86 target once it always run on arm GitHub runners
       - name: Add iOS targets
