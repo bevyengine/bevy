@@ -21,7 +21,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{PresentMode, WindowResolution},
+    window::{ExitCondition, PresentMode, WindowResolution},
 };
 use rand::Rng;
 
@@ -189,12 +189,8 @@ fn main() {
         .insert_resource(cfg)
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    present_mode: PresentMode::AutoNoVsync,
-                    ..default()
-                }),
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
                 ..default()
             }),
             FrameTimeDiagnosticsPlugin,
