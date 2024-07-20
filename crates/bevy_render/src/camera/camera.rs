@@ -11,6 +11,7 @@ use crate::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
     },
     Extract,
+    extract_component::MainToRenderEntityMap,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -22,7 +23,7 @@ use bevy_ecs::{
     prelude::With,
     query::Has,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{EntityCommands, Commands, Query, Res, ResMut, Resource},
 };
 use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
@@ -844,6 +845,7 @@ pub fn extract_cameras(
             Has<GpuCulling>,
         )>,
     >,
+    map: Res<MainToRenderEntityMap>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
@@ -885,7 +887,13 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let mut commands = commands.get_or_spawn(entity);
+            let entity_commands: EntityCommands;
+            if map.0.contains_key(&entity) {
+                entity_commands = commands.entity(*map.0.get(&entity).unwrap());
+            } else {
+                entity_commands = commands.spawn_empty();
+            }
+            let mut commands = entity_commands;
 
             commands.insert((
                 ExtractedCamera {
