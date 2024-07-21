@@ -211,7 +211,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 }
 
 #[derive(Component)]
-struct Mayfly;
+pub struct Mayfly;
 
 /// This system extracts all components of the corresponding [`ExtractComponent`] type.
 fn extract_components<C: ExtractComponent>(
@@ -222,11 +222,9 @@ fn extract_components<C: ExtractComponent>(
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
             if map.0.contains_key(&entity) {
-                println!("Hey, we've seen this one before!");
                 let render_entity = map.0.get(&entity).unwrap();
                 commands.insert_or_spawn_batch([(*render_entity, component)]);
             } else {
-                println!("This is new!");
                 let id = commands.spawn((component, Mayfly{})).id();
                 map.0.insert(entity, id);
             }
@@ -247,7 +245,7 @@ fn extract_visible_components<C: ExtractComponent>(
                     let render_entity = map.0.get(&entity).unwrap();
                     commands.insert_or_spawn_batch([(*render_entity, component)]);
                 } else {
-                    let id = commands.spawn(component).id();
+                    let id = commands.spawn((component, Mayfly)).id();
                     map.0.insert(entity, id);
                 }
             }

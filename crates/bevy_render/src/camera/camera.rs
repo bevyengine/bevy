@@ -11,7 +11,7 @@ use crate::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
     },
     Extract,
-    extract_component::MainToRenderEntityMap,
+    extract_component::{MainToRenderEntityMap, Mayfly},
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
@@ -928,6 +928,7 @@ pub fn extract_cameras(
                 },
                 visible_entities.clone(),
                 *frustum,
+                Mayfly{},
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {

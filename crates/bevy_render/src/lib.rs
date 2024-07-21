@@ -74,6 +74,7 @@ use crate::{
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
+    extract_component::Mayfly,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
@@ -432,18 +433,31 @@ fn extract(main_world: &mut World, render_world: &mut World) {
 }
 
 fn print_entities(render_world: &World) {
-    println!("Entities:");
-    for entity in render_world.iter_entities() {
-        print!("[");
-        for component_info in render_world.inspect_entity(entity.id()) {
-            print!("{:?}, ", component_info.name());
+    let entity_count = render_world.entities().total_count();
+    println!("Entities: {:?}", entity_count);
+
+    if entity_count < 20 {
+        for entity in render_world.iter_entities() {
+            print!("[");
+            for component_info in render_world.inspect_entity(entity.id()) {
+                print!("{:?}, ", component_info.name());
+            }
+            print!("] \n");
         }
-        print!("] \n");
     }
 }
 
 fn clear_map(mut map: ResMut<MainToRenderEntityMap>) {
     map.0.clear();
+}
+
+fn despawn_mayflies(
+    mut commands: Commands,
+    query: Query<Entity, With<Mayfly>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
 /// SAFETY: this function must be called from the main thread.
@@ -481,8 +495,9 @@ unsafe fn initialize_render_app(app: &mut App) {
                 )
                     .in_set(RenderSet::Render),
                 (
-                    World::clear_entities,
+                    //World::clear_entities,
                     clear_map,
+                    despawn_mayflies
                 )
                     .in_set(RenderSet::Cleanup),
             ),
@@ -500,7 +515,7 @@ unsafe fn initialize_render_app(app: &mut App) {
             // reserve all existing main world entities for use in render_app
             // they can only be spawned using `get_or_spawn()`
             let total_count = main_world.entities().total_count();
-
+            /*
             assert_eq!(
                 render_world.entities().len(),
                 0,
@@ -513,6 +528,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     .entities_mut()
                     .flush_and_reserve_invalid_assuming_no_entities(total_count);
             }
+            */
         }
 
         // run extract schedule
