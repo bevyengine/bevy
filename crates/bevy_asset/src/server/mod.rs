@@ -1366,7 +1366,7 @@ pub enum RecursiveDependencyLoadState {
 }
 
 /// An error that occurs during an [`Asset`] load.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq)]
 pub enum AssetLoadError {
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {
@@ -1439,8 +1439,6 @@ impl PartialEq for AssetLoaderError {
     }
 }
 
-impl Eq for AssetLoaderError {}
-
 impl AssetLoaderError {
     pub fn path(&self) -> &AssetPath<'static> {
         &self.path
@@ -1460,8 +1458,6 @@ impl PartialEq for AddAsyncError {
         self.error.type_id() == other.error.type_id()
     }
 }
-
-impl Eq for AddAsyncError {}
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
