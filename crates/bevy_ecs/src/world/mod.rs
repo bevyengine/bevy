@@ -2649,7 +2649,9 @@ impl World {
     /// Also see the crate documentation for [`bevy_reflect`] for more information on
     /// [`Reflect`] and bevy's reflection capabilities.
     ///
-    /// TODO: Errors + descriptions
+    /// # Errors
+    ///
+    /// See [`GetComponentReflectError`](error::GetComponentReflectError) for the possible errors and their descriptions.
     ///
     /// # Example
     ///
@@ -2760,7 +2762,7 @@ impl World {
     ///
     /// # Errors
     ///
-    /// See the documentation for [`World::get_reflect()`].
+    /// See [`GetComponentReflectError`](error::GetComponentReflectError) for the possible errors and their descriptions.
     ///
     /// # Example
     ///
@@ -2774,19 +2776,54 @@ impl World {
         &mut self,
         entity: Entity,
         type_id: TypeId,
-    ) -> Option<Mut<'_, dyn bevy_reflect::Reflect>> {
+    ) -> Result<Mut<'_, dyn bevy_reflect::Reflect>, error::GetComponentReflectError> {
         use bevy_reflect::ReflectFromPtr;
 
         use crate::prelude::AppTypeRegistry;
 
+        use error::GetComponentReflectError;
+
         // little clone() + read() dance so we a) don't keep a borrow of `self` and b) don't drop a
         // temporary (from read()) too  early.
-        let app_type_registry = self.get_resource::<AppTypeRegistry>()?.clone();
+        let Some(app_type_registry) = self.get_resource::<AppTypeRegistry>().cloned() else {
+            return Err(GetComponentReflectError::MissingAppTypeRegistry);
+        };
         let type_registry = app_type_registry.read();
-        let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
 
-        let component_id = self.components().get_id(type_id)?;
-        let comp_mut_untyped = self.get_mut_by_id(entity, component_id)?;
+        let Some(reflect_from_ptr) = type_registry.get_type_data::<ReflectFromPtr>(type_id) else {
+            return Err(GetComponentReflectError::MissingReflectFromPtrTypeData(
+                type_id,
+            ));
+        };
+
+        let Some(component_id) = self.components().get_id(type_id) else {
+            return Err(GetComponentReflectError::NoCorrespondingComponentId(
+                type_id,
+            ));
+        };
+
+        // HACK: Only required for the `None`-case/`else`-branch, but it borrows `self`, which will
+        // already be borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
+        let component_name = self
+            .components()
+            .get_name(component_id)
+            .map(ToString::to_string);
+
+        let Some(comp_mut_untyped) = self.get_mut_by_id(entity, component_id) else {
+            return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
+                entity,
+                type_id,
+                component_id,
+                component_name,
+            });
+        };
+
+        // let app_type_registry = self.get_resource::<AppTypeRegistry>()?.clone();
+        // let type_registry = app_type_registry.read();
+        // let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+        //
+        // let component_id = self.components().get_id(type_id)?;
+        // let comp_mut_untyped = self.get_mut_by_id(entity, component_id)?;
 
         // SAFETY:
         // - `comp_mut_untyped` is guaranteed to point to an object of type `type_id`
@@ -2802,7 +2839,7 @@ impl World {
             reflect_from_ptr.as_reflect_mut(ptr_mut)
         });
 
-        Some(comp_mut_typed)
+        Ok(comp_mut_typed)
     }
 }
 
@@ -3581,14 +3618,14 @@ mod tests {
                 let entity_without_rfoo = world.spawn_empty().id();
                 let reflect_opt = world.get_reflect_mut(entity_without_rfoo, TypeId::of::<RFoo>());
 
-                assert!(reflect_opt.is_none());
+                assert!(reflect_opt.is_err());
             }
 
             {
                 let entity_with_bar = world.spawn(Bar).id();
                 let reflect_opt = world.get_reflect_mut(entity_with_bar, TypeId::of::<Bar>());
 
-                assert!(reflect_opt.is_none());
+                assert!(reflect_opt.is_err());
             }
         }
     }
