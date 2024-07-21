@@ -220,6 +220,171 @@ impl_type_path!(::bevy_utils::NoOpHash);
 impl_type_path!(::bevy_utils::EntityHash);
 impl_type_path!(::bevy_utils::FixedState);
 
+macro_rules! impl_reflect_for_atomic {
+    ($ty:ty, $ordering:ident) => {
+        const _: () = {
+            #[allow(unused_mut)]
+            impl bevy_reflect::GetTypeRegistration for $ty
+            where
+                $ty: ::core::any::Any + ::core::marker::Send + ::core::marker::Sync,
+            {
+                fn get_type_registration() -> bevy_reflect::TypeRegistration {
+                    let mut registration = bevy_reflect::TypeRegistration::of::<Self>();
+                    registration.insert::<bevy_reflect::ReflectFromPtr>(bevy_reflect::FromType::<
+                        Self,
+                    >::from_type());
+                    registration.insert::<bevy_reflect::ReflectFromReflect>(
+                        bevy_reflect::FromType::<Self>::from_type(),
+                    );
+                    registration
+                        .insert::<ReflectDefault>(bevy_reflect::FromType::<Self>::from_type());
+                    registration
+                }
+            }
+
+            impl_type_path!($ty);
+
+            impl bevy_reflect::Typed for $ty
+            where
+                $ty: ::core::any::Any + ::core::marker::Send + ::core::marker::Sync,
+            {
+                fn type_info() -> &'static bevy_reflect::TypeInfo {
+                    static CELL: bevy_reflect::utility::NonGenericTypeInfoCell =
+                        bevy_reflect::utility::NonGenericTypeInfoCell::new();
+                    CELL.get_or_set(|| {
+                        let info = bevy_reflect::ValueInfo::new::<Self>();
+                        bevy_reflect::TypeInfo::Value(info)
+                    })
+                }
+            }
+            impl bevy_reflect::Reflect for $ty
+            where
+                $ty: ::core::any::Any + ::core::marker::Send + ::core::marker::Sync,
+            {
+                #[inline]
+                fn get_represented_type_info(
+                    &self,
+                ) -> ::core::option::Option<&'static bevy_reflect::TypeInfo> {
+                    ::core::option::Option::Some(<Self as bevy_reflect::Typed>::type_info())
+                }
+                #[inline]
+                fn into_any(
+                    self: ::std::boxed::Box<Self>,
+                ) -> ::std::boxed::Box<dyn ::core::any::Any> {
+                    self
+                }
+                #[inline]
+                fn as_any(&self) -> &dyn ::core::any::Any {
+                    self
+                }
+                #[inline]
+                fn as_any_mut(&mut self) -> &mut dyn ::core::any::Any {
+                    self
+                }
+                #[inline]
+                fn into_reflect(
+                    self: ::std::boxed::Box<Self>,
+                ) -> ::std::boxed::Box<dyn bevy_reflect::Reflect> {
+                    self
+                }
+                #[inline]
+                fn as_reflect(&self) -> &dyn bevy_reflect::Reflect {
+                    self
+                }
+                #[inline]
+                fn as_reflect_mut(&mut self) -> &mut dyn bevy_reflect::Reflect {
+                    self
+                }
+                #[inline]
+                fn clone_value(&self) -> ::std::boxed::Box<dyn bevy_reflect::Reflect> {
+                    ::std::boxed::Box::new(<$ty>::new(
+                        self.load(::std::sync::atomic::Ordering::$ordering),
+                    ))
+                }
+                #[inline]
+                fn try_apply(
+                    &mut self,
+                    value: &dyn bevy_reflect::Reflect,
+                ) -> ::core::result::Result<(), bevy_reflect::ApplyError> {
+                    let any = bevy_reflect::Reflect::as_any(value);
+                    if let ::core::option::Option::Some(value) =
+                        <dyn ::core::any::Any>::downcast_ref::<Self>(any)
+                    {
+                        *self = <$ty>::new(value.load(::std::sync::atomic::Ordering::$ordering));
+                    } else {
+                        return ::core::result::Result::Err(
+                            bevy_reflect::ApplyError::MismatchedTypes {
+                                from_type: ::core::convert::Into::into(
+                                    bevy_reflect::DynamicTypePath::reflect_type_path(value),
+                                ),
+                                to_type: ::core::convert::Into::into(
+                                    <Self as bevy_reflect::TypePath>::type_path(),
+                                ),
+                            },
+                        );
+                    }
+                    ::core::result::Result::Ok(())
+                }
+                #[inline]
+                fn set(
+                    &mut self,
+                    value: ::std::boxed::Box<dyn bevy_reflect::Reflect>,
+                ) -> ::core::result::Result<(), ::std::boxed::Box<dyn bevy_reflect::Reflect>>
+                {
+                    *self = <dyn bevy_reflect::Reflect>::take(value)?;
+                    ::core::result::Result::Ok(())
+                }
+                #[inline]
+                fn reflect_kind(&self) -> bevy_reflect::ReflectKind {
+                    bevy_reflect::ReflectKind::Value
+                }
+                #[inline]
+                fn reflect_ref(&self) -> bevy_reflect::ReflectRef {
+                    bevy_reflect::ReflectRef::Value(self)
+                }
+                #[inline]
+                fn reflect_mut(&mut self) -> bevy_reflect::ReflectMut {
+                    bevy_reflect::ReflectMut::Value(self)
+                }
+                #[inline]
+                fn reflect_owned(self: ::std::boxed::Box<Self>) -> bevy_reflect::ReflectOwned {
+                    bevy_reflect::ReflectOwned::Value(self)
+                }
+                fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    ::core::fmt::Debug::fmt(self, f)
+                }
+            }
+            impl bevy_reflect::FromReflect for $ty
+            where
+                $ty: ::core::any::Any + ::core::marker::Send + ::core::marker::Sync,
+            {
+                fn from_reflect(
+                    reflect: &dyn bevy_reflect::Reflect,
+                ) -> ::core::option::Option<Self> {
+                    ::core::option::Option::Some(<$ty>::new(
+                        <dyn ::core::any::Any>::downcast_ref::<$ty>(
+                            <dyn bevy_reflect::Reflect>::as_any(reflect),
+                        )?
+                        .load(::std::sync::atomic::Ordering::$ordering),
+                    ))
+                }
+            }
+        };
+    };
+}
+
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicIsize, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicUsize, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicI64, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicU64, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicI32, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicU32, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicI16, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicU16, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicI8, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicU8, SeqCst);
+impl_reflect_for_atomic!(::std::sync::atomic::AtomicBool, SeqCst);
+
 macro_rules! impl_reflect_for_veclike {
     ($ty:path, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
         impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> List for $ty {
