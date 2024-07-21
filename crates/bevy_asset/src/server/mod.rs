@@ -40,7 +40,7 @@ use crate::io::{AssetReader, AssetWriter};
 ///
 /// The general process to load an asset is:
 /// 1. Initialize a new [`Asset`] type with the [`AssetServer`] via [`AssetApp::init_asset`], which will internally call [`AssetServer::register_asset`]
-/// and set up related ECS [`Assets`] storage and systems.
+///     and set up related ECS [`Assets`] storage and systems.
 /// 2. Register one or more [`AssetLoader`]s for that asset with [`AssetApp::init_asset_loader`]
 /// 3. Add the asset to your asset folder (defaults to `assets`).
 /// 4. Call [`AssetServer::load`] with a path to your asset.
@@ -230,7 +230,7 @@ impl AssetServer {
 
             let mut extensions = vec![full_extension.clone()];
             extensions.extend(
-                AssetPath::iter_secondary_extensions(&full_extension).map(|e| e.to_string()),
+                AssetPath::iter_secondary_extensions(&full_extension).map(ToString::to_string),
             );
 
             MissingAssetLoaderForExtensionError { extensions }
@@ -493,7 +493,7 @@ impl AssetServer {
         force: bool,
         meta_transform: Option<MetaTransform>,
     ) -> Result<UntypedHandle, AssetLoadError> {
-        let asset_type_id = input_handle.as_ref().map(|handle| handle.type_id());
+        let asset_type_id = input_handle.as_ref().map(UntypedHandle::type_id);
 
         let path = path.into_owned();
         let path_clone = path.clone();
@@ -718,9 +718,9 @@ impl AssetServer {
     ///
     /// After the asset has been fully loaded, it will show up in the relevant [`Assets`] storage.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
-    pub fn add_async<A: Asset>(
+    pub fn add_async<A: Asset, E: std::error::Error + Send + Sync + 'static>(
         &self,
-        future: impl Future<Output = Result<A, AssetLoadError>> + Send + 'static,
+        future: impl Future<Output = Result<A, E>> + Send + 'static,
     ) -> Handle<A> {
         let handle = self
             .data
@@ -741,12 +741,15 @@ impl AssetServer {
                             .unwrap();
                     }
                     Err(error) => {
+                        let error = AddAsyncError {
+                            error: Arc::new(error),
+                        };
                         error!("{error}");
                         event_sender
                             .send(InternalAssetEvent::Failed {
                                 id,
                                 path: Default::default(),
-                                error,
+                                error: AssetLoadError::AddAsyncError(error),
                             })
                             .unwrap();
                     }
@@ -935,7 +938,7 @@ impl AssetServer {
     /// or is still "alive".
     pub fn get_handle<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Option<Handle<A>> {
         self.get_path_and_type_id_handle(&path.into(), TypeId::of::<A>())
-            .map(|h| h.typed_debug_checked())
+            .map(UntypedHandle::typed_debug_checked)
     }
 
     /// Get a `Handle` from an `AssetId`.
@@ -946,7 +949,8 @@ impl AssetServer {
     /// Consider using [`Assets::get_strong_handle`] in the case the `Handle`
     /// comes from [`Assets::add`].
     pub fn get_id_handle<A: Asset>(&self, id: AssetId<A>) -> Option<Handle<A>> {
-        self.get_id_handle_untyped(id.untyped()).map(|h| h.typed())
+        self.get_id_handle_untyped(id.untyped())
+            .map(UntypedHandle::typed)
     }
 
     /// Get an `UntypedHandle` from an `UntypedAssetId`.
@@ -1061,7 +1065,7 @@ impl AssetServer {
         (
             Box<dyn AssetMetaDyn>,
             Arc<dyn ErasedAssetLoader>,
-            Box<Reader<'a>>,
+            Box<dyn Reader + 'a>,
         ),
         AssetLoadError,
     > {
@@ -1165,7 +1169,7 @@ impl AssetServer {
         asset_path: &AssetPath<'_>,
         meta: Box<dyn AssetMetaDyn>,
         loader: &dyn ErasedAssetLoader,
-        reader: &mut Reader<'_>,
+        reader: &mut dyn Reader,
         load_dependencies: bool,
         populate_hashes: bool,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
@@ -1403,6 +1407,8 @@ pub enum AssetLoadError {
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
     #[error(transparent)]
     AssetLoaderError(#[from] AssetLoaderError),
+    #[error(transparent)]
+    AddAsyncError(#[from] AddAsyncError),
     #[error("The file at '{}' does not contain the labeled asset '{}'; it contains the following {} assets: {}",
             base_path,
             label,
@@ -1440,6 +1446,22 @@ impl AssetLoaderError {
         &self.path
     }
 }
+
+#[derive(Error, Debug, Clone)]
+#[error("An error occurred while resolving an asset added by `add_async`: {error}")]
+pub struct AddAsyncError {
+    error: Arc<dyn std::error::Error + Send + Sync + 'static>,
+}
+
+impl PartialEq for AddAsyncError {
+    /// Equality comparison is not full (only through `TypeId`)
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.error.type_id() == other.error.type_id()
+    }
+}
+
+impl Eq for AddAsyncError {}
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]

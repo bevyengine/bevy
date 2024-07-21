@@ -12,7 +12,7 @@ use crate::Plugin;
 /// Adds sensible panic handlers to Apps. This plugin is part of the `DefaultPlugins`. Adding
 /// this plugin will setup a panic hook appropriate to your target platform:
 /// * On WASM, uses [`console_error_panic_hook`](https://crates.io/crates/console_error_panic_hook), logging
-/// to the browser console.
+///     to the browser console.
 /// * Other platforms are currently not setup.
 ///
 /// ```no_run

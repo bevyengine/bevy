@@ -25,7 +25,7 @@ use bevy_render::{
     view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::prelude::GlobalTransform;
+use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use bevy_utils::{tracing::error, HashMap};
 
 use std::hash::Hash;
@@ -296,6 +296,31 @@ impl LightProbe {
     }
 }
 
+/// The uniform struct extracted from [`EnvironmentMapLight`].
+/// Will be available for use in the Environment Map shader.
+#[derive(Component, ShaderType, Clone)]
+pub struct EnvironmentMapUniform {
+    /// The world space transformation matrix of the sample ray for environment cubemaps.
+    transform: Mat4,
+}
+
+impl Default for EnvironmentMapUniform {
+    fn default() -> Self {
+        EnvironmentMapUniform {
+            transform: Mat4::IDENTITY,
+        }
+    }
+}
+
+/// A GPU buffer that stores the environment map settings for each view.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct EnvironmentMapUniformBuffer(pub DynamicUniformBuffer<EnvironmentMapUniform>);
+
+/// A component that stores the offset within the
+/// [`EnvironmentMapUniformBuffer`] for each view.
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ViewEnvironmentMapUniformOffset(u32);
+
 impl Plugin for LightProbePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -330,12 +355,38 @@ impl Plugin for LightProbePlugin {
         render_app
             .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .init_resource::<LightProbesBuffer>()
+            .init_resource::<EnvironmentMapUniformBuffer>()
+            .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
                 Render,
-                upload_light_probes.in_set(RenderSet::PrepareResources),
+                (upload_light_probes, prepare_environment_uniform_buffer)
+                    .in_set(RenderSet::PrepareResources),
             );
+    }
+}
+
+/// Extracts [`EnvironmentMapLight`] from views and creates [`EnvironmentMapUniform`] for them.
+/// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
+/// if one does not already exist.
+fn gather_environment_map_uniform(
+    view_query: Extract<Query<(Entity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
+    mut commands: Commands,
+) {
+    for (view_entity, environment_map_light) in view_query.iter() {
+        let environment_map_uniform = if let Some(environment_map_light) = environment_map_light {
+            EnvironmentMapUniform {
+                transform: Transform::from_rotation(environment_map_light.rotation)
+                    .compute_matrix()
+                    .inverse(),
+            }
+        } else {
+            EnvironmentMapUniform::default()
+        };
+        commands
+            .get_or_spawn(view_entity)
+            .insert(environment_map_uniform);
     }
 }
 
@@ -395,6 +446,32 @@ fn gather_light_probes<C>(
     }
 }
 
+/// Gathers up environment map settings for each applicable view and
+/// writes them into a GPU buffer.
+pub fn prepare_environment_uniform_buffer(
+    mut commands: Commands,
+    views: Query<(Entity, Option<&EnvironmentMapUniform>), With<ExtractedView>>,
+    mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    let Some(mut writer) =
+        environment_uniform_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
+    else {
+        return;
+    };
+
+    for (view, environment_uniform) in views.iter() {
+        let uniform_offset = match environment_uniform {
+            None => 0,
+            Some(environment_uniform) => writer.write(environment_uniform),
+        };
+        commands
+            .entity(view)
+            .insert(ViewEnvironmentMapUniformOffset(uniform_offset));
+    }
+}
+
 // A system that runs after [`gather_light_probes`] and populates the GPU
 // uniforms with the results.
 //
@@ -437,11 +514,11 @@ fn upload_light_probes(
             reflection_probes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             irradiance_volumes: [RenderLightProbe::default(); MAX_VIEW_LIGHT_PROBES],
             reflection_probe_count: render_view_environment_maps
-                .map(|maps| maps.len())
+                .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
             irradiance_volume_count: render_view_irradiance_volumes
-                .map(|maps| maps.len())
+                .map(RenderViewLightProbes::len)
                 .unwrap_or_default()
                 .min(MAX_VIEW_LIGHT_PROBES) as i32,
             view_cubemap_index: render_view_environment_maps
@@ -657,21 +734,21 @@ pub(crate) fn add_cubemap_texture_view<'a>(
 /// (a.k.a. bindless textures). This function checks for these pitfalls:
 ///
 /// 1. If GLSL support is enabled at the feature level, then in debug mode
-/// `naga_oil` will attempt to compile all shader modules under GLSL to check
-/// validity of names, even if GLSL isn't actually used. This will cause a crash
-/// if binding arrays are enabled, because binding arrays are currently
-/// unimplemented in the GLSL backend of Naga. Therefore, we disable binding
-/// arrays if the `shader_format_glsl` feature is present.
+///     `naga_oil` will attempt to compile all shader modules under GLSL to check
+///     validity of names, even if GLSL isn't actually used. This will cause a crash
+///     if binding arrays are enabled, because binding arrays are currently
+///     unimplemented in the GLSL backend of Naga. Therefore, we disable binding
+///     arrays if the `shader_format_glsl` feature is present.
 ///
 /// 2. If there aren't enough texture bindings available to accommodate all the
-/// binding arrays, the driver will panic. So we also bail out if there aren't
-/// enough texture bindings available in the fragment shader.
+///     binding arrays, the driver will panic. So we also bail out if there aren't
+///     enough texture bindings available in the fragment shader.
 ///
 /// 3. If binding arrays aren't supported on the hardware, then we obviously
-/// can't use them.
+///     can't use them.
 ///
 /// 4. If binding arrays are supported on the hardware, but they can only be
-/// accessed by uniform indices, that's not good enough, and we bail out.
+///     accessed by uniform indices, that's not good enough, and we bail out.
 ///
 /// If binding arrays aren't usable, we disable reflection probes and limit the
 /// number of irradiance volumes in the scene to 1.

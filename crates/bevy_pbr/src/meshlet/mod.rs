@@ -30,7 +30,7 @@ pub(crate) use self::{
     },
 };
 
-pub use self::asset::*;
+pub use self::asset::{MeshletMesh, MeshletMeshSaverLoader};
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
@@ -95,26 +95,32 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// Once meshes are pre-processed into a [`MeshletMesh`], this plugin can render these kinds of scenes very efficiently.
 ///
 /// In comparison to Bevy's standard renderer:
-/// * Minimal rendering work is done on the CPU. All rendering is GPU-driven.
 /// * Much more efficient culling. Meshlets can be culled individually, instead of all or nothing culling for entire meshes at a time.
-/// Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
+///     Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
 /// * Much more efficient batching. All geometry can be rasterized in a single indirect draw.
 /// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will bottleneck sooner.
 /// * Near-seamless level of detail (LOD).
 /// * Much greater base overhead. Rendering will be slower than Bevy's standard renderer with small amounts of geometry and overdraw.
 /// * Much greater memory usage.
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
-/// * More limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
+/// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
 /// This plugin does not work on WASM.
+///
+/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
+/// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
+/// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
 pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_endian = "big")]
+        compile_error!("MeshletPlugin is only supported on little-endian processors.");
+
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
@@ -165,7 +171,7 @@ impl Plugin for MeshletPlugin {
         );
 
         app.init_asset::<MeshletMesh>()
-            .register_asset_loader(MeshletMeshSaverLoad)
+            .register_asset_loader(MeshletMeshSaverLoader)
             .insert_resource(Msaa::Off)
             .add_systems(
                 PostUpdate,
@@ -207,18 +213,18 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // TODO: Meshlet VisibilityBufferRaster should be after main pass when not using depth prepass
+                    // Non-meshlet shading passes _must_ come before meshlet shading passes
                     NodePbr::ShadowPass,
-                    Node3d::Prepass,
-                    Node3d::DeferredPrepass,
                     NodeMeshlet::VisibilityBufferRasterPass,
                     NodeMeshlet::Prepass,
+                    Node3d::Prepass,
                     NodeMeshlet::DeferredPrepass,
+                    Node3d::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     Node3d::StartMainPass,
-                    Node3d::MainOpaquePass,
                     NodeMeshlet::MainOpaquePass,
+                    Node3d::MainOpaquePass,
                     Node3d::EndMainPass,
                 ),
             )

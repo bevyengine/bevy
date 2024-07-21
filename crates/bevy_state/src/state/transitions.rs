@@ -2,9 +2,7 @@ use std::{marker::PhantomData, mem};
 
 use bevy_ecs::{
     event::{Event, EventReader, EventWriter},
-    schedule::{
-        InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel, Schedules, SystemSet,
-    },
+    schedule::{IntoSystemSetConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
     system::{Commands, In, ResMut},
     world::World,
 };
@@ -38,6 +36,19 @@ pub struct OnTransition<S: States> {
 }
 
 /// Runs [state transitions](States).
+///
+/// By default, it will be triggered after `PreUpdate`, but
+/// you can manually trigger it at arbitrary times by creating an exclusive
+/// system to run the schedule.
+///
+/// ```rust
+/// use bevy_state::prelude::*;
+/// use bevy_ecs::prelude::*;
+///
+/// fn run_state_transitions(world: &mut World) {
+///     let _ = world.try_run_schedule(StateTransition);
+/// }
+/// ```
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StateTransition;
 
@@ -53,30 +64,59 @@ pub struct StateTransitionEvent<S: States> {
     pub entered: Option<S>,
 }
 
-/// Applies manual state transitions using [`NextState<S>`].
+/// Applies state transitions and runs transitions schedules in order.
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum StateTransitionSteps {
-    /// Parentless states apply their [`NextState<S>`].
-    RootTransitions,
-    /// States with parents apply their computation and [`NextState<S>`].
+pub(crate) enum StateTransitionSteps {
+    /// States apply their transitions from [`NextState`](super::NextState)
+    /// and compute functions based on their parent states.
     DependentTransitions,
-    /// Exit schedules are executed.
+    /// Exit schedules are executed in leaf to root order
     ExitSchedules,
-    /// Transition schedules are executed.
+    /// Transition schedules are executed in arbitrary order.
     TransitionSchedules,
-    /// Enter schedules are executed.
+    /// Enter schedules are executed in root to leaf order.
     EnterSchedules,
 }
 
-/// Defines a system set to aid with dependent state ordering
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ApplyStateTransition<S: States>(PhantomData<S>);
+/// System set that runs exit schedule(s) for state `S`.
+pub struct ExitSchedules<S: States>(PhantomData<S>);
 
-impl<S: States> ApplyStateTransition<S> {
-    pub(crate) fn apply() -> Self {
-        Self(PhantomData)
+impl<S: States> Default for ExitSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+/// System set that runs transition schedule(s) for state `S`.
+pub struct TransitionSchedules<S: States>(PhantomData<S>);
+
+impl<S: States> Default for TransitionSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+/// System set that runs enter schedule(s) for state `S`.
+pub struct EnterSchedules<S: States>(PhantomData<S>);
+
+impl<S: States> Default for EnterSchedules<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+/// System set that applies transitions for state `S`.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct ApplyStateTransition<S: States>(PhantomData<S>);
+
+impl<S: States> Default for ApplyStateTransition<S> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
@@ -140,10 +180,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
 ///
 /// Runs automatically when using `App` to insert states, but needs to
 /// be added manually in other situations.
-pub fn setup_state_transitions_in_world(
-    world: &mut World,
-    startup_label: Option<InternedScheduleLabel>,
-) {
+pub fn setup_state_transitions_in_world(world: &mut World) {
     let mut schedules = world.get_resource_or_insert_with(Schedules::default);
     if schedules.contains(StateTransition) {
         return;
@@ -151,7 +188,6 @@ pub fn setup_state_transitions_in_world(
     let mut schedule = Schedule::new(StateTransition);
     schedule.configure_sets(
         (
-            StateTransitionSteps::RootTransitions,
             StateTransitionSteps::DependentTransitions,
             StateTransitionSteps::ExitSchedules,
             StateTransitionSteps::TransitionSchedules,
@@ -160,12 +196,6 @@ pub fn setup_state_transitions_in_world(
             .chain(),
     );
     schedules.insert(schedule);
-
-    if let Some(startup) = startup_label {
-        schedules.add_systems(startup, |world: &mut World| {
-            let _ = world.try_run_schedule(StateTransition);
-        });
-    }
 }
 
 /// Returns the latest state transition event of type `S`, if any are available.

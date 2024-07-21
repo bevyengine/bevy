@@ -204,7 +204,7 @@ pub fn ui_focus_system(
             windows
                 .get(window_ref.entity())
                 .ok()
-                .and_then(|window| window.cursor_position())
+                .and_then(Window::cursor_position)
                 .or_else(|| touches_input.first_pressed_position())
                 .map(|cursor_position| (entity, cursor_position - viewport_position))
         })

@@ -36,6 +36,7 @@ pub mod arcs;
 pub mod arrows;
 pub mod circles;
 pub mod config;
+pub mod cross;
 pub mod gizmos;
 pub mod grid;
 pub mod primitives;
@@ -112,6 +113,7 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11627807
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
 /// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
+#[derive(Default)]
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {

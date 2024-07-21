@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::ops::{Index, IndexMut};
 
 use bevy_asset::io::Reader;
-use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext};
+use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::{Reflect, ReflectSerialize};
 use petgraph::graph::{DiGraph, NodeIndex};
 use ron::de::SpannedError;
@@ -337,7 +337,7 @@ impl AssetLoader for AnimationGraphAssetLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _: &'a Self::Settings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {

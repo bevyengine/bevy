@@ -1,4 +1,4 @@
-use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState};
+use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
@@ -125,7 +125,9 @@ impl SubApp {
     }
 
     /// Runs the default schedule.
-    pub fn update(&mut self) {
+    ///
+    /// Does not clear internal trackers used for change detection.
+    pub fn run_default_schedule(&mut self) {
         if self.is_building_plugins() {
             panic!("SubApp::update() was called while a plugin was building.");
         }
@@ -133,6 +135,11 @@ impl SubApp {
         if let Some(label) = self.update_schedule {
             self.world.run_schedule(label);
         }
+    }
+
+    /// Runs the default schedule and updates internal component trackers.
+    pub fn update(&mut self) {
+        self.run_default_schedule();
         self.world.clear_trackers();
     }
 
@@ -421,7 +428,7 @@ impl SubApps {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.main.update();
+            self.main.run_default_schedule();
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -441,5 +448,13 @@ impl SubApps {
     /// Returns a mutable iterator over the sub-apps (starting with the main one).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SubApp> + '_ {
         std::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+    }
+
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
+        if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
+            sub_app.extract(&mut self.main.world);
+            sub_app.update();
+        }
     }
 }
