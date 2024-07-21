@@ -3414,11 +3414,11 @@ mod tests {
         use crate::{
             // For bevy_ecs_macros
             self as bevy_ecs,
-            prelude::{AppTypeRegistry, Component, World},
+            prelude::{AppTypeRegistry, Component, DetectChanges, World},
         };
 
         #[derive(Component, Reflect)]
-        struct RFoo;
+        struct RFoo(i32);
 
         #[derive(Component)]
         struct Bar;
@@ -3432,10 +3432,10 @@ mod tests {
             app_type_registry.write().register::<RFoo>();
 
             {
-                let entity_with_rfoo = world.spawn(RFoo).id();
+                let entity_with_rfoo = world.spawn(RFoo(42)).id();
                 let comp_reflect = world
                     .get_reflect(entity_with_rfoo, TypeId::of::<RFoo>())
-                    .unwrap();
+                    .expect("Reflection of RFoo-component failed");
 
                 assert!(comp_reflect.is::<RFoo>());
             }
@@ -3457,7 +3457,42 @@ mod tests {
 
         #[test]
         fn get_component_as_mut_reflect() {
-            todo!();
+            let mut world = World::new();
+            world.init_resource::<AppTypeRegistry>();
+
+            let app_type_registry = world.get_resource_mut::<AppTypeRegistry>().unwrap();
+            app_type_registry.write().register::<RFoo>();
+
+            {
+                let entity_with_rfoo = world.spawn(RFoo(42)).id();
+                let mut comp_reflect = world
+                    .get_reflect_mut(entity_with_rfoo, TypeId::of::<RFoo>())
+                    .expect("Mutable reflection of RFoo-component failed");
+
+                let comp_rfoo_reflected = comp_reflect
+                    .downcast_mut::<RFoo>()
+                    .expect("Wrong type reflected (expected RFoo)");
+                assert_eq!(comp_rfoo_reflected.0, 42);
+                comp_rfoo_reflected.0 = 1337;
+
+                let rfoo_ref = world.entity(entity_with_rfoo).get_ref::<RFoo>().unwrap();
+                assert!(rfoo_ref.is_changed());
+                assert_eq!(rfoo_ref.0, 1337);
+            }
+
+            {
+                let entity_without_rfoo = world.spawn_empty().id();
+                let reflect_opt = world.get_reflect_mut(entity_without_rfoo, TypeId::of::<RFoo>());
+
+                assert!(reflect_opt.is_none());
+            }
+
+            {
+                let entity_with_bar = world.spawn(Bar).id();
+                let reflect_opt = world.get_reflect_mut(entity_with_bar, TypeId::of::<Bar>());
+
+                assert!(reflect_opt.is_none());
+            }
         }
     }
 }
