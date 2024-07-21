@@ -767,7 +767,7 @@ mod tests {
             let b_text = get::<CoolText>(world, b_id);
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert!(b_text.is_none(), "b component should not exist yet");
-            assert!(b_load.is_loaded());
+            assert!(b_load.is_loading());
             assert_eq!(b_deps, DependencyLoadState::Loading);
             assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loading);
 
@@ -775,7 +775,7 @@ mod tests {
             let c_text = get::<CoolText>(world, c_id);
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
-            assert!(c_load.is_loaded());
+            assert!(c_load.is_loading());
             assert_eq!(c_deps, DependencyLoadState::Loading);
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
             Some(())
@@ -805,7 +805,7 @@ mod tests {
             let c_text = get::<CoolText>(world, c_id);
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
-            assert!(c_load.is_loaded());
+            assert!(c_load.is_loading());
             assert_eq!(c_deps, DependencyLoadState::Loading);
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
             Some(())
