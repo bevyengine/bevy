@@ -2682,10 +2682,13 @@ impl World {
 
         use crate::prelude::AppTypeRegistry;
 
-        let component_id = self.components().get_id(type_id)?;
+        // little clone() + read() dance so we a) don't keep a borrow of `self` and b) don't drop a
+        // temporary (from read()) too  early.
         let app_type_registry = self.get_resource::<AppTypeRegistry>()?.clone();
         let type_registry = app_type_registry.read();
         let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+
+        let component_id = self.components().get_id(type_id)?;
         let comp_mut_untyped = self.get_mut_by_id(entity, component_id)?;
 
         // SAFETY:
@@ -3400,5 +3403,61 @@ mod tests {
             entity1, entity2, entity3, entity4, entity5, entity1
         ])
         .is_err());
+    }
+
+    #[cfg(all(test, feature = "bevy_reflect"))]
+    mod reflect_tests {
+        use std::any::TypeId;
+
+        use bevy_reflect::Reflect;
+
+        use crate::{
+            // For bevy_ecs_macros
+            self as bevy_ecs,
+            prelude::{AppTypeRegistry, Component, World},
+        };
+
+        #[derive(Component, Reflect)]
+        struct RFoo;
+
+        #[derive(Component)]
+        struct Bar;
+
+        #[test]
+        fn get_component_as_reflect() {
+            let mut world = World::new();
+            world.init_resource::<AppTypeRegistry>();
+
+            let app_type_registry = world.get_resource_mut::<AppTypeRegistry>().unwrap();
+            app_type_registry.write().register::<RFoo>();
+
+            {
+                let entity_with_rfoo = world.spawn(RFoo).id();
+                let comp_reflect = world
+                    .get_reflect(entity_with_rfoo, TypeId::of::<RFoo>())
+                    .unwrap();
+
+                assert!(comp_reflect.is::<RFoo>());
+            }
+
+            {
+                let entity_without_rfoo = world.spawn_empty().id();
+                let reflect_opt = world.get_reflect(entity_without_rfoo, TypeId::of::<RFoo>());
+
+                assert!(reflect_opt.is_none());
+            }
+
+            {
+                let entity_with_bar = world.spawn(Bar).id();
+                let reflect_opt = world.get_reflect(entity_with_bar, TypeId::of::<Bar>());
+
+                assert!(reflect_opt.is_none());
+            }
+        }
+
+        #[test]
+        fn get_component_as_mut_reflect() {
+            todo!();
+        }
     }
 }
