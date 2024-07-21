@@ -164,6 +164,7 @@ impl World {
     fn bootstrap(&mut self) {
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
+        assert_eq!(ON_REPLACE, self.init_component::<OnReplace>());
         assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
     }
     /// Creates a new empty [`World`].

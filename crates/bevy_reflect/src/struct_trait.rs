@@ -1,5 +1,4 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::func::macros::impl_function_traits;
 use crate::{
     self as bevy_reflect, ApplyError, NamedField, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath, TypePathTable,
@@ -500,11 +499,45 @@ impl Reflect for DynamicStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicStruct);
-impl_function_traits!(DynamicStruct);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl<'a, N> FromIterator<(N, Box<dyn Reflect>)> for DynamicStruct
+where
+    N: Into<Cow<'a, str>>,
+{
+    /// Create a dynamic struct that doesn't represent a type from the
+    /// field name, field value pairs.
+    fn from_iter<I: IntoIterator<Item = (N, Box<dyn Reflect>)>>(fields: I) -> Self {
+        let mut dynamic_struct = Self::default();
+        for (name, value) in fields.into_iter() {
+            dynamic_struct.insert_boxed(name, value);
+        }
+        dynamic_struct
+    }
+}
+
+impl IntoIterator for DynamicStruct {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicStruct {
+    type Item = &'a dyn Reflect;
+    type IntoIter = FieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
     }
 }
 

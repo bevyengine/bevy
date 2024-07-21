@@ -61,7 +61,7 @@ impl Default for Viewport {
     fn default() -> Self {
         Self {
             physical_position: Default::default(),
-            physical_size: Default::default(),
+            physical_size: UVec2::new(1, 1),
             depth: 0.0..1.0,
         }
     }
@@ -510,8 +510,8 @@ impl Default for CameraOutputMode {
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
-#[derive(Component, Deref, DerefMut, Reflect, Clone)]
-#[reflect_value(Component)]
+#[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
+#[reflect_value(Component, Debug)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {

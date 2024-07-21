@@ -43,7 +43,8 @@ use bevy_utils::{info_once, prelude::default};
 use crate::{
     binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
     MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset,
 };
 
 const SSR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10438925299917978850);
@@ -258,6 +259,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
         Read<ScreenSpaceReflectionsPipelineId>,
     );
@@ -273,6 +275,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             view_fog_offset,
             view_light_probes_offset,
             view_ssr_offset,
+            view_environment_map_offset,
             view_bind_group,
             ssr_pipeline_id,
         ): QueryItem<'w, Self::ViewQuery>,
@@ -324,6 +327,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 view_fog_offset.offset,
                 **view_light_probes_offset,
                 **view_ssr_offset,
+                **view_environment_map_offset,
             ],
         );
 
