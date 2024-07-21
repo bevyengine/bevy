@@ -66,24 +66,21 @@ fn rasterize_cluster(
     let vertex_2 = viewport_vertices[vertex_ids[2]];
 
     // Compute triangle bounding box
-    var min_x = floor(min3(vertex_0.x, vertex_1.x, vertex_2.x));
-    var min_y = floor(min3(vertex_0.y, vertex_1.y, vertex_2.y));
-    var max_x = ceil(max3(vertex_0.x, vertex_1.x, vertex_2.x));
-    var max_y = ceil(max3(vertex_0.y, vertex_1.y, vertex_2.y));
+    let min_x = u32(floor(min3(vertex_0.x, vertex_1.x, vertex_2.x)));
+    let min_y = u32(floor(min3(vertex_0.y, vertex_1.y, vertex_2.y)));
+    var max_x = u32(ceil(max3(vertex_0.x, vertex_1.x, vertex_2.x)));
+    var max_y = u32(ceil(max3(vertex_0.y, vertex_1.y, vertex_2.y)));
+    max_x = min(max_x, u32(view.viewport.z) - 1u);
+    max_y = min(max_y, u32(view.viewport.w) - 1u);
 
-    // Clip triangle bounding box against screen bounds
-    min_x = max(min_x, 0.0);
-    min_y = max(min_y, 0.0);
-    max_x = min(max_x, view.viewport.z - 1.0);
-    max_y = min(max_y, view.viewport.w - 1.0);
-
-    // Setup initial edge functions
+    // Setup initial triangle equations
     let a = vec3(vertex_1.y - vertex_2.y, vertex_2.y - vertex_0.y, vertex_0.y - vertex_1.y);
     let b = vec3(vertex_2.x - vertex_1.x, vertex_0.x - vertex_2.x, vertex_1.x - vertex_0.x);
+    let starting_pixel = vec2(f32(min_x), f32(min_y)) + 0.5;
     var w_row = vec3(
-        edge_function(vertex_1.xy, vertex_2.xy, vec2(min_x, min_y) + 0.5),
-        edge_function(vertex_2.xy, vertex_0.xy, vec2(min_x, min_y) + 0.5),
-        edge_function(vertex_0.xy, vertex_1.xy, vec2(min_x, min_y) + 0.5),
+        edge_function(vertex_1.xy, vertex_2.xy, starting_pixel),
+        edge_function(vertex_2.xy, vertex_0.xy, starting_pixel),
+        edge_function(vertex_0.xy, vertex_1.xy, starting_pixel),
     );
     let inverse_double_triangle_area = 1.0 / edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy);
 
@@ -92,10 +89,10 @@ fn rasterize_cluster(
     let packed_ids = (cluster_id << 6u) | triangle_id;
 
     // Iterate over every pixel in the triangle's bounding box
-    for (var y = min_y; y <= max_y; y += 1.0) {
+    for (var y = min_y; y <= max_y; y++) {
         var w = w_row;
 
-        for (var x = min_x; x <= max_x; x += 1.0) {
+        for (var x = min_x; x <= max_x; x++) {
             // Check if point at pixel is within triangle
             if min3(w[0], w[1], w[2]) >= 0.0 {
                 // Interpolate vertex depth for the current pixel
