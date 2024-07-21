@@ -38,7 +38,7 @@ pub enum GetComponentReflectError {
         entity: Entity,
         /// The given [`TypeId`].
         type_id: TypeId,
-        /// The [`ComponentId`] correspondig to the given [`TypeId`].
+        /// The [`ComponentId`] corresponding to the given [`TypeId`].
         component_id: ComponentId,
         /// The name corresponding to the `Component` with the given [`TypeId`], or `None`
         /// if not available.
