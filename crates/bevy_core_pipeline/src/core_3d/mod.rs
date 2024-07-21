@@ -75,7 +75,7 @@ use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
-    extract_component::ExtractComponentPlugin,
+    extract_component::{ExtractComponentPlugin, MainToRenderEntityMap},
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
@@ -504,6 +504,7 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 
 pub fn extract_core_3d_camera_phases(
     mut commands: Commands,
+    mut map: ResMut<MainToRenderEntityMap>,
     mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
@@ -517,6 +518,15 @@ pub fn extract_core_3d_camera_phases(
         if !camera.is_active {
             continue;
         }
+
+        let render_entity: Entity;
+        if map.0.contains_key(&entity) {
+            render_entity = *map.0.get(&entity).unwrap();
+        } else {
+            render_entity = commands.spawn_empty().id();
+            map.0.insert(entity, render_entity);
+        }
+        let entity = render_entity;
 
         commands.get_or_spawn(entity);
 

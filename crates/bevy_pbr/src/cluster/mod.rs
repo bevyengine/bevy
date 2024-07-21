@@ -9,17 +9,15 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
+    prelude::ResMut,
 };
 use bevy_math::{AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
-    render_resource::{
+    camera::Camera, extract_component::MainToRenderEntityMap, render_resource::{
         BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
         UniformBuffer,
-    },
-    renderer::{RenderDevice, RenderQueue},
-    Extract,
+    }, renderer::{RenderDevice, RenderQueue}, Extract
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
 
@@ -511,6 +509,7 @@ pub(crate) fn clusterable_object_order(
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
+    mut map: ResMut<MainToRenderEntityMap>,
     views: Extract<Query<(Entity, &Clusters, &Camera)>>,
 ) {
     for (entity, clusters, camera) in &views {
@@ -536,7 +535,15 @@ pub fn extract_clusters(
             }
         }
 
-        commands.get_or_spawn(entity).insert((
+        let render_entity: Entity;
+        if map.0.contains_key(&entity) {
+            render_entity = *map.0.get(&entity).unwrap();
+        } else {
+            render_entity = commands.spawn_empty().id();
+            map.0.insert(entity, render_entity);
+        }
+
+        commands.entity(render_entity).insert((
             ExtractedClusterableObjects { data },
             ExtractedClusterConfig {
                 near: clusters.near,
