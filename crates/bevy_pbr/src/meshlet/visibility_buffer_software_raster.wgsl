@@ -43,11 +43,10 @@ fn rasterize_cluster(
         let world_from_local = affine3_to_square(instance_uniform.world_from_local);
         let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
         var clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
-    #ifdef DEPTH_CLAMP_ORTHO
-        let unclamped_clip_depth = clip_position.z; // TODO: What to do with this?
-        clip_position.z = min(clip_position.z, 1.0);
-    #endif
-        let ndc_position = clip_position.xyz / clip_position.w;
+        var ndc_position = clip_position.xyz / clip_position.w;
+#ifdef DEPTH_CLAMP_ORTHO
+        ndc_position.z = 1.0 / clip_position.z;
+#endif
         let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
 
         // Write vertex to workgroup shared memory
@@ -118,7 +117,7 @@ fn write_visibility_buffer_pixel(frag_coord_1d: u32, z: f32, packed_ids: u32) {
     let visibility = (u64(depth) << 32u) | u64(packed_ids);
     atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
 #else ifdef DEPTH_CLAMP_ORTHO
-    let depth = bitcast<u32>(z); // TODO: unclamped_clip_depth
+    let depth = bitcast<u32>(1.0 / z);
     atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
 #else
     let depth = bitcast<u32>(z);
