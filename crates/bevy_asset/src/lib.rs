@@ -870,8 +870,9 @@ mod tests {
             assert_eq!(d_deps, DependencyLoadState::Loading);
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Loading);
 
-            assert!(
-                a_deps.is_loaded(),
+            assert_eq!(
+                a_deps,
+                DependencyLoadState::Loaded,
                 "If c has been loaded, the a deps should all be considered loaded"
             );
             assert_eq!(
