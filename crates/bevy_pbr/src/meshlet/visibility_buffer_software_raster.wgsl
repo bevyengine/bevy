@@ -65,8 +65,8 @@ fn rasterize_cluster(
     let vertex_2 = viewport_vertices[vertex_ids[0]];
 
     // Compute triangle bounding box
-    let min_x = u32(floor(min3(vertex_0.x, vertex_1.x, vertex_2.x)));
-    let min_y = u32(floor(min3(vertex_0.y, vertex_1.y, vertex_2.y)));
+    let min_x = u32(min3(vertex_0.x, vertex_1.x, vertex_2.x));
+    let min_y = u32(min3(vertex_0.y, vertex_1.y, vertex_2.y));
     var max_x = u32(ceil(max3(vertex_0.x, vertex_1.x, vertex_2.x)));
     var max_y = u32(ceil(max3(vertex_0.y, vertex_1.y, vertex_2.y)));
     max_x = min(max_x, u32(view.viewport.z) - 1u);
