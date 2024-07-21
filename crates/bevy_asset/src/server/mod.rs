@@ -27,7 +27,7 @@ use info::*;
 use loaders::*;
 use parking_lot::RwLock;
 use std::future::Future;
-use std::{any::Any, path::PathBuf};
+use std::path::PathBuf;
 use std::{any::TypeId, path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -930,7 +930,7 @@ impl AssetServer {
     /// Returns true if the asset and all of its dependencies (recursive) have been loaded.
     pub fn is_loaded_with_dependencies(&self, id: impl Into<UntypedAssetId>) -> bool {
         let id = id.into();
-        self.load_state(id) == LoadState::Loaded
+        self.load_state(id).is_loaded()
             && self.recursive_dependency_load_state(id) == RecursiveDependencyLoadState::Loaded
     }
 
@@ -1327,7 +1327,7 @@ pub(crate) enum InternalAssetEvent {
 }
 
 /// The load state of an asset.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Debug)]
 pub enum LoadState {
     /// The asset has not started loading yet
     NotLoaded,
@@ -1337,6 +1337,13 @@ pub enum LoadState {
     Loaded,
     /// The asset failed to load.
     Failed(Box<AssetLoadError>),
+}
+
+impl LoadState {
+    /// Returns `true` if this instance is [`LoadState::Loaded`]
+    fn is_loaded(&self) -> bool {
+        matches!(self, Self::Loaded)
+    }
 }
 
 /// The load state of an asset's dependencies.
@@ -1366,7 +1373,7 @@ pub enum RecursiveDependencyLoadState {
 }
 
 /// An error that occurs during an [`Asset`] load.
-#[derive(Error, Debug, Clone, PartialEq)]
+#[derive(Error, Debug, Clone)]
 pub enum AssetLoadError {
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {
@@ -1429,16 +1436,6 @@ pub struct AssetLoaderError {
     error: Arc<dyn std::error::Error + Send + Sync + 'static>,
 }
 
-impl PartialEq for AssetLoaderError {
-    /// Equality comparison for `AssetLoaderError::error` is not full (only through `TypeId`)
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.path == other.path
-            && self.loader_name == other.loader_name
-            && self.error.type_id() == other.error.type_id()
-    }
-}
-
 impl AssetLoaderError {
     pub fn path(&self) -> &AssetPath<'static> {
         &self.path
@@ -1449,14 +1446,6 @@ impl AssetLoaderError {
 #[error("An error occurred while resolving an asset added by `add_async`: {error}")]
 pub struct AddAsyncError {
     error: Arc<dyn std::error::Error + Send + Sync + 'static>,
-}
-
-impl PartialEq for AddAsyncError {
-    /// Equality comparison is not full (only through `TypeId`)
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.error.type_id() == other.error.type_id()
-    }
 }
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
