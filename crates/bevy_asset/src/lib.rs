@@ -738,7 +738,7 @@ mod tests {
             let a_text = get::<CoolText>(app.world(), a_id);
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert!(a_text.is_none(), "a's asset should not exist yet");
-            assert_eq!(a_load, LoadState::Loading, "a should still be loading");
+            assert!(a_load.is_loading(), "a should still be loading");
             assert_eq!(
                 a_deps,
                 DependencyLoadState::Loading,
@@ -866,7 +866,7 @@ mod tests {
             let d_text = get::<CoolText>(world, d_id);
             let (d_load, d_deps, d_rec_deps) = asset_server.get_load_states(d_id).unwrap();
             assert!(d_text.is_none(), "d component should not exist yet");
-            assert_eq!(d_load, LoadState::Loading);
+            assert!(d_load.is_loading());
             assert_eq!(d_deps, DependencyLoadState::Loading);
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Loading);
 
