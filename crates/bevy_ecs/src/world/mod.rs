@@ -2673,10 +2673,10 @@ impl World {
     /// let entity = world.spawn(MyComponent).id();
     ///
     /// // retrieve a reflected reference to the entity's `MyComponent`
-    /// let comp_reflected: Option<&dyn Reflect> = world.get_reflect(entity, TypeId::of::<MyComponent>());
+    /// let comp_reflected: &dyn Reflect = world.get_reflect(entity, TypeId::of::<MyComponent>()).unwrap();
     ///
-    /// // make sure it worked
-    /// assert!(comp_reflected.is_some_and(|reflect| reflect.is::<MyComponent>()));
+    /// // make sure we got the expected type
+    /// assert!(comp_reflected.is::<MyComponent>());
     /// ```
     ///
     /// # Note
@@ -2694,15 +2694,43 @@ impl World {
         &self,
         entity: Entity,
         type_id: TypeId,
-    ) -> Option<&dyn bevy_reflect::Reflect> {
+    ) -> Result<&dyn bevy_reflect::Reflect, error::GetComponentReflectError> {
         use bevy_reflect::ReflectFromPtr;
 
         use crate::prelude::AppTypeRegistry;
 
-        let component_id = self.components().get_id(type_id)?;
-        let comp_ptr = self.get_by_id(entity, component_id)?;
-        let type_registry = self.get_resource::<AppTypeRegistry>()?.read();
-        let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+        use error::GetComponentReflectError;
+
+        let Some(component_id) = self.components().get_id(type_id) else {
+            return Err(GetComponentReflectError::NoCorrespondingComponentId(
+                type_id,
+            ));
+        };
+
+        let Some(comp_ptr) = self.get_by_id(entity, component_id) else {
+            let component_name = self
+                .components()
+                .get_name(component_id)
+                .map(ToString::to_string);
+
+            return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
+                entity,
+                type_id,
+                component_id,
+                component_name,
+            });
+        };
+
+        let Some(type_registry) = self.get_resource::<AppTypeRegistry>().map(|atr| atr.read())
+        else {
+            return Err(GetComponentReflectError::MissingAppTypeRegistry);
+        };
+
+        let Some(reflect_from_ptr) = type_registry.get_type_data::<ReflectFromPtr>(type_id) else {
+            return Err(GetComponentReflectError::MissingReflectFromPtrTypeData(
+                type_id,
+            ));
+        };
 
         // SAFETY:
         // - `comp_ptr` is guaranteed to point to an object of type `type_id`
@@ -2715,7 +2743,7 @@ impl World {
                 "Mismatch between Ptr's type_id and ReflectFromPtr's type_id",
             );
 
-            Some(reflect_from_ptr.as_reflect(comp_ptr))
+            Ok(reflect_from_ptr.as_reflect(comp_ptr))
         }
     }
 
@@ -3513,14 +3541,14 @@ mod tests {
                 let entity_without_rfoo = world.spawn_empty().id();
                 let reflect_opt = world.get_reflect(entity_without_rfoo, TypeId::of::<RFoo>());
 
-                assert!(reflect_opt.is_none());
+                assert!(reflect_opt.is_err());
             }
 
             {
                 let entity_with_bar = world.spawn(Bar).id();
                 let reflect_opt = world.get_reflect(entity_with_bar, TypeId::of::<Bar>());
 
-                assert!(reflect_opt.is_none());
+                assert!(reflect_opt.is_err());
             }
         }
 
