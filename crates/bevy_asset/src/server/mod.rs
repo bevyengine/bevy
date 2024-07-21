@@ -1341,7 +1341,7 @@ pub enum LoadState {
 
 impl LoadState {
     /// Returns `true` if this instance is [`LoadState::Loaded`]
-    fn is_loaded(&self) -> bool {
+    pub fn is_loaded(&self) -> bool {
         matches!(self, Self::Loaded)
     }
 }

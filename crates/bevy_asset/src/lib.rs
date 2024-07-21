@@ -759,7 +759,7 @@ mod tests {
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
-            assert_eq!(a_load, LoadState::Loaded, "a is loaded");
+            assert!(a_load.is_loaded(), "a is loaded");
             assert_eq!(a_deps, DependencyLoadState::Loading);
             assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Loading);
 
@@ -767,7 +767,7 @@ mod tests {
             let b_text = get::<CoolText>(world, b_id);
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert!(b_text.is_none(), "b component should not exist yet");
-            assert_eq!(b_load, LoadState::Loading);
+            assert!(b_load.is_loaded());
             assert_eq!(b_deps, DependencyLoadState::Loading);
             assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loading);
 
@@ -775,7 +775,7 @@ mod tests {
             let c_text = get::<CoolText>(world, c_id);
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
-            assert_eq!(c_load, LoadState::Loading);
+            assert!(c_load.is_loaded());
             assert_eq!(c_deps, DependencyLoadState::Loading);
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
             Some(())
@@ -789,7 +789,7 @@ mod tests {
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.dependencies.len(), 2);
-            assert_eq!(a_load, LoadState::Loaded);
+            assert!(a_load.is_loaded());
             assert_eq!(a_deps, DependencyLoadState::Loading);
             assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Loading);
 
@@ -797,7 +797,7 @@ mod tests {
             let b_text = get::<CoolText>(world, b_id)?;
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert_eq!(b_text.text, "b");
-            assert_eq!(b_load, LoadState::Loaded);
+            assert!(b_load.is_loaded());
             assert_eq!(b_deps, DependencyLoadState::Loaded);
             assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loaded);
 
@@ -805,7 +805,7 @@ mod tests {
             let c_text = get::<CoolText>(world, c_id);
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert!(c_text.is_none(), "c component should not exist yet");
-            assert_eq!(c_load, LoadState::Loading);
+            assert!(c_load.is_loaded());
             assert_eq!(c_deps, DependencyLoadState::Loading);
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loading);
             Some(())
@@ -824,14 +824,14 @@ mod tests {
             assert_eq!(a_text.text, "a");
             assert_eq!(a_text.embedded, "");
             assert_eq!(a_text.dependencies.len(), 2);
-            assert_eq!(a_load, LoadState::Loaded);
+            assert!(a_load.is_loaded());
 
             let b_id = a_text.dependencies[0].id();
             let b_text = get::<CoolText>(world, b_id)?;
             let (b_load, b_deps, b_rec_deps) = asset_server.get_load_states(b_id).unwrap();
             assert_eq!(b_text.text, "b");
             assert_eq!(b_text.embedded, "");
-            assert_eq!(b_load, LoadState::Loaded);
+            assert!(b_load.is_loaded());
             assert_eq!(b_deps, DependencyLoadState::Loaded);
             assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loaded);
 
@@ -840,7 +840,7 @@ mod tests {
             let (c_load, c_deps, c_rec_deps) = asset_server.get_load_states(c_id).unwrap();
             assert_eq!(c_text.text, "c");
             assert_eq!(c_text.embedded, "ab");
-            assert_eq!(c_load, LoadState::Loaded);
+            assert!(c_load.is_loaded());
             assert_eq!(
                 c_deps,
                 DependencyLoadState::Loading,
@@ -858,7 +858,7 @@ mod tests {
             assert_eq!(sub_text.text, "hello");
             let (sub_text_load, sub_text_deps, sub_text_rec_deps) =
                 asset_server.get_load_states(sub_text_id).unwrap();
-            assert_eq!(sub_text_load, LoadState::Loaded);
+            assert!(sub_text_load.is_loaded());
             assert_eq!(sub_text_deps, DependencyLoadState::Loaded);
             assert_eq!(sub_text_rec_deps, RecursiveDependencyLoadState::Loaded);
 
@@ -870,9 +870,8 @@ mod tests {
             assert_eq!(d_deps, DependencyLoadState::Loading);
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Loading);
 
-            assert_eq!(
-                a_deps,
-                DependencyLoadState::Loaded,
+            assert!(
+                a_deps.is_loaded(),
                 "If c has been loaded, the a deps should all be considered loaded"
             );
             assert_eq!(
@@ -900,11 +899,11 @@ mod tests {
             assert_eq!(d_text.text, "d");
             assert_eq!(d_text.embedded, "");
 
-            assert_eq!(c_load, LoadState::Loaded);
+            assert!(c_load.is_loaded());
             assert_eq!(c_deps, DependencyLoadState::Loaded);
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Loaded);
 
-            assert_eq!(d_load, LoadState::Loaded);
+            assert!(d_load.is_loaded());
             assert_eq!(d_deps, DependencyLoadState::Loaded);
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Loaded);
 
@@ -1089,17 +1088,17 @@ mod tests {
             assert_eq!(d_rec_deps, RecursiveDependencyLoadState::Failed);
 
             assert_eq!(a_text.text, "a");
-            assert_eq!(a_load, LoadState::Loaded);
+            assert!(a_load.is_loaded());
             assert_eq!(a_deps, DependencyLoadState::Loaded);
             assert_eq!(a_rec_deps, RecursiveDependencyLoadState::Failed);
 
             assert_eq!(b_text.text, "b");
-            assert_eq!(b_load, LoadState::Loaded);
+            assert!(b_load.is_loaded());
             assert_eq!(b_deps, DependencyLoadState::Loaded);
             assert_eq!(b_rec_deps, RecursiveDependencyLoadState::Loaded);
 
             assert_eq!(c_text.text, "c");
-            assert_eq!(c_load, LoadState::Loaded);
+            assert!(c_load.is_loaded());
             assert_eq!(c_deps, DependencyLoadState::Failed);
             assert_eq!(c_rec_deps, RecursiveDependencyLoadState::Failed);
 

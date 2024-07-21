@@ -2063,7 +2063,7 @@ mod test {
         app.update();
         run_app_until(&mut app, |_world| {
             let load_state = asset_server.get_load_state(handle_id).unwrap();
-            if load_state == LoadState::Loaded {
+            if load_state.is_loaded() {
                 Some(())
             } else {
                 None
