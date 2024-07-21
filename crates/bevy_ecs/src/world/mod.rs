@@ -2635,6 +2635,75 @@ impl World {
                 .get_mut_by_id(component_id)
         }
     }
+
+    /// # Note
+    /// Requires the feature `bevy_reflect` (included in default features).
+    #[inline]
+    #[cfg(feature = "bevy_reflect")]
+    pub fn get_reflect(
+        &self,
+        entity: Entity,
+        type_id: TypeId,
+    ) -> Option<&dyn bevy_reflect::Reflect> {
+        use bevy_reflect::ReflectFromPtr;
+
+        use crate::prelude::AppTypeRegistry;
+
+        let component_id = self.components().get_id(type_id)?;
+        let comp_ptr = self.get_by_id(entity, component_id)?;
+        let type_registry = self.get_resource::<AppTypeRegistry>()?.read();
+        let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+
+        // SAFETY:
+        // - `comp_ptr` is guaranteed to point to an object of type `type_id`
+        // - `reflect_from_ptr` was constructed for type `type_id`
+        // - Assertion that checks this equality is present
+        unsafe {
+            assert_eq!(
+                reflect_from_ptr.type_id(),
+                type_id,
+                "Mismatch between Ptr's type_id and ReflectFromPtr's type_id",
+            );
+
+            Some(reflect_from_ptr.as_reflect(comp_ptr))
+        }
+    }
+
+    /// # Note
+    /// Requires the feature `bevy_reflect` (included in default features).
+    #[inline]
+    #[cfg(feature = "bevy_reflect")]
+    pub fn get_reflect_mut(
+        &mut self,
+        entity: Entity,
+        type_id: TypeId,
+    ) -> Option<Mut<'_, dyn bevy_reflect::Reflect>> {
+        use bevy_reflect::ReflectFromPtr;
+
+        use crate::prelude::AppTypeRegistry;
+
+        let component_id = self.components().get_id(type_id)?;
+        let app_type_registry = self.get_resource::<AppTypeRegistry>()?.clone();
+        let type_registry = app_type_registry.read();
+        let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
+        let comp_mut_untyped = self.get_mut_by_id(entity, component_id)?;
+
+        // SAFETY:
+        // - `comp_mut_untyped` is guaranteed to point to an object of type `type_id`
+        // - `reflect_from_ptr` was constructed for type `type_id`
+        // - Assertion that checks this equality is present
+        let comp_mut_typed = comp_mut_untyped.map_unchanged(|ptr_mut| unsafe {
+            assert_eq!(
+                reflect_from_ptr.type_id(),
+                type_id,
+                "Mismatch between PtrMut's type_id and ReflectFromPtr's type_id",
+            );
+
+            reflect_from_ptr.as_reflect_mut(ptr_mut)
+        });
+
+        Some(comp_mut_typed)
+    }
 }
 
 // Schedule-related methods
