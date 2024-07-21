@@ -2636,8 +2636,58 @@ impl World {
         }
     }
 
+    /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using
+    /// reflection.
+    ///
+    /// Requires [`#[derive(Reflect)`](derive@bevy_reflect::Reflect) on the [`Component`] and
+    /// `app.register_type::<TheComponent>()` to have been called[^note-reflect-impl].
+    ///
+    /// If you want to call this with a [`ComponentId`], see [`World::components()`] and [`Components::get_id()`] to get
+    /// the corresponding [`TypeId`].
+    ///
+    ///
+    /// Also see the crate documentation for [`bevy_reflect`] for more information on
+    /// [`Reflect`] and bevy's reflection capabilities.
+    ///
+    /// TODO: Errors + descriptions
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// use bevy_reflect::Reflect;
+    /// use std::any::TypeId;
+    ///
+    /// // define a `Component` and derive `Reflect` for it
+    /// #[derive(Component, Reflect)]
+    /// struct MyComponent;
+    ///
+    /// // create a `World` for this example
+    /// let mut world = World::new();
+    ///
+    /// // Note: This is usually handled by `App::register_type()`, but this example can not use `App`.
+    /// world.init_resource::<AppTypeRegistry>();
+    /// world.get_resource_mut::<AppTypeRegistry>().unwrap().write().register::<MyComponent>();
+    ///
+    /// // spawn an entity with a `MyComponent`
+    /// let entity = world.spawn(MyComponent).id();
+    ///
+    /// // retrieve a reflected reference to the entity's `MyComponent`
+    /// let comp_reflected: Option<&dyn Reflect> = world.get_reflect(entity, TypeId::of::<MyComponent>());
+    ///
+    /// // make sure it worked
+    /// assert!(comp_reflected.is_some_and(|reflect| reflect.is::<MyComponent>()));
+    /// ```
+    ///
     /// # Note
-    /// Requires the feature `bevy_reflect` (included in default features).
+    /// Requires the `bevy_reflect` feature (included in the default features).
+    ///
+    /// [`ReflectFromPtr`]: bevy_reflect::ReflectFromPtr
+    /// [`TypeData`]: bevy_reflect::TypeData
+    /// [`Reflect`]: bevy_reflect::Reflect
+    /// [`App::register_type`]: ../../bevy_app/struct.App.html#method.register_type
+    /// [^note-reflect-impl]: More specifically: Requires [`TypeData`] for [`ReflectFromPtr`] to be registered for the given `type_id`,
+    ///     which is automatically handled when deriving [`Reflect`] and calling [`App::register_type`].
     #[inline]
     #[cfg(feature = "bevy_reflect")]
     pub fn get_reflect(
