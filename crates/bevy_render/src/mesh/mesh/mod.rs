@@ -21,7 +21,7 @@ use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::{error, warn};
 use bytemuck::cast_slice;
-use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
+use std::{any::Any, collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
 use wgpu::{IndexFormat, VertexAttribute, VertexFormat, VertexStepMode};
 
@@ -325,6 +325,45 @@ impl Mesh {
         self.attributes
             .iter_mut()
             .map(|(id, data)| (*id, &mut data.values))
+    }
+
+    /// Run a function on a few attributes on the mesh.
+    /// These attributes will be created if not exist or of the wrong format.
+    pub fn with_many_attributes_mut<T, const N: usize>(
+        &mut self,
+        attrs: [impl Into<MeshVertexAttribute>; N],
+        f: impl FnOnce([&mut VertexAttributeValues; N]) -> T,
+    ) -> T {
+        use std::array::from_fn;
+        let attrs: [MeshVertexAttribute; N] = attrs.map(Into::into);
+        let mut input: [VertexAttributeValues; N] = from_fn(|i| {
+            self.remove_attribute(attrs[i])
+                // if format incorrect, just create a new one.
+                .and_then(|x| (VertexFormat::from(&x) == attrs[i].format).then_some(x))
+                .unwrap_or(VertexAttributeValues::create_default(attrs[i].format))
+        });
+        let mut iter = input.iter_mut();
+        let ref_input = from_fn(|_| iter.next().unwrap());
+        let output = f(ref_input);
+        // Reverse so that behavior is consistent even with repeats.
+        for (attr, buffer) in attrs.into_iter().zip(input).rev() {
+            self.insert_attribute(attr, buffer);
+        }
+        output
+    }
+
+    /// Run a function on indices and a few attributes on the mesh.
+    /// These attributes will be created if not exist or of the wrong format.
+    pub fn with_many_attributes_indices_mut<T, const N: usize>(
+        &mut self,
+        attrs: [impl Into<MeshVertexAttribute>; N],
+        f: impl FnOnce(&mut Indices, [&mut VertexAttributeValues; N]) -> T,
+    ) -> T {
+        // The default does not matter since `Vec::new` does not allocate.
+        let mut indices = self.remove_indices().unwrap_or(Indices::U32(Vec::new()));
+        let output = self.with_many_attributes_mut(attrs, |attrs| f(&mut indices, attrs));
+        self.insert_indices(indices);
+        output
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
@@ -1210,7 +1249,7 @@ impl core::ops::Mul<Mesh> for Transform {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct MeshVertexAttribute {
     /// The friendly name of the vertex attribute
     pub name: &'static str,
@@ -1512,6 +1551,84 @@ impl VertexAttributeValues {
             VertexAttributeValues::Unorm8x4(values) => cast_slice(values),
         }
     }
+
+    /// Creates a default buffer based on [`VertexFormat`]
+    ///
+    /// # Panics
+    ///
+    /// If [`VertexFormat`] is not supported, this currently includes 16 and 64 bit floating point vectors.
+    pub fn create_default(format: VertexFormat) -> Self {
+        match format {
+            VertexFormat::Uint8x2 => VertexAttributeValues::Uint8x2(Default::default()),
+            VertexFormat::Uint8x4 => VertexAttributeValues::Uint8x4(Default::default()),
+            VertexFormat::Sint8x2 => VertexAttributeValues::Sint8x2(Default::default()),
+            VertexFormat::Sint8x4 => VertexAttributeValues::Sint8x4(Default::default()),
+            VertexFormat::Unorm8x2 => VertexAttributeValues::Unorm8x2(Default::default()),
+            VertexFormat::Unorm8x4 => VertexAttributeValues::Unorm8x4(Default::default()),
+            VertexFormat::Snorm8x2 => VertexAttributeValues::Snorm8x2(Default::default()),
+            VertexFormat::Snorm8x4 => VertexAttributeValues::Snorm8x4(Default::default()),
+            VertexFormat::Uint16x2 => VertexAttributeValues::Uint16x2(Default::default()),
+            VertexFormat::Uint16x4 => VertexAttributeValues::Uint16x4(Default::default()),
+            VertexFormat::Sint16x2 => VertexAttributeValues::Sint16x2(Default::default()),
+            VertexFormat::Sint16x4 => VertexAttributeValues::Sint16x4(Default::default()),
+            VertexFormat::Unorm16x2 => VertexAttributeValues::Unorm16x2(Default::default()),
+            VertexFormat::Unorm16x4 => VertexAttributeValues::Unorm16x4(Default::default()),
+            VertexFormat::Snorm16x2 => VertexAttributeValues::Snorm16x2(Default::default()),
+            VertexFormat::Snorm16x4 => VertexAttributeValues::Snorm16x4(Default::default()),
+            VertexFormat::Float32 => VertexAttributeValues::Float32(Default::default()),
+            VertexFormat::Float32x2 => VertexAttributeValues::Float32x2(Default::default()),
+            VertexFormat::Float32x3 => VertexAttributeValues::Float32x3(Default::default()),
+            VertexFormat::Float32x4 => VertexAttributeValues::Float32x4(Default::default()),
+            VertexFormat::Uint32 => VertexAttributeValues::Uint32(Default::default()),
+            VertexFormat::Uint32x2 => VertexAttributeValues::Uint32x2(Default::default()),
+            VertexFormat::Uint32x3 => VertexAttributeValues::Uint32x3(Default::default()),
+            VertexFormat::Uint32x4 => VertexAttributeValues::Uint32x4(Default::default()),
+            VertexFormat::Sint32 => VertexAttributeValues::Sint32(Default::default()),
+            VertexFormat::Sint32x2 => VertexAttributeValues::Sint32x2(Default::default()),
+            VertexFormat::Sint32x3 => VertexAttributeValues::Sint32x3(Default::default()),
+            VertexFormat::Sint32x4 => VertexAttributeValues::Sint32x4(Default::default()),
+            f => unimplemented!("Vertex format \"{f:?}\" is not supported."),
+        }
+    }
+
+    #[allow(clippy::match_same_arms)]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        match self {
+            VertexAttributeValues::Float32(values) => values,
+            VertexAttributeValues::Sint32(values) => values,
+            VertexAttributeValues::Uint32(values) => values,
+            VertexAttributeValues::Float32x2(values) => values,
+            VertexAttributeValues::Sint32x2(values) => values,
+            VertexAttributeValues::Uint32x2(values) => values,
+            VertexAttributeValues::Float32x3(values) => values,
+            VertexAttributeValues::Sint32x3(values) => values,
+            VertexAttributeValues::Uint32x3(values) => values,
+            VertexAttributeValues::Float32x4(values) => values,
+            VertexAttributeValues::Sint32x4(values) => values,
+            VertexAttributeValues::Uint32x4(values) => values,
+            VertexAttributeValues::Sint16x2(values) => values,
+            VertexAttributeValues::Snorm16x2(values) => values,
+            VertexAttributeValues::Uint16x2(values) => values,
+            VertexAttributeValues::Unorm16x2(values) => values,
+            VertexAttributeValues::Sint16x4(values) => values,
+            VertexAttributeValues::Snorm16x4(values) => values,
+            VertexAttributeValues::Uint16x4(values) => values,
+            VertexAttributeValues::Unorm16x4(values) => values,
+            VertexAttributeValues::Sint8x2(values) => values,
+            VertexAttributeValues::Snorm8x2(values) => values,
+            VertexAttributeValues::Uint8x2(values) => values,
+            VertexAttributeValues::Unorm8x2(values) => values,
+            VertexAttributeValues::Sint8x4(values) => values,
+            VertexAttributeValues::Snorm8x4(values) => values,
+            VertexAttributeValues::Uint8x4(values) => values,
+            VertexAttributeValues::Unorm8x4(values) => values,
+        }
+    }
+
+    /// Obtain a mutable reference to the underlying [`Vec`].
+    fn get_vec_mut<T: 'static>(&mut self) -> Option<&mut Vec<T>> {
+        self.as_any_mut().downcast_mut()
+    }
 }
 
 impl From<&VertexAttributeValues> for VertexFormat {
@@ -1579,6 +1696,46 @@ impl Indices {
         match self {
             Indices::U16(vec) => vec.is_empty(),
             Indices::U32(vec) => vec.is_empty(),
+        }
+    }
+
+    /// Returns the underlying index buffer if based on `u16`,
+    /// or reallocates if empty.
+    ///
+    /// # Panics
+    ///
+    /// If index buffer is not empty and not u16 based.
+    pub fn as_u16_mut(&mut self) -> &mut Vec<u16> {
+        match self {
+            Indices::U16(vec) => vec,
+            _ if self.is_empty() => {
+                *self = Indices::U16(Vec::new());
+                let Indices::U16(vec) = self else {
+                    unreachable!()
+                };
+                vec
+            }
+            _ => panic!("Expected an empty or u16 index buffer"),
+        }
+    }
+
+    /// Returns the underlying index buffer if based on `u32`,
+    /// or reallocates if empty.
+    ///
+    /// # Panics
+    ///
+    /// If index buffer is not empty and not u32 based.
+    pub fn as_u32_mut(&mut self) -> &mut Vec<u32> {
+        match self {
+            Indices::U32(vec) => vec,
+            _ if self.is_empty() => {
+                *self = Indices::U32(Vec::new());
+                let Indices::U32(vec) = self else {
+                    unreachable!()
+                };
+                vec
+            }
+            _ => panic!("Expected an empty or u16 index buffer"),
         }
     }
 }
