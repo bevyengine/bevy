@@ -2719,8 +2719,27 @@ impl World {
         }
     }
 
+    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given `type_id` using
+    /// reflection.
+    ///
+    /// Requires [`#[derive(Reflect)`](derive@bevy_reflect::Reflect) on the [`Component`] and
+    /// `app.register_type::<TheComponent>()` to have been called.
+    ///
+    /// This is the mutable version of [`World::get_reflect()`], see its docs for more information
+    /// and an example.
+    ///
+    /// Just calling this method does not trigger [change detection](crate::change_detection).
+    ///
+    /// # Errors
+    ///
+    /// See the documentation for [`World::get_reflect()`].
+    ///
+    /// # Example
+    ///
+    /// See the documentation for [`World::get_reflect()`].
+    ///
     /// # Note
-    /// Requires the feature `bevy_reflect` (included in default features).
+    /// Requires the feature `bevy_reflect` (included in the default features).
     #[inline]
     #[cfg(feature = "bevy_reflect")]
     pub fn get_reflect_mut(
