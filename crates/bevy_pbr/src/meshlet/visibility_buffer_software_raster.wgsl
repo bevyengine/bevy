@@ -61,9 +61,9 @@ fn rasterize_cluster(
     if triangle_id >= meshlet.triangle_count { return; }
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
     let vertex_ids = vec3(get_meshlet_index(index_ids[0]), get_meshlet_index(index_ids[1]), get_meshlet_index(index_ids[2]));
-    let vertex_0 = viewport_vertices[vertex_ids[0]];
+    let vertex_0 = viewport_vertices[vertex_ids[2]];
     let vertex_1 = viewport_vertices[vertex_ids[1]];
-    let vertex_2 = viewport_vertices[vertex_ids[2]];
+    let vertex_2 = viewport_vertices[vertex_ids[0]];
 
     // Compute triangle bounding box
     let min_x = u32(floor(min3(vertex_0.x, vertex_1.x, vertex_2.x)));
