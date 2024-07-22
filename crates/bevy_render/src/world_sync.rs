@@ -3,16 +3,15 @@ use std::{marker::PhantomData, ops::DerefMut};
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle,
-    component::Component,
-    entity::{Entity, EntityHashMap},
-    observer::Trigger,
-    query::With,
-    system::{Commands, Query, ResMut, Resource},
-    world::{Mut, OnAdd, OnRemove, World},
+    bundle::Bundle, component::Component, entity::{Entity, EntityHashMap}, observer::Trigger, query::With, reflect::ReflectComponent, system::{Commands, Query, ResMut, Resource}, world::{Mut, OnAdd, OnRemove, World}
 };
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
+
+/// Marker component that indicate its entity needs to be Synchronized to render world
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect[Component]]
+pub struct ToRenderWorld;
 
 #[derive(Component, Deref, Clone, Debug)]
 pub struct RenderEntity(Entity);

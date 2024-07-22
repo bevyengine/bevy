@@ -66,7 +66,9 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
-use world_sync::{despawn_fly_entity, entity_sync_system, MainToRenderEntityMap, WorldSyncPlugin};
+use world_sync::{
+    despawn_fly_entity, entity_sync_system, MainToRenderEntityMap, ToRenderWorld, WorldSyncPlugin,
+};
 
 use crate::mesh::RenderMesh;
 use crate::renderer::WgpuWrapper;
@@ -354,7 +356,7 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin,
-            WorldSyncPlugin::<Camera>::default(),
+            WorldSyncPlugin::<(Camera, ToRenderWorld)>::default(),
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
@@ -366,7 +368,8 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CascadesFrusta>()
             .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>();
+            .register_type::<primitives::Frustum>()
+            .register_type::<ToRenderWorld>();
     }
 
     fn ready(&self, app: &App) -> bool {
