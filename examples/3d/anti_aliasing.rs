@@ -23,7 +23,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(Msaa::Off)
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
@@ -38,13 +37,13 @@ fn modify_aa(
             Option<&mut Fxaa>,
             Option<&mut SmaaSettings>,
             Option<&TemporalAntiAliasSettings>,
+            &mut Msaa,
         ),
         With<Camera>,
     >,
-    mut msaa: ResMut<Msaa>,
     mut commands: Commands,
 ) {
-    let (camera_entity, fxaa, smaa, taa) = camera.single_mut();
+    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.single_mut();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
@@ -176,13 +175,13 @@ fn update_ui(
             Option<&SmaaSettings>,
             Option<&TemporalAntiAliasSettings>,
             &ContrastAdaptiveSharpeningSettings,
+            &Msaa,
         ),
         With<Camera>,
     >,
-    msaa: Res<Msaa>,
     mut ui: Query<&mut Text>,
 ) {
-    let (fxaa, smaa, taa, cas_settings) = camera.single();
+    let (fxaa, smaa, taa, cas_settings, msaa) = camera.single();
 
     let mut ui = ui.single_mut();
     let ui = &mut ui.sections[0].value;
