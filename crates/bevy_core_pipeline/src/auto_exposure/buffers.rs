@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::{StorageBuffer, UniformBuffer},
@@ -36,9 +34,7 @@ pub(super) fn extract_buffers(
     commands.insert_resource(ExtractedStateBuffers {
         changed: changed
             .iter()
-            .map(|(entity, settings)| {
-                (entity.entity(), settings.clone())
-            })
+            .map(|(entity, settings)| (entity.entity(), settings.clone()))
             .collect(),
         removed: removed.read().collect(),
     });

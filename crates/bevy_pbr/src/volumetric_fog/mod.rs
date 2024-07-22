@@ -380,22 +380,21 @@ pub fn extract_volumetric_fog(
     view_targets: Extract<
         Query<(&RenderEntity, &VolumetricFogSettings), Changed<VolumetricFogSettings>>,
     >,
-    volumetric_lights: Extract<Query<(Entity, &VolumetricLight)>>,
+    volumetric_lights: Extract<Query<(&RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
         return;
     }
 
     for (view_target, volumetric_fog_settings) in view_targets.iter() {
-        if let Some(entity) = view_target.entity() {
-            commands
-                .get_or_spawn(entity)
-                .insert(*volumetric_fog_settings);
-        }
+        let entity = view_target.entity();
+        commands
+            .get_or_spawn(entity)
+            .insert(*volumetric_fog_settings);
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands.get_or_spawn(entity).insert(*volumetric_light);
+        commands.get_or_spawn(entity.entity()).insert(*volumetric_light);
     }
 }
 

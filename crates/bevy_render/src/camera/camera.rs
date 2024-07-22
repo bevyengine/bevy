@@ -9,7 +9,6 @@ use crate::{
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
-        WithMesh,
     },
     world_sync::RenderEntity,
     Extract,

@@ -570,38 +570,37 @@ pub fn extract_camera_prepass_phase(
             continue;
         }
 
-        if let Some(entity) = render_entity.entity() {
-            if depth_prepass || normal_prepass || motion_vector_prepass {
-                opaque_3d_prepass_phases.insert_or_clear(entity);
-                alpha_mask_3d_prepass_phases.insert_or_clear(entity);
-            } else {
-                opaque_3d_prepass_phases.remove(&entity);
-                alpha_mask_3d_prepass_phases.remove(&entity);
-            }
+        let entity = render_entity.entity();
+        if depth_prepass || normal_prepass || motion_vector_prepass {
+            opaque_3d_prepass_phases.insert_or_clear(entity);
+            alpha_mask_3d_prepass_phases.insert_or_clear(entity);
+        } else {
+            opaque_3d_prepass_phases.remove(&entity);
+            alpha_mask_3d_prepass_phases.remove(&entity);
+        }
 
-            if deferred_prepass {
-                opaque_3d_deferred_phases.insert_or_clear(entity);
-                alpha_mask_3d_deferred_phases.insert_or_clear(entity);
-            } else {
-                opaque_3d_deferred_phases.remove(&entity);
-                alpha_mask_3d_deferred_phases.remove(&entity);
-            }
-            live_entities.insert(entity);
+        if deferred_prepass {
+            opaque_3d_deferred_phases.insert_or_clear(entity);
+            alpha_mask_3d_deferred_phases.insert_or_clear(entity);
+        } else {
+            opaque_3d_deferred_phases.remove(&entity);
+            alpha_mask_3d_deferred_phases.remove(&entity);
+        }
+        live_entities.insert(entity);
 
-            let mut entity = commands.get_or_spawn(entity);
+        let mut entity = commands.get_or_spawn(entity);
 
-            if depth_prepass {
-                entity.insert(DepthPrepass);
-            }
-            if normal_prepass {
-                entity.insert(NormalPrepass);
-            }
-            if motion_vector_prepass {
-                entity.insert(MotionVectorPrepass);
-            }
-            if deferred_prepass {
-                entity.insert(DeferredPrepass);
-            }
+        if depth_prepass {
+            entity.insert(DepthPrepass);
+        }
+        if normal_prepass {
+            entity.insert(NormalPrepass);
+        }
+        if motion_vector_prepass {
+            entity.insert(MotionVectorPrepass);
+        }
+        if deferred_prepass {
+            entity.insert(DeferredPrepass);
         }
     }
 

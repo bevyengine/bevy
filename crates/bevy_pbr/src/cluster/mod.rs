@@ -4,7 +4,7 @@ use std::num::NonZeroU64;
 
 use bevy_ecs::{
     component::Component,
-    entity::{self, Entity, EntityHashMap},
+    entity::{Entity, EntityHashMap},
     query::Without,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, Resource},

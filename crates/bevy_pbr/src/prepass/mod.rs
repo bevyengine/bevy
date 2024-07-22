@@ -1,6 +1,5 @@
 mod prepass_bindings;
 
-use bevy_ecs::entity;
 use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
 use bevy_render::render_resource::binding_types::uniform_buffer;
 use bevy_render::view::WithMesh;

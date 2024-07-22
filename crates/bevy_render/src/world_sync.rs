@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_hierarchy::DespawnRecursiveExt;
 
 // marker component to indicate that its entity needs to be synchronized between RenderWorld and MainWorld
-#[derive(Component,Clone)]
+#[derive(Component,Clone,Debug,Default)]
 pub struct ToRenderWorld;
 
 #[derive(Component, Deref, Clone, Debug)]
