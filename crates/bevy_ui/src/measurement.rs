@@ -25,7 +25,7 @@ pub struct MeasureArgs<'a> {
     pub font_system: &'a mut bevy_text::cosmic_text::FontSystem,
     // When `bevy_text` is disabled, use `PhantomData` in order to keep lifetime in type signature.
     #[cfg(not(feature = "bevy_text"))]
-    pub font_system: std::marker::PhantomData<&'a ()>,
+    pub font_system: std::marker::PhantomData<&'a mut ()>,
 }
 
 /// A `Measure` is used to compute the size of a ui node
