@@ -517,6 +517,7 @@ impl World {
                 Some(unsafe { EntityWorldMut::new(self, entity, location) })
             }
             AllocAtWithoutReplacement::DidNotExist => {
+                println!("not exisit :{}", entity);
                 // SAFETY: entity was just allocated
                 Some(unsafe { self.spawn_at_empty_internal(entity) })
             }

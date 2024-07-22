@@ -19,7 +19,7 @@ use bevy_render::{
         UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
-    world_sync::RenderEntity,
+    world_sync::{MainToRenderEntityMap, RenderEntity},
     Extract,
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
@@ -513,6 +513,7 @@ pub(crate) fn clusterable_object_order(
 pub fn extract_clusters(
     mut commands: Commands,
     views: Extract<Query<(&RenderEntity, &Clusters, &Camera)>>,
+    mapper: Res<MainToRenderEntityMap>,
 ) {
     for (entity, clusters, camera) in &views {
         if !camera.is_active {
@@ -531,9 +532,11 @@ pub fn extract_clusters(
                 cluster_objects.spot_light_count as u32,
             ));
             for clusterable_entity in &cluster_objects.entities {
-                data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
-                    *clusterable_entity,
-                ));
+                if let Some(entity) = mapper.get(clusterable_entity) {
+                    data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
+                        *entity,
+                    ));
+                }
             }
         }
 
