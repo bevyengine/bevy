@@ -3,7 +3,7 @@
 
 use std::f32::consts::PI;
 
-#[cfg(any(not(target_arch = "wasm32"), feature = "webgpu"))]
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
     color::palettes::basic::SILVER,
@@ -18,7 +18,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
-            #[cfg(any(not(target_arch = "wasm32"), feature = "webgpu"))]
+            #[cfg(not(target_arch = "wasm32"))]
             WireframePlugin,
         ))
         .add_systems(Startup, setup)
@@ -26,7 +26,7 @@ fn main() {
             Update,
             (
                 rotate,
-                #[cfg(any(not(target_arch = "wasm32"), feature = "webgpu"))]
+                #[cfg(not(target_arch = "wasm32"))]
                 toggle_wireframe,
             ),
         )
@@ -137,7 +137,7 @@ fn setup(
         ..default()
     });
 
-    #[cfg(any(not(target_arch = "wasm32"), feature = "webgpu"))]
+    #[cfg(not(target_arch = "wasm32"))]
     commands.spawn(
         TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
             .with_style(Style {
@@ -184,7 +184,7 @@ fn uv_debug_texture() -> Image {
     )
 }
 
-#[cfg(any(not(target_arch = "wasm32"), feature = "webgpu"))]
+#[cfg(not(target_arch = "wasm32"))]
 fn toggle_wireframe(
     mut wireframe_config: ResMut<WireframeConfig>,
     keyboard: Res<ButtonInput<KeyCode>>,
