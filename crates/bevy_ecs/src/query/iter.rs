@@ -168,7 +168,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
-    /// from an archetype which has the same entity count with it's table.
+    /// from an archetype which has the same entity count as its table.
     ///
     /// # Safety
     ///  - all `indices` must be in `[0, archetype.len())`.
