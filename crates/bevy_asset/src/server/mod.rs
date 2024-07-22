@@ -1045,11 +1045,28 @@ impl AssetServer {
 
     /// Returns a future that will suspend until the specified asset and its dependencies finish loading.
     ///
+    /// # Errors
+    ///
+    /// This will return an error if the asset or any of its dependencies fail to load,
+    /// or if the asset has not been queued up to be loaded.
+    pub async fn wait_for_asset_untyped(
+        &self,
+        // NOTE: We take a reference to a handle so we know it will outlive the future,
+        // which ensures the handle won't be dropped while waiting for the asset.
+        handle: &UntypedHandle,
+    ) -> Result<(), WaitForAssetError> {
+        self.wait_for_asset_id(handle.id()).await
+    }
+
+    /// Returns a future that will suspend until the specified asset and its dependencies finish loading.
+    ///
     /// Note that since an asset ID does not count as a reference to the asset,
     /// the future returned from this method will *not* keep the asset alive.
     /// This may lead to the asset unexpectedly being dropped while you are waiting for it to finish loading.
+    ///
+    /// When calling this method, make sure a strong handle is stored elsewhere to prevent the asset from being dropped.
     /// If you have access to an asset's strong [`Handle`], you should prefer to call [`AssetServer::wait_for_asset`]
-    /// to ensure the asset finishes loading, or store a strong handle somewhere else while waiting for it to load.
+    /// or [`wait_for_assest_untyped`](Self::wait_for_asset_untyped )to ensure the asset finishes loading.
     ///
     /// # Errors
     ///
