@@ -1359,6 +1359,11 @@ impl LoadState {
     pub fn is_loaded_or_loading(&self) -> bool {
         self.is_loaded() || self.is_loading()
     }
+
+    /// Returns `true` if this instance is [`LoadState::Failed`]
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
 }
 
 /// The load state of an asset's dependencies.
