@@ -1045,7 +1045,7 @@ impl AssetServer {
     ///
     /// Note that since an asset ID does not count as a reference to the asset,
     /// the future returned from this method will *not* keep the asset alive.
-    /// This may lead to the asset unexepctedly being dropped while you are waiting for it to finish loading.
+    /// This may lead to the asset unexpectedly being dropped while you are waiting for it to finish loading.
     /// If you have access to an asset's strong [`Handle`], you should prefer to call [`AssetServer::wait_for_asset`]
     /// to ensure the asset finishes loading, or store a strong handle somewhere else while waiting for it to load.
     ///
