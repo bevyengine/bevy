@@ -5,7 +5,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::world_sync::{RenderEntity, RenderFlyEntity};
+use bevy_render::world_sync::{MainToRenderEntityMap, RenderEntity, RenderFlyEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -212,6 +212,7 @@ pub fn extract_lights(
             Without<SpotLight>,
         >,
     >,
+    mapper: Res<MainToRenderEntityMap>,
     mut previous_point_lights_len: Local<usize>,
     mut previous_spot_lights_len: Local<usize>,
 ) {
@@ -332,43 +333,71 @@ pub fn extract_lights(
     *previous_spot_lights_len = spot_lights_values.len();
     commands.insert_or_spawn_batch(spot_lights_values);
 
-    for (
-        render_entity,
-        directional_light,
-        visible_entities,
-        cascades,
-        cascade_config,
-        frusta,
-        transform,
-        view_visibility,
-        maybe_layers,
-        volumetric_light,
-    ) in &directional_lights
-    {
-        if !view_visibility.get() {
-            continue;
-        }
+    directional_lights.iter().for_each(
+        |(
+            entity,
+            directional_light,
+            visible_entities,
+            cascades,
+            cascade_config,
+            frusta,
+            transform,
+            view_visibility,
+            maybe_layers,
+            volumetric_light,
+        )| {
+            if !view_visibility.get() {
+                return;
+            }
 
-        // TODO: As above
-        let render_visible_entities = visible_entities.clone();
-        commands.get_or_spawn(render_entity.entity()).insert((
-            ExtractedDirectionalLight {
-                color: directional_light.color.into(),
-                illuminance: directional_light.illuminance,
-                transform: *transform,
-                volumetric: volumetric_light.is_some(),
-                shadows_enabled: directional_light.shadows_enabled,
-                shadow_depth_bias: directional_light.shadow_depth_bias,
-                // The factor of SQRT_2 is for the worst-case diagonal offset
-                shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
-                cascade_shadow_config: cascade_config.clone(),
-                cascades: cascades.cascades.clone(),
-                frusta: frusta.frusta.clone(),
-                render_layers: maybe_layers.unwrap_or_default().clone(),
-            },
-            render_visible_entities,
-        ));
-    }
+            // TODO: As above
+            let mut extracted_cascades = EntityHashMap::default();
+            let mut extracted_frusta = EntityHashMap::default();
+            let mut cascade_visible_entities = EntityHashMap::default();
+            for (e, v) in cascades.cascades.iter() {
+                if let Some(entity) = mapper.get(e) {
+                    extracted_cascades.insert(*entity, v.clone());
+                } else {
+                    return;
+                }
+            }
+            for (e, v) in frusta.frusta.iter() {
+                if let Some(entity) = mapper.get(e) {
+                    extracted_frusta.insert(*entity, v.clone());
+                } else {
+                    return;
+                }
+            }
+            for (e, v) in visible_entities.entities.iter() {
+                if let Some(entity) = mapper.get(e) {
+                    cascade_visible_entities.insert(*entity, v.clone());
+                } else {
+                    return;
+                }
+            }
+
+            commands.get_or_spawn(entity.entity()).insert((
+                ExtractedDirectionalLight {
+                    color: directional_light.color.into(),
+                    illuminance: directional_light.illuminance,
+                    transform: *transform,
+                    volumetric: volumetric_light.is_some(),
+                    shadows_enabled: directional_light.shadows_enabled,
+                    shadow_depth_bias: directional_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: directional_light.shadow_normal_bias
+                        * std::f32::consts::SQRT_2,
+                    cascade_shadow_config: cascade_config.clone(),
+                    cascades: extracted_cascades,
+                    frusta: extracted_frusta,
+                    render_layers: maybe_layers.unwrap_or_default().clone(),
+                },
+                CascadesVisibleEntities {
+                    entities: cascade_visible_entities,
+                },
+            ));
+        },
+    );
 }
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
@@ -1209,6 +1238,7 @@ pub fn queue_shadows<M: Material>(
             };
 
             let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
+            println!("queue_shadow get:{}", entity);
             let visible_entities = match light_entity {
                 LightEntity::Directional {
                     light_entity,

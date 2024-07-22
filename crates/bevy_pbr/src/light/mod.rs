@@ -13,7 +13,6 @@ use bevy_render::{
     view::{
         InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntityRanges,
     },
-    world_sync::RenderEntity,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::Parallel;
@@ -302,7 +301,7 @@ pub fn clear_directional_light_cascades(mut lights: Query<(&DirectionalLight, &m
 
 pub fn build_directional_light_cascades<P: CameraProjection + Component>(
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    views: Query<(&RenderEntity, &GlobalTransform, &P, &Camera)>,
+    views: Query<(Entity, &GlobalTransform, &P, &Camera)>,
     mut lights: Query<(
         &GlobalTransform,
         &DirectionalLight,
@@ -314,7 +313,7 @@ pub fn build_directional_light_cascades<P: CameraProjection + Component>(
         .iter()
         .filter_map(|(entity, transform, projection, camera)| {
             if camera.is_active {
-                Some((entity.entity(), projection, transform.compute_matrix()))
+                Some((entity, projection, transform.compute_matrix()))
             } else {
                 None
             }
