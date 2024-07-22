@@ -51,7 +51,7 @@ enum Action {
         stop_frame: u32,
 
         #[arg(long)]
-        /// Which frame to take a screenshot at
+        /// Which frame to take a screenshot at. Set to 0 for no screenshot.
         screenshot_frame: u32,
 
         #[arg(long, default_value = "0.05")]
