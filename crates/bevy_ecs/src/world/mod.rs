@@ -9,6 +9,7 @@ mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
+use crate::query::DefaultQueryFilters;
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -1243,6 +1244,40 @@ impl World {
     #[inline]
     pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
         QueryState::new(self)
+    }
+
+    /// Add a [`With<T>`](crate::prelude::With) filter to [`DefaultQueryFilters`].
+    /// Inserts the [`DefaultQueryFilters`] resource if it does not exist
+    pub fn set_default_with_filter<T: Component>(&mut self) {
+        let id = self.init_component::<T>();
+        if let Some(mut filters) = self.get_resource_mut::<DefaultQueryFilters>() {
+            filters.with_untyped(id);
+        } else {
+            let mut filters = DefaultQueryFilters::default();
+            filters.with_untyped(id);
+            self.insert_resource(filters);
+        }
+    }
+
+    /// Add a [`Without<T>`](crate::prelude::Without) filter to [`DefaultQueryFilters`].
+    /// Inserts the [`DefaultQueryFilters`] resource if it does not exist
+    pub fn set_default_without_filter<T: Component>(&mut self) {
+        let id = self.init_component::<T>();
+        if let Some(mut filters) = self.get_resource_mut::<DefaultQueryFilters>() {
+            filters.without_untyped(id);
+        } else {
+            let mut filters = DefaultQueryFilters::default();
+            filters.without_untyped(id);
+            self.insert_resource(filters);
+        }
+    }
+
+    /// Remove any default filter specified for T.
+    pub fn unset_default_filter<T: Component>(&mut self) {
+        let id = self.init_component::<T>();
+        if let Some(mut filters) = self.get_resource_mut::<DefaultQueryFilters>() {
+            filters.remove_untyped(id);
+        }
     }
 
     /// Returns an iterator of entities that had components of type `T` removed
