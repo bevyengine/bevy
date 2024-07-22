@@ -62,7 +62,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = false;
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
 pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
-use std::ops::{Deref, Range};
+use std::ops::Range;
 
 use bevy_asset::{AssetId, UntypedAssetId};
 use bevy_color::LinearRgba;
@@ -71,10 +71,7 @@ pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_ecs::{
-    entity::{self, EntityHashSet},
-    prelude::*,
-};
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -521,14 +518,13 @@ pub fn extract_core_3d_camera_phases(
             continue;
         }
 
-        if let Some(entity) = render_entity.entity() {
-            opaque_3d_phases.insert_or_clear(entity);
-            alpha_mask_3d_phases.insert_or_clear(entity);
-            transmissive_3d_phases.insert_or_clear(entity);
-            transparent_3d_phases.insert_or_clear(entity);
+        let entity = render_entity.entity();
+        opaque_3d_phases.insert_or_clear(entity);
+        alpha_mask_3d_phases.insert_or_clear(entity);
+        transmissive_3d_phases.insert_or_clear(entity);
+        transparent_3d_phases.insert_or_clear(entity);
 
-            live_entities.insert(entity);
-        };
+        live_entities.insert(entity);
     }
 
     opaque_3d_phases.retain(|entity, _| live_entities.contains(entity));

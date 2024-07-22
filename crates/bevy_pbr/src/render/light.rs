@@ -268,16 +268,14 @@ pub fn extract_lights(
                 * std::f32::consts::SQRT_2,
             spot_light_angles: None,
         };
-        if let Some(entity) = render_entity.entity() {
-            point_lights_values.push((
-                entity,
-                (
-                    extracted_point_light,
-                    render_cubemap_visible_entities,
-                    (*frusta).clone(),
-                ),
-            ));
-        }
+        point_lights_values.push((
+            render_entity.entity(),
+            (
+                extracted_point_light,
+                render_cubemap_visible_entities,
+                (*frusta).clone(),
+            ),
+        ));
     }
     *previous_point_lights_len = point_lights_values.len();
     commands.insert_or_spawn_batch(point_lights_values);
@@ -302,38 +300,33 @@ pub fn extract_lights(
             let texel_size =
                 2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
 
-            if let Some(entity) = render_entity.entity() {
-                spot_lights_values.push((
-                    entity,
-                    (
-                        ExtractedPointLight {
-                            color: spot_light.color.into(),
-                            // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                            // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                            // for details.
-                            // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
-                            // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
-                            // which seems least surprising for users
-                            intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
-                            range: spot_light.range,
-                            radius: spot_light.radius,
-                            transform: *transform,
-                            shadows_enabled: spot_light.shadows_enabled,
-                            shadow_depth_bias: spot_light.shadow_depth_bias,
-                            // The factor of SQRT_2 is for the worst-case diagonal offset
-                            shadow_normal_bias: spot_light.shadow_normal_bias
-                                * texel_size
-                                * std::f32::consts::SQRT_2,
-                            spot_light_angles: Some((
-                                spot_light.inner_angle,
-                                spot_light.outer_angle,
-                            )),
-                        },
-                        render_visible_entities,
-                        *frustum,
-                    ),
-                ));
-            }
+            spot_lights_values.push((
+                render_entity.entity(),
+                (
+                    ExtractedPointLight {
+                        color: spot_light.color.into(),
+                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                        // for details.
+                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+                        // which seems least surprising for users
+                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                        range: spot_light.range,
+                        radius: spot_light.radius,
+                        transform: *transform,
+                        shadows_enabled: spot_light.shadows_enabled,
+                        shadow_depth_bias: spot_light.shadow_depth_bias,
+                        // The factor of SQRT_2 is for the worst-case diagonal offset
+                        shadow_normal_bias: spot_light.shadow_normal_bias
+                            * texel_size
+                            * std::f32::consts::SQRT_2,
+                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                    },
+                    render_visible_entities,
+                    *frustum,
+                ),
+            ));
         }
     }
     *previous_spot_lights_len = spot_lights_values.len();
@@ -358,26 +351,23 @@ pub fn extract_lights(
 
         // TODO: As above
         let render_visible_entities = visible_entities.clone();
-        if let Some(entity) = render_entity.entity() {
-            commands.get_or_spawn(entity).insert((
-                ExtractedDirectionalLight {
-                    color: directional_light.color.into(),
-                    illuminance: directional_light.illuminance,
-                    transform: *transform,
-                    volumetric: volumetric_light.is_some(),
-                    shadows_enabled: directional_light.shadows_enabled,
-                    shadow_depth_bias: directional_light.shadow_depth_bias,
-                    // The factor of SQRT_2 is for the worst-case diagonal offset
-                    shadow_normal_bias: directional_light.shadow_normal_bias
-                        * std::f32::consts::SQRT_2,
-                    cascade_shadow_config: cascade_config.clone(),
-                    cascades: cascades.cascades.clone(),
-                    frusta: frusta.frusta.clone(),
-                    render_layers: maybe_layers.unwrap_or_default().clone(),
-                },
-                render_visible_entities,
-            ));
-        }
+        commands.get_or_spawn(render_entity.entity()).insert((
+            ExtractedDirectionalLight {
+                color: directional_light.color.into(),
+                illuminance: directional_light.illuminance,
+                transform: *transform,
+                volumetric: volumetric_light.is_some(),
+                shadows_enabled: directional_light.shadows_enabled,
+                shadow_depth_bias: directional_light.shadow_depth_bias,
+                // The factor of SQRT_2 is for the worst-case diagonal offset
+                shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
+                cascade_shadow_config: cascade_config.clone(),
+                cascades: cascades.cascades.clone(),
+                frusta: frusta.frusta.clone(),
+                render_layers: maybe_layers.unwrap_or_default().clone(),
+            },
+            render_visible_entities,
+        ));
     }
 }
 

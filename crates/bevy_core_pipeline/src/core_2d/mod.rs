@@ -27,16 +27,13 @@ pub mod graph {
     }
 }
 
-use std::ops::{Deref, Range};
+use std::ops::Range;
 
 pub use camera_2d::*;
 pub use main_transparent_pass_2d_node::*;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::{
-    entity::{self, EntityHashSet},
-    prelude::*,
-};
+use bevy_ecs::{entity::EntityHashSet, prelude::*};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::Camera,

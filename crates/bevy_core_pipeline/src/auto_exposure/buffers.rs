@@ -37,7 +37,7 @@ pub(super) fn extract_buffers(
         changed: changed
             .iter()
             .map(|(entity, settings)| {
-                (entity.entity(), settings.clone());
+                (entity.entity(), settings.clone())
             })
             .collect(),
         removed: removed.read().collect(),

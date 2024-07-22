@@ -832,12 +832,12 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
+            &RenderEntity,
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
-            &RenderEntity,
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
@@ -851,12 +851,12 @@ pub fn extract_cameras(
 ) {
     let primary_window = primary_window.iter().next();
     for (
+        render_entity,
         camera,
         camera_render_graph,
         transform,
         visible_entities,
         frustum,
-        render_entity,
         color_grading,
         exposure,
         temporal_jitter,

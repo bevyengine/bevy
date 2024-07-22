@@ -1,7 +1,7 @@
 mod range;
 mod render_layers;
 
-use std::{any::TypeId, ops::Deref};
+use std::any::TypeId;
 
 pub use range::*;
 pub use render_layers::*;

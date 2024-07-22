@@ -14,7 +14,6 @@
 //!
 //! [Depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 
-use std::ops::Deref;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
