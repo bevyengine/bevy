@@ -1034,7 +1034,26 @@ impl AssetServer {
     ///
     /// This will return an error if the asset or any of its dependencies fail to load,
     /// or if the asset has not been queued up to be loaded.
-    pub fn wait_for_asset(
+    pub async fn wait_for_asset<A: Asset>(
+        &self,
+        handle: impl AsRef<Handle<A>>,
+    ) -> Result<(), WaitForAssetError> {
+        self.wait_for_asset_id(handle.as_ref().id()).await
+    }
+
+    /// Returns a future that will suspend until the specified asset and its dependencies finish loading.
+    ///
+    /// Note that since an asset ID does not count as a reference to the asset,
+    /// the future returned from this method will *not* keep the asset alive.
+    /// This may lead to the asset unexepctedly being dropped while you are waiting for it to finish loading.
+    /// If you have access to an asset's strong [`Handle`], you should prefer to call [`AssetServer::wait_for_asset`]
+    /// to ensure the asset finishes loading, or store a strong handle somewhere else while waiting for it to load.
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if the asset or any of its dependencies fail to load,
+    /// or if the asset has not been queued up to be loaded.
+    pub fn wait_for_asset_id(
         &self,
         id: impl Into<UntypedAssetId>,
     ) -> impl Future<Output = Result<(), WaitForAssetError>> + 'static {
