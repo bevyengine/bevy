@@ -1053,14 +1053,13 @@ impl AssetServer {
     ///
     /// This will return an error if the asset or any of its dependencies fail to load,
     /// or if the asset has not been queued up to be loaded.
-    pub fn wait_for_asset_id(
+    pub async fn wait_for_asset_id(
         &self,
         id: impl Into<UntypedAssetId>,
-    ) -> impl Future<Output = Result<(), WaitForAssetError>> + 'static {
-        let asset_server = self.clone();
+    ) -> Result<(), WaitForAssetError> {
         let id = id.into();
         std::future::poll_fn(move |cx| {
-            match asset_server.recursive_dependency_load_state(id) {
+            match self.recursive_dependency_load_state(id) {
                 RecursiveDependencyLoadState::Loaded => Poll::Ready(Ok(())),
                 // Return an error immediately if the asset is not in the process of loading
                 RecursiveDependencyLoadState::NotLoaded => {
@@ -1070,12 +1069,12 @@ impl AssetServer {
                 RecursiveDependencyLoadState::Loading => {
                     // Check if our waker is already there
                     let has_waker = {
-                        let infos = asset_server.data.infos.read();
+                        let infos = self.data.infos.read();
                         let tasks = infos.get(id).map_or(&[][..], |info| &info.waiting_tasks);
                         tasks.iter().any(|waker| waker.will_wake(cx.waker()))
                     };
                     if !has_waker {
-                        let mut infos = asset_server.data.infos.write();
+                        let mut infos = self.data.infos.write();
                         let Some(info) = infos.get_mut(id) else {
                             return Poll::Ready(Err(WaitForAssetError::NotLoaded));
                         };
@@ -1091,7 +1090,7 @@ impl AssetServer {
                 }
                 RecursiveDependencyLoadState::Failed => {
                     // See if we can return a more-specific error
-                    let error = match asset_server.load_state(id) {
+                    let error = match self.load_state(id) {
                         LoadState::Failed(error) => WaitForAssetError::Failed(error),
                         _ => WaitForAssetError::DependencyFailed,
                     };
@@ -1099,6 +1098,7 @@ impl AssetServer {
                 }
             }
         })
+        .await
     }
 
     /// Returns the [`AssetServerMode`] this server is currently in.
