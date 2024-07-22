@@ -1,7 +1,10 @@
 //! Event handling types.
 mod base;
 mod collections;
+mod event_cursor;
 mod iterators;
+mod mut_iterators;
+mod mutator;
 mod reader;
 mod registry;
 mod update;
@@ -11,10 +14,15 @@ pub(crate) use base::EventInstance;
 pub use base::{Event, EventId};
 pub use bevy_ecs_macros::Event;
 pub use collections::{Events, SendBatchIds};
+pub use event_cursor::EventCursor;
 #[cfg(feature = "multi_threaded")]
 pub use iterators::EventParIter;
 pub use iterators::{EventIterator, EventIteratorWithId};
-pub use reader::{EventReader, ManualEventReader};
+#[cfg(feature = "multi_threaded")]
+pub use mut_iterators::EventMutParIter;
+pub use mut_iterators::{EventMutIterator, EventMutIteratorWithId};
+pub use mutator::EventMutator;
+pub use reader::EventReader;
 pub use registry::{EventRegistry, ShouldUpdateEvents};
 pub use update::{
     event_update_condition, event_update_system, signal_event_update_system, EventUpdates,
@@ -32,6 +40,13 @@ mod tests {
         i: usize,
     }
 
+    #[derive(Event, Clone, PartialEq, Debug, Default)]
+    struct EmptyTestEvent;
+
+    fn get_events<E: Event + Clone>(events: &Events<E>, cursor: &mut EventCursor<E>) -> Vec<E> {
+        cursor.read(events).cloned().collect::<Vec<E>>()
+    }
+
     #[test]
     fn test_events() {
         let mut events = Events::<TestEvent>::default();
@@ -41,9 +56,9 @@ mod tests {
 
         // this reader will miss event_0 and event_1 because it wont read them over the course of
         // two updates
-        let mut reader_missed: ManualEventReader<TestEvent> = events.get_reader();
+        let mut reader_missed: EventCursor<TestEvent> = events.get_cursor();
 
-        let mut reader_a: ManualEventReader<TestEvent> = events.get_reader();
+        let mut reader_a: EventCursor<TestEvent> = events.get_cursor();
 
         events.send(event_0);
 
@@ -58,7 +73,7 @@ mod tests {
             "second iteration of reader_a created before event results in zero events"
         );
 
-        let mut reader_b: ManualEventReader<TestEvent> = events.get_reader();
+        let mut reader_b: EventCursor<TestEvent> = events.get_cursor();
 
         assert_eq!(
             get_events(&events, &mut reader_b),
@@ -73,7 +88,7 @@ mod tests {
 
         events.send(event_1);
 
-        let mut reader_c = events.get_reader();
+        let mut reader_c = events.get_cursor();
 
         assert_eq!(
             get_events(&events, &mut reader_c),
@@ -94,7 +109,7 @@ mod tests {
 
         events.update();
 
-        let mut reader_d = events.get_reader();
+        let mut reader_d = events.get_cursor();
 
         events.send(event_2);
 
@@ -123,35 +138,28 @@ mod tests {
         );
     }
 
-    fn get_events<E: Event + Clone>(
-        events: &Events<E>,
-        reader: &mut ManualEventReader<E>,
-    ) -> Vec<E> {
-        reader.read(events).cloned().collect::<Vec<E>>()
-    }
-
-    #[derive(Event, PartialEq, Eq, Debug)]
-    struct E(usize);
-
-    fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<E>)) {
-        let mut events = Events::<E>::default();
-        let mut reader = events.get_reader();
+    // Events Collection
+    fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<TestEvent>)) {
+        let mut events = Events::<TestEvent>::default();
+        let mut reader = events.get_cursor();
 
         assert!(reader.read(&events).next().is_none());
 
-        events.send(E(0));
-        assert_eq!(*reader.read(&events).next().unwrap(), E(0));
+        events.send(TestEvent { i: 0 });
+        assert_eq!(*reader.read(&events).next().unwrap(), TestEvent { i: 0 });
         assert_eq!(reader.read(&events).next(), None);
 
-        events.send(E(1));
+        events.send(TestEvent { i: 1 });
         clear_func(&mut events);
         assert!(reader.read(&events).next().is_none());
 
-        events.send(E(2));
+        events.send(TestEvent { i: 2 });
         events.update();
-        events.send(E(3));
+        events.send(TestEvent { i: 3 });
 
-        assert!(reader.read(&events).eq([E(2), E(3)].iter()));
+        assert!(reader
+            .read(&events)
+            .eq([TestEvent { i: 2 }, TestEvent { i: 3 }].iter()));
     }
 
     #[test]
@@ -162,241 +170,19 @@ mod tests {
     #[test]
     fn test_events_drain_and_read() {
         events_clear_and_read_impl(|events| {
-            assert!(events.drain().eq(vec![E(0), E(1)].into_iter()));
+            assert!(events
+                .drain()
+                .eq(vec![TestEvent { i: 0 }, TestEvent { i: 1 }].into_iter()));
         });
     }
 
     #[test]
-    fn test_events_extend_impl() {
-        let mut events = Events::<TestEvent>::default();
-        let mut reader = events.get_reader();
-
-        events.extend(vec![TestEvent { i: 0 }, TestEvent { i: 1 }]);
-        assert!(reader
-            .read(&events)
-            .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
-    }
-
-    #[test]
-    fn test_events_empty() {
-        let mut events = Events::<TestEvent>::default();
-        assert!(events.is_empty());
-
-        events.send(TestEvent { i: 0 });
-        assert!(!events.is_empty());
-
-        events.update();
-        assert!(!events.is_empty());
-
-        // events are only empty after the second call to update
-        // due to double buffering.
-        events.update();
-        assert!(events.is_empty());
-    }
-
-    #[test]
-    fn test_event_reader_len_empty() {
-        let events = Events::<TestEvent>::default();
-        assert_eq!(events.get_reader().len(&events), 0);
-        assert!(events.get_reader().is_empty(&events));
-    }
-
-    #[test]
-    fn test_event_reader_len_filled() {
-        let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
-        assert_eq!(events.get_reader().len(&events), 1);
-        assert!(!events.get_reader().is_empty(&events));
-    }
-
-    #[test]
-    fn test_event_iter_len_updated() {
-        let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
-        events.send(TestEvent { i: 1 });
-        events.send(TestEvent { i: 2 });
-        let mut reader = events.get_reader();
-        let mut iter = reader.read(&events);
-        assert_eq!(iter.len(), 3);
-        iter.next();
-        assert_eq!(iter.len(), 2);
-        iter.next();
-        assert_eq!(iter.len(), 1);
-        iter.next();
-        assert_eq!(iter.len(), 0);
-    }
-
-    #[test]
-    fn test_event_reader_len_current() {
-        let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
-        let reader = events.get_reader_current();
-        dbg!(&reader);
-        dbg!(&events);
-        assert!(reader.is_empty(&events));
-        events.send(TestEvent { i: 0 });
-        assert_eq!(reader.len(&events), 1);
-        assert!(!reader.is_empty(&events));
-    }
-
-    #[test]
-    fn test_event_reader_len_update() {
-        let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
-        events.send(TestEvent { i: 0 });
-        let reader = events.get_reader();
-        assert_eq!(reader.len(&events), 2);
-        events.update();
-        events.send(TestEvent { i: 0 });
-        assert_eq!(reader.len(&events), 3);
-        events.update();
-        assert_eq!(reader.len(&events), 1);
-        events.update();
-        assert!(reader.is_empty(&events));
-    }
-
-    #[test]
-    fn test_event_reader_clear() {
-        use bevy_ecs::prelude::*;
-
-        let mut world = World::new();
-        let mut events = Events::<TestEvent>::default();
-        events.send(TestEvent { i: 0 });
-        world.insert_resource(events);
-
-        let mut reader = IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> bool {
-            if !events.is_empty() {
-                events.clear();
-                false
-            } else {
-                true
-            }
-        });
-        reader.initialize(&mut world);
-
-        let is_empty = reader.run((), &mut world);
-        assert!(!is_empty, "EventReader should not be empty");
-        let is_empty = reader.run((), &mut world);
-        assert!(is_empty, "EventReader should be empty");
-    }
-
-    #[test]
-    fn test_event_registry_can_add_and_remove_events_to_world() {
-        use bevy_ecs::prelude::*;
-
-        let mut world = World::new();
-        EventRegistry::register_event::<TestEvent>(&mut world);
-
-        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
-
-        assert!(has_events, "Should have the events resource");
-
-        EventRegistry::deregister_events::<TestEvent>(&mut world);
-
-        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
-
-        assert!(!has_events, "Should not have the events resource");
-    }
-
-    #[test]
-    fn test_update_drain() {
-        let mut events = Events::<TestEvent>::default();
-        let mut reader = events.get_reader();
-
-        events.send(TestEvent { i: 0 });
-        events.send(TestEvent { i: 1 });
-        assert_eq!(reader.read(&events).count(), 2);
-
-        let mut old_events = Vec::from_iter(events.update_drain());
-        assert!(old_events.is_empty());
-
-        events.send(TestEvent { i: 2 });
-        assert_eq!(reader.read(&events).count(), 1);
-
-        old_events.extend(events.update_drain());
-        assert_eq!(old_events.len(), 2);
-
-        old_events.extend(events.update_drain());
-        assert_eq!(
-            old_events,
-            &[TestEvent { i: 0 }, TestEvent { i: 1 }, TestEvent { i: 2 }]
-        );
-    }
-
-    #[allow(clippy::iter_nth_zero)]
-    #[test]
-    fn test_event_iter_nth() {
-        use bevy_ecs::prelude::*;
-
-        let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
-
-        world.send_event(TestEvent { i: 0 });
-        world.send_event(TestEvent { i: 1 });
-        world.send_event(TestEvent { i: 2 });
-        world.send_event(TestEvent { i: 3 });
-        world.send_event(TestEvent { i: 4 });
-
-        let mut schedule = Schedule::default();
-        schedule.add_systems(|mut events: EventReader<TestEvent>| {
-            let mut iter = events.read();
-
-            assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
-            assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
-            assert_eq!(iter.nth(1), None);
-
-            assert!(events.is_empty());
-        });
-        schedule.run(&mut world);
-    }
-
-    #[test]
-    fn test_event_iter_last() {
-        use bevy_ecs::prelude::*;
-
-        let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
-
-        let mut reader =
-            IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
-                events.read().last().copied()
-            });
-        reader.initialize(&mut world);
-
-        let last = reader.run((), &mut world);
-        assert!(last.is_none(), "EventReader should be empty");
-
-        world.send_event(TestEvent { i: 0 });
-        let last = reader.run((), &mut world);
-        assert_eq!(last, Some(TestEvent { i: 0 }));
-
-        world.send_event(TestEvent { i: 1 });
-        world.send_event(TestEvent { i: 2 });
-        world.send_event(TestEvent { i: 3 });
-        let last = reader.run((), &mut world);
-        assert_eq!(last, Some(TestEvent { i: 3 }));
-
-        let last = reader.run((), &mut world);
-        assert!(last.is_none(), "EventReader should be empty");
-    }
-
-    #[derive(Event, Clone, PartialEq, Debug, Default)]
-    struct EmptyTestEvent;
-
-    #[test]
-    fn test_firing_empty_event() {
+    fn test_events_send_default() {
         let mut events = Events::<EmptyTestEvent>::default();
         events.send_default();
 
-        let mut reader = events.get_reader();
+        let mut reader = events.get_cursor();
         assert_eq!(get_events(&events, &mut reader), vec![EmptyTestEvent]);
-    }
-
-    #[test]
-    fn ensure_reader_readonly() {
-        fn reader_system(_: EventReader<EmptyTestEvent>) {}
-
-        assert_is_read_only_system(reader_system);
     }
 
     #[test]
@@ -438,9 +224,244 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_event_registry_can_add_and_remove_events_to_world() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        EventRegistry::register_event::<TestEvent>(&mut world);
+
+        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+        assert!(has_events, "Should have the events resource");
+
+        EventRegistry::deregister_events::<TestEvent>(&mut world);
+
+        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+        assert!(!has_events, "Should not have the events resource");
+    }
+
+    #[test]
+    fn test_events_update_drain() {
+        let mut events = Events::<TestEvent>::default();
+        let mut reader = events.get_cursor();
+
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 1 });
+        assert_eq!(reader.read(&events).count(), 2);
+
+        let mut old_events = Vec::from_iter(events.update_drain());
+        assert!(old_events.is_empty());
+
+        events.send(TestEvent { i: 2 });
+        assert_eq!(reader.read(&events).count(), 1);
+
+        old_events.extend(events.update_drain());
+        assert_eq!(old_events.len(), 2);
+
+        old_events.extend(events.update_drain());
+        assert_eq!(
+            old_events,
+            &[TestEvent { i: 0 }, TestEvent { i: 1 }, TestEvent { i: 2 }]
+        );
+    }
+
+    #[test]
+    fn test_events_empty() {
+        let mut events = Events::<TestEvent>::default();
+        assert!(events.is_empty());
+
+        events.send(TestEvent { i: 0 });
+        assert!(!events.is_empty());
+
+        events.update();
+        assert!(!events.is_empty());
+
+        // events are only empty after the second call to update
+        // due to double buffering.
+        events.update();
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_events_extend_impl() {
+        let mut events = Events::<TestEvent>::default();
+        let mut reader = events.get_cursor();
+
+        events.extend(vec![TestEvent { i: 0 }, TestEvent { i: 1 }]);
+        assert!(reader
+            .read(&events)
+            .eq([TestEvent { i: 0 }, TestEvent { i: 1 }].iter()));
+    }
+
+    // Cursor
+    #[test]
+    fn test_event_cursor_read() {
+        let mut events = Events::<TestEvent>::default();
+        let mut cursor = events.get_cursor();
+        assert!(cursor.read(&events).next().is_none());
+
+        events.send(TestEvent { i: 0 });
+        let sent_event = cursor.read(&events).next().unwrap();
+        assert_eq!(sent_event, &TestEvent { i: 0 });
+        assert!(cursor.read(&events).next().is_none());
+
+        events.send(TestEvent { i: 2 });
+        let sent_event = cursor.read(&events).next().unwrap();
+        assert_eq!(sent_event, &TestEvent { i: 2 });
+        assert!(cursor.read(&events).next().is_none());
+
+        events.clear();
+        assert!(cursor.read(&events).next().is_none());
+    }
+
+    #[test]
+    fn test_event_cursor_read_mut() {
+        let mut events = Events::<TestEvent>::default();
+        let mut write_cursor = events.get_cursor();
+        let mut read_cursor = events.get_cursor();
+        assert!(write_cursor.read_mut(&mut events).next().is_none());
+        assert!(read_cursor.read(&events).next().is_none());
+
+        events.send(TestEvent { i: 0 });
+        let sent_event = write_cursor.read_mut(&mut events).next().unwrap();
+        assert_eq!(sent_event, &mut TestEvent { i: 0 });
+        *sent_event = TestEvent { i: 1 }; // Mutate whole event
+        assert_eq!(
+            read_cursor.read(&events).next().unwrap(),
+            &TestEvent { i: 1 }
+        );
+        assert!(read_cursor.read(&events).next().is_none());
+
+        events.send(TestEvent { i: 2 });
+        let sent_event = write_cursor.read_mut(&mut events).next().unwrap();
+        assert_eq!(sent_event, &mut TestEvent { i: 2 });
+        sent_event.i = 3; // Mutate sub value
+        assert_eq!(
+            read_cursor.read(&events).next().unwrap(),
+            &TestEvent { i: 3 }
+        );
+        assert!(read_cursor.read(&events).next().is_none());
+
+        events.clear();
+        assert!(write_cursor.read(&events).next().is_none());
+        assert!(read_cursor.read(&events).next().is_none());
+    }
+
+    #[test]
+    fn test_event_cursor_clear() {
+        let mut events = Events::<TestEvent>::default();
+        let mut reader = events.get_cursor();
+
+        events.send(TestEvent { i: 0 });
+        assert_eq!(reader.len(&events), 1);
+        reader.clear(&events);
+        assert_eq!(reader.len(&events), 0);
+    }
+
+    #[test]
+    fn test_event_cursor_len_update() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 0 });
+        let reader = events.get_cursor();
+        assert_eq!(reader.len(&events), 2);
+        events.update();
+        events.send(TestEvent { i: 0 });
+        assert_eq!(reader.len(&events), 3);
+        events.update();
+        assert_eq!(reader.len(&events), 1);
+        events.update();
+        assert!(reader.is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_cursor_len_current() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        let reader = events.get_cursor_current();
+        assert!(reader.is_empty(&events));
+        events.send(TestEvent { i: 0 });
+        assert_eq!(reader.len(&events), 1);
+        assert!(!reader.is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_cursor_iter_len_updated() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        events.send(TestEvent { i: 1 });
+        events.send(TestEvent { i: 2 });
+        let mut reader = events.get_cursor();
+        let mut iter = reader.read(&events);
+        assert_eq!(iter.len(), 3);
+        iter.next();
+        assert_eq!(iter.len(), 2);
+        iter.next();
+        assert_eq!(iter.len(), 1);
+        iter.next();
+        assert_eq!(iter.len(), 0);
+    }
+
+    #[test]
+    fn test_event_cursor_len_empty() {
+        let events = Events::<TestEvent>::default();
+        assert_eq!(events.get_cursor().len(&events), 0);
+        assert!(events.get_cursor().is_empty(&events));
+    }
+
+    #[test]
+    fn test_event_cursor_len_filled() {
+        let mut events = Events::<TestEvent>::default();
+        events.send(TestEvent { i: 0 });
+        assert_eq!(events.get_cursor().len(&events), 1);
+        assert!(!events.get_cursor().is_empty(&events));
+    }
+
     #[cfg(feature = "multi_threaded")]
     #[test]
-    fn test_events_par_iter() {
+    fn test_event_cursor_par_read() {
+        use crate::prelude::*;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        #[derive(Resource)]
+        struct Counter(AtomicUsize);
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+        for _ in 0..100 {
+            world.send_event(TestEvent { i: 1 });
+        }
+
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(
+            |mut cursor: Local<EventCursor<TestEvent>>,
+             events: Res<Events<TestEvent>>,
+             counter: ResMut<Counter>| {
+                cursor.par_read(&events).for_each(|event| {
+                    counter.0.fetch_add(event.i, Ordering::Relaxed);
+                });
+            },
+        );
+
+        world.insert_resource(Counter(AtomicUsize::new(0)));
+        schedule.run(&mut world);
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(counter.0.into_inner(), 100);
+
+        world.insert_resource(Counter(AtomicUsize::new(0)));
+        schedule.run(&mut world);
+        let counter = world.remove_resource::<Counter>().unwrap();
+        assert_eq!(
+            counter.0.into_inner(),
+            0,
+            "par_read should have consumed events but didn't"
+        );
+    }
+
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn test_event_cursor_par_read_mut() {
         use crate::prelude::*;
         use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -454,8 +475,11 @@ mod tests {
         }
         let mut schedule = Schedule::default();
         schedule.add_systems(
-            |mut events: EventReader<TestEvent>, counter: ResMut<Counter>| {
-                events.par_read().for_each(|event| {
+            |mut cursor: Local<EventCursor<TestEvent>>,
+             mut events: ResMut<Events<TestEvent>>,
+             counter: ResMut<Counter>| {
+                cursor.par_read_mut(&mut events).for_each(|event| {
+                    event.i += 1;
                     counter.0.fetch_add(event.i, Ordering::Relaxed);
                 });
             },
@@ -463,11 +487,137 @@ mod tests {
         world.insert_resource(Counter(AtomicUsize::new(0)));
         schedule.run(&mut world);
         let counter = world.remove_resource::<Counter>().unwrap();
-        assert_eq!(counter.0.into_inner(), 100);
+        assert_eq!(counter.0.into_inner(), 200, "Initial run failed");
 
         world.insert_resource(Counter(AtomicUsize::new(0)));
         schedule.run(&mut world);
         let counter = world.remove_resource::<Counter>().unwrap();
-        assert_eq!(counter.0.into_inner(), 0);
+        assert_eq!(
+            counter.0.into_inner(),
+            0,
+            "par_read_mut should have consumed events but didn't"
+        );
+    }
+
+    // Reader & Mutator
+    #[test]
+    fn ensure_reader_readonly() {
+        fn reader_system(_: EventReader<EmptyTestEvent>) {}
+
+        assert_is_read_only_system(reader_system);
+    }
+
+    #[test]
+    fn test_event_reader_iter_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        let mut reader =
+            IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
+                events.read().last().copied()
+            });
+        reader.initialize(&mut world);
+
+        let last = reader.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
+
+        world.send_event(TestEvent { i: 0 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 0 }));
+
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        let last = reader.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 3 }));
+
+        let last = reader.run((), &mut world);
+        assert!(last.is_none(), "EventReader should be empty");
+    }
+
+    #[test]
+    fn test_event_mutator_iter_last() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        let mut mutator =
+            IntoSystem::into_system(|mut events: EventMutator<TestEvent>| -> Option<TestEvent> {
+                events.read().last().copied()
+            });
+        mutator.initialize(&mut world);
+
+        let last = mutator.run((), &mut world);
+        assert!(last.is_none(), "EventMutator should be empty");
+
+        world.send_event(TestEvent { i: 0 });
+        let last = mutator.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 0 }));
+
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        let last = mutator.run((), &mut world);
+        assert_eq!(last, Some(TestEvent { i: 3 }));
+
+        let last = mutator.run((), &mut world);
+        assert!(last.is_none(), "EventMutator should be empty");
+    }
+
+    #[allow(clippy::iter_nth_zero)]
+    #[test]
+    fn test_event_reader_iter_nth() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        world.send_event(TestEvent { i: 0 });
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        world.send_event(TestEvent { i: 4 });
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(|mut events: EventReader<TestEvent>| {
+            let mut iter = events.read();
+
+            assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
+            assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
+            assert_eq!(iter.nth(1), None);
+
+            assert!(events.is_empty());
+        });
+        schedule.run(&mut world);
+    }
+
+    #[allow(clippy::iter_nth_zero)]
+    #[test]
+    fn test_event_mutator_iter_nth() {
+        use bevy_ecs::prelude::*;
+
+        let mut world = World::new();
+        world.init_resource::<Events<TestEvent>>();
+
+        world.send_event(TestEvent { i: 0 });
+        world.send_event(TestEvent { i: 1 });
+        world.send_event(TestEvent { i: 2 });
+        world.send_event(TestEvent { i: 3 });
+        world.send_event(TestEvent { i: 4 });
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(|mut events: EventReader<TestEvent>| {
+            let mut iter = events.read();
+
+            assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
+            assert_eq!(iter.nth(2), Some(&TestEvent { i: 3 }));
+            assert_eq!(iter.nth(1), None);
+
+            assert!(events.is_empty());
+        });
+        schedule.run(&mut world);
     }
 }

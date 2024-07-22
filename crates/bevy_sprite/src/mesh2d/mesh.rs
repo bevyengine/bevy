@@ -18,12 +18,13 @@ use bevy_render::batching::no_gpu_preprocessing::{
     self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
     BatchedInstanceBuffer,
 };
-use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
+use bevy_render::mesh::allocator::MeshAllocator;
+use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
 use bevy_render::texture::FallbackImage;
 use bevy_render::{
     batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh},
+    mesh::{Mesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{binding_types::uniform_buffer, *},
@@ -688,7 +689,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
-    type Param = (SRes<RenderAssets<GpuMesh>>, SRes<RenderMesh2dInstances>);
+    type Param = (
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<RenderMesh2dInstances>,
+        SRes<MeshAllocator>,
+    );
     type ViewQuery = ();
     type ItemQuery = ();
 
@@ -697,11 +702,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         item: &P,
         _view: (),
         _item_query: Option<()>,
-        (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,
+        (meshes, render_mesh2d_instances, mesh_allocator): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let meshes = meshes.into_inner();
         let render_mesh2d_instances = render_mesh2d_instances.into_inner();
+        let mesh_allocator = mesh_allocator.into_inner();
 
         let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
             render_mesh2d_instances.get(&item.entity())
@@ -711,20 +717,32 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
             return RenderCommandResult::Failure;
         };
+        let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(mesh_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
 
         let batch_range = item.batch_range();
         match &gpu_mesh.buffer_info {
-            GpuBufferInfo::Indexed {
-                buffer,
+            RenderMeshBufferInfo::Indexed {
                 index_format,
                 count,
             } => {
-                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                pass.draw_indexed(0..*count, 0, batch_range.clone());
+                let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(mesh_asset_id)
+                else {
+                    return RenderCommandResult::Failure;
+                };
+
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+
+                pass.draw_indexed(
+                    index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                    vertex_buffer_slice.range.start as i32,
+                    batch_range.clone(),
+                );
             }
-            GpuBufferInfo::NonIndexed => {
+            RenderMeshBufferInfo::NonIndexed => {
                 pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
             }
         }

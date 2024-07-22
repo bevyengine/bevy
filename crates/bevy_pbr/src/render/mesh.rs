@@ -1,5 +1,6 @@
 use std::mem;
 
+use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -505,11 +506,11 @@ pub enum RenderMeshInstanceGpuQueue {
     #[default]
     None,
     /// The version of [`RenderMeshInstanceGpuQueue`] that omits the
-    /// [`MeshCullingDataGpuBuilder`], so that we don't waste space when GPU
+    /// [`MeshCullingData`], so that we don't waste space when GPU
     /// culling is disabled.
     CpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder)>),
     /// The version of [`RenderMeshInstanceGpuQueue`] that contains the
-    /// [`MeshCullingDataGpuBuilder`], used when any view has GPU culling
+    /// [`MeshCullingData`], used when any view has GPU culling
     /// enabled.
     GpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder, MeshCullingData)>),
 }
@@ -1209,7 +1210,8 @@ impl GetBatchData for MeshPipeline {
     type Param = (
         SRes<RenderMeshInstances>,
         SRes<RenderLightmaps>,
-        SRes<RenderAssets<GpuMesh>>,
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<MeshAllocator>,
     );
     // The material bind group ID, the mesh ID, and the lightmap ID,
     // respectively.
@@ -1218,7 +1220,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, _): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1249,7 +1251,7 @@ impl GetFullBatchData for MeshPipeline {
     type BufferInputData = MeshInputUniform;
 
     fn get_index_and_compare_data(
-        (mesh_instances, lightmaps, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, _): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         // This should only be called during GPU building.
@@ -1275,7 +1277,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, _): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1294,7 +1296,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_index(
-        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, _, _): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<NonMaxU32> {
         // This should only be called during GPU building.
@@ -1312,7 +1314,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_batch_indirect_parameters_index(
-        (mesh_instances, _, meshes): &SystemParamItem<Self::Param>,
+        (mesh_instances, _, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
         indirect_parameters_buffer: &mut IndirectParametersBuffer,
         entity: Entity,
         instance_index: u32,
@@ -1320,6 +1322,7 @@ impl GetFullBatchData for MeshPipeline {
         get_batch_indirect_parameters_index(
             mesh_instances,
             meshes,
+            mesh_allocator,
             indirect_parameters_buffer,
             entity,
             instance_index,
@@ -1332,7 +1335,8 @@ impl GetFullBatchData for MeshPipeline {
 /// parameters.
 fn get_batch_indirect_parameters_index(
     mesh_instances: &RenderMeshInstances,
-    meshes: &RenderAssets<GpuMesh>,
+    meshes: &RenderAssets<RenderMesh>,
+    mesh_allocator: &MeshAllocator,
     indirect_parameters_buffer: &mut IndirectParametersBuffer,
     entity: Entity,
     instance_index: u32,
@@ -1348,24 +1352,29 @@ fn get_batch_indirect_parameters_index(
 
     let mesh_instance = mesh_instances.get(&entity)?;
     let mesh = meshes.get(mesh_instance.mesh_asset_id)?;
+    let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)?;
 
     // Note that `IndirectParameters` covers both of these structures, even
     // though they actually have distinct layouts. See the comment above that
     // type for more information.
     let indirect_parameters = match mesh.buffer_info {
-        GpuBufferInfo::Indexed {
+        RenderMeshBufferInfo::Indexed {
             count: index_count, ..
-        } => IndirectParameters {
-            vertex_or_index_count: index_count,
-            instance_count: 0,
-            first_vertex: 0,
-            base_vertex_or_first_instance: 0,
-            first_instance: instance_index,
-        },
-        GpuBufferInfo::NonIndexed => IndirectParameters {
+        } => {
+            let index_buffer_slice =
+                mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)?;
+            IndirectParameters {
+                vertex_or_index_count: index_count,
+                instance_count: 0,
+                first_vertex_or_first_index: index_buffer_slice.range.start,
+                base_vertex_or_first_instance: vertex_buffer_slice.range.start,
+                first_instance: instance_index,
+            }
+        }
+        RenderMeshBufferInfo::NonIndexed => IndirectParameters {
             vertex_or_index_count: mesh.vertex_count,
             instance_count: 0,
-            first_vertex: 0,
+            first_vertex_or_first_index: vertex_buffer_slice.range.start,
             base_vertex_or_first_instance: instance_index,
             first_instance: instance_index,
         },
@@ -1765,11 +1774,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("TONEMAP_IN_SHADER".into());
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
-                20,
+                21,
             ));
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
-                21,
+                22,
             ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
@@ -1945,7 +1954,7 @@ impl MeshBindGroups {
         self.morph_targets.clear();
         self.lightmaps.clear();
     }
-    /// Get the `BindGroup` for `GpuMesh` with given `handle_id` and lightmap
+    /// Get the `BindGroup` for `RenderMesh` with given `handle_id` and lightmap
     /// key `lightmap`.
     pub fn get(
         &self,
@@ -1982,7 +1991,7 @@ impl MeshBindGroupPair {
 
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_bind_group(
-    meshes: Res<RenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<RenderMesh>>,
     images: Res<RenderAssets<GpuImage>>,
     mut groups: ResMut<MeshBindGroups>,
     mesh_pipeline: Res<MeshPipeline>,
@@ -2096,6 +2105,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemQuery = ();
@@ -2103,10 +2113,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_light_probes, view_ssr, mesh_view_bind_group): ROQueryItem<
-            'w,
-            Self::ViewQuery,
-        >,
+        (
+            view_uniform,
+            view_lights,
+            view_fog,
+            view_light_probes,
+            view_ssr,
+            view_environment_map,
+            mesh_view_bind_group,
+        ): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -2120,6 +2135,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_fog.offset,
                 **view_light_probes,
                 **view_ssr,
+                **view_environment_map,
             ],
         );
 
@@ -2238,10 +2254,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 pub struct DrawMesh;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
     type Param = (
-        SRes<RenderAssets<GpuMesh>>,
+        SRes<RenderAssets<RenderMesh>>,
         SRes<RenderMeshInstances>,
         SRes<IndirectParametersBuffer>,
         SRes<PipelineCache>,
+        SRes<MeshAllocator>,
         Option<SRes<PreprocessPipelines>>,
     );
     type ViewQuery = Has<PreprocessBindGroup>;
@@ -2251,7 +2268,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         item: &P,
         has_preprocess_bind_group: ROQueryItem<Self::ViewQuery>,
         _item_query: Option<()>,
-        (meshes, mesh_instances, indirect_parameters_buffer, pipeline_cache, preprocess_pipelines): SystemParamItem<'w, '_, Self::Param>,
+        (
+            meshes,
+            mesh_instances,
+            indirect_parameters_buffer,
+            pipeline_cache,
+            mesh_allocator,
+            preprocess_pipelines,
+        ): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         // If we're using GPU preprocessing, then we're dependent on that
@@ -2268,11 +2292,15 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         let meshes = meshes.into_inner();
         let mesh_instances = mesh_instances.into_inner();
         let indirect_parameters_buffer = indirect_parameters_buffer.into_inner();
+        let mesh_allocator = mesh_allocator.into_inner();
 
         let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(item.entity()) else {
             return RenderCommandResult::Failure;
         };
         let Some(gpu_mesh) = meshes.get(mesh_asset_id) else {
+            return RenderCommandResult::Failure;
+        };
+        let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_asset_id) else {
             return RenderCommandResult::Failure;
         };
 
@@ -2291,21 +2319,31 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             },
         };
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
 
         let batch_range = item.batch_range();
 
         // Draw either directly or indirectly, as appropriate.
         match &gpu_mesh.buffer_info {
-            GpuBufferInfo::Indexed {
-                buffer,
+            RenderMeshBufferInfo::Indexed {
                 index_format,
                 count,
             } => {
-                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(&mesh_asset_id)
+                else {
+                    return RenderCommandResult::Failure;
+                };
+
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+
                 match indirect_parameters {
                     None => {
-                        pass.draw_indexed(0..*count, 0, batch_range.clone());
+                        pass.draw_indexed(
+                            index_buffer_slice.range.start
+                                ..(index_buffer_slice.range.start + *count),
+                            vertex_buffer_slice.range.start as i32,
+                            batch_range.clone(),
+                        );
                     }
                     Some((indirect_parameters_offset, indirect_parameters_buffer)) => pass
                         .draw_indexed_indirect(
@@ -2314,7 +2352,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                         ),
                 }
             }
-            GpuBufferInfo::NonIndexed => match indirect_parameters {
+            RenderMeshBufferInfo::NonIndexed => match indirect_parameters {
                 None => {
                     pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
                 }

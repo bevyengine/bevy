@@ -1,6 +1,6 @@
 mod prepass_bindings;
 
-use bevy_render::mesh::{GpuMesh, MeshVertexBufferLayoutRef};
+use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
 use bevy_render::render_resource::binding_types::uniform_buffer;
 use bevy_render::view::WithMesh;
 use bevy_render::world_sync::RenderEntity;
@@ -682,7 +682,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
@@ -853,6 +853,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
             };
 
+            mesh_instance
+                .material_bind_group_id
+                .set(material.get_bind_group_id());
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
