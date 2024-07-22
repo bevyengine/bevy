@@ -1238,7 +1238,6 @@ pub fn queue_shadows<M: Material>(
             };
 
             let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
-            println!("queue_shadow get:{}", entity);
             let visible_entities = match light_entity {
                 LightEntity::Directional {
                     light_entity,
