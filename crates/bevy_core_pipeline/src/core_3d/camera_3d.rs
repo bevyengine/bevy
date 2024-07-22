@@ -10,7 +10,6 @@ use bevy_render::{
     primitives::Frustum,
     render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
-    world_sync::ToRenderWorld,
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
@@ -153,7 +152,6 @@ pub struct Camera3dBundle {
     pub color_grading: ColorGrading,
     pub exposure: Exposure,
     pub main_texture_usages: CameraMainTextureUsages,
-    pub _marker: ToRenderWorld,
 }
 
 // NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference
@@ -173,7 +171,6 @@ impl Default for Camera3dBundle {
             exposure: Default::default(),
             main_texture_usages: Default::default(),
             deband_dither: DebandDither::Enabled,
-            _marker: ToRenderWorld,
         }
     }
 }

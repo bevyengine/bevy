@@ -118,6 +118,7 @@ use bevy_render::{
     render_resource::Shader,
     texture::{GpuImage, Image},
     view::{check_visibility, VisibilitySystems},
+    world_sync::WorldSyncPlugin,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -319,18 +320,23 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceAmbientOcclusionPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
-                ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                (
+                    ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+                    ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                ),
                 LightmapPlugin,
                 LightProbePlugin,
-                PbrProjectionPlugin::<Projection>::default(),
-                PbrProjectionPlugin::<PerspectiveProjection>::default(),
-                PbrProjectionPlugin::<OrthographicProjection>::default(),
+                (
+                    PbrProjectionPlugin::<Projection>::default(),
+                    PbrProjectionPlugin::<PerspectiveProjection>::default(),
+                    PbrProjectionPlugin::<OrthographicProjection>::default(),
+                ),
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
+                WorldSyncPlugin::<(PointLight, SpotLight, DirectionalLight)>::default(),
             ))
             .configure_sets(
                 PostUpdate,

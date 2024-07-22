@@ -1027,16 +1027,18 @@ pub fn prepare_lights(
                 continue;
             }
 
+            let empty_cascades = vec![];
+            let empty_frusta = vec![];
             let cascades = light
                 .cascades
                 .get(&entity)
-                .unwrap()
+                .unwrap_or(&empty_cascades)
                 .iter()
                 .take(MAX_CASCADES_PER_LIGHT);
             let frusta = light
                 .frusta
                 .get(&entity)
-                .unwrap()
+                .unwrap_or(&empty_frusta)
                 .iter()
                 .take(MAX_CASCADES_PER_LIGHT);
             for (cascade_index, ((cascade, frustum), bound)) in cascades

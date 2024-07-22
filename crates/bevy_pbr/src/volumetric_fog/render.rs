@@ -38,6 +38,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{BevyDefault as _, GpuImage, Image},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    world_sync::RenderEntity,
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -269,9 +270,9 @@ impl FromWorld for VolumetricFogPipeline {
 /// from the main world to the render world.
 pub fn extract_volumetric_fog(
     mut commands: Commands,
-    view_targets: Extract<Query<(Entity, &VolumetricFogSettings)>>,
-    fog_volumes: Extract<Query<(Entity, &FogVolume, &GlobalTransform)>>,
-    volumetric_lights: Extract<Query<(Entity, &VolumetricLight)>>,
+    view_targets: Extract<Query<(&RenderEntity, &VolumetricFogSettings)>>,
+    fog_volumes: Extract<Query<(&RenderEntity, &FogVolume, &GlobalTransform)>>,
+    volumetric_lights: Extract<Query<(&RenderEntity, &VolumetricLight)>>,
 ) {
     if volumetric_lights.is_empty() {
         return;
@@ -279,19 +280,19 @@ pub fn extract_volumetric_fog(
 
     for (entity, volumetric_fog_settings) in view_targets.iter() {
         commands
-            .get_or_spawn(entity)
+            .get_or_spawn(entity.entity())
             .insert(*volumetric_fog_settings);
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
         commands
-            .get_or_spawn(entity)
+            .get_or_spawn(entity.entity())
             .insert((*fog_volume).clone())
             .insert(*fog_transform);
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands.get_or_spawn(entity).insert(*volumetric_light);
+        commands.get_or_spawn(entity.entity()).insert(*volumetric_light);
     }
 }
 
