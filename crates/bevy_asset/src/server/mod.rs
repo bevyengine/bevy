@@ -1059,7 +1059,9 @@ impl AssetServer {
     ) -> Result<(), WaitForAssetError> {
         let id = id.into();
         std::future::poll_fn(move |cx| {
-            match self.recursive_dependency_load_state(id) {
+            let infos = self.data.infos.read();
+            let info = infos.get(id).ok_or(WaitForAssetError::NotLoaded)?;
+            match info.rec_dep_load_state {
                 RecursiveDependencyLoadState::Loaded => Poll::Ready(Ok(())),
                 // Return an error immediately if the asset is not in the process of loading
                 RecursiveDependencyLoadState::NotLoaded => {
@@ -1068,17 +1070,15 @@ impl AssetServer {
                 // If the asset is loading, leave our waker behind
                 RecursiveDependencyLoadState::Loading => {
                     // Check if our waker is already there
-                    let has_waker = {
-                        let infos = self.data.infos.read();
-                        let tasks = infos.get(id).map_or(&[][..], |info| &info.waiting_tasks);
-                        tasks.iter().any(|waker| waker.will_wake(cx.waker()))
-                    };
+                    let has_waker = info
+                        .waiting_tasks
+                        .iter()
+                        .any(|waker| waker.will_wake(cx.waker()));
                     if !has_waker {
+                        std::mem::drop(infos);
                         let mut infos = self.data.infos.write();
-                        let Some(info) = infos.get_mut(id) else {
-                            return Poll::Ready(Err(WaitForAssetError::NotLoaded));
-                        };
-                        // If the load state has changed since releasing the last lock, immediately reawaken the task
+                        let info = infos.get_mut(id).ok_or(WaitForAssetError::NotLoaded)?;
+                        // If the load state changed while reacquiring the lock, immediately reawaken the task
                         if info.rec_dep_load_state != RecursiveDependencyLoadState::Loading {
                             cx.waker().wake_by_ref();
                         } else {
@@ -1090,8 +1090,8 @@ impl AssetServer {
                 }
                 RecursiveDependencyLoadState::Failed => {
                     // See if we can return a more-specific error
-                    let error = match self.load_state(id) {
-                        LoadState::Failed(error) => WaitForAssetError::Failed(error),
+                    let error = match info.load_state {
+                        LoadState::Failed(ref error) => WaitForAssetError::Failed(error.clone()),
                         _ => WaitForAssetError::DependencyFailed,
                     };
                     Poll::Ready(Err(error))
