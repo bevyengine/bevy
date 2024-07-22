@@ -125,12 +125,6 @@ impl CommandQueue {
     }
 }
 
-// SAFETY: All commands [`Command`] implement [`Send`]
-unsafe impl Send for RawCommandQueue {}
-
-// SAFETY: `&RawCommandQueue` never gives access to the inner commands.
-unsafe impl Sync for RawCommandQueue {}
-
 impl RawCommandQueue {
     /// Returns a new `RawCommandQueue` instance, this must be manually dropped.
     pub(crate) fn new() -> Self {
