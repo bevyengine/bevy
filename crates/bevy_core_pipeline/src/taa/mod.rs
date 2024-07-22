@@ -40,8 +40,7 @@ const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276
 
 /// Plugin for temporal anti-aliasing.
 ///
-/// See [`TemporalAntiAliasSettings`] for more details. Any camera with this component must
-/// also disable [`Msaa`].
+/// See [`TemporalAntiAliasSettings`] for more details.
 pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
@@ -118,6 +117,8 @@ pub struct TemporalAntiAliasBundle {
 /// Artifacts tend to be reduced at higher framerates and rendering resolution.
 ///
 /// # Usage Notes
+///
+/// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
 ///
 /// Requires that you add [`TemporalAntiAliasPlugin`] to your app,
 /// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
