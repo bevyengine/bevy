@@ -91,7 +91,7 @@ fn rasterize_cluster(
         // TODO: Reuse earlier calculations and take advantage of summing to 1
         edge_function(vertex_1.xy, vertex_2.xy, starting_pixel),
         edge_function(vertex_2.xy, vertex_0.xy, starting_pixel),
-        edge_function(vertex_0.xy, vertex_1.xy, starting_pixel)
+        edge_function(vertex_0.xy, vertex_1.xy, starting_pixel),
     );
     var z_row = dot(vertices_z, w_row);
     let view_width = u32(view.viewport.z);
