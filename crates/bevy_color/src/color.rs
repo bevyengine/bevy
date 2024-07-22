@@ -17,7 +17,7 @@ use bevy_reflect::prelude::*;
 /// # Operations
 ///
 /// [`Color`] supports all the standard color operations, such as [mixing](Mix),
-/// [luminance](Luminance) and [hue](Hue) adjustment, [clamping](ClampColor),
+/// [luminance](Luminance) and [hue](Hue) adjustment,
 /// and [diffing](EuclideanDistance). These operations delegate to the concrete color space contained
 /// by [`Color`], but will convert to [`Oklch`](Oklcha) for operations which aren't supported in the
 /// current space. After performing the operation, if a conversion was required, the result will be

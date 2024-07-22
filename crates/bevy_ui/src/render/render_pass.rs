@@ -137,7 +137,7 @@ impl SortedPhaseItem for TransparentUi {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
+        items.sort_by_key(SortedPhaseItem::sort_key);
     }
 }
 

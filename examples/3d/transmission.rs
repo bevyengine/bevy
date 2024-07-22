@@ -360,6 +360,7 @@ fn setup(
             intensity: 25.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            ..default()
         },
         BloomSettings::default(),
     ));

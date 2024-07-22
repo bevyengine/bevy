@@ -33,6 +33,11 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
 
     let type_path_impl = impl_type_path(meta);
 
+    #[cfg(not(feature = "functions"))]
+    let function_impls = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "functions")]
+    let function_impls = crate::impls::impl_function_traits(meta, &where_clause_options);
+
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
     let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
@@ -43,6 +48,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
         #type_path_impl
 
         #typed_impl
+
+        #function_impls
 
         impl #impl_generics #bevy_reflect_path::Reflect for #type_path #ty_generics #where_reflect_clause  {
             #[inline]
