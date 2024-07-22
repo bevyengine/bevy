@@ -1349,9 +1349,9 @@ impl LoadState {
         matches!(self, Self::Loaded)
     }
     // NOTE: an `is_not_loaded` method is intentionally not included, as it may mislead some users
-    // into thinking it is complementary to `is_not_loaded`.
+    // into thinking it is complementary to `is_loaded`.
     // `NotLoaded` is a very specific failure mode and in most cases it is not necessary to directly check for it.
-    // If this is necessary the `matches!` macro can be used
+    // If this is necessary the `matches!` macro can be used instead of a helper method.
 }
 
 /// The load state of an asset's dependencies.
