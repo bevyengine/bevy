@@ -1352,6 +1352,13 @@ impl LoadState {
     // into thinking it is complementary to `is_loaded`.
     // `NotLoaded` is a very specific failure mode and in most cases it is not necessary to directly check for it.
     // If this is necessary the `matches!` macro can be used instead of a helper method.
+
+    /// Returns `true` if the asset is loaded or in the process of being loaded. If true true,
+    /// then the asset can be considered to be in a "normal" state: the asset either exists
+    /// or will exist, and no errors have been encountered yet.
+    pub fn is_loaded_or_loading(&self) -> bool {
+        self.is_loaded() || self.is_loading()
+    }
 }
 
 /// The load state of an asset's dependencies.
