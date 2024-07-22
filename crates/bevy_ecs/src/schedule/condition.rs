@@ -499,8 +499,8 @@ pub mod common_conditions {
         system::{IntoSystem, Res, Resource, System},
     };
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if the first time the condition is run and false every time after
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// on the first time the condition is run and false every time after.
     ///
     /// # Example
     ///
@@ -513,7 +513,7 @@ pub mod common_conditions {
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
     ///     // `run_once` will only return true the first time it's evaluated
-    ///     my_system.run_if(run_once()),
+    ///     my_system.run_if(run_once),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -528,15 +528,12 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn run_once() -> impl FnMut() -> bool + Clone {
-        let mut has_run = false;
-        move || {
-            if !has_run {
-                has_run = true;
-                true
-            } else {
-                false
-            }
+    pub fn run_once(mut has_run: Local<bool>) -> bool {
+        if !*has_run {
+            *has_run = true;
+            true
+        } else {
+            false
         }
     }
 
@@ -815,7 +812,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -841,7 +838,7 @@ pub mod common_conditions {
     ///     // `resource_changed_or_removed` will only return true if the
     ///     // given resource was just changed or removed (or added)
     ///     my_system.run_if(
-    ///         resource_changed_or_removed::<Counter>()
+    ///         resource_changed_or_removed::<Counter>
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
@@ -877,25 +874,22 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.contains_resource::<MyResource>(), true);
     /// ```
-    pub fn resource_changed_or_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
+    pub fn resource_changed_or_removed<T>(res: Option<Res<T>>, mut existed: Local<bool>) -> bool
     where
         T: Resource,
     {
-        let mut existed = false;
-        move |res: Option<Res<T>>| {
-            if let Some(value) = res {
-                existed = true;
-                value.is_changed()
-            } else if existed {
-                existed = false;
-                true
-            } else {
-                false
-            }
+        if let Some(value) = res {
+            *existed = true;
+            value.is_changed()
+        } else if *existed {
+            *existed = false;
+            true
+        } else {
+            false
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the resource of the given type has been removed since the condition was last checked.
     ///
     /// # Example
@@ -910,7 +904,7 @@ pub mod common_conditions {
     /// app.add_systems(
     ///     // `resource_removed` will only return true if the
     ///     // given resource was just removed
-    ///     my_system.run_if(resource_removed::<MyResource>()),
+    ///     my_system.run_if(resource_removed::<MyResource>),
     /// );
     ///
     /// #[derive(Resource, Default)]
@@ -932,25 +926,22 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
+    pub fn resource_removed<T>(res: Option<Res<T>>, mut existed: Local<bool>) -> bool
     where
         T: Resource,
     {
-        let mut existed = false;
-        move |res: Option<Res<T>>| {
-            if res.is_some() {
-                existed = true;
-                false
-            } else if existed {
-                existed = false;
-                true
-            } else {
-                false
-            }
+        if res.is_some() {
+            *existed = true;
+            false
+        } else if *existed {
+            *existed = false;
+            true
+        } else {
+            false
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if there are any new events of the given type since it was last called.
     ///
     /// # Example
@@ -966,7 +957,7 @@ pub mod common_conditions {
     /// # app.add_systems(bevy_ecs::event::event_update_system.before(my_system));
     ///
     /// app.add_systems(
-    ///     my_system.run_if(on_event::<MyEvent>()),
+    ///     my_system.run_if(on_event::<MyEvent>),
     /// );
     ///
     /// #[derive(Event)]
@@ -986,12 +977,12 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: Event>() -> impl FnMut(EventReader<T>) -> bool + Clone {
+    pub fn on_event<T: Event>(mut reader: EventReader<T>) -> bool {
         // The events need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut reader: EventReader<T>| reader.read().count() > 0
+        reader.read().count() > 0
     }
 
     /// A [`Condition`](super::Condition)-satisfying system that returns `true`
@@ -1031,15 +1022,15 @@ pub mod common_conditions {
         !query.is_empty()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if there are any entity with a component of the given type removed.
-    pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
+    pub fn any_component_removed<T: Component>(mut removals: RemovedComponents<T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
         // so that there are no false positives on subsequent calls of the run condition.
         // Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut removals: RemovedComponents<T>| removals.read().count() != 0
+        removals.read().count() > 0
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
@@ -1384,16 +1375,16 @@ mod tests {
     fn distributive_run_if_compiles() {
         Schedule::default().add_systems(
             (test_system, test_system)
-                .distributive_run_if(run_once())
+                .distributive_run_if(run_once)
                 .distributive_run_if(resource_exists::<TestResource>)
                 .distributive_run_if(resource_added::<TestResource>)
                 .distributive_run_if(resource_changed::<TestResource>)
                 .distributive_run_if(resource_exists_and_changed::<TestResource>)
-                .distributive_run_if(resource_changed_or_removed::<TestResource>())
-                .distributive_run_if(resource_removed::<TestResource>())
-                .distributive_run_if(on_event::<TestEvent>())
+                .distributive_run_if(resource_changed_or_removed::<TestResource>)
+                .distributive_run_if(resource_removed::<TestResource>)
+                .distributive_run_if(on_event::<TestEvent>)
                 .distributive_run_if(any_with_component::<TestComponent>)
-                .distributive_run_if(not(run_once())),
+                .distributive_run_if(not(run_once)),
         );
     }
 }
