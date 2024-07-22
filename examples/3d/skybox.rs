@@ -4,7 +4,6 @@
 mod camera_controller;
 
 use bevy::{
-    asset::LoadState,
     core_pipeline::Skybox,
     prelude::*,
     render::{
