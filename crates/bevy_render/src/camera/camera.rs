@@ -212,7 +212,6 @@ pub struct Camera {
     #[reflect(ignore)]
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
-    #[reflect(ignore)]
     pub target: RenderTarget,
     /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
     /// This allows rendering with a wider range of lighting values.
@@ -542,6 +541,12 @@ pub enum RenderTarget {
     TextureView(ManualTextureViewHandle),
 }
 
+impl Default for RenderTarget {
+    fn default() -> Self {
+        Self::Window(Default::default())
+    }
+}
+
 impl From<Handle<Image>> for RenderTarget {
     fn from(handle: Handle<Image>) -> Self {
         Self::Image(handle)
@@ -560,12 +565,6 @@ pub enum NormalizedRenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
-}
-
-impl Default for RenderTarget {
-    fn default() -> Self {
-        Self::Window(Default::default())
-    }
 }
 
 impl RenderTarget {

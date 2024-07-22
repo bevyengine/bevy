@@ -681,7 +681,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
@@ -695,6 +694,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         (
             Entity,
             &VisibleEntities,
+            &Msaa,
             Option<&DepthPrepass>,
             Option<&NormalPrepass>,
             Option<&MotionVectorPrepass>,
@@ -724,6 +724,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     for (
         view,
         visible_entities,
+        msaa,
         depth_prepass,
         normal_prepass,
         motion_vector_prepass,
@@ -782,7 +783,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque | AlphaMode::AlphaToCoverage | AlphaMode::Mask(_) => {
-                    mesh_key |= alpha_mode_pipeline_key(alpha_mode, &msaa);
+                    mesh_key |= alpha_mode_pipeline_key(alpha_mode, msaa);
                 }
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied

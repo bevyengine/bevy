@@ -1,6 +1,3 @@
-use bevy_text::TextPipeline;
-use thiserror::Error;
-
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -14,10 +11,13 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
+#[cfg(feature = "bevy_text")]
+use bevy_text::TextPipeline;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use thiserror::Error;
 use ui_surface::UiSurface;
 
 mod convert;

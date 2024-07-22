@@ -517,11 +517,10 @@ impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
 /// specific to each view.
 pub fn prepare_depth_of_field_view_bind_group_layouts(
     mut commands: Commands,
-    view_targets: Query<(Entity, &DepthOfFieldSettings)>,
-    msaa: Res<Msaa>,
+    view_targets: Query<(Entity, &DepthOfFieldSettings, &Msaa)>,
     render_device: Res<RenderDevice>,
 ) {
-    for (view, dof_settings) in view_targets.iter() {
+    for (view, dof_settings, msaa) in view_targets.iter() {
         // Create the bind group layout for the passes that take one input.
         let single_input = render_device.create_bind_group_layout(
             Some("depth of field bind group layout (single input)"),
@@ -648,16 +647,16 @@ pub fn prepare_depth_of_field_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DepthOfFieldPipeline>>,
-    msaa: Res<Msaa>,
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
     view_targets: Query<(
         Entity,
         &ExtractedView,
         &DepthOfFieldSettings,
         &ViewDepthOfFieldBindGroupLayouts,
+        &Msaa,
     )>,
 ) {
-    for (entity, view, dof_settings, view_bind_group_layouts) in view_targets.iter() {
+    for (entity, view, dof_settings, view_bind_group_layouts, msaa) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),

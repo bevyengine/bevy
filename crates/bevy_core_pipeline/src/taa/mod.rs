@@ -35,10 +35,11 @@ use bevy_render::{
     world_sync::RenderEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use bevy_utils::tracing::warn;
 
 const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
 
-/// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
+/// Plugin for temporal anti-aliasing.
 ///
 /// See [`TemporalAntiAliasSettings`] for more details.
 pub struct TemporalAntiAliasPlugin;
@@ -47,8 +48,7 @@ impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.insert_resource(Msaa::Off)
-            .register_type::<TemporalAntiAliasSettings>();
+        app.register_type::<TemporalAntiAliasSettings>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -119,6 +119,8 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// # Usage Notes
 ///
+/// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
+///
 /// Requires that you add [`TemporalAntiAliasPlugin`] to your app,
 /// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
@@ -163,17 +165,23 @@ impl ViewNode for TemporalAntiAliasNode {
         &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TemporalAntiAliasPipelineId,
+        &'static Msaa,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if *msaa != Msaa::Off {
+            warn!("Temporal anti-aliasing requires MSAA to be disabled");
+            return Ok(());
+        }
+
         let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TaaPipeline>(),
             world.get_resource::<PipelineCache>(),
