@@ -2,7 +2,7 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
-use bevy_color::LinearRgba;
+use bevy_color::{Gray, LinearRgba};
 pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 
 use crate::{
@@ -81,7 +81,7 @@ impl Plugin for BloomPlugin {
             .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
                 Core2d,
-                (Node2d::MainPass, Node2d::Bloom, Node2d::Tonemapping),
+                (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
     }
 

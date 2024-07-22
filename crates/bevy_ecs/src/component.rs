@@ -93,6 +93,43 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Adding component's hooks
+///
+/// See [`ComponentHooks`] for a detailed explanation of component's hooks.
+///
+/// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
+/// - `#[component(on_add = on_add_function)]`
+/// - `#[component(on_insert = on_insert_function)]`
+/// - `#[component(on_replace = on_replace_function)]`
+/// - `#[component(on_remove = on_remove_function)]`
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::world::DeferredWorld;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::component::ComponentId;
+/// #
+/// #[derive(Component)]
+/// #[component(on_add = my_on_add_hook)]
+/// #[component(on_insert = my_on_insert_hook)]
+/// // Another possible way of configuring hooks:
+/// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
+/// //
+/// // We don't have a replace or remove hook, so we can leave them out:
+/// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
+/// struct ComponentA;
+///
+/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
+///     // ...
+/// }
+///
+/// // You can also omit writing some types using generics.
+/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+///     // ...
+/// }
+///
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
@@ -150,6 +187,11 @@ use std::{
 ///
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Component`",
+    label = "invalid `Component`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]`"
+)]
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
@@ -182,11 +224,64 @@ pub enum StorageType {
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
 pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 
-/// Lifecycle hooks for a given [`Component`], stored in its [`ComponentInfo`]
+/// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
+///
+/// Hooks are functions that run when a component is added, overwritten, or removed from an entity.
+/// These are intended to be used for structural side effects that need to happen when a component is added or removed,
+/// and are not intended for general-purpose logic.
+///
+/// For example, you might use a hook to update a cached index when a component is added,
+/// to clean up resources when a component is removed,
+/// or to keep hierarchical data structures across entities in sync.
+///
+/// This information is stored in the [`ComponentInfo`] of the associated component.
+///
+/// There is two ways of configuring hooks for a component:
+/// 1. Defining the [`Component::register_component_hooks`] method (see [`Component`])
+/// 2. Using the [`World::register_component_hooks`] method
+///
+/// # Example 2
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_utils::HashSet;
+///
+/// #[derive(Component)]
+/// struct MyTrackedComponent;
+///
+/// #[derive(Resource, Default)]
+/// struct TrackedEntities(HashSet<Entity>);
+///
+/// let mut world = World::new();
+/// world.init_resource::<TrackedEntities>();
+///
+/// // No entities with `MyTrackedComponent` have been added yet, so we can safely add component hooks
+/// let mut tracked_component_query = world.query::<&MyTrackedComponent>();
+/// assert!(tracked_component_query.iter(&world).next().is_none());
+///
+/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, entity, _component_id| {
+///    let mut tracked_entities = world.resource_mut::<TrackedEntities>();
+///   tracked_entities.0.insert(entity);
+/// });
+///
+/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, entity, _component_id| {
+///   let mut tracked_entities = world.resource_mut::<TrackedEntities>();
+///   tracked_entities.0.remove(&entity);
+/// });
+///
+/// let entity = world.spawn(MyTrackedComponent).id();
+/// let tracked_entities = world.resource::<TrackedEntities>();
+/// assert!(tracked_entities.0.contains(&entity));
+///
+/// world.despawn(entity);
+/// let tracked_entities = world.resource::<TrackedEntities>();
+/// assert!(!tracked_entities.0.contains(&entity));
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
     pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_replace: Option<ComponentHook>,
     pub(crate) on_remove: Option<ComponentHook>,
 }
 
@@ -195,6 +290,8 @@ impl ComponentHooks {
     /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
     /// adding all of its components.
     ///
+    /// # Panics
+    ///
     /// Will panic if the component already has an `on_add` hook
     pub fn on_add(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_add(hook)
@@ -202,8 +299,16 @@ impl ComponentHooks {
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
-    /// or replaced. The hook won't run if the component is already present and is only mutated.
+    /// or replaced.
+    ///
     /// An `on_insert` hook always runs after any `on_add` hooks (if the entity didn't already have the component).
+    ///
+    /// # Warning
+    ///
+    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
+    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    ///
+    /// # Panics
     ///
     /// Will panic if the component already has an `on_insert` hook
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
@@ -211,8 +316,32 @@ impl ComponentHooks {
             .expect("Component id: {:?}, already has an on_insert hook")
     }
 
+    /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
+    /// such as being replaced (with `.insert`) or removed.
+    ///
+    /// If this component is inserted onto an entity that already has it, this hook will run before the value is replaced,
+    /// allowing access to the previous data just before it is dropped.
+    /// This hook does *not* run if the entity did not already have this component.
+    ///
+    /// An `on_replace` hook always runs before any `on_remove` hooks (if the component is being removed from the entity).
+    ///
+    /// # Warning
+    ///
+    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
+    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has an `on_replace` hook
+    pub fn on_replace(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_replace(hook)
+            .expect("Component id: {:?}, already has an on_replace hook")
+    }
+
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
     /// Despawning an entity counts as removing all of its components.
+    ///
+    /// # Panics
     ///
     /// Will panic if the component already has an `on_remove` hook
     pub fn on_remove(&mut self, hook: ComponentHook) -> &mut Self {
@@ -220,7 +349,10 @@ impl ComponentHooks {
             .expect("Component id: {:?}, already has an on_remove hook")
     }
 
-    /// Fallible version of [`Self::on_add`].
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.
+    ///
+    /// This is a fallible version of [`Self::on_add`].
+    ///
     /// Returns `None` if the component already has an `on_add` hook.
     pub fn try_on_add(&mut self, hook: ComponentHook) -> Option<&mut Self> {
         if self.on_add.is_some() {
@@ -230,7 +362,10 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Fallible version of [`Self::on_insert`].
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is added (with `.insert`)
+    ///
+    /// This is a fallible version of [`Self::on_insert`].
+    ///
     /// Returns `None` if the component already has an `on_insert` hook.
     pub fn try_on_insert(&mut self, hook: ComponentHook) -> Option<&mut Self> {
         if self.on_insert.is_some() {
@@ -240,7 +375,23 @@ impl ComponentHooks {
         Some(self)
     }
 
-    /// Fallible version of [`Self::on_remove`].
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed
+    ///
+    /// This is a fallible version of [`Self::on_replace`].
+    ///
+    /// Returns `None` if the component already has an `on_replace` hook.
+    pub fn try_on_replace(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_replace.is_some() {
+            return None;
+        }
+        self.on_replace = Some(hook);
+        Some(self)
+    }
+
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is removed from an entity.
+    ///
+    /// This is a fallible version of [`Self::on_remove`].
+    ///
     /// Returns `None` if the component already has an `on_remove` hook.
     pub fn try_on_remove(&mut self, hook: ComponentHook) -> Option<&mut Self> {
         if self.on_remove.is_some() {
@@ -328,6 +479,9 @@ impl ComponentInfo {
         if self.hooks().on_insert.is_some() {
             flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
         }
+        if self.hooks().on_replace.is_some() {
+            flags.insert(ArchetypeFlags::ON_REPLACE_HOOK);
+        }
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
         }
@@ -339,7 +493,7 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] of [`Resource`] within a
+/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -615,7 +769,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_name(&self, id: ComponentId) -> Option<&str> {
-        self.get_info(id).map(|descriptor| descriptor.name())
+        self.get_info(id).map(ComponentInfo::name)
     }
 
     /// Gets the metadata associated with the given component.
@@ -765,8 +919,14 @@ impl Components {
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
-#[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+///
+/// *Note* that a system that hasn't been run yet has a `Tick` of 0.
+#[derive(Copy, Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq)
+)]
 pub struct Tick {
     tick: u32,
 }
@@ -869,13 +1029,15 @@ pub struct ComponentTicks {
 }
 
 impl ComponentTicks {
-    /// Returns `true` if the component or resource was added after the system last ran.
+    /// Returns `true` if the component or resource was added after the system last ran
+    /// (or the system is running for the first time).
     #[inline]
     pub fn is_added(&self, last_run: Tick, this_run: Tick) -> bool {
         self.added.is_newer_than(last_run, this_run)
     }
 
-    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran.
+    /// Returns `true` if the component or resource was added or mutably dereferenced after the system last ran
+    /// (or the system is running for the first time).
     #[inline]
     pub fn is_changed(&self, last_run: Tick, this_run: Tick) -> bool {
         self.changed.is_newer_than(last_run, this_run)

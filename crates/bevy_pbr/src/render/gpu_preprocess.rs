@@ -90,7 +90,7 @@ pub struct PreprocessPipeline {
     pub bind_group_layout: BindGroupLayout,
     /// The pipeline ID for the compute shader.
     ///
-    /// This gets filled in in `prepare_preprocess_pipelines`.
+    /// This gets filled in `prepare_preprocess_pipelines`.
     pub pipeline_id: Option<CachedComputePipelineId>,
 }
 

@@ -16,12 +16,15 @@ pub mod wireframe;
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 #[cfg(feature = "meshlet")]
 pub mod experimental {
+    /// Render high-poly 3d meshes using an efficient GPU-driven method.
+    /// See [`MeshletPlugin`](meshlet::MeshletPlugin) and [`MeshletMesh`](meshlet::MeshletMesh) for details.
     pub mod meshlet {
         pub use crate::meshlet::*;
     }
 }
 
 mod bundle;
+mod cluster;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -34,11 +37,14 @@ mod pbr_material;
 mod prepass;
 mod render;
 mod ssao;
+mod ssr;
+mod volumetric_fog;
 
 use bevy_color::{Color, LinearRgba};
 use std::marker::PhantomData;
 
 pub use bundle::*;
+pub use cluster::*;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -50,6 +56,10 @@ pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
+pub use ssr::*;
+pub use volumetric_fog::{
+    FogVolume, FogVolumeBundle, VolumetricFogPlugin, VolumetricFogSettings, VolumetricLight,
+};
 
 pub mod prelude {
     #[doc(hidden)]
@@ -81,8 +91,12 @@ pub mod graph {
         /// Label for the screen space ambient occlusion render node.
         ScreenSpaceAmbientOcclusion,
         DeferredLightingPass,
+        /// Label for the volumetric lighting pass.
+        VolumetricFog,
         /// Label for the compute shader instance data building pass.
         GpuPreprocess,
+        /// Label for the screen space reflections pass.
+        ScreenSpaceReflections,
     }
 }
 
@@ -276,6 +290,7 @@ impl Plugin for PbrPlugin {
             .register_type::<CascadeShadowConfig>()
             .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
+            .register_type::<VisibleMeshEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
@@ -288,7 +303,7 @@ impl Plugin for PbrPlugin {
             .register_type::<FogSettings>()
             .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
-            .init_resource::<GlobalVisiblePointLights>()
+            .init_resource::<GlobalVisibleClusterableObjects>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .register_type::<DefaultOpaqueRendererMethod>()
@@ -314,6 +329,8 @@ impl Plugin for PbrPlugin {
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
+                VolumetricFogPlugin,
+                ScreenSpaceReflectionsPlugin,
             ))
             .configure_sets(
                 PostUpdate,
@@ -327,7 +344,7 @@ impl Plugin for PbrPlugin {
                 PostUpdate,
                 (
                     add_clusters.in_set(SimulationLightSystems::AddClusters),
-                    assign_lights_to_clusters
+                    crate::assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
@@ -355,7 +372,10 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
-                    check_light_mesh_visibility
+                    (
+                        check_dir_light_mesh_visibility,
+                        check_point_light_mesh_visibility,
+                    )
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)
@@ -415,7 +435,7 @@ impl Plugin for PbrPlugin {
         // Extract the required data from the main world
         render_app
             .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalLightMeta>();
+            .init_resource::<GlobalClusterableObjectMeta>();
     }
 }
 

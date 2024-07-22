@@ -12,7 +12,7 @@ use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_utils::warn_once;
 use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
+    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
 use std::{
     num::NonZeroU32,
@@ -117,7 +117,7 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     screenshot_manager: Extract<Res<ScreenshotManager>>,
-    mut closed: Extract<EventReader<WindowClosed>>,
+    mut closing: Extract<EventReader<WindowClosing>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -177,9 +177,9 @@ fn extract_windows(
         }
     }
 
-    for closed_window in closed.read() {
-        extracted_windows.remove(&closed_window.window);
-        window_surfaces.remove(&closed_window.window);
+    for closing_window in closing.read() {
+        extracted_windows.remove(&closing_window.window);
+        window_surfaces.remove(&closing_window.window);
     }
     for removed_window in removed.read() {
         extracted_windows.remove(&removed_window);

@@ -4,7 +4,11 @@ use std::{fmt::Debug, iter::once};
 
 use crate::{Vec2, VectorSpace};
 
+use itertools::Itertools;
 use thiserror::Error;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A spline composed of a single cubic Bezier curve.
 ///
@@ -40,8 +44,11 @@ use thiserror::Error;
 /// let bezier = CubicBezier::new(points).to_curve();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBezier<P: VectorSpace> {
-    control_points: Vec<[P; 4]>,
+    /// The control points of the Bezier curve.
+    pub control_points: Vec<[P; 4]>,
 }
 
 impl<P: VectorSpace> CubicBezier<P> {
@@ -89,8 +96,13 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// Tangents are explicitly defined at each control point.
 ///
 /// ### Continuity
-/// The curve is at minimum C0 continuous, meaning it has no holes or jumps. It is also C1, meaning the
-/// tangent vector has no sudden jumps.
+/// The curve is at minimum C1 continuous, meaning that it has no holes or jumps and the tangent vector also
+/// has no sudden jumps.
+///
+/// ### Parametrization
+/// The first segment of the curve connects the first two control points, the second connects the second and
+/// third, and so on. This remains true when a cyclic curve is formed with [`to_curve_cyclic`], in which case
+/// the final curve segment connects the last control point to the first.
 ///
 /// ### Usage
 ///
@@ -111,8 +123,13 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 /// let hermite = CubicHermite::new(points, tangents).to_curve();
 /// let positions: Vec<_> = hermite.iter_positions(100).collect();
 /// ```
+///
+/// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicHermite<P: VectorSpace> {
-    control_points: Vec<(P, P)>,
+    /// The control points of the Hermite curve.
+    pub control_points: Vec<(P, P)>,
 }
 impl<P: VectorSpace> CubicHermite<P> {
     /// Create a new Hermite curve from sets of control points.
@@ -124,23 +141,47 @@ impl<P: VectorSpace> CubicHermite<P> {
             control_points: control_points.into_iter().zip(tangents).collect(),
         }
     }
-}
-impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
+
+    /// The characteristic matrix for this spline construction.
+    ///
+    /// Each row of this matrix expresses the coefficients of a [`CubicSegment`] as a linear
+    /// combination of `p_i`, `v_i`, `p_{i+1}`, and `v_{i+1}`, where `(p_i, v_i)` and
+    /// `(p_{i+1}, v_{i+1})` are consecutive control points with tangents.
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
-        let char_matrix = [
+    fn char_matrix(&self) -> [[f32; 4]; 4] {
+        [
             [1., 0., 0., 0.],
             [0., 1., 0., 0.],
             [-3., -2., 3., -1.],
             [2., 1., -2., 1.],
-        ];
-
+        ]
+    }
+}
+impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
+    #[inline]
+    fn to_curve(&self) -> CubicCurve<P> {
         let segments = self
             .control_points
             .windows(2)
             .map(|p| {
                 let (p0, v0, p1, v1) = (p[0].0, p[0].1, p[1].0, p[1].1);
-                CubicSegment::coefficients([p0, v0, p1, v1], char_matrix)
+                CubicSegment::coefficients([p0, v0, p1, v1], self.char_matrix())
+            })
+            .collect();
+
+        CubicCurve { segments }
+    }
+}
+impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicHermite<P> {
+    #[inline]
+    fn to_curve_cyclic(&self) -> CubicCurve<P> {
+        let segments = self
+            .control_points
+            .iter()
+            .circular_tuple_windows()
+            .map(|(&j0, &j1)| {
+                let (p0, v0, p1, v1) = (j0.0, j0.1, j1.0, j1.1);
+                CubicSegment::coefficients([p0, v0, p1, v1], self.char_matrix())
             })
             .collect();
 
@@ -164,6 +205,11 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 /// The curve is at minimum C1, meaning that it is continuous (it has no holes or jumps), and its tangent
 /// vector is also well-defined everywhere, without sudden jumps.
 ///
+/// ### Parametrization
+/// The first segment of the curve connects the first two control points, the second connects the second and
+/// third, and so on. This remains true when a cyclic curve is formed with [`to_curve_cyclic`], in which case
+/// the final curve segment connects the last control point to the first.
+///
 /// ### Usage
 ///
 /// ```
@@ -177,9 +223,15 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicHermite<P> {
 /// let cardinal = CubicCardinalSpline::new(0.3, points).to_curve();
 /// let positions: Vec<_> = cardinal.iter_positions(100).collect();
 /// ```
+///
+/// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCardinalSpline<P: VectorSpace> {
-    tension: f32,
-    control_points: Vec<P>,
+    /// Tension
+    pub tension: f32,
+    /// The control points of the Cardinal spline
+    pub control_points: Vec<P>,
 }
 
 impl<P: VectorSpace> CubicCardinalSpline<P> {
@@ -198,18 +250,25 @@ impl<P: VectorSpace> CubicCardinalSpline<P> {
             control_points: control_points.into(),
         }
     }
-}
-impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
+
+    /// The characteristic matrix for this spline construction.
+    ///
+    /// Each row of this matrix expresses the coefficients of a [`CubicSegment`] as a linear
+    /// combination of four consecutive control points.
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn char_matrix(&self) -> [[f32; 4]; 4] {
         let s = self.tension;
-        let char_matrix = [
+        [
             [0., 1., 0., 0.],
             [-s, 0., s, 0.],
             [2. * s, s - 3., 3. - 2. * s, -s],
             [-s, 2. - s, s - 2., s],
-        ];
-
+        ]
+    }
+}
+impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
+    #[inline]
+    fn to_curve(&self) -> CubicCurve<P> {
         let length = self.control_points.len();
 
         // Early return to avoid accessing an invalid index
@@ -226,30 +285,73 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
         let mirrored_last = self.control_points[length - 1] * 2. - self.control_points[length - 2];
         let extended_control_points = once(&mirrored_first)
             .chain(self.control_points.iter())
-            .chain(once(&mirrored_last))
-            .collect::<Vec<_>>();
+            .chain(once(&mirrored_last));
 
         let segments = extended_control_points
-            .windows(4)
-            .map(|p| CubicSegment::coefficients([*p[0], *p[1], *p[2], *p[3]], char_matrix))
+            .tuple_windows()
+            .map(|(&p0, &p1, &p2, &p3)| {
+                CubicSegment::coefficients([p0, p1, p2, p3], self.char_matrix())
+            })
             .collect();
+
+        CubicCurve { segments }
+    }
+}
+impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicCardinalSpline<P> {
+    #[inline]
+    fn to_curve_cyclic(&self) -> CubicCurve<P> {
+        let len = self.control_points.len();
+
+        if len == 0 {
+            return CubicCurve { segments: vec![] };
+        }
+
+        // This would ordinarily be the last segment, but we pick it out so that we can make it first
+        // in order to get a desirable parametrization where the first segment connects the first two
+        // control points instead of the second and third.
+        let first_segment = {
+            // We take the indices mod `len` in case `len` is very small.
+            let p0 = self.control_points[len - 1];
+            let p1 = self.control_points[0];
+            let p2 = self.control_points[1 % len];
+            let p3 = self.control_points[2 % len];
+            CubicSegment::coefficients([p0, p1, p2, p3], self.char_matrix())
+        };
+
+        let later_segments = self
+            .control_points
+            .iter()
+            .circular_tuple_windows()
+            .map(|(&p0, &p1, &p2, &p3)| {
+                CubicSegment::coefficients([p0, p1, p2, p3], self.char_matrix())
+            })
+            .take(len - 1);
+
+        let mut segments = Vec::with_capacity(len);
+        segments.push(first_segment);
+        segments.extend(later_segments);
 
         CubicCurve { segments }
     }
 }
 
 /// A spline interpolated continuously across the nearest four control points. The curve does not
-/// pass through any of the control points.
+/// necessarily pass through any of the control points.
 ///
 /// ### Interpolation
-/// The curve does not pass through control points.
+/// The curve does not necessarily pass through its control points.
 ///
 /// ### Tangency
-/// Tangents are automatically computed based on the position of control points.
+/// Tangents are automatically computed based on the positions of control points.
 ///
 /// ### Continuity
-/// The curve is C2 continuous, meaning it has no holes or jumps, and the tangent vector changes smoothly along
-/// the entire curve length. The acceleration continuity of this spline makes it useful for camera paths.
+/// The curve is C2 continuous, meaning it has no holes or jumps, the tangent vector changes smoothly along
+/// the entire curve, and the acceleration also varies continuously. The acceleration continuity of this
+/// spline makes it useful for camera paths.
+///
+/// ### Parametrization
+/// Each curve segment is defined by a window of four control points taken in sequence. When [`to_curve_cyclic`]
+/// is used to form a cyclic curve, the three additional segments used to close the curve come last.
 ///
 /// ### Usage
 ///
@@ -264,8 +366,13 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicCardinalSpline<P> {
 /// let b_spline = CubicBSpline::new(points).to_curve();
 /// let positions: Vec<_> = b_spline.iter_positions(100).collect();
 /// ```
+///
+/// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicBSpline<P: VectorSpace> {
-    control_points: Vec<P>,
+    /// The control points of the spline
+    pub control_points: Vec<P>,
 }
 impl<P: VectorSpace> CubicBSpline<P> {
     /// Build a new B-Spline.
@@ -274,10 +381,13 @@ impl<P: VectorSpace> CubicBSpline<P> {
             control_points: control_points.into(),
         }
     }
-}
-impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
+
+    /// The characteristic matrix for this spline construction.
+    ///
+    /// Each row of this matrix expresses the coefficients of a [`CubicSegment`] as a linear
+    /// combination of four consecutive control points.
     #[inline]
-    fn to_curve(&self) -> CubicCurve<P> {
+    fn char_matrix(&self) -> [[f32; 4]; 4] {
         // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
         // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
         // See section 4.1 and equations 7 and 8.
@@ -292,18 +402,43 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
             .iter_mut()
             .for_each(|r| r.iter_mut().for_each(|c| *c /= 6.0));
 
+        char_matrix
+    }
+}
+impl<P: VectorSpace> CubicGenerator<P> for CubicBSpline<P> {
+    #[inline]
+    fn to_curve(&self) -> CubicCurve<P> {
         let segments = self
             .control_points
             .windows(4)
-            .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], char_matrix))
+            .map(|p| CubicSegment::coefficients([p[0], p[1], p[2], p[3]], self.char_matrix()))
             .collect();
 
         CubicCurve { segments }
     }
 }
 
+impl<P: VectorSpace> CyclicCubicGenerator<P> for CubicBSpline<P> {
+    #[inline]
+    fn to_curve_cyclic(&self) -> CubicCurve<P> {
+        let segments = self
+            .control_points
+            .iter()
+            .circular_tuple_windows()
+            .map(|(&a, &b, &c, &d)| CubicSegment::coefficients([a, b, c, d], self.char_matrix()))
+            .collect();
+
+        // Note that the parametrization is consistent with the one for `to_curve` but with
+        // the extra curve segments all tacked on at the end. This might be slightly counter-intuitive,
+        // since it means the first segment doesn't go "between" the first two control points, but
+        // between the second and third instead.
+
+        CubicCurve { segments }
+    }
+}
+
 /// Error during construction of [`CubicNurbs`]
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 pub enum CubicNurbsError {
     /// Provided the wrong number of knots.
     #[error("Wrong number of knots: expected {expected}, provided {provided}")]
@@ -361,7 +496,7 @@ pub enum CubicNurbsError {
 /// When there is no knot multiplicity, the curve is C2 continuous, meaning it has no holes or jumps and the
 /// tangent vector changes smoothly along the entire curve length. Like the [`CubicBSpline`], the acceleration
 /// continuity makes it useful for camera paths. Knot multiplicity of 2 in intermediate knots reduces the
-/// continuity to C2, and knot multiplicity of 3 reduces the continuity to C0. The curve is always at least
+/// continuity to C1, and knot multiplicity of 3 reduces the continuity to C0. The curve is always at least
 /// C0, meaning it has no jumps or holes.
 ///
 /// ### Usage
@@ -381,10 +516,15 @@ pub enum CubicNurbsError {
 ///     .to_curve();
 /// let positions: Vec<_> = nurbs.iter_positions(100).collect();
 /// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicNurbs<P: VectorSpace> {
-    control_points: Vec<P>,
-    weights: Vec<f32>,
-    knots: Vec<f32>,
+    /// The control points of the NURBS
+    pub control_points: Vec<P>,
+    /// Weights
+    pub weights: Vec<f32>,
+    /// Knots
+    pub knots: Vec<f32>,
 }
 impl<P: VectorSpace> CubicNurbs<P> {
     /// Build a Non-Uniform Rational B-Spline.
@@ -585,11 +725,20 @@ impl<P: VectorSpace> RationalGenerator<P> for CubicNurbs<P> {
 ///
 /// ### Continuity
 /// The curve is C0 continuous, meaning it has no holes or jumps.
+///
+/// ### Parametrization
+/// Each curve segment connects two adjacent control points in sequence. When a cyclic curve is
+/// formed with [`to_curve_cyclic`], the final segment connects the last control point with the first.
+///
+/// [`to_curve_cyclic`]: CyclicCubicGenerator::to_curve_cyclic
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct LinearSpline<P: VectorSpace> {
-    points: Vec<P>,
+    /// The control points of the linear spline.
+    pub points: Vec<P>,
 }
 impl<P: VectorSpace> LinearSpline<P> {
-    /// Create a new linear spline
+    /// Create a new linear spline from a list of points to be interpolated.
     pub fn new(points: impl Into<Vec<P>>) -> Self {
         Self {
             points: points.into(),
@@ -613,6 +762,20 @@ impl<P: VectorSpace> CubicGenerator<P> for LinearSpline<P> {
         CubicCurve { segments }
     }
 }
+impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
+    #[inline]
+    fn to_curve_cyclic(&self) -> CubicCurve<P> {
+        let segments = self
+            .points
+            .iter()
+            .circular_tuple_windows()
+            .map(|(&a, &b)| CubicSegment {
+                coeff: [a, b - a, P::default(), P::default()],
+            })
+            .collect();
+        CubicCurve { segments }
+    }
+}
 
 /// Implement this on cubic splines that can generate a cubic curve from their spline parameters.
 pub trait CubicGenerator<P: VectorSpace> {
@@ -620,13 +783,24 @@ pub trait CubicGenerator<P: VectorSpace> {
     fn to_curve(&self) -> CubicCurve<P>;
 }
 
+/// Implement this on cubic splines that can generate a cyclic cubic curve from their spline parameters.
+///
+/// This makes sense only when the control data can be interpreted cyclically.
+pub trait CyclicCubicGenerator<P: VectorSpace> {
+    /// Build a cyclic [`CubicCurve`] by computing the interpolation coefficients for each curve segment,
+    /// treating the control data as cyclic so that the result is a closed curve.
+    fn to_curve_cyclic(&self) -> CubicCurve<P>;
+}
+
 /// A segment of a cubic curve, used to hold precomputed coefficients for fast interpolation.
 /// Can be evaluated as a parametric curve over the domain `[0, 1)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct CubicSegment<P: VectorSpace> {
-    coeff: [P; 4],
+    /// Polynomial coefficients for the segment.
+    pub coeff: [P; 4],
 }
 
 impl<P: VectorSpace> CubicSegment<P> {
@@ -685,7 +859,7 @@ impl CubicSegment<Vec2> {
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
         let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
-        bezier.segments[0].clone()
+        bezier.segments[0]
     }
 
     /// Maximum allowable error for iterative Bezier solve
@@ -783,8 +957,10 @@ impl CubicSegment<Vec2> {
 /// Use any struct that implements the [`CubicGenerator`] trait to create a new curve, such as
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct CubicCurve<P: VectorSpace> {
-    segments: Vec<CubicSegment<P>>,
+    /// Segments of the curve
+    pub segments: Vec<CubicSegment<P>>,
 }
 
 impl<P: VectorSpace> CubicCurve<P> {
@@ -914,14 +1090,15 @@ pub trait RationalGenerator<P: VectorSpace> {
 /// Can be evaluated as a parametric curve over the domain `[0, knot_span)`.
 ///
 /// Segments can be chained together to form a longer compound curve.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct RationalSegment<P: VectorSpace> {
     /// The coefficients matrix of the cubic curve.
-    coeff: [P; 4],
+    pub coeff: [P; 4],
     /// The homogeneous weight coefficients.
-    weight_coeff: [f32; 4],
+    pub weight_coeff: [f32; 4],
     /// The width of the domain of this segment.
-    knot_span: f32,
+    pub knot_span: f32,
 }
 
 impl<P: VectorSpace> RationalSegment<P> {
@@ -1042,8 +1219,10 @@ impl<P: VectorSpace> RationalSegment<P> {
 /// Use any struct that implements the [`RationalGenerator`] trait to create a new curve, such as
 /// [`CubicNurbs`], or convert [`CubicCurve`] using `into/from`.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct RationalCurve<P: VectorSpace> {
-    segments: Vec<RationalSegment<P>>,
+    /// The segments in the curve
+    pub segments: Vec<RationalSegment<P>>,
 }
 
 impl<P: VectorSpace> RationalCurve<P> {
@@ -1159,7 +1338,7 @@ impl<P: VectorSpace> RationalCurve<P> {
         }
     }
 
-    /// Returns the length of of the domain of the parametric curve.
+    /// Returns the length of the domain of the parametric curve.
     #[inline]
     pub fn domain(&self) -> f32 {
         self.segments.iter().map(|segment| segment.knot_span).sum()

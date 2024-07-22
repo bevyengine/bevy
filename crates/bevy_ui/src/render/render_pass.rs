@@ -18,14 +18,7 @@ use bevy_render::{
 use bevy_utils::tracing::error;
 
 pub struct UiPassNode {
-    ui_view_query: QueryState<
-        (
-            &'static SortedRenderPhase<TransparentUi>,
-            &'static ViewTarget,
-            &'static ExtractedCamera,
-        ),
-        With<ExtractedView>,
-    >,
+    ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
     default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 
@@ -52,9 +45,17 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.view_entity();
 
-        let Ok((transparent_phase, target, camera)) =
-            self.ui_view_query.get_manual(world, input_view_entity)
+        let Some(transparent_render_phases) =
+            world.get_resource::<ViewSortedRenderPhases<TransparentUi>>()
         else {
+            return Ok(());
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get(&input_view_entity) else {
+            return Ok(());
+        };
+
+        let Ok((target, camera)) = self.ui_view_query.get_manual(world, input_view_entity) else {
             return Ok(());
         };
         if transparent_phase.items.is_empty() {
@@ -139,7 +140,7 @@ impl SortedPhaseItem for TransparentUi {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
+        items.sort_by_key(SortedPhaseItem::sort_key);
     }
 }
 

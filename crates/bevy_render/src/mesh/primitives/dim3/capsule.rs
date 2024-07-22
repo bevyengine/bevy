@@ -1,5 +1,5 @@
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
 use bevy_math::{primitives::Capsule3d, Vec2, Vec3};
@@ -25,13 +25,13 @@ pub struct Capsule3dMeshBuilder {
     pub capsule: Capsule3d,
     /// The number of horizontal lines subdividing the cylindrical part of the capsule.
     /// The default is `0`.
-    pub rings: usize,
+    pub rings: u32,
     /// The number of vertical lines subdividing the hemispheres of the capsule.
     /// The default is `32`.
-    pub longitudes: usize,
+    pub longitudes: u32,
     /// The number of horizontal lines subdividing the hemispheres of the capsule.
     /// The default is `16`.
-    pub latitudes: usize,
+    pub latitudes: u32,
     /// The manner in which UV coordinates are distributed vertically.
     /// The default is [`CapsuleUvProfile::Aspect`].
     pub uv_profile: CapsuleUvProfile,
@@ -55,7 +55,7 @@ impl Capsule3dMeshBuilder {
     /// Note that `height` is the distance between the centers of the hemispheres.
     /// `radius` will be added to both ends to get the real height of the mesh.
     #[inline]
-    pub fn new(radius: f32, height: f32, longitudes: usize, latitudes: usize) -> Self {
+    pub fn new(radius: f32, height: f32, longitudes: u32, latitudes: u32) -> Self {
         Self {
             capsule: Capsule3d::new(radius, height),
             longitudes,
@@ -66,21 +66,21 @@ impl Capsule3dMeshBuilder {
 
     /// Sets the number of horizontal lines subdividing the cylindrical part of the capsule.
     #[inline]
-    pub const fn rings(mut self, rings: usize) -> Self {
+    pub const fn rings(mut self, rings: u32) -> Self {
         self.rings = rings;
         self
     }
 
     /// Sets the number of vertical lines subdividing the hemispheres of the capsule.
     #[inline]
-    pub const fn longitudes(mut self, longitudes: usize) -> Self {
+    pub const fn longitudes(mut self, longitudes: u32) -> Self {
         self.longitudes = longitudes;
         self
     }
 
     /// Sets the number of horizontal lines subdividing the hemispheres of the capsule.
     #[inline]
-    pub const fn latitudes(mut self, latitudes: usize) -> Self {
+    pub const fn latitudes(mut self, latitudes: u32) -> Self {
         self.latitudes = latitudes;
         self
     }
@@ -91,9 +91,10 @@ impl Capsule3dMeshBuilder {
         self.uv_profile = uv_profile;
         self
     }
+}
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+impl MeshBuilder for Capsule3dMeshBuilder {
+    fn build(&self) -> Mesh {
         // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
         let Capsule3dMeshBuilder {
             capsule,
@@ -129,7 +130,7 @@ impl Capsule3dMeshBuilder {
         let vert_offset_south_cap = vert_offset_south_polar + lonsp1;
 
         // Initialize arrays.
-        let vert_len = vert_offset_south_cap + longitudes;
+        let vert_len = (vert_offset_south_cap + longitudes) as usize;
 
         let mut vs: Vec<Vec3> = vec![Vec3::ZERO; vert_len];
         let mut vts: Vec<Vec2> = vec![Vec2::ZERO; vert_len];
@@ -148,11 +149,11 @@ impl Capsule3dMeshBuilder {
         let vt_aspect_north = 1.0 - vt_aspect_ratio;
         let vt_aspect_south = vt_aspect_ratio;
 
-        let mut theta_cartesian: Vec<Vec2> = vec![Vec2::ZERO; longitudes];
-        let mut rho_theta_cartesian: Vec<Vec2> = vec![Vec2::ZERO; longitudes];
-        let mut s_texture_cache: Vec<f32> = vec![0.0; lonsp1];
+        let mut theta_cartesian: Vec<Vec2> = vec![Vec2::ZERO; longitudes as usize];
+        let mut rho_theta_cartesian: Vec<Vec2> = vec![Vec2::ZERO; longitudes as usize];
+        let mut s_texture_cache: Vec<f32> = vec![0.0; lonsp1 as usize];
 
-        for j in 0..longitudes {
+        for j in 0..longitudes as usize {
             let jf = j as f32;
             let s_texture_polar = 1.0 - ((jf + 0.5) * to_tex_horizontal);
             let theta = jf * to_theta;
@@ -169,30 +170,30 @@ impl Capsule3dMeshBuilder {
             vns[j] = Vec3::Y;
 
             // South.
-            let idx = vert_offset_south_cap + j;
+            let idx = vert_offset_south_cap as usize + j;
             vs[idx] = Vec3::new(0.0, -summit, 0.0);
             vts[idx] = Vec2::new(s_texture_polar, 0.0);
             vns[idx] = Vec3::new(0.0, -1.0, 0.0);
         }
 
         // Equatorial vertices.
-        for (j, s_texture_cache_j) in s_texture_cache.iter_mut().enumerate().take(lonsp1) {
+        for (j, s_texture_cache_j) in s_texture_cache.iter_mut().enumerate().take(lonsp1 as usize) {
             let s_texture = 1.0 - j as f32 * to_tex_horizontal;
             *s_texture_cache_j = s_texture;
 
             // Wrap to first element upon reaching last.
-            let j_mod = j % longitudes;
+            let j_mod = j % longitudes as usize;
             let tc = theta_cartesian[j_mod];
             let rtc = rho_theta_cartesian[j_mod];
 
             // North equator.
-            let idxn = vert_offset_north_equator + j;
+            let idxn = vert_offset_north_equator as usize + j;
             vs[idxn] = Vec3::new(rtc.x, half_length, -rtc.y);
             vts[idxn] = Vec2::new(s_texture, vt_aspect_north);
             vns[idxn] = Vec3::new(tc.x, 0.0, -tc.y);
 
             // South equator.
-            let idxs = vert_offset_south_equator + j;
+            let idxs = vert_offset_south_equator as usize + j;
             vs[idxs] = Vec3::new(rtc.x, -half_length, -rtc.y);
             vts[idxs] = Vec2::new(s_texture, vt_aspect_south);
             vns[idxs] = Vec3::new(tc.x, 0.0, -tc.y);
@@ -230,13 +231,13 @@ impl Capsule3dMeshBuilder {
             let vert_curr_lat_north = vert_offset_north_hemi + i_lonsp1;
             let vert_curr_lat_south = vert_offset_south_hemi + i_lonsp1;
 
-            for (j, s_texture) in s_texture_cache.iter().enumerate().take(lonsp1) {
-                let j_mod = j % longitudes;
+            for (j, s_texture) in s_texture_cache.iter().enumerate().take(lonsp1 as usize) {
+                let j_mod = j % longitudes as usize;
 
                 let tc = theta_cartesian[j_mod];
 
                 // North hemisphere.
-                let idxn = vert_curr_lat_north + j;
+                let idxn = vert_curr_lat_north as usize + j;
                 vs[idxn] = Vec3::new(
                     rho_cos_phi_north * tc.x,
                     z_offset_north,
@@ -246,7 +247,7 @@ impl Capsule3dMeshBuilder {
                 vns[idxn] = Vec3::new(cos_phi_north * tc.x, -sin_phi_north, -cos_phi_north * tc.y);
 
                 // South hemisphere.
-                let idxs = vert_curr_lat_south + j;
+                let idxs = vert_curr_lat_south as usize + j;
                 vs[idxs] = Vec3::new(
                     rho_cos_phi_south * tc.x,
                     z_offset_sout,
@@ -262,7 +263,7 @@ impl Capsule3dMeshBuilder {
             // Exclude both origin and destination edges
             // (North and South equators) from the interpolation.
             let to_fac = 1.0 / ringsp1 as f32;
-            let mut idx_cyl_lat = vert_offset_cylinder;
+            let mut idx_cyl_lat = vert_offset_cylinder as usize;
 
             for h in 1..ringsp1 {
                 let fac = h as f32 * to_fac;
@@ -270,8 +271,8 @@ impl Capsule3dMeshBuilder {
                 let t_texture = cmpl_fac * vt_aspect_north + fac * vt_aspect_south;
                 let z = half_length - 2.0 * half_length * fac;
 
-                for (j, s_texture) in s_texture_cache.iter().enumerate().take(lonsp1) {
-                    let j_mod = j % longitudes;
+                for (j, s_texture) in s_texture_cache.iter().enumerate().take(lonsp1 as usize) {
+                    let j_mod = j % longitudes as usize;
                     let tc = theta_cartesian[j_mod];
                     let rtc = rho_theta_cartesian[j_mod];
 
@@ -298,22 +299,22 @@ impl Capsule3dMeshBuilder {
         let tri_offset_south_cap = tri_offset_south_hemi + hemi_lons;
 
         let fs_len = tri_offset_south_cap + lons3;
-        let mut tris: Vec<u32> = vec![0; fs_len];
+        let mut tris: Vec<u32> = vec![0; fs_len as usize];
 
         // Polar caps.
         let mut i = 0;
         let mut k = 0;
-        let mut m = tri_offset_south_cap;
+        let mut m = tri_offset_south_cap as usize;
         while i < longitudes {
             // North.
-            tris[k] = i as u32;
-            tris[k + 1] = (vert_offset_north_hemi + i) as u32;
-            tris[k + 2] = (vert_offset_north_hemi + i + 1) as u32;
+            tris[k] = i;
+            tris[k + 1] = vert_offset_north_hemi + i;
+            tris[k + 2] = vert_offset_north_hemi + i + 1;
 
             // South.
-            tris[m] = (vert_offset_south_cap + i) as u32;
-            tris[m + 1] = (vert_offset_south_polar + i + 1) as u32;
-            tris[m + 2] = (vert_offset_south_polar + i) as u32;
+            tris[m] = vert_offset_south_cap + i;
+            tris[m + 1] = vert_offset_south_polar + i + 1;
+            tris[m + 2] = vert_offset_south_polar + i;
 
             i += 1;
             k += 3;
@@ -323,8 +324,8 @@ impl Capsule3dMeshBuilder {
         // Hemispheres.
 
         let mut i = 0;
-        let mut k = tri_offset_north_hemi;
-        let mut m = tri_offset_south_hemi;
+        let mut k = tri_offset_north_hemi as usize;
+        let mut m = tri_offset_south_hemi as usize;
 
         while i < half_latsn1 {
             let i_lonsp1 = i * lonsp1;
@@ -343,13 +344,13 @@ impl Capsule3dMeshBuilder {
                 let north11 = vert_next_lat_north + j + 1;
                 let north10 = vert_curr_lat_north + j + 1;
 
-                tris[k] = north00 as u32;
-                tris[k + 1] = north11 as u32;
-                tris[k + 2] = north10 as u32;
+                tris[k] = north00;
+                tris[k + 1] = north11;
+                tris[k + 2] = north10;
 
-                tris[k + 3] = north00 as u32;
-                tris[k + 4] = north01 as u32;
-                tris[k + 5] = north11 as u32;
+                tris[k + 3] = north00;
+                tris[k + 4] = north01;
+                tris[k + 5] = north11;
 
                 // South.
                 let south00 = vert_curr_lat_south + j;
@@ -357,13 +358,13 @@ impl Capsule3dMeshBuilder {
                 let south11 = vert_next_lat_south + j + 1;
                 let south10 = vert_curr_lat_south + j + 1;
 
-                tris[m] = south00 as u32;
-                tris[m + 1] = south11 as u32;
-                tris[m + 2] = south10 as u32;
+                tris[m] = south00;
+                tris[m + 1] = south11;
+                tris[m + 2] = south10;
 
-                tris[m + 3] = south00 as u32;
-                tris[m + 4] = south01 as u32;
-                tris[m + 5] = south11 as u32;
+                tris[m + 3] = south00;
+                tris[m + 4] = south01;
+                tris[m + 5] = south11;
 
                 j += 1;
                 k += 6;
@@ -375,7 +376,7 @@ impl Capsule3dMeshBuilder {
 
         // Cylinder.
         let mut i = 0;
-        let mut k = tri_offset_cylinder;
+        let mut k = tri_offset_cylinder as usize;
 
         while i < ringsp1 {
             let vert_curr_lat = vert_offset_north_equator + i * lonsp1;
@@ -388,13 +389,13 @@ impl Capsule3dMeshBuilder {
                 let cy11 = vert_next_lat + j + 1;
                 let cy10 = vert_curr_lat + j + 1;
 
-                tris[k] = cy00 as u32;
-                tris[k + 1] = cy11 as u32;
-                tris[k + 2] = cy10 as u32;
+                tris[k] = cy00;
+                tris[k + 1] = cy11;
+                tris[k + 2] = cy10;
 
-                tris[k + 3] = cy00 as u32;
-                tris[k + 4] = cy01 as u32;
-                tris[k + 5] = cy11 as u32;
+                tris[k + 3] = cy00;
+                tris[k + 4] = cy01;
+                tris[k + 5] = cy11;
 
                 j += 1;
                 k += 6;
@@ -408,7 +409,7 @@ impl Capsule3dMeshBuilder {
         let vts: Vec<[f32; 2]> = vts.into_iter().map(Into::into).collect();
 
         assert_eq!(vs.len(), vert_len);
-        assert_eq!(tris.len(), fs_len);
+        assert_eq!(tris.len(), fs_len as usize);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -435,11 +436,5 @@ impl Meshable for Capsule3d {
 impl From<Capsule3d> for Mesh {
     fn from(capsule: Capsule3d) -> Self {
         capsule.mesh().build()
-    }
-}
-
-impl From<Capsule3dMeshBuilder> for Mesh {
-    fn from(capsule: Capsule3dMeshBuilder) -> Self {
-        capsule.build()
     }
 }

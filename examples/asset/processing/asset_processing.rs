@@ -7,7 +7,7 @@ use bevy::{
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
-        AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
+        AssetLoader, AsyncWriteExt, LoadContext,
     },
     prelude::*,
     reflect::TypePath,
@@ -72,7 +72,7 @@ struct Text(String);
 #[derive(Default)]
 struct TextLoader;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 struct TextSettings {
     text_override: Option<String>,
 }
@@ -83,7 +83,7 @@ impl AssetLoader for TextLoader {
     type Error = std::io::Error;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         settings: &'a TextSettings,
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Text, Self::Error> {
@@ -107,6 +107,7 @@ struct CoolTextRon {
     text: String,
     dependencies: Vec<String>,
     embedded_dependencies: Vec<String>,
+    dependencies_with_settings: Vec<(String, TextSettings)>,
 }
 
 #[derive(Asset, TypePath, Debug)]
@@ -136,7 +137,7 @@ impl AssetLoader for CoolTextLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<CoolText, Self::Error> {
@@ -145,9 +146,23 @@ impl AssetLoader for CoolTextLoader {
         let ron: CoolTextRon = ron::de::from_bytes(&bytes)?;
         let mut base_text = ron.text;
         for embedded in ron.embedded_dependencies {
-            let loaded = load_context.load_direct(&embedded).await?;
-            let text = loaded.get::<Text>().unwrap();
-            base_text.push_str(&text.0);
+            let loaded = load_context
+                .loader()
+                .direct()
+                .load::<Text>(&embedded)
+                .await?;
+            base_text.push_str(&loaded.get().0);
+        }
+        for (path, settings_override) in ron.dependencies_with_settings {
+            let loaded = load_context
+                .loader()
+                .with_settings(move |settings| {
+                    *settings = settings_override.clone();
+                })
+                .direct()
+                .load::<Text>(&path)
+                .await?;
+            base_text.push_str(&loaded.get().0);
         }
         Ok(CoolText {
             text: base_text,

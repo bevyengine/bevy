@@ -27,6 +27,9 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Only run this job when on the main Bevy repository. Without this, it would also run on forks
+    # where developers work on the main branch but have not enabled Github Pages.
+    if: ${{ github.repository == 'bevyengine/bevy' }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -66,7 +69,7 @@ jobs:
         run: |
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
           echo "dev-docs.bevyengine.org" > target/doc/CNAME
-          echo "User-Agent: *\nDisallow: /" > target/doc/robots.txt
+          echo $'User-Agent: *\nDisallow: /' > target/doc/robots.txt
           rm target/doc/.lock
 
       - name: Upload site artifact

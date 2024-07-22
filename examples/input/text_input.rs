@@ -7,10 +7,7 @@
 use std::mem;
 
 use bevy::{
-    input::{
-        keyboard::{Key, KeyboardInput},
-        ButtonState,
-    },
+    input::keyboard::{Key, KeyboardInput},
     prelude::*,
 };
 
@@ -41,7 +38,6 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 value: "IME Enabled: ".to_string(),
                 style: TextStyle {
                     font: font.clone_weak(),
-                    font_size: 20.0,
                     ..default()
                 },
             },
@@ -57,7 +53,6 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 value: "IME Active: ".to_string(),
                 style: TextStyle {
                     font: font.clone_weak(),
-                    font_size: 20.0,
                     ..default()
                 },
             },
@@ -175,7 +170,7 @@ fn listen_keyboard_input_events(
 ) {
     for event in events.read() {
         // Only trigger changes when the key is first pressed.
-        if event.state == ButtonState::Released {
+        if !event.state.is_pressed() {
             continue;
         }
 

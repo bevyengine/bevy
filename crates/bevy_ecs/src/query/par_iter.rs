@@ -78,7 +78,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             func(&mut init, item);
             init
         };
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi-threaded")))]
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         {
             let init = init();
             // SAFETY:
@@ -93,7 +93,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                     .fold(init, func);
             }
         }
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
             let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
             if thread_count <= 1 {
@@ -122,7 +122,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi-threaded"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         let max_items = || {
             let id_iter = self.state.matched_storage_ids.iter();

@@ -196,7 +196,7 @@ impl AssetLoader for () {
     type Error = std::io::Error;
     async fn load<'a>(
         &'a self,
-        _reader: &'a mut crate::io::Reader<'_>,
+        _reader: &'a mut dyn crate::io::Reader,
         _settings: &'a Self::Settings,
         _load_context: &'a mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
@@ -208,21 +208,26 @@ impl AssetLoader for () {
     }
 }
 
+pub(crate) fn meta_transform_settings<S: Settings>(
+    meta: &mut dyn AssetMetaDyn,
+    settings: &(impl Fn(&mut S) + Send + Sync + 'static),
+) {
+    if let Some(loader_settings) = meta.loader_settings_mut() {
+        if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
+            settings(loader_settings);
+        } else {
+            error!(
+                "Configured settings type {} does not match AssetLoader settings type",
+                std::any::type_name::<S>(),
+            );
+        }
+    }
+}
+
 pub(crate) fn loader_settings_meta_transform<S: Settings>(
     settings: impl Fn(&mut S) + Send + Sync + 'static,
 ) -> MetaTransform {
-    Box::new(move |meta| {
-        if let Some(loader_settings) = meta.loader_settings_mut() {
-            if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
-                settings(loader_settings);
-            } else {
-                error!(
-                    "Configured settings type {} does not match AssetLoader settings type",
-                    std::any::type_name::<S>(),
-                );
-            }
-        }
-    })
+    Box::new(move |meta| meta_transform_settings(meta, &settings))
 }
 
 pub type AssetHash = [u8; 32];

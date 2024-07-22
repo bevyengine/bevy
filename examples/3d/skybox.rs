@@ -81,6 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,
+            ..default()
         },
     ));
 
