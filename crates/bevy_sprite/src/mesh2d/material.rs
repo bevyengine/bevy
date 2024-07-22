@@ -369,7 +369,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
@@ -379,6 +378,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         Entity,
         &ExtractedView,
         &VisibleEntities,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
@@ -389,7 +389,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities, tonemapping, dither) in &mut views {
+    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
