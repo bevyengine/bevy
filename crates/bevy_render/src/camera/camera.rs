@@ -10,7 +10,7 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
     },
-    world_sync::{MainToRenderEntityMap, RenderEntity},
+    world_sync::RenderEntity,
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};

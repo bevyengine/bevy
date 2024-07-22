@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
+use crate::DefaultUiCamera;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
@@ -24,8 +25,7 @@ pub use ui_material_pipeline::*;
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, BorderRadius,
-    CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage,
-    UiScale, Val,
+    CalculatedClip, ContentSize, Node, Outline, Style, TargetCamera, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -188,7 +188,7 @@ pub struct ExtractedUiNodes {
 
 pub fn extract_uinode_background_colors(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<&Camera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -208,6 +208,7 @@ pub fn extract_uinode_background_colors(
     node_query: Extract<Query<&Node>>,
     mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
+    let default_ui_camera = default_ui_camera.get();
     for (
         entity,
         uinode,
@@ -221,17 +222,7 @@ pub fn extract_uinode_background_colors(
         parent,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
-            .map(|e| {
-                if let Some(entity) = mapping.get(&e) {
-                    *entity
-                } else {
-                    e
-                }
-            })
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
 
@@ -243,12 +234,15 @@ pub fn extract_uinode_background_colors(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
+            .and_then(| c| c.logical_viewport_size())
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
+        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+            continue;
+        };
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = parent
@@ -305,7 +299,7 @@ pub fn extract_uinode_background_colors(
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<&Camera>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
@@ -327,6 +321,7 @@ pub fn extract_uinode_images(
     node_query: Extract<Query<&Node>>,
     mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
+    let default_ui_camera = default_ui_camera.get();
     for (
         uinode,
         transform,
@@ -341,17 +336,7 @@ pub fn extract_uinode_images(
         style,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
-            .map(|e| {
-                if let Some(entity) = mapping.get(&e) {
-                    *entity
-                } else {
-                    e
-                }
-            })
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
 
@@ -362,6 +347,19 @@ pub fn extract_uinode_images(
         {
             continue;
         }
+
+        let ui_logical_viewport_size = camera_query
+        .get(camera_entity)
+        .ok()
+        .and_then(| c| c.logical_viewport_size())
+        .unwrap_or(Vec2::ZERO)
+        // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+        // so we have to divide by `UiScale` to get the size of the UI viewport.
+        / ui_scale.0;
+
+        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+            continue;
+        };
 
         if let Some(slices) = slices {
             extracted_uinodes.uinodes.extend(
@@ -394,15 +392,6 @@ pub fn extract_uinode_images(
                 None,
             ),
         };
-
-        let ui_logical_viewport_size = camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
-            .unwrap_or(Vec2::ZERO)
-            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-            // so we have to divide by `UiScale` to get the size of the UI viewport.
-            / ui_scale.0;
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
@@ -517,7 +506,7 @@ fn clamp_radius(
 pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<&Camera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -540,6 +529,7 @@ pub fn extract_uinode_borders(
     mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
     let image = AssetId::<Image>::default();
+    let default_ui_camera = default_ui_camera.get();
 
     for (
         node,
@@ -553,20 +543,9 @@ pub fn extract_uinode_borders(
         border_radius,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
-            .map(|e| {
-                if let Some(entity) = mapping.get(&e) {
-                    *entity
-                } else {
-                    e
-                }
-            })
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
-
         // Skip invisible borders
         if !view_visibility.get()
             || border_color.0.is_fully_transparent()
@@ -579,11 +558,15 @@ pub fn extract_uinode_borders(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
+            .and_then(|c| c.logical_viewport_size())
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
+
+        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+            continue;
+        };
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
@@ -656,19 +639,15 @@ pub fn extract_uinode_outlines(
             &Outline,
         )>,
     >,
-    entity_mapper: Res<bevy_render::world_sync::MainToRenderEntityMap>,
+    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
-    let mapping = |e| {
-        if let Some(entity) = entity_mapper.get(&e) {
-            *entity
-        } else {
-            e
-        }
-    };
-    let default_ui_camera = default_ui_camera.get().map(mapping);
+    let default_ui_camera = default_ui_camera.get();
     let image = AssetId::<Image>::default();
     for (node, global_transform, view_visibility, maybe_clip, camera, outline) in &uinode_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
+            continue;
+        };
+        let Some(&camera_entity) = mapping.get(&camera_entity) else {
             continue;
         };
 
@@ -836,7 +815,7 @@ pub fn extract_default_ui_camera_view(
 pub fn extract_uinode_text(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<&Camera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
@@ -853,20 +832,11 @@ pub fn extract_uinode_text(
     >,
     mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
+    let default_ui_camera = default_ui_camera.get();
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
         &uinode_query
     {
-        let Some(camera_entity) = camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
-            .map(|e| {
-                if let Some(entity) = mapping.get(&e) {
-                    *entity
-                } else {
-                    e
-                }
-            })
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
 
@@ -878,11 +848,14 @@ pub fn extract_uinode_text(
         let scale_factor = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.target_scaling_factor())
+            .and_then(|c| c.target_scaling_factor())
             .unwrap_or(1.0)
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();
 
+        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+            continue;
+        };
         // Align the text to the nearest physical pixel:
         // * Translate by minus the text node's half-size
         //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
