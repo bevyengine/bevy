@@ -3264,9 +3264,9 @@ name = "anisotropy"
 path = "examples/3d/anisotropy.rs"
 doc-scrape-examples = true
 required-features = ["jpeg", "pbr_anisotropy_texture"]
+
 [package.metadata.example.anisotropy]
 name = "Anisotropy"
-
 description = "Displays an example model with anisotropy"
 category = "3D Rendering"
 wasm = false
