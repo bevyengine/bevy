@@ -4,17 +4,23 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     observer::Trigger,
-    system::{ResMut, Resource},
+    query::With,
+    system::{Commands, Query, ResMut, Resource},
     world::{Mut, OnAdd, OnRemove, World},
 };
 use bevy_hierarchy::DespawnRecursiveExt;
 
 // marker component to indicate that its entity needs to be synchronized between RenderWorld and MainWorld
-#[derive(Component,Clone,Debug,Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct ToRenderWorld;
 
 #[derive(Component, Deref, Clone, Debug)]
 pub struct RenderEntity(Entity);
+
+// marker component that its entity needs to be despawned per frame.
+#[derive(Component, Clone, Debug, Default)]
+pub struct RenderFlyEntity;
+
 impl RenderEntity {
     pub fn entity(&self) -> Entity {
         self.0
@@ -52,6 +58,15 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
+pub(crate) fn despawn_fly_entity(
+    mut command: Commands,
+    query: Query<Entity, With<RenderFlyEntity>>,
+) {
+    query.iter().for_each(|e| {
+        // TODO : performant delete
+        command.entity(e).despawn_recursive();
+    })
+}
 pub(crate) struct WorldSyncPlugin;
 
 impl Plugin for WorldSyncPlugin {

@@ -65,7 +65,7 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
-use world_sync::{entity_sync_system, WorldSyncPlugin};
+use world_sync::{despawn_fly_entity, entity_sync_system, WorldSyncPlugin};
 
 use crate::mesh::GpuMesh;
 use crate::renderer::WgpuWrapper;
@@ -467,7 +467,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-                // World::clear_entities.in_set(RenderSet::Cleanup),
+                despawn_fly_entity.in_set(RenderSet::Cleanup),
             ),
         );
 
