@@ -2,7 +2,6 @@
 //! uniform variable.
 
 use bevy::{
-    asset::LoadState,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
