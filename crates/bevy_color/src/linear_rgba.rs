@@ -1,8 +1,9 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ClampColor,
-    Luminance, Mix, StandardColor,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
+    ColorToPacked, Gray, Luminance, Mix, StandardColor,
 };
-use bevy_math::Vec4;
+use bevy_math::{Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
@@ -11,11 +12,11 @@ use bytemuck::{Pod, Zeroable};
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, Pod, Zeroable)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 #[repr(C)]
@@ -121,18 +122,6 @@ impl LinearRgba {
         }
     }
 
-    /// Construct a new [`LinearRgba`] color with the same value for all channels and an alpha of 1.0.
-    ///
-    /// A value of 0.0 is black, and a value of 1.0 is white.
-    pub const fn gray(value: f32) -> Self {
-        Self {
-            red: value,
-            green: value,
-            blue: value,
-            alpha: 1.0,
-        }
-    }
-
     /// Return a copy of this color with the red channel set to the given value.
     pub const fn with_red(self, red: f32) -> Self {
         Self { red, ..self }
@@ -161,24 +150,12 @@ impl LinearRgba {
         }
     }
 
-    /// Converts the color into a [f32; 4] array in RGBA order.
-    ///
-    /// This is useful for passing the color to a shader.
-    pub fn to_f32_array(&self) -> [f32; 4] {
-        [self.red, self.green, self.blue, self.alpha]
-    }
-
     /// Converts this color to a u32.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
     /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_u32(&self) -> u32 {
-        u32::from_le_bytes([
-            (self.red * 255.0) as u8,
-            (self.green * 255.0) as u8,
-            (self.blue * 255.0) as u8,
-            (self.alpha * 255.0) as u8,
-        ])
+        u32::from_le_bytes(self.to_u8_array())
     }
 }
 
@@ -236,6 +213,11 @@ impl Mix for LinearRgba {
     }
 }
 
+impl Gray for LinearRgba {
+    const BLACK: Self = Self::BLACK;
+    const WHITE: Self = Self::WHITE;
+}
+
 impl Alpha for LinearRgba {
     #[inline]
     fn with_alpha(&self, alpha: f32) -> Self {
@@ -263,33 +245,76 @@ impl EuclideanDistance for LinearRgba {
     }
 }
 
-impl ClampColor for LinearRgba {
-    fn clamped(&self) -> Self {
+impl ColorToComponents for LinearRgba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.red, self.green, self.blue]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.red, self.green, self.blue, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.red, self.green, self.blue)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
         Self {
-            red: self.red.clamp(0., 1.),
-            green: self.green.clamp(0., 1.),
-            blue: self.blue.clamp(0., 1.),
-            alpha: self.alpha.clamp(0., 1.),
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
         }
     }
 
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.).contains(&self.red)
-            && (0. ..=1.).contains(&self.green)
-            && (0. ..=1.).contains(&self.blue)
-            && (0. ..=1.).contains(&self.alpha)
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            red: color[0],
+            green: color[1],
+            blue: color[2],
+            alpha: 1.0,
+        }
     }
 }
 
-impl From<LinearRgba> for [f32; 4] {
-    fn from(color: LinearRgba) -> Self {
-        [color.red, color.green, color.blue, color.alpha]
+impl ColorToPacked for LinearRgba {
+    fn to_u8_array(self) -> [u8; 4] {
+        [self.red, self.green, self.blue, self.alpha]
+            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
     }
-}
 
-impl From<LinearRgba> for Vec4 {
-    fn from(color: LinearRgba) -> Self {
-        Vec4::new(color.red, color.green, color.blue, color.alpha)
+    fn to_u8_array_no_alpha(self) -> [u8; 3] {
+        [self.red, self.green, self.blue].map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8)
+    }
+
+    fn from_u8_array(color: [u8; 4]) -> Self {
+        Self::from_f32_array(color.map(|u| u as f32 / 255.0))
+    }
+
+    fn from_u8_array_no_alpha(color: [u8; 3]) -> Self {
+        Self::from_f32_array_no_alpha(color.map(|u| u as f32 / 255.0))
     }
 }
 
@@ -400,6 +425,34 @@ mod tests {
     }
 
     #[test]
+    fn to_and_from_u8() {
+        // from_u8_array
+        let a = LinearRgba::from_u8_array([255, 0, 0, 255]);
+        let b = LinearRgba::new(1.0, 0.0, 0.0, 1.0);
+        assert_eq!(a, b);
+
+        // from_u8_array_no_alpha
+        let a = LinearRgba::from_u8_array_no_alpha([255, 255, 0]);
+        let b = LinearRgba::rgb(1.0, 1.0, 0.0);
+        assert_eq!(a, b);
+
+        // to_u8_array
+        let a = LinearRgba::new(0.0, 0.0, 1.0, 1.0).to_u8_array();
+        let b = [0, 0, 255, 255];
+        assert_eq!(a, b);
+
+        // to_u8_array_no_alpha
+        let a = LinearRgba::rgb(0.0, 1.0, 1.0).to_u8_array_no_alpha();
+        let b = [0, 255, 255];
+        assert_eq!(a, b);
+
+        // clamping
+        let a = LinearRgba::rgb(0.0, 100.0, -100.0).to_u8_array_no_alpha();
+        let b = [0, 255, 0];
+        assert_eq!(a, b);
+    }
+
+    #[test]
     fn darker_lighter() {
         // Darker and lighter should be commutative.
         let color = LinearRgba::new(0.4, 0.5, 0.6, 1.0);
@@ -412,22 +465,5 @@ mod tests {
         let lighter2 = lighter1.lighter(0.1);
         let twice_as_light = color.lighter(0.2);
         assert!(lighter2.distance_squared(&twice_as_light) < 0.0001);
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = LinearRgba::rgb(2., -1., 0.4);
-        let color_2 = LinearRgba::rgb(0.031, 0.749, 1.);
-        let mut color_3 = LinearRgba::rgb(-1., 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), LinearRgba::rgb(1., 0., 0.4));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, LinearRgba::rgb(0., 1., 1.));
     }
 }

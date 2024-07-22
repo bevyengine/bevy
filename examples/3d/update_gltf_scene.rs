@@ -34,20 +34,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
+            ..default()
         },
     ));
 
     // Spawn the scene as a child of this entity at the given transform
     commands.spawn(SceneBundle {
         transform: Transform::from_xyz(-1.0, 0.0, 0.0),
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
         ..default()
     });
 
     // Spawn a second scene, and add a tag component to be able to target it later
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
+            scene: asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
             ..default()
         },
         MovedScene,

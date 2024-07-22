@@ -1,8 +1,12 @@
 use super::{Aabb3d, BoundingSphere, IntersectsVolume};
 use crate::{Dir3A, Ray3d, Vec3A};
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+
 /// A raycast intersection test for 3D bounding volumes
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct RayCast3d {
     /// The origin of the ray.
     pub origin: Vec3A,
@@ -15,7 +19,9 @@ pub struct RayCast3d {
 }
 
 impl RayCast3d {
-    /// Construct a [`RayCast3d`] from an origin, [`Dir3`], and max distance.
+    /// Construct a [`RayCast3d`] from an origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
     pub fn new(origin: impl Into<Vec3A>, direction: impl Into<Dir3A>, max: f32) -> Self {
         let direction = direction.into();
         Self {
@@ -95,6 +101,7 @@ impl IntersectsVolume<BoundingSphere> for RayCast3d {
 
 /// An intersection test that casts an [`Aabb3d`] along a ray.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct AabbCast3d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast3d,
@@ -103,7 +110,9 @@ pub struct AabbCast3d {
 }
 
 impl AabbCast3d {
-    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [`Dir3`], and max distance.
+    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
     pub fn new(
         aabb: Aabb3d,
         origin: impl Into<Vec3A>,
@@ -137,6 +146,7 @@ impl IntersectsVolume<Aabb3d> for AabbCast3d {
 
 /// An intersection test that casts a [`BoundingSphere`] along a ray.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
 pub struct BoundingSphereCast {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast3d,
@@ -145,7 +155,9 @@ pub struct BoundingSphereCast {
 }
 
 impl BoundingSphereCast {
-    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [`Dir3`], and max distance.
+    /// Construct a [`BoundingSphereCast`] from a [`BoundingSphere`], origin, [direction], and max distance.
+    ///
+    /// [direction]: crate::direction::Dir3
     pub fn new(
         sphere: BoundingSphere,
         origin: impl Into<Vec3A>,

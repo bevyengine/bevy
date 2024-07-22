@@ -1,33 +1,32 @@
 [package]
 name = "bevy_reflect"
-version = "0.14.0-dev"
+version = "0.15.0-dev"
 edition = "2021"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
+rust-version = "1.76.0"
 
 [features]
 default = ["smallvec"]
 # When enabled, provides Bevy-related reflection implementations
-bevy = ["smallvec", "bevy_math", "smol_str"]
+bevy = ["smallvec", "smol_str"]
 glam = ["dep:glam"]
-bevy_math = ["glam", "dep:bevy_math"]
 petgraph = ["dep:petgraph"]
 smallvec = ["dep:smallvec"]
 uuid = ["dep:uuid"]
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]
+# Enables function reflection
+functions = ["bevy_reflect_derive/functions"]
 
 [dependencies]
 # bevy
-bevy_math = { path = "../bevy_math", version = "0.14.0-dev", features = [
-  "serialize",
-], optional = true }
-bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.14.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
-bevy_ptr = { path = "../bevy_ptr", version = "0.14.0-dev" }
+bevy_reflect_derive = { path = "derive", version = "0.15.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
 
 # other
 erased-serde = "0.4"

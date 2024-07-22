@@ -38,18 +38,18 @@ pub enum ExecutorKind {
     ///
     /// Useful if you're dealing with a single-threaded environment, saving your threads for
     /// other things, or just trying minimize overhead.
-    #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi-threaded")), default)]
+    #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi_threaded")), default)]
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
     /// immediately after running each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
-    #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi-threaded"), default)]
+    #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
     MultiThreaded,
 }
 
 /// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order
-/// (along with dependency information for multi-threaded execution).
+/// (along with dependency information for `multi_threaded` execution).
 ///
 /// Since the arrays are sorted in the same order, elements are referenced by their index.
 /// [`FixedBitSet`] is used as a smaller, more efficient substitute of `HashSet<usize>`.

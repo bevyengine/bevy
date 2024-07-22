@@ -1,8 +1,10 @@
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
 use bevy_utils::Duration;
 
-/// A Stopwatch is a struct that track elapsed time when started.
+/// A Stopwatch is a struct that tracks elapsed time when started.
 ///
+/// Note that in order to advance the stopwatch [`tick`](Stopwatch::tick) **MUST** be called.
 /// # Examples
 ///
 /// ```
@@ -22,9 +24,9 @@ use bevy_utils::Duration;
 /// assert!(stopwatch.paused());
 /// assert_eq!(stopwatch.elapsed_secs(), 0.0);
 /// ```
-#[derive(Clone, Debug, Default, PartialEq, Eq, Reflect)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
-#[reflect(Default)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default))]
 pub struct Stopwatch {
     elapsed: Duration,
     paused: bool,

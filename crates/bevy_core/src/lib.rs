@@ -20,7 +20,8 @@ pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
     pub use crate::{
-        DebugName, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,
+        FrameCountPlugin, Name, NameOrEntity, TaskPoolOptions, TaskPoolPlugin,
+        TypeRegistrationPlugin,
     };
 }
 
@@ -36,7 +37,9 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 pub struct TypeRegistrationPlugin;
 
 impl Plugin for TypeRegistrationPlugin {
+    #[cfg_attr(not(feature = "bevy_reflect"), allow(unused_variables))]
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "bevy_reflect")]
         app.register_type::<Name>();
     }
 }
@@ -80,7 +83,7 @@ fn tick_global_task_pools(_main_thread_marker: Option<NonSend<NonSendMarker>>) {
 /// [`FrameCount`] will wrap to 0 after exceeding [`u32::MAX`]. Within reasonable
 /// assumptions, one may exploit wrapping arithmetic to determine the number of frames
 /// that have elapsed between two observations – see [`u32::wrapping_sub()`].
-#[derive(Debug, Default, Resource, Clone, Copy)]
+#[derive(Debug, Default, Resource, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FrameCount(pub u32);
 
 /// Adds frame counting functionality to Apps.

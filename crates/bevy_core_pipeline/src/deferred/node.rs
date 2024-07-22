@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
 use bevy_render::render_graph::ViewNode;
 
-use bevy_render::render_phase::{BinnedRenderPhase, TrackedRenderPass};
+use bevy_render::render_phase::{TrackedRenderPass, ViewBinnedRenderPhases};
 use bevy_render::render_resource::{CommandEncoderDescriptor, StoreOp};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -27,9 +27,8 @@ pub struct DeferredGBufferPrepassNode;
 
 impl ViewNode for DeferredGBufferPrepassNode {
     type ViewQuery = (
+        Entity,
         &'static ExtractedCamera,
-        &'static BinnedRenderPhase<Opaque3dDeferred>,
-        &'static BinnedRenderPhase<AlphaMask3dDeferred>,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
     );
@@ -38,15 +37,23 @@ impl ViewNode for DeferredGBufferPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (
-            camera,
-            opaque_deferred_phase,
-            alpha_mask_deferred_phase,
-            view_depth_texture,
-            view_prepass_textures,
-        ): QueryItem<'w, Self::ViewQuery>,
+        (view, camera, view_depth_texture, view_prepass_textures): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let (Some(opaque_deferred_phases), Some(alpha_mask_deferred_phases)) = (
+            world.get_resource::<ViewBinnedRenderPhases<Opaque3dDeferred>>(),
+            world.get_resource::<ViewBinnedRenderPhases<AlphaMask3dDeferred>>(),
+        ) else {
+            return Ok(());
+        };
+
+        let (Some(opaque_deferred_phase), Some(alpha_mask_deferred_phase)) = (
+            opaque_deferred_phases.get(&view),
+            alpha_mask_deferred_phases.get(&view),
+        ) else {
+            return Ok(());
+        };
+
         let mut color_attachments = vec![];
         color_attachments.push(
             view_prepass_textures
@@ -116,17 +123,17 @@ impl ViewNode for DeferredGBufferPrepassNode {
         let view_entity = graph.view_entity();
         render_context.add_command_buffer_generation_task(move |render_device| {
             #[cfg(feature = "trace")]
-            let _deferred_span = info_span!("deferred").entered();
+            let _deferred_span = info_span!("deferred_prepass").entered();
 
             // Command encoder setup
             let mut command_encoder =
                 render_device.create_command_encoder(&CommandEncoderDescriptor {
-                    label: Some("deferred_command_encoder"),
+                    label: Some("deferred_prepass_command_encoder"),
                 });
 
             // Render pass setup
             let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("deferred"),
+                label: Some("deferred_prepass"),
                 color_attachments: &color_attachments,
                 depth_stencil_attachment,
                 timestamp_writes: None,
@@ -138,11 +145,11 @@ impl ViewNode for DeferredGBufferPrepassNode {
             }
 
             // Opaque draws
-            if !opaque_deferred_phase.batchable_keys.is_empty()
-                || !opaque_deferred_phase.unbatchable_keys.is_empty()
+            if !opaque_deferred_phase.batchable_mesh_keys.is_empty()
+                || !opaque_deferred_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]
-                let _opaque_prepass_span = info_span!("opaque_deferred").entered();
+                let _opaque_prepass_span = info_span!("opaque_deferred_prepass").entered();
                 if let Err(err) = opaque_deferred_phase.render(&mut render_pass, world, view_entity)
                 {
                     error!("Error encountered while rendering the opaque deferred phase {err:?}");
@@ -152,7 +159,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
             // Alpha masked draws
             if !alpha_mask_deferred_phase.is_empty() {
                 #[cfg(feature = "trace")]
-                let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred").entered();
+                let _alpha_mask_deferred_span = info_span!("alpha_mask_deferred_prepass").entered();
                 if let Err(err) =
                     alpha_mask_deferred_phase.render(&mut render_pass, world, view_entity)
                 {
@@ -164,7 +171,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
 
             drop(render_pass);
 
-            // Copy prepass depth to the main depth texture
+            // After rendering to the view depth texture, copy it to the prepass depth texture
             if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                 command_encoder.copy_texture_to_texture(
                     view_depth_texture.texture.as_image_copy(),

@@ -5,7 +5,7 @@ use crate::{
     query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
-    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
 use bevy_utils::all_tuples;
@@ -14,7 +14,7 @@ use std::{borrow::Cow, marker::PhantomData};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
 
-use super::{In, IntoSystem, ReadOnlySystem};
+use super::{In, IntoSystem, ReadOnlySystem, SystemBuilder};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -54,6 +54,20 @@ impl SystemMeta {
     #[inline]
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Sets the name of of this system.
+    ///
+    /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    pub fn set_name(&mut self, new_name: impl Into<Cow<'static, str>>) {
+        let new_name: Cow<'static, str> = new_name.into();
+        #[cfg(feature = "trace")]
+        {
+            let name = new_name.as_ref();
+            self.system_span = info_span!("system", name = name);
+            self.commands_span = info_span!("system_commands", name = name);
+        }
+        self.name = new_name;
     }
 
     /// Returns true if the system is [`Send`].
@@ -198,6 +212,16 @@ impl<Param: SystemParam> SystemState<Param> {
             meta,
             param_state,
             world_id: world.id(),
+            archetype_generation: ArchetypeGeneration::initial(),
+        }
+    }
+
+    // Create a [`SystemState`] from a [`SystemBuilder`]
+    pub(crate) fn from_builder(builder: SystemBuilder<Param>) -> Self {
+        Self {
+            meta: builder.meta,
+            param_state: builder.state,
+            world_id: builder.world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
         }
     }
@@ -389,12 +413,37 @@ where
     F: SystemParamFunction<Marker>,
 {
     func: F,
-    param_state: Option<<F::Param as SystemParam>::State>,
-    system_meta: SystemMeta,
+    pub(crate) param_state: Option<<F::Param as SystemParam>::State>,
+    pub(crate) system_meta: SystemMeta,
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn() -> Marker>,
+}
+
+impl<Marker, F> FunctionSystem<Marker, F>
+where
+    F: SystemParamFunction<Marker>,
+{
+    // Create a [`FunctionSystem`] from a [`SystemBuilder`]
+    pub(crate) fn from_builder(builder: SystemBuilder<F::Param>, func: F) -> Self {
+        Self {
+            func,
+            param_state: Some(builder.state),
+            system_meta: builder.meta,
+            world_id: Some(builder.world.id()),
+            archetype_generation: ArchetypeGeneration::initial(),
+            marker: PhantomData,
+        }
+    }
+
+    /// Return this system with a new name.
+    ///
+    /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
+        self.system_meta.set_name(new_name.into());
+        self
+    }
 }
 
 // De-initializes the cloned system.
@@ -516,10 +565,24 @@ where
     }
 
     #[inline]
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
+        F::Param::queue(param_state, &self.system_meta, world);
+    }
+
+    #[inline]
     fn initialize(&mut self, world: &mut World) {
-        self.world_id = Some(world.id());
+        if let Some(id) = self.world_id {
+            assert_eq!(
+                id,
+                world.id(),
+                "System built with a different world than the one it was added to.",
+            );
+        } else {
+            self.world_id = Some(world.id());
+            self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
+        }
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
-        self.param_state = Some(F::Param::init_state(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell) {
@@ -626,6 +689,10 @@ where
 /// ```
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid system",
+    label = "invalid system"
+)]
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
     /// The input type to this system. See [`System::In`].
     type In;

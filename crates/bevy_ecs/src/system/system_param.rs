@@ -5,12 +5,13 @@ use crate::{
     change_detection::{Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
+    prelude::QueryBuilder,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
         ReadOnlyQueryData,
     },
     system::{Query, SystemMeta},
-    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
@@ -158,6 +159,11 @@ pub unsafe trait SystemParam: Sized {
     #[allow(unused_variables)]
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
+    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    #[inline]
+    #[allow(unused_variables)]
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {}
+
     /// Creates a parameter to be passed into a [`SystemParamFunction`].
     ///
     /// [`SystemParamFunction`]: super::SystemParamFunction
@@ -173,6 +179,19 @@ pub unsafe trait SystemParam: Sized {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state>;
+}
+
+/// A parameter that can be built with [`SystemBuilder`](crate::system::builder::SystemBuilder)
+pub trait BuildableSystemParam: SystemParam {
+    /// A mutable reference to this type will be passed to the builder function
+    type Builder<'b>;
+
+    /// Constructs [`SystemParam::State`] for `Self` using a given builder function
+    fn build(
+        world: &mut World,
+        meta: &mut SystemMeta,
+        func: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State;
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].
@@ -234,6 +253,35 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
+impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
+    for Query<'w, 's, D, F>
+{
+    type Builder<'b> = QueryBuilder<'b, D, F>;
+
+    #[inline]
+    fn build(
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+        build: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State {
+        let mut builder = QueryBuilder::new(world);
+        build(&mut builder);
+        let state = builder.build();
+        assert_component_access_compatibility(
+            &system_meta.name,
+            std::any::type_name::<D>(),
+            std::any::type_name::<F>(),
+            &system_meta.component_access_set,
+            &state.component_access,
+            world,
+        );
+        system_meta
+            .component_access_set
+            .add(state.component_access.clone());
+        state
+    }
+}
+
 fn assert_component_access_compatibility(
     system_name: &str,
     query_type: &'static str,
@@ -251,7 +299,7 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/#b0001");
+    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
@@ -432,6 +480,11 @@ impl_param_set!();
 /// ```
 ///
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Resource`",
+    label = "invalid `Resource`",
+    note = "consider annotating `{Self}` with `#[derive(Resource)]`"
+)]
 pub trait Resource: Send + Sync + 'static {}
 
 // SAFETY: Res only reads a single World resource
@@ -450,7 +503,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
@@ -542,11 +595,11 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
@@ -664,6 +717,27 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
+/// SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
+unsafe impl<'w> SystemParam for DeferredWorld<'w> {
+    type State = ();
+    type Item<'world, 'state> = DeferredWorld<'world>;
+
+    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        system_meta.component_access_set.read_all();
+        system_meta.component_access_set.write_all();
+        system_meta.set_has_deferred();
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        world.into_deferred()
+    }
+}
+
 /// A system local [`SystemParam`].
 ///
 /// A local may only be accessed by the system itself and is therefore not visible to other systems.
@@ -777,6 +851,20 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     }
 }
 
+impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
+    type Builder<'b> = T;
+
+    fn build(
+        world: &mut World,
+        _meta: &mut SystemMeta,
+        func: impl FnOnce(&mut Self::Builder<'_>),
+    ) -> Self::State {
+        let mut value = T::from_world(world);
+        func(&mut value);
+        SyncCell::new(value)
+    }
+}
+
 /// Types that can be used with [`Deferred<T>`] in systems.
 /// This allows storing system-local data which is used to defer [`World`] mutations.
 ///
@@ -786,6 +874,8 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 pub trait SystemBuffer: FromWorld + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
+    /// Queues any deferred mutations to be applied at the next [`apply_deferred`](crate::prelude::apply_deferred).
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
@@ -950,6 +1040,10 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
         state.get().apply(system_meta, world);
     }
 
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        state.get().queue(system_meta, world);
+    }
+
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         _system_meta: &SystemMeta,
@@ -1039,7 +1133,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
-            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
@@ -1128,11 +1222,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
@@ -1363,6 +1457,11 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
+            fn queue(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, mut _world: DeferredWorld) {
+                $($param::queue($param, _system_meta, _world.reborrow());)*
+            }
+
+            #[inline]
             #[allow(clippy::unused_unit)]
             unsafe fn get_param<'w, 's>(
                 state: &'s mut Self::State,
@@ -1508,6 +1607,10 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         P::apply(state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        P::queue(state, system_meta, world);
     }
 
     unsafe fn get_param<'world, 'state>(
