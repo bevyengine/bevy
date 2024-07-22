@@ -1036,9 +1036,11 @@ impl AssetServer {
     /// or if the asset has not been queued up to be loaded.
     pub async fn wait_for_asset<A: Asset>(
         &self,
-        handle: impl AsRef<Handle<A>>,
+        // NOTE: We take a reference to a handle so we know it will outlive the future,
+        // which ensures the handle won't be dropped while waiting for the asset.
+        handle: &Handle<A>,
     ) -> Result<(), WaitForAssetError> {
-        self.wait_for_asset_id(handle.as_ref().id()).await
+        self.wait_for_asset_id(handle.id()).await
     }
 
     /// Returns a future that will suspend until the specified asset and its dependencies finish loading.
