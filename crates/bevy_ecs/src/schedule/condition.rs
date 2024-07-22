@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::ops::Not;
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, Local, ReadOnlySystem, System,
 };
 
 /// A type-erased run condition stored in a [`Box`].
