@@ -338,10 +338,10 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
         let Some(material_instance) = material_instances.get(&item.entity()) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(material2d) = materials.get(*material_instance) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success

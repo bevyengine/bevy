@@ -2261,12 +2261,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             is_morphed,
             has_motion_vector_prepass,
         ) else {
-            error!(
+            return RenderCommandResult::Failure(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the prepare_mesh_bind_group system.\n\
-                This is a bevy bug! Please open an issue."
+                This is a bevy bug! Please open an issue.",
             );
-            return RenderCommandResult::Failure;
         };
 
         let mut dynamic_offsets: [u32; 3] = Default::default();
@@ -2349,7 +2348,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             if !has_preprocess_bind_group
                 || !preprocess_pipelines.pipelines_are_loaded(&pipeline_cache)
             {
-                return RenderCommandResult::Failure;
+                return RenderCommandResult::Skip;
             }
         }
 
@@ -2359,13 +2358,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         let mesh_allocator = mesh_allocator.into_inner();
 
         let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(item.entity()) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(gpu_mesh) = meshes.get(mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         // Calculate the indirect offset, and look up the buffer.
@@ -2374,7 +2373,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             Some(index) => match indirect_parameters_buffer.buffer() {
                 None => {
                     warn!("Not rendering mesh because indirect parameters buffer wasn't present");
-                    return RenderCommandResult::Failure;
+                    return RenderCommandResult::Skip;
                 }
                 Some(buffer) => Some((
                     index as u64 * mem::size_of::<IndirectParameters>() as u64,
@@ -2395,7 +2394,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             } => {
                 let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(&mesh_asset_id)
                 else {
-                    return RenderCommandResult::Failure;
+                    return RenderCommandResult::Skip;
                 };
 
                 pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);

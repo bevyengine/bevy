@@ -718,13 +718,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
             render_mesh2d_instances.get(&item.entity())
         else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
@@ -737,7 +737,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
             } => {
                 let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(mesh_asset_id)
                 else {
-                    return RenderCommandResult::Failure;
+                    return RenderCommandResult::Skip;
                 };
 
                 pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
