@@ -187,6 +187,7 @@ pub struct ExtractedUiNodes {
 }
 
 pub fn extract_uinode_background_colors(
+    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     camera_query: Extract<Query<&Camera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
@@ -210,7 +211,7 @@ pub fn extract_uinode_background_colors(
 ) {
     let default_ui_camera = default_ui_camera.get();
     for (
-        entity,
+        _e,
         uinode,
         transform,
         view_visibility,
@@ -272,7 +273,7 @@ pub fn extract_uinode_background_colors(
         };
 
         extracted_uinodes.uinodes.insert(
-            entity,
+            commands.spawn(RenderFlyEntity).id(),
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -960,6 +961,7 @@ pub(crate) const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
 pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component)]
+#[component(storage = "SparseSet")]
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
