@@ -226,6 +226,20 @@ impl Rot2 {
         Self::from_sin_cos(self.sin * length_recip, self.cos * length_recip)
     }
 
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    /// See [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for an example of when such error accumulation might occur.
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        let length_squared = self.length_squared();
+        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for more details.
+        let length_recip_approx = 0.5 * (3.0 - length_squared);
+        Rot2 {
+            sin: self.sin * length_recip_approx,
+            cos: self.cos * length_recip_approx,
+        }
+    }
+
     /// Returns `true` if the rotation is neither infinite nor NaN.
     #[inline]
     pub fn is_finite(self) -> bool {
@@ -520,6 +534,45 @@ mod tests {
 
         assert!(!rotation.is_normalized());
         assert!(normalized_rotation.is_normalized());
+    }
+
+    #[test]
+    fn fast_renormalize() {
+        let rotation = Rot2 { sin: 1.0, cos: 0.5 };
+        let normalized_rotation = rotation.normalize();
+
+        let mut unnormalized_rot = rotation;
+        let mut renormalized_rot = rotation;
+        let mut initially_normalized_rot = normalized_rotation;
+        let mut fully_normalized_rot = normalized_rotation;
+
+        // Compute a 64x (=2⁶) multiple of the rotation.
+        for _ in 0..6 {
+            unnormalized_rot = unnormalized_rot * unnormalized_rot;
+            renormalized_rot = renormalized_rot * renormalized_rot;
+            initially_normalized_rot = initially_normalized_rot * initially_normalized_rot;
+            fully_normalized_rot = fully_normalized_rot * fully_normalized_rot;
+
+            renormalized_rot = renormalized_rot.fast_renormalize();
+            fully_normalized_rot = fully_normalized_rot.normalize();
+        }
+
+        assert!(!unnormalized_rot.is_normalized());
+
+        assert!(renormalized_rot.is_normalized());
+        assert!(fully_normalized_rot.is_normalized());
+
+        assert_relative_eq!(fully_normalized_rot, renormalized_rot, epsilon = 0.000001);
+        assert_relative_eq!(
+            fully_normalized_rot,
+            unnormalized_rot.normalize(),
+            epsilon = 0.000001
+        );
+        assert_relative_eq!(
+            fully_normalized_rot,
+            initially_normalized_rot.normalize(),
+            epsilon = 0.000001
+        );
     }
 
     #[test]
