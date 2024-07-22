@@ -19,6 +19,10 @@
 
 /// Compute shader for rasterizing small clusters into a visibility buffer.
 
+// TODO:
+// * Scanline variant for subgroups non-zero amount of large triangles
+// * Subpixel precision and top-left rule
+
 var<workgroup> viewport_vertices: array<vec3f, 64>;
 
 @compute
@@ -63,6 +67,7 @@ fn rasterize_cluster(
     let vertex_0 = viewport_vertices[vertex_ids[2]];
     let vertex_1 = viewport_vertices[vertex_ids[1]];
     let vertex_2 = viewport_vertices[vertex_ids[0]];
+    let packed_ids = (cluster_id << 6u) | triangle_id;
 
     // Compute triangle bounding box
     let min_x = u32(min3(vertex_0.x, vertex_1.x, vertex_2.x));
@@ -72,42 +77,48 @@ fn rasterize_cluster(
     max_x = min(max_x, u32(view.viewport.z) - 1u);
     max_y = min(max_y, u32(view.viewport.w) - 1u);
 
+    // Setup triangle gradients
+    let w_x = vec3(vertex_1.y - vertex_2.y, vertex_2.y - vertex_0.y, vertex_0.y - vertex_1.y);
+    let w_y = vec3(vertex_2.x - vertex_1.x, vertex_0.x - vertex_2.x, vertex_1.x - vertex_0.x);
+    let triangle_double_area = edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy); // TODO: Reuse earlier calculations and take advantage of summing to 1
+    let vertices_z = vec3(vertex_0.z, vertex_1.z, vertex_2.z) / triangle_double_area;
+    let z_x = dot(vertices_z, w_x);
+    let z_y = dot(vertices_z, w_y);
+
     // Setup initial triangle equations
-    let a = vec3(vertex_1.y - vertex_2.y, vertex_2.y - vertex_0.y, vertex_0.y - vertex_1.y);
-    let b = vec3(vertex_2.x - vertex_1.x, vertex_0.x - vertex_2.x, vertex_1.x - vertex_0.x);
     let starting_pixel = vec2(f32(min_x), f32(min_y)) + 0.5;
     var w_row = vec3(
+        // TODO: Reuse earlier calculations and take advantage of summing to 1
         edge_function(vertex_1.xy, vertex_2.xy, starting_pixel),
         edge_function(vertex_2.xy, vertex_0.xy, starting_pixel),
-        edge_function(vertex_0.xy, vertex_1.xy, starting_pixel),
+        edge_function(vertex_0.xy, vertex_1.xy, starting_pixel)
     );
-    let inverse_double_triangle_area = 1.0 / edge_function(vertex_0.xy, vertex_1.xy, vertex_2.xy);
-
-    let vertices_z = vec3(vertex_0.z, vertex_1.z, vertex_2.z);
+    var z_row = dot(vertices_z, w_row);
     let view_width = u32(view.viewport.z);
-    let packed_ids = (cluster_id << 6u) | triangle_id;
+    var frag_coord_1d_row = min_y * view_width + min_x;
 
     // Iterate over every pixel in the triangle's bounding box
     for (var y = min_y; y <= max_y; y++) {
         var w = w_row;
+        var z = z_row;
+        var frag_coord_1d = frag_coord_1d_row;
 
         for (var x = min_x; x <= max_x; x++) {
             // Check if point at pixel is within triangle
             if min3(w[0], w[1], w[2]) >= 0.0 {
-                // Interpolate vertex depth for the current pixel
-                let z = dot(w * inverse_double_triangle_area, vertices_z);
-
-                // Write pixel to visibility buffer
-                let frag_coord_1d = u32(y) * view_width + u32(x);
                 write_visibility_buffer_pixel(frag_coord_1d, z, packed_ids);
             }
 
             // Increment edge functions along the X-axis
-            w += a;
+            w += w_x;
+            z += z_x;
+            frag_coord_1d += 1u;
         }
 
         // Increment edge functions along the Y-axis
-        w_row += b;
+        w_row += w_y;
+        z_row += z_y;
+        frag_coord_1d_row += view_width;
     }
 }
 
