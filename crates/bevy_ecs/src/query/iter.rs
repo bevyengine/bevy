@@ -217,8 +217,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
-            let fetched = unsafe { !F::filter_fetch(&mut self.cursor.filter, entity, row) };
-            if fetched {
+            let filter_matched = unsafe { F::filter_fetch(&mut self.cursor.filter, entity, row) };
+            if !filter_matched {
                 continue;
             }
 
