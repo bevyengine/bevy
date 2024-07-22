@@ -1348,6 +1348,10 @@ impl LoadState {
     pub fn is_loaded(&self) -> bool {
         matches!(self, Self::Loaded)
     }
+    // NOTE: an `is_not_loaded` method is intentionally not included, as it may mislead some users
+    // into thinking it is complementary to `is_not_loaded`.
+    // `NotLoaded` is a very specific failure mode and in most cases it is not necessary to directly check for it.
+    // If this is necessary the `matches!` macro can be used
 }
 
 /// The load state of an asset's dependencies.
