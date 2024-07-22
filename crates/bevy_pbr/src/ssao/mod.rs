@@ -485,7 +485,7 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (Entity, &Camera, &ScreenSpaceAmbientOcclusionSettings, &Msaa),
+            (&RenderEntity, &Camera, &ScreenSpaceAmbientOcclusionSettings, &Msaa),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
