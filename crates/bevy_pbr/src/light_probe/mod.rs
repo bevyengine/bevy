@@ -372,7 +372,7 @@ impl Plugin for LightProbePlugin {
 /// Compared to the `ExtractComponentPlugin`, this implementation will create a default instance
 /// if one does not already exist.
 fn gather_environment_map_uniform(
-    view_query: Extract<Query<(Entity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
+    view_query: Extract<Query<(&RenderEntity, Option<&EnvironmentMapLight>), With<Camera3d>>>,
     mut commands: Commands,
 ) {
     for (view_entity, environment_map_light) in view_query.iter() {
@@ -386,7 +386,7 @@ fn gather_environment_map_uniform(
             EnvironmentMapUniform::default()
         };
         commands
-            .get_or_spawn(view_entity)
+            .get_or_spawn(view_entity.entity())
             .insert(environment_map_uniform);
     }
 }
