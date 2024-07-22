@@ -206,6 +206,7 @@ pub fn extract_uinode_background_colors(
         )>,
     >,
     node_query: Extract<Query<&Node>>,
+    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
     for (
         entity,
@@ -220,7 +221,16 @@ pub fn extract_uinode_background_colors(
         parent,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
+            .map(|e| {
+                if let Some(entity) = mapping.get(&e) {
+                    *entity
+                } else {
+                    e
+                }
+            })
         else {
             continue;
         };
@@ -315,6 +325,7 @@ pub fn extract_uinode_images(
         )>,
     >,
     node_query: Extract<Query<&Node>>,
+    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
     for (
         uinode,
@@ -330,7 +341,16 @@ pub fn extract_uinode_images(
         style,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
+            .map(|e| {
+                if let Some(entity) = mapping.get(&e) {
+                    *entity
+                } else {
+                    e
+                }
+            })
         else {
             continue;
         };
@@ -517,6 +537,7 @@ pub fn extract_uinode_borders(
         >,
     >,
     node_query: Extract<Query<&Node>>,
+    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
     let image = AssetId::<Image>::default();
 
@@ -532,7 +553,16 @@ pub fn extract_uinode_borders(
         border_radius,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
+            .map(|e| {
+                if let Some(entity) = mapping.get(&e) {
+                    *entity
+                } else {
+                    e
+                }
+            })
         else {
             continue;
         };
@@ -626,11 +656,19 @@ pub fn extract_uinode_outlines(
             &Outline,
         )>,
     >,
+    entity_mapper: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
+    let mapping = |e| {
+        if let Some(entity) = entity_mapper.get(&e) {
+            *entity
+        } else {
+            e
+        }
+    };
+    let default_ui_camera = default_ui_camera.get().map(mapping);
     let image = AssetId::<Image>::default();
     for (node, global_transform, view_visibility, maybe_clip, camera, outline) in &uinode_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
 
@@ -813,11 +851,21 @@ pub fn extract_uinode_text(
             &TextLayoutInfo,
         )>,
     >,
+    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
+            .map(|e| {
+                if let Some(entity) = mapping.get(&e) {
+                    *entity
+                } else {
+                    e
+                }
+            })
         else {
             continue;
         };
