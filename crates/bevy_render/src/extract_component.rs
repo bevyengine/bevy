@@ -2,7 +2,7 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -210,14 +210,12 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderWorldSyncEntity, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(&RenderEntity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
-        if let Some(entity) = entity.entity() {
-            if let Some(component) = C::extract_component(query_item) {
-                values.push((entity, component));
-            }
+        if let Some(component) = C::extract_component(query_item) {
+            values.push((entity.entity(), component));
         }
     }
     *previous_len = values.len();
@@ -228,15 +226,13 @@ fn extract_components<C: ExtractComponent>(
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderWorldSyncEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(&RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
         if view_visibility.get() {
-            if let Some(entity) = entity.entity() {
-                if let Some(component) = C::extract_component(query_item) {
-                    values.push((entity, component));
-                }
+            if let Some(component) = C::extract_component(query_item) {
+                values.push((entity.entity(), component));
             }
         }
     }

@@ -5,7 +5,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::world_sync::RenderWorldSyncEntity;
+use bevy_render::world_sync::RenderEntity;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::GpuMesh,
@@ -177,7 +177,7 @@ pub fn extract_lights(
     global_point_lights: Extract<Res<GlobalVisibleClusterableObjects>>,
     point_lights: Extract<
         Query<(
-            &RenderWorldSyncEntity,
+            &RenderEntity,
             &PointLight,
             &CubemapVisibleEntities,
             &GlobalTransform,
@@ -187,7 +187,7 @@ pub fn extract_lights(
     >,
     spot_lights: Extract<
         Query<(
-            &RenderWorldSyncEntity,
+            &RenderEntity,
             &SpotLight,
             &VisibleEntities,
             &GlobalTransform,
@@ -198,7 +198,7 @@ pub fn extract_lights(
     directional_lights: Extract<
         Query<
             (
-                &RenderWorldSyncEntity,
+                &RenderEntity,
                 &DirectionalLight,
                 &CascadesVisibleEntities,
                 &Cascades,

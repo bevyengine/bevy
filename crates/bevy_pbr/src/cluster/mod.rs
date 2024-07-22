@@ -4,7 +4,7 @@ use std::num::NonZeroU64;
 
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::{self, Entity, EntityHashMap},
     query::Without,
     reflect::ReflectComponent,
     system::{Commands, Query, Res, Resource},
@@ -19,7 +19,7 @@ use bevy_render::{
         UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     Extract,
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
@@ -512,7 +512,7 @@ pub(crate) fn clusterable_object_order(
 /// Extracts clusters from the main world from the render world.
 pub fn extract_clusters(
     mut commands: Commands,
-    views: Extract<Query<(&RenderWorldSyncEntity, &Clusters, &Camera)>>,
+    views: Extract<Query<(&RenderEntity, &Clusters, &Camera)>>,
 ) {
     for (entity, clusters, camera) in &views {
         if !camera.is_active {
@@ -537,16 +537,15 @@ pub fn extract_clusters(
             }
         }
 
-        if let Some(entity) = entity.entity() {
-            commands.get_or_spawn(entity).insert((
-                ExtractedClusterableObjects { data },
-                ExtractedClusterConfig {
-                    near: clusters.near,
-                    far: clusters.far,
-                    dimensions: clusters.dimensions,
-                },
-            ));
-        }
+        let entity = entity.entity();
+        commands.get_or_spawn(entity).insert((
+            ExtractedClusterableObjects { data },
+            ExtractedClusterConfig {
+                near: clusters.near,
+                far: clusters.far,
+                dimensions: clusters.dimensions,
+            },
+        ));
     }
 }
 

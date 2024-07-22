@@ -68,7 +68,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::BevyDefault,
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::prelude::default;
@@ -378,7 +378,7 @@ impl FromWorld for VolumetricFogPipeline {
 pub fn extract_volumetric_fog(
     mut commands: Commands,
     view_targets: Extract<
-        Query<(&RenderWorldSyncEntity, &VolumetricFogSettings), Changed<VolumetricFogSettings>>,
+        Query<(&RenderEntity, &VolumetricFogSettings), Changed<VolumetricFogSettings>>,
     >,
     volumetric_lights: Extract<Query<(Entity, &VolumetricLight)>>,
 ) {

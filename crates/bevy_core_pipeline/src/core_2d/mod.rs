@@ -33,7 +33,10 @@ pub use camera_2d::*;
 pub use main_transparent_pass_2d_node::*;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_ecs::{
+    entity::{self, EntityHashSet},
+    prelude::*,
+};
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::Camera,
@@ -44,7 +47,7 @@ use bevy_render::{
         PhaseItemExtraIndex, SortedPhaseItem, ViewSortedRenderPhases,
     },
     render_resource::CachedRenderPipelineId,
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -161,7 +164,7 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 
 pub fn extract_core_2d_camera_phases(
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    cameras_2d: Extract<Query<(&RenderWorldSyncEntity, &Camera), With<Camera2d>>>,
+    cameras_2d: Extract<Query<(&RenderEntity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -170,10 +173,9 @@ pub fn extract_core_2d_camera_phases(
         if !camera.is_active {
             continue;
         }
-        if let Some(entity) = entity.entity() {
-            transparent_2d_phases.insert_or_clear(entity);
-            live_entities.insert(entity);
-        }
+        let entity = entity.entity();
+        transparent_2d_phases.insert_or_clear(entity);
+        live_entities.insert(entity);
     }
 
     // Clear out all dead views.

@@ -19,7 +19,6 @@ use crate::{
     camera::{Camera, CameraProjection},
     mesh::Mesh,
     primitives::{Aabb, Frustum, Sphere},
-    world_sync::RenderWorldSyncEntity,
 };
 
 use super::NoCpuCulling;

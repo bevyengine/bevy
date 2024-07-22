@@ -23,7 +23,7 @@ use bevy_render::{
     settings::WgpuFeatures,
     texture::{FallbackImage, GpuImage, Image},
     view::ExtractedView,
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -348,7 +348,7 @@ fn gather_light_probes<C>(
     view_query: Extract<
         Query<
             (
-                &RenderWorldSyncEntity,
+                &RenderEntity,
                 &GlobalTransform,
                 &Frustum,
                 Option<&C>,

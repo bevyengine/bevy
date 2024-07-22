@@ -9,7 +9,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::world_sync::RenderWorldSyncEntity;
+use bevy_render::world_sync::RenderEntity;
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
@@ -727,10 +727,7 @@ pub fn extract_default_ui_camera_view(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
     query: Extract<
-        Query<
-            (&RenderWorldSyncEntity, &Camera),
-            (Or<(With<Camera2d>, With<Camera3d>)>, Changed<Camera>),
-        >,
+        Query<(&RenderEntity, &Camera), (Or<(With<Camera2d>, With<Camera3d>)>, Changed<Camera>)>,
     >,
     render_camera_view_query: Query<&DefaultCameraView>,
     mut view_query: Query<&mut ExtractedView>,
@@ -744,59 +741,57 @@ pub fn extract_default_ui_camera_view(
         if !camera.is_active {
             continue;
         }
-        if let Some(entity) = entity.entity().clone() {
-            if let (
-                Some(logical_size),
-                Some(URect {
-                    min: physical_origin,
-                    ..
-                }),
-                Some(physical_size),
-            ) = (
-                camera.logical_viewport_size(),
-                camera.physical_viewport_rect(),
-                camera.physical_viewport_size(),
-            ) {
-                // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
-                let projection_matrix = Mat4::orthographic_rh(
+        let entity = entity.entity();
+        if let (
+            Some(logical_size),
+            Some(URect {
+                min: physical_origin,
+                ..
+            }),
+            Some(physical_size),
+        ) = (
+            camera.logical_viewport_size(),
+            camera.physical_viewport_rect(),
+            camera.physical_viewport_size(),
+        ) {
+            // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
+            let projection_matrix = Mat4::orthographic_rh(
+                0.0,
+                logical_size.x * scale,
+                logical_size.y * scale,
+                0.0,
+                0.0,
+                UI_CAMERA_FAR,
+            );
+            let extract_view = ExtractedView {
+                clip_from_view: projection_matrix,
+                world_from_view: GlobalTransform::from_xyz(
                     0.0,
-                    logical_size.x * scale,
-                    logical_size.y * scale,
                     0.0,
-                    0.0,
-                    UI_CAMERA_FAR,
-                );
-                let extract_view = ExtractedView {
-                    clip_from_view: projection_matrix,
-                    world_from_view: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
-                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ),
-                    clip_from_world: None,
-                    hdr: camera.hdr,
-                    viewport: UVec4::new(
-                        physical_origin.x,
-                        physical_origin.y,
-                        physical_size.x,
-                        physical_size.y,
-                    ),
-                    color_grading: Default::default(),
-                };
-                if let Ok(default_ui_camera_view) = render_camera_view_query.get(entity) {
-                    let mut extract_view_item =
-                        view_query.get_mut(default_ui_camera_view.0).unwrap();
-                    *extract_view_item = extract_view
-                } else {
-                    let default_camera_view = commands.spawn(extract_view).id();
-                    commands
-                        .get_or_spawn(entity)
-                        .insert(DefaultCameraView(default_camera_view));
-                };
-                transparent_render_phases.insert_or_clear(entity);
+                    UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                ),
+                clip_from_world: None,
+                hdr: camera.hdr,
+                viewport: UVec4::new(
+                    physical_origin.x,
+                    physical_origin.y,
+                    physical_size.x,
+                    physical_size.y,
+                ),
+                color_grading: Default::default(),
+            };
+            if let Ok(default_ui_camera_view) = render_camera_view_query.get(entity) {
+                let mut extract_view_item = view_query.get_mut(default_ui_camera_view.0).unwrap();
+                *extract_view_item = extract_view
+            } else {
+                let default_camera_view = commands.spawn(extract_view).id();
+                commands
+                    .get_or_spawn(entity)
+                    .insert(DefaultCameraView(default_camera_view));
+            };
+            transparent_render_phases.insert_or_clear(entity);
 
-                live_entities.insert(entity);
-            }
+            live_entities.insert(entity);
         }
     }
 

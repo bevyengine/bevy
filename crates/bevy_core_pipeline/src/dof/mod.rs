@@ -50,7 +50,7 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
@@ -796,7 +796,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 /// Extracts all [`DepthOfFieldSettings`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    mut query: Extract<Query<(&RenderWorldSyncEntity, &DepthOfFieldSettings, &Projection)>>,
+    mut query: Extract<Query<(&RenderEntity, &DepthOfFieldSettings, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         info_once!(
@@ -806,31 +806,30 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, dof_settings, projection) in query.iter_mut() {
-        if let Some(entity) = entity.entity() {
-            // Depth of field is nonsensical without a perspective projection.
-            let Projection::Perspective(ref perspective_projection) = *projection else {
-                continue;
-            };
+        let entity = entity.entity();
+        // Depth of field is nonsensical without a perspective projection.
+        let Projection::Perspective(ref perspective_projection) = *projection else {
+            continue;
+        };
 
-            let focal_length =
-                calculate_focal_length(dof_settings.sensor_height, perspective_projection.fov);
+        let focal_length =
+            calculate_focal_length(dof_settings.sensor_height, perspective_projection.fov);
 
-            // Convert `DepthOfFieldSettings` to `DepthOfFieldUniform`.
-            commands.get_or_spawn(entity).insert((
-                *dof_settings,
-                DepthOfFieldUniform {
-                    focal_distance: dof_settings.focal_distance,
-                    focal_length,
-                    coc_scale_factor: focal_length * focal_length
-                        / (dof_settings.sensor_height * dof_settings.aperture_f_stops),
-                    max_circle_of_confusion_diameter: dof_settings.max_circle_of_confusion_diameter,
-                    max_depth: dof_settings.max_depth,
-                    pad_a: 0,
-                    pad_b: 0,
-                    pad_c: 0,
-                },
-            ));
-        }
+        // Convert `DepthOfFieldSettings` to `DepthOfFieldUniform`.
+        commands.get_or_spawn(entity).insert((
+            *dof_settings,
+            DepthOfFieldUniform {
+                focal_distance: dof_settings.focal_distance,
+                focal_length,
+                coc_scale_factor: focal_length * focal_length
+                    / (dof_settings.sensor_height * dof_settings.aperture_f_stops),
+                max_circle_of_confusion_diameter: dof_settings.max_circle_of_confusion_diameter,
+                max_depth: dof_settings.max_depth,
+                pad_a: 0,
+                pad_b: 0,
+                pad_c: 0,
+            },
+        ));
     }
 }
 

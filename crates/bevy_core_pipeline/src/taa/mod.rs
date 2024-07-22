@@ -32,7 +32,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
 
@@ -340,7 +340,7 @@ impl SpecializedRenderPipeline for TaaPipeline {
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
     let mut cameras_3d = main_world.query_filtered::<(
-        &RenderWorldSyncEntity,
+        &RenderEntity,
         &Camera,
         &Projection,
         &mut TemporalAntiAliasSettings,
@@ -354,13 +354,11 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     for (entity, camera, camera_projection, mut taa_settings) in
         cameras_3d.iter_mut(&mut main_world)
     {
-        if let Some(entity) = entity.entity() {
-            let has_perspective_projection =
-                matches!(camera_projection, Projection::Perspective(_));
-            if camera.is_active && has_perspective_projection {
-                commands.get_or_spawn(entity).insert(taa_settings.clone());
-                taa_settings.reset = false;
-            }
+        let entity = entity.entity();
+        let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
+        if camera.is_active && has_perspective_projection {
+            commands.get_or_spawn(entity).insert(taa_settings.clone());
+            taa_settings.reset = false;
         }
     }
 }

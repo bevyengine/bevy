@@ -11,7 +11,7 @@ use crate::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
         WithMesh,
     },
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -837,7 +837,7 @@ pub fn extract_cameras(
             &GlobalTransform,
             &VisibleEntities,
             &Frustum,
-            &RenderWorldSyncEntity,
+            &RenderEntity,
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
@@ -886,66 +886,64 @@ pub fn extract_cameras(
                 continue;
             }
 
-            if let Some(entity) = render_entity.entity() {
-                let mut commands = commands.entity(entity);
-                println!("camera:{}", visible_entities.get::<WithMesh>().len());
-                commands.insert((
-                    ExtractedCamera {
-                        target: camera.target.normalize(primary_window),
-                        viewport: camera.viewport.clone(),
-                        physical_viewport_size: Some(viewport_size),
-                        physical_target_size: Some(target_size),
-                        render_graph: camera_render_graph.0,
-                        order: camera.order,
-                        output_mode: camera.output_mode,
-                        msaa_writeback: camera.msaa_writeback,
-                        clear_color: camera.clear_color,
-                        // this will be set in sort_cameras
-                        sorted_camera_index_for_target: 0,
-                        exposure: exposure
-                            .map(Exposure::exposure)
-                            .unwrap_or_else(|| Exposure::default().exposure()),
-                        hdr: camera.hdr,
-                    },
-                    ExtractedView {
-                        clip_from_view: camera.clip_from_view(),
-                        world_from_view: *transform,
-                        clip_from_world: None,
-                        hdr: camera.hdr,
-                        viewport: UVec4::new(
-                            viewport_origin.x,
-                            viewport_origin.y,
-                            viewport_size.x,
-                            viewport_size.y,
-                        ),
-                        color_grading,
-                    },
-                    visible_entities.clone(),
-                    *frustum,
-                ));
+            let entity = render_entity.entity();
+            let mut commands = commands.entity(entity);
+            commands.insert((
+                ExtractedCamera {
+                    target: camera.target.normalize(primary_window),
+                    viewport: camera.viewport.clone(),
+                    physical_viewport_size: Some(viewport_size),
+                    physical_target_size: Some(target_size),
+                    render_graph: camera_render_graph.0,
+                    order: camera.order,
+                    output_mode: camera.output_mode,
+                    msaa_writeback: camera.msaa_writeback,
+                    clear_color: camera.clear_color,
+                    // this will be set in sort_cameras
+                    sorted_camera_index_for_target: 0,
+                    exposure: exposure
+                        .map(Exposure::exposure)
+                        .unwrap_or_else(|| Exposure::default().exposure()),
+                    hdr: camera.hdr,
+                },
+                ExtractedView {
+                    clip_from_view: camera.clip_from_view(),
+                    world_from_view: *transform,
+                    clip_from_world: None,
+                    hdr: camera.hdr,
+                    viewport: UVec4::new(
+                        viewport_origin.x,
+                        viewport_origin.y,
+                        viewport_size.x,
+                        viewport_size.y,
+                    ),
+                    color_grading,
+                },
+                visible_entities.clone(),
+                *frustum,
+            ));
 
-                if let Some(temporal_jitter) = temporal_jitter {
-                    commands.insert(temporal_jitter.clone());
-                }
+            if let Some(temporal_jitter) = temporal_jitter {
+                commands.insert(temporal_jitter.clone());
+            }
 
-                if let Some(render_layers) = render_layers {
-                    commands.insert(render_layers.clone());
-                }
+            if let Some(render_layers) = render_layers {
+                commands.insert(render_layers.clone());
+            }
 
-                if let Some(perspective) = projection {
-                    commands.insert(perspective.clone());
+            if let Some(perspective) = projection {
+                commands.insert(perspective.clone());
+            }
+            if gpu_culling {
+                if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
+                    commands.insert(GpuCulling);
+                } else {
+                    warn_once!(
+                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
+                    );
                 }
-                if gpu_culling {
-                    if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
-                        commands.insert(GpuCulling);
-                    } else {
-                        warn_once!(
-                            "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
-                        );
-                    }
-                }
-            };
-        }
+            }
+        };
     }
 }
 

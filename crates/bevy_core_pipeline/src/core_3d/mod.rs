@@ -93,7 +93,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{BevyDefault, ColorAttachment, Image, TextureCache},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
-    world_sync::RenderWorldSyncEntity,
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::warn, HashMap};
@@ -511,7 +511,7 @@ pub fn extract_core_3d_camera_phases(
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    cameras_3d: Extract<Query<(&RenderWorldSyncEntity, &Camera), With<Camera3d>>>,
+    cameras_3d: Extract<Query<(&RenderEntity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -547,7 +547,7 @@ pub fn extract_camera_prepass_phase(
     cameras_3d: Extract<
         Query<
             (
-                &RenderWorldSyncEntity,
+                &RenderEntity,
                 &Camera,
                 Has<DepthPrepass>,
                 Has<NormalPrepass>,
