@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::ops::Not;
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, Local, ReadOnlySystem, System,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -496,7 +496,7 @@ pub mod common_conditions {
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        system::{IntoSystem, Res, Resource, System},
+        system::{IntoSystem, Local, Res, Resource, System},
     };
 
     /// A [`Condition`](super::Condition)-satisfying system that returns `true`
