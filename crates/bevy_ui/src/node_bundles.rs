@@ -10,6 +10,7 @@ use crate::{
     UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
+#[cfg(feature = "bevy_text")]
 use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};

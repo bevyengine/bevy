@@ -194,11 +194,12 @@ fn cascade_debug_visualization(
 ) -> vec3<f32> {
     let overlay_alpha = 0.95;
     let cascade_index = get_cascade_index(light_id, view_z);
-    let cascade_color = hsv_to_rgb(
+    let cascade_color_hsv = vec3(
         f32(cascade_index) / f32(#{MAX_CASCADES_PER_LIGHT}u + 1u) * PI_2,
         1.0,
         0.5
     );
+    let cascade_color = hsv_to_rgb(cascade_color_hsv);
     return vec3<f32>(
         (1.0 - overlay_alpha) * output_color.rgb + overlay_alpha * cascade_color
     );
