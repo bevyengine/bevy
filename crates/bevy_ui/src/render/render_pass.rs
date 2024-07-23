@@ -6,7 +6,6 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::FloatOrd;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::*,
@@ -90,7 +89,7 @@ impl Node for UiPassNode {
 }
 
 pub struct TransparentUi {
-    pub sort_key: (FloatOrd, u32),
+    pub sort_key: (u32, u32),
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -131,7 +130,7 @@ impl PhaseItem for TransparentUi {
 }
 
 impl SortedPhaseItem for TransparentUi {
-    type SortKey = (FloatOrd, u32);
+    type SortKey = (u32, u32);
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
@@ -140,7 +139,7 @@ impl SortedPhaseItem for TransparentUi {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(SortedPhaseItem::sort_key);
+        items.sort_unstable_by_key(SortedPhaseItem::sort_key);
     }
 }
 

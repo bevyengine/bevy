@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::lifetimeless::{Read, SRes},
     system::*,
 };
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -327,7 +327,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
 }
 
 pub struct ExtractedUiMaterialNode<M: UiMaterial> {
-    pub stack_index: usize,
+    pub stack_index: u32,
     pub transform: Mat4,
     pub rect: Rect,
     pub border: [f32; 4],
@@ -355,7 +355,6 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
 pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
-    ui_stack: Extract<Res<UiStack>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
@@ -386,23 +385,21 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, style, transform, handle, view_visibility, clip, camera)) =
-            uinode_query.get(*entity)
-        {
+    uinode_query.iter().for_each(
+        |(entity, uinode, style, transform, handle, view_visibility, clip, camera)| {
             let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
             else {
-                continue;
+                return;
             };
 
             // skip invisible nodes
             if !view_visibility.get() {
-                continue;
+                return;
             }
 
             // Skip loading materials
             if !materials.contains(handle) {
-                continue;
+                return;
             }
 
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
@@ -428,7 +425,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             extracted_uinodes.uinodes.insert(
                 entity,
                 ExtractedUiMaterialNode {
-                    stack_index,
+                    stack_index: uinode.stack_index,
                     transform: transform.compute_matrix(),
                     material: handle.id(),
                     rect: Rect {
@@ -440,8 +437,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     camera_entity,
                 },
             );
-        };
-    }
+        },
+    );
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -671,10 +668,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             draw_function,
             pipeline,
             entity: *entity,
-            sort_key: (
-                FloatOrd(extracted_uinode.stack_index as f32),
-                entity.index(),
-            ),
+            sort_key: (extracted_uinode.stack_index, entity.index()),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
         });

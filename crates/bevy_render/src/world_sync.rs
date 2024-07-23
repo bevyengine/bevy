@@ -3,7 +3,14 @@ use std::{marker::PhantomData, ops::DerefMut};
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle, component::Component, entity::{Entity, EntityHashMap}, observer::Trigger, query::With, reflect::ReflectComponent, system::{Commands, Query, ResMut, Resource}, world::{Mut, OnAdd, OnRemove, World}
+    bundle::Bundle,
+    component::Component,
+    entity::{Entity, EntityHashMap},
+    observer::Trigger,
+    query::With,
+    reflect::ReflectComponent,
+    system::{Query, ResMut, Resource},
+    world::{Mut, OnAdd, OnRemove, World},
 };
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
@@ -81,14 +88,15 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
-pub(crate) fn despawn_fly_entity(
-    mut command: Commands,
-    query: Query<Entity, With<RenderFlyEntity>>,
-) {
-    query.iter().for_each(|e| {
-        // TODO : performant delete
-        command.entity(e).despawn_recursive();
-    })
+pub(crate) fn despawn_fly_entity(world: &mut World) {
+    let mut query = world.query_filtered::<Entity, With<RenderFlyEntity>>();
+
+    // ensure next frame allocation keeps order
+    let mut entities: Vec<_> = query.iter(&world).collect();
+    entities.sort_unstable_by_key(|e| e.index());
+    for e in entities.into_iter().rev() {
+        world.despawn(e);
+    }
 }
 #[derive(Default)]
 pub struct WorldSyncPlugin<B: Bundle> {
