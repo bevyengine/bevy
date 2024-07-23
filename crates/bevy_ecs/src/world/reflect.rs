@@ -251,3 +251,94 @@ pub enum GetComponentReflectError {
     #[error("The `World`'s `TypeRegistry` did not contain `TypeData` for `ReflectFromPtr` for the given {0:?} (did you call `App::register_type()`?)")]
     MissingReflectFromPtrTypeData(TypeId),
 }
+
+#[cfg(test)]
+mod tests {
+    use std::any::TypeId;
+
+    use bevy_reflect::Reflect;
+
+    use crate::{
+        // For bevy_ecs_macros
+        self as bevy_ecs,
+        prelude::{AppTypeRegistry, Component, DetectChanges, World},
+    };
+
+    #[derive(Component, Reflect)]
+    struct RFoo(i32);
+
+    #[derive(Component)]
+    struct Bar;
+
+    #[test]
+    fn get_component_as_reflect() {
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+
+        let app_type_registry = world.get_resource_mut::<AppTypeRegistry>().unwrap();
+        app_type_registry.write().register::<RFoo>();
+
+        {
+            let entity_with_rfoo = world.spawn(RFoo(42)).id();
+            let comp_reflect = world
+                .get_reflect(entity_with_rfoo, TypeId::of::<RFoo>())
+                .expect("Reflection of RFoo-component failed");
+
+            assert!(comp_reflect.is::<RFoo>());
+        }
+
+        {
+            let entity_without_rfoo = world.spawn_empty().id();
+            let reflect_opt = world.get_reflect(entity_without_rfoo, TypeId::of::<RFoo>());
+
+            assert!(reflect_opt.is_err());
+        }
+
+        {
+            let entity_with_bar = world.spawn(Bar).id();
+            let reflect_opt = world.get_reflect(entity_with_bar, TypeId::of::<Bar>());
+
+            assert!(reflect_opt.is_err());
+        }
+    }
+
+    #[test]
+    fn get_component_as_mut_reflect() {
+        let mut world = World::new();
+        world.init_resource::<AppTypeRegistry>();
+
+        let app_type_registry = world.get_resource_mut::<AppTypeRegistry>().unwrap();
+        app_type_registry.write().register::<RFoo>();
+
+        {
+            let entity_with_rfoo = world.spawn(RFoo(42)).id();
+            let mut comp_reflect = world
+                .get_reflect_mut(entity_with_rfoo, TypeId::of::<RFoo>())
+                .expect("Mutable reflection of RFoo-component failed");
+
+            let comp_rfoo_reflected = comp_reflect
+                .downcast_mut::<RFoo>()
+                .expect("Wrong type reflected (expected RFoo)");
+            assert_eq!(comp_rfoo_reflected.0, 42);
+            comp_rfoo_reflected.0 = 1337;
+
+            let rfoo_ref = world.entity(entity_with_rfoo).get_ref::<RFoo>().unwrap();
+            assert!(rfoo_ref.is_changed());
+            assert_eq!(rfoo_ref.0, 1337);
+        }
+
+        {
+            let entity_without_rfoo = world.spawn_empty().id();
+            let reflect_opt = world.get_reflect_mut(entity_without_rfoo, TypeId::of::<RFoo>());
+
+            assert!(reflect_opt.is_err());
+        }
+
+        {
+            let entity_with_bar = world.spawn(Bar).id();
+            let reflect_opt = world.get_reflect_mut(entity_with_bar, TypeId::of::<Bar>());
+
+            assert!(reflect_opt.is_err());
+        }
+    }
+}
