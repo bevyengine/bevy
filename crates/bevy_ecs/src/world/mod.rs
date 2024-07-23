@@ -2667,7 +2667,7 @@ impl World {
     /// // create a `World` for this example
     /// let mut world = World::new();
     ///
-    /// // Note: This is usually handled by `App::register_type()`, but this example can not use `App`.
+    /// // Note: This is usually handled by `App::register_type()`, but this example cannot use `App`.
     /// world.init_resource::<AppTypeRegistry>();
     /// world.get_resource_mut::<AppTypeRegistry>().unwrap().write().register::<MyComponent>();
     ///
@@ -2818,12 +2818,6 @@ impl World {
             });
         };
 
-        // let app_type_registry = self.get_resource::<AppTypeRegistry>()?.clone();
-        // let type_registry = app_type_registry.read();
-        // let reflect_from_ptr = type_registry.get_type_data::<ReflectFromPtr>(type_id)?;
-        //
-        // let component_id = self.components().get_id(type_id)?;
-        // let comp_mut_untyped = self.get_mut_by_id(entity, component_id)?;
 
         // SAFETY:
         // - `comp_mut_untyped` is guaranteed to point to an object of type `type_id`
