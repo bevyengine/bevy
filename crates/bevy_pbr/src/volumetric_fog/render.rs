@@ -292,7 +292,9 @@ pub fn extract_volumetric_fog(
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands.get_or_spawn(entity.entity()).insert(*volumetric_light);
+        commands
+            .get_or_spawn(entity.entity())
+            .insert(*volumetric_light);
     }
 }
 

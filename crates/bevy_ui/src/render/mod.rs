@@ -186,6 +186,7 @@ pub struct ExtractedUiNodes {
     pub uinodes: EntityHashMap<ExtractedUiNode>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -235,7 +236,7 @@ pub fn extract_uinode_background_colors(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(| c| c.logical_viewport_size())
+            .and_then(bevy_render::camera::Camera::logical_viewport_size)
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -352,7 +353,7 @@ pub fn extract_uinode_images(
         let ui_logical_viewport_size = camera_query
         .get(camera_entity)
         .ok()
-        .and_then(| c| c.logical_viewport_size())
+        .and_then(bevy_render::camera::Camera::logical_viewport_size)
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -504,6 +505,7 @@ fn clamp_radius(
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -559,7 +561,7 @@ pub fn extract_uinode_borders(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|c| c.logical_viewport_size())
+            .and_then(bevy_render::camera::Camera::logical_viewport_size)
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -813,6 +815,7 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[cfg(feature = "bevy_text")]
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_text(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -849,7 +852,7 @@ pub fn extract_uinode_text(
         let scale_factor = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|c| c.target_scaling_factor())
+            .and_then(bevy_render::camera::Camera::target_scaling_factor)
             .unwrap_or(1.0)
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();

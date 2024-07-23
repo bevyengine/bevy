@@ -78,9 +78,9 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
                     }
                     EntityRecord::Removed(e1, e2) => {
                         mapper.remove(&e1);
-                        render_world
-                            .get_entity_mut(e2)
-                            .map(|ec| ec.despawn_recursive());
+                        if let Some(ec) = render_world.get_entity_mut(e2) {
+                            ec.despawn_recursive();
+                        };
                     }
                 }
             }
@@ -92,7 +92,7 @@ pub(crate) fn despawn_fly_entity(world: &mut World) {
     let mut query = world.query_filtered::<Entity, With<RenderFlyEntity>>();
 
     // ensure next frame allocation keeps order
-    let mut entities: Vec<_> = query.iter(&world).collect();
+    let mut entities: Vec<_> = query.iter(world).collect();
     entities.sort_unstable_by_key(|e| e.index());
     for e in entities.into_iter().rev() {
         world.despawn(e);

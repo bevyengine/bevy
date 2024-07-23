@@ -480,6 +480,20 @@ unsafe fn initialize_render_app(app: &mut App) {
         );
 
     render_app.set_extract(|main_world, render_world| {
+        // let mut vec = vec![];
+        // for e in render_world.iter_entities() {
+        //     vec.push(e.id());
+        // }
+        // for e in vec {
+        //     fn log_components(entity: Entity, world: &mut World) {
+        //         let debug_infos: Vec<_> = world
+        //             .inspect_entity(entity)
+        //             .map(bevy_ecs::component::ComponentInfo::name)
+        //             .collect();
+        //         println!("Entity {:?}: {:?}", entity, debug_infos);
+        //     }
+        //     log_components(e, render_world);
+        // }
         {
             #[cfg(feature = "trace")]
             let _stage_span = bevy_utils::tracing::info_span!("entity_sync").entered();
