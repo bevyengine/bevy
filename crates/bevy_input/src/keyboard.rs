@@ -93,7 +93,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Debug, PartialEq, Hash)
-)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
