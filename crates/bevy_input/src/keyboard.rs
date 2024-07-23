@@ -88,8 +88,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
