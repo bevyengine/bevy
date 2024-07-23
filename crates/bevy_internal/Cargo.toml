@@ -155,7 +155,7 @@ bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 bevy_render = [
   "dep:bevy_render",
   "bevy_scene?/bevy_render",
-  "bevy_gizmos?/bevy_render"
+  "bevy_gizmos?/bevy_render",
 ]
 
 # Enable assertions to check the validity of parameters passed to glam
