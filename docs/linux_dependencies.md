@@ -127,8 +127,10 @@ mkShell rec {
     libxkbcommon wayland # To use the wayland feature
   ];
   LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
+  VK_ICD_FILENAMES="/run/opengl-driver/share/vulkan/icd.d/radeon_icd.x86_64.json:/run/opengl-driver-32/share/vulkan/icd.d/radeon_icd.i686.json"; # Read below
 }
 ```
+If you are getting segfaults ([#14425](https://github.com/bevyengine/bevy/issues/14425)) while trying to run programs that make use of Vulkan then this should fix it.
 
 And enter it by just running `nix-shell`.
 You should be able compile Bevy programs using `cargo run` within this nix-shell.
