@@ -1,7 +1,7 @@
 //! Shows how to render simple primitive shapes with a single color.
 //!
 //! You can toggle wireframes with the space bar except on wasm. Wasm does not support
-//! POLYGON_MODE_LINE on the gpu.
+//! `POLYGON_MODE_LINE` on the gpu.
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
