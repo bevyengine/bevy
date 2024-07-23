@@ -18,6 +18,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, GpuImage},
     view::*,
+    world_sync::RenderFlyEntity,
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -373,6 +374,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     >,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
+    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
@@ -389,6 +391,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         |(entity, uinode, style, transform, handle, view_visibility, clip, camera)| {
             let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
             else {
+                return;
+            };
+            let Some(&camera_entity) = mapping.get(&camera_entity) else {
                 return;
             };
 
@@ -458,7 +463,8 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        let mut batches: Vec<(Entity, UiMaterialBatch<M>)> = Vec::with_capacity(*previous_len);
+        let mut batches: Vec<(Entity, (UiMaterialBatch<M>, RenderFlyEntity))> =
+            Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
@@ -488,7 +494,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             material: extracted_uinode.material,
                         };
 
-                        batches.push((item.entity, new_batch));
+                        batches.push((item.entity, (new_batch, RenderFlyEntity)));
 
                         existing_batch = batches.last_mut();
                     }
@@ -578,7 +584,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                     }
 
                     index += QUAD_INDICES.len() as u32;
-                    existing_batch.unwrap().1.range.end = index;
+                    existing_batch.unwrap().1.0.range.end = index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
                     batch_shader_handle = AssetId::invalid();
@@ -661,9 +667,6 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 bind_group_data: material.key.clone(),
             },
         );
-        transparent_phase
-            .items
-            .reserve(extracted_uinodes.uinodes.len());
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,

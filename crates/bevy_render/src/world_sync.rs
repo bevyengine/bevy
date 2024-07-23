@@ -21,6 +21,7 @@ use bevy_reflect::Reflect;
 pub struct ToRenderWorld;
 
 #[derive(Component, Deref, Clone, Debug)]
+#[component(storage = "SparseSet")]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     pub fn entity(&self) -> Entity {
@@ -29,6 +30,7 @@ impl RenderEntity {
 }
 
 #[derive(Component, Deref, Clone, Debug)]
+#[component(storage = "SparseSet")]
 pub struct MainEntity(Entity);
 impl MainEntity {
     pub fn entity(&self) -> Entity {
@@ -51,7 +53,7 @@ pub(crate) struct PendingSyncEntity {
     records: Vec<EntityRecord>,
 }
 
-// resource to hold main world to entity world mapping
+// resource to maintain entity mapping from the main world to the render world
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct MainToRenderEntityMap {
     map: EntityHashMap<Entity>,
