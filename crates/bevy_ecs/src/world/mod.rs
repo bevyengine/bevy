@@ -2639,12 +2639,11 @@ impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using
     /// reflection.
     ///
-    /// Requires [`#[derive(Reflect)`](derive@bevy_reflect::Reflect) on the [`Component`] and
-    /// `app.register_type::<TheComponent>()` to have been called[^note-reflect-impl].
+    /// Requires implementing [`Reflect`] for the [`Component`] (e.g., using [`#[derive(Reflect)`](derive@bevy_reflect::Reflect))
+    /// and `app.register_type::<TheComponent>()` to have been called[^note-reflect-impl].
     ///
-    /// If you want to call this with a [`ComponentId`], see [`World::components()`] and [`Components::get_id()`] to get
+    /// If you want to call this with a [`ComponentId`], see [`World::components`] and [`Components::get_id`] to get
     /// the corresponding [`TypeId`].
-    ///
     ///
     /// Also see the crate documentation for [`bevy_reflect`] for more information on
     /// [`Reflect`] and bevy's reflection capabilities.
@@ -2752,10 +2751,10 @@ impl World {
     /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given `type_id` using
     /// reflection.
     ///
-    /// Requires [`#[derive(Reflect)`](derive@bevy_reflect::Reflect) on the [`Component`] and
-    /// `app.register_type::<TheComponent>()` to have been called.
+    /// Requires implementing [`Reflect`] for the [`Component`] (e.g., using [`#[derive(Reflect)`](derive@bevy_reflect::Reflect))
+    /// and `app.register_type::<TheComponent>()` to have been called.
     ///
-    /// This is the mutable version of [`World::get_reflect()`], see its docs for more information
+    /// This is the mutable version of [`World::get_reflect`], see its docs for more information
     /// and an example.
     ///
     /// Just calling this method does not trigger [change detection](crate::change_detection).
@@ -2766,10 +2765,12 @@ impl World {
     ///
     /// # Example
     ///
-    /// See the documentation for [`World::get_reflect()`].
+    /// See the documentation for [`World::get_reflect`].
     ///
     /// # Note
     /// Requires the feature `bevy_reflect` (included in the default features).
+    ///
+    /// [`Reflect`]: bevy_reflect::Reflect
     #[inline]
     #[cfg(feature = "bevy_reflect")]
     pub fn get_reflect_mut(
@@ -2803,7 +2804,7 @@ impl World {
         };
 
         // HACK: Only required for the `None`-case/`else`-branch, but it borrows `self`, which will
-        // already be borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
+        // already be mutablyy borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
         let component_name = self
             .components()
             .get_name(component_id)
@@ -2817,7 +2818,6 @@ impl World {
                 component_name,
             });
         };
-
 
         // SAFETY:
         // - `comp_mut_untyped` is guaranteed to point to an object of type `type_id`
