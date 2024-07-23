@@ -1,6 +1,4 @@
-//! Contains error types returned by methods on [`World`].
-//!
-//! [`World`]: crate::world::World
+//! Contains error types returned by bevy's schedule.
 
 use thiserror::Error;
 
