@@ -93,7 +93,6 @@ use bevy_render::{
         ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
     },
     renderer::RenderDevice,
-    world_sync::RenderFlyEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_time::Fixed;
@@ -433,7 +432,6 @@ fn extract_gizmo_data(
             },
             (*handle).clone_weak(),
             GizmoMeshConfig::from(config),
-            RenderFlyEntity,
         ));
     }
 }

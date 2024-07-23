@@ -7,7 +7,7 @@ use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
     observer::Trigger,
-    query::With,
+    query::Without,
     reflect::ReflectComponent,
     system::{Query, ResMut, Resource},
     world::{Mut, OnAdd, OnRemove, World},
@@ -37,9 +37,6 @@ impl MainEntity {
         self.0
     }
 }
-// marker component that its entity needs to be despawned per frame.
-#[derive(Component, Clone, Debug, Default, Reflect)]
-pub struct RenderFlyEntity;
 
 pub(crate) enum EntityRecord {
     Added(Entity),
@@ -91,7 +88,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
 }
 
 pub(crate) fn despawn_fly_entity(world: &mut World) {
-    let mut query = world.query_filtered::<Entity, With<RenderFlyEntity>>();
+    let mut query = world.query_filtered::<Entity, Without<MainEntity>>();
 
     // ensure next frame allocation keeps order
     let mut entities: Vec<_> = query.iter(world).collect();

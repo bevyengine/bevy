@@ -5,7 +5,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::world_sync::{MainToRenderEntityMap, RenderEntity, RenderFlyEntity};
+use bevy_render::world_sync::{MainToRenderEntityMap, RenderEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -966,7 +966,6 @@ pub fn prepare_lights(
                             light_entity,
                             face_index,
                         },
-                        RenderFlyEntity,
                     ))
                     .id();
                 view_lights.push(view_light_entity);
@@ -1025,7 +1024,6 @@ pub fn prepare_lights(
                     },
                     *spot_light_frustum.unwrap(),
                     LightEntity::Spot { light_entity },
-                    RenderFlyEntity,
                 ))
                 .id();
 
@@ -1127,7 +1125,6 @@ pub fn prepare_lights(
                             light_entity,
                             cascade_index,
                         },
-                        RenderFlyEntity
                     ))
                     .id();
                 view_lights.push(view_light_entity);
