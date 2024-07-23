@@ -38,6 +38,7 @@ use bevy_render::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility, VisibleEntities,
     },
+    world_sync::RenderFlyEntity,
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -372,7 +373,7 @@ pub fn extract_sprites(
             extracted_sprites.sprites.extend(
                 slices
                     .extract_sprites(transform, entity, sprite, handle)
-                    .map(|e| (commands.spawn_empty().id(), e)),
+                    .map(|e| (commands.spawn(RenderFlyEntity).id(), e)),
             );
         } else {
             let atlas_rect =
@@ -391,7 +392,7 @@ pub fn extract_sprites(
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
-                commands.spawn_empty().id(),
+                commands.spawn(RenderFlyEntity).id(),
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
