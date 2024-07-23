@@ -139,16 +139,15 @@ impl Plugin for GizmoPlugin {
             .init_resource::<LineGizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
-        
+
         #[cfg(feature = "bevy_render")]
         app.add_plugins(aabb::AabbGizmoPlugin)
-        .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
-        .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
+            .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
+            .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
 
         #[cfg(feature = "bevy_pbr")]
         app.add_plugins(LightGizmoPlugin);
 
-        
         #[cfg(feature = "bevy_render")]
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
@@ -173,7 +172,6 @@ impl Plugin for GizmoPlugin {
         } else {
             bevy_utils::tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
         }
-
     }
 
     #[cfg(feature = "bevy_render")]
