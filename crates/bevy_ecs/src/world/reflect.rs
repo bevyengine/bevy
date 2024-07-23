@@ -1,10 +1,13 @@
 //! Provides additional functionality for [`World`] when the `bevy_reflect` feature is enabled.
 
-use crate::prelude::*;
-use crate::world::ComponentId;
 use core::any::TypeId;
 
 use thiserror::Error;
+
+use bevy_reflect::{Reflect, ReflectFromPtr};
+
+use crate::prelude::*;
+use crate::world::ComponentId;
 
 impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using
@@ -62,16 +65,11 @@ impl World {
     /// [^note-reflect-impl]: More specifically: Requires [`TypeData`] for [`ReflectFromPtr`] to be registered for the given `type_id`,
     ///     which is automatically handled when deriving [`Reflect`] and calling [`App::register_type`].
     #[inline]
-    #[cfg(feature = "bevy_reflect")]
     pub fn get_reflect(
         &self,
         entity: Entity,
         type_id: TypeId,
-    ) -> Result<&dyn bevy_reflect::Reflect, GetComponentReflectError> {
-        use bevy_reflect::ReflectFromPtr;
-
-        use crate::prelude::AppTypeRegistry;
-
+    ) -> Result<&dyn Reflect, GetComponentReflectError> {
         let Some(component_id) = self.components().get_id(type_id) else {
             return Err(GetComponentReflectError::NoCorrespondingComponentId(
                 type_id,
@@ -142,16 +140,11 @@ impl World {
     ///
     /// [`Reflect`]: bevy_reflect::Reflect
     #[inline]
-    #[cfg(feature = "bevy_reflect")]
     pub fn get_reflect_mut(
         &mut self,
         entity: Entity,
         type_id: TypeId,
-    ) -> Result<Mut<'_, dyn bevy_reflect::Reflect>, GetComponentReflectError> {
-        use bevy_reflect::ReflectFromPtr;
-
-        use crate::prelude::AppTypeRegistry;
-
+    ) -> Result<Mut<'_, dyn Reflect>, GetComponentReflectError> {
         // little clone() + read() dance so we a) don't keep a borrow of `self` and b) don't drop a
         // temporary (from read()) too  early.
         let Some(app_type_registry) = self.get_resource::<AppTypeRegistry>().cloned() else {
