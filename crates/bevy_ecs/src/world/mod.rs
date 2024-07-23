@@ -9,6 +9,9 @@ mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
+#[cfg(feature = "bevy_reflect")]
+pub mod reflect;
+
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
