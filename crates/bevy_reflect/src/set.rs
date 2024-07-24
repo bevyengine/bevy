@@ -250,6 +250,11 @@ impl Set for DynamicSet {
     }
 
     fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool {
+        assert_eq!(
+            value.reflect_partial_eq(&*value),
+            Some(true),
+            "Values inserted in `Set` like types are expected to reflect `PartialEq`"
+        );
         match self
             .hash_table
             .find_mut(Self::internal_hash(&value), Self::internal_eq(&value))
@@ -492,7 +497,6 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn Reflect) -> Result<(), ApplyErro
 #[cfg(test)]
 mod tests {
     use super::DynamicSet;
-    use crate::reflect::Reflect;
 
     #[test]
     fn test_into_iter() {
