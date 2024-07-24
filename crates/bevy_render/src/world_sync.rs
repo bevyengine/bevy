@@ -42,6 +42,7 @@ impl MainEntity {
 pub struct RenderFlyEntity;
 
 pub(crate) enum EntityRecord {
+    // main
     Added(Entity),
     // (main , render)
     Removed(Entity, Entity),
