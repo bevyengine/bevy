@@ -350,7 +350,7 @@ pub fn extract_lights(
                 return;
             }
 
-            // TODO: As above
+            // TODO: re-use the memory
             let mut extracted_cascades = EntityHashMap::default();
             let mut extracted_frusta = EntityHashMap::default();
             let mut cascade_visible_entities = EntityHashMap::default();
@@ -1056,18 +1056,16 @@ pub fn prepare_lights(
                 continue;
             }
 
-            let empty_cascades = vec![];
-            let empty_frusta = vec![];
             let cascades = light
                 .cascades
                 .get(&entity)
-                .unwrap_or(&empty_cascades)
+                .unwrap()
                 .iter()
                 .take(MAX_CASCADES_PER_LIGHT);
             let frusta = light
                 .frusta
                 .get(&entity)
-                .unwrap_or(&empty_frusta)
+                .unwrap()
                 .iter()
                 .take(MAX_CASCADES_PER_LIGHT);
             for (cascade_index, ((cascade, frustum), bound)) in cascades

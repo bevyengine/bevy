@@ -227,8 +227,6 @@ pub fn extract_mesh2d(
         if !view_visibility.get() {
             continue;
         }
-        // FIXME: Remove this - it is just a workaround to enable rendering to work as
-        // render commands require an entity to exist at the moment.
         render_mesh_instances.insert(
             entity,
             RenderMesh2dInstance {
