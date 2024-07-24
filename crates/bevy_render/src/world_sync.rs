@@ -37,7 +37,7 @@ impl MainEntity {
         self.0
     }
 }
-// marker component that its entity needs to be despawned per frame.
+// marker component that indicates that its entity needs to be despawned at the end of every frame.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 pub struct RenderFlyEntity;
 
