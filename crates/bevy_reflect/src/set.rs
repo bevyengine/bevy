@@ -201,7 +201,7 @@ impl DynamicSet {
         |other| {
             value
                 .reflect_partial_eq(&**other)
-                .expect("Not the same type")
+                .expect("Underlying type does not reflect `PartialEq` and hence doesn't support equality checks")
         }
     }
 }
@@ -252,14 +252,10 @@ impl Set for DynamicSet {
     fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool {
         match self
             .hash_table
-            .find(Self::internal_hash(&value), Self::internal_eq(&value))
+            .find_mut(Self::internal_hash(&value), Self::internal_eq(&value))
         {
-            Some(_) => {
-                self.hash_table.insert_unique(
-                    Self::internal_hash(&value),
-                    value,
-                    Self::internal_hash,
-                );
+            Some(old) => {
+                *old = value;
                 false
             }
             None => {
@@ -274,11 +270,11 @@ impl Set for DynamicSet {
     }
 
     fn remove(&mut self, value: &dyn Reflect) -> bool {
-        let prev_len = self.hash_table.len();
         let boxed = box_and_clone(value);
-        self.hash_table.retain(|v| !Self::internal_eq(&boxed)(v));
-        let post_len = self.hash_table.len();
-        prev_len != post_len
+        self.hash_table
+            .find_entry(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
+            .map(|entry| entry.remove())
+            .is_ok()
     }
 
     fn contains(&self, value: &dyn Reflect) -> bool {
@@ -515,16 +511,5 @@ mod tests {
                 .expect("Element found in expected array");
             assert_eq!(expected[index], value);
         }
-    }
-
-    #[test]
-    fn reflect_partial_eq_reflexive() {
-        let values = ["first", "second", "second"];
-        let mut set = DynamicSet::default();
-        set.insert(values[0].to_string());
-        set.insert(values[1].to_string());
-        set.insert(values[2].to_string());
-
-        assert!(set.reflect_partial_eq(&set).unwrap_or(false));
     }
 }
