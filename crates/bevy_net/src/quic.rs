@@ -1,18 +1,22 @@
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::io;
+use std::{hint, io};
 use std::io::{ErrorKind, IoSliceMut};
 use std::net::{SocketAddr, UdpSocket};
+use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use std::sync::{Arc, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::task::{Context, Poll, Waker};
 use std::time::Instant;
+use async_lock::RwLock;
 use quinn::udp::{RecvMeta, Transmit, UdpSocketState, UdpSockRef};
 
 use static_init::dynamic;
 use bevy_tasks::IoTaskPool;
 
 pub use quinn::*;
+use bevy_tasks::futures_lite::future::yield_now;
 
 /// A QUIC endpoint.
 ///
@@ -189,13 +193,15 @@ impl Runtime for BevyQuinnRuntime {
     }
 
     fn wrap_udp_socket(&self, t: UdpSocket) -> io::Result<Arc<dyn AsyncUdpSocket>> {
-        Ok(Arc::new(QuinnUdp::new(t)?))
+        QuinnUdp::new(t)
+            .map(|arc_quinn_udp| arc_quinn_udp as Arc<dyn AsyncUdpSocket>)
     }
 }
 
 struct QuinnUdp {
     state: UdpSocketState,
-    socket: UdpSocket
+    socket: UdpSocket,
+    waiting: RwLock<(Vec<Waker>)>,
 }
 
 impl Debug for QuinnUdp {
@@ -205,38 +211,75 @@ impl Debug for QuinnUdp {
 }
 
 impl QuinnUdp {
-    fn new(socket: UdpSocket) -> Result<QuinnUdp, io::Error> {
-        Ok(Self {
+    fn new(socket: UdpSocket) -> Result<Arc<QuinnUdp>, io::Error> {
+
+        let s = Arc::new(Self {
             state: UdpSocketState::new(UdpSockRef::from(&socket))?,
-            socket: socket
-        })
+            socket: socket,
+            waiting: RwLock::new(Vec::default()),
+        });
+
+        let downgraded = Arc::downgrade(&s);
+        
+        IoTaskPool::get().spawn(async move {
+
+            loop {
+                if let Some(socket) = downgraded.upgrade() {
+                    match socket.socket.send_to(&[], "127.0.0.1:5000") {
+                        Ok(_) => {
+                            let mut lock = socket.waiting.write().await;
+
+                            for waker in lock.drain(..) {
+                                waker.wake();
+                            }
+                        }
+                        Err(e) => {
+                            match e.kind() {
+                                ErrorKind::InvalidInput |
+                                ErrorKind::InvalidData |
+                                ErrorKind::TimedOut |
+                                ErrorKind::Interrupted |
+                                ErrorKind::OutOfMemory => {}
+                                _ => {
+                                    let mut lock = socket.waiting.write().await;
+
+                                    for waker in lock.drain(..) {
+                                        waker.wake();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    yield_now().await
+                } else {
+                    return;
+                }
+            }
+        }).detach();
+
+        Ok(s)
     }
 }
 
 #[derive(Debug)]
-struct QuinnPoller(bool);
+struct QuinnPoller(Arc<QuinnUdp>, bool);
 
 impl UdpPoller for QuinnPoller {
-    //todo: create a more efficient implementation
     fn poll_writable(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
-        if self.0 {
-            return Poll::Ready(Ok(()))
+        if self.1 {
+            Poll::Ready(Ok(()))
+        } else {
+            self.1 = true;
+            let mut lock = self.0.waiting.write_blocking();
+            lock.push(cx.waker().clone());
+            Poll::Pending
         }
-
-        self.0 = true;
-
-        let waker = cx.waker().clone();
-
-        IoTaskPool::get().spawn(async move {
-            waker.wake()
-        }).detach();
-        Poll::Pending
     }
 }
 
 impl AsyncUdpSocket for QuinnUdp {
     fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
-        Box::pin(QuinnPoller(false))
+        Box::pin(QuinnPoller(self.clone(), false))
     }
 
     fn try_send(&self, transmit: &Transmit) -> io::Result<()> {
