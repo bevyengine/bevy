@@ -4,7 +4,7 @@ use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy_utils::HashMap;
 
-use crate::func::{DynamicFunction, IntoFunction};
+use crate::func::{DynamicFunction, FunctionRegistrationError, IntoFunction};
 
 /// A registry of [reflected functions].
 ///
@@ -25,18 +25,26 @@ impl FunctionRegistry {
     /// Attempts to register the given function if it has not yet been registered already.
     ///
     /// Functions are mapped according to their [name].
-    /// If a `DynamicFunction` with the same name already exists, it will not be registered again.
+    /// If a `DynamicFunction` with the same name already exists, it will not be registered again,
+    /// and an error will be returned.
     /// To register the function anyway, overwriting any existing registration, use [`overwrite_registration`] instead.
     ///
     /// [name]: DynamicFunction::name
     /// [`overwrite_registration`]: Self::overwrite_registration
-    pub fn register<F, Marker>(&mut self, function: F)
+    pub fn register<F, Marker>(
+        &mut self,
+        function: F,
+    ) -> Result<&mut Self, FunctionRegistrationError>
     where
         F: IntoFunction<Marker> + 'static,
     {
         let function = function.into_function();
         let name = function.name().clone();
-        self.functions.try_insert(name, function).ok();
+        self.functions
+            .try_insert(name, function)
+            .map_err(|err| FunctionRegistrationError::DuplicateName(err.entry.key().clone()))?;
+
+        Ok(self)
     }
 
     /// Registers the given function, overwriting any existing registration.
@@ -135,7 +143,7 @@ mod tests {
         }
 
         let mut registry = FunctionRegistry::default();
-        registry.register(foo);
+        registry.register(foo).unwrap();
 
         let function = registry.get_mut(std::any::type_name_of_val(&foo)).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
@@ -151,7 +159,7 @@ mod tests {
         let function = foo.into_function().with_name("custom_name");
 
         let mut registry = FunctionRegistry::default();
-        registry.register(function);
+        registry.register(function).unwrap();
 
         let function = registry.get_mut("custom_name").unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
@@ -169,12 +177,16 @@ mod tests {
         }
 
         let mut registry = FunctionRegistry::default();
-        registry.register(foo);
-        registry.register(
+        registry.register(foo).unwrap();
+        let result = registry.register(
             bar.into_function()
                 .with_name(std::any::type_name_of_val(&foo)),
         );
 
+        assert!(matches!(
+            result,
+            Err(FunctionRegistrationError::DuplicateName(_))
+        ));
         assert_eq!(registry.len(), 1);
 
         let function = registry.get_mut(std::any::type_name_of_val(&foo)).unwrap();
@@ -193,7 +205,7 @@ mod tests {
         }
 
         let mut registry = FunctionRegistry::default();
-        registry.register(foo);
+        registry.register(foo).unwrap();
         registry.overwrite_registration(
             bar.into_function()
                 .with_name(std::any::type_name_of_val(&foo)),
@@ -213,7 +225,7 @@ mod tests {
         }
 
         let mut registry = FunctionRegistry::default();
-        registry.register(foo);
+        registry.register(foo).unwrap();
 
         let debug = format!("{:?}", registry);
         assert_eq!(debug, "{DynamicFunction(fn bevy_reflect::func::registry::tests::should_debug_function_registry::foo() -> i32)}");

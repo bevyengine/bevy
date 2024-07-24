@@ -416,7 +416,7 @@ impl SubApp {
         F: bevy_reflect::func::IntoFunction<Marker> + 'static,
     {
         let registry = self.world.resource_mut::<AppFunctionRegistry>();
-        registry.write().register(function);
+        registry.write().register(function).unwrap();
         self
     }
 }
