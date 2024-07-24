@@ -15,7 +15,7 @@ use bevy_ecs::{
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
 
-/// Marker component that indicate its entity needs to be Synchronized to render world
+/// Marker component that indicates that its entity needs to be Synchronized to the render world
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect[Component]]
 pub struct ToRenderWorld;
