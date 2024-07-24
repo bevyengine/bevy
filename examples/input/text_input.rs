@@ -40,6 +40,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone_weak(),
                     ..default()
                 },
+                ..default()
             },
             TextSection {
                 value: "false\n".to_string(),
@@ -48,6 +49,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 30.0,
                     ..default()
                 },
+                ..default()
             },
             TextSection {
                 value: "IME Active: ".to_string(),
@@ -55,6 +57,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font: font.clone_weak(),
                     ..default()
                 },
+                ..default()
             },
             TextSection {
                 value: "false\n".to_string(),
@@ -63,6 +66,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 30.0,
                     ..default()
                 },
+                ..default()
             },
             TextSection {
                 value: "click to toggle IME, press return to start a new line\n\n".to_string(),
@@ -71,6 +75,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 18.0,
                     ..default()
                 },
+                ..default()
             },
             TextSection {
                 value: "".to_string(),
@@ -79,6 +84,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 25.0,
                     ..default()
                 },
+                ..default()
             },
         ])
         .with_style(Style {

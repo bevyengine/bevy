@@ -2,6 +2,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use bevy_utils::default;
 use cosmic_text::{Buffer, Metrics};
@@ -127,12 +128,24 @@ impl Text {
 }
 
 /// Contains the value of the text in a section and how it should be styled.
-#[derive(Debug, Default, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 pub struct TextSection {
     /// The content (in `String` form) of the text in the section.
     pub value: String,
     /// The style of the text in the section, including the font face, font size, and color.
     pub style: TextStyle,
+    /// An offset to be applied to each glyph in the section.
+    pub offset: Vec2,
+}
+
+impl Default for TextSection {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            style: Default::default(),
+            offset: Vec2::new(0., 0.),
+        }
+    }
 }
 
 impl TextSection {
@@ -141,14 +154,18 @@ impl TextSection {
         Self {
             value: value.into(),
             style,
+
+            ..Default::default()
         }
     }
 
     /// Create an empty [`TextSection`] from a style. Useful when the value will be set dynamically.
     pub const fn from_style(style: TextStyle) -> Self {
         Self {
-            value: String::new(),
             style,
+
+            value: String::new(),
+            offset: Vec2::new(0., 0.),
         }
     }
 }

@@ -218,7 +218,7 @@ impl TextPipeline {
                     YAxisOrientation::BottomToTop => box_size.y - y,
                 };
 
-                let position = Vec2::new(x, y);
+                let position = Vec2::new(x, y) + sections[section_index].offset;
 
                 // TODO: recreate the byte index, that keeps track of where a cursor is,
                 // when glyphs are not limited to single byte representation, relevant for #1319

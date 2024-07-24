@@ -126,6 +126,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                     sections: vec![TextSection {
                         value: message.clone(),
                         style: text_style.clone(),
+                        ..Default::default()
                     }],
                     justify: JustifyText::Left,
                     linebreak_behavior,
