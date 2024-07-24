@@ -2069,7 +2069,7 @@ impl World {
     pub fn increment_change_tick(&mut self) -> Tick {
         let change_tick = self.change_tick.get_mut();
         let prev_tick = *change_tick;
-        *change_tick += 1;
+        *change_tick = change_tick.wrapping_add(1);
         Tick::new(prev_tick)
     }
 
