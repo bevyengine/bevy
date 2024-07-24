@@ -11,7 +11,7 @@ use crate::{
 
 /// A trait used to power [set-like] operations via [reflection].
 ///
-/// Sets contain zero or more entries of a fixed type, and correspond to types like [`HashSet`]. The
+/// Sets contain zero or more entries of a fixed type, and correspond to types like [`HashSet`](std::collections::HashSet). The
 /// order of these entries is not guaranteed by this trait.
 ///
 /// # Hashing
@@ -243,14 +243,13 @@ impl Set for DynamicSet {
         }
     }
 
-    fn insert_boxed(&mut self, mut value: Box<dyn Reflect>) -> bool {
+    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool {
         match self
             .indices
             .entry(value.reflect_hash().expect(hash_error!(value)))
         {
             Entry::Occupied(entry) => {
-                let old_value = self.values.get_mut(*entry.get()).unwrap();
-                std::mem::swap(old_value, &mut value);
+                self.values[*entry.get()] = value;
                 false
             }
             Entry::Vacant(entry) => {
