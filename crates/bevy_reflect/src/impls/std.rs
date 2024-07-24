@@ -7,8 +7,8 @@ use crate::{
     set_partial_eq, set_try_apply, ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet,
     DynamicTypePath, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map,
     MapInfo, MapIter, MaybeTyped, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, SetIter,
-    TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed, ValueInfo,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo,
+    TypePath, TypeRegistration, TypeRegistry, Typed, ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -670,16 +670,13 @@ macro_rules! impl_reflect_for_hashset {
                     .map(|value| value as &dyn Reflect)
             }
 
-            fn get_at(&self, index: usize) -> Option<&dyn Reflect> {
-                self.iter().nth(index).map(|value| value as &dyn Reflect)
-            }
-
             fn len(&self) -> usize {
                 Self::len(self)
             }
 
-            fn iter(&self) -> SetIter {
-                SetIter::new(self)
+            fn iter(&self) -> Box<dyn Iterator<Item = &dyn Reflect> + '_> {
+                let iter = self.iter().map(|v| v as &dyn Reflect);
+                Box::new(iter)
             }
 
             fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {

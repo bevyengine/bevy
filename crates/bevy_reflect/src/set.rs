@@ -2,7 +2,7 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::{Entry, HashMap};
+use bevy_utils::hashbrown::HashTable;
 
 use crate::{
     self as bevy_reflect, hash_error, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned,
@@ -45,9 +45,6 @@ pub trait Set: Reflect {
     /// If no value is contained, returns `None`.
     fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect>;
 
-    /// Returns the value at `index` by reference, or `None` if out of bounds.
-    fn get_at(&self, index: usize) -> Option<&dyn Reflect>;
-
     /// Returns the number of elements in the set.
     fn len(&self) -> usize;
 
@@ -57,7 +54,7 @@ pub trait Set: Reflect {
     }
 
     /// Returns an iterator over the values of the set.
-    fn iter(&self) -> SetIter;
+    fn iter(&self) -> Box<dyn Iterator<Item = &dyn Reflect> + '_>;
 
     /// Drain the values of this set to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
@@ -166,8 +163,7 @@ impl SetInfo {
 #[derive(Default)]
 pub struct DynamicSet {
     represented_type: Option<&'static TypeInfo>,
-    values: Vec<Box<dyn Reflect>>,
-    indices: HashMap<u64, usize>,
+    hash_table: HashTable<Box<dyn Reflect>>,
 }
 
 impl DynamicSet {
@@ -194,72 +190,93 @@ impl DynamicSet {
     pub fn insert<V: Reflect>(&mut self, value: V) {
         self.insert_boxed(Box::new(value));
     }
+
+    fn internal_hash(value: &Box<dyn Reflect>) -> u64 {
+        value.reflect_hash().expect(hash_error!(value))
+    }
+
+    fn internal_eq(value: &Box<dyn Reflect>) -> impl FnMut(&Box<dyn Reflect>) -> bool + '_ {
+        |other| {
+            value
+                .reflect_partial_eq(&**other)
+                .expect("Not the same type")
+        }
+    }
 }
 
 impl Set for DynamicSet {
     fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect> {
-        self.indices
-            .get(&value.reflect_hash().expect(hash_error!(value)))
-            .map(|index| &**self.values.get(*index).unwrap())
-    }
-
-    fn get_at(&self, index: usize) -> Option<&dyn Reflect> {
-        self.values.get(index).map(|value| &**value)
+        let boxed = Box::new(value).clone_value();
+        self.hash_table
+            .find(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
+            .map(|value| &**value)
     }
 
     fn len(&self) -> usize {
-        self.values.len()
+        self.hash_table.len()
     }
 
-    fn iter(&self) -> SetIter {
-        SetIter::new(self)
+    fn iter(&self) -> Box<dyn Iterator<Item = &dyn Reflect> + '_> {
+        let iter = self.hash_table.iter().map(|v| &**v);
+        Box::new(iter)
     }
 
     fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
-        self.values
+        self.hash_table.into_iter().collect::<Vec<_>>()
     }
 
     fn clone_dynamic(&self) -> DynamicSet {
+        let mut hash_table = HashTable::new();
+        self.hash_table
+            .iter()
+            .map(|value| value.clone_value())
+            .for_each(|value| {
+                hash_table.insert_unique(Self::internal_hash(&value), value, Self::internal_hash);
+            });
+
         DynamicSet {
             represented_type: self.represented_type,
-            values: self
-                .values
-                .iter()
-                .map(|value| value.clone_value())
-                .collect(),
-            indices: self.indices.clone(),
+            hash_table,
         }
     }
 
     fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool {
         match self
-            .indices
-            .entry(value.reflect_hash().expect(hash_error!(value)))
+            .hash_table
+            .find(Self::internal_hash(&value), Self::internal_eq(&value))
         {
-            Entry::Occupied(entry) => {
-                self.values[*entry.get()] = value;
+            Some(_) => {
+                self.hash_table.insert_unique(
+                    Self::internal_hash(&value),
+                    value,
+                    Self::internal_hash,
+                );
                 false
             }
-            Entry::Vacant(entry) => {
-                entry.insert(self.values.len());
-                self.values.push(value);
+            None => {
+                self.hash_table.insert_unique(
+                    Self::internal_hash(&value),
+                    value,
+                    Self::internal_hash,
+                );
                 true
             }
         }
     }
 
     fn remove(&mut self, value: &dyn Reflect) -> bool {
-        self.indices
-            .remove(&value.reflect_hash().expect(hash_error!(value)))
-            .map_or(false, |index| {
-                self.values.remove(index);
-                true
-            })
+        let prev_len = self.hash_table.len();
+        let boxed = Box::new(value).clone_value();
+        self.hash_table.retain(|v| !Self::internal_eq(&boxed)(v));
+        let post_len = self.hash_table.len();
+        prev_len != post_len
     }
 
     fn contains(&self, value: &dyn Reflect) -> bool {
-        self.indices
-            .contains_key(&value.reflect_hash().expect(hash_error!(value)))
+        let boxed = Box::new(value).clone_value();
+        self.hash_table
+            .find(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
+            .is_some()
     }
 }
 
@@ -353,45 +370,14 @@ impl Debug for DynamicSet {
     }
 }
 
-/// An iterator over the values of a [`Set`].
-pub struct SetIter<'a> {
-    set: &'a dyn Set,
-    index: usize,
-}
-
-impl<'a> SetIter<'a> {
-    /// Creates a new [`SetIter`].
-    #[inline]
-    pub const fn new(set: &'a dyn Set) -> SetIter {
-        SetIter { set, index: 0 }
-    }
-}
-
-impl<'a> Iterator for SetIter<'a> {
-    type Item = &'a dyn Reflect;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let value = self.set.get_at(self.index);
-        self.index += 1;
-        value
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let size = self.set.len();
-        (size, Some(size))
-    }
-}
-
 impl IntoIterator for DynamicSet {
     type Item = Box<dyn Reflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = bevy_utils::hashbrown::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.values.into_iter()
+        self.hash_table.into_iter()
     }
 }
-
-impl<'a> ExactSizeIterator for SetIter<'a> {}
 
 /// Compares a [`Set`] with a [`Reflect`] value.
 ///
@@ -501,7 +487,6 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn Reflect) -> Result<(), ApplyErro
 #[cfg(test)]
 mod tests {
     use super::DynamicSet;
-    use super::Set;
     use crate::reflect::Reflect;
 
     #[test]
@@ -513,38 +498,14 @@ mod tests {
         set.insert(expected[1].to_string());
         set.insert(expected[2].to_string());
 
-        for (index, item) in set.into_iter().enumerate() {
+        for item in set.into_iter() {
             let value = item.take::<String>().expect("couldn't downcast to String");
+            let index = expected
+                .iter()
+                .position(|i| *i == value.as_str())
+                .expect("Element found in expected array");
             assert_eq!(expected[index], value);
         }
-    }
-
-    #[test]
-    fn test_set_get_at() {
-        let values = ["first", "second", "second"];
-        let mut set = DynamicSet::default();
-        set.insert(values[0].to_string());
-        set.insert(values[1].to_string());
-        set.insert(values[2].to_string());
-
-        // item at index 1 is "second"
-        let value_r = set.get_at(1).expect("Item wasn't found");
-        let value = value_r
-            .downcast_ref::<String>()
-            .expect("Couldn't downcast to String");
-        assert_eq!(value, &values[1].to_owned());
-
-        // second time we add "second" it won't be inserted
-        assert!(set.get_at(2).is_none());
-
-        // after removing first, "second" is at index 0 and there's nothing at index 1
-        set.remove(&String::from("first") as &dyn Reflect);
-        assert!(set.get_at(1).is_none());
-        let value_r = set.get_at(0).expect("Item wasn't found");
-        let value = value_r
-            .downcast_ref::<String>()
-            .expect("Couldn't downcast to String");
-        assert_eq!(value, &values[1].to_owned());
     }
 
     #[test]
