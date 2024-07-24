@@ -198,10 +198,6 @@ bevy_state = ["dep:bevy_state"]
 #todo don't forget you added this
 quic = ["bevy_net/quic"]
 
-tcp = ["bevy_net/tcp"]
-
-udp = ["bevy_net/tcp"]
-
 tls = ["bevy_net/tls"]
 
 [dependencies]

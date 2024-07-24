@@ -4,25 +4,19 @@ version = "0.14.0-dev"
 edition = "2021"
 
 [dependencies]
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.14.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.14.0-dev" }
-bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev" }
-bytes = "1.6.0"
-bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
-
 static_init = "1.0.3"
 
-quinn = { version = "0.11.2", optional = true, features = ["log", "platform-verifier"]}
+
+#same versions as used by quinn to reduce compile times, we can update these as quinn updates.
+bytes = "1.0"
+rustls = { version = "0.23.0", optional = true, features = ["ring", "std"], default-features = false }
+quinn = { version = "0.11.2", optional = true, features = ["log", "platform-verifier"] }
 
 [features]
 default = []
 
-tls = ["quinn/rustls", "quinn/ring"]
-udp = []
-tcp = []
+tls = ["quinn?/rustls", "quinn?/ring", "dep:rustls"]
 quic = ["dep:quinn"]
 
 [lints]

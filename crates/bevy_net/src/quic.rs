@@ -25,6 +25,9 @@ pub use quinn::*;
 #[derive(Debug, Clone)]
 pub struct EndPoint(Endpoint);
 
+// A couple of endpoint methods aren't reimplemented due to the relevant types
+// in quinn not being reexported. A pr with a fix (https://github.com/quinn-rs/quinn/pull/1920#event-13538285399)
+// has been merged so whenever the next update for quinn comes out we can implement the relevant methods.
 impl EndPoint {
 
     /// Construct an endpoint with arbitrary configuration and socket

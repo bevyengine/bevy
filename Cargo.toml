@@ -347,10 +347,6 @@ bevy_state = ["bevy_internal/bevy_state"]
 #todo you added this
 quic = ["bevy_internal/quic"]
 
-tcp = ["bevy_internal/tcp"]
-
-udp = ["bevy_internal/udp"]
-
 tls = ["bevy_internal/tls"]
 
 [dependencies]
@@ -376,15 +372,15 @@ thiserror = "1.0"
 event-listener = "5.3.0"
 rustls-pemfile = "2.1.2"
 
-[[example]]
-name = "back_and_forth"
-path = "examples/networking/back_and_forth.rs"
-scrape-examples = true
-required-features = ["quic", "tls"]
-
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
+
+[[example]]
+name = "ping_pong"
+path = "examples/networking/ping_pong.rs"
+scrape-examples = true
+required-features = ["quic", "tls"]
 
 [[example]]
 name = "hello_world"
