@@ -2,6 +2,7 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
+use bevy_utils::hashbrown::hash_table::OccupiedEntry as HashTableOccupiedEntry;
 use bevy_utils::hashbrown::HashTable;
 
 use crate::{
@@ -278,7 +279,7 @@ impl Set for DynamicSet {
         let boxed = box_and_clone(value);
         self.hash_table
             .find_entry(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
-            .map(|entry| entry.remove())
+            .map(HashTableOccupiedEntry::remove)
             .is_ok()
     }
 
