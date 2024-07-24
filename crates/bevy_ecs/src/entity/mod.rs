@@ -768,7 +768,7 @@ impl Entities {
     /// value + 1.
     ///
     /// Does nothing if no entity with this `index` has been allocated yet.
-    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
+    pub fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
         if (index as usize) >= self.meta.len() {
             return false;
         }
