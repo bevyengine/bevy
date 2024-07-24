@@ -195,7 +195,6 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["dep:bevy_state"]
 
-#todo don't forget you added this
 quic = ["bevy_net/quic"]
 
 tls = ["bevy_net/tls"]
@@ -242,7 +241,6 @@ bevy_text = { path = "../bevy_text", optional = true, version = "0.14.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.14.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.14.0-dev" }
 
-#todo don't forget you added this
 bevy_net = { path = "../bevy_net", version = "0.14.0-dev", default-features = false }
 
 [lints]

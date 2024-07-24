@@ -344,7 +344,6 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
-#todo you added this
 quic = ["bevy_internal/quic"]
 
 tls = ["bevy_internal/tls"]
