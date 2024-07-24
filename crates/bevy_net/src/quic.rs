@@ -1,16 +1,18 @@
+//! Reimplementation of [`quinn`] types for use with bevy's runtime.
+//! Only available on platforms that support the standard library.
+
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::{hint, io};
+use std::{io};
 use std::io::{ErrorKind, IoSliceMut};
 use std::net::{SocketAddr, UdpSocket};
-use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::{Arc, OnceLock};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc};
 use std::task::{Context, Poll, Waker};
 use std::time::Instant;
 use async_lock::RwLock;
-use quinn::udp::{RecvMeta, Transmit, UdpSocketState, UdpSockRef};
+use quinn::udp::{RecvMeta, UdpSocketState, UdpSockRef};
+pub use quinn::udp::Transmit;
 
 use static_init::dynamic;
 use bevy_tasks::IoTaskPool;
@@ -24,8 +26,6 @@ use bevy_tasks::futures_lite::future::yield_now;
 /// client and server for different connections.
 ///
 /// May be cloned to obtain another handle to the same endpoint.
-///
-/// This type is a conviniant wrapper around [Endpoint].
 #[derive(Debug, Clone)]
 pub struct EndPoint(Endpoint);
 
@@ -70,13 +70,11 @@ impl EndPoint {
     /// addresses. Portable applications should bind an address that matches the family they wish to
     /// communicate within.
     pub fn client(addr: SocketAddr) -> io::Result<Self> {
-        Ok(
-            Self::new(
+        Self::new(
                 EndpointConfig::default(),
                 None,
                 UdpSocket::bind(addr)?
-            )?
-        )
+            )
     }
 
     /// Get the next incoming connection attempt from a client
@@ -159,7 +157,7 @@ impl EndPoint {
     ///
     /// [`Connection::close()`](quinn::Connection)
     pub fn close(&self, error_code: VarInt, reason: &[u8]) {
-        self.0.close(error_code, reason)
+        self.0.close(error_code, reason);
     }
 
     /// Wait for all connections on the endpoint to be cleanly shut down
@@ -201,7 +199,7 @@ impl Runtime for BevyQuinnRuntime {
 struct QuinnUdp {
     state: UdpSocketState,
     socket: UdpSocket,
-    waiting: RwLock<(Vec<Waker>)>,
+    waiting: RwLock<Vec<Waker>>,
 }
 
 impl Debug for QuinnUdp {

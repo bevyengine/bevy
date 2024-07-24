@@ -1,7 +1,6 @@
-use std::ops::Deref;
+//! Random cryptographic utilities
+
 use std::sync::Arc;
-use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified};
-use rustls::{DigitallySignedStruct, Error, SignatureScheme};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 
 /// Dummy certificate verifier that treats any certificate as valid.
