@@ -670,13 +670,6 @@ macro_rules! impl_reflect_for_hashset {
                     .map(|value| value as &dyn Reflect)
             }
 
-            fn get_mut(&mut self, value: &dyn Reflect) -> Option<&mut dyn Reflect> {
-                value
-                    .downcast_ref::<V>()
-                    .and_then(|value| Self::get_mut(self, value))
-                    .map(|value| value as &mut dyn Reflect)
-            }
-
             fn get_at(&self, index: usize) -> Option<&dyn Reflect> {
                 self.iter().nth(index).map(|value| value as &dyn Reflect)
             }

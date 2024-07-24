@@ -45,11 +45,6 @@ pub trait Set: Reflect {
     /// If no value is contained, returns `None`.
     fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect>;
 
-    /// Returns a mutable reference to the value.
-    ///
-    /// If no value is contained, returns `None`.
-    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect>;
-
     /// Returns the value at `index` by reference, or `None` if out of bounds.
     fn get_at(&self, index: usize) -> Option<&dyn Reflect>;
 
@@ -206,13 +201,6 @@ impl Set for DynamicSet {
         self.indices
             .get(&value.reflect_hash().expect(hash_error!(value)))
             .map(|index| &**self.values.get(*index).unwrap())
-    }
-
-    fn get_mut(&mut self, value: &dyn Reflect) -> Option<&mut dyn Reflect> {
-        self.indices
-            .get(&value.reflect_hash().expect(hash_error!(value)))
-            .cloned()
-            .map(|index| &mut **self.values.get_mut(index).unwrap())
     }
 
     fn get_at(&self, index: usize) -> Option<&dyn Reflect> {
@@ -475,9 +463,7 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
 pub fn set_apply<M: Set>(a: &mut M, b: &dyn Reflect) {
     if let ReflectRef::Set(set_value) = b.reflect_ref() {
         for b_value in set_value.iter() {
-            if let Some(a_value) = a.get_mut(b_value) {
-                a_value.apply(b_value);
-            } else {
+            if a.get(b_value).is_none() {
                 a.insert_boxed(b_value.clone_value());
             }
         }
@@ -499,9 +485,7 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn Reflect) {
 pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Set(set_value) = b.reflect_ref() {
         for b_value in set_value.iter() {
-            if let Some(a_value) = a.get_mut(b_value) {
-                a_value.try_apply(b_value)?;
-            } else {
+            if a.get(b_value).is_none() {
                 a.insert_boxed(b_value.clone_value());
             }
         }
