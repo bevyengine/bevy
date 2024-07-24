@@ -543,15 +543,25 @@ mod tests {
         set.insert(values[1].to_string());
         set.insert(values[2].to_string());
 
+        // item at index 1 is "second"
         let value_r = set.get_at(1).expect("Item wasn't found");
         let value = value_r
             .downcast_ref::<String>()
             .expect("Couldn't downcast to String");
         assert_eq!(value, &values[1].to_owned());
 
+        // second time we add "second" it won't be inserted
         assert!(set.get_at(2).is_none());
+
+        // after removing first, "second" is at index 0 and there's nothing at index 1
         set.remove(&String::from("first") as &dyn Reflect);
         assert!(set.get_at(1).is_none());
+        let value_r = set.get_at(0).expect("Item wasn't found");
+        let value = value_r
+            .downcast_ref::<String>()
+            .expect("Couldn't downcast to String");
+        assert_eq!(value, &values[1].to_owned());
+    }
 
     #[test]
     fn reflect_partial_eq_reflexive() {
