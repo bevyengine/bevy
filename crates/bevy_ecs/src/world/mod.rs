@@ -2061,8 +2061,10 @@ impl World {
 
     /// Increments the world's current change tick and returns the old value.
     #[inline]
-    pub fn increment_change_tick(&self) -> Tick {
-        let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);
+    pub fn increment_change_tick(&mut self) -> Tick {
+        let change_tick = self.change_tick.get_mut();
+        let prev_tick = *change_tick;
+        *change_tick += 1;
         Tick::new(prev_tick)
     }
 
