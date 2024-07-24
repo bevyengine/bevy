@@ -552,5 +552,15 @@ mod tests {
         assert!(set.get_at(2).is_none());
         set.remove(&String::from("first") as &dyn Reflect);
         assert!(set.get_at(1).is_none());
+
+    #[test]
+    fn reflect_partial_eq_reflexive() {
+        let values = ["first", "second", "second"];
+        let mut set = DynamicSet::default();
+        set.insert(values[0].to_string());
+        set.insert(values[1].to_string());
+        set.insert(values[2].to_string());
+
+        assert!(set.reflect_partial_eq(&set).unwrap_or(false));
     }
 }
