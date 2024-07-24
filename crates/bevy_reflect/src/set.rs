@@ -204,9 +204,16 @@ impl DynamicSet {
     }
 }
 
+// I just created this function to have only one point where we ignore the rust warning about the
+// unused allocation
+fn box_and_clone(val: &dyn Reflect) -> Box<dyn Reflect> {
+    #[allow(unused_allocation)]
+    Box::new(val).clone_value()
+}
+
 impl Set for DynamicSet {
     fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect> {
-        let boxed = Box::new(value).clone_value();
+        let boxed = box_and_clone(value);
         self.hash_table
             .find(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
             .map(|value| &**value)
@@ -266,14 +273,14 @@ impl Set for DynamicSet {
 
     fn remove(&mut self, value: &dyn Reflect) -> bool {
         let prev_len = self.hash_table.len();
-        let boxed = Box::new(value).clone_value();
+        let boxed = box_and_clone(value);
         self.hash_table.retain(|v| !Self::internal_eq(&boxed)(v));
         let post_len = self.hash_table.len();
         prev_len != post_len
     }
 
     fn contains(&self, value: &dyn Reflect) -> bool {
-        let boxed = Box::new(value).clone_value();
+        let boxed = box_and_clone(value);
         self.hash_table
             .find(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
             .is_some()
