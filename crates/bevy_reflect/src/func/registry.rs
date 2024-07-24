@@ -50,7 +50,7 @@ impl FunctionRegistry {
     /// Registers the given function, overwriting any existing registration.
     ///
     /// Functions are mapped according to their [name].
-    /// To avoid overwriting existing registrations, , it's recommended to use the [`register`] method instead.
+    /// To avoid overwriting existing registrations, it's recommended to use the [`register`] method instead.
     ///
     /// [name]: DynamicFunction::name
     /// [`register`]: Self::register
