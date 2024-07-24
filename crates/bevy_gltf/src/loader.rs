@@ -511,9 +511,9 @@ async fn load_gltf<'a, 'b, 'c>(
 
                     mesh.set_morph_targets(handle);
                     let extras = gltf_mesh.extras().as_ref();
-                    if let Option::<MorphTargetNames>::Some(names) =
-                        extras.and_then(|extras| serde_json::from_str(extras.get()).ok())
-                    {
+                    if let Some(names) = extras.and_then(|extras| {
+                        serde_json::from_str::<MorphTargetNames>(extras.get()).ok()
+                    }) {
                         mesh.set_morph_target_names(names.target_names);
                     }
                 }
@@ -604,7 +604,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     (
                         child.index(),
                         load_context
-                            .get_label_handle(format!("{}", GltfAssetLabel::Node(node.index()))),
+                            .get_label_handle(format!("{}", GltfAssetLabel::Node(child.index()))),
                     )
                 })
                 .collect::<Vec<_>>(),

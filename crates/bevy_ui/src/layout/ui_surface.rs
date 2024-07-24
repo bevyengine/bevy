@@ -119,7 +119,7 @@ impl UiSurface {
                 taffy_children.push(*taffy_node);
             } else {
                 warn!(
-                    "Unstyled child in a UI entity hierarchy. You are using an entity \
+                    "Unstyled child `{child}` in a UI entity hierarchy. You are using an entity \
 without UI components as a child of an entity with UI components, results may be unexpected."
                 );
             }
@@ -231,6 +231,8 @@ without UI components as a child of an entity with UI components, results may be
                                         available_height: available_space.height,
                                         #[cfg(feature = "bevy_text")]
                                         font_system,
+                                        #[cfg(not(feature = "bevy_text"))]
+                                        font_system: std::marker::PhantomData,
                                     },
                                     style,
                                 );
