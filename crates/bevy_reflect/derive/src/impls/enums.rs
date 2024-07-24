@@ -1,7 +1,7 @@
 use crate::derive_data::{EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{EnumVariantOutputData, TryApplyVariantBuilder, VariantBuilder};
-use crate::impls::{impl_type_path, impl_typed};
-use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
+use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
+use bevy_macro_utils::fq_std::{FQBox, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::Fields;
@@ -33,30 +33,6 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         ..
     } = TryApplyVariantBuilder::new(reflect_enum).build(&ref_value);
 
-    let hash_fn = reflect_enum
-        .meta()
-        .attrs()
-        .get_hash_impl(bevy_reflect_path)
-        .unwrap_or_else(|| {
-            quote! {
-                fn reflect_hash(&self) -> #FQOption<u64> {
-                    #bevy_reflect_path::enum_hash(self)
-                }
-            }
-        });
-    let debug_fn = reflect_enum.meta().attrs().get_debug_impl();
-    let partial_eq_fn = reflect_enum
-        .meta()
-        .attrs()
-        .get_partial_eq_impl(bevy_reflect_path)
-        .unwrap_or_else(|| {
-            quote! {
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
-                    #bevy_reflect_path::enum_partial_eq(self, value)
-                }
-            }
-        });
-
     let typed_impl = impl_typed(
         reflect_enum.meta(),
         &where_clause_options,
@@ -64,6 +40,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     );
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
+    let full_reflect_impl = impl_full_reflect(reflect_enum.meta(), &where_clause_options);
+    let common_methods = common_partial_reflect_methods(
+        reflect_enum.meta(),
+        || Some(quote!(#bevy_reflect_path::enum_partial_eq)),
+        || Some(quote!(#bevy_reflect_path::enum_hash)),
+    );
 
     #[cfg(not(feature = "functions"))]
     let function_impls = None::<proc_macro2::TokenStream>;
@@ -85,31 +67,33 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
 
         #type_path_impl
 
+        #full_reflect_impl
+
         #function_impls
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_path #ty_generics #where_reflect_clause {
-            fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
+            fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
                  match self {
                     #(#enum_field,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
+            fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
                 match self {
                     #(#enum_field_at,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
                  match self {
                     #(#enum_field,)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
                 match self {
                     #(#enum_field_at,)*
                     _ => #FQOption::None,
@@ -171,56 +155,24 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #enum_path #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect_path::PartialReflect for #enum_path #ty_generics #where_reflect_clause {
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
             #[inline]
-            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
-                self
-            }
-
-            #[inline]
-            fn as_any(&self) -> &dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
-                self
-            }
-
-            #[inline]
-            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
-                self
-            }
-
-            #[inline]
-            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
-                self
-            }
-
-            #[inline]
-            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
+            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
                 #FQBox::new(#bevy_reflect_path::Enum::clone_dynamic(self))
             }
 
             #[inline]
-            fn set(&mut self, #ref_value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
-                *self = <dyn #bevy_reflect_path::Reflect>::take(#ref_value)?;
-                #FQResult::Ok(())
-            }
-
-            #[inline]
-            fn try_apply(&mut self, #ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError>  {
-                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
+            fn try_apply(
+                &mut self,
+                #ref_value: &dyn #bevy_reflect_path::PartialReflect
+            ) -> #FQResult<(), #bevy_reflect_path::ApplyError>  {
+                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) =
+                    #bevy_reflect_path::PartialReflect::reflect_ref(#ref_value) {
                     if #bevy_reflect_path::Enum::variant_name(self) == #bevy_reflect_path::Enum::variant_name(#ref_value) {
                         // Same variant -> just update fields
                         match #bevy_reflect_path::Enum::variant_type(#ref_value) {
@@ -228,14 +180,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                                 for field in #bevy_reflect_path::Enum::iter_fields(#ref_value) {
                                     let name = field.name().unwrap();
                                     if let #FQOption::Some(v) = #bevy_reflect_path::Enum::field_mut(self, name) {
-                                       #bevy_reflect_path::Reflect::try_apply(v, field.value())?;
+                                       #bevy_reflect_path::PartialReflect::try_apply(v, field.value())?;
                                     }
                                 }
                             }
                             #bevy_reflect_path::VariantType::Tuple => {
                                 for (index, field) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Enum::iter_fields(#ref_value)) {
                                     if let #FQOption::Some(v) = #bevy_reflect_path::Enum::field_at_mut(self, index) {
-                                        #bevy_reflect_path::Reflect::try_apply(v, field.value())?;
+                                        #bevy_reflect_path::PartialReflect::try_apply(v, field.value())?;
                                     }
                                 }
                             }
@@ -260,7 +212,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 } else {
                     return #FQResult::Err(
                         #bevy_reflect_path::ApplyError::MismatchedKinds {
-                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                            from_kind: #bevy_reflect_path::PartialReflect::reflect_kind(#ref_value),
                             to_kind: #bevy_reflect_path::ReflectKind::Enum,
                         }
                     );
@@ -284,11 +236,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 #bevy_reflect_path::ReflectOwned::Enum(self)
             }
 
-            #hash_fn
-
-            #partial_eq_fn
-
-            #debug_fn
+            #common_methods
         }
     }
 }

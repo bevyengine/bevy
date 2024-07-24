@@ -515,6 +515,8 @@ pub enum UntypedAssetConversionError {
 
 #[cfg(test)]
 mod tests {
+    use bevy_reflect::PartialReflect;
+
     use super::*;
 
     type TestAsset = ();
@@ -651,7 +653,7 @@ mod tests {
                 );
 
                 let reflected: &dyn Reflect = &handle;
-                let cloned_handle: Box<dyn Reflect> = reflected.clone_value();
+                let cloned_handle: Box<dyn PartialReflect> = reflected.clone_value();
 
                 assert_eq!(
                     Arc::strong_count(strong),

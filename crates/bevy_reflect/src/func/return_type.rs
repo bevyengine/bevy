@@ -1,4 +1,4 @@
-use crate::Reflect;
+use crate::PartialReflect;
 
 /// The return type of a [`DynamicFunction`] or [`DynamicClosure`].
 ///
@@ -9,11 +9,11 @@ pub enum Return<'a> {
     /// The function returns nothing (i.e. it returns `()`).
     Unit,
     /// The function returns an owned value.
-    Owned(Box<dyn Reflect>),
+    Owned(Box<dyn PartialReflect>),
     /// The function returns a reference to a value.
-    Ref(&'a dyn Reflect),
+    Ref(&'a dyn PartialReflect),
     /// The function returns a mutable reference to a value.
-    Mut(&'a mut dyn Reflect),
+    Mut(&'a mut dyn PartialReflect),
 }
 
 impl<'a> Return<'a> {
@@ -27,7 +27,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Owned`].
-    pub fn unwrap_owned(self) -> Box<dyn Reflect> {
+    pub fn unwrap_owned(self) -> Box<dyn PartialReflect> {
         match self {
             Return::Owned(value) => value,
             _ => panic!("expected owned value"),
@@ -39,7 +39,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Ref`].
-    pub fn unwrap_ref(self) -> &'a dyn Reflect {
+    pub fn unwrap_ref(self) -> &'a dyn PartialReflect {
         match self {
             Return::Ref(value) => value,
             _ => panic!("expected reference value"),
@@ -51,7 +51,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Mut`].
-    pub fn unwrap_mut(self) -> &'a mut dyn Reflect {
+    pub fn unwrap_mut(self) -> &'a mut dyn PartialReflect {
         match self {
             Return::Mut(value) => value,
             _ => panic!("expected mutable reference value"),

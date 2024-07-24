@@ -1,6 +1,6 @@
 use crate::func::args::{Arg, ArgValue, FromArg};
 use crate::func::ArgError;
-use crate::{Reflect, TypePath};
+use crate::{PartialReflect, Reflect, TypePath};
 use std::collections::VecDeque;
 
 /// A list of arguments that can be passed to a [`DynamicFunction`], [`DynamicClosure`],
@@ -70,7 +70,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_ref(self, arg: &'a dyn Reflect) -> Self {
+    pub fn push_ref(self, arg: &'a dyn PartialReflect) -> Self {
         self.push_arg(ArgValue::Ref(arg))
     }
 
@@ -78,7 +78,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_mut(self, arg: &'a mut dyn Reflect) -> Self {
+    pub fn push_mut(self, arg: &'a mut dyn PartialReflect) -> Self {
         self.push_arg(ArgValue::Mut(arg))
     }
 
@@ -86,7 +86,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_owned(self, arg: impl Reflect) -> Self {
+    pub fn push_owned(self, arg: impl PartialReflect) -> Self {
         self.push_arg(ArgValue::Owned(Box::new(arg)))
     }
 
@@ -94,7 +94,7 @@ impl<'a> ArgList<'a> {
     ///
     /// If an argument was previously removed from the beginning of the list,
     /// this method will also re-index the list.
-    pub fn push_boxed(self, arg: Box<dyn Reflect>) -> Self {
+    pub fn push_boxed(self, arg: Box<dyn PartialReflect>) -> Self {
         self.push_arg(ArgValue::Owned(arg))
     }
 
