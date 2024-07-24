@@ -191,10 +191,12 @@ impl DynamicSet {
         self.insert_boxed(Box::new(value));
     }
 
+    #[allow(clippy::borrowed_box)]
     fn internal_hash(value: &Box<dyn Reflect>) -> u64 {
         value.reflect_hash().expect(hash_error!(value))
     }
 
+    #[allow(clippy::borrowed_box)]
     fn internal_eq(value: &Box<dyn Reflect>) -> impl FnMut(&Box<dyn Reflect>) -> bool + '_ {
         |other| {
             value
