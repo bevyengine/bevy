@@ -1,6 +1,10 @@
 //! This example demonstrates bounding volume intersections.
 
-use bevy::{color::palettes::css::*, math::bounding::*, prelude::*};
+use bevy::{
+    color::palettes::css::*,
+    math::{bounding::*, Isometry2d},
+    prelude::*,
+};
 
 fn main() {
     App::new()
@@ -146,26 +150,27 @@ fn update_volumes(
     for (entity, desired_volume, shape, transform) in query.iter() {
         let translation = transform.translation.xy();
         let rotation = transform.rotation.to_euler(EulerRot::YXZ).2;
+        let isometry = Isometry2d::new(translation, Rot2::radians(rotation));
         match desired_volume {
             DesiredVolume::Aabb => {
                 let aabb = match shape {
-                    Shape::Rectangle(r) => r.aabb_2d(translation, rotation),
-                    Shape::Circle(c) => c.aabb_2d(translation, rotation),
-                    Shape::Triangle(t) => t.aabb_2d(translation, rotation),
-                    Shape::Line(l) => l.aabb_2d(translation, rotation),
-                    Shape::Capsule(c) => c.aabb_2d(translation, rotation),
-                    Shape::Polygon(p) => p.aabb_2d(translation, rotation),
+                    Shape::Rectangle(r) => r.aabb_2d(isometry),
+                    Shape::Circle(c) => c.aabb_2d(isometry),
+                    Shape::Triangle(t) => t.aabb_2d(isometry),
+                    Shape::Line(l) => l.aabb_2d(isometry),
+                    Shape::Capsule(c) => c.aabb_2d(isometry),
+                    Shape::Polygon(p) => p.aabb_2d(isometry),
                 };
                 commands.entity(entity).insert(CurrentVolume::Aabb(aabb));
             }
             DesiredVolume::Circle => {
                 let circle = match shape {
-                    Shape::Rectangle(r) => r.bounding_circle(translation, rotation),
-                    Shape::Circle(c) => c.bounding_circle(translation, rotation),
-                    Shape::Triangle(t) => t.bounding_circle(translation, rotation),
-                    Shape::Line(l) => l.bounding_circle(translation, rotation),
-                    Shape::Capsule(c) => c.bounding_circle(translation, rotation),
-                    Shape::Polygon(p) => p.bounding_circle(translation, rotation),
+                    Shape::Rectangle(r) => r.bounding_circle(isometry),
+                    Shape::Circle(c) => c.bounding_circle(isometry),
+                    Shape::Triangle(t) => t.bounding_circle(isometry),
+                    Shape::Line(l) => l.bounding_circle(isometry),
+                    Shape::Capsule(c) => c.bounding_circle(isometry),
+                    Shape::Polygon(p) => p.bounding_circle(isometry),
                 };
                 commands
                     .entity(entity)
