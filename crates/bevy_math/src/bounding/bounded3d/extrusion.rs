@@ -7,7 +7,7 @@ use crate::primitives::{
     BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
     Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
-use crate::{Isometry3d, Quat};
+use crate::{Isometry2d, Isometry3d, Quat, Rot2};
 
 use crate::{bounding::Bounded2d, primitives::Circle};
 
@@ -229,7 +229,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
 
             // Calculate the `Aabb2d` of the base shape. The shape is rotated so that the line of intersection is parallel to the Y axis in the `Aabb2d` calculations.
             // This guarantees that the X value of the `Aabb2d` is closest to the `ax` plane
-            let aabb2d = self.aabb_2d(Vec2::ZERO, angle);
+            let aabb2d = self.aabb_2d(Isometry2d::from_rotation(Rot2::radians(angle)));
             (aabb2d.half_size().x * scale, aabb2d.center().x * scale)
         });
 
@@ -249,7 +249,7 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
         let BoundingCircle {
             center,
             circle: Circle { radius },
-        } = self.bounding_circle(Vec2::ZERO, 0.);
+        } = self.bounding_circle(Isometry2d::IDENTITY);
         let radius = radius.hypot(half_depth);
         let center = isometry.translation + isometry.rotation * Vec3A::from(center.extend(0.));
 

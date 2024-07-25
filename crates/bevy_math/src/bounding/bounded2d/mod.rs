@@ -1,7 +1,10 @@
 mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::prelude::{Mat2, Rot2, Vec2};
+use crate::{
+    prelude::{Mat2, Rot2, Vec2},
+    Isometry2d,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -22,10 +25,10 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rot2>) -> Aabb2d;
+    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d;
     /// Get a bounding circle for the shape
     /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn bounding_circle(&self, translation: Vec2, rotation: impl Into<Rot2>) -> BoundingCircle;
+    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle;
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle

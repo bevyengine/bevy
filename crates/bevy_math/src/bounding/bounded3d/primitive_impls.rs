@@ -8,7 +8,7 @@ use crate::{
         BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d,
         Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
     },
-    Isometry3d, Mat3, Vec2, Vec3,
+    Isometry2d, Isometry3d, Mat3, Vec2, Vec3,
 };
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
@@ -200,7 +200,7 @@ impl Bounded3d for Cone {
 
         // Because of circular symmetry, we can use the bounding circle of the triangle
         // for the bounding sphere of the cone.
-        let BoundingCircle { circle, center } = triangle.bounding_circle(Vec2::ZERO, 0.0);
+        let BoundingCircle { circle, center } = triangle.bounding_circle(Isometry2d::IDENTITY);
 
         BoundingSphere::new(
             isometry.rotation * Vec3A::from(center.extend(0.0)) + isometry.translation,
