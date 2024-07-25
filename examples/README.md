@@ -54,6 +54,7 @@ git checkout v0.4.0
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
+  - [Networking](#networking)
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
@@ -348,6 +349,12 @@ Example | Description
 Example | Description
 --- | ---
 [Run physics in a fixed timestep](../examples/movement/physics_in_fixed_timestep.rs) | Handles input, physics, and rendering in an industry-standard way by using a fixed timestep
+
+## Networking
+
+Example | Description
+--- | ---
+[Ping Pong](../examples/networking/ping_pong.rs) | Shows how the quic protocol can be used to sent datagrams
 
 ## Reflection
 
