@@ -297,6 +297,7 @@ fn simplify_meshlet_groups(
     let target_error = target_error_relative * mesh_scale;
 
     // Simplify the group to ~50% triangle count
+    // TODO: Simplify using vertex attributes
     let mut error = 0.0;
     let simplified_group_indices = simplify(
         &group_indices,
