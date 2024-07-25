@@ -50,6 +50,7 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
                 .looking_at(Vec3::ZERO, Vec3::Y),
+            msaa: Msaa::Off,
             ..default()
         },
         EnvironmentMapLight {

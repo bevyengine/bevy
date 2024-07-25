@@ -118,7 +118,7 @@ impl Mix for Lcha {
         Self {
             lightness: self.lightness * n_factor + other.lightness * factor,
             chroma: self.chroma * n_factor + other.chroma * factor,
-            hue: self.hue * n_factor + other.hue * factor,
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
