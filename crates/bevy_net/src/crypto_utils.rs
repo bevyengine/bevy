@@ -1,7 +1,7 @@
 //! Random cryptographic utilities
 
-use std::sync::Arc;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use std::sync::Arc;
 
 /// Dummy certificate verifier that treats any certificate as valid.
 /// NOTE, such verification is vulnerable to MITM attacks, but convenient for testing.

@@ -1,24 +1,24 @@
 //! Reimplementation of [`quinn`] types for use with bevy's runtime.
 //! Only available on platforms that support the standard library.
 
+use async_lock::RwLock;
+pub use quinn::udp::Transmit;
+use quinn::udp::{RecvMeta, UdpSockRef, UdpSocketState};
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::{io};
+use std::io;
 use std::io::{ErrorKind, IoSliceMut};
 use std::net::{SocketAddr, UdpSocket};
 use std::pin::Pin;
-use std::sync::{Arc};
+use std::sync::Arc;
 use std::task::{Context, Poll, Waker};
 use std::time::Instant;
-use async_lock::RwLock;
-use quinn::udp::{RecvMeta, UdpSocketState, UdpSockRef};
-pub use quinn::udp::Transmit;
 
-use static_init::dynamic;
 use bevy_tasks::IoTaskPool;
+use static_init::dynamic;
 
-pub use quinn::*;
 use bevy_tasks::futures_lite::future::yield_now;
+pub use quinn::*;
 
 /// A QUIC endpoint.
 ///
@@ -33,14 +33,18 @@ pub struct EndPoint(Endpoint);
 // in quinn not being reexported. A pr with a fix (https://github.com/quinn-rs/quinn/pull/1920#event-13538285399)
 // as of the 25th of july 2024, a new update with that fix and other stuff should be out in "about a week"
 impl EndPoint {
-
     /// Construct an endpoint with arbitrary configuration and socket
     pub fn new(
         config: EndpointConfig,
         server_config: Option<ServerConfig>,
-        socket: UdpSocket
+        socket: UdpSocket,
     ) -> io::Result<Self> {
-        Ok(Self(Endpoint::new(config, server_config, socket, RUNTIME.clone())?))
+        Ok(Self(Endpoint::new(
+            config,
+            server_config,
+            socket,
+            RUNTIME.clone(),
+        )?))
     }
 
     /// Helper to construct an endpoint for use with both incoming and outgoing connections
@@ -50,13 +54,11 @@ impl EndPoint {
     /// addresses. Portable applications should bind an address that matches the family they wish to
     /// communicate within.
     pub fn server(config: ServerConfig, addr: SocketAddr) -> io::Result<Self> {
-        Ok(
-            Self::new(
-                EndpointConfig::default(),
-                Some(config),
-                UdpSocket::bind(addr)?
-            )?
-        )
+        Ok(Self::new(
+            EndpointConfig::default(),
+            Some(config),
+            UdpSocket::bind(addr)?,
+        )?)
     }
 
     /// Helper to construct an endpoint for use with outgoing connections only
@@ -70,11 +72,7 @@ impl EndPoint {
     /// addresses. Portable applications should bind an address that matches the family they wish to
     /// communicate within.
     pub fn client(addr: SocketAddr) -> io::Result<Self> {
-        Self::new(
-                EndpointConfig::default(),
-                None,
-                UdpSocket::bind(addr)?
-            )
+        Self::new(EndpointConfig::default(), None, UdpSocket::bind(addr)?)
     }
 
     /// Get the next incoming connection attempt from a client
@@ -101,14 +99,9 @@ impl EndPoint {
     ///
     /// May fail immediately due to configuration errors, or in the future if the connection could
     /// not be established.
-    pub fn connect(
-        &self,
-        addr: SocketAddr,
-        server_name: &str
-    ) -> Result<Connecting, ConnectError> {
+    pub fn connect(&self, addr: SocketAddr, server_name: &str) -> Result<Connecting, ConnectError> {
         self.0.connect(addr, server_name)
     }
-
 
     /// Connect to a remote endpoint using a custom configuration.
     ///
@@ -119,7 +112,7 @@ impl EndPoint {
         &self,
         config: ClientConfig,
         addr: SocketAddr,
-        server_name: &str
+        server_name: &str,
     ) -> Result<Connecting, ConnectError> {
         self.0.connect_with(config, addr, server_name)
     }
@@ -186,13 +179,12 @@ impl Runtime for BevyQuinnRuntime {
         Box::pin(IoTimer::new(i))
     }
 
-    fn spawn(&self, future: Pin<Box<dyn Future<Output=()> + Send>>) {
+    fn spawn(&self, future: Pin<Box<dyn Future<Output = ()> + Send>>) {
         IoTaskPool::get().spawn(future).detach();
     }
 
     fn wrap_udp_socket(&self, t: UdpSocket) -> io::Result<Arc<dyn AsyncUdpSocket>> {
-        QuinnUdp::new(t)
-            .map(|arc_quinn_udp| arc_quinn_udp as Arc<dyn AsyncUdpSocket>)
+        QuinnUdp::new(t).map(|arc_quinn_udp| arc_quinn_udp as Arc<dyn AsyncUdpSocket>)
     }
 }
 
@@ -210,34 +202,32 @@ impl Debug for QuinnUdp {
 
 impl QuinnUdp {
     fn new(socket: UdpSocket) -> Result<Arc<QuinnUdp>, io::Error> {
-
         let s = Arc::new(Self {
             state: UdpSocketState::new(UdpSockRef::from(&socket))?,
-            socket: socket,
+            socket,
             waiting: RwLock::new(Vec::default()),
         });
 
         let downgraded = Arc::downgrade(&s);
-        
-        IoTaskPool::get().spawn(async move {
 
-            loop {
-                if let Some(socket) = downgraded.upgrade() {
-                    match socket.socket.send_to(&[], "127.0.0.1:5000") {
-                        Ok(_) => {
-                            let mut lock = socket.waiting.write().await;
+        IoTaskPool::get()
+            .spawn(async move {
+                loop {
+                    if let Some(socket) = downgraded.upgrade() {
+                        match socket.socket.send_to(&[], "127.0.0.1:5000") {
+                            Ok(_) => {
+                                let mut lock = socket.waiting.write().await;
 
-                            for waker in lock.drain(..) {
-                                waker.wake();
+                                for waker in lock.drain(..) {
+                                    waker.wake();
+                                }
                             }
-                        }
-                        Err(e) => {
-                            match e.kind() {
-                                ErrorKind::InvalidInput |
-                                ErrorKind::InvalidData |
-                                ErrorKind::TimedOut |
-                                ErrorKind::Interrupted |
-                                ErrorKind::OutOfMemory => {}
+                            Err(e) => match e.kind() {
+                                ErrorKind::InvalidInput
+                                | ErrorKind::InvalidData
+                                | ErrorKind::TimedOut
+                                | ErrorKind::Interrupted
+                                | ErrorKind::OutOfMemory => {}
                                 _ => {
                                     let mut lock = socket.waiting.write().await;
 
@@ -245,15 +235,15 @@ impl QuinnUdp {
                                         waker.wake();
                                     }
                                 }
-                            }
+                            },
                         }
+                        yield_now().await
+                    } else {
+                        return;
                     }
-                    yield_now().await
-                } else {
-                    return;
                 }
-            }
-        }).detach();
+            })
+            .detach();
 
         Ok(s)
     }
@@ -284,27 +274,26 @@ impl AsyncUdpSocket for QuinnUdp {
         self.state.send(UdpSockRef::from(&self.socket), transmit)
     }
 
-    fn poll_recv(&self, cx: &mut Context, bufs: &mut [IoSliceMut<'_>], meta: &mut [RecvMeta]) -> Poll<io::Result<usize>> {
+    fn poll_recv(
+        &self,
+        cx: &mut Context,
+        bufs: &mut [IoSliceMut<'_>],
+        meta: &mut [RecvMeta],
+    ) -> Poll<io::Result<usize>> {
         match self.state.recv(UdpSockRef::from(&self.socket), bufs, meta) {
-            Ok(n) => {
-                Poll::Ready(Ok(n))
-            }
-            Err(error) => {
-                match error.kind() {
-                    ErrorKind::WouldBlock => {
-                        let waker = cx.waker().clone();
+            Ok(n) => Poll::Ready(Ok(n)),
+            Err(error) => match error.kind() {
+                ErrorKind::WouldBlock => {
+                    let waker = cx.waker().clone();
 
-                        IoTaskPool::get().spawn(async move {
-                            waker.wake()
-                        }).detach();
+                    IoTaskPool::get()
+                        .spawn(async move { waker.wake() })
+                        .detach();
 
-                        Poll::Pending
-                    },
-                    _ => {
-                        Poll::Ready(Err(error))
-                    }
+                    Poll::Pending
                 }
-            }
+                _ => Poll::Ready(Err(error)),
+            },
         }
     }
 
@@ -320,9 +309,7 @@ pub struct IoTimer {
 
 impl IoTimer {
     pub fn new(expiry: Instant) -> Self {
-        Self {
-            expiry
-        }
+        Self { expiry }
     }
 
     pub fn reset(&mut self, new_expiry: Instant) -> &mut Self {
@@ -352,12 +339,12 @@ impl Future for IoTimer {
         let now = Instant::now();
 
         if now >= self.expiry {
-            return Poll::Ready(())
+            return Poll::Ready(());
         }
         let waker = cx.waker().clone();
-        IoTaskPool::get().spawn(async move {
-            waker.wake()
-        }).detach();
+        IoTaskPool::get()
+            .spawn(async move { waker.wake() })
+            .detach();
         Poll::Pending
     }
 }

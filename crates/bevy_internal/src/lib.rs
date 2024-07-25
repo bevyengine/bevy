@@ -42,6 +42,8 @@ pub use bevy_hierarchy as hierarchy;
 pub use bevy_input as input;
 pub use bevy_log as log;
 pub use bevy_math as math;
+#[cfg(any(feature = "tls", feature = "quic"))]
+pub use bevy_net as net;
 #[cfg(feature = "bevy_pbr")]
 pub use bevy_pbr as pbr;
 #[cfg(feature = "bevy_picking")]
@@ -67,5 +69,3 @@ pub use bevy_utils as utils;
 pub use bevy_window as window;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;
-#[cfg(any(feature = "tls", feature = "quic"))]
-pub use bevy_net as net;
