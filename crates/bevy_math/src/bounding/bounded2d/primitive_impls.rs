@@ -64,8 +64,7 @@ impl Bounded2d for Arc2d {
         }
 
         Aabb2d::from_point_cloud(
-            isometry.translation,
-            0.0,
+            Isometry2d::from_translation(isometry.translation),
             &arc_bounding_points(*self, isometry.rotation),
         )
     }
@@ -96,7 +95,7 @@ impl Bounded2d for CircularSector {
         let mut bounds = arc_bounding_points(self.arc, isometry.rotation);
         bounds.push(Vec2::ZERO);
 
-        Aabb2d::from_point_cloud(isometry.translation, 0.0, &bounds)
+        Aabb2d::from_point_cloud(Isometry2d::from_translation(isometry.translation), &bounds)
     }
 
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
@@ -251,21 +250,21 @@ impl Bounded2d for Segment2d {
 
 impl<const N: usize> Bounded2d for Polyline2d<N> {
     fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        BoundingCircle::from_point_cloud(isometry, &self.vertices)
     }
 }
 
 impl Bounded2d for BoxedPolyline2d {
     fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        BoundingCircle::from_point_cloud(isometry, &self.vertices)
     }
 }
 
@@ -331,21 +330,21 @@ impl Bounded2d for Rectangle {
 
 impl<const N: usize> Bounded2d for Polygon<N> {
     fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        BoundingCircle::from_point_cloud(isometry, &self.vertices)
     }
 }
 
 impl Bounded2d for BoxedPolygon {
     fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        BoundingCircle::from_point_cloud(isometry, &self.vertices)
     }
 }
 

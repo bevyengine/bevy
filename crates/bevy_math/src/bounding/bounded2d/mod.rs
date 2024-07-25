@@ -54,20 +54,15 @@ impl Aabb2d {
     }
 
     /// Computes the smallest [`Aabb2d`] containing the given set of points,
-    /// transformed by `translation` and `rotation`.
+    /// transformed by the rotation and translation of the given isometry.
     ///
     /// # Panics
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
-    pub fn from_point_cloud(
-        translation: Vec2,
-        rotation: impl Into<Rot2>,
-        points: &[Vec2],
-    ) -> Aabb2d {
+    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> Aabb2d {
         // Transform all points by rotation
-        let rotation: Rot2 = rotation.into();
-        let mut iter = points.iter().map(|point| rotation * *point);
+        let mut iter = points.iter().map(|point| isometry.rotation * *point);
 
         let first = iter
             .next()
@@ -78,8 +73,8 @@ impl Aabb2d {
         });
 
         Aabb2d {
-            min: min + translation,
-            max: max + translation,
+            min: min + isometry.translation,
+            max: max + isometry.translation,
         }
     }
 
@@ -475,16 +470,11 @@ impl BoundingCircle {
     }
 
     /// Computes a [`BoundingCircle`] containing the given set of points,
-    /// transformed by `translation` and `rotation`.
+    /// transformed by the rotation and translation of the given isometry.
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
-    pub fn from_point_cloud(
-        translation: Vec2,
-        rotation: impl Into<Rot2>,
-        points: &[Vec2],
-    ) -> BoundingCircle {
-        let rotation: Rot2 = rotation.into();
+    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> BoundingCircle {
         let center = point_cloud_2d_center(points);
         let mut radius_squared = 0.0;
 
@@ -496,7 +486,7 @@ impl BoundingCircle {
             }
         }
 
-        BoundingCircle::new(rotation * center + translation, radius_squared.sqrt())
+        BoundingCircle::new(isometry * center, radius_squared.sqrt())
     }
 
     /// Get the radius of the bounding circle

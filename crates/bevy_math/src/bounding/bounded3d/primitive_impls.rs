@@ -81,29 +81,21 @@ impl Bounded3d for Segment3d {
 
 impl<const N: usize> Bounded3d for Polyline3d<N> {
     fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
-        Aabb3d::from_point_cloud(
-            isometry.translation,
-            isometry.rotation,
-            self.vertices.iter().copied(),
-        )
+        Aabb3d::from_point_cloud(isometry, self.vertices.iter().copied())
     }
 
     fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
-        BoundingSphere::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        BoundingSphere::from_point_cloud(isometry, &self.vertices)
     }
 }
 
 impl Bounded3d for BoxedPolyline3d {
     fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d {
-        Aabb3d::from_point_cloud(
-            isometry.translation,
-            isometry.rotation,
-            self.vertices.iter().copied(),
-        )
+        Aabb3d::from_point_cloud(isometry, self.vertices.iter().copied())
     }
 
     fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
-        BoundingSphere::from_point_cloud(isometry.translation, isometry.rotation, &self.vertices)
+        BoundingSphere::from_point_cloud(isometry, &self.vertices)
     }
 }
 
