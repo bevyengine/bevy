@@ -64,7 +64,7 @@ exceptions = [
   ] },
   { name = "ring", allow = [
     "unlicensed",
-  ]},
+  ] },
 ]
 
 [bans]
