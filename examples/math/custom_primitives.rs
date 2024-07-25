@@ -6,8 +6,11 @@ use std::f32::consts::{PI, SQRT_2};
 use bevy::{
     color::palettes::css::{RED, WHITE},
     input::common_conditions::input_just_pressed,
-    math::bounding::{
-        Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
+    math::{
+        bounding::{
+            Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
+        },
+        Isometry2d,
     },
     prelude::*,
     render::{
@@ -199,18 +202,20 @@ fn bounding_shapes_2d(
     for transform in shapes.iter() {
         // Get the rotation angle from the 3D rotation.
         let rotation = transform.rotation.to_scaled_axis().z;
+        let rotation = Rot2::radians(rotation);
+        let isometry = Isometry2d::new(transform.translation.xy(), rotation);
 
         match bounding_shape.get() {
             BoundingShape::None => (),
             BoundingShape::BoundingBox => {
                 // Get the AABB of the primitive with the rotation and translation of the mesh.
-                let aabb = HEART.aabb_2d(transform.translation.xy(), rotation);
+                let aabb = HEART.aabb_2d(isometry);
 
                 gizmos.rect_2d(aabb.center(), 0., aabb.half_size() * 2., WHITE);
             }
             BoundingShape::BoundingSphere => {
                 // Get the bounding sphere of the primitive with the rotation and translation of the mesh.
-                let bounding_circle = HEART.bounding_circle(transform.translation.xy(), rotation);
+                let bounding_circle = HEART.bounding_circle(isometry);
 
                 gizmos
                     .circle_2d(bounding_circle.center(), bounding_circle.radius(), WHITE)
@@ -240,7 +245,7 @@ fn bounding_shapes_3d(
             BoundingShape::None => (),
             BoundingShape::BoundingBox => {
                 // Get the AABB of the extrusion with the rotation and translation of the mesh.
-                let aabb = EXTRUSION.aabb_3d(transform.translation, transform.rotation);
+                let aabb = EXTRUSION.aabb_3d(transform.to_isometry());
 
                 gizmos.primitive_3d(
                     &Cuboid::from_size(Vec3::from(aabb.half_size()) * 2.),
@@ -251,8 +256,7 @@ fn bounding_shapes_3d(
             }
             BoundingShape::BoundingSphere => {
                 // Get the bounding sphere of the extrusion with the rotation and translation of the mesh.
-                let bounding_sphere =
-                    EXTRUSION.bounding_sphere(transform.translation, transform.rotation);
+                let bounding_sphere = EXTRUSION.bounding_sphere(transform.to_isometry());
 
                 gizmos.sphere(
                     bounding_sphere.center().into(),
