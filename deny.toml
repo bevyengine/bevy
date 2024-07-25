@@ -64,6 +64,9 @@ exceptions = [
   { name = "symphonia-utils-xiph", allow = [
     "MPL-2.0",
   ] },
+  { name = "webpki-roots", allow = [
+    "MPL-2.0",
+  ] },
 ]
 
 [bans]
