@@ -1,11 +1,10 @@
-use std::io::{Read, Write};
-use std::net::ToSocketAddrs;
-
 #[cfg(feature = "tls")]
 pub use rustls;
 
 #[cfg(feature = "quic")]
+#[allow(missing_docs)]
 pub mod quic;
 
 #[cfg(feature = "tls")]
+#[allow(missing_docs)]
 pub mod crypto_utils;

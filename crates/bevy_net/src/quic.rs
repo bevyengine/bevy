@@ -54,11 +54,11 @@ impl EndPoint {
     /// addresses. Portable applications should bind an address that matches the family they wish to
     /// communicate within.
     pub fn server(config: ServerConfig, addr: SocketAddr) -> io::Result<Self> {
-        Ok(Self::new(
+        Self::new(
             EndpointConfig::default(),
             Some(config),
             UdpSocket::bind(addr)?,
-        )?)
+        )
     }
 
     /// Helper to construct an endpoint for use with outgoing connections only
@@ -164,7 +164,7 @@ impl EndPoint {
     ///
     /// [`close()`]: Self::close
     pub async fn wait_idle(&self) {
-        self.0.wait_idle().await
+        self.0.wait_idle().await;
     }
 }
 
@@ -303,7 +303,7 @@ impl AsyncUdpSocket for QuinnUdp {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct IoTimer {
+struct IoTimer {
     expiry: Instant,
 }
 

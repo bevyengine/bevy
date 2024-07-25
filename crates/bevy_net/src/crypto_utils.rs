@@ -1,4 +1,4 @@
-//! Random cryptographic utilities
+//! Extra cryptographic utilities
 
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use std::sync::Arc;
@@ -9,6 +9,7 @@ use std::sync::Arc;
 pub struct SkipServerVerification(Arc<rustls::crypto::CryptoProvider>);
 
 impl SkipServerVerification {
+    /// Creates a new instance of this object
     pub fn new() -> Arc<Self> {
         Arc::new(Self(Arc::new(rustls::crypto::ring::default_provider())))
     }

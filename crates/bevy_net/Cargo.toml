@@ -2,7 +2,7 @@
 name = "bevy_net"
 version = "0.15.0-dev"
 edition = "2021"
-description = "Provides networking primitves and netcode for bevy"
+description = "Provides networking primitives and netcode for bevy"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
@@ -15,10 +15,15 @@ async-lock = { version = "3.4.0", optional = true }
 
 #same versions as used by quinn to reduce compile times, we can update these as quinn updates.
 bytes = "1.0"
-rustls = { version = "0.23.0", optional = true, features = ["ring", "std"], default-features = false }
+rustls = { version = "0.23.0", optional = true, features = [
+  "ring",
+  "std",
+], default-features = false }
 
-quinn = { version = "0.11.2", optional = true, features = ["log", "platform-verifier"] }
-
+quinn = { version = "0.11.2", optional = true, features = [
+  "log",
+  "platform-verifier",
+] }
 [features]
 default = []
 
