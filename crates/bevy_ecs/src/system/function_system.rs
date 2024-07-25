@@ -516,6 +516,11 @@ where
     }
 
     #[inline]
+    fn resource_access(&self) -> &Access<ComponentId> {
+        &self.system_meta.resource_access
+    }
+
+    #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.system_meta.archetype_component_access
     }

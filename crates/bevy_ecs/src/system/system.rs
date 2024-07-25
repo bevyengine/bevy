@@ -39,6 +39,10 @@ pub trait System: Send + Sync + 'static {
     }
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
+
+    /// Returns the system's resource [`Access`].
+    fn resource_access(&self) -> &Access<ComponentId>;
+
     /// Returns the system's archetype component [`Access`].
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].

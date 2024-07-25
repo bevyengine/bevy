@@ -114,6 +114,7 @@ pub struct CombinatorSystem<Func, A, B> {
     a: A,
     b: B,
     name: Cow<'static, str>,
+    resource_access: Access<ComponentId>,
     component_access: Access<ComponentId>,
     archetype_component_access: Access<ArchetypeComponentId>,
 }
@@ -128,6 +129,7 @@ impl<Func, A, B> CombinatorSystem<Func, A, B> {
             a,
             b,
             name,
+            resource_access: Access::new(),
             component_access: Access::new(),
             archetype_component_access: Access::new(),
         }
@@ -149,6 +151,11 @@ where
 
     fn component_access(&self) -> &Access<ComponentId> {
         &self.component_access
+    }
+
+    #[inline]
+    fn resource_access(&self) -> &Access<ComponentId> {
+        &self.resource_access
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {

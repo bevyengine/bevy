@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 
 use super::{ReadOnlySystem, System};
-use crate::{schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCell};
+use crate::{
+    query::Access, schedule::InternedSystemSet, world::unsafe_world_cell::UnsafeWorldCell,
+};
 
 /// Customizes the behavior of an [`AdapterSystem`]
 ///
@@ -87,6 +89,11 @@ where
 
     fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
         self.system.component_access()
+    }
+
+    #[inline]
+    fn resource_access(&self) -> &Access<crate::component::ComponentId> {
+        self.system.resource_access()
     }
 
     #[inline]

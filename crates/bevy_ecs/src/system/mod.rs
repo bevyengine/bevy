@@ -1087,13 +1087,16 @@ mod tests {
         x.initialize(&mut world);
         y.initialize(&mut world);
 
-        let conflicts = x.component_access().get_conflicts(y.component_access());
+        let component_conflicts = x.component_access().get_conflicts(y.component_access());
+        let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
+        assert_eq!(component_conflicts, vec![d_id]);
+
+        let resource_conflicts = x.resource_access().get_conflicts(y.resource_access());
         let b_id = world
             .components()
             .get_resource_id(TypeId::of::<B>())
             .unwrap();
-        let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
-        assert_eq!(conflicts, vec![b_id, d_id]);
+        assert_eq!(resource_conflicts, vec![b_id]);
     }
 
     #[test]

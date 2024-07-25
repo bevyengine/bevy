@@ -699,13 +699,15 @@ unsafe impl SystemParam for &'_ World {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
 
+        system_meta.component_access_set.add(filtered_access);
+
         let mut resource_access: Access<ComponentId> = Access::default();
         resource_access.read_all();
         if !system_meta.resource_access.is_compatible(&resource_access) {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
 
-        system_meta.component_access_set.add(filtered_access);
+        system_meta.resource_access.extend(&resource_access);
     }
 
     unsafe fn get_param<'w, 's>(

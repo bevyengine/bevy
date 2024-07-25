@@ -1360,11 +1360,25 @@ impl ScheduleGraph {
             if system_a.is_exclusive() || system_b.is_exclusive() {
                 conflicting_systems.push((a, b, Vec::new()));
             } else {
-                let access_a = system_a.component_access();
-                let access_b = system_b.component_access();
-                if !access_a.is_compatible(access_b) {
-                    let conflicts: Vec<_> = access_a
-                        .get_conflicts(access_b)
+                let component_access_a = system_a.component_access();
+                let component_access_b = system_b.component_access();
+                if !component_access_a.is_compatible(component_access_b) {
+                    let conflicts: Vec<_> = component_access_a
+                        .get_conflicts(component_access_b)
+                        .into_iter()
+                        .filter(|id| !ignored_ambiguities.contains(id))
+                        .collect();
+
+                    if !conflicts.is_empty() {
+                        conflicting_systems.push((a, b, conflicts));
+                    }
+                }
+
+                let resource_access_a = system_a.resource_access();
+                let resource_access_b = system_b.resource_access();
+                if !resource_access_a.is_compatible(resource_access_b) {
+                    let conflicts: Vec<_> = resource_access_a
+                        .get_conflicts(resource_access_b)
                         .into_iter()
                         .filter(|id| !ignored_ambiguities.contains(id))
                         .collect();
