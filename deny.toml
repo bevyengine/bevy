@@ -65,6 +65,9 @@ exceptions = [
   { name = "webpki-roots", allow = [
     "MPL-2.0",
   ] },
+  { name = "ring", allow = [
+    "OpenSSL"
+  ] },
 ]
 
 [[licenses.clarify]]
