@@ -21,13 +21,11 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
     points.iter().fold(Vec2::ZERO, |acc, point| acc + *point) * denom
 }
 
-/// A trait with methods that return 2D bounded volumes for a shape
+/// A trait with methods that return 2D bounding volumes for a shape.
 pub trait Bounded2d {
-    /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
-    /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
+    /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
     fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d;
-    /// Get a bounding circle for the shape
-    /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
+    /// Get a bounding circle for the shape translated and rotated by the given isometry.
     fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle;
 }
 
