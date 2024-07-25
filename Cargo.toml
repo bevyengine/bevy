@@ -3345,6 +3345,8 @@ required-features = ["quic", "tls"]
 [package.metadata.example.ping_pong]
 name = "Ping Pong"
 description = "Shows how the quic protocol can be used to sent datagrams"
+category = "Networking"
+wasm = false
 
 [profile.wasm-release]
 inherits = "release"
