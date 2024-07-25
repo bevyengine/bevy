@@ -350,7 +350,7 @@ pub fn extract_lights(
             continue;
         }
 
-        // TODO: re-use the memory
+        // TODO: update in place instead of reinserting.
         let mut extracted_cascades = EntityHashMap::default();
         let mut extracted_frusta = EntityHashMap::default();
         let mut cascade_visible_entities = EntityHashMap::default();
