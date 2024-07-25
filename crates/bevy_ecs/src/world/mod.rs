@@ -9,6 +9,9 @@ mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
+#[cfg(feature = "bevy_reflect")]
+pub mod reflect;
+
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -164,6 +167,7 @@ impl World {
     fn bootstrap(&mut self) {
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
+        assert_eq!(ON_REPLACE, self.init_component::<OnReplace>());
         assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
     }
     /// Creates a new empty [`World`].
@@ -812,8 +816,8 @@ impl World {
         unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
     }
 
-    /// Gets mutable access to multiple entities, contained in a [`HashSet`].
-    /// The uniqueness of items in a [`HashSet`] allows us to avoid checking for duplicates.
+    /// Gets mutable access to multiple entities, contained in a [`EntityHashSet`].
+    /// The uniqueness of items in a [`EntityHashSet`] allows us to avoid checking for duplicates.
     ///
     /// # Errors
     ///
@@ -1104,7 +1108,7 @@ impl World {
             entity.despawn();
             true
         } else {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", entity);
+            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
             false
         }
     }
@@ -2037,7 +2041,7 @@ impl World {
         }
     }
 
-    /// Calls both [`World::flush_entities`] and [`World::flush_commands`].
+    /// Flushes queued entities and calls [`World::flush_commands`].
     #[inline]
     pub fn flush(&mut self) {
         self.flush_entities();
@@ -2059,9 +2063,16 @@ impl World {
     }
 
     /// Increments the world's current change tick and returns the old value.
+    ///
+    /// If you need to call this method, but do not have `&mut` access to the world,
+    /// consider using [`as_unsafe_world_cell_readonly`](Self::as_unsafe_world_cell_readonly)
+    /// to obtain an [`UnsafeWorldCell`] and calling [`increment_change_tick`](UnsafeWorldCell::increment_change_tick) on that.
+    /// Note that this *can* be done in safe code, despite the name of the type.
     #[inline]
-    pub fn increment_change_tick(&self) -> Tick {
-        let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);
+    pub fn increment_change_tick(&mut self) -> Tick {
+        let change_tick = self.change_tick.get_mut();
+        let prev_tick = *change_tick;
+        *change_tick = change_tick.wrapping_add(1);
         Tick::new(prev_tick)
     }
 

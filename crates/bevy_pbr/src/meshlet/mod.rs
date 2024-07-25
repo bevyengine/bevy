@@ -30,7 +30,7 @@ pub(crate) use self::{
     },
 };
 
-pub use self::asset::*;
+pub use self::asset::{MeshletMesh, MeshletMeshSaverLoader};
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
@@ -105,7 +105,8 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
 /// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
-/// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
+/// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
+/// [`Msaa`] set to [`Msaa::Off`].
 ///
 /// This plugin does not work on WASM.
 ///
@@ -118,6 +119,9 @@ pub struct MeshletPlugin;
 
 impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_endian = "big")]
+        compile_error!("MeshletPlugin is only supported on little-endian processors.");
+
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
@@ -168,8 +172,7 @@ impl Plugin for MeshletPlugin {
         );
 
         app.init_asset::<MeshletMesh>()
-            .register_asset_loader(MeshletMeshSaverLoad)
-            .insert_resource(Msaa::Off)
+            .register_asset_loader(MeshletMeshSaverLoader)
             .add_systems(
                 PostUpdate,
                 check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
@@ -279,15 +282,20 @@ fn configure_meshlet_views(
     mut views_3d: Query<(
         Entity,
         &mut Camera3d,
+        &Msaa,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
     )>,
     mut commands: Commands,
 ) {
-    for (entity, mut camera_3d, normal_prepass, motion_vector_prepass, deferred_prepass) in
+    for (entity, mut camera_3d, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in
         &mut views_3d
     {
+        if *msaa != Msaa::Off {
+            panic!("MeshletPlugin can't be used. MSAA is not supported.");
+        }
+
         let mut usages: TextureUsages = camera_3d.depth_texture_usages.into();
         usages |= TextureUsages::TEXTURE_BINDING;
         camera_3d.depth_texture_usages = usages.into();

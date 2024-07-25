@@ -6,7 +6,7 @@ mod file_asset;
 #[cfg(not(feature = "multi_threaded"))]
 mod sync_file_asset;
 
-use bevy_utils::tracing::error;
+use bevy_utils::tracing::{debug, error};
 #[cfg(feature = "file_watcher")]
 pub use file_watcher::*;
 
@@ -41,6 +41,10 @@ impl FileAssetReader {
     /// See `get_base_path` below.
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         let root_path = Self::get_base_path().join(path.as_ref());
+        debug!(
+            "Asset Server using {} as its base path.",
+            root_path.display()
+        );
         Self { root_path }
     }
 

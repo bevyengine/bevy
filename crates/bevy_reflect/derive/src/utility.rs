@@ -227,6 +227,9 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
                 quote!(
                     #ty : #reflect_bound
                         + #bevy_reflect_path::TypePath
+                        // Needed for `Typed` impls
+                        + #bevy_reflect_path::MaybeTyped
+                        // Needed for `GetTypeRegistration` impls
                         + #bevy_reflect_path::__macro_exports::RegisterForReflection
                 )
             }))

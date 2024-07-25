@@ -744,7 +744,7 @@ impl Image {
                 let image_crate_format = format
                     .as_image_crate_format()
                     .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
-                let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
+                let mut reader = image::ImageReader::new(std::io::Cursor::new(buffer));
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;

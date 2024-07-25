@@ -603,6 +603,7 @@ impl AnimationPlayer {
         self.active_animations.iter_mut()
     }
 
+    #[deprecated = "Use `animation_is_playing` instead"]
     /// Check if the given animation node is being played.
     pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
         self.active_animations.contains_key(&animation)
@@ -874,12 +875,12 @@ impl AnimationTargetContext<'_> {
             // Some curves have only one keyframe used to set a transform
             if curve.keyframe_timestamps.len() == 1 {
                 self.apply_single_keyframe(curve, weight);
-                return;
+                continue;
             }
 
             // Find the current keyframe
             let Some(step_start) = curve.find_current_keyframe(seek_time) else {
-                return;
+                continue;
             };
 
             let timestamp_start = curve.keyframe_timestamps[step_start];

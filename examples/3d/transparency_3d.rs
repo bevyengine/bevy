@@ -6,7 +6,6 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, fade_transparency)
