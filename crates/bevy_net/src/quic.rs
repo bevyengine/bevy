@@ -77,8 +77,8 @@ impl EndPoint {
 
     /// Get the next incoming connection attempt from a client
     ///
-    /// Yields [`Incoming`](quinn::Incoming)s, or `None` if the endpoint is [`close`](Self::close)d. [`Incoming`]
-    /// can be `await`ed to obtain the final [`Connection`](quinn::Connection), or used to e.g.
+    /// Yields [`Incoming`](Incoming)s, or `None` if the endpoint is [`close`](Self::close)d. [`Incoming`]
+    /// can be `await`ed to obtain the final [`Connection`](Connection), or used to e.g.
     /// filter connection attempts or force address validation, or converted into an intermediate
     /// `Connecting` future which can be used to e.g. send 0.5-RTT data.
 
@@ -131,7 +131,7 @@ impl EndPoint {
     ///
     /// Useful for e.g. refreshing TLS certificates without disrupting existing connections.
     pub fn set_server_config(&self, server_config: Option<ServerConfig>) {
-        self.0.set_server_config(server_config)
+        self.0.set_server_config(server_config);
     }
 
     /// Get the local `SocketAddr` the underlying socket is bound to
@@ -146,9 +146,9 @@ impl EndPoint {
 
     /// Close all of this endpoint's connections immediately and cease accepting new connections.
     ///
-    /// See [`Connection::close()`](quinn::Connection) for details.
+    /// See [`Connection::close()`](Connection) for details.
     ///
-    /// [`Connection::close()`](quinn::Connection)
+    /// [`Connection::close()`](Connection)
     pub fn close(&self, error_code: VarInt, reason: &[u8]) {
         self.0.close(error_code, reason);
     }
@@ -237,7 +237,7 @@ impl QuinnUdp {
                                 }
                             },
                         }
-                        yield_now().await
+                        yield_now().await;
                     } else {
                         return;
                     }
@@ -308,17 +308,8 @@ struct IoTimer {
 }
 
 impl IoTimer {
-    pub fn new(expiry: Instant) -> Self {
+    fn new(expiry: Instant) -> Self {
         Self { expiry }
-    }
-
-    pub fn reset(&mut self, new_expiry: Instant) -> &mut Self {
-        self.expiry = new_expiry;
-        self
-    }
-
-    pub fn expires(&self) -> Instant {
-        self.expiry
     }
 }
 

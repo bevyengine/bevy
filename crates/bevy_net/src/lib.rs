@@ -1,3 +1,5 @@
+//! The place where netcode and networking utilities for bevy live.
+
 #[cfg(feature = "tls")]
 pub use rustls;
 

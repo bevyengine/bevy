@@ -130,7 +130,7 @@ fn start_ping_pong() {
 
                 while Instant::now() - start < Duration::from_millis(1000) {
                     if let Some(incoming) = server.accept().await {
-                        assert!(incoming.remote_address() == client_addr);
+                        assert_eq!(incoming.remote_address(), client_addr);
                         return (server, incoming.accept().unwrap().await.unwrap());
                     }
                 }
@@ -139,9 +139,9 @@ fn start_ping_pong() {
             });
 
             // Wait for the client and server to connect to each other
-            let (client_connection, client) = connecting.await;
+            let (client_connection, _client) = connecting.await;
 
-            let (server, server_connection) = listening.await;
+            let (_server, server_connection) = listening.await;
 
             // Create and spawn a task that sends pings from the client,
             // then awaits a response from the server,
