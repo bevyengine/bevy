@@ -357,6 +357,7 @@ pub fn prepare_meshlet_per_frame_resources(
             }
         };
 
+        // TODO: Remove this once wgpu allows render passes with no attachments
         let dummy_render_target = texture_cache.get(
             &render_device,
             TextureDescriptor {
