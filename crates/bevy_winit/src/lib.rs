@@ -32,7 +32,7 @@ use system::{changed_windows, despawn_windows};
 pub use winit::event_loop::EventLoopProxy;
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]
 pub use winit::platform::web::CustomCursorExtWebSys;
-pub use winit::window::{CursorIcon, CustomCursor, CustomCursorSource};
+pub use winit::window::{CustomCursor as WinitCustomCursor, CustomCursorSource};
 pub use winit_config::*;
 pub use winit_event::*;
 pub use winit_windows::*;

@@ -96,7 +96,7 @@ pub fn update_cursors(
 
                     let width = image.texture_descriptor.size.width;
                     let height = image.texture_descriptor.size.height;
-                    let source = match bevy_winit::CustomCursor::from_rgba(
+                    let source = match bevy_winit::WinitCustomCursor::from_rgba(
                         rgba,
                         width as u16,
                         height as u16,
@@ -122,7 +122,7 @@ pub fn update_cursors(
                 } else {
                     use bevy_winit::CustomCursorExtWebSys;
                     let source =
-                        bevy_winit::CustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
+                        bevy_winit::WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
                     CursorSource::Custom((cache_key, source))
                 }
             }
