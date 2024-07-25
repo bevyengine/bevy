@@ -668,8 +668,8 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             },
         );
         transparent_phase
-        .items
-        .reserve(extracted_uinodes.uinodes.len());
+            .items
+            .reserve(extracted_uinodes.uinodes.len());
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
