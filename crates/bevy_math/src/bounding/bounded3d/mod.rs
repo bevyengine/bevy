@@ -4,7 +4,7 @@ mod primitive_impls;
 use glam::Mat3;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::{Quat, Vec3, Vec3A};
+use crate::{Isometry3d, Quat, Vec3A};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -26,10 +26,10 @@ fn point_cloud_3d_center(points: impl Iterator<Item = impl Into<Vec3A>>) -> Vec3
 
 /// A trait with methods that return 3D bounded volumes for a shape
 pub trait Bounded3d {
-    /// Get an axis-aligned bounding box for the shape with the given translation and rotation
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d;
-    /// Get a bounding sphere for the shape with the given translation and rotation
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere;
+    /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
+    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d;
+    /// Get a bounding sphere for the shape translated and rotated by the given isometry.
+    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere;
 }
 
 /// A 3D axis-aligned bounding box
