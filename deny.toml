@@ -6,6 +6,8 @@ version = 2
 ignore = []
 
 [licenses]
+#required by ring and friends
+unlicensed = "warn"
 version = 2
 allow = [
   "0BSD",
@@ -61,9 +63,6 @@ exceptions = [
   ] },
   { name = "symphonia-utils-xiph", allow = [
     "MPL-2.0",
-  ] },
-  { name = "ring", allow = [
-    "unlicensed",
   ] },
 ]
 
