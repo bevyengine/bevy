@@ -35,7 +35,7 @@ impl Bounded3d for InfinitePlane3d {
         let half_width = if facing_x { 0.0 } else { f32::MAX / 2.0 };
         let half_height = if facing_y { 0.0 } else { f32::MAX / 2.0 };
         let half_depth = if facing_z { 0.0 } else { f32::MAX / 2.0 };
-        let half_size = Vec3::new(half_width, half_height, half_depth);
+        let half_size = Vec3A::new(half_width, half_height, half_depth);
 
         Aabb3d::new(isometry.translation, half_size)
     }
@@ -55,7 +55,7 @@ impl Bounded3d for Line3d {
         let half_width = if direction.x == 0.0 { 0.0 } else { max };
         let half_height = if direction.y == 0.0 { 0.0 } else { max };
         let half_depth = if direction.z == 0.0 { 0.0 } else { max };
-        let half_size = Vec3::new(half_width, half_height, half_depth);
+        let half_size = Vec3A::new(half_width, half_height, half_depth);
 
         Aabb3d::new(isometry.translation, half_size)
     }
@@ -338,7 +338,7 @@ impl Bounded3d for Triangle3d {
 
             let circumcenter = self.circumcenter();
             let radius = circumcenter.distance(a);
-            BoundingSphere::new(circumcenter + Vec3::from(isometry.translation), radius)
+            BoundingSphere::new(Vec3A::from(circumcenter) + isometry.translation, radius)
         }
     }
 }
