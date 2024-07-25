@@ -198,6 +198,12 @@ bevy_state = ["dep:bevy_state"]
 # Enable function reflection
 reflect_functions = ["bevy_reflect/functions"]
 
+# Expose quic networking primitives
+quic = ["dep:bevy_net", "bevy_net/quic"]
+
+# Expose rustls
+tls = ["dep:bevy_net", "bevy_net/tls"]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }
@@ -239,6 +245,7 @@ bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.15.0-dev"
 bevy_text = { path = "../bevy_text", optional = true, version = "0.15.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.15.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.15.0-dev" }
+bevy_net = { path = "../bevy_net", optional = true, version = "0.15.0-dev", default-features = false }
 
 [lints]
 workspace = true

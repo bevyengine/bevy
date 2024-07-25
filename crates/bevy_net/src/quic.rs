@@ -29,9 +29,9 @@ use bevy_tasks::futures_lite::future::yield_now;
 #[derive(Debug, Clone)]
 pub struct EndPoint(Endpoint);
 
-// A couple of endpoint methods aren't reimplemented due to the relevant types
+// todo A couple of endpoint methods aren't reimplemented due to the relevant types
 // in quinn not being reexported. A pr with a fix (https://github.com/quinn-rs/quinn/pull/1920#event-13538285399)
-// has been merged so whenever the next update for quinn comes out we can implement the relevant methods.
+// as of the 25th of july 2024, a new update with that fix and other stuff should be out in "about a week"
 impl EndPoint {
 
     /// Construct an endpoint with arbitrary configuration and socket

@@ -67,6 +67,5 @@ pub use bevy_utils as utils;
 pub use bevy_window as window;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;
-
-//todo you added this
+#[cfg(any(feature = "tls", feature = "quic"))]
 pub use bevy_net as net;
