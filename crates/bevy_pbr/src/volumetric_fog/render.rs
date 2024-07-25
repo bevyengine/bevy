@@ -280,21 +280,19 @@ pub fn extract_volumetric_fog(
 
     for (entity, volumetric_fog_settings) in view_targets.iter() {
         commands
-            .get_or_spawn(entity.entity())
+            .get_or_spawn(entity.id())
             .insert(*volumetric_fog_settings);
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
         commands
-            .get_or_spawn(entity.entity())
+            .get_or_spawn(entity.id())
             .insert((*fog_volume).clone())
             .insert(*fog_transform);
     }
 
     for (entity, volumetric_light) in volumetric_lights.iter() {
-        commands
-            .get_or_spawn(entity.entity())
-            .insert(*volumetric_light);
+        commands.get_or_spawn(entity.id()).insert(*volumetric_light);
     }
 }
 

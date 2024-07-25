@@ -386,7 +386,7 @@ fn gather_environment_map_uniform(
             EnvironmentMapUniform::default()
         };
         commands
-            .get_or_spawn(view_entity.entity())
+            .get_or_spawn(view_entity.id())
             .insert(environment_map_uniform);
     }
 }
@@ -436,7 +436,7 @@ fn gather_light_probes<C>(
         // Gather up the light probes in the list.
         render_view_light_probes.maybe_gather_light_probes(&view_reflection_probes);
 
-        let entity = view_entity.entity();
+        let entity = view_entity.id();
         // Record the per-view light probes.
         if render_view_light_probes.is_empty() {
             commands

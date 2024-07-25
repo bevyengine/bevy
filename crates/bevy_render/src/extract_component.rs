@@ -215,7 +215,7 @@ fn extract_components<C: ExtractComponent>(
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
-            values.push((entity.entity(), component));
+            values.push((entity.id(), component));
         }
     }
     *previous_len = values.len();
@@ -232,7 +232,7 @@ fn extract_visible_components<C: ExtractComponent>(
     for (entity, view_visibility, query_item) in &query {
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
-                values.push((entity.entity(), component));
+                values.push((entity.id(), component));
             }
         }
     }

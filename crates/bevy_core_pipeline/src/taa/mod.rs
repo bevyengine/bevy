@@ -362,7 +362,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     for (entity, camera, camera_projection, mut taa_settings) in
         cameras_3d.iter_mut(&mut main_world)
     {
-        let entity = entity.entity();
+        let entity = entity.id();
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if camera.is_active && has_perspective_projection {
             commands.get_or_spawn(entity).insert(taa_settings.clone());

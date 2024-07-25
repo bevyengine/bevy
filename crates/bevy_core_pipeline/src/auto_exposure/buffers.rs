@@ -34,7 +34,7 @@ pub(super) fn extract_buffers(
     commands.insert_resource(ExtractedStateBuffers {
         changed: changed
             .iter()
-            .map(|(entity, settings)| (entity.entity(), settings.clone()))
+            .map(|(entity, settings)| (entity.id(), settings.clone()))
             .collect(),
         removed: removed.read().collect(),
     });

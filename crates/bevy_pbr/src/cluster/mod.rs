@@ -540,8 +540,7 @@ pub fn extract_clusters(
             }
         }
 
-        let entity = entity.entity();
-        commands.get_or_spawn(entity).insert((
+        commands.get_or_spawn(entity.id()).insert((
             ExtractedClusterableObjects { data },
             ExtractedClusterConfig {
                 near: clusters.near,

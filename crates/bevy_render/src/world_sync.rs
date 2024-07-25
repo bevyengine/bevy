@@ -24,7 +24,7 @@ pub struct ToRenderWorld;
 #[component(storage = "SparseSet")]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
-    pub fn entity(&self) -> Entity {
+    pub fn id(&self) -> Entity {
         self.0
     }
 }
@@ -33,12 +33,13 @@ impl RenderEntity {
 #[component(storage = "SparseSet")]
 pub struct MainEntity(Entity);
 impl MainEntity {
-    pub fn entity(&self) -> Entity {
+    pub fn id(&self) -> Entity {
         self.0
     }
 }
 // marker component that indicates that its entity needs to be despawned at the end of every frame.
 #[derive(Component, Clone, Debug, Default, Reflect)]
+#[component(storage = "SparseSet")]
 pub struct RenderFlyEntity;
 
 pub(crate) enum EntityRecord {
@@ -121,7 +122,7 @@ impl<B: Bundle> Plugin for WorldSyncPlugin<B> {
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
-                    pending.push(EntityRecord::Removed(trigger.entity(), e.entity()));
+                    pending.push(EntityRecord::Removed(trigger.entity(), e.id()));
                 };
             },
         );

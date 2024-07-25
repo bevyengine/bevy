@@ -358,6 +358,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
+    ui_stack: Extract<Res<UiStack>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
@@ -388,24 +389,26 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    uinode_query.iter().for_each(
-        |(uinode, style, transform, handle, view_visibility, clip, camera)| {
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((uinode, style, transform, handle, view_visibility, clip, camera)) =
+            uinode_query.get(*entity)
+        {
             let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
             else {
-                return;
+                continue;
             };
             let Some(&camera_entity) = mapping.get(&camera_entity) else {
-                return;
+                continue;
             };
 
             // skip invisible nodes
             if !view_visibility.get() {
-                return;
+                continue;
             }
 
             // Skip loading materials
             if !materials.contains(handle) {
-                return;
+                continue;
             }
 
             // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
@@ -431,7 +434,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             extracted_uinodes.uinodes.insert(
                 commands.spawn(RenderFlyEntity).id(),
                 ExtractedUiMaterialNode {
-                    stack_index: uinode.stack_index as usize,
+                    stack_index,
                     transform: transform.compute_matrix(),
                     material: handle.id(),
                     rect: Rect {
@@ -443,8 +446,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     camera_entity,
                 },
             );
-        },
-    );
+        };
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

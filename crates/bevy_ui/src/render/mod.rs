@@ -768,7 +768,7 @@ pub fn extract_default_ui_camera_view(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
-            let entity = entity.entity();
+            let entity = entity.id();
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -962,7 +962,6 @@ pub(crate) const QUAD_VERTEX_POSITIONS: [Vec3; 4] = [
 pub(crate) const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
 #[derive(Component)]
-#[component(storage = "SparseSet")]
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,

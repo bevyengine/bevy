@@ -519,7 +519,7 @@ pub fn extract_core_3d_camera_phases(
             continue;
         }
 
-        let entity = render_entity.entity();
+        let entity = render_entity.id();
         opaque_3d_phases.insert_or_clear(entity);
         alpha_mask_3d_phases.insert_or_clear(entity);
         transmissive_3d_phases.insert_or_clear(entity);
@@ -571,7 +571,7 @@ pub fn extract_camera_prepass_phase(
             continue;
         }
 
-        let entity = render_entity.entity();
+        let entity = render_entity.id();
         if depth_prepass || normal_prepass || motion_vector_prepass {
             opaque_3d_prepass_phases.insert_or_clear(entity);
             alpha_mask_3d_prepass_phases.insert_or_clear(entity);

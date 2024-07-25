@@ -270,7 +270,7 @@ pub fn extract_lights(
             spot_light_angles: None,
         };
         point_lights_values.push((
-            render_entity.entity(),
+            render_entity.id(),
             (
                 extracted_point_light,
                 render_cubemap_visible_entities,
@@ -302,7 +302,7 @@ pub fn extract_lights(
                 2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
 
             spot_lights_values.push((
-                render_entity.entity(),
+                render_entity.id(),
                 (
                     ExtractedPointLight {
                         color: spot_light.color.into(),
@@ -333,71 +333,69 @@ pub fn extract_lights(
     *previous_spot_lights_len = spot_lights_values.len();
     commands.insert_or_spawn_batch(spot_lights_values);
 
-    directional_lights.iter().for_each(
-        |(
-            entity,
-            directional_light,
-            visible_entities,
-            cascades,
-            cascade_config,
-            frusta,
-            transform,
-            view_visibility,
-            maybe_layers,
-            volumetric_light,
-        )| {
-            if !view_visibility.get() {
-                return;
-            }
+    for (
+        entity,
+        directional_light,
+        visible_entities,
+        cascades,
+        cascade_config,
+        frusta,
+        transform,
+        view_visibility,
+        maybe_layers,
+        volumetric_light,
+    ) in &directional_lights
+    {
+        if !view_visibility.get() {
+            continue;
+        }
 
-            // TODO: re-use the memory
-            let mut extracted_cascades = EntityHashMap::default();
-            let mut extracted_frusta = EntityHashMap::default();
-            let mut cascade_visible_entities = EntityHashMap::default();
-            for (e, v) in cascades.cascades.iter() {
-                if let Some(entity) = mapper.get(e) {
-                    extracted_cascades.insert(*entity, v.clone());
-                } else {
-                    return;
-                }
+        // TODO: re-use the memory
+        let mut extracted_cascades = EntityHashMap::default();
+        let mut extracted_frusta = EntityHashMap::default();
+        let mut cascade_visible_entities = EntityHashMap::default();
+        for (e, v) in cascades.cascades.iter() {
+            if let Some(entity) = mapper.get(e) {
+                extracted_cascades.insert(*entity, v.clone());
+            } else {
+                break;
             }
-            for (e, v) in frusta.frusta.iter() {
-                if let Some(entity) = mapper.get(e) {
-                    extracted_frusta.insert(*entity, v.clone());
-                } else {
-                    return;
-                }
+        }
+        for (e, v) in frusta.frusta.iter() {
+            if let Some(entity) = mapper.get(e) {
+                extracted_frusta.insert(*entity, v.clone());
+            } else {
+                break;
             }
-            for (e, v) in visible_entities.entities.iter() {
-                if let Some(entity) = mapper.get(e) {
-                    cascade_visible_entities.insert(*entity, v.clone());
-                } else {
-                    return;
-                }
+        }
+        for (e, v) in visible_entities.entities.iter() {
+            if let Some(entity) = mapper.get(e) {
+                cascade_visible_entities.insert(*entity, v.clone());
+            } else {
+                break;
             }
+        }
 
-            commands.get_or_spawn(entity.entity()).insert((
-                ExtractedDirectionalLight {
-                    color: directional_light.color.into(),
-                    illuminance: directional_light.illuminance,
-                    transform: *transform,
-                    volumetric: volumetric_light.is_some(),
-                    shadows_enabled: directional_light.shadows_enabled,
-                    shadow_depth_bias: directional_light.shadow_depth_bias,
-                    // The factor of SQRT_2 is for the worst-case diagonal offset
-                    shadow_normal_bias: directional_light.shadow_normal_bias
-                        * std::f32::consts::SQRT_2,
-                    cascade_shadow_config: cascade_config.clone(),
-                    cascades: extracted_cascades,
-                    frusta: extracted_frusta,
-                    render_layers: maybe_layers.unwrap_or_default().clone(),
-                },
-                CascadesVisibleEntities {
-                    entities: cascade_visible_entities,
-                },
-            ));
-        },
-    );
+        commands.get_or_spawn(entity.id()).insert((
+            ExtractedDirectionalLight {
+                color: directional_light.color.into(),
+                illuminance: directional_light.illuminance,
+                transform: *transform,
+                volumetric: volumetric_light.is_some(),
+                shadows_enabled: directional_light.shadows_enabled,
+                shadow_depth_bias: directional_light.shadow_depth_bias,
+                // The factor of SQRT_2 is for the worst-case diagonal offset
+                shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
+                cascade_shadow_config: cascade_config.clone(),
+                cascades: extracted_cascades,
+                frusta: extracted_frusta,
+                render_layers: maybe_layers.unwrap_or_default().clone(),
+            },
+            CascadesVisibleEntities {
+                entities: cascade_visible_entities,
+            },
+        ));
+    }
 }
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;

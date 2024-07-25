@@ -504,8 +504,9 @@ fn extract_ssao_settings(
             return;
         }
         if camera.is_active {
-            let entity = entity.entity();
-            commands.get_or_spawn(entity).insert(ssao_settings.clone());
+            commands
+                .get_or_spawn(entity.id())
+                .insert(ssao_settings.clone());
         }
     }
 }

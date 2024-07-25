@@ -803,7 +803,7 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, dof_settings, projection) in query.iter_mut() {
-        let entity = entity.entity();
+        let entity = entity.id();
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
             continue;

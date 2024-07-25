@@ -171,7 +171,7 @@ pub fn extract_core_2d_camera_phases(
         if !camera.is_active {
             continue;
         }
-        let entity = entity.entity();
+        let entity = entity.id();
         transparent_2d_phases.insert_or_clear(entity);
         live_entities.insert(entity);
     }
