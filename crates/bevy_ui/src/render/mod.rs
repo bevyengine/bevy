@@ -195,7 +195,6 @@ pub fn extract_uinode_background_colors(
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
-            Entity,
             &Node,
             &GlobalTransform,
             &ViewVisibility,
@@ -212,7 +211,6 @@ pub fn extract_uinode_background_colors(
 ) {
     let default_ui_camera = default_ui_camera.get();
     for (
-        _e,
         uinode,
         transform,
         view_visibility,

@@ -328,7 +328,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
 }
 
 pub struct ExtractedUiMaterialNode<M: UiMaterial> {
-    pub stack_index: u32,
+    pub stack_index: usize,
     pub transform: Mat4,
     pub rect: Rect,
     pub border: [f32; 4],
@@ -431,7 +431,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             extracted_uinodes.uinodes.insert(
                 commands.spawn(RenderFlyEntity).id(),
                 ExtractedUiMaterialNode {
-                    stack_index: uinode.stack_index,
+                    stack_index: uinode.stack_index as usize,
                     transform: transform.compute_matrix(),
                     material: handle.id(),
                     rect: Rect {
@@ -667,6 +667,9 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 bind_group_data: material.key.clone(),
             },
         );
+        transparent_phase
+        .items
+        .reserve(extracted_uinodes.uinodes.len());
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,

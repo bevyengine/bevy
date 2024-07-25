@@ -101,6 +101,8 @@ pub(crate) fn despawn_fly_entity(world: &mut World) {
         world.despawn(e);
     }
 }
+
+/// A Plugin that synchronizes entities with specific Components between the main world and render world.
 #[derive(Default)]
 pub struct WorldSyncPlugin<B: Bundle> {
     _marker: PhantomData<B>,
