@@ -34,8 +34,6 @@ use screenshot::{
 
 use self::cursor::update_cursors;
 
-use super::Msaa;
-
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
