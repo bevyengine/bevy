@@ -63,7 +63,7 @@ exceptions = [
     "MPL-2.0",
   ] },
   { name = "ring", allow = [
-    "unlicensed"
+    "unlicensed",
   ]},
 ]
 
