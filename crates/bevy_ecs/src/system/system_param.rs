@@ -500,23 +500,13 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         let component_id = world.components.init_resource::<T>();
         world.initialize_resource_internal(component_id);
 
-        let combined_access = system_meta.component_access_set.combined_access();
         assert!(
-            !combined_access.has_write(component_id),
+            !system_meta.resource_access.has_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
-        system_meta
-            .component_access_set
-            .add_unfiltered_read(component_id);
-
-        let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
-            .unwrap();
-        system_meta
-            .archetype_component_access
-            .add_read(archetype_component_id);
+        system_meta.resource_access.add_read(component_id);
 
         component_id
     }
@@ -592,26 +582,17 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         let component_id = world.components.init_resource::<T>();
         world.initialize_resource_internal(component_id);
 
-        let combined_access = system_meta.component_access_set.combined_access();
-        if combined_access.has_write(component_id) {
+        let access = &system_meta.resource_access;
+        if access.has_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_read(component_id) {
+        } else if access.has_read(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
-        system_meta
-            .component_access_set
-            .add_unfiltered_write(component_id);
-
-        let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
-            .unwrap();
-        system_meta
-            .archetype_component_access
-            .add_write(archetype_component_id);
+        system_meta.resource_access.add_write(component_id);
 
         component_id
     }
@@ -703,6 +684,13 @@ unsafe impl SystemParam for &'_ World {
         {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
+
+        let mut resource_access: Access<ComponentId> = Access::default();
+        resource_access.read_all();
+        if !system_meta.resource_access.is_compatible(&resource_access) {
+            panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
+        }
+
         system_meta.component_access_set.add(filtered_access);
     }
 
@@ -725,6 +713,8 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         system_meta.component_access_set.read_all();
         system_meta.component_access_set.write_all();
+        system_meta.resource_access.read_all();
+        system_meta.resource_access.write_all();
         system_meta.set_has_deferred();
     }
 
@@ -1130,23 +1120,14 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         let component_id = world.components.init_non_send::<T>();
         world.initialize_non_send_internal(component_id);
 
-        let combined_access = system_meta.component_access_set.combined_access();
         assert!(
-            !combined_access.has_write(component_id),
+            ! system_meta.resource_access.has_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
-        system_meta
-            .component_access_set
-            .add_unfiltered_read(component_id);
 
-        let archetype_component_id = world
-            .get_non_send_archetype_component_id(component_id)
-            .unwrap();
-        system_meta
-            .archetype_component_access
-            .add_read(archetype_component_id);
+        system_meta.resource_access.add_read(component_id);
 
         component_id
     }
@@ -1219,26 +1200,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         let component_id = world.components.init_non_send::<T>();
         world.initialize_non_send_internal(component_id);
 
-        let combined_access = system_meta.component_access_set.combined_access();
-        if combined_access.has_write(component_id) {
+        let resource_access = &system_meta.resource_access;
+        if resource_access.has_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_read(component_id) {
+        } else if resource_access.has_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
-        system_meta
-            .component_access_set
-            .add_unfiltered_write(component_id);
 
-        let archetype_component_id = world
-            .get_non_send_archetype_component_id(component_id)
-            .unwrap();
-        system_meta
-            .archetype_component_access
-            .add_write(archetype_component_id);
+        system_meta.resource_access.add_write(component_id);
 
         component_id
     }
