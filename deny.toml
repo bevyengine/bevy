@@ -6,8 +6,6 @@ version = 2
 ignore = []
 
 [licenses]
-#required by ring and friends
-unlicensed = "warn"
 version = 2
 allow = [
   "0BSD",
