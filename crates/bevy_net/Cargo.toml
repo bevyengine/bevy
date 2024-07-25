@@ -2,6 +2,11 @@
 name = "bevy_net"
 version = "0.15.0-dev"
 edition = "2021"
+description = "Provides networking primitves and netcode for bevy"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
 
 [dependencies]
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
