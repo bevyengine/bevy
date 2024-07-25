@@ -508,6 +508,13 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         );
         system_meta.resource_access.add_read(component_id);
 
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
+            .unwrap();
+        system_meta
+            .archetype_component_access
+            .add_read(archetype_component_id);
+
         component_id
     }
 
@@ -593,6 +600,13 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta.resource_access.add_write(component_id);
+
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
+            .unwrap();
+        system_meta
+            .archetype_component_access
+            .add_write(archetype_component_id);
 
         component_id
     }
@@ -1129,6 +1143,13 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 
         system_meta.resource_access.add_read(component_id);
 
+        let archetype_component_id = world
+            .get_non_send_archetype_component_id(component_id)
+            .unwrap();
+        system_meta
+            .archetype_component_access
+            .add_read(archetype_component_id);
+
         component_id
     }
 
@@ -1212,6 +1233,13 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         }
 
         system_meta.resource_access.add_write(component_id);
+
+        let archetype_component_id = world
+            .get_non_send_archetype_component_id(component_id)
+            .unwrap();
+        system_meta
+            .archetype_component_access
+            .add_write(archetype_component_id);
 
         component_id
     }

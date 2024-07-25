@@ -625,20 +625,6 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         self.filtered_accesses.push(filtered_access);
     }
 
-    /// Adds a read access without filters to the set.
-    pub(crate) fn add_unfiltered_read(&mut self, index: T) {
-        let mut filter = FilteredAccess::default();
-        filter.add_read(index);
-        self.add(filter);
-    }
-
-    /// Adds a write access without filters to the set.
-    pub(crate) fn add_unfiltered_write(&mut self, index: T) {
-        let mut filter = FilteredAccess::default();
-        filter.add_write(index);
-        self.add(filter);
-    }
-
     /// Adds all of the accesses from the passed set to `self`.
     pub fn extend(&mut self, filtered_access_set: FilteredAccessSet<T>) {
         self.combined_access
@@ -676,7 +662,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 #[cfg(test)]
 mod tests {
     use crate::query::access::AccessFilters;
-    use crate::query::{Access, FilteredAccess, FilteredAccessSet};
+    use crate::query::{Access, FilteredAccess};
     use fixedbitset::FixedBitSet;
     use std::marker::PhantomData;
 
@@ -726,22 +712,6 @@ mod tests {
         assert_eq!(access_d.get_conflicts(&access_a), vec![]);
         assert_eq!(access_d.get_conflicts(&access_b), vec![]);
         assert_eq!(access_d.get_conflicts(&access_c), vec![0]);
-    }
-
-    #[test]
-    fn filtered_combined_access() {
-        let mut access_a = FilteredAccessSet::<usize>::default();
-        access_a.add_unfiltered_read(1);
-
-        let mut filter_b = FilteredAccess::<usize>::default();
-        filter_b.add_write(1);
-
-        let conflicts = access_a.get_conflicts_single(&filter_b);
-        assert_eq!(
-            &conflicts,
-            &[1_usize],
-            "access_a: {access_a:?}, filter_b: {filter_b:?}"
-        );
     }
 
     #[test]
