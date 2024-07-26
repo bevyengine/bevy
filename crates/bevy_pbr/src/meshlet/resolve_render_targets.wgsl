@@ -5,6 +5,14 @@
 @group(0) @binding(2) var<storage, read> meshlet_instance_material_ids: array<u32>; // Per entity instance
 var<push_constant> view_width: u32;
 
+/// This pass writes out the depth texture.
+@fragment
+fn resolve_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
+    let frag_coord_1d = u32(in.position.y) * view_width + u32(in.position.x);
+    let visibility = meshlet_visibility_buffer[frag_coord_1d];
+    return f32(visibility >> 32u);
+}
+
 /// This pass writes out the material depth texture.
 @fragment
 fn resolve_material_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {

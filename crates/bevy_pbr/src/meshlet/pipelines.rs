@@ -1,6 +1,8 @@
 use super::gpu_scene::MeshletGpuScene;
 use bevy_asset::Handle;
-use bevy_core_pipeline::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_core_pipeline::{
+    core_3d::CORE_3D_DEPTH_FORMAT, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+};
 use bevy_ecs::{
     system::Resource,
     world::{FromWorld, World},
@@ -32,6 +34,7 @@ pub struct MeshletPipelines {
     visibility_buffer_hardware_raster: CachedRenderPipelineId,
     visibility_buffer_hardware_raster_depth_only: CachedRenderPipelineId,
     visibility_buffer_hardware_raster_depth_only_clamp_ortho: CachedRenderPipelineId,
+    resolve_depth: CachedRenderPipelineId,
     resolve_material_depth: CachedRenderPipelineId,
 }
 
@@ -44,6 +47,7 @@ impl FromWorld for MeshletPipelines {
         let downsample_depth_layout = gpu_scene.downsample_depth_bind_group_layout();
         let visibility_buffer_raster_layout =
             gpu_scene.visibility_buffer_raster_bind_group_layout();
+        let resolve_depth_layout = gpu_scene.resolve_depth_bind_group_layout();
         let resolve_material_depth_layout = gpu_scene.resolve_material_depth_bind_group_layout();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
@@ -278,6 +282,31 @@ impl FromWorld for MeshletPipelines {
                     }),
                 }),
 
+            resolve_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+                label: Some("meshlet_resolve_depth_pipeline".into()),
+                layout: vec![resolve_depth_layout],
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::FRAGMENT,
+                    range: 0..4,
+                }],
+                vertex: fullscreen_shader_vertex_state(),
+                primitive: PrimitiveState::default(),
+                depth_stencil: Some(DepthStencilState {
+                    format: CORE_3D_DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::GreaterEqual,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                }),
+                multisample: MultisampleState::default(),
+                fragment: Some(FragmentState {
+                    shader: MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
+                    shader_defs: vec![],
+                    entry_point: "resolve_depth".into(),
+                    targets: vec![],
+                }),
+            }),
+
             resolve_material_depth: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
                     label: Some("meshlet_resolve_material_depth_pipeline".into()),
@@ -324,6 +353,7 @@ impl MeshletPipelines {
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
+        &RenderPipeline,
     )> {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
@@ -345,6 +375,7 @@ impl MeshletPipelines {
             pipeline_cache.get_render_pipeline(
                 pipeline.visibility_buffer_hardware_raster_depth_only_clamp_ortho,
             )?,
+            pipeline_cache.get_render_pipeline(pipeline.resolve_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_material_depth)?,
         ))
     }

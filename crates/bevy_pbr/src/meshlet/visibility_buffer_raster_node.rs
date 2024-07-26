@@ -86,6 +86,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             visibility_buffer_hardware_raster_pipeline,
             visibility_buffer_hardware_raster_depth_only_pipeline,
             visibility_buffer_hardware_raster_depth_only_clamp_ortho,
+            resolve_depth_pipeline,
             resolve_material_depth_pipeline,
         )) = MeshletPipelines::get(world)
         else {
@@ -166,6 +167,14 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             visibility_buffer_software_raster_pipeline,
             visibility_buffer_hardware_raster_pipeline,
             Some(camera),
+        );
+        resolve_depth(
+            render_context,
+            view_depth.get_attachment(StoreOp::Store),
+            meshlet_view_resources,
+            meshlet_view_bind_groups,
+            resolve_depth_pipeline,
+            camera,
         );
         resolve_material_depth(
             render_context,
@@ -267,6 +276,14 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 shadow_visibility_buffer_software_raster_pipeline,
                 shadow_visibility_buffer_hardware_raster_pipeline,
                 None,
+            );
+            resolve_depth(
+                render_context,
+                shadow_view.depth_attachment.get_attachment(StoreOp::Store),
+                meshlet_view_resources,
+                meshlet_view_bind_groups,
+                resolve_depth_pipeline,
+                camera,
             );
             downsample_depth(
                 render_context,
@@ -420,6 +437,34 @@ fn downsample_depth(
         downsample_pass.set_pipeline(downsample_depth_second_pipeline);
         downsample_pass.dispatch_workgroups(1, 1, 1);
     }
+}
+
+fn resolve_depth(
+    render_context: &mut RenderContext,
+    depth_stencil_attachment: RenderPassDepthStencilAttachment,
+    meshlet_view_resources: &MeshletViewResources,
+    meshlet_view_bind_groups: &MeshletViewBindGroups,
+    resolve_depth_pipeline: &RenderPipeline,
+    camera: &ExtractedCamera,
+) {
+    let mut resolve_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+        label: Some("resolve_depth"),
+        color_attachments: &[],
+        depth_stencil_attachment: Some(depth_stencil_attachment),
+        timestamp_writes: None,
+        occlusion_query_set: None,
+    });
+    if let Some(viewport) = &camera.viewport {
+        resolve_pass.set_camera_viewport(viewport);
+    }
+    resolve_pass.set_render_pipeline(resolve_depth_pipeline);
+    resolve_pass.set_push_constants(
+        ShaderStages::FRAGMENT,
+        0,
+        &meshlet_view_resources.view_size.x.to_le_bytes(),
+    );
+    resolve_pass.set_bind_group(0, &meshlet_view_bind_groups.resolve_depth, &[]);
+    resolve_pass.draw(0..3, 0..1);
 }
 
 fn resolve_material_depth(

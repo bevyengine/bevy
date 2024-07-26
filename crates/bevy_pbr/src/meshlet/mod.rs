@@ -104,9 +104,11 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin requires a fairly recent GPU that supports [WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX].
 ///
+/// This plugin currently works only on the Vulkan backend.
+///
 /// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
 ///
-/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
+/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported (TODO: Is this still true?) when using this plugin.
 /// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
 /// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
 ///
@@ -118,6 +120,7 @@ impl MeshletPlugin {
     pub fn required_wgpu_features() -> WgpuFeatures {
         WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
             | WgpuFeatures::SHADER_INT64
+            | WgpuFeatures::SUBGROUP
             | WgpuFeatures::PUSH_CONSTANTS
     }
 }
@@ -225,15 +228,17 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // Non-meshlet shading passes _must_ come before meshlet shading passes
-                    NodePbr::ShadowPass,
                     NodeMeshlet::VisibilityBufferRasterPass,
+                    NodePbr::ShadowPass,
+                    //
                     NodeMeshlet::Prepass,
                     Node3d::Prepass,
+                    //
                     NodeMeshlet::DeferredPrepass,
                     Node3d::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
+                    //
                     Node3d::StartMainPass,
                     NodeMeshlet::MainOpaquePass,
                     Node3d::MainOpaquePass,

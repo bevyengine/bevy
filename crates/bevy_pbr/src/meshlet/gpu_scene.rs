@@ -24,7 +24,7 @@ use bevy_render::{
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, RenderLayers, ViewDepthTexture, ViewUniform, ViewUniforms},
+    view::{ExtractedView, RenderLayers, ViewUniform, ViewUniforms},
     MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
@@ -514,11 +514,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
 pub fn prepare_meshlet_view_bind_groups(
     gpu_scene: Res<MeshletGpuScene>,
-    views: Query<(
-        Entity,
-        &MeshletViewResources,
-        AnyOf<(&ViewDepthTexture, &ShadowView)>,
-    )>,
+    views: Query<(Entity, &MeshletViewResources)>,
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     render_device: Res<RenderDevice>,
@@ -542,7 +538,7 @@ pub fn prepare_meshlet_view_bind_groups(
     let first_node = Arc::new(AtomicBool::new(true));
 
     // TODO: Some of these bind groups can be reused across multiple views
-    for (view_entity, view_resources, view_depth) in &views {
+    for (view_entity, view_resources) in &views {
         let entries = BindGroupEntries::sequential((
             gpu_scene
                 .instance_meshlet_counts_prefix_sum
@@ -622,11 +618,6 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
-        let view_depth_texture = match view_depth {
-            (Some(view_depth), None) => view_depth.view(),
-            (None, Some(shadow_view)) => &shadow_view.depth_attachment.view,
-            _ => unreachable!(),
-        };
         let downsample_depth = render_device.create_bind_group(
             "meshlet_downsample_depth_bind_group",
             &gpu_scene.downsample_depth_bind_group_layout,
@@ -671,6 +662,12 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
+        let resolve_depth = render_device.create_bind_group(
+            "meshlet_resolve_depth_bind_group",
+            &gpu_scene.resolve_depth_bind_group_layout,
+            &BindGroupEntries::single(view_resources.visibility_buffer.as_entire_binding()),
+        );
+
         let resolve_material_depth = view_resources.material_depth.as_ref().map(|_| {
             let entries = BindGroupEntries::sequential((
                 view_resources.visibility_buffer.as_entire_binding(),
@@ -709,6 +706,7 @@ pub fn prepare_meshlet_view_bind_groups(
             culling_second,
             downsample_depth,
             visibility_buffer_raster,
+            resolve_depth,
             resolve_material_depth,
             material_shade,
         });
@@ -751,6 +749,7 @@ pub struct MeshletGpuScene {
     culling_bind_group_layout: BindGroupLayout,
     visibility_buffer_raster_bind_group_layout: BindGroupLayout,
     downsample_depth_bind_group_layout: BindGroupLayout,
+    resolve_depth_bind_group_layout: BindGroupLayout,
     resolve_material_depth_bind_group_layout: BindGroupLayout,
     material_shade_bind_group_layout: BindGroupLayout,
     depth_pyramid_sampler: Sampler,
@@ -886,6 +885,13 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                     ),
+                ),
+            ),
+            resolve_depth_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_resolve_depth_bind_group_layout",
+                &BindGroupLayoutEntries::single(
+                    ShaderStages::FRAGMENT,
+                    storage_buffer_read_only_sized(false, None),
                 ),
             ),
             resolve_material_depth_bind_group_layout: render_device.create_bind_group_layout(
@@ -1070,6 +1076,10 @@ impl MeshletGpuScene {
         self.visibility_buffer_raster_bind_group_layout.clone()
     }
 
+    pub fn resolve_depth_bind_group_layout(&self) -> BindGroupLayout {
+        self.resolve_depth_bind_group_layout.clone()
+    }
+
     pub fn resolve_material_depth_bind_group_layout(&self) -> BindGroupLayout {
         self.resolve_material_depth_bind_group_layout.clone()
     }
@@ -1108,6 +1118,7 @@ pub struct MeshletViewBindGroups {
     pub culling_second: BindGroup,
     pub downsample_depth: BindGroup,
     pub visibility_buffer_raster: BindGroup,
+    pub resolve_depth: BindGroup,
     pub resolve_material_depth: Option<BindGroup>,
     pub material_shade: Option<BindGroup>,
 }
