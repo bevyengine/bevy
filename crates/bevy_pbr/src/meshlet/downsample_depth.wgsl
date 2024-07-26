@@ -1,4 +1,8 @@
-@group(0) @binding(0) var<storage, read> mip_0: array<u64>;
+#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+@group(0) @binding(0) var<storage, read> mip_0: array<u64>; // Per pixel
+#else
+@group(0) @binding(0) var<storage, read> mip_0: array<u32>; // Per pixel
+#endif
 @group(0) @binding(1) var mip_1: texture_storage_2d<r32float, write>;
 @group(0) @binding(2) var mip_2: texture_storage_2d<r32float, write>;
 @group(0) @binding(3) var mip_3: texture_storage_2d<r32float, write>;
@@ -280,11 +284,10 @@ fn remap_for_wave_reduction(a: u32) -> vec2u {
 }
 
 fn reduce_load_mip_0(tex: vec2u) -> f32 {
-    // TODO: Cleanup
-    let a = bitcast<f32>(u32(mip_0[tex.y * constants.view_width + tex.x] >> 32u));
-    let b = bitcast<f32>(u32(mip_0[(tex.y + 1u) * constants.view_width + tex.x] >> 32u));
-    let c = bitcast<f32>(u32(mip_0[tex.y * constants.view_width + (tex.x + 1u)] >> 32u));
-    let d = bitcast<f32>(u32(mip_0[(tex.y + 1u) * constants.view_width + (tex.x + 1u)] >> 32u));
+    let a = load_mip_0(tex.y * constants.view_width + tex.x);
+    let b = load_mip_0((tex.y + 1u) * constants.view_width + tex.x);
+    let c = load_mip_0(tex.y * constants.view_width + (tex.x + 1u));
+    let d = load_mip_0((tex.y + 1u) * constants.view_width + (tex.x + 1u));
     return reduce_4(vec4(a, b, c, d));
 }
 
@@ -295,6 +298,14 @@ fn reduce_load_mip_6(tex: vec2u) -> f32 {
         textureLoad(mip_6, tex + vec2(1u, 0u)).r,
         textureLoad(mip_6, tex + vec2(1u, 1u)).r,
     ));
+}
+
+fn load_mip_0(i: u32) -> f32 {
+#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+    return bitcast<f32>(u32(mip_0[i] >> 32u));
+#else
+    return bitcast<f32>(mip_0[i]);
+#endif
 }
 
 fn reduce_4(v: vec4f) -> f32 {

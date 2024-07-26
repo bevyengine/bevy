@@ -80,6 +80,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             culling_second_pipeline,
             downsample_depth_first_pipeline,
             downsample_depth_second_pipeline,
+            downsample_depth_first_shadow_view_pipeline,
+            downsample_depth_second_shadow_view_pipeline,
             visibility_buffer_software_raster_pipeline,
             visibility_buffer_software_raster_depth_only_pipeline,
             visibility_buffer_software_raster_depth_only_clamp_ortho,
@@ -87,6 +89,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             visibility_buffer_hardware_raster_depth_only_pipeline,
             visibility_buffer_hardware_raster_depth_only_clamp_ortho,
             resolve_depth_pipeline,
+            resolve_depth_shadow_view_pipeline,
             resolve_material_depth_pipeline,
         )) = MeshletPipelines::get(world)
         else {
@@ -253,8 +256,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 render_context,
                 meshlet_view_resources,
                 meshlet_view_bind_groups,
-                downsample_depth_first_pipeline,
-                downsample_depth_second_pipeline,
+                downsample_depth_first_shadow_view_pipeline,
+                downsample_depth_second_shadow_view_pipeline,
             );
             cull_pass(
                 "culling_second",
@@ -282,15 +285,15 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 shadow_view.depth_attachment.get_attachment(StoreOp::Store),
                 meshlet_view_resources,
                 meshlet_view_bind_groups,
-                resolve_depth_pipeline,
+                resolve_depth_shadow_view_pipeline,
                 camera,
             );
             downsample_depth(
                 render_context,
                 meshlet_view_resources,
                 meshlet_view_bind_groups,
-                downsample_depth_first_pipeline,
-                downsample_depth_second_pipeline,
+                downsample_depth_first_shadow_view_pipeline,
+                downsample_depth_second_shadow_view_pipeline,
             );
             render_context.command_encoder().pop_debug_group();
         }
