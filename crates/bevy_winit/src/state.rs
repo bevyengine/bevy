@@ -678,9 +678,6 @@ impl<T: Event> WinitAppRunnerState<T> {
                 WinitEvent::RequestRedraw(e) => {
                     world.send_event(e);
                 }
-                WinitEvent::WindowBackendScaleFactorChanged(e) => {
-                    world.send_event(e);
-                }
                 WinitEvent::WindowCloseRequested(e) => {
                     world.send_event(e);
                 }
@@ -697,12 +694,6 @@ impl<T: Event> WinitAppRunnerState<T> {
                     world.send_event(e);
                 }
                 WinitEvent::WindowOccluded(e) => {
-                    world.send_event(e);
-                }
-                WinitEvent::WindowResized(e) => {
-                    world.send_event(e);
-                }
-                WinitEvent::WindowScaleFactorChanged(e) => {
                     world.send_event(e);
                 }
                 WinitEvent::WindowThemeChanged(e) => {
