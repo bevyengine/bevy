@@ -65,9 +65,7 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
-use world_sync::{
-    despawn_fly_entity, entity_sync_system, MainToRenderEntityMap, ToRenderWorld, WorldSyncPlugin,
-};
+use world_sync::{despawn_fly_entity, entity_sync_system, ToRenderWorld, WorldSyncPlugin};
 
 use crate::mesh::RenderMesh;
 use crate::renderer::WgpuWrapper;
@@ -400,7 +398,6 @@ impl Plugin for RenderPlugin {
             let render_app = app.sub_app_mut(RenderApp);
 
             render_app
-                .init_resource::<MainToRenderEntityMap>()
                 .insert_resource(instance)
                 .insert_resource(PipelineCache::new(
                     device.clone(),

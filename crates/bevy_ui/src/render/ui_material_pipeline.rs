@@ -18,7 +18,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, GpuImage},
     view::*,
-    world_sync::RenderFlyEntity,
+    world_sync::{RenderEntity, RenderFlyEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -376,7 +376,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     >,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
-    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
@@ -397,7 +397,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             else {
                 continue;
             };
-            let Some(&camera_entity) = mapping.get(&camera_entity) else {
+            let Ok(&camera_entity) = mapping.get(camera_entity) else {
                 continue;
             };
 
@@ -443,7 +443,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     },
                     border: [left, right, top, bottom],
                     clip: clip.map(|clip| clip.clip),
-                    camera_entity,
+                    camera_entity: camera_entity.id(),
                 },
             );
         };

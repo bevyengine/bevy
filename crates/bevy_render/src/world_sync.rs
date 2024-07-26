@@ -1,11 +1,11 @@
-use std::{marker::PhantomData, ops::DerefMut};
+use std::marker::PhantomData;
 
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::Entity,
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
@@ -20,7 +20,7 @@ use bevy_reflect::Reflect;
 #[reflect[Component]]
 pub struct ToRenderWorld;
 
-#[derive(Component, Deref, Clone, Debug)]
+#[derive(Component, Deref, Clone, Debug, Copy)]
 #[component(storage = "SparseSet")]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
@@ -45,8 +45,8 @@ pub struct RenderFlyEntity;
 pub(crate) enum EntityRecord {
     // main
     Added(Entity),
-    // (main , render)
-    Removed(Entity, Entity),
+    // render
+    Removed(Entity),
 }
 
 // Entity Record in MainWorld pending to Sync
@@ -55,40 +55,29 @@ pub(crate) struct PendingSyncEntity {
     records: Vec<EntityRecord>,
 }
 
-// resource to maintain entity mapping from the main world to the render world
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct MainToRenderEntityMap {
-    map: EntityHashMap<Entity>,
-}
-
 pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut World) {
-    render_world.resource_scope(|render_world, mut mapper: Mut<MainToRenderEntityMap>| {
-        let mapper = mapper.deref_mut();
-        main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity>| {
-            for record in pending.drain(..) {
-                match record {
-                    EntityRecord::Added(e) => {
-                        if let Some(mut entity) = world.get_entity_mut(e) {
-                            match entity.entry::<RenderEntity>() {
-                                bevy_ecs::world::Entry::Occupied(_) => {}
-                                bevy_ecs::world::Entry::Vacant(entry) => {
-                                    let id = render_world.spawn(MainEntity(e)).id();
+    main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity>| {
+        for record in pending.drain(..) {
+            match record {
+                EntityRecord::Added(e) => {
+                    if let Some(mut entity) = world.get_entity_mut(e) {
+                        match entity.entry::<RenderEntity>() {
+                            bevy_ecs::world::Entry::Occupied(_) => {}
+                            bevy_ecs::world::Entry::Vacant(entry) => {
+                                let id = render_world.spawn(MainEntity(e)).id();
 
-                                    mapper.insert(e, id);
-                                    entry.insert(RenderEntity(id));
-                                }
-                            };
-                        }
-                    }
-                    EntityRecord::Removed(e1, e2) => {
-                        mapper.remove(&e1);
-                        if let Some(ec) = render_world.get_entity_mut(e2) {
-                            ec.despawn_recursive();
+                                entry.insert(RenderEntity(id));
+                            }
                         };
                     }
                 }
+                EntityRecord::Removed(e) => {
+                    if let Some(ec) = render_world.get_entity_mut(e) {
+                        ec.despawn_recursive();
+                    };
+                }
             }
-        });
+        }
     });
 }
 
@@ -122,7 +111,7 @@ impl<B: Bundle> Plugin for WorldSyncPlugin<B> {
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
-                    pending.push(EntityRecord::Removed(trigger.entity(), e.id()));
+                    pending.push(EntityRecord::Removed(e.id()));
                 };
             },
         );

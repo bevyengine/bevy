@@ -320,24 +320,20 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceAmbientOcclusionPlugin,
                 ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
-                (
-                    ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                    ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
-                ),
+                ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                (
-                    PbrProjectionPlugin::<Projection>::default(),
-                    PbrProjectionPlugin::<PerspectiveProjection>::default(),
-                    PbrProjectionPlugin::<OrthographicProjection>::default(),
-                ),
+                PbrProjectionPlugin::<Projection>::default(),
+                PbrProjectionPlugin::<PerspectiveProjection>::default(),
+                PbrProjectionPlugin::<OrthographicProjection>::default(),
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
-                WorldSyncPlugin::<(PointLight, SpotLight, DirectionalLight)>::default(),
             ))
+            .add_plugins(WorldSyncPlugin::<(PointLight, SpotLight, DirectionalLight)>::default())
             .configure_sets(
                 PostUpdate,
                 (

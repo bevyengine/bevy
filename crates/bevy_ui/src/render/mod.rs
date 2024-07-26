@@ -207,7 +207,7 @@ pub fn extract_uinode_background_colors(
         )>,
     >,
     node_query: Extract<Query<&Node>>,
-    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let default_ui_camera = default_ui_camera.get();
     for (
@@ -240,7 +240,7 @@ pub fn extract_uinode_background_colors(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
-        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
@@ -286,7 +286,7 @@ pub fn extract_uinode_background_colors(
                 atlas_size: None,
                 flip_x: false,
                 flip_y: false,
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 border,
                 border_radius,
                 node_type: NodeType::Rect,
@@ -319,7 +319,7 @@ pub fn extract_uinode_images(
         )>,
     >,
     node_query: Extract<Query<&Node>>,
-    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let default_ui_camera = default_ui_camera.get();
     for (
@@ -357,14 +357,14 @@ pub fn extract_uinode_images(
         // so we have to divide by `UiScale` to get the size of the UI viewport.
         / ui_scale.0;
 
-        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
         if let Some(slices) = slices {
             extracted_uinodes.uinodes.extend(
                 slices
-                    .extract_ui_nodes(transform, uinode, image, clip, camera_entity)
+                    .extract_ui_nodes(transform, uinode, image, clip, camera_entity.id())
                     .map(|e| (commands.spawn(RenderFlyEntity).id(), e)),
             );
             continue;
@@ -433,7 +433,7 @@ pub fn extract_uinode_images(
                 atlas_size,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 border,
                 border_radius,
                 node_type: NodeType::Rect,
@@ -527,7 +527,7 @@ pub fn extract_uinode_borders(
         >,
     >,
     node_query: Extract<Query<&Node>>,
-    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
     let default_ui_camera = default_ui_camera.get();
@@ -565,7 +565,7 @@ pub fn extract_uinode_borders(
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
-        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -617,7 +617,7 @@ pub fn extract_uinode_borders(
                 clip: clip.map(|clip| clip.clip),
                 flip_x: false,
                 flip_y: false,
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 border_radius,
                 border,
                 node_type: NodeType::Border,
@@ -640,7 +640,7 @@ pub fn extract_uinode_outlines(
             &Outline,
         )>,
     >,
-    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let default_ui_camera = default_ui_camera.get();
     let image = AssetId::<Image>::default();
@@ -648,7 +648,7 @@ pub fn extract_uinode_outlines(
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
-        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -714,7 +714,7 @@ pub fn extract_uinode_outlines(
                         clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        camera_entity,
+                        camera_entity: camera_entity.id(),
                         border: [0.; 4],
                         border_radius: [0.; 4],
                         node_type: NodeType::Rect,
@@ -832,7 +832,7 @@ pub fn extract_uinode_text(
             &TextLayoutInfo,
         )>,
     >,
-    mapping: Res<bevy_render::world_sync::MainToRenderEntityMap>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let default_ui_camera = default_ui_camera.get();
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
@@ -855,7 +855,7 @@ pub fn extract_uinode_text(
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();
 
-        let Some(&camera_entity) = mapping.get(&camera_entity) else {
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
         // Align the text to the nearest physical pixel:
@@ -906,7 +906,7 @@ pub fn extract_uinode_text(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    camera_entity,
+                    camera_entity: camera_entity.id(),
                     border: [0.; 4],
                     border_radius: [0.; 4],
                     node_type: NodeType::Rect,

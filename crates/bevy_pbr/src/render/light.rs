@@ -5,7 +5,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::world_sync::{MainToRenderEntityMap, RenderEntity, RenderFlyEntity};
+use bevy_render::world_sync::{RenderEntity, RenderFlyEntity};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -212,7 +212,7 @@ pub fn extract_lights(
             Without<SpotLight>,
         >,
     >,
-    mapper: Res<MainToRenderEntityMap>,
+    mapper: Extract<Query<&RenderEntity>>,
     mut previous_point_lights_len: Local<usize>,
     mut previous_spot_lights_len: Local<usize>,
 ) {
@@ -355,22 +355,22 @@ pub fn extract_lights(
         let mut extracted_frusta = EntityHashMap::default();
         let mut cascade_visible_entities = EntityHashMap::default();
         for (e, v) in cascades.cascades.iter() {
-            if let Some(entity) = mapper.get(e) {
-                extracted_cascades.insert(*entity, v.clone());
+            if let Ok(entity) = mapper.get(*e) {
+                extracted_cascades.insert(entity.id(), v.clone());
             } else {
                 break;
             }
         }
         for (e, v) in frusta.frusta.iter() {
-            if let Some(entity) = mapper.get(e) {
-                extracted_frusta.insert(*entity, v.clone());
+            if let Ok(entity) = mapper.get(*e) {
+                extracted_frusta.insert(entity.id(), v.clone());
             } else {
                 break;
             }
         }
         for (e, v) in visible_entities.entities.iter() {
-            if let Some(entity) = mapper.get(e) {
-                cascade_visible_entities.insert(*entity, v.clone());
+            if let Ok(entity) = mapper.get(*e) {
+                cascade_visible_entities.insert(entity.id(), v.clone());
             } else {
                 break;
             }
