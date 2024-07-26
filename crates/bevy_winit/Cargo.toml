@@ -13,7 +13,7 @@ trace = []
 wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix", "accesskit_winit/async-io"]
-serialize = ["serde"]
+serialize = ["serde", "bevy_input/serialize", "bevy_window/serialize"]
 
 [dependencies]
 # bevy
@@ -51,7 +51,6 @@ winit = { version = "0.30", default-features = false, features = [
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
 crossbeam-channel = "0.5"
-
 
 [lints]
 workspace = true
