@@ -83,6 +83,7 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
+  "android-game-activity",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -270,6 +271,12 @@ wayland = ["bevy_internal/wayland"]
 
 # X11 display server support
 x11 = ["bevy_internal/x11"]
+
+# Android native activity support (pick one between this and game activity)
+android-native-activity = ["bevy_internal/android-native-activity"]
+
+# Android game activity support (pick one between this and native activity)
+android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]

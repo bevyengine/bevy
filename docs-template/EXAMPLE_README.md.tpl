@@ -45,7 +45,9 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
+    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
+    - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
@@ -89,33 +91,57 @@ Example | Description
 ### Setup
 
 ```sh
-rustup target add aarch64-linux-android armv7-linux-androideabi
-cargo install cargo-apk
+rustup target add aarch64-linux-android
+cargo install cargo-ndk
 ```
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
+Alternatively, you can install Android Studio.
+
 ### Build & Run
 
-To run on a device setup for Android development, run:
+To build an android app, you need to compile it to `so` first with `cargo-ndk`:
 
 ```sh
-cargo apk run -p bevy_mobile_example
+cargo ndk -t <target_name> build
 ```
 
-When using Bevy as a library, the following fields must be added to `Cargo.toml`:
+For example, to compile to a 64-bit ARM platform, the command looks like this:
 
-```toml
-[package.metadata.android]
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
+```sh
+cargo ndk -t arm64-v8a build
 ```
 
-Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
+After compile, move the compiled `so` file to `project_name/app/src/main/jniLibs/<target_name>` to link it.
+
+You can use `-o` option in `cargo-ndk` directly set output folder(which will also set up <target_name> folder), for example project the command looks like this:
+
+```sh
+cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
+```
+
+Please reference `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
+
+Then you can build it with `gradlew`:
+
+```sh
+./gradlew build
+```
+
+Or build it with Android Studio.
+
+Then you can test it in your android project.
+
+#### About `libc++_shared.so`
+
+Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
+
+To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+
+Alternatively, you can modify project files to include it when building apk, which is used in this example. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
 ### Debugging
 
@@ -135,17 +161,21 @@ adb uninstall org.bevyengine.example
 
 ### Old phones
 
-Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
+Bevy by default targets Android API level 33 in its examples which is the <!-- markdown-link-check-disable -->
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing.
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use a different API, the following fields must be updated in Cargo.toml:
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-[package.metadata.android.sdk]
-target_sdk_version = >>API<<
-min_sdk_version = >>API or less<<
+bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
 ```
+
+Then build it as the [Build & Run](#build--run) section stated above.
+
+#### About `cargo-apk`
+
+You can also build apk with `cargo-apk`, a simpler tool that compile rust code to apk directly, but this tool is deprecated, and it doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside mobile example with a instruction to use it.
 
 Example | File | Description
 --- | --- | ---
