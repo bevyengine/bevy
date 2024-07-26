@@ -95,24 +95,21 @@ fn rasterize_cluster(
     );
     var z_row = dot(vertices_z, w_row);
     let view_width = u32(view.viewport.z);
-    var frag_coord_1d_row = min_y * view_width + min_x;
-
+    var frag_coord_1d_row = min_y * view_width;
     // Iterate over every pixel in the triangle's bounding box
     for (var y = min_y; y <= max_y; y++) {
         var w = w_row;
         var z = z_row;
-        var frag_coord_1d = frag_coord_1d_row;
 
         for (var x = min_x; x <= max_x; x++) {
             // Check if point at pixel is within triangle
             if min3(w[0], w[1], w[2]) >= 0.0 {
-                write_visibility_buffer_pixel(frag_coord_1d, z, packed_ids);
+                    write_visibility_buffer_pixel(frag_coord_1d_row + x, z, packed_ids);
             }
 
             // Increment edge functions along the X-axis
             w += w_x;
             z += z_x;
-            frag_coord_1d += 1u;
         }
 
         // Increment edge functions along the Y-axis
