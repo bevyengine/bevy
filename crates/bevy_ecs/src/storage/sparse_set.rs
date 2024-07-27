@@ -177,8 +177,13 @@ impl ComponentSparseSet {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            #[cfg(feature = "track_change_detection")]
-            self.dense.replace(dense_index, value, change_tick, caller);
+            self.dense.replace(
+                dense_index,
+                value,
+                change_tick,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         } else {
             let dense_index = self.dense.len();
             self.dense.push(
