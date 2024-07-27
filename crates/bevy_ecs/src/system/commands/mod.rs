@@ -340,6 +340,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
+    #[track_caller]
     pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
         let mut e = self.spawn_empty();
         e.insert(bundle);
@@ -1172,13 +1173,20 @@ where
 /// If any entities do not already exist in the world, they will be spawned.
 ///
 /// This is more efficient than inserting the bundles individually.
+#[track_caller]
 fn insert_or_spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
+    #[cfg(feature = "track_change_detection")]
+    let caller = core::panic::Location::caller();
     move |world: &mut World| {
-        if let Err(invalid_entities) = world.insert_or_spawn_batch(bundles_iter) {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
+            bundles_iter,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        ) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
                 std::any::type_name::<B>(),
@@ -1202,9 +1210,15 @@ fn despawn(entity: Entity, world: &mut World) {
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
 fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
+    #[cfg(feature = "track_change_detection")]
+    let caller = core::panic::Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.insert(bundle);
+            entity.insert_with_caller(
+                bundle,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         } else {
             panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
         }
@@ -1214,9 +1228,15 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
 /// An [`EntityCommand`] that attempts to add the components in a [`Bundle`] to an entity.
 #[track_caller]
 fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
+    #[cfg(feature = "track_change_detection")]
+    let caller = core::panic::Location::caller();
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.insert(bundle);
+            entity.insert_with_caller(
+                bundle,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         }
     }
 }

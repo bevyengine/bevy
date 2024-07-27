@@ -767,12 +767,27 @@ impl<'w> EntityWorldMut<'w> {
     /// This will overwrite any previous value(s) of the same component type.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        self.insert_with_caller(
+            bundle,
+            #[cfg(feature = "track_change_detection")]
+            core::panic::Location::caller(),
+        )
+    }
+
+    #[inline]
+    pub(crate) fn insert_with_caller<T: Bundle>(
+        &mut self,
+        bundle: T,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+    ) -> &mut Self {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
         self.location =
             // SAFETY: location matches current entity. `T` matches `bundle_info`
-            unsafe { bundle_inserter.insert(self.entity, self.location, bundle) };
+            unsafe {
+                bundle_inserter.insert(self.entity, self.location, bundle,  #[cfg(feature = "track_change_detection")] caller)
+            };
         self
     }
 
@@ -2281,7 +2296,15 @@ unsafe fn insert_dynamic_bundle<
     };
 
     // SAFETY: location matches current entity.
-    unsafe { bundle_inserter.insert(entity, location, bundle) }
+    unsafe {
+        bundle_inserter.insert(
+            entity,
+            location,
+            bundle,
+            #[cfg(feature = "track_change_detection")]
+            core::panic::Location::caller(),
+        )
+    }
 }
 
 /// Removes a bundle from the given archetype and returns the resulting archetype (or None if the

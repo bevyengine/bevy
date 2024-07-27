@@ -40,7 +40,7 @@ use bevy_ptr::UnsafeCellDeref;
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
 #[cfg(feature = "track_change_detection")]
-use std::panic::Location;
+use core::panic::Location;
 use std::{
     any::TypeId,
     fmt,
@@ -1268,7 +1268,10 @@ impl World {
     /// Note that any resource with the [`Default`] trait automatically implements [`FromWorld`],
     /// and those default values will be here instead.
     #[inline]
+    #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
+        #[cfg(feature = "track_change_detection")]
+        let caller = core::panic::Location::caller();
         let component_id = self.components.init_resource::<R>();
         if self
             .storages
@@ -1280,7 +1283,12 @@ impl World {
             OwningPtr::make(value, |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    self.insert_resource_by_id(component_id, ptr);
+                    self.insert_resource_by_id(
+                        component_id,
+                        ptr,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
                 }
             });
         }
@@ -1293,12 +1301,20 @@ impl World {
     /// If you insert a resource of a type that already exists,
     /// you will overwrite any existing data.
     #[inline]
+    #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
+        #[cfg(feature = "track_change_detection")]
+        let caller = core::panic::Location::caller();
         let component_id = self.components.init_resource::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
-                self.insert_resource_by_id(component_id, ptr);
+                self.insert_resource_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    caller,
+                );
             }
         });
     }
@@ -1316,6 +1332,8 @@ impl World {
     /// Panics if called from a thread other than the main thread.
     #[inline]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
+        #[cfg(feature = "track_change_detection")]
+        let caller = core::panic::Location::caller();
         let component_id = self.components.init_non_send::<R>();
         if self
             .storages
@@ -1327,7 +1345,12 @@ impl World {
             OwningPtr::make(value, |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    self.insert_non_send_by_id(component_id, ptr);
+                    self.insert_non_send_by_id(
+                        component_id,
+                        ptr,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
                 }
             });
         }
@@ -1344,12 +1367,20 @@ impl World {
     /// If a value is already present, this function will panic if called
     /// from a different thread than where the original value was inserted from.
     #[inline]
+    #[track_caller]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
+        #[cfg(feature = "track_change_detection")]
+        let caller = core::panic::Location::caller();
         let component_id = self.components.init_non_send::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
-                self.insert_non_send_by_id(component_id, ptr);
+                self.insert_non_send_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    caller,
+                );
             }
         });
     }
@@ -1598,6 +1629,8 @@ impl World {
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
+        #[cfg(feature = "track_change_detection")]
+        let caller = core::panic::Location::caller();
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
@@ -1607,7 +1640,12 @@ impl World {
             OwningPtr::make(func(), |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    data.insert(ptr, change_tick);
+                    data.insert(
+                        ptr,
+                        change_tick,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
                 }
             });
         }
@@ -1747,6 +1785,24 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
+        self.insert_or_spawn_batch_with_caller(
+            iter,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        )
+    }
+
+    #[inline]
+    pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
+        &mut self,
+        iter: I,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> Result<(), Vec<Entity>>
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
         self.flush_entities();
 
         let change_tick = self.change_tick();
@@ -1784,7 +1840,15 @@ impl World {
                             if location.archetype_id == archetype =>
                         {
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location, bundle) };
+                            unsafe {
+                                inserter.insert(
+                                    entity,
+                                    location,
+                                    bundle,
+                                    #[cfg(feature = "track_change_detection")]
+                                    caller,
+                                )
+                            };
                         }
                         _ => {
                             // SAFETY: we initialized this bundle_id in `init_info`
@@ -1797,7 +1861,15 @@ impl World {
                                 )
                             };
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location, bundle) };
+                            unsafe {
+                                inserter.insert(
+                                    entity,
+                                    location,
+                                    bundle,
+                                    #[cfg(feature = "track_change_detection")]
+                                    caller,
+                                )
+                            };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
                         }
@@ -1811,7 +1883,7 @@ impl World {
                                 entity,
                                 bundle,
                                 #[cfg(feature = "track_change_detection")]
-                                Location::caller(),
+                                caller,
                             )
                         };
                     } else {
@@ -1824,7 +1896,7 @@ impl World {
                                 entity,
                                 bundle,
                                 #[cfg(feature = "track_change_detection")]
-                                Location::caller(),
+                                caller,
                             )
                         };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
@@ -1892,7 +1964,7 @@ impl World {
                 this_run: change_tick,
             },
             #[cfg(feature = "track_change_detection")]
-            caller: _caller,
+            caller: &mut _caller,
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
@@ -1906,7 +1978,14 @@ impl World {
                 self.storages
                     .resources
                     .get_mut(component_id)
-                    .map(|info| info.insert_with_ticks(ptr, ticks))
+                    .map(|info| {
+                        info.insert_with_ticks(
+                            ptr,
+                            ticks,
+                            #[cfg(feature = "track_change_detection")]
+                            _caller,
+                        );
+                    })
                     .unwrap_or_else(|| {
                         panic!(
                             "No resource of type {} exists in the World.",
@@ -1961,17 +2040,24 @@ impl World {
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
+    #[track_caller]
     pub unsafe fn insert_resource_by_id(
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
     ) {
         let change_tick = self.change_tick();
 
         let resource = self.initialize_resource_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
-            resource.insert(value, change_tick);
+            resource.insert(
+                value,
+                change_tick,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         }
     }
 
@@ -1988,17 +2074,24 @@ impl World {
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
+    #[track_caller]
     pub unsafe fn insert_non_send_by_id(
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
     ) {
         let change_tick = self.change_tick();
 
         let resource = self.initialize_non_send_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
-            resource.insert(value, change_tick);
+            resource.insert(
+                value,
+                change_tick,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         }
     }
 

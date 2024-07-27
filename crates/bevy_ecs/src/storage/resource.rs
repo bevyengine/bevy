@@ -161,7 +161,12 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
     #[inline]
-    pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: Tick) {
+    pub(crate) unsafe fn insert(
+        &mut self,
+        value: OwningPtr<'_>,
+        change_tick: Tick,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+    ) {
         if self.is_present() {
             self.validate_access();
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
@@ -178,6 +183,10 @@ impl<const SEND: bool> ResourceData<SEND> {
             *self.added_ticks.deref_mut() = change_tick;
         }
         *self.changed_ticks.deref_mut() = change_tick;
+        #[cfg(feature = "track_change_detection")]
+        {
+            *self.caller.deref_mut() = caller;
+        }
     }
 
     /// Inserts a value into the resource with a pre-existing change tick. If a
@@ -194,6 +203,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         &mut self,
         value: OwningPtr<'_>,
         change_ticks: ComponentTicks,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
     ) {
         if self.is_present() {
             self.validate_access();
@@ -211,6 +221,10 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
         *self.added_ticks.deref_mut() = change_ticks.added;
         *self.changed_ticks.deref_mut() = change_ticks.changed;
+        #[cfg(feature = "track_change_detection")]
+        {
+            *self.caller.deref_mut() = caller;
+        }
     }
 
     /// Removes a value from the resource, if present.

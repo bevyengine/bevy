@@ -326,7 +326,7 @@ macro_rules! change_detection_mut_impl {
                 *self.ticks.changed = self.ticks.this_run;
                 #[cfg(feature = "track_change_detection")]
                 {
-                    self.caller = Location::caller();
+                    *self.caller = Location::caller();
                 }
             }
 
@@ -336,7 +336,7 @@ macro_rules! change_detection_mut_impl {
                 *self.ticks.changed = last_changed;
                 #[cfg(feature = "track_change_detection")]
                 {
-                    self.caller = Location::caller();
+                    *self.caller = Location::caller();
                 }
             }
 
@@ -353,7 +353,7 @@ macro_rules! change_detection_mut_impl {
                 self.set_changed();
                 #[cfg(feature = "track_change_detection")]
                 {
-                    self.caller = Location::caller();
+                    *self.caller = Location::caller();
                 }
                 self.value
             }
@@ -602,7 +602,7 @@ pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
     #[cfg(feature = "track_change_detection")]
-    pub(crate) caller: &'static Location<'static>,
+    pub(crate) caller: &'w mut &'static Location<'static>,
 }
 
 impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
@@ -664,7 +664,7 @@ pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
     #[cfg(feature = "track_change_detection")]
-    pub(crate) caller: &'static Location<'static>,
+    pub(crate) caller: &'w mut &'static Location<'static>,
 }
 
 change_detection_impl!(NonSendMut<'w, T>, T,);
@@ -846,7 +846,7 @@ pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
     #[cfg(feature = "track_change_detection")]
-    pub(crate) caller: &'static Location<'static>,
+    pub(crate) caller: &'w mut &'static Location<'static>,
 }
 
 impl<'w, T: ?Sized> Mut<'w, T> {
@@ -871,7 +871,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         last_changed: &'w mut Tick,
         last_run: Tick,
         this_run: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_change_detection")] caller: &'w mut &'static Location<'static>,
     ) -> Self {
         Self {
             value,
@@ -940,7 +940,7 @@ pub struct MutUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
     pub(crate) ticks: TicksMut<'w>,
     #[cfg(feature = "track_change_detection")]
-    pub(crate) caller: &'static Location<'static>,
+    pub(crate) caller: &'w mut &'static core::panic::Location<'static>,
 }
 
 impl<'w> MutUntyped<'w> {
@@ -1031,6 +1031,7 @@ impl<'w> MutUntyped<'w> {
             // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
             value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
+            // SAFETY: `caller` is `Aligned`.
             #[cfg(feature = "track_change_detection")]
             caller: self.caller,
         }
@@ -1073,7 +1074,7 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
         *self.ticks.changed = self.ticks.this_run;
         #[cfg(feature = "track_change_detection")]
         {
-            self.caller = Location::caller();
+            *self.caller = Location::caller();
         }
     }
 
@@ -1083,11 +1084,12 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
         *self.ticks.changed = last_changed;
         #[cfg(feature = "track_change_detection")]
         {
-            self.caller = Location::caller();
+            *self.caller = Location::caller();
         }
     }
 
     #[inline]
+    #[track_caller]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         &mut self.value
     }

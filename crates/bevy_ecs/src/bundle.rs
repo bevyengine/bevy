@@ -656,19 +656,17 @@ impl<'w> BundleInserter<'w> {
     /// `entity` must currently exist in the source archetype for this inserter. `location`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
-    #[track_caller]
     pub(crate) unsafe fn insert<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
         bundle: T,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();
         let table = self.table.as_mut();
         let archetype = self.archetype.as_mut();
-        #[cfg(feature = "track_change_detection")]
-        let caller = Location::caller();
 
         let (new_archetype, new_location) = match &mut self.result {
             InsertBundleResult::SameArchetype => {
