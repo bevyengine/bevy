@@ -3,7 +3,7 @@ use crate::{
     entity::Entity,
     world::World,
 };
-use std::iter::FusedIterator;
+use std::{iter::FusedIterator, panic::Location};
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -16,7 +16,7 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
-    caller: core::panic::Location<'static>,
+    caller: Location<'static>,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -43,7 +43,7 @@ where
         Self {
             inner: iter,
             spawner,
-            caller: *core::panic::Location::caller(),
+            caller: *Location::caller(),
         }
     }
 }

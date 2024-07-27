@@ -22,6 +22,7 @@ use std::{
     fmt::Debug,
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    panic::Location,
 };
 
 /// A parameter that can be used in a [`System`](super::System).
@@ -1044,7 +1045,7 @@ pub struct NonSend<'w, T: 'static> {
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
-    caller: &'w core::panic::Location<'static>,
+    caller: &'w Location<'static>,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1071,7 +1072,7 @@ impl<'w, T: 'static> NonSend<'w, T> {
     }
 
     /// The location that last caused this to change.
-    pub fn changed_by(&self) -> core::panic::Location<'static> {
+    pub fn changed_by(&self) -> Location<'static> {
         *self.caller
     }
 }

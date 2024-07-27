@@ -16,7 +16,7 @@ use crate::{
     world::RawCommandQueue,
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -538,11 +538,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn get_resource_with_ticks(
         self,
         component_id: ComponentId,
-    ) -> Option<(
-        Ptr<'w>,
-        TickCells<'w>,
-        &'w UnsafeCell<core::panic::Location<'static>>,
-    )> {
+    ) -> Option<(Ptr<'w>, TickCells<'w>, &'w UnsafeCell<Location<'static>>)> {
         // SAFETY:
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
@@ -566,11 +562,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn get_non_send_with_ticks(
         self,
         component_id: ComponentId,
-    ) -> Option<(
-        Ptr<'w>,
-        TickCells<'w>,
-        &'w UnsafeCell<core::panic::Location<'static>>,
-    )> {
+    ) -> Option<(Ptr<'w>, TickCells<'w>, &'w UnsafeCell<Location<'static>>)> {
         // SAFETY:
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
@@ -980,11 +972,7 @@ unsafe fn get_component_and_ticks(
     storage_type: StorageType,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(
-    Ptr<'_>,
-    TickCells<'_>,
-    &UnsafeCell<core::panic::Location<'static>>,
-)> {
+) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<Location<'static>>)> {
     match storage_type {
         StorageType::Table => {
             let components = world.fetch_table(location, component_id)?;

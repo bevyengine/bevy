@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
-use std::alloc::Layout;
+use std::{alloc::Layout, panic::Location};
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
@@ -152,7 +152,7 @@ pub struct Column {
     data: BlobVec,
     added_ticks: Vec<UnsafeCell<Tick>>,
     changed_ticks: Vec<UnsafeCell<Tick>>,
-    callers: Vec<UnsafeCell<core::panic::Location<'static>>>,
+    callers: Vec<UnsafeCell<Location<'static>>>,
 }
 
 impl Column {
@@ -186,7 +186,7 @@ impl Column {
         row: TableRow,
         data: OwningPtr<'_>,
         tick: Tick,
-        caller: core::panic::Location<'static>,
+        caller: Location<'static>,
     ) {
         debug_assert!(row.as_usize() < self.len());
         self.data.initialize_unchecked(row.as_usize(), data);
@@ -209,7 +209,7 @@ impl Column {
         row: TableRow,
         data: OwningPtr<'_>,
         change_tick: Tick,
-        caller: core::panic::Location<'static>,
+        caller: Location<'static>,
     ) {
         debug_assert!(row.as_usize() < self.len());
         self.data.replace_unchecked(row.as_usize(), data);
@@ -266,11 +266,7 @@ impl Column {
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: TableRow,
-    ) -> (
-        OwningPtr<'_>,
-        ComponentTicks,
-        core::panic::Location<'static>,
-    ) {
+    ) -> (OwningPtr<'_>, ComponentTicks, Location<'static>) {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
         let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
         let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
@@ -315,7 +311,7 @@ impl Column {
         &mut self,
         ptr: OwningPtr<'_>,
         ticks: ComponentTicks,
-        caller: core::panic::Location<'static>,
+        caller: Location<'static>,
     ) {
         self.data.push(ptr);
         self.added_ticks.push(UnsafeCell::new(ticks.added));
@@ -379,7 +375,7 @@ impl Column {
     /// Users of this API must ensure that accesses to each individual element
     /// adhere to the safety invariants of [`UnsafeCell`].
     #[inline]
-    pub fn get_callers_slice(&self) -> &[UnsafeCell<core::panic::Location<'static>>] {
+    pub fn get_callers_slice(&self) -> &[UnsafeCell<Location<'static>>] {
         &self.callers
     }
 
@@ -390,11 +386,7 @@ impl Column {
     pub fn get(
         &self,
         row: TableRow,
-    ) -> Option<(
-        Ptr<'_>,
-        TickCells<'_>,
-        &UnsafeCell<core::panic::Location<'static>>,
-    )> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<Location<'static>>)> {
         (row.as_usize() < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
@@ -523,10 +515,7 @@ impl Column {
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
-    pub unsafe fn get_caller_unchecked(
-        &self,
-        row: TableRow,
-    ) -> &UnsafeCell<core::panic::Location<'static>> {
+    pub unsafe fn get_caller_unchecked(&self, row: TableRow) -> &UnsafeCell<Location<'static>> {
         debug_assert!(row.as_usize() < self.callers.len());
         self.callers.get_unchecked(row.as_usize())
     }
@@ -804,9 +793,7 @@ impl Table {
             column.data.set_len(self.entities.len());
             column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
             column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
-            column
-                .callers
-                .push(UnsafeCell::new(*core::panic::Location::caller()));
+            column.callers.push(UnsafeCell::new(*Location::caller()));
         }
         TableRow::from_usize(index)
     }
@@ -991,6 +978,7 @@ mod tests {
         entity::Entity,
         storage::{TableBuilder, TableRow},
     };
+    use std::panic::Location;
     #[derive(Component)]
     struct W<T>(T);
 
@@ -1014,7 +1002,7 @@ mod tests {
                         row,
                         value_ptr,
                         Tick::new(0),
-                        *core::panic::Location::caller(),
+                        *Location::caller(),
                     );
                 });
             };

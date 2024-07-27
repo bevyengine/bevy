@@ -3,6 +3,7 @@ use crate::change_detection::{MutUntyped, TicksMut};
 use crate::component::{ComponentId, ComponentTicks, Components, Tick, TickCells};
 use crate::storage::{blob_vec::BlobVec, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use std::panic::Location;
 use std::{cell::UnsafeCell, mem::ManuallyDrop, thread::ThreadId};
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
@@ -17,7 +18,7 @@ pub struct ResourceData<const SEND: bool> {
     type_name: String,
     id: ArchetypeComponentId,
     origin_thread_id: Option<ThreadId>,
-    caller: UnsafeCell<core::panic::Location<'static>>,
+    caller: UnsafeCell<Location<'static>>,
 }
 
 impl<const SEND: bool> Drop for ResourceData<SEND> {
@@ -112,11 +113,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     #[inline]
     pub(crate) fn get_with_ticks(
         &self,
-    ) -> Option<(
-        Ptr<'_>,
-        TickCells<'_>,
-        &UnsafeCell<core::panic::Location<'static>>,
-    )> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<Location<'static>>)> {
         self.is_present().then(|| {
             self.validate_access();
             (
@@ -217,13 +214,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// original thread it was inserted from.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
-    pub(crate) fn remove(
-        &mut self,
-    ) -> Option<(
-        OwningPtr<'_>,
-        ComponentTicks,
-        core::panic::Location<'static>,
-    )> {
+    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks, Location<'static>)> {
         if !self.is_present() {
             return None;
         }
@@ -354,7 +345,7 @@ impl<const SEND: bool> Resources<SEND> {
                 type_name: String::from(component_info.name()),
                 id: f(),
                 origin_thread_id: None,
-                caller: UnsafeCell::new(*core::panic::Location::caller())
+                caller: UnsafeCell::new(*Location::caller())
             }
         })
     }
