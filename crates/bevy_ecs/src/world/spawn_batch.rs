@@ -3,7 +3,9 @@ use crate::{
     entity::Entity,
     world::World,
 };
-use std::{iter::FusedIterator, panic::Location};
+use std::iter::FusedIterator;
+#[cfg(feature = "track_change_detection")]
+use std::panic::Location;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -16,6 +18,7 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
+    #[cfg(feature = "track_change_detection")]
     caller: &'static Location<'static>,
 }
 
@@ -43,6 +46,7 @@ where
         Self {
             inner: iter,
             spawner,
+            #[cfg(feature = "track_change_detection")]
             caller: Location::caller(),
         }
     }
@@ -72,7 +76,13 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle, self.caller)) }
+        unsafe {
+            Some(self.spawner.spawn(
+                bundle,
+                #[cfg(feature = "track_change_detection")]
+                self.caller,
+            ))
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

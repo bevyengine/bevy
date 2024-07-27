@@ -1,4 +1,5 @@
 use crate::{
+    change_detection::{MaybeLocation, MaybeUnsafeCellLocation},
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
     query::DebugCheckedUnwrap,
@@ -6,7 +7,9 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
-use std::{alloc::Layout, panic::Location};
+use std::alloc::Layout;
+#[cfg(feature = "track_change_detection")]
+use std::panic::Location;
 use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
@@ -152,6 +155,7 @@ pub struct Column {
     data: BlobVec,
     added_ticks: Vec<UnsafeCell<Tick>>,
     changed_ticks: Vec<UnsafeCell<Tick>>,
+    #[cfg(feature = "track_change_detection")]
     callers: Vec<UnsafeCell<&'static Location<'static>>>,
 }
 
@@ -164,6 +168,7 @@ impl Column {
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
+            #[cfg(feature = "track_change_detection")]
             callers: Vec::with_capacity(capacity),
         }
     }
@@ -186,7 +191,7 @@ impl Column {
         row: TableRow,
         data: OwningPtr<'_>,
         tick: Tick,
-        caller: &'static Location<'static>,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) {
         debug_assert!(row.as_usize() < self.len());
         self.data.initialize_unchecked(row.as_usize(), data);
@@ -195,7 +200,10 @@ impl Column {
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
             .get_mut() = tick;
-        *self.callers.get_unchecked_mut(row.as_usize()).get_mut() = caller;
+        #[cfg(feature = "track_change_detection")]
+        {
+            *self.callers.get_unchecked_mut(row.as_usize()).get_mut() = caller;
+        }
     }
 
     /// Writes component data to the column at given row.
@@ -209,7 +217,7 @@ impl Column {
         row: TableRow,
         data: OwningPtr<'_>,
         change_tick: Tick,
-        caller: &'static Location<'static>,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) {
         debug_assert!(row.as_usize() < self.len());
         self.data.replace_unchecked(row.as_usize(), data);
@@ -217,7 +225,11 @@ impl Column {
             .changed_ticks
             .get_unchecked_mut(row.as_usize())
             .get_mut() = change_tick;
-        *self.callers.get_unchecked_mut(row.as_usize()).get_mut() = caller;
+
+        #[cfg(feature = "track_change_detection")]
+        {
+            *self.callers.get_unchecked_mut(row.as_usize()).get_mut() = caller;
+        }
     }
 
     /// Gets the current number of elements stored in the column.
@@ -247,6 +259,7 @@ impl Column {
         self.data.swap_remove_and_drop_unchecked(row.as_usize());
         self.added_ticks.swap_remove(row.as_usize());
         self.changed_ticks.swap_remove(row.as_usize());
+        #[cfg(feature = "track_change_detection")]
         self.callers.swap_remove(row.as_usize());
     }
 
@@ -266,11 +279,14 @@ impl Column {
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         row: TableRow,
-    ) -> (OwningPtr<'_>, ComponentTicks, &'static Location<'static>) {
+    ) -> (OwningPtr<'_>, ComponentTicks, MaybeLocation) {
         let data = self.data.swap_remove_and_forget_unchecked(row.as_usize());
         let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
         let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
+        #[cfg(feature = "track_change_detection")]
         let caller = self.callers.swap_remove(row.as_usize()).into_inner();
+        #[cfg(not(feature = "track_change_detection"))]
+        let caller = ();
         (data, ComponentTicks { added, changed }, caller)
     }
 
@@ -299,8 +315,11 @@ impl Column {
             other.added_ticks.swap_remove(src_row.as_usize());
         *self.changed_ticks.get_unchecked_mut(dst_row.as_usize()) =
             other.changed_ticks.swap_remove(src_row.as_usize());
-        *self.callers.get_unchecked_mut(dst_row.as_usize()) =
-            other.callers.swap_remove(src_row.as_usize());
+        #[cfg(feature = "track_change_detection")]
+        {
+            *self.callers.get_unchecked_mut(dst_row.as_usize()) =
+                other.callers.swap_remove(src_row.as_usize());
+        }
     }
 
     /// Pushes a new value onto the end of the [`Column`].
@@ -311,11 +330,12 @@ impl Column {
         &mut self,
         ptr: OwningPtr<'_>,
         ticks: ComponentTicks,
-        caller: &'static Location<'static>,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) {
         self.data.push(ptr);
         self.added_ticks.push(UnsafeCell::new(ticks.added));
         self.changed_ticks.push(UnsafeCell::new(ticks.changed));
+        #[cfg(feature = "track_change_detection")]
         self.callers.push(UnsafeCell::new(caller));
     }
 
@@ -324,6 +344,7 @@ impl Column {
         self.data.reserve_exact(additional);
         self.added_ticks.reserve_exact(additional);
         self.changed_ticks.reserve_exact(additional);
+        #[cfg(feature = "track_change_detection")]
         self.callers.reserve_exact(additional);
     }
 
@@ -375,6 +396,7 @@ impl Column {
     /// Users of this API must ensure that accesses to each individual element
     /// adhere to the safety invariants of [`UnsafeCell`].
     #[inline]
+    #[cfg(feature = "track_change_detection")]
     pub fn get_callers_slice(&self) -> &[UnsafeCell<&'static Location<'static>>] {
         &self.callers
     }
@@ -386,11 +408,7 @@ impl Column {
     pub fn get(
         &self,
         row: TableRow,
-    ) -> Option<(
-        Ptr<'_>,
-        TickCells<'_>,
-        &UnsafeCell<&'static Location<'static>>,
-    )> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
         (row.as_usize() < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
@@ -401,7 +419,10 @@ impl Column {
                         added: self.added_ticks.get_unchecked(row.as_usize()),
                         changed: self.changed_ticks.get_unchecked(row.as_usize()),
                     },
+                    #[cfg(feature = "track_change_detection")]
                     self.callers.get_unchecked(row.as_usize()),
+                    #[cfg(not(feature = "track_change_detection"))]
+                    (),
                 )
             })
     }
@@ -519,6 +540,7 @@ impl Column {
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
     #[inline]
+    #[cfg(feature = "track_change_detection")]
     pub unsafe fn get_caller_unchecked(
         &self,
         row: TableRow,
@@ -549,6 +571,7 @@ impl Column {
         self.data.clear();
         self.added_ticks.clear();
         self.changed_ticks.clear();
+        #[cfg(feature = "track_change_detection")]
         self.callers.clear();
     }
 
@@ -800,6 +823,7 @@ impl Table {
             column.data.set_len(self.entities.len());
             column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
             column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
+            #[cfg(feature = "track_change_detection")]
             column.callers.push(UnsafeCell::new(Location::caller()));
         }
         TableRow::from_usize(index)
@@ -985,6 +1009,7 @@ mod tests {
         entity::Entity,
         storage::{TableBuilder, TableRow},
     };
+    #[cfg(feature = "track_change_detection")]
     use std::panic::Location;
 
     #[derive(Component)]
@@ -1010,6 +1035,7 @@ mod tests {
                         row,
                         value_ptr,
                         Tick::new(0),
+                        #[cfg(feature = "track_change_detection")]
                         Location::caller(),
                     );
                 });
