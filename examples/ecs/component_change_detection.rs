@@ -43,11 +43,7 @@ fn change_detection(query: Query<(Entity, Ref<MyComponent>), Changed<MyComponent
         // By default you can only what component was changed on each entity. This is useful, but
         // what if you have multiple systems modifying the same component?
         #[cfg(not(feature = "track_change_detection"))]
-        info!(
-            "{:?} changed {:?}",
-            entity,
-            component,
-        );
+        info!("{:?} changed {:?}", entity, component,);
 
         // If you enable the `track_change_detection` feature, you can unlock the
         // `Ref::changed_by()` method. It returns the `Location`, the file and line number, that
