@@ -104,7 +104,7 @@ fn rasterize_cluster(
         for (var x = min_x; x <= max_x; x++) {
             // Check if point at pixel is within triangle
             if min3(w[0], w[1], w[2]) >= 0.0 {
-                    write_visibility_buffer_pixel(frag_coord_1d_row + x, z, packed_ids);
+                write_visibility_buffer_pixel(frag_coord_1d_row + x, z, packed_ids);
             }
 
             // Increment edge functions along the X-axis
