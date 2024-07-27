@@ -147,15 +147,7 @@ impl std::fmt::Display for CyclingMode {
 /// The curve presently being displayed. This is optional because there may not be enough control
 /// points to actually generate a curve.
 #[derive(Clone, Default, Resource)]
-struct Curve {
-    inner: Option<CubicCurve<Vec2>>,
-}
-
-impl From<Option<CubicCurve<Vec2>>> for Curve {
-    fn from(value: Option<CubicCurve<Vec2>>) -> Self {
-        Self { inner: value }
-    }
-}
+struct Curve(Option<CubicCurve<Vec2>>);
 
 /// The control points used to generate a curve. The tangent components are only used in the case of
 /// Hermite interpolation.
@@ -184,7 +176,7 @@ fn update_curve(
 /// This system uses gizmos to draw the current [`Curve`] by breaking it up into a large number
 /// of line segments.
 fn draw_curve(curve: Res<Curve>, mut gizmos: Gizmos) {
-    let Some(ref curve) = curve.inner else {
+    let Some(ref curve) = curve.0 else {
         return;
     };
     // Scale resolution with curve length so it doesn't degrade as the length increases.
@@ -227,21 +219,21 @@ fn form_curve(
     match spline_mode {
         SplineMode::Hermite => {
             let spline = CubicHermite::new(points, tangents);
-            Curve::from(match cycling_mode {
+            Curve(match cycling_mode {
                 CyclingMode::NotCyclic => spline.to_curve().ok(),
                 CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
             })
         }
         SplineMode::Cardinal => {
             let spline = CubicCardinalSpline::new_catmull_rom(points);
-            Curve::from(match cycling_mode {
+            Curve(match cycling_mode {
                 CyclingMode::NotCyclic => spline.to_curve().ok(),
                 CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
             })
         }
         SplineMode::B => {
             let spline = CubicBSpline::new(points);
-            Curve::from(match cycling_mode {
+            Curve(match cycling_mode {
                 CyclingMode::NotCyclic => spline.to_curve().ok(),
                 CyclingMode::Cyclic => spline.to_curve_cyclic().ok(),
             })
