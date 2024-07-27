@@ -29,14 +29,14 @@ var<workgroup> viewport_vertices: array<vec3f, 64>;
 @workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 vertex/triangle per thread, 1 cluster per workgroup
 fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(local_invocation_id) local_invocation_id: vec3<u32>,
+    @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
     let cluster_id = meshlet_software_raster_clusters[workgroup_id.x];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
 
     // Load and project 1 vertex per thread
-    let vertex_id = local_invocation_id.x;
+    let vertex_id = local_invocation_index;
     if vertex_id < meshlet.vertex_count {
         let meshlet_vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
         let vertex = unpack_meshlet_vertex(meshlet_vertex_data[meshlet_vertex_id]);
@@ -60,7 +60,7 @@ fn rasterize_cluster(
     workgroupBarrier();
 
     // Load 1 triangle's worth of vertex data per thread
-    let triangle_id = local_invocation_id.x;
+    let triangle_id = local_invocation_index;
     if triangle_id >= meshlet.triangle_count { return; }
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
     let vertex_ids = vec3(get_meshlet_index(index_ids[0]), get_meshlet_index(index_ids[1]), get_meshlet_index(index_ids[2]));
@@ -96,26 +96,57 @@ fn rasterize_cluster(
     var z_row = dot(vertices_z, w_row);
     let view_width = u32(view.viewport.z);
     var frag_coord_1d_row = min_y * view_width;
-    // Iterate over every pixel in the triangle's bounding box
-    for (var y = min_y; y <= max_y; y++) {
-        var w = w_row;
-        var z = z_row;
 
-        for (var x = min_x; x <= max_x; x++) {
-            // Check if point at pixel is within triangle
-            if min3(w[0], w[1], w[2]) >= 0.0 {
+    // Rasterize triangle
+    if subgroupAny(max_x - min_x > 4u) {
+        // Scanline
+        let edge_012 = -w_x;
+        let open_edge = edge_012 < vec3(0.0);
+        let inverse_edge_012 = select(1.0 / edge_012, vec3(1e8), edge_012 == vec3(0.0));
+        let max_x_diff = vec3<f32>(max_x - min_x);
+        for (var y = min_y; y <= max_y; y++) {
+            // Calculate start and end X interval for pixels in this row within the triangle
+            let cross_x = w_row * inverse_edge_012;
+            let min_x2 = select(vec3(0.0), cross_x, open_edge);
+            let max_x2 = select(cross_x, max_x_diff, open_edge);
+            var x0 = u32(ceil(max3(min_x2[0], min_x2[1], min_x2[2])));
+            let x1 = u32(min3(max_x2[0], max_x2[1], max_x2[2])) + min_x;
+            var z = z_row + z_x * f32(x0);
+            x0 += min_x;
+
+            // Fill in X interval
+            for (var x = x0; x <= x1; x++) {
                 write_visibility_buffer_pixel(frag_coord_1d_row + x, z, packed_ids);
+                z += z_x;
             }
 
-            // Increment edge functions along the X-axis
-            w += w_x;
-            z += z_x;
+            // Increment edge functions along the Y-axis
+            w_row += w_y;
+            z_row += z_y;
+            frag_coord_1d_row += view_width;
         }
+    } else {
+        // Iterate over every pixel in the triangle's bounding box
+        for (var y = min_y; y <= max_y; y++) {
+            var w = w_row;
+            var z = z_row;
 
-        // Increment edge functions along the Y-axis
-        w_row += w_y;
-        z_row += z_y;
-        frag_coord_1d_row += view_width;
+            for (var x = min_x; x <= max_x; x++) {
+                // Check if point at pixel is within triangle
+                if min3(w[0], w[1], w[2]) >= 0.0 {
+                    write_visibility_buffer_pixel(frag_coord_1d_row + x, z, packed_ids);
+                }
+
+                // Increment edge functions along the X-axis
+                w += w_x;
+                z += z_x;
+            }
+
+            // Increment edge functions along the Y-axis
+            w_row += w_y;
+            z_row += z_y;
+            frag_coord_1d_row += view_width;
+        }
     }
 }
 
