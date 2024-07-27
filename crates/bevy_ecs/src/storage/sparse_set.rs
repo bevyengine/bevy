@@ -1,10 +1,13 @@
 use crate::{
+    change_detection::MaybeUnsafeCellLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
     storage::{Column, TableRow},
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use nonmax::NonMaxUsize;
+#[cfg(feature = "track_change_detection")]
+use std::panic::Location;
 use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
 type EntityIndex = u32;
@@ -169,16 +172,26 @@ impl ComponentSparseSet {
         entity: Entity,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        caller: core::panic::Location<'static>,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.dense.replace(dense_index, value, change_tick, caller);
+            self.dense.replace(
+                dense_index,
+                value,
+                change_tick,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         } else {
             let dense_index = self.dense.len();
-            self.dense
-                .push(value, ComponentTicks::new(change_tick), caller);
+            self.dense.push(
+                value,
+                ComponentTicks::new(change_tick),
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
             self.sparse
                 .insert(entity.index(), TableRow::from_usize(dense_index));
             #[cfg(debug_assertions)]
@@ -227,11 +240,7 @@ impl ComponentSparseSet {
     pub fn get_with_ticks(
         &self,
         entity: Entity,
-    ) -> Option<(
-        Ptr<'_>,
-        TickCells<'_>,
-        &UnsafeCell<core::panic::Location<'static>>,
-    )> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);
@@ -243,7 +252,10 @@ impl ComponentSparseSet {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
                 },
+                #[cfg(feature = "track_change_detection")]
                 self.dense.get_caller_unchecked(dense_index),
+                #[cfg(not(feature = "track_change_detection"))]
+                (),
             ))
         }
     }

@@ -296,6 +296,7 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
                 entity.into_mut::<C>().map(|c| Mut {
                     value: c.value as &mut dyn Reflect,
                     ticks: c.ticks,
+                    #[cfg(feature = "track_change_detection")]
                     caller: c.caller,
                 })
             },
@@ -306,6 +307,7 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
                     entity.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn Reflect,
                         ticks: c.ticks,
+                        #[cfg(feature = "track_change_detection")]
                         caller: c.caller,
                     })
                 }

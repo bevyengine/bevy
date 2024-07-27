@@ -338,6 +338,9 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
+# Enables source location tracking for change detection, which can assist with debugging
+track_change_detection = ["bevy_internal/track_change_detection"]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
 

@@ -35,8 +35,12 @@ use crate::{
     world::command_queue::RawCommandQueue,
     world::error::TryRunScheduleError,
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+#[cfg(feature = "track_change_detection")]
+use bevy_ptr::UnsafeCellDeref;
+use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
+#[cfg(feature = "track_change_detection")]
+use std::panic::Location;
 use std::{
     any::TypeId,
     fmt,
@@ -960,7 +964,12 @@ impl World {
             let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
             unsafe {
-                bundle_spawner.spawn_non_existent(entity, bundle, *core::panic::Location::caller())
+                bundle_spawner.spawn_non_existent(
+                    entity,
+                    bundle,
+                    #[cfg(feature = "track_change_detection")]
+                    Location::caller(),
+                )
             }
         };
 
@@ -1801,7 +1810,8 @@ impl World {
                             spawner.spawn_non_existent(
                                 entity,
                                 bundle,
-                                *core::panic::Location::caller(),
+                                #[cfg(feature = "track_change_detection")]
+                                Location::caller(),
                             )
                         };
                     } else {
@@ -1813,7 +1823,8 @@ impl World {
                             spawner.spawn_non_existent(
                                 entity,
                                 bundle,
-                                *core::panic::Location::caller(),
+                                #[cfg(feature = "track_change_detection")]
+                                Location::caller(),
                             )
                         };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
@@ -1863,7 +1874,7 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        let (ptr, mut ticks, mut caller) = self
+        let (ptr, mut ticks, mut _caller) = self
             .storages
             .resources
             .get_mut(component_id)
@@ -1880,7 +1891,8 @@ impl World {
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
-            caller: &mut caller,
+            #[cfg(feature = "track_change_detection")]
+            caller: _caller,
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
@@ -2489,7 +2501,7 @@ impl World {
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                let (ptr, ticks, caller) = data.get_with_ticks()?;
+                let (ptr, ticks, _caller) = data.get_with_ticks()?;
 
                 // SAFETY:
                 // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
@@ -2508,10 +2520,11 @@ impl World {
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     value: unsafe { ptr.assert_unique() },
                     ticks,
+                    #[cfg(feature = "track_change_detection")]
                     // SAFETY:
                     // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
-                    caller: unsafe { caller.deref_mut() },
+                    caller: unsafe { _caller.deref_mut() },
                 };
 
                 Some((component_info, mut_untyped))
