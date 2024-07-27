@@ -21,7 +21,6 @@ use bevy_reflect::Reflect;
 pub struct ToRenderWorld;
 
 #[derive(Component, Deref, Clone, Debug, Copy)]
-#[component(storage = "SparseSet")]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     pub fn id(&self) -> Entity {
@@ -30,16 +29,15 @@ impl RenderEntity {
 }
 
 #[derive(Component, Deref, Clone, Debug)]
-#[component(storage = "SparseSet")]
 pub struct MainEntity(Entity);
 impl MainEntity {
     pub fn id(&self) -> Entity {
         self.0
     }
 }
+
 // marker component that indicates that its entity needs to be despawned at the end of every frame.
 #[derive(Component, Clone, Debug, Default, Reflect)]
-#[component(storage = "SparseSet")]
 pub struct RenderFlyEntity;
 
 pub(crate) enum EntityRecord {
