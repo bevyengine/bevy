@@ -214,10 +214,6 @@ impl_reflect_value!(::std::ffi::OsString(
 impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
 impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>);
 
-impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::EntityHash);
-impl_type_path!(::bevy_utils::FixedState);
-
 macro_rules! impl_reflect_for_atomic {
     ($ty:ty, $ordering:expr) => {
         const _: () = {
