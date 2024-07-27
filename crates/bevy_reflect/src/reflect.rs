@@ -1,6 +1,6 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Set, Struct, Tuple, TupleStruct,
     TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
@@ -24,6 +24,7 @@ macro_rules! impl_reflect_enum {
                     Self::List(_) => ReflectKind::List,
                     Self::Array(_) => ReflectKind::Array,
                     Self::Map(_) => ReflectKind::Map,
+                    Self::Set(_) => ReflectKind::Set,
                     Self::Enum(_) => ReflectKind::Enum,
                     Self::Value(_) => ReflectKind::Value,
                 }
@@ -39,6 +40,7 @@ macro_rules! impl_reflect_enum {
                     $name::List(_) => Self::List,
                     $name::Array(_) => Self::Array,
                     $name::Map(_) => Self::Map,
+                    $name::Set(_) => Self::Set,
                     $name::Enum(_) => Self::Enum,
                     $name::Value(_) => Self::Value,
                 }
@@ -60,6 +62,7 @@ pub enum ReflectRef<'a> {
     List(&'a dyn List),
     Array(&'a dyn Array),
     Map(&'a dyn Map),
+    Set(&'a dyn Set),
     Enum(&'a dyn Enum),
     Value(&'a dyn Reflect),
 }
@@ -78,6 +81,7 @@ pub enum ReflectMut<'a> {
     List(&'a mut dyn List),
     Array(&'a mut dyn Array),
     Map(&'a mut dyn Map),
+    Set(&'a mut dyn Set),
     Enum(&'a mut dyn Enum),
     Value(&'a mut dyn Reflect),
 }
@@ -96,6 +100,7 @@ pub enum ReflectOwned {
     List(Box<dyn List>),
     Array(Box<dyn Array>),
     Map(Box<dyn Map>),
+    Set(Box<dyn Set>),
     Enum(Box<dyn Enum>),
     Value(Box<dyn Reflect>),
 }
@@ -149,6 +154,7 @@ pub enum ReflectKind {
     List,
     Array,
     Map,
+    Set,
     Enum,
     Value,
 }
@@ -162,6 +168,7 @@ impl std::fmt::Display for ReflectKind {
             ReflectKind::List => f.pad("list"),
             ReflectKind::Array => f.pad("array"),
             ReflectKind::Map => f.pad("map"),
+            ReflectKind::Set => f.pad("set"),
             ReflectKind::Enum => f.pad("enum"),
             ReflectKind::Value => f.pad("value"),
         }

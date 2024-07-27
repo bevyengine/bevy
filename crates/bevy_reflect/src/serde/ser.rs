@@ -1,5 +1,5 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
+    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Set, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
@@ -220,6 +220,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             .serialize(serializer),
             ReflectRef::Map(value) => MapSerializer {
                 map: value,
+                registry: self.registry,
+            }
+            .serialize(serializer),
+            ReflectRef::Set(value) => SetSerializer {
+                set: value,
                 registry: self.registry,
             }
             .serialize(serializer),
@@ -498,6 +503,24 @@ impl<'a> Serialize for MapSerializer<'a> {
                 &TypedReflectSerializer::new(key, self.registry),
                 &TypedReflectSerializer::new(value, self.registry),
             )?;
+        }
+        state.end()
+    }
+}
+
+pub struct SetSerializer<'a> {
+    pub set: &'a dyn Set,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for SetSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.set.len()))?;
+        for value in self.set.iter() {
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }

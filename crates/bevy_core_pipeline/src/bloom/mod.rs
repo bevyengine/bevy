@@ -338,7 +338,11 @@ fn prepare_bloom_textures(
         {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
             let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;
-            let mip_height_ratio = MAX_MIP_DIMENSION as f32 / height as f32;
+            let mip_height_ratio = if height != 0 {
+                MAX_MIP_DIMENSION as f32 / height as f32
+            } else {
+                0.
+            };
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
