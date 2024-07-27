@@ -16,7 +16,7 @@ where
 {
     inner: I,
     spawner: BundleSpawner<'w>,
-    caller: Location<'static>,
+    caller: &'static Location<'static>,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -43,7 +43,7 @@ where
         Self {
             inner: iter,
             spawner,
-            caller: *Location::caller(),
+            caller: Location::caller(),
         }
     }
 }

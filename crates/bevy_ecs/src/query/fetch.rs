@@ -1026,7 +1026,7 @@ pub struct RefFetch<'w, T> {
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Location<'static>>>,
+        ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>,
     )>,
     // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -1215,7 +1215,7 @@ pub struct WriteFetch<'w, T> {
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Location<'static>>>,
+        ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>,
     )>,
     // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,

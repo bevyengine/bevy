@@ -538,7 +538,11 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn get_resource_with_ticks(
         self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'w>, TickCells<'w>, &'w UnsafeCell<Location<'static>>)> {
+    ) -> Option<(
+        Ptr<'w>,
+        TickCells<'w>,
+        &'w UnsafeCell<&'static Location<'static>>,
+    )> {
         // SAFETY:
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
@@ -562,7 +566,11 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn get_non_send_with_ticks(
         self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'w>, TickCells<'w>, &'w UnsafeCell<Location<'static>>)> {
+    ) -> Option<(
+        Ptr<'w>,
+        TickCells<'w>,
+        &'w UnsafeCell<&'static Location<'static>>,
+    )> {
         // SAFETY:
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
@@ -972,7 +980,11 @@ unsafe fn get_component_and_ticks(
     storage_type: StorageType,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<Location<'static>>)> {
+) -> Option<(
+    Ptr<'_>,
+    TickCells<'_>,
+    &UnsafeCell<&'static Location<'static>>,
+)> {
     match storage_type {
         StorageType::Table => {
             let components = world.fetch_table(location, component_id)?;

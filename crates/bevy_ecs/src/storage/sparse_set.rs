@@ -169,7 +169,7 @@ impl ComponentSparseSet {
         entity: Entity,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        caller: Location<'static>,
+        caller: &'static Location<'static>,
     ) {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
@@ -227,7 +227,11 @@ impl ComponentSparseSet {
     pub fn get_with_ticks(
         &self,
         entity: Entity,
-    ) -> Option<(Ptr<'_>, TickCells<'_>, &UnsafeCell<Location<'static>>)> {
+    ) -> Option<(
+        Ptr<'_>,
+        TickCells<'_>,
+        &UnsafeCell<&'static Location<'static>>,
+    )> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);

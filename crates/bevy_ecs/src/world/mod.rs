@@ -960,7 +960,7 @@ impl World {
         let entity_location = {
             let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, *Location::caller()) }
+            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, Location::caller()) }
         };
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -1796,13 +1796,13 @@ impl World {
                 AllocAtWithoutReplacement::DidNotExist => {
                     if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
                         // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
-                        unsafe { spawner.spawn_non_existent(entity, bundle, *Location::caller()) };
+                        unsafe { spawner.spawn_non_existent(entity, bundle, Location::caller()) };
                     } else {
                         // SAFETY: we initialized this bundle_id in `init_info`
                         let mut spawner =
                             unsafe { BundleSpawner::new_with_id(self, bundle_id, change_tick) };
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe { spawner.spawn_non_existent(entity, bundle, *Location::caller()) };
+                        unsafe { spawner.spawn_non_existent(entity, bundle, Location::caller()) };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
                     }
                 }
