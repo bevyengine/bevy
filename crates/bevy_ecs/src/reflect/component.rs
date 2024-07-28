@@ -297,7 +297,7 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
                     value: c.value as &mut dyn Reflect,
                     ticks: c.ticks,
                     #[cfg(feature = "track_change_detection")]
-                    caller: c.caller,
+                    changed_by: c.changed_by,
                 })
             },
             reflect_unchecked_mut: |entity| {
@@ -308,7 +308,7 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
                         value: c.value as &mut dyn Reflect,
                         ticks: c.ticks,
                         #[cfg(feature = "track_change_detection")]
-                        caller: c.caller,
+                        changed_by: c.changed_by,
                     })
                 }
             },

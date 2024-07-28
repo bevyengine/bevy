@@ -35,18 +35,20 @@ use crate::{
     world::command_queue::RawCommandQueue,
     world::error::TryRunScheduleError,
 };
-#[cfg(feature = "track_change_detection")]
-use bevy_ptr::UnsafeCellDeref;
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
-#[cfg(feature = "track_change_detection")]
-use core::panic::Location;
 use std::{
     any::TypeId,
     fmt,
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
+
+#[cfg(feature = "track_change_detection")]
+use bevy_ptr::UnsafeCellDeref;
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
+
 mod identifier;
 
 use self::unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -1015,12 +1017,18 @@ impl World {
     ///
     /// assert_eq!(entities.len(), 2);
     /// ```
+    #[track_caller]
     pub fn spawn_batch<I>(&mut self, iter: I) -> SpawnBatchIter<'_, I::IntoIter>
     where
         I: IntoIterator,
         I::Item: Bundle,
     {
-        SpawnBatchIter::new(self, iter.into_iter())
+        SpawnBatchIter::new(
+            self,
+            iter.into_iter(),
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        )
     }
 
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given type.
@@ -1271,7 +1279,7 @@ impl World {
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         #[cfg(feature = "track_change_detection")]
-        let caller = core::panic::Location::caller();
+        let caller = Location::caller();
         let component_id = self.components.init_resource::<R>();
         if self
             .storages
@@ -1303,8 +1311,21 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
-        #[cfg(feature = "track_change_detection")]
-        let caller = core::panic::Location::caller();
+        self.insert_resource_with_caller(
+            value,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+
+    /// Split into a new function so we can pass the calling location into the function when using
+    /// as a command.
+    #[inline]
+    pub(crate) fn insert_resource_with_caller<R: Resource>(
+        &mut self,
+        value: R,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) {
         let component_id = self.components.init_resource::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
@@ -1331,9 +1352,10 @@ impl World {
     ///
     /// Panics if called from a thread other than the main thread.
     #[inline]
+    #[track_caller]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
         #[cfg(feature = "track_change_detection")]
-        let caller = core::panic::Location::caller();
+        let caller = Location::caller();
         let component_id = self.components.init_non_send::<R>();
         if self
             .storages
@@ -1370,7 +1392,7 @@ impl World {
     #[track_caller]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         #[cfg(feature = "track_change_detection")]
-        let caller = core::panic::Location::caller();
+        let caller = Location::caller();
         let component_id = self.components.init_non_send::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
@@ -1625,12 +1647,13 @@ impl World {
     /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
+    #[track_caller]
     pub fn get_resource_or_insert_with<R: Resource>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
         #[cfg(feature = "track_change_detection")]
-        let caller = core::panic::Location::caller();
+        let caller = Location::caller();
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
@@ -1938,6 +1961,7 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
@@ -1964,7 +1988,7 @@ impl World {
                 this_run: change_tick,
             },
             #[cfg(feature = "track_change_detection")]
-            caller: &mut _caller,
+            changed_by: &mut _caller,
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
@@ -2045,7 +2069,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
         let change_tick = self.change_tick();
 
@@ -2079,7 +2103,7 @@ impl World {
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
         let change_tick = self.change_tick();
 
@@ -2617,7 +2641,7 @@ impl World {
                     // SAFETY:
                     // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
-                    caller: unsafe { _caller.deref_mut() },
+                    changed_by: unsafe { _caller.deref_mut() },
                 };
 
                 Some((component_info, mut_untyped))
@@ -3174,7 +3198,12 @@ mod tests {
         OwningPtr::make(value, |ptr| {
             // SAFETY: value is valid for the component layout
             unsafe {
-                world.insert_resource_by_id(component_id, ptr);
+                world.insert_resource_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    core::panic::Location::caller(),
+                );
             }
         });
 

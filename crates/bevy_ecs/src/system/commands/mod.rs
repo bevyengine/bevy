@@ -1,5 +1,9 @@
 mod parallel_scope;
 
+use core::marker::PhantomData;
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
+
 use super::{Deferred, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
@@ -7,12 +11,13 @@ use crate::{
     component::ComponentId,
     entity::{Entities, Entity},
     system::{RunSystemWithInput, SystemId},
-    world::command_queue::RawCommandQueue,
-    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
+    world::{
+        command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
+        SpawnBatchIter, World,
+    },
 };
 use bevy_utils::tracing::{error, info};
 pub use parallel_scope::*;
-use std::marker::PhantomData;
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
@@ -962,6 +967,7 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
+    #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(try_insert(bundle))
     }
@@ -1159,13 +1165,21 @@ where
 /// A [`Command`] that consumes an iterator of [`Bundle`]s to spawn a series of entities.
 ///
 /// This is more efficient than spawning the entities individually.
+#[track_caller]
 fn spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator<Item = B> + Send + Sync + 'static,
     B: Bundle,
 {
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
     move |world: &mut World| {
-        world.spawn_batch(bundles_iter);
+        SpawnBatchIter::new(
+            world,
+            bundles_iter.into_iter(),
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
     }
 }
 
@@ -1282,19 +1296,28 @@ fn retain<T: Bundle>(entity: Entity, world: &mut World) {
 
 /// A [`Command`] that inserts a [`Resource`] into the world using a value
 /// created with the [`FromWorld`] trait.
+#[track_caller]
 fn init_resource<R: Resource + FromWorld>(world: &mut World) {
     world.init_resource::<R>();
 }
 
 /// A [`Command`] that removes the [resource](Resource) `R` from the world.
+#[track_caller]
 fn remove_resource<R: Resource>(world: &mut World) {
     world.remove_resource::<R>();
 }
 
 /// A [`Command`] that inserts a [`Resource`] into the world.
+#[track_caller]
 fn insert_resource<R: Resource>(resource: R) -> impl Command {
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
     move |world: &mut World| {
-        world.insert_resource(resource);
+        world.insert_resource_with_caller(
+            resource,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
     }
 }
 

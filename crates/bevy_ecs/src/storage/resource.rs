@@ -20,7 +20,7 @@ pub struct ResourceData<const SEND: bool> {
     id: ArchetypeComponentId,
     origin_thread_id: Option<ThreadId>,
     #[cfg(feature = "track_change_detection")]
-    caller: UnsafeCell<&'static Location<'static>>,
+    changed_by: UnsafeCell<&'static Location<'static>>,
 }
 
 impl<const SEND: bool> Drop for ResourceData<SEND> {
@@ -126,7 +126,7 @@ impl<const SEND: bool> ResourceData<SEND> {
                     changed: &self.changed_ticks,
                 },
                 #[cfg(feature = "track_change_detection")]
-                &self.caller,
+                &self.changed_by,
                 #[cfg(not(feature = "track_change_detection"))]
                 (),
             )
@@ -147,7 +147,7 @@ impl<const SEND: bool> ResourceData<SEND> {
             ticks: unsafe { TicksMut::from_tick_cells(ticks, last_run, this_run) },
             #[cfg(feature = "track_change_detection")]
             // SAFETY: We have exclusive access to the underlying storage.
-            caller: unsafe { _caller.deref_mut() },
+            changed_by: unsafe { _caller.deref_mut() },
         })
     }
 
@@ -185,7 +185,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         *self.changed_ticks.deref_mut() = change_tick;
         #[cfg(feature = "track_change_detection")]
         {
-            *self.caller.deref_mut() = caller;
+            *self.changed_by.deref_mut() = caller;
         }
     }
 
@@ -223,7 +223,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         *self.changed_ticks.deref_mut() = change_ticks.changed;
         #[cfg(feature = "track_change_detection")]
         {
-            *self.caller.deref_mut() = caller;
+            *self.changed_by.deref_mut() = caller;
         }
     }
 
@@ -246,7 +246,7 @@ impl<const SEND: bool> ResourceData<SEND> {
 
         // SAFETY: This function is being called through an exclusive mutable reference to Self
         #[cfg(feature = "track_change_detection")]
-        let caller = unsafe { *self.caller.deref_mut() };
+        let caller = unsafe { *self.changed_by.deref_mut() };
         #[cfg(not(feature = "track_change_detection"))]
         let caller = ();
 
@@ -369,7 +369,7 @@ impl<const SEND: bool> Resources<SEND> {
                 id: f(),
                 origin_thread_id: None,
                 #[cfg(feature = "track_change_detection")]
-                caller: UnsafeCell::new(Location::caller())
+                changed_by: UnsafeCell::new(Location::caller())
             }
         })
     }

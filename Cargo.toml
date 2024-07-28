@@ -1602,6 +1602,7 @@ wasm = false
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
 doc-scrape-examples = true
+required-features = ["track_change_detection"]
 
 [package.metadata.example.component_change_detection]
 name = "Component Change Detection"

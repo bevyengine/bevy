@@ -208,7 +208,7 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
                         value: res.value as &mut dyn Reflect,
                         ticks: res.ticks,
                         #[cfg(feature = "track_change_detection")]
-                        caller: res.caller,
+                        changed_by: res.changed_by,
                     })
                 }
             },

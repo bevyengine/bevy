@@ -29,7 +29,11 @@ where
 {
     #[inline]
     #[track_caller]
-    pub(crate) fn new(world: &'w mut World, iter: I) -> Self {
+    pub(crate) fn new(
+        world: &'w mut World,
+        iter: I,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
         world.flush_entities();
@@ -47,7 +51,7 @@ where
             inner: iter,
             spawner,
             #[cfg(feature = "track_change_detection")]
-            caller: Location::caller(),
+            caller,
         }
     }
 }

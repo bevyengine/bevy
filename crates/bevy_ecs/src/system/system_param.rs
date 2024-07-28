@@ -544,7 +544,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                 this_run: change_tick,
             },
             #[cfg(feature = "track_change_detection")]
-            caller: _caller.deref(),
+            changed_by: _caller.deref(),
         }
     }
 }
@@ -579,7 +579,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                     this_run: change_tick,
                 },
                 #[cfg(feature = "track_change_detection")]
-                caller: _caller.deref(),
+                changed_by: _caller.deref(),
             })
     }
 }
@@ -643,7 +643,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 this_run: change_tick,
             },
             #[cfg(feature = "track_change_detection")]
-            caller: value.caller,
+            changed_by: value.changed_by,
         }
     }
 }
@@ -675,7 +675,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                     this_run: change_tick,
                 },
                 #[cfg(feature = "track_change_detection")]
-                caller: value.caller,
+                changed_by: value.changed_by,
             })
     }
 }
@@ -1051,7 +1051,7 @@ pub struct NonSend<'w, T: 'static> {
     last_run: Tick,
     this_run: Tick,
     #[cfg(feature = "track_change_detection")]
-    caller: &'static Location<'static>,
+    changed_by: &'static Location<'static>,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1080,7 +1080,7 @@ impl<'w, T: 'static> NonSend<'w, T> {
     /// The location that last caused this to change.
     #[cfg(feature = "track_change_detection")]
     pub fn changed_by(&self) -> &'static Location<'static> {
-        self.caller
+        self.changed_by
     }
 }
 
@@ -1102,7 +1102,7 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
             this_run: nsm.ticks.this_run,
             last_run: nsm.ticks.last_run,
             #[cfg(feature = "track_change_detection")]
-            caller: nsm.caller,
+            changed_by: nsm.changed_by,
         }
     }
 }
@@ -1164,7 +1164,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             last_run: system_meta.last_run,
             this_run: change_tick,
             #[cfg(feature = "track_change_detection")]
-            caller: _caller.deref(),
+            changed_by: _caller.deref(),
         }
     }
 }
@@ -1196,7 +1196,7 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
                 #[cfg(feature = "track_change_detection")]
-                caller: _caller.deref(),
+                changed_by: _caller.deref(),
             })
     }
 }
@@ -1258,7 +1258,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             value: ptr.assert_unique().deref_mut(),
             ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
             #[cfg(feature = "track_change_detection")]
-            caller: _caller.deref_mut(),
+            changed_by: _caller.deref_mut(),
         }
     }
 }
@@ -1285,7 +1285,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
                 #[cfg(feature = "track_change_detection")]
-                caller: _caller.deref_mut(),
+                changed_by: _caller.deref_mut(),
             })
     }
 }

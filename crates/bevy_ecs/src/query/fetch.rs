@@ -1154,7 +1154,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                         last_run: fetch.last_run,
                     },
                     #[cfg(feature = "track_change_detection")]
-                    caller: caller.deref(),
+                    changed_by: caller.deref(),
                 }
             }
             StorageType::SparseSet => {
@@ -1172,7 +1172,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     value: component.deref(),
                     ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
                     #[cfg(feature = "track_change_detection")]
-                    caller: _caller.deref(),
+                    changed_by: _caller.deref(),
                 }
             }
         }
@@ -1349,7 +1349,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                         last_run: fetch.last_run,
                     },
                     #[cfg(feature = "track_change_detection")]
-                    caller: caller.deref_mut(),
+                    changed_by: caller.deref_mut(),
                 }
             }
             StorageType::SparseSet => {
@@ -1367,7 +1367,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     value: component.assert_unique().deref_mut(),
                     ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
                     #[cfg(feature = "track_change_detection")]
-                    caller: _caller.deref_mut(),
+                    changed_by: _caller.deref_mut(),
                 }
             }
         }

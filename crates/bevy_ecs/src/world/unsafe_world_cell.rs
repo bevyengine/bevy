@@ -342,7 +342,7 @@ impl<'w> UnsafeWorldCell<'w> {
             value,
             ticks,
             #[cfg(feature = "track_change_detection")]
-            caller,
+            changed_by: caller,
         })
     }
 
@@ -468,7 +468,7 @@ impl<'w> UnsafeWorldCell<'w> {
             // SAFETY:
             // - caller ensures that `self` has permission to access the resource
             // - caller ensures that the resource is unaliased
-            caller: unsafe { _caller.deref_mut() },
+            changed_by: unsafe { _caller.deref_mut() },
         })
     }
 
@@ -530,7 +530,7 @@ impl<'w> UnsafeWorldCell<'w> {
             ticks,
             #[cfg(feature = "track_change_detection")]
             // SAFETY: This function has exclusive access to the world
-            caller: unsafe { _caller.deref_mut() },
+            changed_by: unsafe { _caller.deref_mut() },
         })
     }
 
@@ -737,7 +737,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 value: value.deref::<T>(),
                 ticks: Ticks::from_tick_cells(cells, last_change_tick, change_tick),
                 #[cfg(feature = "track_change_detection")]
-                caller: _caller.deref(),
+                changed_by: _caller.deref(),
             })
         }
     }
@@ -838,7 +838,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
                 #[cfg(feature = "track_change_detection")]
-                caller: _caller.deref_mut(),
+                changed_by: _caller.deref_mut(),
             })
         }
     }
@@ -904,7 +904,7 @@ impl<'w> UnsafeEntityCell<'w> {
                     self.world.change_tick(),
                 ),
                 #[cfg(feature = "track_change_detection")]
-                caller: _caller.deref_mut(),
+                changed_by: _caller.deref_mut(),
             })
         }
     }

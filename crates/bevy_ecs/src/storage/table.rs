@@ -156,7 +156,7 @@ pub struct Column {
     added_ticks: Vec<UnsafeCell<Tick>>,
     changed_ticks: Vec<UnsafeCell<Tick>>,
     #[cfg(feature = "track_change_detection")]
-    callers: Vec<UnsafeCell<&'static Location<'static>>>,
+    changed_by: Vec<UnsafeCell<&'static Location<'static>>>,
 }
 
 impl Column {
@@ -169,7 +169,7 @@ impl Column {
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
             #[cfg(feature = "track_change_detection")]
-            callers: Vec::with_capacity(capacity),
+            changed_by: Vec::with_capacity(capacity),
         }
     }
 
@@ -202,7 +202,7 @@ impl Column {
             .get_mut() = tick;
         #[cfg(feature = "track_change_detection")]
         {
-            *self.callers.get_unchecked_mut(row.as_usize()).get_mut() = caller;
+            *self.changed_by.get_unchecked_mut(row.as_usize()).get_mut() = caller;
         }
     }
 
@@ -228,7 +228,7 @@ impl Column {
 
         #[cfg(feature = "track_change_detection")]
         {
-            *self.callers.get_unchecked_mut(row.as_usize()).get_mut() = caller;
+            *self.changed_by.get_unchecked_mut(row.as_usize()).get_mut() = caller;
         }
     }
 
@@ -260,7 +260,7 @@ impl Column {
         self.added_ticks.swap_remove(row.as_usize());
         self.changed_ticks.swap_remove(row.as_usize());
         #[cfg(feature = "track_change_detection")]
-        self.callers.swap_remove(row.as_usize());
+        self.changed_by.swap_remove(row.as_usize());
     }
 
     /// Removes an element from the [`Column`] and returns it and its change detection ticks.
@@ -284,7 +284,7 @@ impl Column {
         let added = self.added_ticks.swap_remove(row.as_usize()).into_inner();
         let changed = self.changed_ticks.swap_remove(row.as_usize()).into_inner();
         #[cfg(feature = "track_change_detection")]
-        let caller = self.callers.swap_remove(row.as_usize()).into_inner();
+        let caller = self.changed_by.swap_remove(row.as_usize()).into_inner();
         #[cfg(not(feature = "track_change_detection"))]
         let caller = ();
         (data, ComponentTicks { added, changed }, caller)
@@ -317,8 +317,8 @@ impl Column {
             other.changed_ticks.swap_remove(src_row.as_usize());
         #[cfg(feature = "track_change_detection")]
         {
-            *self.callers.get_unchecked_mut(dst_row.as_usize()) =
-                other.callers.swap_remove(src_row.as_usize());
+            *self.changed_by.get_unchecked_mut(dst_row.as_usize()) =
+                other.changed_by.swap_remove(src_row.as_usize());
         }
     }
 
@@ -336,7 +336,7 @@ impl Column {
         self.added_ticks.push(UnsafeCell::new(ticks.added));
         self.changed_ticks.push(UnsafeCell::new(ticks.changed));
         #[cfg(feature = "track_change_detection")]
-        self.callers.push(UnsafeCell::new(caller));
+        self.changed_by.push(UnsafeCell::new(caller));
     }
 
     #[inline]
@@ -345,7 +345,7 @@ impl Column {
         self.added_ticks.reserve_exact(additional);
         self.changed_ticks.reserve_exact(additional);
         #[cfg(feature = "track_change_detection")]
-        self.callers.reserve_exact(additional);
+        self.changed_by.reserve_exact(additional);
     }
 
     /// Fetches the data pointer to the first element of the [`Column`].
@@ -398,7 +398,7 @@ impl Column {
     #[inline]
     #[cfg(feature = "track_change_detection")]
     pub fn get_callers_slice(&self) -> &[UnsafeCell<&'static Location<'static>>] {
-        &self.callers
+        &self.changed_by
     }
 
     /// Fetches a reference to the data and change detection ticks at `row`.
@@ -420,7 +420,7 @@ impl Column {
                         changed: self.changed_ticks.get_unchecked(row.as_usize()),
                     },
                     #[cfg(feature = "track_change_detection")]
-                    self.callers.get_unchecked(row.as_usize()),
+                    self.changed_by.get_unchecked(row.as_usize()),
                     #[cfg(not(feature = "track_change_detection"))]
                     (),
                 )
@@ -545,8 +545,8 @@ impl Column {
         &self,
         row: TableRow,
     ) -> &UnsafeCell<&'static Location<'static>> {
-        debug_assert!(row.as_usize() < self.callers.len());
-        self.callers.get_unchecked(row.as_usize())
+        debug_assert!(row.as_usize() < self.changed_by.len());
+        self.changed_by.get_unchecked(row.as_usize())
     }
 
     /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
@@ -572,7 +572,7 @@ impl Column {
         self.added_ticks.clear();
         self.changed_ticks.clear();
         #[cfg(feature = "track_change_detection")]
-        self.callers.clear();
+        self.changed_by.clear();
     }
 
     #[inline]
@@ -824,7 +824,7 @@ impl Table {
             column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
             column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
             #[cfg(feature = "track_change_detection")]
-            column.callers.push(UnsafeCell::new(Location::caller()));
+            column.changed_by.push(UnsafeCell::new(Location::caller()));
         }
         TableRow::from_usize(index)
     }
