@@ -102,7 +102,7 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let meshlet = meshlets[meshlet_id];
 
     let triangle_id = extractBits(packed_ids, 0u, 6u);
-    let index_ids = meshlet.start_index_id + vec3(triangle_id * 3u) + vec3(0u, 1u, 2u);
+    let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
     let indices = meshlet.start_vertex_id + vec3(get_meshlet_index(index_ids.x), get_meshlet_index(index_ids.y), get_meshlet_index(index_ids.z));
     let vertex_ids = vec3(meshlet_vertex_ids[indices.x], meshlet_vertex_ids[indices.y], meshlet_vertex_ids[indices.z]);
     let vertex_1 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.x]);
