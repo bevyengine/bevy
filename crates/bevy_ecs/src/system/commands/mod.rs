@@ -1,6 +1,5 @@
 mod parallel_scope;
 
-use core::marker::PhantomData;
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 
