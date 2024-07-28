@@ -24,6 +24,9 @@ pub struct FunctionRegistry {
 impl FunctionRegistry {
     /// Attempts to register the given function if it has not yet been registered already.
     ///
+    /// This function accepts both functions that satisfy [`IntoFunction`]
+    /// and direct [`DynamicFunction`] instances.
+    ///
     /// Functions are mapped according to their [name].
     /// If a `DynamicFunction` with the same name already exists, it will not be registered again,
     /// and an error will be returned.
@@ -48,6 +51,9 @@ impl FunctionRegistry {
     }
 
     /// Registers the given function, overwriting any existing registration.
+    ///
+    /// This function accepts both functions that satisfy [`IntoFunction`]
+    /// and direct [`DynamicFunction`] instances.
     ///
     /// Functions are mapped according to their [name].
     /// To avoid overwriting existing registrations, it's recommended to use the [`register`] method instead.
