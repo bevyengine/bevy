@@ -328,18 +328,18 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
+    views: Query<(Entity, &ExtractedCamera, &BloomSettings)>,
 ) {
-    for (entity, camera) in &views {
+    for (entity, camera, settings) in &views {
         if let Some(UVec2 {
             x: width,
             y: height,
         }) = camera.physical_viewport_size
         {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = MAX_MIP_DIMENSION.ilog2().max(2) - 1;
+            let mip_count = settings.max_mip_dimension.ilog2().max(2) - 1;
             let mip_height_ratio = if height != 0 {
-                MAX_MIP_DIMENSION as f32 / height as f32
+                settings.max_mip_dimension as f32 / height as f32
             } else {
                 0.
             };

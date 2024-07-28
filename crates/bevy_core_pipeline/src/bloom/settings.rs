@@ -102,6 +102,12 @@ pub struct BloomSettings {
     /// configured in a non-energy-conserving way,
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
+
+    // Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
+    pub max_mip_dimension: u32,
+
+    // UV offset for bloom shader. Ideally close to 2. / max_mip_dimension.
+    pub uv_offset: f32,
 }
 
 impl BloomSettings {
@@ -118,6 +124,8 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+        max_mip_dimension: 512,
+        uv_offset: 0.004,
     };
 
     /// A preset that's similar to how older games did bloom.
@@ -131,6 +139,8 @@ impl BloomSettings {
             threshold_softness: 0.2,
         },
         composite_mode: BloomCompositeMode::Additive,
+        max_mip_dimension: 512,
+        uv_offset: 0.004,
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -144,6 +154,8 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+        max_mip_dimension: 512,
+        uv_offset: 0.004,
     };
 }
 
