@@ -36,7 +36,7 @@ where
     ) -> Self {
         // Ensure all entity allocations are accounted for so `self.entities` can realloc if
         // necessary
-        world.flush_entities();
+        world.flush();
 
         let change_tick = world.change_tick();
 

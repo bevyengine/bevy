@@ -20,6 +20,11 @@ use bevy_ecs::{
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+/// # Observers
+///
+/// "Buffered" Events, such as those sent directly in [`Events`] or sent using [`EventWriter`], do _not_ automatically
+/// trigger any [`Observer`]s watching for that event, as each [`Event`] has different requirements regarding _if_ it will
+/// be triggered, and if so, _when_ it will be triggered in the schedule.
 ///
 /// # Concurrency
 ///
@@ -52,13 +57,15 @@ use bevy_ecs::{
 /// }
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
+///
+/// [`Observer`]: crate::observer::Observer
 #[derive(SystemParam)]
 pub struct EventWriter<'w, E: Event> {
     events: ResMut<'w, Events<E>>,
 }
 
 impl<'w, E: Event> EventWriter<'w, E> {
-    /// Sends an `event`, which can later be read by [`EventReader`]s.
+    /// Sends an `event`, which can later be read by [`EventReader`](super::EventReader)s.
     /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
     /// See [`Events`] for details.
@@ -66,7 +73,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
         self.events.send(event)
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
     ///

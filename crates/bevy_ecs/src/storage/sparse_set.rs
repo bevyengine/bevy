@@ -98,7 +98,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     #[inline]
     pub fn remove(&mut self, index: I) -> Option<V> {
         let index = index.sparse_set_index();
-        self.values.get_mut(index).and_then(|value| value.take())
+        self.values.get_mut(index).and_then(Option::take)
     }
 
     /// Removes all of the values stored within.

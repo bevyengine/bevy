@@ -70,6 +70,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     for linebreak_behavior in [
         BreakLineOn::AnyCharacter,
         BreakLineOn::WordBoundary,
+        BreakLineOn::WordOrCharacter,
         BreakLineOn::NoWrap,
     ] {
         let row_id = commands
@@ -115,8 +116,9 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             let messages = [
                 format!("JustifyContent::{justification:?}"),
                 format!("LineBreakOn::{linebreak_behavior:?}"),
-                "Line 1\nLine 2\nLine 3".to_string(),
+                "Line 1\nLine 2".to_string(),
                 "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas auctor, nunc ac faucibus fringilla.".to_string(),
+                "pneumonoultramicroscopicsilicovolcanoconiosis".to_string()
             ];
 
             for (j, message) in messages.into_iter().enumerate() {

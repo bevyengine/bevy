@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_render::{
-    mesh::{GpuMesh, MeshVertexBufferLayoutRef},
+    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
@@ -338,10 +338,10 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
         let materials = materials.into_inner();
         let material_instances = material_instances.into_inner();
         let Some(material_instance) = material_instances.get(&item.entity()) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(material2d) = materials.get(*material_instance) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
@@ -369,8 +369,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
@@ -379,6 +378,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         Entity,
         &ExtractedView,
         &VisibleEntities,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
@@ -389,7 +389,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities, tonemapping, dither) in &mut views {
+    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
@@ -463,7 +463,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
 }
 
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct Material2dBindGroupId(Option<BindGroupId>);
+pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {

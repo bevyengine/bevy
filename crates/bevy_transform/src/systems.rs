@@ -53,7 +53,7 @@ pub fn propagate_transforms(
     >,
     mut orphaned: RemovedComponents<Parent>,
     transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
-    parent_query: Query<(Entity, Ref<Parent>)>,
+    parent_query: Query<(Entity, Ref<Parent>), With<GlobalTransform>>,
     mut orphaned_entities: Local<Vec<Entity>>,
 ) {
     orphaned_entities.clear();
@@ -104,9 +104,9 @@ pub fn propagate_transforms(
 /// # Safety
 ///
 /// - While this function is running, `transform_query` must not have any fetches for `entity`,
-/// nor any of its descendants.
+///     nor any of its descendants.
 /// - The caller must ensure that the hierarchy leading to `entity`
-/// is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
+///     is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
 #[allow(unsafe_code)]
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
@@ -114,7 +114,7 @@ unsafe fn propagate_recursive(
         (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
         With<Parent>,
     >,
-    parent_query: &Query<(Entity, Ref<Parent>)>,
+    parent_query: &Query<(Entity, Ref<Parent>), With<GlobalTransform>>,
     entity: Entity,
     mut changed: bool,
 ) {
@@ -154,7 +154,7 @@ unsafe fn propagate_recursive(
         if changed {
             *global_transform = parent.mul_transform(*transform);
         }
-        (*global_transform, children)
+        (global_transform, children)
     };
 
     let Some(children) = children else { return };
@@ -170,7 +170,7 @@ unsafe fn propagate_recursive(
         // entire hierarchy.
         unsafe {
             propagate_recursive(
-                &global_matrix,
+                global_matrix.as_ref(),
                 transform_query,
                 parent_query,
                 child,
@@ -190,7 +190,7 @@ mod test {
 
     use crate::bundles::TransformBundle;
     use crate::systems::*;
-    use bevy_hierarchy::{BuildChildren, BuildWorldChildren};
+    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     #[test]
     fn correct_parent_removed() {

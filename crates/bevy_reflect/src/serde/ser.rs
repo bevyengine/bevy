@@ -1,5 +1,5 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
+    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Set, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
@@ -39,14 +39,20 @@ fn get_serializable<'a, E: Error>(
         ))
     })?;
 
-    let reflect_serialize = type_registry
-        .get_type_data::<ReflectSerialize>(info.type_id())
-        .ok_or_else(|| {
-            Error::custom(format_args!(
-                "Type '{}' did not register ReflectSerialize",
-                info.type_path(),
-            ))
-        })?;
+    let registration = type_registry.get(info.type_id()).ok_or_else(|| {
+        Error::custom(format_args!(
+            "Type `{}` is not registered in the type registry",
+            info.type_path(),
+        ))
+    })?;
+
+    let reflect_serialize = registration.data::<ReflectSerialize>().ok_or_else(|| {
+        Error::custom(format_args!(
+            "Type `{}` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
+            info.type_path(),
+        ))
+    })?;
+
     Ok(reflect_serialize.get_serializable(reflect_value))
 }
 
@@ -217,6 +223,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
+            ReflectRef::Set(value) => SetSerializer {
+                set: value,
+                registry: self.registry,
+            }
+            .serialize(serializer),
             ReflectRef::Enum(value) => EnumSerializer {
                 enum_value: value,
                 registry: self.registry,
@@ -276,7 +287,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_struct(
             struct_info.type_path_table().ident().unwrap(),
             self.struct_value.field_len() - ignored_len,
@@ -329,7 +340,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_tuple_struct(
             tuple_struct_info.type_path_table().ident().unwrap(),
             self.tuple_struct.field_len() - ignored_len,
@@ -497,6 +508,24 @@ impl<'a> Serialize for MapSerializer<'a> {
     }
 }
 
+pub struct SetSerializer<'a> {
+    pub set: &'a dyn Set,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for SetSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.set.len()))?;
+        for value in self.set.iter() {
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
+        }
+        state.end()
+    }
+}
+
 pub struct ListSerializer<'a> {
     pub list: &'a dyn List,
     pub registry: &'a TypeRegistry,
@@ -543,6 +572,7 @@ mod tests {
     use ron::ser::PrettyConfig;
     use serde::Serialize;
     use std::f32::consts::PI;
+    use std::ops::RangeInclusive;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -931,5 +961,37 @@ mod tests {
 }"#;
 
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_return_error_if_missing_registration() {
+        let value = RangeInclusive::<f32>::new(0.0, 1.0);
+        let registry = TypeRegistry::new();
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+        let error = ron::ser::to_string(&serializer).unwrap_err();
+        assert_eq!(
+            error,
+            ron::Error::Message(
+                "Type `core::ops::RangeInclusive<f32>` is not registered in the type registry"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn should_return_error_if_missing_type_data() {
+        let value = RangeInclusive::<f32>::new(0.0, 1.0);
+        let mut registry = TypeRegistry::new();
+        registry.register::<RangeInclusive<f32>>();
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+        let error = ron::ser::to_string(&serializer).unwrap_err();
+        assert_eq!(
+            error,
+            ron::Error::Message(
+                "Type `core::ops::RangeInclusive<f32>` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()
+            )
+        );
     }
 }

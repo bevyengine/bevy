@@ -16,7 +16,8 @@ pub mod wireframe;
 /// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
 #[cfg(feature = "meshlet")]
 pub mod experimental {
-    /// Render high-poly 3d meshes using an efficient GPU-driven method. See [`MeshletPlugin`] and [`MeshletMesh`] for details.
+    /// Render high-poly 3d meshes using an efficient GPU-driven method.
+    /// See [`MeshletPlugin`](meshlet::MeshletPlugin) and [`MeshletMesh`](meshlet::MeshletMesh) for details.
     pub mod meshlet {
         pub use crate::meshlet::*;
     }
@@ -56,7 +57,9 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-pub use volumetric_fog::*;
+pub use volumetric_fog::{
+    FogVolume, FogVolumeBundle, VolumetricFogPlugin, VolumetricFogSettings, VolumetricLight,
+};
 
 pub mod prelude {
     #[doc(hidden)]
@@ -287,6 +290,7 @@ impl Plugin for PbrPlugin {
             .register_type::<CascadeShadowConfig>()
             .register_type::<Cascades>()
             .register_type::<CascadesVisibleEntities>()
+            .register_type::<VisibleMeshEntities>()
             .register_type::<ClusterConfig>()
             .register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
@@ -368,7 +372,10 @@ impl Plugin for PbrPlugin {
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
                     check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
-                    check_light_mesh_visibility
+                    (
+                        check_dir_light_mesh_visibility,
+                        check_point_light_mesh_visibility,
+                    )
                         .in_set(SimulationLightSystems::CheckLightVisibility)
                         .after(VisibilitySystems::CalculateBounds)
                         .after(TransformSystem::TransformPropagate)

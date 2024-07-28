@@ -3,12 +3,12 @@ use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
 };
 use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, ApplyError,
-    Array, ArrayInfo, ArrayIter, DynamicMap, DynamicTypePath, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, Reflect,
-    ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
-    ValueInfo,
+    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, set_apply,
+    set_partial_eq, set_try_apply, ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet,
+    DynamicTypePath, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map,
+    MapInfo, MapIter, MaybeTyped, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo,
+    TypePath, TypeRegistration, TypeRegistry, Typed, ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -97,8 +97,6 @@ impl_reflect_value!(::std::path::PathBuf(
 ));
 impl_reflect_value!(::std::any::TypeId(Debug, Hash, PartialEq,));
 impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
-impl_reflect_value!(::std::collections::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::bevy_utils::hashbrown::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
@@ -216,13 +214,9 @@ impl_reflect_value!(::std::ffi::OsString(
 impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
 impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>);
 
-impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::EntityHash);
-impl_type_path!(::bevy_utils::FixedState);
-
 macro_rules! impl_reflect_for_veclike {
     ($ty:path, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
-        impl<T: FromReflect + TypePath + GetTypeRegistration> List for $ty {
+        impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> List for $ty {
             #[inline]
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
                 <$sub>::get(self, index).map(|value| value as &dyn Reflect)
@@ -281,7 +275,7 @@ macro_rules! impl_reflect_for_veclike {
             }
         }
 
-        impl<T: FromReflect + TypePath + GetTypeRegistration> Reflect for $ty {
+        impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> Reflect for $ty {
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
                 Some(<Self as Typed>::type_info())
             }
@@ -352,7 +346,7 @@ macro_rules! impl_reflect_for_veclike {
             }
         }
 
-        impl<T: FromReflect + TypePath + GetTypeRegistration> Typed for $ty {
+        impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> Typed for $ty {
             fn type_info() -> &'static TypeInfo {
                 static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
@@ -361,7 +355,9 @@ macro_rules! impl_reflect_for_veclike {
 
         impl_type_path!($ty);
 
-        impl<T: FromReflect + TypePath + GetTypeRegistration> GetTypeRegistration for $ty {
+        impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> GetTypeRegistration
+            for $ty
+        {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<$ty>();
                 registration.insert::<ReflectFromPtr>(FromType::<$ty>::from_type());
@@ -373,7 +369,7 @@ macro_rules! impl_reflect_for_veclike {
             }
         }
 
-        impl<T: FromReflect + TypePath + GetTypeRegistration> FromReflect for $ty {
+        impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> FromReflect for $ty {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
                 if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
                     let mut new_list = Self::with_capacity(ref_list.len());
@@ -397,6 +393,9 @@ impl_reflect_for_veclike!(
     Vec::pop,
     [T]
 );
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(Vec<T>; <T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration>);
+
 impl_reflect_for_veclike!(
     ::alloc::collections::VecDeque<T>,
     VecDeque::insert,
@@ -405,13 +404,15 @@ impl_reflect_for_veclike!(
     VecDeque::pop_back,
     VecDeque::<T>
 );
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(VecDeque<T>; <T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration>);
 
 macro_rules! impl_reflect_for_hashmap {
     ($ty:path) => {
         impl<K, V, S> Map for $ty
         where
-            K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
-            V: FromReflect + TypePath + GetTypeRegistration,
+            K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+            V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
             S: TypePath + BuildHasher + Send + Sync,
         {
             fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
@@ -507,8 +508,8 @@ macro_rules! impl_reflect_for_hashmap {
 
         impl<K, V, S> Reflect for $ty
         where
-            K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
-            V: FromReflect + TypePath + GetTypeRegistration,
+            K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+            V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
             S: TypePath + BuildHasher + Send + Sync,
         {
             fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -580,8 +581,8 @@ macro_rules! impl_reflect_for_hashmap {
 
         impl<K, V, S> Typed for $ty
         where
-            K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
-            V: FromReflect + TypePath + GetTypeRegistration,
+            K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+            V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
             S: TypePath + BuildHasher + Send + Sync,
         {
             fn type_info() -> &'static TypeInfo {
@@ -592,8 +593,8 @@ macro_rules! impl_reflect_for_hashmap {
 
         impl<K, V, S> GetTypeRegistration for $ty
         where
-            K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
-            V: FromReflect + TypePath + GetTypeRegistration,
+            K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+            V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
             S: TypePath + BuildHasher + Send + Sync,
         {
             fn get_type_registration() -> TypeRegistration {
@@ -610,8 +611,8 @@ macro_rules! impl_reflect_for_hashmap {
 
         impl<K, V, S> FromReflect for $ty
         where
-            K: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
-            V: FromReflect + TypePath + GetTypeRegistration,
+            K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+            V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
             S: TypePath + BuildHasher + Default + Send + Sync,
         {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
@@ -634,15 +635,246 @@ macro_rules! impl_reflect_for_hashmap {
 impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
 impl_type_path!(::std::collections::hash_map::RandomState);
 impl_type_path!(::std::collections::HashMap<K, V, S>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
+    <
+        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
 
 impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
 impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
 impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashMap<K, V, S>;
+    <
+        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
+
+macro_rules! impl_reflect_for_hashset {
+    ($ty:path) => {
+        impl<V, S> Set for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Send + Sync,
+        {
+            fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect> {
+                value
+                    .downcast_ref::<V>()
+                    .and_then(|value| Self::get(self, value))
+                    .map(|value| value as &dyn Reflect)
+            }
+
+            fn len(&self) -> usize {
+                Self::len(self)
+            }
+
+            fn iter(&self) -> Box<dyn Iterator<Item = &dyn Reflect> + '_> {
+                let iter = self.iter().map(|v| v as &dyn Reflect);
+                Box::new(iter)
+            }
+
+            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+                self.into_iter()
+                    .map(|value| Box::new(value) as Box<dyn Reflect>)
+                    .collect()
+            }
+
+            fn clone_dynamic(&self) -> DynamicSet {
+                let mut dynamic_set = DynamicSet::default();
+                dynamic_set.set_represented_type(self.get_represented_type_info());
+                for v in self {
+                    dynamic_set.insert_boxed(v.clone_value());
+                }
+                dynamic_set
+            }
+
+            fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool {
+                let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+                    panic!(
+                        "Attempted to insert invalid value of type {}.",
+                        value.reflect_type_path()
+                    )
+                });
+                self.insert(value)
+            }
+
+            fn remove(&mut self, value: &dyn Reflect) -> bool {
+                let mut from_reflect = None;
+                value
+                    .downcast_ref::<V>()
+                    .or_else(|| {
+                        from_reflect = V::from_reflect(value);
+                        from_reflect.as_ref()
+                    })
+                    .map_or(false, |value| self.remove(value))
+            }
+
+            fn contains(&self, value: &dyn Reflect) -> bool {
+                let mut from_reflect = None;
+                value
+                    .downcast_ref::<V>()
+                    .or_else(|| {
+                        from_reflect = V::from_reflect(value);
+                        from_reflect.as_ref()
+                    })
+                    .map_or(false, |value| self.contains(value))
+            }
+        }
+
+        impl<V, S> Reflect for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Send + Sync,
+        {
+            fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+                Some(<Self as Typed>::type_info())
+            }
+
+            fn into_any(self: Box<Self>) -> Box<dyn Any> {
+                self
+            }
+
+            fn as_any(&self) -> &dyn Any {
+                self
+            }
+
+            fn as_any_mut(&mut self) -> &mut dyn Any {
+                self
+            }
+
+            #[inline]
+            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+                self
+            }
+
+            fn as_reflect(&self) -> &dyn Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+                self
+            }
+
+            fn apply(&mut self, value: &dyn Reflect) {
+                set_apply(self, value);
+            }
+
+            fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                set_try_apply(self, value)
+            }
+
+            fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+                *self = value.take()?;
+                Ok(())
+            }
+
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::Set
+            }
+
+            fn reflect_ref(&self) -> ReflectRef {
+                ReflectRef::Set(self)
+            }
+
+            fn reflect_mut(&mut self) -> ReflectMut {
+                ReflectMut::Set(self)
+            }
+
+            fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+                ReflectOwned::Set(self)
+            }
+
+            fn clone_value(&self) -> Box<dyn Reflect> {
+                Box::new(self.clone_dynamic())
+            }
+
+            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+                set_partial_eq(self, value)
+            }
+        }
+
+        impl<V, S> Typed for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Send + Sync,
+        {
+            fn type_info() -> &'static TypeInfo {
+                static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+                CELL.get_or_insert::<Self, _>(|| TypeInfo::Set(SetInfo::new::<Self, V>()))
+            }
+        }
+
+        impl<V, S> GetTypeRegistration for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Send + Sync,
+        {
+            fn get_type_registration() -> TypeRegistration {
+                let mut registration = TypeRegistration::of::<Self>();
+                registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration
+            }
+
+            fn register_type_dependencies(registry: &mut TypeRegistry) {
+                registry.register::<V>();
+            }
+        }
+
+        impl<V, S> FromReflect for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Default + Send + Sync,
+        {
+            fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+                if let ReflectRef::Set(ref_set) = reflect.reflect_ref() {
+                    let mut new_set = Self::with_capacity_and_hasher(ref_set.len(), S::default());
+                    for value in ref_set.iter() {
+                        let new_value = V::from_reflect(value)?;
+                        new_set.insert(new_value);
+                    }
+                    Some(new_set)
+                } else {
+                    None
+                }
+            }
+        }
+    };
+}
+
+impl_type_path!(::bevy_utils::NoOpHash);
+impl_type_path!(::bevy_utils::EntityHash);
+impl_type_path!(::bevy_utils::FixedState);
+
+impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
+impl_type_path!(::std::collections::HashSet<V, S>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
+    <
+        V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
+
+impl_reflect_for_hashset!(::bevy_utils::hashbrown::HashSet<V,S>);
+impl_type_path!(::bevy_utils::hashbrown::HashSet<V, S>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashSet<V, S>;
+    <
+        V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
 
 impl<K, V> Map for ::std::collections::BTreeMap<K, V>
 where
-    K: FromReflect + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + TypePath + GetTypeRegistration,
+    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
         key.downcast_ref::<K>()
@@ -737,8 +969,8 @@ where
 
 impl<K, V> Reflect for ::std::collections::BTreeMap<K, V>
 where
-    K: FromReflect + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + TypePath + GetTypeRegistration,
+    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -809,8 +1041,8 @@ where
 
 impl<K, V> Typed for ::std::collections::BTreeMap<K, V>
 where
-    K: FromReflect + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + TypePath + GetTypeRegistration,
+    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
@@ -820,8 +1052,8 @@ where
 
 impl<K, V> GetTypeRegistration for ::std::collections::BTreeMap<K, V>
 where
-    K: FromReflect + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + TypePath + GetTypeRegistration,
+    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
@@ -832,8 +1064,8 @@ where
 
 impl<K, V> FromReflect for ::std::collections::BTreeMap<K, V>
 where
-    K: FromReflect + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + TypePath + GetTypeRegistration,
+    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
 {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
@@ -851,8 +1083,15 @@ where
 }
 
 impl_type_path!(::std::collections::BTreeMap<K, V>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::std::collections::BTreeMap<K, V>;
+    <
+        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration
+    >
+);
 
-impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Array for [T; N] {
     #[inline]
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         <[T]>::get(self, index).map(|value| value as &dyn Reflect)
@@ -881,7 +1120,7 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Array for [T; 
     }
 }
 
-impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Reflect for [T; N] {
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Reflect for [T; N] {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
     }
@@ -968,7 +1207,9 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Reflect for [T
     }
 }
 
-impl<T: FromReflect + TypePath + GetTypeRegistration, const N: usize> FromReflect for [T; N] {
+impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> FromReflect
+    for [T; N]
+{
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::Array(ref_array) = reflect.reflect_ref() {
             let mut temp_vec = Vec::with_capacity(ref_array.len());
@@ -982,7 +1223,7 @@ impl<T: FromReflect + TypePath + GetTypeRegistration, const N: usize> FromReflec
     }
 }
 
-impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> Typed for [T; N] {
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> Typed for [T; N] {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(N)))
@@ -1001,7 +1242,9 @@ impl<T: TypePath, const N: usize> TypePath for [T; N] {
     }
 }
 
-impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistration for [T; N] {
+impl<T: Reflect + MaybeTyped + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistration
+    for [T; N]
+{
     fn get_type_registration() -> TypeRegistration {
         TypeRegistration::of::<[T; N]>()
     }
@@ -1010,6 +1253,9 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistr
         registry.register::<T>();
     }
 }
+
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!([T; N]; <T: Reflect + MaybeTyped + TypePath + GetTypeRegistration> [const N: usize]);
 
 impl_reflect! {
     #[type_path = "core::option"]
@@ -1168,6 +1414,9 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(Cow<'static, str>);
+
 impl<T: TypePath> TypePath for [T]
 where
     [T]: ToOwned,
@@ -1183,7 +1432,9 @@ where
     }
 }
 
-impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> List for Cow<'static, [T]> {
+impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
+    for Cow<'static, [T]>
+{
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.as_ref().get(index).map(|x| x as &dyn Reflect)
     }
@@ -1242,7 +1493,9 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> List for Cow<'stat
     }
 }
 
-impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> Reflect for Cow<'static, [T]> {
+impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Reflect
+    for Cow<'static, [T]>
+{
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
     }
@@ -1313,14 +1566,16 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> Reflect for Cow<'s
     }
 }
 
-impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> Typed for Cow<'static, [T]> {
+impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Typed
+    for Cow<'static, [T]>
+{
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
     }
 }
 
-impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> GetTypeRegistration
+impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> GetTypeRegistration
     for Cow<'static, [T]>
 {
     fn get_type_registration() -> TypeRegistration {
@@ -1332,7 +1587,9 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> GetTypeRegistratio
     }
 }
 
-impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> FromReflect for Cow<'static, [T]> {
+impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> FromReflect
+    for Cow<'static, [T]>
+{
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut temp_vec = Vec::with_capacity(ref_list.len());
@@ -1345,6 +1602,9 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> FromReflect for Co
         }
     }
 }
+
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(Cow<'static, [T]>; <T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration>);
 
 impl Reflect for &'static str {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -1452,6 +1712,9 @@ impl FromReflect for &'static str {
     }
 }
 
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(&'static str);
+
 impl Reflect for &'static Path {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -1556,6 +1819,9 @@ impl FromReflect for &'static Path {
         reflect.as_any().downcast_ref::<Self>().copied()
     }
 }
+
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(&'static Path);
 
 impl Reflect for Cow<'static, Path> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
@@ -1671,6 +1937,9 @@ impl GetTypeRegistration for Cow<'static, Path> {
         registration
     }
 }
+
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(Cow<'static, Path>);
 
 #[cfg(test)]
 mod tests {

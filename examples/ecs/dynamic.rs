@@ -79,7 +79,7 @@ fn main() {
                     let Some(name) = component.next() else {
                         return;
                     };
-                    let size = match component.next().map(|s| s.parse::<usize>()) {
+                    let size = match component.next().map(str::parse) {
                         Some(Ok(size)) => size,
                         _ => 0,
                     };

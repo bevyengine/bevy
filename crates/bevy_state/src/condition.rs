@@ -1,7 +1,5 @@
-use bevy_ecs::{change_detection::DetectChanges, system::Res};
-use bevy_utils::warn_once;
-
 use crate::state::{State, States};
+use bevy_ecs::{change_detection::DetectChanges, system::Res};
 
 /// A [`Condition`](bevy_ecs::prelude::Condition)-satisfying system that returns `true`
 /// if the state machine exists.
@@ -99,18 +97,7 @@ pub fn state_exists<S: States>(current_state: Option<Res<State<S>>>) -> bool {
 pub fn in_state<S: States>(state: S) -> impl FnMut(Option<Res<State<S>>>) -> bool + Clone {
     move |current_state: Option<Res<State<S>>>| match current_state {
         Some(current_state) => *current_state == state,
-        None => {
-            warn_once!("No state matching the type for {} exists - did you forget to `init_state` when initializing the app?", {
-                        let debug_state = format!("{state:?}");
-                        let result = debug_state
-                            .split("::")
-                            .next()
-                            .unwrap_or("Unknown State Type");
-                        result.to_string()
-                    });
-
-            false
-        }
+        None => false,
     }
 }
 

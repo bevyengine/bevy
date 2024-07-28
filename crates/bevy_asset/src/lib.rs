@@ -306,8 +306,8 @@ pub trait AssetApp {
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
     /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    /// mutable access to this resource this causes a conflict, but they rarely actually
-    /// modify the same underlying asset.
+    ///     mutable access to this resource this causes a conflict, but they rarely actually
+    ///     modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -454,13 +454,12 @@ mod tests {
     use bevy_core::TaskPoolPlugin;
     use bevy_ecs::prelude::*;
     use bevy_ecs::{
-        event::ManualEventReader,
+        event::EventCursor,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;
     use bevy_reflect::TypePath;
     use bevy_utils::{Duration, HashMap};
-    use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::{path::Path, sync::Arc};
     use thiserror::Error;
@@ -510,7 +509,7 @@ mod tests {
 
         async fn load<'a>(
             &'a self,
-            reader: &'a mut Reader<'_>,
+            reader: &'a mut dyn Reader,
             _settings: &'a Self::Settings,
             load_context: &'a mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
@@ -584,13 +583,13 @@ mod tests {
         async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::Reader<'a>>, AssetReaderError> {
+        ) -> Result<impl bevy_asset::io::Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
         async fn read<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<Box<bevy_asset::io::Reader<'a>>, bevy_asset::io::AssetReaderError> {
+        ) -> Result<impl bevy_asset::io::Reader + 'a, bevy_asset::io::AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {
@@ -1301,7 +1300,7 @@ mod tests {
         gate_opener.open(b_path);
         gate_opener.open(c_path);
 
-        let mut reader = ManualEventReader::default();
+        let mut reader = EventCursor::default();
         run_app_until(&mut app, |world| {
             let events = world.resource::<Events<AssetEvent<LoadedFolder>>>();
             let asset_server = world.resource::<AssetServer>();
@@ -1511,6 +1510,7 @@ mod tests {
         Empty,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1519,6 +1519,7 @@ mod tests {
         embedded: TestAsset,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

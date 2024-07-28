@@ -9,6 +9,7 @@ use crate::{
     change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
+    observer::Observers,
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
@@ -233,6 +234,13 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.removed_components
     }
 
+    /// Retrieves this world's [`Observers`] collection.
+    pub(crate) unsafe fn observers(self) -> &'w Observers {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.observers
+    }
+
     /// Retrieves this world's [`Bundles`] collection.
     #[inline]
     pub fn bundles(self) -> &'w Bundles {
@@ -270,7 +278,10 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn increment_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.world_metadata() }.increment_change_tick()
+        let change_tick = unsafe { &self.world_metadata().change_tick };
+        // NOTE: We can used a relaxed memory ordering here, since nothing
+        // other than the atomic value itself is relying on atomic synchronization
+        Tick::new(change_tick.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
     }
 
     /// Provides unchecked access to the internal data stores of the [`World`].
@@ -590,6 +601,14 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures that we have permission to access the queue
         unsafe { (*self.0).command_queue.clone() }
     }
+
+    /// # Safety
+    /// It is the callers responsibility to ensure that there are no outstanding
+    /// references to `last_trigger_id`.
+    pub(crate) unsafe fn increment_trigger_id(self) {
+        // SAFETY: Caller ensure there are no outstanding references
+        unsafe { (*self.0).last_trigger_id += 1 }
+    }
 }
 
 impl Debug for UnsafeWorldCell<'_> {
@@ -665,7 +684,7 @@ impl<'w> UnsafeEntityCell<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    /// [`Self::contains_type_id`].
+    ///     [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(self, component_id: ComponentId) -> bool {
         self.archetype().contains(component_id)
@@ -942,7 +961,7 @@ impl<'w> UnsafeWorldCell<'w> {
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`
-/// the archetype
+///     the archetype
 /// - `component_id` must be valid
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
@@ -1007,7 +1026,7 @@ unsafe fn get_component_and_ticks(
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`
-/// the archetype
+///     the archetype
 /// - `component_id` must be valid
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated

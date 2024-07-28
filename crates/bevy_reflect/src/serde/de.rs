@@ -1,9 +1,9 @@
 use crate::serde::SerializationData;
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
-    ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo,
-    TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
+    DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField,
+    Reflect, ReflectDeserialize, Set, SetInfo, StructInfo, StructVariantInfo, TupleInfo,
+    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{
@@ -582,6 +582,14 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 dynamic_map.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_map))
             }
+            TypeInfo::Set(set_info) => {
+                let mut dynamic_set = deserializer.deserialize_seq(SetVisitor {
+                    set_info,
+                    registry: self.registry,
+                })?;
+                dynamic_set.set_represented_type(Some(self.registration.type_info()));
+                Ok(Box::new(dynamic_set))
+            }
             TypeInfo::Tuple(tuple_info) => {
                 let mut dynamic_tuple = deserializer.deserialize_tuple(
                     tuple_info.field_len(),
@@ -620,7 +628,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             TypeInfo::Value(_) => {
                 // This case should already be handled
                 Err(Error::custom(format_args!(
-                    "the TypeRegistration for {type_path} doesn't have ReflectDeserialize",
+                    "Type `{type_path}` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
                 )))
             }
         }
@@ -817,6 +825,39 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
     }
 }
 
+struct SetVisitor<'a> {
+    set_info: &'static SetInfo,
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
+    type Value = DynamicSet;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter.write_str("reflected set value")
+    }
+
+    fn visit_seq<V>(self, mut set: V) -> Result<Self::Value, V::Error>
+    where
+        V: SeqAccess<'de>,
+    {
+        let mut dynamic_set = DynamicSet::default();
+        let value_registration = get_registration(
+            self.set_info.value_type_id(),
+            self.set_info.value_type_path_table().path(),
+            self.registry,
+        )?;
+        while let Some(value) = set.next_element_seed(TypedReflectDeserializer {
+            registration: value_registration,
+            registry: self.registry,
+        })? {
+            dynamic_set.insert_boxed(value);
+        }
+
+        Ok(dynamic_set)
+    }
+}
+
 struct EnumVisitor<'a> {
     enum_info: &'static EnumInfo,
     registration: &'a TypeRegistration,
@@ -920,7 +961,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
                 E: Error,
             {
                 self.0.variant(variant_name).ok_or_else(|| {
-                    let names = self.0.iter().map(|variant| variant.name());
+                    let names = self.0.iter().map(VariantInfo::name);
                     Error::custom(format_args!(
                         "unknown variant `{}`, expected one of {:?}",
                         variant_name,
@@ -1046,7 +1087,7 @@ where
     let mut dynamic_struct = DynamicStruct::default();
     while let Some(Ident(key)) = map.next_key::<Ident>()? {
         let field = info.get_field(&key).ok_or_else(|| {
-            let fields = info.iter_fields().map(|field| field.name());
+            let fields = info.iter_fields().map(NamedField::name);
             Error::custom(format_args!(
                 "unknown field `{}`, expected one of {:?}",
                 key,
@@ -1174,6 +1215,7 @@ mod tests {
     use bincode::Options;
     use std::any::TypeId;
     use std::f32::consts::PI;
+    use std::ops::RangeInclusive;
 
     use serde::de::DeserializeSeed;
     use serde::Deserialize;
@@ -1631,5 +1673,19 @@ mod tests {
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn should_return_error_if_missing_type_data() {
+        let mut registry = TypeRegistry::new();
+        registry.register::<RangeInclusive<f32>>();
+
+        let input = r#"{"core::ops::RangeInclusive<f32>":(start:0.0,end:1.0)}"#;
+        let mut deserializer = ron::de::Deserializer::from_str(input).unwrap();
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let error = reflect_deserializer
+            .deserialize(&mut deserializer)
+            .unwrap_err();
+        assert_eq!(error, ron::Error::Message("Type `core::ops::RangeInclusive<f32>` did not register the `ReflectDeserialize` type data. For certain types, this may need to be registered manually using `register_type_data`".to_string()));
     }
 }

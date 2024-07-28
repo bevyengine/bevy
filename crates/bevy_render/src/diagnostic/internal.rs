@@ -159,6 +159,7 @@ struct FrameData {
     timestamps_query_set: Option<QuerySet>,
     num_timestamps: u32,
     supports_timestamps_inside_passes: bool,
+    supports_timestamps_inside_encoders: bool,
     pipeline_statistics_query_set: Option<QuerySet>,
     num_pipeline_statistics: u32,
     buffer_size: u64,
@@ -225,6 +226,8 @@ impl FrameData {
             num_timestamps: 0,
             supports_timestamps_inside_passes: features
                 .contains(Features::TIMESTAMP_QUERY_INSIDE_PASSES),
+            supports_timestamps_inside_encoders: features
+                .contains(Features::TIMESTAMP_QUERY_INSIDE_ENCODERS),
             pipeline_statistics_query_set,
             num_pipeline_statistics: 0,
             buffer_size,
@@ -252,6 +255,11 @@ impl FrameData {
         encoder: &mut impl WriteTimestamp,
         is_inside_pass: bool,
     ) -> Option<u32> {
+        // `encoder.write_timestamp` is unsupported on WebGPU.
+        if !self.supports_timestamps_inside_encoders {
+            return None;
+        }
+
         if is_inside_pass && !self.supports_timestamps_inside_passes {
             return None;
         }

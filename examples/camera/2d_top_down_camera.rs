@@ -4,9 +4,9 @@
 //!
 //! | Key Binding          | Action        |
 //! |:---------------------|:--------------|
-//! | `Z`(azerty), `W`(US) | Move forward  |
-//! | `S`                  | Move backward |
-//! | `Q`(azerty), `A`(US) | Move left     |
+//! | `W`                  | Move up       |
+//! | `S`                  | Move down     |
+//! | `A`                  | Move left     |
 //! | `D`                  | Move right    |
 
 use bevy::core_pipeline::bloom::BloomSettings;
@@ -17,8 +17,8 @@ use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 /// Player movement speed factor.
 const PLAYER_SPEED: f32 = 100.;
 
-/// Camera lerp factor.
-const CAM_LERP_FACTOR: f32 = 2.;
+/// How quickly should the camera snap to the desired location.
+const CAMERA_DECAY_RATE: f32 = 2.;
 
 #[derive(Component)]
 struct Player;
@@ -61,7 +61,7 @@ fn setup_scene(
 fn setup_instructions(mut commands: Commands) {
     commands.spawn(
         TextBundle::from_section(
-            "Move the light with ZQSD or WASD.\nThe camera will smoothly track the light.",
+            "Move the light with WASD.\nThe camera will smoothly track the light.",
             TextStyle::default(),
         )
         .with_style(Style {
@@ -103,17 +103,18 @@ fn update_camera(
     let Vec3 { x, y, .. } = player.translation;
     let direction = Vec3::new(x, y, camera.translation.z);
 
-    // Applies a smooth effect to camera movement using interpolation between
-    // the camera position and the player position on the x and y axes.
-    // Here we use the in-game time, to get the elapsed time (in seconds)
-    // since the previous update. This avoids jittery movement when tracking
-    // the player.
-    camera.translation = camera
+    // Applies a smooth effect to camera movement using stable interpolation
+    // between the camera position and the player position on the x and y axes.
+    camera
         .translation
-        .lerp(direction, time.delta_seconds() * CAM_LERP_FACTOR);
+        .smooth_nudge(&direction, CAMERA_DECAY_RATE, time.delta_seconds());
 }
 
 /// Update the player position with keyboard inputs.
+/// Note that the approach used here is for demonstration purposes only,
+/// as the point of this example is to showcase the camera tracking feature.
+///
+/// A more robust solution for player movement can be found in `examples/movement/physics_in_fixed_timestep.rs`.
 fn move_player(
     mut player: Query<&mut Transform, With<Player>>,
     time: Res<Time>,

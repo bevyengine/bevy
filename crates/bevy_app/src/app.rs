@@ -4,11 +4,11 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::{event_update_system, ManualEventReader},
+    event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::SystemId,
+    system::{IntoObserverSystem, SystemId},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -242,7 +242,7 @@ impl App {
         let main = self.main_mut();
         main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Finished;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.finish());
+        self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
@@ -256,12 +256,12 @@ impl App {
         let main = self.main_mut();
         main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Cleaned;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.cleanup());
+        self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
     }
 
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
-        self.sub_apps.iter().any(|s| s.is_building_plugins())
+        self.sub_apps.iter().any(SubApp::is_building_plugins)
     }
 
     /// Adds one or more systems to the given schedule in this app's [`Schedules`].
@@ -318,7 +318,7 @@ impl App {
     }
 
     /// Initializes `T` event handling by inserting an event queue resource ([`Events::<T>`])
-    /// and scheduling an [`event_update_system`] in [`First`](crate::First).
+    /// and scheduling an [`event_update_system`] in [`First`].
     ///
     /// See [`Events`] for information on how to define events.
     ///
@@ -439,12 +439,7 @@ impl App {
         plugin: Box<dyn Plugin>,
     ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
-        if plugin.is_unique()
-            && !self
-                .main_mut()
-                .plugin_names
-                .insert(plugin.name().to_string())
-        {
+        if plugin.is_unique() && self.main_mut().plugin_names.contains(plugin.name()) {
             Err(AppError::DuplicatePlugin {
                 plugin_name: plugin.name().to_string(),
             })?;
@@ -459,6 +454,9 @@ impl App {
 
         self.main_mut().plugin_build_depth += 1;
         let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
+        self.main_mut()
+            .plugin_names
+            .insert(plugin.name().to_string());
         self.main_mut().plugin_build_depth -= 1;
 
         if let Err(payload) = result {
@@ -665,6 +663,11 @@ impl App {
         self.sub_apps.sub_apps.remove(&label.intern())
     }
 
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_sub_app_by_label(&mut self, label: impl AppLabel) {
+        self.sub_apps.update_subapp_by_label(label);
+    }
+
     /// Inserts a new `schedule` under the provided `label`, overwriting any existing
     /// schedule with the same label.
     pub fn add_schedule(&mut self, schedule: Schedule) -> &mut Self {
@@ -815,7 +818,7 @@ impl App {
     /// This should be called after every [`update()`](App::update) otherwise you risk
     /// dropping possible [`AppExit`] events.
     pub fn should_exit(&self) -> Option<AppExit> {
-        let mut reader = ManualEventReader::default();
+        let mut reader = EventCursor::default();
 
         let events = self.world().get_resource::<Events<AppExit>>()?;
         let mut events = reader.read(events);
@@ -830,6 +833,15 @@ impl App {
         }
 
         None
+    }
+
+    /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
+    pub fn observe<E: Event, B: Bundle, M>(
+        &mut self,
+        observer: impl IntoObserverSystem<E, B, M>,
+    ) -> &mut Self {
+        self.world_mut().observe(observer);
+        self
     }
 }
 
@@ -1275,6 +1287,21 @@ mod tests {
             .init_resource::<TestResource>();
     }
 
+    #[test]
+    /// Plugin should not be considered inserted while it's being built
+    ///
+    /// bug: <https://github.com/bevyengine/bevy/issues/13815>
+    fn plugin_should_not_be_added_during_build_time() {
+        pub struct Foo;
+
+        impl Plugin for Foo {
+            fn build(&self, app: &mut App) {
+                assert!(!app.is_plugin_added::<Self>());
+            }
+        }
+
+        App::new().add_plugins(Foo);
+    }
     #[test]
     fn events_should_be_updated_once_per_update() {
         #[derive(Event, Clone)]
