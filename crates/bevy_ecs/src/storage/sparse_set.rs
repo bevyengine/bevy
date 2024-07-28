@@ -253,7 +253,7 @@ impl ComponentSparseSet {
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
                 },
                 #[cfg(feature = "track_change_detection")]
-                self.dense.get_caller_unchecked(dense_index),
+                self.dense.get_changed_by_unchecked(dense_index),
                 #[cfg(not(feature = "track_change_detection"))]
                 (),
             ))
@@ -294,6 +294,22 @@ impl ComponentSparseSet {
         assert_eq!(entity, self.entities[dense_index.as_usize()]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
         unsafe { Some(self.dense.get_ticks_unchecked(dense_index)) }
+    }
+
+    /// Returns a reference to the calling location that last changed the entity's component value.
+    ///
+    /// Returns `None` if `entity` does not have a component in the sparse set.
+    #[inline]
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_changed_by(
+        &self,
+        entity: Entity,
+    ) -> Option<&UnsafeCell<&'static core::panic::Location<'static>>> {
+        let dense_index = *self.sparse.get(entity.index())?;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index.as_usize()]);
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
+        unsafe { Some(self.dense.get_changed_by_unchecked(dense_index)) }
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if

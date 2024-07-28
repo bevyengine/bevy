@@ -777,6 +777,8 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
+    /// Split into a new function so we can pass the calling location into the function when using
+    /// as a command.
     #[inline]
     pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,

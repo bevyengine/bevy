@@ -397,7 +397,7 @@ impl Column {
     /// adhere to the safety invariants of [`UnsafeCell`].
     #[inline]
     #[cfg(feature = "track_change_detection")]
-    pub fn get_callers_slice(&self) -> &[UnsafeCell<&'static Location<'static>>] {
+    pub fn get_changed_by_slice(&self) -> &[UnsafeCell<&'static Location<'static>>] {
         &self.changed_by
     }
 
@@ -534,21 +534,6 @@ impl Column {
         self.changed_ticks.get_unchecked(row.as_usize())
     }
 
-    /// Fetches the "changed" change detection tick for the value at `row`. Unlike [`Column::get_changed_tick`]
-    /// this function does not do any bounds checking.
-    ///
-    /// # Safety
-    /// `row` must be within the range `[0, self.len())`.
-    #[inline]
-    #[cfg(feature = "track_change_detection")]
-    pub unsafe fn get_caller_unchecked(
-        &self,
-        row: TableRow,
-    ) -> &UnsafeCell<&'static Location<'static>> {
-        debug_assert!(row.as_usize() < self.changed_by.len());
-        self.changed_by.get_unchecked(row.as_usize())
-    }
-
     /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
     /// this function does not do any bounds checking.
     ///
@@ -562,6 +547,35 @@ impl Column {
             added: self.added_ticks.get_unchecked(row.as_usize()).read(),
             changed: self.changed_ticks.get_unchecked(row.as_usize()).read(),
         }
+    }
+
+    /// Fetches the calling location that last changed the value at `row`.
+    ///
+    /// Returns `None` if `row` is out of bounds.
+    ///
+    /// Note: The values stored within are [`UnsafeCell`].
+    /// Users of this API must ensure that accesses to each individual element
+    /// adhere to the safety invariants of [`UnsafeCell`].
+    #[inline]
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_changed_by(&self, row: TableRow) -> Option<&UnsafeCell<&'static Location<'static>>> {
+        self.changed_by.get(row.as_usize())
+    }
+
+    /// Fetches the calling location that last changed the value at `row`.
+    ///
+    /// Unlike [`Column::get_changed_by`] this function does not do any bounds checking.
+    ///
+    /// # Safety
+    /// `row` must be within the range `[0, self.len())`.
+    #[inline]
+    #[cfg(feature = "track_change_detection")]
+    pub unsafe fn get_changed_by_unchecked(
+        &self,
+        row: TableRow,
+    ) -> &UnsafeCell<&'static Location<'static>> {
+        debug_assert!(row.as_usize() < self.changed_by.len());
+        self.changed_by.get_unchecked(row.as_usize())
     }
 
     /// Clears the column, removing all values.

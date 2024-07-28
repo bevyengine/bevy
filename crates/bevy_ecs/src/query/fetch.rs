@@ -1117,7 +1117,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             column.get_added_ticks_slice().into(),
             column.get_changed_ticks_slice().into(),
             #[cfg(feature = "track_change_detection")]
-            column.get_callers_slice().into(),
+            column.get_changed_by_slice().into(),
             #[cfg(not(feature = "track_change_detection"))]
             (),
         ));
@@ -1312,7 +1312,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column.get_added_ticks_slice().into(),
             column.get_changed_ticks_slice().into(),
             #[cfg(feature = "track_change_detection")]
-            column.get_callers_slice().into(),
+            column.get_changed_by_slice().into(),
             #[cfg(not(feature = "track_change_detection"))]
             (),
         ));

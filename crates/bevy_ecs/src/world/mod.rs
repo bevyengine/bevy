@@ -1836,6 +1836,8 @@ impl World {
         )
     }
 
+    /// Split into a new function so we can pass the calling location into the function when using
+    /// as a command.
     #[inline]
     pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
         &mut self,

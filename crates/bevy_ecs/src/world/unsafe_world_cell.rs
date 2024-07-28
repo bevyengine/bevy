@@ -1013,7 +1013,7 @@ unsafe fn get_component_and_ticks(
                     changed: components.get_changed_tick_unchecked(location.table_row),
                 },
                 #[cfg(feature = "track_change_detection")]
-                components.get_caller_unchecked(location.table_row),
+                components.get_changed_by_unchecked(location.table_row),
                 #[cfg(not(feature = "track_change_detection"))]
                 (),
             ))

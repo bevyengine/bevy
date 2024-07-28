@@ -494,6 +494,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
+    #[track_caller]
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
@@ -539,6 +540,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
+    #[track_caller]
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
@@ -571,6 +573,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
+    #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
         self.push(init_resource::<R>);
     }
@@ -600,6 +603,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
+    #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
         self.push(insert_resource(resource));
     }
