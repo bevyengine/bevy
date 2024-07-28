@@ -33,6 +33,7 @@ pub trait VectorSpace:
     + Debug
     + Clone
     + Copy
+    + PartialEq
 {
     /// The zero vector, which is the identity of addition for the vector space type.
     const ZERO: Self;

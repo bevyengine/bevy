@@ -41,7 +41,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 ///     vec2(5.0, 3.0),
 ///     vec2(9.0, 8.0),
 /// ]];
-/// let bezier = CubicBezier::new(points).to_curve();
+/// let bezier = CubicBezier::new(points).unwrap().to_curve();
 /// let positions: Vec<_> = bezier.iter_positions(100).collect();
 /// ```
 #[derive(Clone, Debug)]
@@ -53,12 +53,27 @@ pub struct CubicBezier<P: VectorSpace> {
 
 impl<P: VectorSpace> CubicBezier<P> {
     /// Create a new cubic Bezier curve from sets of control points.
-    pub fn new(control_points: impl Into<Vec<[P; 4]>>) -> Self {
-        Self {
-            control_points: control_points.into(),
+    /// returns None the `control_points` are empty or discontinuous
+    pub fn new(control_points: impl Into<Vec<[P; 4]>>) -> Option<Self> {
+        let control_points = control_points.into();
+        if control_points.is_empty() {
+            return None;
         }
+        // check the vertecies are connected
+        let mut index = 1;
+        while index < control_points.len() {
+            let prev: &P = &(&control_points[index - 1])[3];
+            let next: &P = &(&control_points[index])[0];
+            if prev != next {
+                return None;
+            }
+            index += 1;
+        }
+
+        Some(Self { control_points })
     }
 }
+
 impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
     #[inline]
     fn to_curve(&self) -> CubicCurve<P> {
@@ -858,7 +873,9 @@ impl CubicSegment<Vec2> {
     /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
     pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
-        let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]]).to_curve();
+        let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]])
+            .unwrap()
+            .to_curve();
         bezier.segments[0]
     }
 
@@ -1401,11 +1418,50 @@ mod tests {
             vec2(5.0, 3.0),
             vec2(9.0, 8.0),
         ]];
-        let bezier = CubicBezier::new(points).to_curve();
+        let bezier = CubicBezier::new(points).unwrap().to_curve();
         for i in 0..=N_SAMPLES {
             let t = i as f32 / N_SAMPLES as f32; // Check along entire length
             assert!(bezier.position(t).distance(cubic_manual(t, points[0])) <= FLOAT_EQ);
         }
+    }
+
+    /// No Bezier can be constructed,
+    #[test]
+    fn cubic_fail() {}
+
+    #[test]
+    fn cubic_empty() {
+        let points: [[glam::Vec4; 4]; 0] = [];
+        let bezier = CubicBezier::new(points);
+        assert!(bezier.is_none());
+    }
+
+    #[test]
+    fn glam_eq() {
+        assert!(glam::Vec4::new(0., 1., 2., 3.) == glam::Vec4::new(0., 1., 2., 3.));
+        assert!(!(glam::Vec4::new(0., 1., 2., 3.,) == glam::Vec4::new(0., 1., 2., 123.)));
+        assert!(glam::Vec4::new(0., 1., 2., 3.,) != glam::Vec4::new(0., 1., 2., 123.));
+    }
+
+    #[test]
+    fn cubic_disconnected() {
+        let points = [
+            [
+                glam::Vec4::new(0., 0., 0., 0.),
+                glam::Vec4::new(1., 0., 0., 0.),
+                glam::Vec4::new(1., 1., 0., 0.),
+                glam::Vec4::new(0., 1., 0., 0.),
+            ],
+            [
+                glam::Vec4::new(0., 0., 0., 1.),
+                glam::Vec4::new(1., 0., 0., 1.),
+                glam::Vec4::new(1., 1., 0., 1.),
+                glam::Vec4::new(0., 1., 0., 1.),
+            ],
+        ];
+        assert!((&points[0])[3] != (&points[1])[0]);
+        let bezier = CubicBezier::new(points);
+        assert!(bezier.is_none());
     }
 
     /// Manual, hardcoded function for computing the position along a cubic bezier.
