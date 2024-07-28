@@ -29,7 +29,7 @@ fn setup(mut commands: Commands) {
     // Note the first change detection log correctly points to this line because the component is
     // added. Although commands are deferred, they are able to track the original calling location.
     commands.spawn(MyComponent(0.0));
-    commands.insert_resource(MyResource(0.0))
+    commands.insert_resource(MyResource(0.0));
 }
 
 fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {
