@@ -76,6 +76,7 @@ fn rasterize_cluster(
     var max_y = u32(ceil(max3(vertex_0.y, vertex_1.y, vertex_2.y)));
     max_x = min(max_x, u32(view.viewport.z) - 1u);
     max_y = min(max_y, u32(view.viewport.w) - 1u);
+    if any(vec2(min_x, min_y) > vec2(max_x, max_y)) { return; }
 
     // Setup triangle gradients
     let w_x = vec3(vertex_1.y - vertex_2.y, vertex_2.y - vertex_0.y, vertex_0.y - vertex_1.y);
