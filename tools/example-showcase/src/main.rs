@@ -556,7 +556,7 @@ aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
 technical_name = \"{}\"
-link = \"/examples{}/{}/{}\"
+link = \"/examples{}/{}/{}/\"
 image = \"../static/screenshots/{}/{}.png\"
 code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
@@ -581,7 +581,11 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "-webgpu",
                                 WebApi::Webgl2 => "",
                             },
-                            &to_show.category,
+                            to_show
+                                .category
+                                .replace(['(', ')'], "")
+                                .replace(' ', "-")
+                                .to_lowercase(),
                             &to_show.technical_name.replace('_', "-"),
                             &to_show.category,
                             &to_show.technical_name,
