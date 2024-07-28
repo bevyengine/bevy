@@ -1136,14 +1136,14 @@ pub(crate) type MaybeLocation = &'static Location<'static>;
 #[cfg(not(feature = "track_change_detection"))]
 pub(crate) type MaybeLocation = ();
 
-/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_change_detecion`
+/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_change_detection`
 /// feature is enabled, and the unit type `()` when it is not.
 ///
 /// See [`MaybeLocation`] for further information.
 #[cfg(feature = "track_change_detection")]
 pub(crate) type MaybeUnsafeCellLocation<'a> = &'a UnsafeCell<&'static Location<'static>>;
 
-/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_change_detecion`
+/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_change_detection`
 /// feature is enabled, and the unit type `()` when it is not.
 ///
 /// See [`MaybeLocation`] for further information.
