@@ -47,7 +47,7 @@ impl<'a, T: SparseSetIndex + fmt::Debug> fmt::Debug for FormattedBitSet<'a, T> {
 ///
 /// Used internally to ensure soundness during system initialization and execution.
 /// See the [`is_compatible`](Access::is_compatible) and [`get_conflicts`](Access::get_conflicts) functions.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 pub struct Access<T: SparseSetIndex> {
     /// All accessed elements.
     reads_and_writes: FixedBitSet,
@@ -62,6 +62,28 @@ pub struct Access<T: SparseSetIndex> {
     // Elements that are not accessed, but whose presence in an archetype affect query results.
     archetypal: FixedBitSet,
     marker: PhantomData<T>,
+}
+
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl<T: SparseSetIndex> Clone for Access<T> {
+    fn clone(&self) -> Self {
+        Self {
+            reads_and_writes: self.reads_and_writes.clone(),
+            writes: self.writes.clone(),
+            reads_all: self.reads_all,
+            writes_all: self.writes_all,
+            archetypal: self.archetypal.clone(),
+            marker: PhantomData,
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.reads_and_writes.clone_from(&source.reads_and_writes);
+        self.writes.clone_from(&source.writes);
+        self.reads_all = source.reads_all;
+        self.writes_all = source.writes_all;
+        self.archetypal.clone_from(&source.archetypal);
+    }
 }
 
 impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
@@ -325,13 +347,30 @@ impl<T: SparseSetIndex> Access<T> {
 /// - `Query<Option<&T>>` accesses nothing
 ///
 /// See comments the [`WorldQuery`](super::WorldQuery) impls of [`AnyOf`](super::AnyOf)/`Option`/[`Or`](super::Or) for more information.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     pub(crate) access: Access<T>,
     pub(crate) required: FixedBitSet,
     // An array of filter sets to express `With` or `Without` clauses in disjunctive normal form, for example: `Or<(With<A>, With<B>)>`.
     // Filters like `(With<A>, Or<(With<B>, Without<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, Without<C>))>`.
     pub(crate) filter_sets: Vec<AccessFilters<T>>,
+}
+
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl<T: SparseSetIndex> Clone for FilteredAccess<T> {
+    fn clone(&self) -> Self {
+        Self {
+            access: self.access.clone(),
+            required: self.required.clone(),
+            filter_sets: self.filter_sets.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.access.clone_from(&source.access);
+        self.required.clone_from(&source.required);
+        self.filter_sets.clone_from(&source.filter_sets);
+    }
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
@@ -510,11 +549,27 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 pub(crate) struct AccessFilters<T> {
     pub(crate) with: FixedBitSet,
     pub(crate) without: FixedBitSet,
     _index_type: PhantomData<T>,
+}
+
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl<T: SparseSetIndex> Clone for AccessFilters<T> {
+    fn clone(&self) -> Self {
+        Self {
+            with: self.with.clone(),
+            without: self.without.clone(),
+            _index_type: PhantomData,
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.with.clone_from(&source.with);
+        self.without.clone_from(&source.without);
+    }
 }
 
 impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for AccessFilters<T> {
@@ -554,10 +609,25 @@ impl<T: SparseSetIndex> AccessFilters<T> {
 /// It stores multiple sets of accesses.
 /// - A "combined" set, which is the access of all filters in this set combined.
 /// - The set of access of each individual filters in this set.
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FilteredAccessSet<T: SparseSetIndex> {
     combined_access: Access<T>,
     filtered_accesses: Vec<FilteredAccess<T>>,
+}
+
+// This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
+impl<T: SparseSetIndex> Clone for FilteredAccessSet<T> {
+    fn clone(&self) -> Self {
+        Self {
+            combined_access: self.combined_access.clone(),
+            filtered_accesses: self.filtered_accesses.clone(),
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.combined_access.clone_from(&source.combined_access);
+        self.filtered_accesses.clone_from(&source.filtered_accesses);
+    }
 }
 
 impl<T: SparseSetIndex> FilteredAccessSet<T> {
@@ -679,6 +749,136 @@ mod tests {
     use crate::query::{Access, FilteredAccess, FilteredAccessSet};
     use fixedbitset::FixedBitSet;
     use std::marker::PhantomData;
+
+    fn create_sample_access() -> Access<usize> {
+        let mut access = Access::<usize>::default();
+
+        access.add_read(1);
+        access.add_read(2);
+        access.add_write(3);
+        access.add_archetypal(5);
+        access.read_all();
+
+        access
+    }
+
+    fn create_sample_filtered_access() -> FilteredAccess<usize> {
+        let mut filtered_access = FilteredAccess::<usize>::default();
+
+        filtered_access.add_write(1);
+        filtered_access.add_read(2);
+        filtered_access.add_required(3);
+        filtered_access.and_with(4);
+
+        filtered_access
+    }
+
+    fn create_sample_access_filters() -> AccessFilters<usize> {
+        let mut access_filters = AccessFilters::<usize>::default();
+
+        access_filters.with.grow_and_insert(3);
+        access_filters.without.grow_and_insert(5);
+
+        access_filters
+    }
+
+    fn create_sample_filtered_access_set() -> FilteredAccessSet<usize> {
+        let mut filtered_access_set = FilteredAccessSet::<usize>::default();
+
+        filtered_access_set.add_unfiltered_read(2);
+        filtered_access_set.add_unfiltered_write(4);
+        filtered_access_set.read_all();
+
+        filtered_access_set
+    }
+
+    #[test]
+    fn test_access_clone() {
+        let original: Access<usize> = create_sample_access();
+        let cloned = original.clone();
+
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_access_clone_from() {
+        let original: Access<usize> = create_sample_access();
+        let mut cloned = Access::<usize>::default();
+
+        cloned.add_write(7);
+        cloned.add_read(4);
+        cloned.add_archetypal(8);
+        cloned.write_all();
+
+        cloned.clone_from(&original);
+
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_filtered_access_clone() {
+        let original: FilteredAccess<usize> = create_sample_filtered_access();
+        let cloned = original.clone();
+
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_filtered_access_clone_from() {
+        let original: FilteredAccess<usize> = create_sample_filtered_access();
+        let mut cloned = FilteredAccess::<usize>::default();
+
+        cloned.add_write(7);
+        cloned.add_read(4);
+        cloned.append_or(&FilteredAccess::default());
+
+        cloned.clone_from(&original);
+
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_access_filters_clone() {
+        let original: AccessFilters<usize> = create_sample_access_filters();
+        let cloned = original.clone();
+
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_access_filters_clone_from() {
+        let original: AccessFilters<usize> = create_sample_access_filters();
+        let mut cloned = AccessFilters::<usize>::default();
+
+        cloned.with.grow_and_insert(1);
+        cloned.without.grow_and_insert(2);
+
+        cloned.clone_from(&original);
+
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_filtered_access_set_clone() {
+        let original: FilteredAccessSet<usize> = create_sample_filtered_access_set();
+        let cloned = original.clone();
+
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_filtered_access_set_from() {
+        let original: FilteredAccessSet<usize> = create_sample_filtered_access_set();
+        let mut cloned = FilteredAccessSet::<usize>::default();
+
+        cloned.add_unfiltered_read(7);
+        cloned.add_unfiltered_write(9);
+        cloned.write_all();
+
+        cloned.clone_from(&original);
+
+        assert_eq!(original, cloned);
+    }
 
     #[test]
     fn read_all_access_conflicts() {
