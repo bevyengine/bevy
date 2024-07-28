@@ -76,13 +76,6 @@ impl FunctionRegistry {
         self.functions.get(name)
     }
 
-    /// Get a mutable reference to a registered function by [name].
-    ///
-    /// [name]: DynamicFunction::name
-    pub fn get_mut(&mut self, name: &str) -> Option<&mut DynamicFunction> {
-        self.functions.get_mut(name)
-    }
-
     /// Returns `true` if a function with the given [name] is registered.
     ///
     /// [name]: DynamicFunction::name
@@ -93,11 +86,6 @@ impl FunctionRegistry {
     /// Returns an iterator over all registered functions.
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &DynamicFunction> {
         self.functions.values()
-    }
-
-    /// Returns a mutable iterator over all registered functions.
-    pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = &mut DynamicFunction> {
-        self.functions.values_mut()
     }
 
     /// Returns the number of registered functions.
@@ -151,7 +139,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register(foo).unwrap();
 
-        let function = registry.get_mut(std::any::type_name_of_val(&foo)).unwrap();
+        let function = registry.get(std::any::type_name_of_val(&foo)).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.downcast_ref::<i32>(), Some(&123));
     }
@@ -167,7 +155,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register(function).unwrap();
 
-        let function = registry.get_mut("custom_name").unwrap();
+        let function = registry.get("custom_name").unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.downcast_ref::<i32>(), Some(&123));
     }
@@ -195,7 +183,7 @@ mod tests {
         ));
         assert_eq!(registry.len(), 1);
 
-        let function = registry.get_mut(std::any::type_name_of_val(&foo)).unwrap();
+        let function = registry.get(std::any::type_name_of_val(&foo)).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.downcast_ref::<i32>(), Some(&123));
     }
@@ -219,7 +207,7 @@ mod tests {
 
         assert_eq!(registry.len(), 1);
 
-        let function = registry.get_mut(std::any::type_name_of_val(&foo)).unwrap();
+        let function = registry.get(std::any::type_name_of_val(&foo)).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.downcast_ref::<i32>(), Some(&321));
     }
