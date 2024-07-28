@@ -1,4 +1,4 @@
-//! This example illustrates how to react to component change.
+//! This example illustrates how to react to component and resource changes.
 
 use bevy::prelude::*;
 use rand::Rng;
@@ -9,7 +9,12 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (change_component, change_component_2, change_detection),
+            (
+                change_component,
+                change_component_2,
+                change_resource,
+                change_detection,
+            ),
         )
         .run();
 }
@@ -17,18 +22,21 @@ fn main() {
 #[derive(Component, PartialEq, Debug)]
 struct MyComponent(f32);
 
+#[derive(Resource, PartialEq, Debug)]
+struct MyResource(f32);
+
 fn setup(mut commands: Commands) {
     // Note the first change detection log correctly points to this line because the component is
     // added. Although commands are deferred, they are able to track the original calling location.
-    commands.spawn(MyComponent(0.));
-    commands.spawn(Transform::IDENTITY);
+    commands.spawn(MyComponent(0.0));
+    commands.insert_resource(MyResource(0.0))
 }
 
 fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
             let new_component = MyComponent(time.elapsed_seconds().round());
-            info!("{entity:?}: New value: {new_component:?}");
+            info!("New value: {new_component:?} {entity:?}");
             // Change detection occurs on mutable dereference, and does not consider whether or not
             // a value is actually equal. To avoid triggering change detection when nothing has
             // actually changed, you can use the `set_if_neq` method on any component or resource
@@ -45,9 +53,18 @@ fn change_component_2(time: Res<Time>, mut query: Query<(Entity, &mut MyComponen
     for (entity, mut component) in &mut query {
         if rand::thread_rng().gen_bool(0.1) {
             let new_component = MyComponent(time.elapsed_seconds().round());
-            info!("{entity:?}: New value: {new_component:?}");
+            info!("New value: {new_component:?} {entity:?}");
             component.set_if_neq(new_component);
         }
+    }
+}
+
+/// Change detection concepts for components apply similarly to resources.
+fn change_resource(time: Res<Time>, mut my_resource: ResMut<MyResource>) {
+    if rand::thread_rng().gen_bool(0.1) {
+        let new_resource = MyResource(time.elapsed_seconds().round());
+        info!("New value: {new_resource:?}");
+        my_resource.set_if_neq(new_resource);
     }
 }
 
@@ -56,8 +73,11 @@ fn change_component_2(time: Res<Time>, mut query: Query<(Entity, &mut MyComponen
 ///
 /// Using the [`Ref<T>`] system param allows you to access change detection information, but does
 /// not filter the query.
-fn change_detection(query: Query<Ref<MyComponent>, Changed<MyComponent>>) {
-    for component in &query {
+fn change_detection(
+    changed_components: Query<Ref<MyComponent>, Changed<MyComponent>>,
+    my_resource: Res<MyResource>,
+) {
+    for component in &changed_components {
         // By default, you can only tell that a component was changed.
         //
         // This is useful, but what if you have multiple systems modifying the same component, how
@@ -71,6 +91,16 @@ fn change_detection(query: Query<Ref<MyComponent>, Changed<MyComponent>>) {
             // method. It returns the the file and line number that the component or resource was
             // changed in. It's not recommended for released games, but great for debugging!
             component.changed_by()
+        );
+    }
+
+    if my_resource.is_changed() {
+        warn!(
+            "Change detected!\n\t-> value: {:?}\n\t-> added: {}\n\t-> changed: {}\n\t-> changed by: {}",
+            my_resource,
+            my_resource.is_added(),
+            my_resource.is_changed(),
+            my_resource.changed_by() // Like components, requires `track_change_detection` feature.
         );
     }
 }

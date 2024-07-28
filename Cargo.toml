@@ -1613,14 +1613,14 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "component_change_detection"
-path = "examples/ecs/component_change_detection.rs"
+name = "change_detection"
+path = "examples/ecs/change_detection.rs"
 doc-scrape-examples = true
 required-features = ["track_change_detection"]
 
-[package.metadata.example.component_change_detection]
-name = "Component Change Detection"
-description = "Change detection on components"
+[package.metadata.example.change_detection]
+name = "Change Detection"
+description = "Change detection on components and resources"
 category = "ECS (Entity Component System)"
 wasm = false
 
