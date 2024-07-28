@@ -95,7 +95,7 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 
 // [COD] slide 162
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
-    // Radius. Empirically chosen by and tweaked from the LearnOpenGL article.
+    // UV offsets configured from uniforms.
     let x = uniforms.uv_offset / uniforms.aspect;
     let y = uniforms.uv_offset;
 
