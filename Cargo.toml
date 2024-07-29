@@ -760,6 +760,7 @@ doc-scrape-examples = true
 name = "Lines"
 description = "Create a custom material to draw 3d lines"
 category = "3D Rendering"
+# WASM does not support the `POLYGON_MODE_LINE` feature.
 wasm = false
 
 [[example]]
