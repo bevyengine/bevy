@@ -217,6 +217,13 @@ pub fn ui_layout_system(
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
+    // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
+    children_query.iter().for_each(|(entity, children)| {
+        if children.is_changed() {
+            ui_surface.update_children(entity, &children);
+        }
+    });
+
     for (camera_id, camera) in &camera_layout_info {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
