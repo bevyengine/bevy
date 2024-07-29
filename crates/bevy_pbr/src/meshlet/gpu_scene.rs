@@ -17,7 +17,6 @@ use bevy_ecs::{
     event::EventReader,
     query::{AnyOf, Has},
     system::{Commands, Local, Query, Res, ResMut, Resource, SystemState},
-    world::{FromWorld, World},
 };
 use bevy_math::{UVec2, Vec4Swizzles};
 use bevy_render::{
@@ -77,11 +76,9 @@ pub fn extract_meshlet_meshes(
     // Free GPU buffer space for any modified or dropped MeshletMesh assets
     for asset_event in asset_events.read() {
         if let AssetEvent::Unused { id } | AssetEvent::Modified { id } = asset_event {
-            if let Some((
+            if let Some(
                 [vertex_data_slice, vertex_ids_slice, indices_slice, meshlets_slice, meshlet_bounding_spheres_slice],
-                _,
-                _,
-            )) = gpu_scene.meshlet_mesh_slices.remove(id)
+            ) = gpu_scene.meshlet_mesh_slices.remove(id)
             {
                 gpu_scene.vertex_data.mark_slice_unused(vertex_data_slice);
                 gpu_scene.vertex_ids.mark_slice_unused(vertex_ids_slice);
@@ -221,7 +218,7 @@ pub fn prepare_meshlet_per_frame_resources(
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    if gpu_scene.scene_meshlet_count == 0 {
+    if gpu_scene.scene_cluster_count == 0 {
         return;
     }
 
@@ -250,7 +247,7 @@ pub fn prepare_meshlet_per_frame_resources(
     // Early submission for GPU data uploads to start while the render graph records commands
     render_queue.submit([]);
 
-    let needed_buffer_size = 4 * gpu_scene.scene_meshlet_count as u64;
+    let needed_buffer_size = 4 * gpu_scene.scene_cluster_count as u64;
     match &mut gpu_scene.cluster_instance_ids {
         Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
         slot => {
@@ -278,40 +275,8 @@ pub fn prepare_meshlet_per_frame_resources(
         }
     };
 
-    let needed_buffer_size = 4 * gpu_scene.scene_cluster_count;
-    let visibility_buffer_software_raster_clusters =
-        match &mut gpu_scene.visibility_buffer_software_raster_clusters {
-            Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
-            slot => {
-                let buffer = render_device.create_buffer(&BufferDescriptor {
-                    label: Some("meshlet_visibility_buffer_software_raster_clusters"),
-                    size: needed_buffer_size,
-                    usage: BufferUsages::STORAGE,
-                    mapped_at_creation: false,
-                });
-                *slot = Some(buffer.clone());
-                buffer
-            }
-        };
-
-    let needed_buffer_size = 4 * gpu_scene.scene_triangle_count;
-    let visibility_buffer_hardware_raster_triangles =
-        match &mut gpu_scene.visibility_buffer_hardware_raster_triangles {
-            Some(buffer) if buffer.size() >= needed_buffer_size => buffer.clone(),
-            slot => {
-                let buffer = render_device.create_buffer(&BufferDescriptor {
-                    label: Some("meshlet_visibility_buffer_hardware_raster_triangles"),
-                    size: needed_buffer_size,
-                    usage: BufferUsages::STORAGE,
-                    mapped_at_creation: false,
-                });
-                *slot = Some(buffer.clone());
-                buffer
-            }
-        };
-
     let needed_buffer_size =
-        gpu_scene.scene_meshlet_count.div_ceil(u32::BITS) as u64 * size_of::<u32>() as u64;
+        gpu_scene.scene_cluster_count.div_ceil(u32::BITS) as u64 * size_of::<u32>() as u64;
     for (view_entity, view, render_layers, (_, shadow_view)) in &views {
         let not_shadow_view = shadow_view.is_none();
 
@@ -406,8 +371,8 @@ pub fn prepare_meshlet_per_frame_resources(
             .create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_hardware_raster_indirect_args_first"),
                 contents: DrawIndirectArgs {
-                    vertex_count: 0,
-                    instance_count: 1,
+                    vertex_count: 64 * 3,
+                    instance_count: 0,
                     first_vertex: 0,
                     first_instance: 0,
                 }
@@ -418,8 +383,8 @@ pub fn prepare_meshlet_per_frame_resources(
             .create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("visibility_buffer_hardware_raster_indirect_args_second"),
                 contents: DrawIndirectArgs {
-                    vertex_count: 0,
-                    instance_count: 1,
+                    vertex_count: 64 * 3,
+                    instance_count: 0,
                     first_vertex: 0,
                     first_instance: 0,
                 }
@@ -488,7 +453,7 @@ pub fn prepare_meshlet_per_frame_resources(
         };
 
         commands.entity(view_entity).insert(MeshletViewResources {
-            scene_meshlet_count: gpu_scene.scene_meshlet_count,
+            scene_cluster_count: gpu_scene.scene_cluster_count,
             second_pass_candidates_buffer,
             instance_visibility,
             dummy_render_target,
@@ -497,10 +462,6 @@ pub fn prepare_meshlet_per_frame_resources(
             visibility_buffer_software_raster_indirect_args_second,
             visibility_buffer_hardware_raster_indirect_args_first,
             visibility_buffer_hardware_raster_indirect_args_second,
-            visibility_buffer_software_raster_clusters: visibility_buffer_software_raster_clusters
-                .clone(),
-            visibility_buffer_hardware_raster_triangles:
-                visibility_buffer_hardware_raster_triangles.clone(),
             depth_pyramid_all_mips,
             depth_pyramid_mips,
             depth_pyramid_mip_count,
@@ -508,6 +469,7 @@ pub fn prepare_meshlet_per_frame_resources(
             material_depth: not_shadow_view
                 .then(|| texture_cache.get(&render_device, material_depth)),
             view_size: view.viewport.zw(),
+            raster_cluster_rightmost_slot: gpu_scene.raster_cluster_rightmost_slot,
         });
     }
 }
@@ -560,7 +522,6 @@ pub fn prepare_meshlet_view_bind_groups(
             cluster_instance_ids.as_entire_binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             view_resources.instance_visibility.as_entire_binding(),
-            gpu_scene.meshlets.binding(),
             view_resources
                 .second_pass_candidates_buffer
                 .as_entire_binding(),
@@ -568,13 +529,10 @@ pub fn prepare_meshlet_view_bind_groups(
                 .visibility_buffer_software_raster_indirect_args_first
                 .as_entire_binding(),
             view_resources
-                .visibility_buffer_software_raster_clusters
-                .as_entire_binding(),
-            view_resources
                 .visibility_buffer_hardware_raster_indirect_args_first
                 .as_entire_binding(),
-            view_resources
-                .visibility_buffer_hardware_raster_triangles
+            gpu_scene
+                .visibility_buffer_raster_clusters
                 .as_entire_binding(),
             &view_resources.previous_depth_pyramid,
             view_uniforms.clone(),
@@ -592,7 +550,6 @@ pub fn prepare_meshlet_view_bind_groups(
             cluster_instance_ids.as_entire_binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
             view_resources.instance_visibility.as_entire_binding(),
-            gpu_scene.meshlets.binding(),
             view_resources
                 .second_pass_candidates_buffer
                 .as_entire_binding(),
@@ -600,13 +557,10 @@ pub fn prepare_meshlet_view_bind_groups(
                 .visibility_buffer_software_raster_indirect_args_second
                 .as_entire_binding(),
             view_resources
-                .visibility_buffer_software_raster_clusters
-                .as_entire_binding(),
-            view_resources
                 .visibility_buffer_hardware_raster_indirect_args_second
                 .as_entire_binding(),
-            view_resources
-                .visibility_buffer_hardware_raster_triangles
+            gpu_scene
+                .visibility_buffer_raster_clusters
                 .as_entire_binding(),
             &view_resources.depth_pyramid_all_mips,
             view_uniforms.clone(),
@@ -647,11 +601,8 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene.vertex_data.binding(),
             cluster_instance_ids.as_entire_binding(),
             gpu_scene.instance_uniforms.binding().unwrap(),
-            view_resources
-                .visibility_buffer_software_raster_clusters
-                .as_entire_binding(),
-            view_resources
-                .visibility_buffer_hardware_raster_triangles
+            gpu_scene
+                .visibility_buffer_raster_clusters
                 .as_entire_binding(),
             view_resources.visibility_buffer.as_entire_binding(),
             view_uniforms.clone(),
@@ -716,16 +667,16 @@ pub fn prepare_meshlet_view_bind_groups(
 /// A resource that manages GPU data for rendering [`MeshletMesh`]'s.
 #[derive(Resource)]
 pub struct MeshletGpuScene {
+    visibility_buffer_raster_clusters: Buffer,
+    raster_cluster_rightmost_slot: u32,
     vertex_data: PersistentGpuBuffer<Arc<[u8]>>,
     vertex_ids: PersistentGpuBuffer<Arc<[u32]>>,
     indices: PersistentGpuBuffer<Arc<[u8]>>,
     meshlets: PersistentGpuBuffer<Arc<[Meshlet]>>,
     meshlet_bounding_spheres: PersistentGpuBuffer<Arc<[MeshletBoundingSpheres]>>,
-    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 5], u64, u64)>,
+    meshlet_mesh_slices: HashMap<AssetId<MeshletMesh>, [Range<BufferAddress>; 5]>,
 
-    scene_meshlet_count: u32,
-    scene_cluster_count: u64,
-    scene_triangle_count: u64,
+    scene_cluster_count: u32,
     next_material_id: u32,
     material_id_lookup: HashMap<UntypedAssetId, u32>,
     material_ids_present_in_scene: HashSet<u32>,
@@ -742,8 +693,6 @@ pub struct MeshletGpuScene {
     cluster_meshlet_ids: Option<Buffer>,
     second_pass_candidates_buffer: Option<Buffer>,
     previous_depth_pyramids: EntityHashMap<TextureView>,
-    visibility_buffer_software_raster_clusters: Option<Buffer>,
-    visibility_buffer_hardware_raster_triangles: Option<Buffer>,
 
     fill_cluster_buffers_bind_group_layout: BindGroupLayout,
     culling_bind_group_layout: BindGroupLayout,
@@ -756,11 +705,17 @@ pub struct MeshletGpuScene {
     depth_pyramid_dummy_texture: TextureView,
 }
 
-impl FromWorld for MeshletGpuScene {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
+impl MeshletGpuScene {
+    pub fn new(cluster_buffer_slots: u32, render_device: &RenderDevice) -> Self {
         Self {
+            visibility_buffer_raster_clusters: render_device.create_buffer(&BufferDescriptor {
+                label: Some("meshlet_visibility_buffer_raster_clusters"),
+                size: cluster_buffer_slots as u64 * size_of::<u32>() as u64,
+                usage: BufferUsages::STORAGE,
+                mapped_at_creation: false,
+            }),
+            raster_cluster_rightmost_slot: cluster_buffer_slots - 1,
+
             vertex_data: PersistentGpuBuffer::new("meshlet_vertex_data", render_device),
             vertex_ids: PersistentGpuBuffer::new("meshlet_vertex_ids", render_device),
             indices: PersistentGpuBuffer::new("meshlet_indices", render_device),
@@ -771,9 +726,7 @@ impl FromWorld for MeshletGpuScene {
             ),
             meshlet_mesh_slices: HashMap::new(),
 
-            scene_meshlet_count: 0,
             scene_cluster_count: 0,
-            scene_triangle_count: 0,
             next_material_id: 0,
             material_id_lookup: HashMap::new(),
             material_ids_present_in_scene: HashSet::new(),
@@ -803,8 +756,6 @@ impl FromWorld for MeshletGpuScene {
             cluster_meshlet_ids: None,
             second_pass_candidates_buffer: None,
             previous_depth_pyramids: EntityHashMap::default(),
-            visibility_buffer_software_raster_clusters: None,
-            visibility_buffer_hardware_raster_triangles: None,
 
             // TODO: Buffer min sizes
             fill_cluster_buffers_bind_group_layout: render_device.create_bind_group_layout(
@@ -829,8 +780,6 @@ impl FromWorld for MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_sized(false, None),
                         storage_buffer_sized(false, None),
                         storage_buffer_sized(false, None),
                         storage_buffer_sized(false, None),
@@ -873,7 +822,6 @@ impl FromWorld for MeshletGpuScene {
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::all(),
                     (
-                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
@@ -952,15 +900,11 @@ impl FromWorld for MeshletGpuScene {
                 }),
         }
     }
-}
 
-impl MeshletGpuScene {
     /// Clear per-frame CPU->GPU upload buffers and reset all per-frame data.
     fn reset(&mut self) {
         // TODO: Shrink capacity if saturation is low
-        self.scene_meshlet_count = 0;
         self.scene_cluster_count = 0;
-        self.scene_triangle_count = 0;
         self.next_material_id = 0;
         self.material_id_lookup.clear();
         self.material_ids_present_in_scene.clear();
@@ -1006,21 +950,17 @@ impl MeshletGpuScene {
                 .meshlet_bounding_spheres
                 .queue_write(Arc::clone(&meshlet_mesh.bounding_spheres), ());
 
-            (
-                [
-                    vertex_data_slice,
-                    vertex_ids_slice,
-                    indices_slice,
-                    meshlets_slice,
-                    meshlet_bounding_spheres_slice,
-                ],
-                meshlet_mesh.worst_case_meshlets,
-                meshlet_mesh.worst_case_meshlet_triangles,
-            )
+            [
+                vertex_data_slice,
+                vertex_ids_slice,
+                indices_slice,
+                meshlets_slice,
+                meshlet_bounding_spheres_slice,
+            ]
         };
 
         // If the MeshletMesh asset has not been uploaded to the GPU yet, queue it for uploading
-        let ([_, _, _, meshlets_slice, _], cluster_count, triangle_count) = self
+        let [_, _, _, meshlets_slice, _] = self
             .meshlet_mesh_slices
             .entry(handle.id())
             .or_insert_with_key(queue_meshlet_mesh)
@@ -1035,14 +975,12 @@ impl MeshletGpuScene {
         self.instance_material_ids.get_mut().push(0);
         self.instance_meshlet_counts_prefix_sum
             .get_mut()
-            .push(self.scene_meshlet_count);
+            .push(self.scene_cluster_count);
         self.instance_meshlet_slice_starts
             .get_mut()
             .push(meshlets_slice.start);
 
-        self.scene_meshlet_count += meshlets_slice.end - meshlets_slice.start;
-        self.scene_cluster_count += cluster_count;
-        self.scene_triangle_count += triangle_count;
+        self.scene_cluster_count += meshlets_slice.end - meshlets_slice.start;
     }
 
     /// Get the depth value for use with the material depth texture for a given [`Material`] asset.
@@ -1091,7 +1029,7 @@ impl MeshletGpuScene {
 
 #[derive(Component)]
 pub struct MeshletViewResources {
-    pub scene_meshlet_count: u32,
+    pub scene_cluster_count: u32,
     pub second_pass_candidates_buffer: Buffer,
     instance_visibility: Buffer,
     pub dummy_render_target: CachedTexture,
@@ -1100,14 +1038,13 @@ pub struct MeshletViewResources {
     pub visibility_buffer_software_raster_indirect_args_second: Buffer,
     pub visibility_buffer_hardware_raster_indirect_args_first: Buffer,
     pub visibility_buffer_hardware_raster_indirect_args_second: Buffer,
-    visibility_buffer_software_raster_clusters: Buffer,
-    visibility_buffer_hardware_raster_triangles: Buffer,
     depth_pyramid_all_mips: TextureView,
     depth_pyramid_mips: [TextureView; 12],
     pub depth_pyramid_mip_count: u32,
     previous_depth_pyramid: TextureView,
     pub material_depth: Option<CachedTexture>,
     pub view_size: UVec2,
+    pub raster_cluster_rightmost_slot: u32,
 }
 
 #[derive(Component)]

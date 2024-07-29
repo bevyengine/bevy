@@ -6,7 +6,7 @@
         meshlet_vertex_data,
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
-        meshlet_software_raster_clusters,
+        meshlet_raster_clusters,
         meshlet_visibility_buffer,
         view,
         get_meshlet_index,
@@ -31,7 +31,7 @@ fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
-    let cluster_id = meshlet_software_raster_clusters[workgroup_id.x];
+    let cluster_id = meshlet_raster_clusters[workgroup_id.x];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
 

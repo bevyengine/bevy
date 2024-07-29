@@ -6,7 +6,7 @@
         meshlet_vertex_data,
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
-        meshlet_hardware_raster_triangles,
+        meshlet_raster_clusters,
         meshlet_visibility_buffer,
         view,
         get_meshlet_index,
@@ -15,6 +15,7 @@
     mesh_functions::mesh_position_local_to_world,
 }
 #import bevy_render::maths::affine3_to_square
+var<push_constant> meshlet_raster_cluster_rightmost_slot: u32;
 
 /// Vertex/fragment shader for rasterizing large clusters into a visibility buffer.
 
@@ -29,16 +30,17 @@ struct VertexOutput {
 }
 
 @vertex
-fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    let packed_ids = meshlet_hardware_raster_triangles[vertex_index / 3u];
-    let cluster_id = packed_ids >> 6u;
-    let triangle_id = extractBits(packed_ids, 0u, 6u);
-    let index_id = (triangle_id * 3u) + (vertex_index % 3u);
+fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+    let cluster_id = meshlet_raster_clusters[meshlet_raster_cluster_rightmost_slot - instance_index];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
     let meshlet = meshlets[meshlet_id];
+
+    let triangle_id = vertex_index / 3u;
+    let index_id = (triangle_id * 3u) + (vertex_index % 3u);
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
     let vertex = unpack_meshlet_vertex(meshlet_vertex_data[vertex_id]);
+
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
     let instance_uniform = meshlet_instance_uniforms[instance_id];
 
@@ -53,7 +55,7 @@ fn vertex(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     return VertexOutput(
         clip_position,
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-        packed_ids,
+        (cluster_id << 6u) | triangle_id,
 #endif
 #ifdef DEPTH_CLAMP_ORTHO
         unclamped_clip_depth,

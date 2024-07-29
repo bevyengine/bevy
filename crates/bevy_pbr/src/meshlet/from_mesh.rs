@@ -49,12 +49,6 @@ impl MeshletMesh {
                 },
             })
             .collect::<Vec<_>>();
-        let worst_case_meshlets = meshlets.len() as u64;
-        let worst_case_meshlet_triangles = meshlets
-            .meshlets
-            .iter()
-            .map(|m| m.triangle_count as u64)
-            .sum();
         let mesh_scale = simplify_scale(&vertices);
 
         // Build further LODs
@@ -147,8 +141,6 @@ impl MeshletMesh {
             .collect();
 
         Ok(Self {
-            worst_case_meshlets,
-            worst_case_meshlet_triangles,
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshlets.vertices.into(),
             indices: meshlets.triangles.into(),

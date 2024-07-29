@@ -113,7 +113,15 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
-pub struct MeshletPlugin;
+pub struct MeshletPlugin {
+    /// The maximum amount of clusters that can be processed at once,
+    /// used to control the size of a pre-allocated GPU buffer.
+    ///
+    /// If this number is too low, you'll see rendering artifacts like missing or blinking meshes.
+    ///
+    /// Each cluster slot costs 4 bytes of VRAM.
+    pub cluster_buffer_slots: u32,
+}
 
 impl MeshletPlugin {
     /// [WgpuFeatures] required for this plugin to function.
@@ -199,7 +207,8 @@ impl Plugin for MeshletPlugin {
             return;
         };
 
-        let features = render_app.world().resource::<RenderDevice>().features();
+        let render_device = render_app.world().resource::<RenderDevice>().clone();
+        let features = render_device.features();
         if !features.contains(Self::required_wgpu_features()) {
             error!(
                 "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
@@ -245,7 +254,10 @@ impl Plugin for MeshletPlugin {
                     Node3d::EndMainPass,
                 ),
             )
-            .init_resource::<MeshletGpuScene>()
+            .insert_resource(MeshletGpuScene::new(
+                self.cluster_buffer_slots,
+                &render_device,
+            ))
             .init_resource::<MeshletPipelines>()
             .add_systems(ExtractSchedule, extract_meshlet_meshes)
             .add_systems(

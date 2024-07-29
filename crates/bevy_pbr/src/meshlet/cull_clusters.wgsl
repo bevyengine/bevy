@@ -9,11 +9,10 @@
     previous_view,
     should_cull_instance,
     cluster_is_second_pass_candidate,
-    meshlets,
     meshlet_software_raster_indirect_args,
-    meshlet_software_raster_clusters,
     meshlet_hardware_raster_indirect_args,
-    meshlet_hardware_raster_triangles,
+    meshlet_raster_clusters,
+    meshlet_raster_cluster_rightmost_slot,
 }
 #import bevy_render::maths::affine3_to_square
 
@@ -136,19 +135,16 @@ fn cull_clusters(
     let cluster_is_small = all(vec2(aabb_width_pixels, aabb_height_pixels) < vec2(32.0)); // TODO: Nanite does something different. Come up with my own heuristic.
 
     // TODO: Also check if needs depth clipping
+    var buffer_slot: u32;
     if cluster_is_small {
         // Append this cluster to the list for software rasterization
-        let buffer_slot = atomicAdd(&meshlet_software_raster_indirect_args.x, 1u);
-        meshlet_software_raster_clusters[buffer_slot] = cluster_id;
+        buffer_slot = atomicAdd(&meshlet_software_raster_indirect_args.x, 1u);
     } else {
-        // Append a list of this cluster's triangles for hardware rasterization
-        let meshlet_triangle_count = meshlets[meshlet_id].triangle_count;
-        let buffer_start = atomicAdd(&meshlet_hardware_raster_indirect_args.vertex_count, meshlet_triangle_count * 3u) / 3u;
-        let cluster_id_packed = cluster_id << 6u;
-        for (var triangle_id = 0u; triangle_id < meshlet_triangle_count; triangle_id++) {
-            meshlet_hardware_raster_triangles[buffer_start + triangle_id] = cluster_id_packed | triangle_id;
-        }
+        // Append this cluster to the list for hardware rasterization
+        buffer_slot = atomicAdd(&meshlet_hardware_raster_indirect_args.instance_count, 1u);
+        buffer_slot = meshlet_raster_cluster_rightmost_slot - buffer_slot;
     }
+    meshlet_raster_clusters[buffer_slot] = cluster_id;
 }
 
 // https://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space/21649403#21649403
