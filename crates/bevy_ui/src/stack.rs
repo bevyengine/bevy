@@ -2,8 +2,9 @@
 
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
+use bevy_render::camera::Camera;
 
-use crate::{Node, ZIndex};
+use crate::{DefaultUiCamera, Node, TargetCamera, ZIndex};
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -49,10 +50,13 @@ struct StackingContextEntry {
 ///
 /// First generate a UI node tree (`StackingContext`) based on z-index.
 /// Then flatten that tree into back-to-front ordered `UiStack`.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn ui_stack_system(
     mut cache: Local<StackingContextCache>,
     mut ui_stack: ResMut<UiStack>,
-    root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
+    root_node_query: Query<(Entity, Option<&TargetCamera>), (With<Node>, Without<Parent>)>,
+    cameras: Query<&Camera>,
+    default_ui_camera: DefaultUiCamera,
     zindex_query: Query<&ZIndex, With<Node>>,
     children_query: Query<&Children>,
     mut update_query: Query<&mut Node>,
@@ -61,7 +65,25 @@ pub(crate) fn ui_stack_system(
     let mut global_context = cache.pop();
     let mut total_entry_count: usize = 0;
 
-    for entity in &root_node_query {
+    // gather entities and camera order
+    let mut ui_entities_with_camera_order = root_node_query
+        .iter()
+        .map(|(ui_entity, maybe_target_camera)| {
+            let camera_entity = maybe_target_camera
+                .map(|tc| tc.0)
+                .or_else(|| default_ui_camera.get());
+            let camera_order = camera_entity
+                .and_then(|e| cameras.get(e).ok())
+                .map(|cam| cam.order)
+                .unwrap_or(isize::MAX);
+            (ui_entity, camera_order)
+        })
+        .collect::<Vec<_>>();
+
+    // sort by camera order (lower order cameras ui elements are earlier in the stack / "behind" later cameras)
+    ui_entities_with_camera_order.sort_by_key(|(_, camera_order)| *camera_order);
+
+    for (entity, _) in ui_entities_with_camera_order {
         insert_context_hierarchy(
             &mut cache,
             &zindex_query,

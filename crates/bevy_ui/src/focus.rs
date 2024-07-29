@@ -143,13 +143,19 @@ pub struct NodeQuery {
     target_camera: Option<&'static TargetCamera>,
 }
 
+/// A component that can be attached to a camera to pass mouse coordinates through to ui textures, allowing
+/// manual control of interactivity for world-space uis, or custom cursor position control for window-based uis.
+/// For optimal latency the contents should be updated in [`PreUpdate`], before [`UiSystem::Focus`] and after [`InputSystem`].
+#[derive(Component, Default)]
+pub struct ManualCursorPosition(pub Option<Vec2>);
+
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`ViewVisibility`] are always treated as released.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &Camera, Option<&ManualCursorPosition>)>,
     default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
@@ -189,8 +195,12 @@ pub fn ui_focus_system(
 
     let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
         .iter()
-        .filter_map(|(entity, camera)| {
-            // Interactions are only supported for cameras rendering to a window.
+        .filter_map(|(entity, camera, maybe_manual_cursor)| {
+            // Check for a manually specified cursor position
+            if let Some(manual_position) = maybe_manual_cursor {
+                return manual_position.0.map(|pos| (entity, pos));
+            }
+            // Interactions are only supported automatically for cameras rendering to a window.
             let Some(NormalizedRenderTarget::Window(window_ref)) =
                 camera.target.normalize(primary_window)
             else {
