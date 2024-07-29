@@ -336,11 +336,7 @@ pub struct FilteredAccess<T: SparseSetIndex> {
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
     fn default() -> Self {
-        Self {
-            access: Access::default(),
-            required: FixedBitSet::default(),
-            filter_sets: vec![AccessFilters::default()],
-        }
+        Self::matches_everything()
     }
 }
 
@@ -353,6 +349,26 @@ impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
 }
 
 impl<T: SparseSetIndex> FilteredAccess<T> {
+    /// Returns a `FilteredAccess` which has no access and matches everything.
+    /// This is the equivalent of a `TRUE` logic atom.
+    pub fn matches_everything() -> Self {
+        Self {
+            access: Access::default(),
+            required: FixedBitSet::default(),
+            filter_sets: vec![AccessFilters::default()],
+        }
+    }
+
+    /// Returns a `FilteredAccess` which has no access and matches nothing.
+    /// This is the equivalent of a `FALSE` logic atom.
+    pub fn matches_nothing() -> Self {
+        Self {
+            access: Access::default(),
+            required: FixedBitSet::default(),
+            filter_sets: Vec::new(),
+        }
+    }
+
     /// Returns a reference to the underlying unfiltered access.
     #[inline]
     pub fn access(&self) -> &Access<T> {
