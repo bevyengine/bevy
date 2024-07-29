@@ -1,4 +1,4 @@
-use bevy_math::{Affine3A, Mat4, Vec3};
+use bevy_math::{Affine3A, Isometry3d, Mat4, Vec3};
 
 use crate::prelude::{GlobalTransform, Transform};
 
@@ -33,5 +33,12 @@ impl TransformPoint for Affine3A {
     #[inline]
     fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
         self.transform_point3(point.into())
+    }
+}
+
+impl TransformPoint for Isometry3d {
+    #[inline]
+    fn transform_point(&self, point: impl Into<Vec3>) -> Vec3 {
+        self.transform_point(point.into()).into()
     }
 }

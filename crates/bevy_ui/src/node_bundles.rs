@@ -10,6 +10,7 @@ use crate::{
     UiImage, UiMaterial, ZIndex,
 };
 use bevy_asset::Handle;
+#[cfg(feature = "bevy_text")]
 use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
@@ -82,6 +83,8 @@ pub struct ImageBundle {
     pub image: UiImage,
     /// The color of the background that will fill the containing node.
     pub background_color: BackgroundColor,
+    /// The border radius of the node
+    pub border_radius: BorderRadius,
     /// The size of the image in pixels
     ///
     /// This component is set automatically

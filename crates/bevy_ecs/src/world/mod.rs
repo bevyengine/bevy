@@ -9,6 +9,9 @@ mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
+#[cfg(feature = "bevy_reflect")]
+pub mod reflect;
+
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -2060,9 +2063,16 @@ impl World {
     }
 
     /// Increments the world's current change tick and returns the old value.
+    ///
+    /// If you need to call this method, but do not have `&mut` access to the world,
+    /// consider using [`as_unsafe_world_cell_readonly`](Self::as_unsafe_world_cell_readonly)
+    /// to obtain an [`UnsafeWorldCell`] and calling [`increment_change_tick`](UnsafeWorldCell::increment_change_tick) on that.
+    /// Note that this *can* be done in safe code, despite the name of the type.
     #[inline]
-    pub fn increment_change_tick(&self) -> Tick {
-        let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);
+    pub fn increment_change_tick(&mut self) -> Tick {
+        let change_tick = self.change_tick.get_mut();
+        let prev_tick = *change_tick;
+        *change_tick = change_tick.wrapping_add(1);
         Tick::new(prev_tick)
     }
 
