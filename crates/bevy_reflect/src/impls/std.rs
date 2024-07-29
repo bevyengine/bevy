@@ -214,6 +214,178 @@ impl_reflect_value!(::std::ffi::OsString(
 impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
 impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>);
 
+macro_rules! impl_reflect_for_atomic {
+    ($ty:ty, $ordering:expr) => {
+        const _: () = {
+            impl_type_path!($ty);
+
+            #[cfg(feature = "functions")]
+            crate::func::macros::impl_function_traits!($ty);
+
+            #[allow(unused_mut)]
+            impl GetTypeRegistration for $ty
+            where
+                $ty: Any + Send + Sync,
+            {
+                fn get_type_registration() -> TypeRegistration {
+                    let mut registration = TypeRegistration::of::<Self>();
+                    registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                    registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+                    registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
+                    registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+                    registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+                    registration
+                }
+            }
+
+            impl Typed for $ty
+            where
+                $ty: Any + Send + Sync,
+            {
+                fn type_info() -> &'static TypeInfo {
+                    static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+                    CELL.get_or_set(|| {
+                        let info = ValueInfo::new::<Self>();
+                        TypeInfo::Value(info)
+                    })
+                }
+            }
+
+            impl Reflect for $ty
+            where
+                $ty: Any + Send + Sync,
+            {
+                #[inline]
+                fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+                    Some(<Self as Typed>::type_info())
+                }
+                #[inline]
+                fn into_any(self: Box<Self>) -> Box<dyn Any> {
+                    self
+                }
+                #[inline]
+                fn as_any(&self) -> &dyn Any {
+                    self
+                }
+                #[inline]
+                fn as_any_mut(&mut self) -> &mut dyn Any {
+                    self
+                }
+                #[inline]
+                fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+                    self
+                }
+                #[inline]
+                fn as_reflect(&self) -> &dyn Reflect {
+                    self
+                }
+                #[inline]
+                fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+                    self
+                }
+                #[inline]
+                fn clone_value(&self) -> Box<dyn Reflect> {
+                    Box::new(<$ty>::new(self.load($ordering)))
+                }
+                #[inline]
+                fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                    let any = Reflect::as_any(value);
+                    if let Some(value) = <dyn Any>::downcast_ref::<Self>(any) {
+                        *self = <$ty>::new(value.load($ordering));
+                    } else {
+                        return Err(ApplyError::MismatchedTypes {
+                            from_type: Into::into(DynamicTypePath::reflect_type_path(value)),
+                            to_type: Into::into(<Self as TypePath>::type_path()),
+                        });
+                    }
+                    Ok(())
+                }
+                #[inline]
+                fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+                    *self = <dyn Reflect>::take(value)?;
+                    Ok(())
+                }
+                #[inline]
+                fn reflect_kind(&self) -> ReflectKind {
+                    ReflectKind::Value
+                }
+                #[inline]
+                fn reflect_ref(&self) -> ReflectRef {
+                    ReflectRef::Value(self)
+                }
+                #[inline]
+                fn reflect_mut(&mut self) -> ReflectMut {
+                    ReflectMut::Value(self)
+                }
+                #[inline]
+                fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+                    ReflectOwned::Value(self)
+                }
+                fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    fmt::Debug::fmt(self, f)
+                }
+            }
+
+            impl FromReflect for $ty
+            where
+                $ty: Any + Send + Sync,
+            {
+                fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+                    Some(<$ty>::new(
+                        <dyn Any>::downcast_ref::<$ty>(<dyn Reflect>::as_any(reflect))?
+                            .load($ordering),
+                    ))
+                }
+            }
+        };
+    };
+}
+
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicIsize,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicUsize,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicI64,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicU64,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicI32,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicU32,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicI16,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicU16,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicI8,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicU8,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicBool,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+
 macro_rules! impl_reflect_for_veclike {
     ($ty:path, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
         impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> List for $ty {
