@@ -2838,6 +2838,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "reactivity"
+path = "examples/ui/reactivity.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.reactivity]
+name = "Reactivity"
+description = "Demonstrates how to create reactive, automatically updating user interfaces in Bevy"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_scaling"
 path = "examples/ui/ui_scaling.rs"
 doc-scrape-examples = true
