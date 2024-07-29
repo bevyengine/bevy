@@ -145,7 +145,7 @@ pub struct NodeQuery {
 
 /// A component that can be attached to a camera to pass mouse coordinates through to ui textures, allowing
 /// manual control of interactivity for world-space uis, or custom cursor position control for window-based uis.
-/// For optimal latency the contents should be updated in [`PreUpdate`], before [`UiSystem::Focus`] and after [`InputSystem`].
+/// For optimal latency the contents should be updated in [`bevy_app::PreUpdate`], before [`crate::UiSystem::Focus`] and after [`bevy_input::InputSystem`].
 #[derive(Component, Default)]
 pub struct ManualCursorPosition(pub Option<Vec2>);
 
