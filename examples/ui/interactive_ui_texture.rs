@@ -23,15 +23,17 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(CameraControllerPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
+        .add_systems(Update, (button_system, move_quad_system))
         .add_systems(
             PreUpdate,
             update_manual_cursor
-                .after(InputSystem)
-                .before(UiSystem::Focus),
+                .after(InputSystem) // after mouse input has been processed
+                .before(UiSystem::Focus), // before bevy_ui uses cursor positions to apply `Interaction`s to ui nodes.
         )
         .run();
 }
+
+const IMAGE_SIZE: UVec2 = UVec2 { x: 512, y: 512 };
 
 fn setup(
     mut commands: Commands,
@@ -41,8 +43,8 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     let size = Extent3d {
-        width: 512,
-        height: 512,
+        width: IMAGE_SIZE.x,
+        height: IMAGE_SIZE.y,
         ..default()
     };
 
@@ -147,12 +149,15 @@ fn setup(
     });
 
     // quad with material containing the rendered UI texture.
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Rectangle::new(2.0, 2.0)),
-        material: material_handle,
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    },));
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Rectangle::new(2.0, 2.0)), // half-size of 1
+            material: material_handle,
+            transform: Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(2.0)),
+            ..default()
+        },
+        UiQuad,
+    ));
 
     // The main pass camera.
     commands
@@ -166,13 +171,18 @@ fn setup(
         });
 }
 
+#[derive(Component)]
+struct UiQuad;
+
+// calculate the manual cursor position for our in-world ui
 fn update_manual_cursor(
+    quad: Query<&Transform, With<UiQuad>>,
     main_pass_camera: Query<(&GlobalTransform, &Camera), Without<ManualCursorPosition>>,
     main_window: Query<&Window, With<PrimaryWindow>>,
     touches_input: Res<Touches>,
     mut position: Query<&mut ManualCursorPosition>,
 ) {
-    // clear the manual position
+    // clear any previous cursor position
     position.single_mut().0 = None;
 
     let (camera_position, camera) = main_pass_camera.single();
@@ -188,7 +198,7 @@ fn update_manual_cursor(
     };
 
     // here we convert the cursor position into a position inside the in-world ui texture.
-    // because our texture is a flat quad on the x/y plane this is easy, but more complex
+    // because our texture is a flat quad with no obstructions this is easy, but more complex
     // scenarios are also possible, e.g. using a collision library raycast to get contact
     // faces on non-flat meshes and extracting uvs from the mesh vertices
 
@@ -198,26 +208,47 @@ fn update_manual_cursor(
         .expect("viewport_to_world failed");
 
     // check if we hit the plane containing the ui texture
-    let Some(intersect) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d { normal: Dir3::Z })
-    else {
+    let quad_transform = quad.single();
+
+    let Some(intersect) = ray.intersect_plane(
+        quad_transform.translation,
+        InfinitePlane3d {
+            normal: quad_transform.forward(),
+        },
+    ) else {
         return;
     };
 
     // limit the length of the ray so we can't interact from too far away
-    if intersect * ray.direction.length() > 10.0 {
+    if intersect * ray.direction.length() > 20.0 {
         return;
     }
 
-    // get the point on the plane
-    let hit_xy = ray.get_point(intersect).xy();
+    // get the point on the plane relative to the quad
+    let hit_position = ray.get_point(intersect) - quad_transform.translation;
+    // transform it to x/y
+    let hit_xy = (quad_transform.rotation.inverse() * hit_position).xy();
 
-    // check if it's within our rectangle
-    if hit_xy.max(Vec2::NEG_ONE).min(Vec2::ONE) != hit_xy {
+    // check if it's within our rectangle (which has a half-size of 1 * scale in each direction from it's origin)
+    if hit_xy
+        .max(-quad_transform.scale.xy())
+        .min(quad_transform.scale.xy())
+        != hit_xy
+    {
         return;
     }
 
     // transform it into texture coords for the in-world ui rect
-    position.single_mut().0 = Some((hit_xy * Vec2::new(0.5, -0.5) + 0.5) * 512.0);
+    position.single_mut().0 = Some(
+        (hit_xy * Vec2::new(0.5, -0.5) / quad_transform.scale.xy() + 0.5) * IMAGE_SIZE.as_vec2(),
+    );
+}
+
+// move the quad around a bit
+fn move_quad_system(mut q: Query<&mut Transform, With<UiQuad>>, time: Res<Time>) {
+    let mut transform = q.single_mut();
+    transform.translation.y = time.elapsed_seconds().sin() * 0.5;
+    transform.rotation = Quat::from_rotation_y((time.elapsed_seconds() * 1.2).sin() * 0.5);
 }
 
 // remainder is copied from button.rs example
