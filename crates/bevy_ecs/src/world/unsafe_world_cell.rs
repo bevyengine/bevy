@@ -3,6 +3,8 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
 use super::{Mut, Ref, World, WorldId};
+#[cfg(feature = "observers")]
+use crate::observer::Observers;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -16,8 +18,6 @@ use crate::{
     world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
-#[cfg(feature = "observers")]
-use crate::observer::Observers;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};

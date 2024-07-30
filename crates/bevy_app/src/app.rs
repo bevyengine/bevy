@@ -3,6 +3,8 @@ use crate::{
     SubApps,
 };
 pub use bevy_derive::AppLabel;
+#[cfg(feature = "ecs_observers")]
+use bevy_ecs::system::IntoObserverSystem;
 use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
@@ -10,8 +12,6 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::SystemId,
 };
-#[cfg(feature = "ecs_observers")]
-use bevy_ecs::system::IntoObserverSystem;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{tracing::debug, HashMap};

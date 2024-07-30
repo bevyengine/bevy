@@ -472,8 +472,7 @@ impl BundleInfo {
         archetypes: &mut Archetypes,
         storages: &mut Storages,
         components: &Components,
-        #[cfg(feature = "observers")]
-        observers: &Observers,
+        #[cfg(feature = "observers")] observers: &Observers,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
         if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {

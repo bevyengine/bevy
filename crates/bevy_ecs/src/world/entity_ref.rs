@@ -13,8 +13,8 @@ use crate::{
 #[cfg(feature = "observers")]
 use crate::{
     event::Event,
-    system::IntoObserverSystem,
     observer::{Observer, Observers},
+    system::IntoObserverSystem,
     world::{ON_REMOVE, ON_REPLACE},
 };
 
@@ -2387,8 +2387,7 @@ unsafe fn remove_bundle_from_archetype(
     archetypes: &mut Archetypes,
     storages: &mut Storages,
     components: &Components,
-    #[cfg(feature = "observers")]
-    observers: &Observers,
+    #[cfg(feature = "observers")] observers: &Observers,
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
     intersection: bool,

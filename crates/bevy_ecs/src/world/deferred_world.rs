@@ -13,8 +13,8 @@ use crate::{
 
 #[cfg(feature = "observers")]
 use crate::{
-    traversal::Traversal,
     observer::{Observers, TriggerTargets},
+    traversal::Traversal,
 };
 
 use super::{

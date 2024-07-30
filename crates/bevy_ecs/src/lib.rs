@@ -42,7 +42,7 @@ pub mod prelude {
     pub use crate::reflect::{
         AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
     };
-    
+
     #[doc(hidden)]
     #[cfg(feature = "observers")]
     pub use crate::observer::{Observer, Trigger};

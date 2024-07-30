@@ -354,8 +354,7 @@ pub struct Archetype {
 impl Archetype {
     pub(crate) fn new(
         components: &Components,
-        #[cfg(feature = "observers")]
-        observers: &Observers,
+        #[cfg(feature = "observers")] observers: &Observers,
         id: ArchetypeId,
         table_id: TableId,
         table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
@@ -851,8 +850,7 @@ impl Archetypes {
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
         components: &Components,
-        #[cfg(feature = "observers")]
-        observers: &Observers,
+        #[cfg(feature = "observers")] observers: &Observers,
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
