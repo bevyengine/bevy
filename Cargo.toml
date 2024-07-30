@@ -110,9 +110,6 @@ bevy_core_pipeline = [
   "bevy_render",
 ]
 
-# Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
-bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
-
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
