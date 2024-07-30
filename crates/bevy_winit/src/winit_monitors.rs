@@ -8,7 +8,10 @@ use bevy_ecs::system::Resource;
 #[derive(Resource, Debug, Default)]
 pub struct WinitMonitors {
     /// Stores [`winit`] monitors and their corresponding entities
-    pub(crate) monitors: BTreeMap<MonitorHandle, Entity>,
+    // We can't use a `BtreeMap` here because clippy complains about using `MonitorHandle` as a key
+    // on some platforms. Using a `Vec` is fine because we don't expect to have a large number of
+    // monitors and avoids having to audit the code for `MonitorHandle` equality.
+    pub(crate) monitors: Vec<(MonitorHandle, Entity)>,
 }
 
 impl WinitMonitors {
@@ -22,7 +25,7 @@ impl WinitMonitors {
     pub fn find_entity(&self, entity: Entity) -> Option<MonitorHandle> {
         self.monitors
             .iter()
-            .find(|(_, e)| **e == entity)
+            .find(|(_, e)| *e == entity)
             .map(|(monitor, _)| monitor.clone())
     }
 }

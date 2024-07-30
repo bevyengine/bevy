@@ -131,12 +131,12 @@ pub fn create_monitors(
     (mut commands, mut monitors): SystemParamItem<CreateMonitorParams>,
 ) {
     let primary_monitor = event_loop.primary_monitor();
-    let mut seen_monitors = BTreeSet::new();
+    let mut seen_monitors = vec![false; monitors.monitors.len()];
 
     'outer: for monitor in event_loop.available_monitors() {
-        for (m, _) in monitors.monitors.iter() {
+        for (idx, (m, _)) in monitors.monitors.iter().enumerate() {
             if &monitor == m {
-                seen_monitors.insert(m.clone());
+                seen_monitors[idx] = true;
                 continue 'outer;
             }
         }
@@ -170,16 +170,19 @@ pub fn create_monitors(
             commands.entity(entity).insert(PrimaryMonitor);
         }
 
-        seen_monitors.insert(monitor.clone());
-        monitors.monitors.insert(monitor, entity);
+        seen_monitors.push(true);
+        monitors.monitors.push((monitor, entity));
     }
 
-    monitors.monitors.retain(|m, entity| {
-        if seen_monitors.contains(m) {
+    let mut idx = 0;
+    monitors.monitors.retain(|(m, entity)| {
+        if seen_monitors[idx] {
+            idx += 1;
             true
         } else {
             info!("Monitor removed {:?}", entity);
             commands.entity(*entity).despawn();
+            idx += 1;
             false
         }
     });
