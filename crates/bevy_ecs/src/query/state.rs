@@ -475,9 +475,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 .ones()
                 .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
                 && set
-                .without
-                .ones()
-                .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
+                    .without
+                    .ones()
+                    .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
         })
     }
 
