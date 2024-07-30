@@ -187,5 +187,5 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     Res<'w, WinitMonitors>,
 );
 
-/// The parameters of the [`create_monitors`] system.
+/// The parameters of the [`crate::system::create_monitors`] system.
 pub type CreateMonitorParams<'w, 's> = (Commands<'w, 's>, ResMut<'w, WinitMonitors>);
