@@ -539,21 +539,21 @@ pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) changed_by: &'static Location<'static>,
 }
 
-impl<'w, T: Resource> Res<'w, T> {
-    /// Copies a reference to a resource.
-    ///
+impl<'w, T: ?Sized + Resource> Clone for Res<'w, T> {
     /// Note that unless you actually need an instance of `Res<T>`, you should
     /// prefer to just convert it to `&T` which can be freely copied.
-    #[allow(clippy::should_implement_trait)]
-    pub fn clone(this: &Self) -> Self {
+    fn clone(&self) -> Self {
         Self {
-            value: this.value,
-            ticks: this.ticks.clone(),
+            value: self.value,
+            ticks: self.ticks.clone(),
             #[cfg(feature = "track_change_detection")]
-            changed_by: this.changed_by,
+            changed_by: self.changed_by,
         }
-    }
 
+    }
+}
+
+impl<'w, T: ?Sized + Resource> Res<'w, T> {
     /// Due to lifetime limitations of the `Deref` trait, this method can be used to obtain a
     /// reference of the [`Resource`] with a lifetime bound to `'w` instead of the lifetime of the
     /// struct itself.
@@ -714,6 +714,20 @@ pub struct Ref<'w, T: ?Sized> {
     pub(crate) ticks: Ticks<'w>,
     #[cfg(feature = "track_change_detection")]
     pub(crate) changed_by: &'static Location<'static>,
+}
+
+impl<'w, T: ?Sized> Clone for Ref<'w, T> {
+    /// Note that unless you actually need an instance of `Ref<T>`, you should
+    /// prefer to just convert it to `&T` which can be freely copied.
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value,
+            ticks: self.ticks.clone(),
+            #[cfg(feature = "track_change_detection")]
+            changed_by: self.changed_by,
+        }
+
+    }
 }
 
 impl<'w, T: ?Sized> Ref<'w, T> {
