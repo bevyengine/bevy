@@ -137,7 +137,7 @@ pub fn extract_meshlet_meshes(
         gpu_scene
             .instance_uniforms
             .get_mut()
-            .push(MeshUniform::new(&transforms, None));
+            .push(MeshUniform::new(&transforms, 0, None));
     }
 }
 

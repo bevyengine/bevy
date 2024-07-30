@@ -106,7 +106,8 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin currently works only on the Vulkan backend.
 ///
-/// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
+/// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
+/// [`Msaa`] set to [`Msaa::Off`].
 ///
 /// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported (TODO: Is this still true?) when using this plugin.
 /// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
@@ -195,7 +196,6 @@ impl Plugin for MeshletPlugin {
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshSaverLoader)
-            .insert_resource(Msaa::Off)
             .add_systems(
                 PostUpdate,
                 check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
@@ -311,15 +311,20 @@ fn configure_meshlet_views(
     mut views_3d: Query<(
         Entity,
         &mut Camera3d,
+        &Msaa,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
     )>,
     mut commands: Commands,
 ) {
-    for (entity, mut camera_3d, normal_prepass, motion_vector_prepass, deferred_prepass) in
+    for (entity, mut camera_3d, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in
         &mut views_3d
     {
+        if *msaa != Msaa::Off {
+            panic!("MeshletPlugin can't be used. MSAA is not supported.");
+        }
+
         let mut usages: TextureUsages = camera_3d.depth_texture_usages.into();
         usages |= TextureUsages::TEXTURE_BINDING;
         camera_3d.depth_texture_usages = usages.into();

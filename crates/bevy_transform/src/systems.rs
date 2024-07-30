@@ -53,7 +53,7 @@ pub fn propagate_transforms(
     >,
     mut orphaned: RemovedComponents<Parent>,
     transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
-    parent_query: Query<(Entity, Ref<Parent>)>,
+    parent_query: Query<(Entity, Ref<Parent>), With<GlobalTransform>>,
     mut orphaned_entities: Local<Vec<Entity>>,
 ) {
     orphaned_entities.clear();
@@ -114,7 +114,7 @@ unsafe fn propagate_recursive(
         (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
         With<Parent>,
     >,
-    parent_query: &Query<(Entity, Ref<Parent>)>,
+    parent_query: &Query<(Entity, Ref<Parent>), With<GlobalTransform>>,
     entity: Entity,
     mut changed: bool,
 ) {
@@ -154,7 +154,7 @@ unsafe fn propagate_recursive(
         if changed {
             *global_transform = parent.mul_transform(*transform);
         }
-        (*global_transform, children)
+        (global_transform, children)
     };
 
     let Some(children) = children else { return };
@@ -170,7 +170,7 @@ unsafe fn propagate_recursive(
         // entire hierarchy.
         unsafe {
             propagate_recursive(
-                &global_matrix,
+                global_matrix.as_ref(),
                 transform_query,
                 parent_query,
                 child,

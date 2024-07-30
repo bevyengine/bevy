@@ -82,16 +82,22 @@ impl TextureCache {
         }
     }
 
+    /// Returns `true` if the texture cache contains no textures.
+    pub fn is_empty(&self) -> bool {
+        self.textures.is_empty()
+    }
+
     /// Updates the cache and only retains recently used textures.
     pub fn update(&mut self) {
-        for textures in self.textures.values_mut() {
+        self.textures.retain(|_, textures| {
             for texture in textures.iter_mut() {
                 texture.frames_since_last_use += 1;
                 texture.taken = false;
             }
 
             textures.retain(|texture| texture.frames_since_last_use < 3);
-        }
+            !textures.is_empty()
+        });
     }
 }
 

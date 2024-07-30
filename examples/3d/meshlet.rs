@@ -64,6 +64,7 @@ fn setup(
                     0.07915055,
                     0.6831241,
                 )),
+            msaa: Msaa::Off,
             ..default()
         },
         EnvironmentMapLight {

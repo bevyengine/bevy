@@ -62,7 +62,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 
 # rendering
-image = { version = "0.25", default-features = false }
+image = { version = "0.25.2", default-features = false }
 
 # misc
 codespan-reporting = "0.11.0"
@@ -131,5 +131,5 @@ send_wrapper = "0.6.0"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
