@@ -83,6 +83,7 @@ default = [
   "default_font",
   "webgl2",
   "sysinfo_plugin",
+  "ecs_observers"
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -353,6 +354,9 @@ track_change_detection = ["bevy_internal/track_change_detection"]
 
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
+
+# Enable ECS observers
+ecs_observers = ["bevy_internal/ecs_observers"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
@@ -2569,6 +2573,7 @@ wasm = false
 name = "observers"
 path = "examples/ecs/observers.rs"
 doc-scrape-examples = true
+required-features = ["ecs_observers"]
 
 [package.metadata.example.observers]
 name = "Observers"
@@ -2580,6 +2585,7 @@ wasm = true
 name = "observer_propagation"
 path = "examples/ecs/observer_propagation.rs"
 doc-scrape-examples = true
+required-features = ["ecs_observers"]
 
 [package.metadata.example.observer_propagation]
 name = "Observer Propagation"
