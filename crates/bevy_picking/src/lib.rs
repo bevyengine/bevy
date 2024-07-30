@@ -3,6 +3,9 @@
 #![deny(missing_docs)]
 
 pub mod backend;
+pub mod events;
+pub mod focus;
+pub mod input;
 pub mod pointer;
 
 use bevy_app::prelude::*;
@@ -212,5 +215,32 @@ impl Plugin for PickingPlugin {
             .register_type::<Pickable>()
             .register_type::<PickingPluginsSettings>()
             .register_type::<backend::ray::RayId>();
+    }
+}
+
+/// Generates [`Pointer`](events::Pointer) events and handles event bubbling.
+pub struct InteractionPlugin;
+
+impl Plugin for InteractionPlugin {
+    fn build(&self, app: &mut App) {
+        use events::*;
+        use focus::{update_focus, update_interactions};
+
+        app.init_resource::<focus::HoverMap>()
+            .init_resource::<focus::PreviousHoverMap>()
+            .init_resource::<DragMap>()
+            .add_event::<PointerCancel>()
+            .add_systems(
+                PreUpdate,
+                (
+                    update_focus,
+                    pointer_events,
+                    update_interactions,
+                    send_click_and_drag_events,
+                    send_drag_over_events,
+                )
+                    .chain()
+                    .in_set(PickSet::Focus),
+            );
     }
 }
