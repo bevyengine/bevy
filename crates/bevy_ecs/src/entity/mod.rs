@@ -1159,6 +1159,15 @@ mod tests {
     }
 
     #[test]
+    fn entity_debug() {
+        let entity = Entity::from_raw(42);
+        let string = format!("{:?}", entity);
+        assert!(string.contains("42"));
+        assert!(string.contains("v1"));
+        assert!(string.contains(format!("#{}", entity.to_bits()).as_str()));
+    }
+
+    #[test]
     fn entity_display() {
         let entity = Entity::from_raw(42);
         let string = format!("{}", entity);
