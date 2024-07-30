@@ -11,7 +11,6 @@ use bevy_window::{
     ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
     WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper,
 };
-use std::collections::BTreeSet;
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
@@ -175,7 +174,7 @@ pub fn create_monitors(
     }
 
     let mut idx = 0;
-    monitors.monitors.retain(|(m, entity)| {
+    monitors.monitors.retain(|(_m, entity)| {
         if seen_monitors[idx] {
             idx += 1;
             true

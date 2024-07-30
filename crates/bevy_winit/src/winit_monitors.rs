@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use winit::monitor::MonitorHandle;
 
 use bevy_ecs::entity::Entity;
@@ -16,10 +15,7 @@ pub struct WinitMonitors {
 
 impl WinitMonitors {
     pub fn nth(&self, n: usize) -> Option<MonitorHandle> {
-        self.monitors
-            .iter()
-            .nth(n)
-            .map(|(monitor, _)| monitor.clone())
+        self.monitors.get(n).map(|(monitor, _)| monitor.clone())
     }
 
     pub fn find_entity(&self, entity: Entity) -> Option<MonitorHandle> {
