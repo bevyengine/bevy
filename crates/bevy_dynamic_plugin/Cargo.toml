@@ -9,12 +9,6 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-# bevy
-bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
-
-# other
-libloading = { version = "0.8" }
-thiserror = "1.0"
 
 [lints]
 workspace = true
