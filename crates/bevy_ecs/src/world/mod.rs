@@ -35,7 +35,6 @@ use crate::{
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
-    observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -52,6 +51,9 @@ use std::{
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
+
+#[cfg(feature = "observers")]
+use crate::observer::Observers;
 
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
@@ -122,11 +124,13 @@ pub struct World {
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
+    #[cfg(feature = "observers")]
     pub(crate) observers: Observers,
     pub(crate) removed_components: RemovedComponentEvents,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
+    #[cfg(feature = "observers")]
     pub(crate) last_trigger_id: u32,
     pub(crate) command_queue: RawCommandQueue,
 }
@@ -140,6 +144,7 @@ impl Default for World {
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
+            #[cfg(feature = "observers")]
             observers: Observers::default(),
             removed_components: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
@@ -147,6 +152,7 @@ impl Default for World {
             change_tick: AtomicU32::new(1),
             last_change_tick: Tick::new(0),
             last_check_tick: Tick::new(0),
+            #[cfg(feature = "observers")]
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
         };
@@ -2255,13 +2261,6 @@ impl World {
         self.last_change_tick
     }
 
-    /// Returns the id of the last ECS event that was fired.
-    /// Used internally to ensure observers don't trigger multiple times for the same event.
-    #[inline]
-    pub(crate) fn last_trigger_id(&self) -> u32 {
-        self.last_trigger_id
-    }
-
     /// Sets [`World::last_change_tick()`] to the specified value during a scope.
     /// When the scope terminates, it will return to its old value.
     ///
@@ -2445,6 +2444,16 @@ impl World {
             .init_info::<B>(&mut self.components, &mut self.storages);
         // SAFETY: We just initialised the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+}
+
+#[cfg(feature = "observers")]
+impl World {
+    /// Returns the id of the last ECS event that was fired.
+    /// Used internally to ensure observers don't trigger multiple times for the same event.
+    #[inline]
+    pub(crate) fn last_trigger_id(&self) -> u32 {
+        self.last_trigger_id
     }
 }
 

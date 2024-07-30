@@ -3,14 +3,19 @@ mod parallel_scope;
 #[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 
-use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
+#[cfg(feature = "observers")]
+use crate::{
+    event::Event,
+    observer::{Observer, TriggerEvent, TriggerTargets},
+    system::IntoObserverSystem,
+};
+
+use super::{Deferred, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     component::{ComponentId, ComponentInfo},
     entity::{Entities, Entity},
-    event::Event,
-    observer::{Observer, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
     world::{
         command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
@@ -757,7 +762,10 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add<C: Command>(&mut self, command: C) {
         self.push(command);
     }
+}
 
+#[cfg(feature = "observers")]
+impl<'w, 's> Commands<'w, 's> {
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
     /// isn't scoped to specific targets.
     ///
@@ -1207,7 +1215,10 @@ impl EntityCommands<'_> {
     pub fn commands(&mut self) -> Commands {
         self.commands.reborrow()
     }
+}
 
+#[cfg(feature = "observers")]
+impl EntityCommands<'_> {
     /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
@@ -1438,6 +1449,7 @@ fn log_components(entity: Entity, world: &mut World) {
     info!("Entity {entity}: {debug_infos:?}");
 }
 
+#[cfg(feature = "observers")]
 fn observe<E: Event, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {

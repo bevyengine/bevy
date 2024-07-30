@@ -13,11 +13,16 @@ use crate::{
     },
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
-    observer::Observers,
     prelude::World,
     query::DebugCheckedUnwrap,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
+    world::unsafe_world_cell::UnsafeWorldCell,
+};
+
+#[cfg(feature = "observers")]
+use crate::{
+    observer::Observers,
+    world::{ON_ADD, ON_INSERT, ON_REPLACE},
 };
 
 use bevy_ptr::{ConstNonNull, OwningPtr};
@@ -467,6 +472,7 @@ impl BundleInfo {
         archetypes: &mut Archetypes,
         storages: &mut Storages,
         components: &Components,
+        #[cfg(feature = "observers")]
         observers: &Observers,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
@@ -538,6 +544,7 @@ impl BundleInfo {
             // SAFETY: ids in self must be valid
             let new_archetype_id = archetypes.get_id_or_insert(
                 components,
+                #[cfg(feature = "observers")]
                 observers,
                 table_id,
                 table_components,
@@ -610,6 +617,7 @@ impl<'w> BundleInserter<'w> {
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
+            #[cfg(feature = "observers")]
             &world.observers,
             archetype_id,
         );
@@ -703,6 +711,7 @@ impl<'w> BundleInserter<'w> {
                 entity,
                 add_bundle.mutated.iter().copied(),
             );
+            #[cfg(feature = "observers")]
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(ON_REPLACE, entity, &add_bundle.mutated);
             }
@@ -865,10 +874,12 @@ impl<'w> BundleInserter<'w> {
         // as they must be initialized before creating the BundleInfo.
         unsafe {
             deferred_world.trigger_on_add(new_archetype, entity, add_bundle.added.iter().cloned());
+            #[cfg(feature = "observers")]
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(ON_ADD, entity, &add_bundle.added);
             }
             deferred_world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
+            #[cfg(feature = "observers")]
             if new_archetype.has_insert_observer() {
                 deferred_world.trigger_observers(ON_INSERT, entity, bundle_info.components());
             }
@@ -918,6 +929,7 @@ impl<'w> BundleSpawner<'w> {
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
+            #[cfg(feature = "observers")]
             &world.observers,
             ArchetypeId::EMPTY,
         );
@@ -985,10 +997,12 @@ impl<'w> BundleSpawner<'w> {
         // as they must be initialized before creating the BundleInfo.
         unsafe {
             deferred_world.trigger_on_add(archetype, entity, bundle_info.iter_components());
+            #[cfg(feature = "observers")]
             if archetype.has_add_observer() {
                 deferred_world.trigger_observers(ON_ADD, entity, bundle_info.components());
             }
             deferred_world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
+            #[cfg(feature = "observers")]
             if archetype.has_insert_observer() {
                 deferred_world.trigger_observers(ON_INSERT, entity, bundle_info.components());
             }

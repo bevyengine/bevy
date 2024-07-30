@@ -4,19 +4,25 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    event::Event,
-    observer::{Observer, Observers},
     query::Access,
     removal_detection::RemovedComponentEvents,
     storage::Storages,
-    system::IntoObserverSystem,
     world::{DeferredWorld, Mut, World},
 };
+
+#[cfg(feature = "observers")]
+use crate::{
+    event::Event,
+    system::IntoObserverSystem,
+    observer::{Observer, Observers},
+    world::{ON_REMOVE, ON_REPLACE},
+};
+
 use bevy_ptr::{OwningPtr, Ptr};
 use std::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -900,6 +906,7 @@ impl<'w> EntityWorldMut<'w> {
                 &mut world.archetypes,
                 storages,
                 components,
+                #[cfg(feature = "observers")]
                 &world.observers,
                 old_location.archetype_id,
                 bundle_info,
@@ -1081,6 +1088,7 @@ impl<'w> EntityWorldMut<'w> {
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
+            #[cfg(feature = "observers")]
             &world.observers,
             location.archetype_id,
             bundle_info,
@@ -1244,6 +1252,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: All components in the archetype exist in world
         unsafe {
             deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
+            #[cfg(feature = "observers")]
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(
                     ON_REPLACE,
@@ -1252,6 +1261,7 @@ impl<'w> EntityWorldMut<'w> {
                 );
             }
             deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
+            #[cfg(feature = "observers")]
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
@@ -1445,6 +1455,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
+    #[cfg(feature = "observers")]
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1463,10 +1474,12 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     bundle_info: &BundleInfo,
 ) {
     deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_components());
+    #[cfg(feature = "observers")]
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(ON_REPLACE, entity, bundle_info.components());
     }
     deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_components());
+    #[cfg(feature = "observers")]
     if archetype.has_remove_observer() {
         deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.components());
     }
@@ -2374,6 +2387,7 @@ unsafe fn remove_bundle_from_archetype(
     archetypes: &mut Archetypes,
     storages: &mut Storages,
     components: &Components,
+    #[cfg(feature = "observers")]
     observers: &Observers,
     archetype_id: ArchetypeId,
     bundle_info: &BundleInfo,
@@ -2445,6 +2459,7 @@ unsafe fn remove_bundle_from_archetype(
 
         let new_archetype_id = archetypes.get_id_or_insert(
             components,
+            #[cfg(feature = "observers")]
             observers,
             next_table_id,
             next_table_components,

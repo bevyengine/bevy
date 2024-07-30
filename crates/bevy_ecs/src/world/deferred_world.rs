@@ -6,11 +6,15 @@ use crate::{
     component::ComponentId,
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
-    observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
+};
+
+#[cfg(feature = "observers")]
+use crate::{
     traversal::Traversal,
+    observer::{Observers, TriggerTargets},
 };
 
 use super::{
@@ -361,6 +365,18 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
+    /// Gets an [`UnsafeWorldCell`] containing the underlying world.
+    ///
+    /// # Safety
+    /// - must only be used to make non-structural ECS changes
+    #[inline]
+    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
+        self.world
+    }
+}
+
+#[cfg(feature = "observers")]
+impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
@@ -429,14 +445,5 @@ impl<'w> DeferredWorld<'w> {
         targets: impl TriggerTargets + Send + Sync + 'static,
     ) {
         self.commands().trigger_targets(trigger, targets);
-    }
-
-    /// Gets an [`UnsafeWorldCell`] containing the underlying world.
-    ///
-    /// # Safety
-    /// - must only be used to make non-structural ECS changes
-    #[inline]
-    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
-        self.world
     }
 }

@@ -19,11 +19,13 @@
 //! [`Table`]: crate::storage::Table
 //! [`World::archetypes`]: crate::world::World::archetypes
 
+#[cfg(feature = "observers")]
+use crate::observer::Observers;
+
 use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
-    observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
@@ -322,9 +324,14 @@ bitflags::bitflags! {
         const ON_INSERT_HOOK = (1 << 1);
         const ON_REPLACE_HOOK = (1 << 2);
         const ON_REMOVE_HOOK = (1 << 3);
+
+        #[cfg(feature = "observers")]
         const ON_ADD_OBSERVER = (1 << 4);
+        #[cfg(feature = "observers")]
         const ON_INSERT_OBSERVER = (1 << 5);
+        #[cfg(feature = "observers")]
         const ON_REPLACE_OBSERVER = (1 << 6);
+        #[cfg(feature = "observers")]
         const ON_REMOVE_OBSERVER = (1 << 7);
     }
 }
@@ -347,6 +354,7 @@ pub struct Archetype {
 impl Archetype {
     pub(crate) fn new(
         components: &Components,
+        #[cfg(feature = "observers")]
         observers: &Observers,
         id: ArchetypeId,
         table_id: TableId,
@@ -361,6 +369,7 @@ impl Archetype {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
+            #[cfg(feature = "observers")]
             observers.update_archetype_flags(component_id, &mut flags);
             archetype_components.insert(
                 component_id,
@@ -375,6 +384,7 @@ impl Archetype {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
+            #[cfg(feature = "observers")]
             observers.update_archetype_flags(component_id, &mut flags);
             archetype_components.insert(
                 component_id,
@@ -620,6 +630,7 @@ impl Archetype {
     /// Returns true if any of the components in this archetype have at least one [`OnAdd`] observer
     ///
     /// [`OnAdd`]: crate::world::OnAdd
+    #[cfg(feature = "observers")]
     #[inline]
     pub fn has_add_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_OBSERVER)
@@ -628,6 +639,7 @@ impl Archetype {
     /// Returns true if any of the components in this archetype have at least one [`OnInsert`] observer
     ///
     /// [`OnInsert`]: crate::world::OnInsert
+    #[cfg(feature = "observers")]
     #[inline]
     pub fn has_insert_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
@@ -636,6 +648,7 @@ impl Archetype {
     /// Returns true if any of the components in this archetype have at least one [`OnReplace`] observer
     ///
     /// [`OnReplace`]: crate::world::OnReplace
+    #[cfg(feature = "observers")]
     #[inline]
     pub fn has_replace_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
@@ -644,6 +657,7 @@ impl Archetype {
     /// Returns true if any of the components in this archetype have at least one [`OnRemove`] observer
     ///
     /// [`OnRemove`]: crate::world::OnRemove
+    #[cfg(feature = "observers")]
     #[inline]
     pub fn has_remove_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
@@ -734,6 +748,7 @@ impl Archetypes {
         unsafe {
             archetypes.get_id_or_insert(
                 &Components::default(),
+                #[cfg(feature = "observers")]
                 &Observers::default(),
                 TableId::empty(),
                 Vec::new(),
@@ -836,6 +851,7 @@ impl Archetypes {
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
         components: &Components,
+        #[cfg(feature = "observers")]
         observers: &Observers,
         table_id: TableId,
         table_components: Vec<ComponentId>,
@@ -870,6 +886,7 @@ impl Archetypes {
 
                 archetypes.push(Archetype::new(
                     components,
+                    #[cfg(feature = "observers")]
                     observers,
                     id,
                     table_id,
@@ -900,6 +917,7 @@ impl Archetypes {
         }
     }
 
+    #[cfg(feature = "observers")] // Not necessarily an observer only function, but it isn't used when there are no observers.
     pub(crate) fn update_flags(
         &mut self,
         component_id: ComponentId,

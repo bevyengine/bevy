@@ -21,6 +21,7 @@ pub mod event;
 pub mod identifier;
 pub mod intern;
 pub mod label;
+#[cfg(feature = "observers")]
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
@@ -41,6 +42,11 @@ pub mod prelude {
     pub use crate::reflect::{
         AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
     };
+    
+    #[doc(hidden)]
+    #[cfg(feature = "observers")]
+    pub use crate::observer::{Observer, Trigger};
+
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -48,7 +54,6 @@ pub mod prelude {
         component::Component,
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
-        observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
