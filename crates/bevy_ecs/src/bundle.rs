@@ -22,6 +22,8 @@ use crate::{
 
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
+#[cfg(feature = "track_change_detection")]
+use std::panic::Location;
 use std::ptr::NonNull;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
@@ -401,6 +403,7 @@ impl BundleInfo {
         table_row: TableRow,
         change_tick: Tick,
         bundle: T,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -417,10 +420,22 @@ impl BundleInfo {
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
                     match status {
                         ComponentStatus::Added => {
-                            column.initialize(table_row, component_ptr, change_tick);
+                            column.initialize(
+                                table_row,
+                                component_ptr,
+                                change_tick,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            );
                         }
                         ComponentStatus::Mutated => {
-                            column.replace(table_row, component_ptr, change_tick);
+                            column.replace(
+                                table_row,
+                                component_ptr,
+                                change_tick,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            );
                         }
                     }
                 }
@@ -429,7 +444,13 @@ impl BundleInfo {
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(entity, component_ptr, change_tick);
+                    sparse_set.insert(
+                        entity,
+                        component_ptr,
+                        change_tick,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
                 }
             }
             bundle_component += 1;
@@ -664,6 +685,7 @@ impl<'w> BundleInserter<'w> {
         entity: Entity,
         location: EntityLocation,
         bundle: T,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();
@@ -706,6 +728,8 @@ impl<'w> BundleInserter<'w> {
                     location.table_row,
                     self.change_tick,
                     bundle,
+                    #[cfg(feature = "track_change_detection")]
+                    caller,
                 );
 
                 (archetype, location)
@@ -744,6 +768,8 @@ impl<'w> BundleInserter<'w> {
                     result.table_row,
                     self.change_tick,
                     bundle,
+                    #[cfg(feature = "track_change_detection")]
+                    caller,
                 );
 
                 (new_archetype, new_location)
@@ -823,6 +849,8 @@ impl<'w> BundleInserter<'w> {
                     move_result.new_row,
                     self.change_tick,
                     bundle,
+                    #[cfg(feature = "track_change_detection")]
+                    caller,
                 );
 
                 (new_archetype, new_location)
@@ -919,6 +947,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
@@ -941,6 +970,8 @@ impl<'w> BundleSpawner<'w> {
                 table_row,
                 self.change_tick,
                 bundle,
+                #[cfg(feature = "track_change_detection")]
+                caller,
             );
             entities.set(entity.index(), location);
             location
@@ -969,11 +1000,20 @@ impl<'w> BundleSpawner<'w> {
     /// # Safety
     /// `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: T) -> Entity {
+    pub unsafe fn spawn<T: Bundle>(
+        &mut self,
+        bundle: T,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+    ) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         unsafe {
-            self.spawn_non_existent(entity, bundle);
+            self.spawn_non_existent(
+                entity,
+                bundle,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         }
         entity
     }

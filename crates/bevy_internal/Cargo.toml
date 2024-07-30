@@ -195,6 +195,9 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["dep:bevy_state"]
 
+# Enables source location tracking for change detection, which can assist with debugging
+track_change_detection = ["bevy_ecs/track_change_detection"]
+
 # Enable function reflection
 reflect_functions = ["bevy_reflect/functions"]
 
