@@ -24,7 +24,7 @@ use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
 #[allow(deprecated)]
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
-pub use system::create_windows;
+pub use system::{create_windows, create_monitors};
 use system::{changed_windows, despawn_windows};
 pub use winit::event_loop::EventLoopProxy;
 pub use winit_config::*;
@@ -187,5 +187,5 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     Res<'w, WinitMonitors>,
 );
 
-/// The parameters of the [`crate::system::create_monitors`] system.
+/// The parameters of the [`create_monitors`] system.
 pub type CreateMonitorParams<'w, 's> = (Commands<'w, 's>, ResMut<'w, WinitMonitors>);

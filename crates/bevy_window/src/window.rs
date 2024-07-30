@@ -945,7 +945,7 @@ pub enum MonitorSelection {
     Primary,
     /// Uses the monitor with the specified index.
     Index(usize),
-    /// Uses a given [`Monitor`] entity.
+    /// Uses a given [`crate::monitor::Monitor`] entity.
     Entity(Entity),
 }
 
