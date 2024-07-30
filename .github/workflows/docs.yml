@@ -59,7 +59,8 @@ jobs:
         env:
           # needs to be in sync with [package.metadata.docs.rs]
           RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition
-        run: cargo doc \
+        run: |
+          cargo doc \
             -Zunstable-options \
             -Zrustdoc-scrape-examples \
             --all-features \
