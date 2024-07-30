@@ -205,6 +205,7 @@ fn upload_storage_buffer<T: ShaderSize + bytemuck::NoUninit>(
     }
 }
 
+// TODO: Cache things per-view and skip running this system / optimize this system
 pub fn prepare_meshlet_per_frame_resources(
     mut gpu_scene: ResMut<MeshletGpuScene>,
     views: Query<(
