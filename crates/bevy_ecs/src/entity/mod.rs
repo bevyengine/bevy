@@ -142,7 +142,7 @@ type IdCursor = isize;
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
 /// [SemVer]: https://semver.org/
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq))]
 #[cfg_attr(
@@ -387,6 +387,12 @@ impl<'de> Deserialize<'de> for Entity {
         use serde::de::Error;
         let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
         Entity::try_from_bits(id).map_err(D::Error::custom)
+    }
+}
+
+impl fmt::Debug for Entity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}v{}#{}", self.index(), self.generation(), self.to_bits())
     }
 }
 
