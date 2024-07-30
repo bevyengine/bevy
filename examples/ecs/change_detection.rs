@@ -88,7 +88,7 @@ fn change_detection(
             component.is_added(),
             component.is_changed(),
             // If you enable the `track_change_detection` feature, you can unlock the `changed_by()`
-            // method. It returns the the file and line number that the component or resource was
+            // method. It returns the file and line number that the component or resource was
             // changed in. It's not recommended for released games, but great for debugging!
             component.changed_by()
         );
