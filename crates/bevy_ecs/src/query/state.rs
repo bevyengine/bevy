@@ -74,175 +74,6 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     par_iter_span: Span,
 }
 
-/// View into a [`QueryState`] to avoid split-borrow issues when using [`QueryState`]
-pub struct QueryStateView<'me, D: QueryData, F: QueryFilter = ()> {
-    archetype_generation: &'me mut ArchetypeGeneration,
-    /// Metadata about the [`Table`](crate::storage::Table)s matched by this query.
-    matched_tables: &'me mut FixedBitSet,
-    /// Metadata about the [`Archetype`]s matched by this query.
-    matched_archetypes: &'me mut FixedBitSet,
-    /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
-    /// this query can run in parallel with.
-    component_access: &'me FilteredAccess<ComponentId>,
-    // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
-    matched_storage_ids: &'me mut Vec<StorageId>,
-    fetch_state: &'me D::State,
-    filter_state: &'me F::State,
-}
-
-impl<'me, D: QueryData, F: QueryFilter> From<&'me mut QueryState<D, F>>
-    for QueryStateView<'me, D, F>
-{
-    fn from(value: &'me mut QueryState<D, F>) -> Self {
-        Self {
-            archetype_generation: &mut value.archetype_generation,
-            matched_tables: &mut value.matched_tables,
-            matched_archetypes: &mut value.matched_archetypes,
-            component_access: &value.component_access,
-            matched_storage_ids: &mut value.matched_storage_ids,
-            fetch_state: &value.fetch_state,
-            filter_state: &value.filter_state,
-        }
-    }
-}
-
-impl<'me, D: QueryData, F: QueryFilter> QueryStateView<'me, D, F> {
-    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
-    /// This is only required if a `manual` method (such as [`QueryState::get_manual`]) is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
-    ///
-    /// # Note
-    ///
-    /// This method only accesses world metadata.
-    ///
-    /// # Panics
-    ///
-    /// If `world` does not match the one used to call `QueryState::new` for this instance.
-    fn update_archetypes_unsafe_world_cell_with(
-        &mut self,
-        world: UnsafeWorldCell,
-        mut f: impl FnMut(&mut Self, &Archetype),
-    ) {
-        // if there are no required components, just iterate through every new archetype
-        if self.component_access.required.is_empty() {
-            let old_generation =
-                std::mem::replace(self.archetype_generation, world.archetypes().generation());
-            for archetype in &world.archetypes()[old_generation..] {
-                f(self, archetype);
-            }
-        } else {
-            // skip if we are already up to date
-            if *self.archetype_generation == world.archetypes().generation() {
-                return;
-            }
-            // if there are required components, we can optimize by only iterating through archetypes
-            // that contain at least one of the required components
-            let potential_archetypes = self
-                .component_access
-                .required
-                .ones()
-                .filter_map(|idx| {
-                    let component_id = ComponentId::get_sparse_set_index(idx);
-                    world
-                        .archetypes()
-                        .component_index()
-                        .get(&component_id)
-                        .map(|index| index.keys())
-                })
-                // select the component with the fewest archetypes
-                .min_by_key(std::iter::ExactSizeIterator::len);
-            if let Some(archetypes) = potential_archetypes {
-                for archetype_id in archetypes {
-                    // exclude archetypes that have already been processed
-                    if archetype_id < &self.archetype_generation.0 {
-                        continue;
-                    }
-                    // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
-                    let archetype = &world.archetypes()[*archetype_id];
-                    f(self, archetype);
-                }
-            }
-            *self.archetype_generation = world.archetypes().generation();
-        }
-    }
-
-    /// Process the given [`Archetype`] to update internal metadata about the [`Table`](crate::storage::Table)s
-    /// and [`Archetype`]s that are matched by this query.
-    ///
-    /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
-    /// If there is no match, then there is no need to update the query's [`FilteredAccess`].
-    ///
-    /// # Safety
-    /// `archetype` must be from the `World` this state was initialized from.
-    unsafe fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
-        if D::matches_component_set(self.fetch_state, &|id| archetype.contains(id))
-            && F::matches_component_set(self.filter_state, &|id| archetype.contains(id))
-            && self.matches_component_set(&|id| archetype.contains(id))
-        {
-            let archetype_index = archetype.id().index();
-            if !self.matched_archetypes.contains(archetype_index) {
-                self.matched_archetypes.grow_and_insert(archetype_index);
-                if !D::IS_DENSE || !F::IS_DENSE {
-                    self.matched_storage_ids.push(StorageId {
-                        archetype_id: archetype.id(),
-                    });
-                }
-            }
-            let table_index = archetype.table_id().as_usize();
-            if !self.matched_tables.contains(table_index) {
-                self.matched_tables.grow_and_insert(table_index);
-                if D::IS_DENSE && F::IS_DENSE {
-                    self.matched_storage_ids.push(StorageId {
-                        table_id: archetype.table_id(),
-                    });
-                }
-            }
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
-    pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-        self.component_access.filter_sets.iter().any(|set| {
-            set.with
-                .ones()
-                .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
-                && set
-                    .without
-                    .ones()
-                    .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
-        })
-    }
-
-    /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
-    ///
-    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
-    ///
-    /// # Safety
-    /// `archetype` must be from the `World` this state was initialized from.
-    pub unsafe fn update_archetype_component_access(
-        &self,
-        archetype: &Archetype,
-        access: &mut Access<ArchetypeComponentId>,
-    ) {
-        self.component_access.access.reads().for_each(|id| {
-            if let Some(id) = archetype.get_archetype_component_id(id) {
-                access.add_read(id);
-            }
-        });
-        self.component_access.access.writes().for_each(|id| {
-            if let Some(id) = archetype.get_archetype_component_id(id) {
-                access.add_write(id);
-            }
-        });
-    }
-}
-
 impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
@@ -329,15 +160,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         access: &mut Access<ArchetypeComponentId>,
     ) -> Self {
         let mut state = Self::new_uninitialized(world);
-        state.update_archetypes_with(world, |view, archetype| {
-            // SAFETY: The validate_world call ensures that the world is the same the QueryState
-            // was initialized from.
+        for archetype in world.archetypes.iter() {
+            // SAFETY: The state was just initialized from the `world` above, and the archetypes being added
+            // come directly from the same world.
             unsafe {
-                if view.new_archetype_internal(archetype) {
-                    view.update_archetype_component_access(archetype, access);
+                if state.new_archetype_internal(archetype) {
+                    state.update_archetype_component_access(archetype, access);
                 }
             }
-        });
+        }
+        state.archetype_generation = world.archetypes.generation();
         state
     }
 
@@ -479,32 +311,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
     /// the results may not accurately reflect what is in the `world`.
     ///
-    /// Uses a custom `f` function on each newly matched archetype.
-    fn update_archetypes_with(
-        &mut self,
-        world: &World,
-        f: impl FnMut(&mut QueryStateView<D, F>, &Archetype),
-    ) {
-        self.update_archetypes_unsafe_world_cell_with(world.as_unsafe_world_cell_readonly(), f);
-    }
-
-    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
-    /// Uses a custom `f` function on each newly matched archetype.
-    fn update_archetypes_unsafe_world_cell_with(
-        &mut self,
-        world: UnsafeWorldCell,
-        f: impl FnMut(&mut QueryStateView<D, F>, &Archetype),
-    ) {
-        self.validate_world(world.id());
-        let mut view: QueryStateView<D, F> = self.into();
-        view.update_archetypes_unsafe_world_cell_with(world, f);
-    }
-
-    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
     /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
     /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
     /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
@@ -534,12 +340,54 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
-        self.update_archetypes_unsafe_world_cell_with(world, |view, archetype| {
-            // SAFETY: The validate_world call in `update_archetypes_unsafe_world_cell_with` ensures that the world is the same the QueryState was initialized from.
-            unsafe {
-                view.new_archetype_internal(archetype);
+        self.validate_world(world.id());
+        // skip if we are already up to date
+        if self.archetype_generation == world.archetypes().generation() {
+            return;
+        } else if self.component_access.required.is_empty() {
+            let archetypes = world.archetypes();
+            let old_generation =
+                std::mem::replace(&mut self.archetype_generation, archetypes.generation());
+
+            for archetype in &archetypes[old_generation..] {
+                // SAFETY: The validate_world call ensures that the world is the same the QueryState
+                // was initialized from.
+                unsafe {
+                    self.new_archetype_internal(archetype);
+                }
             }
-        });
+        } else {
+            // if there are required components, we can optimize by only iterating through archetypes
+            // that contain at least one of the required components
+            let potential_archetypes = self
+                .component_access
+                .required
+                .ones()
+                .filter_map(|idx| {
+                    let component_id = ComponentId::get_sparse_set_index(idx);
+                    world
+                        .archetypes()
+                        .component_index()
+                        .get(&component_id)
+                        .map(|index| index.keys())
+                })
+                // select the component with the fewest archetypes
+                .min_by_key(std::iter::ExactSizeIterator::len);
+            if let Some(archetypes) = potential_archetypes {
+                for archetype_id in archetypes {
+                    // exclude archetypes that have already been processed
+                    if archetype_id < &self.archetype_generation.0 {
+                        continue;
+                    }
+                    // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
+                    let archetype = &world.archetypes()[*archetype_id];
+                    unsafe {
+                        self.new_archetype_internal(archetype);
+                    }
+                }
+            }
+            self.archetype_generation = world.archetypes().generation();
+        }
     }
 
     /// # Panics
@@ -575,13 +423,85 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         archetype: &Archetype,
         access: &mut Access<ArchetypeComponentId>,
     ) {
-        let mut view: QueryStateView<D, F> = self.into();
         // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
-        let matches = unsafe { view.new_archetype_internal(archetype) };
+        let matches = unsafe { self.new_archetype_internal(archetype) };
         if matches {
             // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from.
-            unsafe { view.update_archetype_component_access(archetype, access) };
+            unsafe { self.update_archetype_component_access(archetype, access) };
         }
+    }
+
+    /// Process the given [`Archetype`] to update internal metadata about the [`Table`](crate::storage::Table)s
+    /// and [`Archetype`]s that are matched by this query.
+    ///
+    /// Returns `true` if the given `archetype` matches the query. Otherwise, returns `false`.
+    /// If there is no match, then there is no need to update the query's [`FilteredAccess`].
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    unsafe fn new_archetype_internal(&mut self, archetype: &Archetype) -> bool {
+        if D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
+            && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
+            && self.matches_component_set(&|id| archetype.contains(id))
+        {
+            let archetype_index = archetype.id().index();
+            if !self.matched_archetypes.contains(archetype_index) {
+                self.matched_archetypes.grow_and_insert(archetype_index);
+                if !D::IS_DENSE || !F::IS_DENSE {
+                    self.matched_storage_ids.push(StorageId {
+                        archetype_id: archetype.id(),
+                    });
+                }
+            }
+            let table_index = archetype.table_id().as_usize();
+            if !self.matched_tables.contains(table_index) {
+                self.matched_tables.grow_and_insert(table_index);
+                if D::IS_DENSE && F::IS_DENSE {
+                    self.matched_storage_ids.push(StorageId {
+                        table_id: archetype.table_id(),
+                    });
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
+    pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        self.component_access.filter_sets.iter().any(|set| {
+            set.with
+                .ones()
+                .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
+                && set
+                .without
+                .ones()
+                .all(|index| !set_contains_id(ComponentId::get_sparse_set_index(index)))
+        })
+    }
+
+    /// For the given `archetype`, adds any component accessed used by this query's underlying [`FilteredAccess`] to `access`.
+    ///
+    /// The passed in `access` will be updated with any new accesses introduced by the new archetype.
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    pub unsafe fn update_archetype_component_access(
+        &mut self,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        self.component_access.access.reads().for_each(|id| {
+            if let Some(id) = archetype.get_archetype_component_id(id) {
+                access.add_read(id);
+            }
+        });
+        self.component_access.access.writes().for_each(|id| {
+            if let Some(id) = archetype.get_archetype_component_id(id) {
+                access.add_write(id);
+            }
+        });
     }
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
