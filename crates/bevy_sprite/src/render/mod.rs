@@ -472,26 +472,25 @@ pub fn queue_sprites(
     sprite_pipeline: Res<SpritePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(
         Entity,
         &VisibleEntities,
         &ExtractedView,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (view_entity, visible_entities, view, tonemapping, dither) in &mut views {
+    for (view_entity, visible_entities, view, msaa, tonemapping, dither) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
 
+        let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
         if !view.hdr {
@@ -805,7 +804,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_bind_group(
@@ -835,7 +834,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_index_buffer(

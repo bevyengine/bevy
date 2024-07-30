@@ -57,8 +57,7 @@ fn main() {
     // it _greatly enhances_ the look of the resulting blur effects.
     // Sadly, it's not available under WebGL.
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-    app.insert_resource(Msaa::Off)
-        .add_plugins(TemporalAntiAliasPlugin);
+    app.add_plugins(TemporalAntiAliasPlugin);
 
     app.run();
 }
@@ -352,6 +351,8 @@ fn setup(
             },
             tonemapping: Tonemapping::TonyMcMapface,
             exposure: Exposure { ev100: 6.0 },
+            #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+            msaa: Msaa::Off,
             ..default()
         },
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]

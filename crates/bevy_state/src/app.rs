@@ -23,6 +23,8 @@ pub trait AppExtStates {
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
+    ///
+    /// The use of any states requires the presence of [`StatesPlugin`] (which is included in `DefaultPlugins`).
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self;
 
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
