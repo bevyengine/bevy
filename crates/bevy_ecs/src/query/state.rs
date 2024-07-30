@@ -341,10 +341,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
-        // skip if we are already up to date
-        if self.archetype_generation == world.archetypes().generation() {
-            return;
-        } else if self.component_access.required.is_empty() {
+        if self.component_access.required.is_empty() {
             let archetypes = world.archetypes();
             let old_generation =
                 std::mem::replace(&mut self.archetype_generation, archetypes.generation());
@@ -357,6 +354,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
             }
         } else {
+            // skip if we are already up to date
+            if self.archetype_generation == world.archetypes().generation() {
+                return;
+            }
             // if there are required components, we can optimize by only iterating through archetypes
             // that contain at least one of the required components
             let potential_archetypes = self
@@ -381,6 +382,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     }
                     // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
                     let archetype = &world.archetypes()[*archetype_id];
+                    // SAFETY: The validate_world call ensures that the world is the same the QueryState
+                    // was initialized from.
                     unsafe {
                         self.new_archetype_internal(archetype);
                     }
