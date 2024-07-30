@@ -30,6 +30,19 @@ where
     marker: PhantomData<fn() -> Marker>,
 }
 
+impl<Marker, F> ExclusiveFunctionSystem<Marker, F>
+where
+    F: ExclusiveSystemParamFunction<Marker>,
+{
+    /// Return this system with a new name.
+    ///
+    /// Useful to give closure systems more readable and unique names for debugging and tracing.
+    pub fn with_name(mut self, new_name: impl Into<Cow<'static, str>>) -> Self {
+        self.system_meta.set_name(new_name.into());
+        self
+    }
+}
+
 /// A marker type used to distinguish exclusive function systems from regular function systems.
 #[doc(hidden)]
 pub struct IsExclusiveFunctionSystem;
@@ -111,9 +124,7 @@ where
             let out = self.func.run(world, input, params);
 
             world.flush();
-            let change_tick = world.change_tick.get_mut();
-            self.system_meta.last_run.set(*change_tick);
-            *change_tick = change_tick.wrapping_add(1);
+            self.system_meta.last_run = world.increment_change_tick();
 
             out
         })

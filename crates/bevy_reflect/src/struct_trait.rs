@@ -102,7 +102,7 @@ impl StructInfo {
             .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let field_names = fields.iter().map(|field| field.name()).collect();
+        let field_names = fields.iter().map(NamedField::name).collect();
 
         Self {
             type_path: TypePathTable::of::<T>(),
@@ -368,7 +368,7 @@ impl Struct for DynamicStruct {
 
     #[inline]
     fn name_at(&self, index: usize) -> Option<&str> {
-        self.field_names.get(index).map(|name| name.as_ref())
+        self.field_names.get(index).map(AsRef::as_ref)
     }
 
     #[inline]
@@ -499,10 +499,45 @@ impl Reflect for DynamicStruct {
 }
 
 impl_type_path!((in bevy_reflect) DynamicStruct);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(DynamicStruct);
 
 impl Debug for DynamicStruct {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
+    }
+}
+
+impl<'a, N> FromIterator<(N, Box<dyn Reflect>)> for DynamicStruct
+where
+    N: Into<Cow<'a, str>>,
+{
+    /// Create a dynamic struct that doesn't represent a type from the
+    /// field name, field value pairs.
+    fn from_iter<I: IntoIterator<Item = (N, Box<dyn Reflect>)>>(fields: I) -> Self {
+        let mut dynamic_struct = Self::default();
+        for (name, value) in fields.into_iter() {
+            dynamic_struct.insert_boxed(name, value);
+        }
+        dynamic_struct
+    }
+}
+
+impl IntoIterator for DynamicStruct {
+    type Item = Box<dyn Reflect>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicStruct {
+    type Item = &'a dyn Reflect;
+    type IntoIter = FieldIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_fields()
     }
 }
 
@@ -564,7 +599,7 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> std::fmt:
     let mut debug = f.debug_struct(
         dyn_struct
             .get_represented_type_info()
-            .map(|s| s.type_path())
+            .map(TypeInfo::type_path)
             .unwrap_or("_"),
     );
     for field_index in 0..dyn_struct.field_len() {

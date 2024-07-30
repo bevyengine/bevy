@@ -78,7 +78,7 @@ pub fn ktx2_buffer_to_image(
             }
         }
     } else {
-        levels = ktx2.levels().map(|level| level.to_vec()).collect();
+        levels = ktx2.levels().map(<[u8]>::to_vec).collect();
     }
 
     // Identify the format

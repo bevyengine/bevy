@@ -10,7 +10,7 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
     system::{Commands, Query, Res, Resource},
 };
-use bevy_hierarchy::BuildChildren;
+use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::{
     node_bundles::{NodeBundle, TextBundle},

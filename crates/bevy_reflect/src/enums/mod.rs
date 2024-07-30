@@ -50,6 +50,18 @@ mod tests {
             if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<usize>());
                 assert!(variant.field_at(1).unwrap().is::<i32>());
+                assert!(variant
+                    .field_at(0)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<usize>());
+                assert!(variant
+                    .field_at(1)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<i32>());
             } else {
                 panic!("Expected `VariantInfo::Tuple`");
             }
@@ -60,6 +72,12 @@ mod tests {
             if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<f32>());
                 assert!(variant.field("foo").unwrap().is::<f32>());
+                assert!(variant
+                    .field("foo")
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<f32>());
             } else {
                 panic!("Expected `VariantInfo::Struct`");
             }

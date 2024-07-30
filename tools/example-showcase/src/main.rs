@@ -14,7 +14,8 @@ use std::{
 
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
-use toml_edit::DocumentMut;
+use regex::Regex;
+use toml_edit::{DocumentMut, Item};
 use xshell::{cmd, Shell};
 
 #[derive(Parser, Debug)]
@@ -43,13 +44,19 @@ enum Action {
         /// WGPU backend to use
         wgpu_backend: Option<String>,
 
-        #[arg(long)]
-        /// Don't stop automatically
-        manual_stop: bool,
+        #[arg(long, default_value = "250")]
+        /// Which frame to automatically stop the example at.
+        ///
+        /// This defaults to frame 250. Set it to 0 to not stop the example automatically.
+        stop_frame: u32,
 
         #[arg(long)]
-        /// Take a screenshot
-        screenshot: bool,
+        /// Which frame to take a screenshot at. Set to 0 for no screenshot.
+        screenshot_frame: u32,
+
+        #[arg(long, default_value = "0.05")]
+        /// Fixed duration of a frame, in seconds. Only used when taking a screenshot, default to 0.05
+        fixed_frame_time: f32,
 
         #[arg(long)]
         /// Running in CI (some adaptation to the code)
@@ -137,8 +144,9 @@ fn main() {
     match cli.action {
         Action::Run {
             wgpu_backend,
-            manual_stop,
-            screenshot,
+            stop_frame,
+            screenshot_frame,
+            fixed_frame_time,
             in_ci,
             ignore_stress_tests,
             report_details,
@@ -158,7 +166,7 @@ fn main() {
                 .as_ref()
                 .map(|path| {
                     let file = fs::read_to_string(path).unwrap();
-                    file.lines().map(|l| l.to_string()).collect::<Vec<_>>()
+                    file.lines().map(ToString::to_string).collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
 
@@ -170,29 +178,34 @@ fn main() {
 
             let mut extra_parameters = vec![];
 
-            match (manual_stop, screenshot) {
-                (true, true) => {
+            match (stop_frame, screenshot_frame) {
+                // When the example does not automatically stop nor take a screenshot.
+                (0, 0) => (),
+                // When the example does not automatically stop.
+                (0, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
-                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot)])",
+                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot)])").as_bytes(),
                     )
                     .unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
-                (true, false) => (),
-                (false, true) => {
+                // When the example does not take a screenshot.
+                (_, 0) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(
-                        b"(setup: (fixed_frame_time: Some(0.05)), events: [(100, Screenshot), (250, AppExit)])",
-                    )
-                    .unwrap();
+                    file.write_all(format!("(events: [({stop_frame}, AppExit)])").as_bytes())
+                        .unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
-                (false, false) => {
+                // When the example both automatically stops and takes a screenshot.
+                (_, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
-                    file.write_all(b"(events: [(250, AppExit)])").unwrap();
+                    file.write_all(
+                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot), ({stop_frame}, AppExit)])").as_bytes(),
+                    )
+                    .unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
@@ -285,7 +298,7 @@ fn main() {
                 };
                 let local_extra_parameters = extra_parameters
                     .iter()
-                    .map(|s| s.to_string())
+                    .map(ToString::to_string)
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
 
@@ -301,7 +314,7 @@ fn main() {
                 ).run();
                 let local_extra_parameters = extra_parameters
                     .iter()
-                    .map(|s| s.to_string())
+                    .map(ToString::to_string)
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
                 let mut cmd = cmd!(
@@ -313,7 +326,7 @@ fn main() {
                     cmd = cmd.env("WGPU_BACKEND", backend);
                 }
 
-                if !manual_stop || screenshot {
+                if stop_frame > 0 || screenshot_frame > 0 {
                     cmd = cmd.env("CI_TESTING_CONFIG", "example_showcase_config.ron");
                 }
 
@@ -328,10 +341,10 @@ fn main() {
                 if (!report_details && result.is_ok())
                     || (report_details && result.as_ref().unwrap().status.success())
                 {
-                    if screenshot {
+                    if screenshot_frame > 0 {
                         let _ = fs::create_dir_all(Path::new("screenshots").join(&to_run.category));
                         let renamed_screenshot = fs::rename(
-                            "screenshot-100.png",
+                            format!("screenshot-{screenshot_frame}.png"),
                             Path::new("screenshots")
                                 .join(&to_run.category)
                                 .join(format!("{}.png", to_run.technical_name)),
@@ -403,7 +416,7 @@ fn main() {
                         .collect::<Vec<_>>()
                         .join("\n"),
                 );
-                if screenshot {
+                if screenshot_frame > 0 {
                     let _ = fs::write(
                         format!("{reports_path}/no_screenshots"),
                         no_screenshot_examples
@@ -489,18 +502,18 @@ header_message = \"Examples (WebGL2)\"
                     continue;
                 }
 
-                // This beautifys the path
+                // This beautifys the category name
                 // to make it a good looking URL
                 // rather than having weird whitespace
                 // and other characters that don't
                 // work well in a URL path.
-                let category_path = root_path.join(
-                    &to_show
-                        .category
-                        .replace(['(', ')'], "")
-                        .replace(' ', "-")
-                        .to_lowercase(),
-                );
+                let beautified_category = to_show
+                    .category
+                    .replace(['(', ')'], "")
+                    .replace(' ', "-")
+                    .to_lowercase();
+
+                let category_path = root_path.join(&beautified_category);
 
                 if !categories.contains_key(&to_show.category) {
                     let _ = fs::create_dir_all(&category_path);
@@ -521,7 +534,7 @@ weight = {}
                         .unwrap();
                     categories.insert(to_show.category.clone(), 0);
                 }
-                let example_path = category_path.join(&to_show.technical_name.replace('_', "-"));
+                let example_path = category_path.join(to_show.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
 
                 let code_path = example_path.join(Path::new(&to_show.path).file_name().unwrap());
@@ -543,9 +556,10 @@ aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
 technical_name = \"{}\"
-link = \"/examples{}/{}/{}\"
+link = \"/examples{}/{}/{}/\"
 image = \"../static/screenshots/{}/{}.png\"
 code_path = \"content/examples{}/{}\"
+shader_code_paths = {:?}
 github_code_path = \"{}\"
 header_message = \"Examples ({})\"
 +++",
@@ -567,7 +581,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "-webgpu",
                                 WebApi::Webgl2 => "",
                             },
-                            &to_show.category,
+                            &beautified_category,
                             &to_show.technical_name.replace('_', "-"),
                             &to_show.category,
                             &to_show.technical_name,
@@ -580,6 +594,7 @@ header_message = \"Examples ({})\"
                                 .skip(1)
                                 .collect::<PathBuf>()
                                 .display(),
+                            to_show.shader_paths,
                             &to_show.path,
                             match api {
                                 WebApi::Webgpu => "WebGPU",
@@ -675,7 +690,7 @@ header_message = \"Examples ({})\"
                 let category_path = root_path.join(&to_build.category);
                 let _ = fs::create_dir_all(&category_path);
 
-                let example_path = category_path.join(&to_build.technical_name.replace('_', "-"));
+                let example_path = category_path.join(to_build.technical_name.replace('_', "-"));
                 let _ = fs::create_dir_all(&example_path);
 
                 if website_hacks {
@@ -685,17 +700,17 @@ header_message = \"Examples ({})\"
 
                 let _ = fs::rename(
                     Path::new("examples/wasm/target/wasm_example.js"),
-                    &example_path.join("wasm_example.js"),
+                    example_path.join("wasm_example.js"),
                 );
                 if optimize_size {
                     let _ = fs::rename(
                         Path::new("examples/wasm/target/wasm_example_bg.wasm.optimized"),
-                        &example_path.join("wasm_example_bg.wasm"),
+                        example_path.join("wasm_example_bg.wasm"),
                     );
                 } else {
                     let _ = fs::rename(
                         Path::new("examples/wasm/target/wasm_example_bg.wasm"),
-                        &example_path.join("wasm_example_bg.wasm"),
+                        example_path.join("wasm_example_bg.wasm"),
                     );
                 }
                 pb.inc();
@@ -723,10 +738,26 @@ fn parse_examples() -> Vec<Example> {
         .flat_map(|val| {
             let technical_name = val.get("name").unwrap().as_str().unwrap().to_string();
 
+            let source_code = fs::read_to_string(val["path"].as_str().unwrap()).unwrap();
+            let shader_regex =
+                Regex::new(r"(shaders\/\w+\.wgsl)|(shaders\/\w+\.frag)|(shaders\/\w+\.vert)")
+                    .unwrap();
+
+            // Find all instances of references to shader files, and keep them in an ordered and deduped vec.
+            let mut shader_paths = vec![];
+            for path in shader_regex
+                .find_iter(&source_code)
+                .map(|matches| matches.as_str().to_owned())
+            {
+                if !shader_paths.contains(&path) {
+                    shader_paths.push(path);
+                }
+            }
+
             if metadatas
                 .get(&technical_name)
                 .and_then(|metadata| metadata.get("hidden"))
-                .and_then(|hidden| hidden.as_bool())
+                .and_then(Item::as_bool)
                 .and_then(|hidden| hidden.then_some(()))
                 .is_some()
             {
@@ -736,6 +767,7 @@ fn parse_examples() -> Vec<Example> {
             metadatas.get(&technical_name).map(|metadata| Example {
                 technical_name,
                 path: val["path"].as_str().unwrap().to_string(),
+                shader_paths,
                 name: metadata["name"].as_str().unwrap().to_string(),
                 description: metadata["description"].as_str().unwrap().to_string(),
                 category: metadata["category"].as_str().unwrap().to_string(),
@@ -780,9 +812,10 @@ struct Example {
     technical_name: String,
     /// Path to the example file
     path: String,
+    /// Path to the associated wgsl file if it exists
+    shader_paths: Vec<String>,
     /// List of non default required features
     required_features: Vec<String>,
-
     // From the example metadata
     /// Pretty name, used for display
     name: String,
