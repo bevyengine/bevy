@@ -101,6 +101,7 @@ fn rasterize_cluster(
     // Rasterize triangle
     if subgroupAny(max_x - min_x > 4u) {
         // Scanline
+        // TODO: Scanline variant not quite working
         let edge_012 = -w_x;
         let open_edge = edge_012 < vec3(0.0);
         let inverse_edge_012 = select(1.0 / edge_012, vec3(1e8), edge_012 == vec3(0.0));

@@ -355,6 +355,9 @@ fn cull_pass(
         &[view_offset.offset, previous_view_offset.offset],
     );
     cull_pass.dispatch_workgroups(culling_workgroups, culling_workgroups, culling_workgroups);
+
+    // TODO: Pass to convert 1d dispatch to 2d for visibility_buffer_hardware_software_indirect_args
+    //       to bypass low maxComputeWorkgroupsPerDimension limit
 }
 
 #[allow(clippy::too_many_arguments)]
