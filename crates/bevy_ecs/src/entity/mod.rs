@@ -409,6 +409,7 @@ impl<'de> Deserialize<'de> for Entity {
 ///         ...
 ///       ),
 ///   ...
+/// )
 /// ```
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
