@@ -675,7 +675,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.and_with(index);
     }
 
-    /// Adds exclusive access to the element given by `index`.
+    /// Adds exclusive access to the component given by `index`.
     pub fn add_component_write(&mut self, index: T) {
         self.access.add_component_write(index.clone());
         self.add_required(index.clone());
