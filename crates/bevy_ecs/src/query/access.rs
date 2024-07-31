@@ -63,13 +63,13 @@ pub struct Access<T: SparseSetIndex> {
     /// Is `true` if this has mutable access to all components.
     /// (Note that this does not include `Resources`)
     writes_all_components: bool,
-    /// Is `true` if this has access to all elements in the collection.
+    /// Is `true` if this has access to all resources.
     /// This field is a performance optimization for `&World` (also harder to mess up for soundness).
     reads_all_resources: bool,
-    /// Is `true` if this has mutable access to all elements in the collection.
+    /// Is `true` if this has mutable access to all resources.
     /// If this is true, then `reads_all` must also be true.
     writes_all_resources: bool,
-    // Elements that are not accessed, but whose presence in an archetype affect query results.
+    // Components that are not accessed, but whose presence in an archetype affect query results.
     archetypal: FixedBitSet,
     marker: PhantomData<T>,
 }
@@ -185,9 +185,9 @@ impl<T: SparseSetIndex> Access<T> {
             .grow_and_insert(index.sparse_set_index());
     }
 
-    /// Adds an archetypal (indirect) access to the element given by `index`.
+    /// Adds an archetypal (indirect) access to the component given by `index`.
     ///
-    /// This is for elements whose values are not accessed (and thus will never cause conflicts),
+    /// This is for components whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     ///
     /// Currently, this is only used for [`Has<T>`].
@@ -215,7 +215,7 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes_all_components || self.component_writes.contains(index.sparse_set_index())
     }
 
-    /// Returns `true` if this accesses anything mutably.
+    /// Returns `true` if this accesses any component mutably.
     pub fn has_any_component_write(&self) -> bool {
         self.writes_all_components || !self.component_writes.is_clear()
     }
@@ -243,9 +243,9 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes_all_resources || !self.resource_writes.is_clear()
     }
 
-    /// Returns true if this has an archetypal (indirect) access to the element given by `index`.
+    /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
     ///
-    /// This is an element whose value is not accessed (and thus will never cause conflicts),
+    /// This is a component whose value is not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     ///
     /// Currently, this is only used for [`Has<T>`].
@@ -363,7 +363,8 @@ impl<T: SparseSetIndex> Access<T> {
         self.resource_writes.union_with(&other.resource_writes);
     }
 
-    /// Returns `true` if the access and `other` can be active at the same time.
+    /// Returns `true` if the access and `other` can be active at the same time,
+    /// only looking at their component access.
     ///
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
@@ -391,7 +392,8 @@ impl<T: SparseSetIndex> Access<T> {
                 .is_disjoint(&self.component_read_and_writes)
     }
 
-    /// Returns `true` if the access and `other` can be active at the same time.
+    /// Returns `true` if the access and `other` can be active at the same time,
+    /// only looking at their resource access.
     ///
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
@@ -427,38 +429,58 @@ impl<T: SparseSetIndex> Access<T> {
         self.is_components_compatible(other) && self.is_resources_compatible(other)
     }
 
-    /// Returns `true` if the set is a subset of another, i.e. `other` contains
-    /// at least all the values in `self`.
-    pub fn is_subset(&self, other: &Access<T>) -> bool {
-        if other.writes_all_components && other.reads_all_components {
+    /// Returns `true` if the set's component access is a subset of another, i.e. `other`'s component access
+    /// contains at least all the values in `self`.
+    pub fn is_subset_components(&self, other: &Access<T>) -> bool {
+        if self.writes_all_components {
+            return other.writes_all_components;
+        }
+
+        if other.writes_all_components {
             return true;
         }
 
-        if self.writes_all_components && !other.writes_all_components {
-            return false;
-        }
-        if self.reads_all_components && !other.reads_all_components {
-            return false;
-        }
-        if self.writes_all_resources && !other.writes_all_resources {
-            return false;
-        }
-        if self.reads_all_resources && !other.reads_all_resources {
-            return false;
+        if self.reads_all_components {
+            return other.reads_all_components;
         }
 
-        (other.reads_all_components
-            || self
-                .component_read_and_writes
-                .is_subset(&other.component_read_and_writes))
-            && (other.writes_all_components
-                || self.component_writes.is_subset(&other.component_writes))
-            && (other.reads_all_resources
-                || self
-                    .resource_read_and_writes
-                    .is_subset(&other.resource_read_and_writes))
-            && (other.writes_all_resources
-                || self.resource_writes.is_subset(&other.resource_writes))
+        if other.reads_all_components {
+            return self.component_writes.is_subset(&other.component_writes);
+        }
+
+        self.component_read_and_writes
+            .is_subset(&other.component_read_and_writes)
+            && self.component_writes.is_subset(&other.component_writes)
+    }
+
+    /// Returns `true` if the set's resource access is a subset of another, i.e. `other`'s resource access
+    /// contains at least all the values in `self`.
+    pub fn is_subset_resources(&self, other: &Access<T>) -> bool {
+        if self.writes_all_resources {
+            return other.writes_all_resources;
+        }
+
+        if other.writes_all_resources {
+            return true;
+        }
+
+        if self.reads_all_resources {
+            return other.reads_all_resources;
+        }
+
+        if other.reads_all_resources {
+            return self.resource_writes.is_subset(&other.resource_writes);
+        }
+
+        self.resource_read_and_writes
+            .is_subset(&other.resource_read_and_writes)
+            && self.resource_writes.is_subset(&other.resource_writes)
+    }
+
+    /// Returns `true` if the set is a subset of another, i.e. `other` contains
+    /// at least all the values in `self`.
+    pub fn is_subset(&self, other: &Access<T>) -> bool {
+        self.is_subset_components(other) && self.is_subset_resources(other)
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
@@ -540,9 +562,9 @@ impl<T: SparseSetIndex> Access<T> {
         self.component_writes.ones().map(T::get_sparse_set_index)
     }
 
-    /// Returns the indices of the elements that this has an archetypal access to.
+    /// Returns the indices of the components that this has an archetypal access to.
     ///
-    /// These are elements whose values are not accessed (and thus will never cause conflicts),
+    /// These are components whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     ///
     /// Currently, this is only used for [`Has<T>`].
@@ -957,14 +979,14 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
         self.filtered_accesses.push(filtered_access);
     }
 
-    /// Adds a read access without filters to the set.
+    /// Adds a read access to a resource to the set.
     pub(crate) fn add_unfiltered_resource_read(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_read(index);
         self.add(filter);
     }
 
-    /// Adds a write access without filters to the set.
+    /// Adds a write access to a resource to the set.
     pub(crate) fn add_unfiltered_resource_write(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_write(index);
