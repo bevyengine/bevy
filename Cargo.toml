@@ -2394,6 +2394,17 @@ description = "A shader that shows how to bind and sample multiple textures as a
 category = "Shaders"
 wasm = false
 
+[[example]]
+name = "specialized_mesh_pipeline"
+path = "examples/shader/specialized_mesh_pipeline.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.specialized_mesh_pipeline]
+name = "Specialized Mesh Pipeline"
+description = "Demonstrates how to write a specialized mesh pipeline"
+category = "Shaders"
+wasm = true
+
 # Stress tests
 [[package.metadata.example_category]]
 name = "Stress Tests"
