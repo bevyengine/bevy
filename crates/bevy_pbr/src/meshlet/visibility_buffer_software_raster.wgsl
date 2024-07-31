@@ -30,11 +30,17 @@ var<workgroup> viewport_vertices: array<vec3f, 64>;
 @workgroup_size(64, 1, 1) // 64 threads per workgroup, 1 vertex/triangle per thread, 1 cluster per workgroup
 fn rasterize_cluster(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
-    @builtin(num_workgroups) num_workgroups: vec3<u32>,
     @builtin(local_invocation_index) local_invocation_index: u32,
+#ifdef MESHLET_2D_DISPATCH
+    @builtin(num_workgroups) num_workgroups: vec3<u32>,
+#endif
 ) {
-    let workgroup_id_1d = (num_workgroups.x * workgroup_id.x) + workgroup_id.y;
+    var workgroup_id_1d = workgroup_id.x;
+
+#ifdef MESHLET_2D_DISPATCH
+    workgroup_id_1d += workgroup_id.y * num_workgroups.x;
     if workgroup_id_1d >= meshlet_software_raster_cluster_count { return; }
+#endif
 
     let cluster_id = meshlet_raster_clusters[workgroup_id_1d];
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];

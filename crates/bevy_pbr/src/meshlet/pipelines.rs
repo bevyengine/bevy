@@ -168,6 +168,12 @@ impl FromWorld for MeshletPipelines {
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
+                        if remap_1d_to_2d_dispatch_layout.is_some() {
+                            "MESHLET_2D_DISPATCH"
+                        } else {
+                            ""
+                        }
+                        .into(),
                     ],
                     entry_point: "rasterize_cluster".into(),
                 },
@@ -181,7 +187,15 @@ impl FromWorld for MeshletPipelines {
                     layout: vec![visibility_buffer_raster_layout.clone()],
                     push_constant_ranges: vec![],
                     shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
+                    shader_defs: vec![
+                        "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
+                        if remap_1d_to_2d_dispatch_layout.is_some() {
+                            "MESHLET_2D_DISPATCH"
+                        } else {
+                            ""
+                        }
+                        .into(),
+                    ],
                     entry_point: "rasterize_cluster".into(),
                 },
             ),
@@ -198,6 +212,12 @@ impl FromWorld for MeshletPipelines {
                     shader_defs: vec![
                         "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
                         "DEPTH_CLAMP_ORTHO".into(),
+                        if remap_1d_to_2d_dispatch_layout.is_some() {
+                            "MESHLET_2D_DISPATCH"
+                        } else {
+                            ""
+                        }
+                        .into(),
                     ],
                     entry_point: "rasterize_cluster".into(),
                 }),
