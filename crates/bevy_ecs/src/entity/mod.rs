@@ -390,6 +390,26 @@ impl<'de> Deserialize<'de> for Entity {
     }
 }
 
+/// Outputs the full entity identifier, including the index, generation, and the raw bits.
+///
+/// This takes the format: `{index}v{generation}#{bits}`.
+///
+/// # Usage
+///
+/// Prefer to use this format for debugging and logging purposes. Because the output contains
+/// the raw bits, it is easy to check it against serialized scene data.
+///
+/// Example serialized scene data:
+/// ```text
+/// (
+///   ...
+///   entities: {
+///     4294967297: (  <--- Raw Bits
+///       components: {
+///         ...
+///       ),
+///   ...
+/// ```
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -402,6 +422,9 @@ impl fmt::Debug for Entity {
     }
 }
 
+/// Outputs the short entity identifier, including the index and generation.
+///
+/// This takes the format: `{index}v{generation}`.
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}v{}", self.index(), self.generation())
