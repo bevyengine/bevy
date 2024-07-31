@@ -576,7 +576,7 @@ mod tests {
             })
     }
 
-    fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Entity) {
+    fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Option<Entity>) {
         // Add observer
         app.world_mut().observe(
             move |trigger: Trigger<SceneInstanceReady>,
@@ -588,7 +588,7 @@ mod tests {
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    trigger.entity(),
+                    trigger.get_entity(),
                     scene_entity,
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );
@@ -626,7 +626,7 @@ mod tests {
                 });
 
         // Check trigger.
-        observe_trigger(&mut app, scene_id, Entity::PLACEHOLDER);
+        observe_trigger(&mut app, scene_id, None);
     }
 
     #[test]
@@ -644,7 +644,7 @@ mod tests {
                 });
 
         // Check trigger.
-        observe_trigger(&mut app, scene_id, Entity::PLACEHOLDER);
+        observe_trigger(&mut app, scene_id, None);
     }
 
     #[test]
@@ -664,7 +664,7 @@ mod tests {
         );
 
         // Check trigger.
-        observe_trigger(&mut app, scene_id, scene_entity);
+        observe_trigger(&mut app, scene_id, Some(scene_entity));
     }
 
     #[test]
@@ -684,7 +684,7 @@ mod tests {
         );
 
         // Check trigger.
-        observe_trigger(&mut app, scene_id, scene_entity);
+        observe_trigger(&mut app, scene_id, Some(scene_entity));
     }
 
     #[test]
