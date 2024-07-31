@@ -133,7 +133,7 @@ pub mod internal {
 
                 sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
                 sys.refresh_memory();
-                let current_cpu_usage = sys.global_cpu_info().cpu_usage().into();
+                let current_cpu_usage = sys.global_cpu_usage().into();
                 // `memory()` fns return a value in bytes
                 let total_mem = sys.total_memory() as f64 / BYTES_TO_GIB;
                 let used_mem = sys.used_memory() as f64 / BYTES_TO_GIB;
