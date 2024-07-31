@@ -28,7 +28,7 @@ fn main() {
 
 #[derive(Resource)]
 struct SoundEffects {
-    map: HashMap<String, SfxList>,
+    map: HashMap<String, Vec<Handle<AudioSource>>>,
 }
 
 impl SoundEffects {
@@ -63,7 +63,15 @@ impl SoundEffects {
     fn play(&mut self, name: impl AsRef<str>, commands: &mut Commands) {
         let name = name.as_ref();
         if let Some(sfx_list) = self.map.get_mut(name) {
-            let source = sfx_list.sample();
+            // If you need precise control over the randomization order of your sound effects,
+            // store the RNG as a resource and modify these functions to take it as an argument.
+            let rng = &mut rand::thread_rng();
+
+            let index = rng.sample(Uniform::from(0..sfx_list.len()));
+            // We don't need a (slightly) more expensive strong handle here (which are used to keep assets loaded in memory)
+            // because a copy is always stored in the SoundEffects resource.
+            let source = sfx_list[index].clone_weak();
+
             commands.spawn(AudioBundle {
                 source,
                 // We want the sound effect to play once and then despawn.
@@ -90,55 +98,9 @@ impl FromWorld for SoundEffects {
             asset_server.load("sounds/button_press_2.mp3"),
             asset_server.load("sounds/button_press_3.mp3"),
         ];
-        map.insert("button_press".to_string(), SfxList::new(button_press_sfxs));
+        map.insert("button_press".to_string(), button_press_sfxs);
 
         Self { map }
-    }
-}
-
-struct SfxList {
-    sfxs: Vec<Handle<AudioSource>>,
-    last_played: Option<usize>,
-}
-
-impl SfxList {
-    /// Generates a new sound effect list.
-    fn new(sfxs: Vec<Handle<AudioSource>>) -> Self {
-        Self {
-            sfxs,
-            last_played: None,
-        }
-    }
-
-    /// Plays a random sound effect from the list.
-    ///
-    /// The last-played sound-effect will not be chosen again,
-    /// unless the list contains only one sound effect.
-    ///
-    /// # Warning
-    ///
-    /// This will return a default handle if the list is empty.
-    fn sample(&mut self) -> Handle<AudioSource> {
-        if self.sfxs.is_empty() {
-            return Handle::default();
-        } else if self.sfxs.len() == 1 {
-            return self.sfxs[0].clone_weak();
-        }
-
-        // If you need precise control over the randomization order of your sound effects,
-        // store the RNG as a resource and modify these functions to take it as an argument.
-        let rng = &mut rand::thread_rng();
-
-        let index = rng.sample(Uniform::from(0..self.sfxs.len()));
-
-        // Use a simple rejection sampling strategy
-        // to avoid playing the same sound effect twice in a row.
-        if Some(index) == self.last_played {
-            self.sample()
-        } else {
-            self.last_played = Some(index);
-            self.sfxs[index].clone_weak()
-        }
     }
 }
 
