@@ -577,7 +577,6 @@ impl Mesh {
     /// that all counter-clockwise triangles are now clockwise and vice versa.
     ///
     /// Does nothing if no [`Indices`] are set.
-    #[must_use]
     pub fn with_inverted_winding(mut self) -> Result<Self, MeshWindingInvertError> {
         self.invert_winding().map(|_| self)
     }
