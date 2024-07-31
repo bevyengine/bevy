@@ -480,7 +480,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         assert!(
-            !access.access().has_any_write(),
+            !access.access().has_any_component_write(),
             "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
         );
         access.read_all();
@@ -556,7 +556,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         assert!(
-            !access.access().has_any_read(),
+            !access.access().has_any_component_read(),
             "EntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
         );
         access.write_all();
@@ -612,9 +612,9 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         _table: &Table,
     ) {
         let mut access = Access::default();
-        state.access.reads().for_each(|id| {
+        state.access.component_reads().for_each(|id| {
             if archetype.contains(id) {
-                access.add_read(id);
+                access.add_component_read(id);
             }
         });
         fetch.1 = access;
@@ -623,9 +623,9 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
         let mut access = Access::default();
-        state.access.reads().for_each(|id| {
+        state.access.component_reads().for_each(|id| {
             if table.has_column(id) {
-                access.add_read(id);
+                access.add_component_read(id);
             }
         });
         fetch.1 = access;
@@ -715,14 +715,14 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         _table: &Table,
     ) {
         let mut access = Access::default();
-        state.access.reads().for_each(|id| {
+        state.access.component_reads().for_each(|id| {
             if archetype.contains(id) {
-                access.add_read(id);
+                access.add_component_read(id);
             }
         });
-        state.access.writes().for_each(|id| {
+        state.access.component_writes().for_each(|id| {
             if archetype.contains(id) {
-                access.add_write(id);
+                access.add_component_write(id);
             }
         });
         fetch.1 = access;
@@ -731,14 +731,14 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
         let mut access = Access::default();
-        state.access.reads().for_each(|id| {
+        state.access.component_reads().for_each(|id| {
             if table.has_column(id) {
-                access.add_read(id);
+                access.add_component_read(id);
             }
         });
-        state.access.writes().for_each(|id| {
+        state.access.component_writes().for_each(|id| {
             if table.has_column(id) {
-                access.add_write(id);
+                access.add_component_write(id);
             }
         });
         fetch.1 = access;
@@ -988,9 +988,9 @@ unsafe impl<T: Component> WorldQuery for &T {
         access: &mut FilteredAccess<ComponentId>,
     ) {
         assert!(
-            !access.access().has_write(component_id),
+            !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                std::any::type_name::<T>(),
+            std::any::type_name::<T>(),
         );
         access.add_read(component_id);
     }
@@ -1183,9 +1183,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         access: &mut FilteredAccess<ComponentId>,
     ) {
         assert!(
-            !access.access().has_write(component_id),
+            !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                std::any::type_name::<T>(),
+            std::any::type_name::<T>(),
         );
         access.add_read(component_id);
     }
@@ -1378,9 +1378,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         access: &mut FilteredAccess<ComponentId>,
     ) {
         assert!(
-            !access.access().has_read(component_id),
+            !access.access().has_component_read(component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-                std::any::type_name::<T>(),
+            std::any::type_name::<T>(),
         );
         access.add_write(component_id);
     }
@@ -1476,9 +1476,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         // Update component access here instead of in `<&mut T as WorldQuery>` to avoid erroneously referencing
         // `&mut T` in error message.
         assert!(
-            !access.access().has_read(component_id),
+            !access.access().has_component_read(component_id),
             "Mut<{}> conflicts with a previous access in this query. Mutable component access mut be unique.",
-                std::any::type_name::<T>(),
+            std::any::type_name::<T>(),
         );
         access.add_write(component_id);
     }
