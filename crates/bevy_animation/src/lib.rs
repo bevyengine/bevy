@@ -564,14 +564,14 @@ thread_local! {
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
     pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        self.active_animations.entry(animation).or_default()
+        let playing_animation = self.active_animations.entry(animation).or_default();
+        playing_animation.replay();
+        playing_animation
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
     pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        let playing_animation = self.active_animations.entry(animation).or_default();
-        playing_animation.weight = 1.0;
-        playing_animation
+        self.active_animations.entry(animation).or_default()
     }
 
     /// Stops playing the given animation, removing it from the list of playing
