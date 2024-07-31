@@ -74,7 +74,6 @@ pub struct Access<T: SparseSetIndex> {
     marker: PhantomData<T>,
 }
 
-
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
 impl<T: SparseSetIndex> Clone for Access<T> {
     fn clone(&self) -> Self {
@@ -93,9 +92,11 @@ impl<T: SparseSetIndex> Clone for Access<T> {
     }
 
     fn clone_from(&mut self, source: &Self) {
-        self.component_read_and_writes.clone_from(&source.component_read_and_writes);
+        self.component_read_and_writes
+            .clone_from(&source.component_read_and_writes);
         self.component_writes.clone_from(&source.component_writes);
-        self.resource_read_and_writes.clone_from(&source.resource_read_and_writes);
+        self.resource_read_and_writes
+            .clone_from(&source.resource_read_and_writes);
         self.resource_writes.clone_from(&source.resource_writes);
         self.reads_all_components = source.reads_all_components;
         self.writes_all_components = source.writes_all_components;
@@ -112,12 +113,18 @@ impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
                 "component_read_and_writes",
                 &FormattedBitSet::<T>::new(&self.component_read_and_writes),
             )
-            .field("component_writes", &FormattedBitSet::<T>::new(&self.component_writes))
+            .field(
+                "component_writes",
+                &FormattedBitSet::<T>::new(&self.component_writes),
+            )
             .field(
                 "resource_read_and_writes",
                 &FormattedBitSet::<T>::new(&self.resource_read_and_writes),
             )
-            .field("resource_writes", &FormattedBitSet::<T>::new(&self.resource_writes))
+            .field(
+                "resource_writes",
+                &FormattedBitSet::<T>::new(&self.resource_writes),
+            )
             .field("reads_all_components", &self.reads_all_components)
             .field("writes_all_components", &self.writes_all_components)
             .field("reads_all_resources", &self.reads_all_resources)
@@ -160,7 +167,8 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn add_component_write(&mut self, index: T) {
         self.component_read_and_writes
             .grow_and_insert(index.sparse_set_index());
-        self.component_writes.grow_and_insert(index.sparse_set_index());
+        self.component_writes
+            .grow_and_insert(index.sparse_set_index());
     }
 
     /// Adds access to the resource given by `index`.
@@ -173,7 +181,8 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn add_resource_write(&mut self, index: T) {
         self.resource_read_and_writes
             .grow_and_insert(index.sparse_set_index());
-        self.resource_writes.grow_and_insert(index.sparse_set_index());
+        self.resource_writes
+            .grow_and_insert(index.sparse_set_index());
     }
 
     /// Adds an archetypal (indirect) access to the element given by `index`.
@@ -190,7 +199,10 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access the component given by `index`.
     pub fn has_component_read(&self, index: T) -> bool {
-        self.reads_all_components || self.component_read_and_writes.contains(index.sparse_set_index())
+        self.reads_all_components
+            || self
+                .component_read_and_writes
+                .contains(index.sparse_set_index())
     }
 
     /// Returns `true` if this can access any component.
@@ -210,7 +222,10 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access the resource given by `index`.
     pub fn has_resource_read(&self, index: T) -> bool {
-        self.reads_all_resources || self.resource_read_and_writes.contains(index.sparse_set_index())
+        self.reads_all_resources
+            || self
+                .resource_read_and_writes
+                .contains(index.sparse_set_index())
     }
 
     /// Returns `true` if this can access any resource.
@@ -340,9 +355,11 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes_all_resources = self.writes_all_resources || other.writes_all_resources;
         self.reads_all_components = self.reads_all_components || other.reads_all_components;
         self.writes_all_components = self.writes_all_components || other.writes_all_components;
-        self.component_read_and_writes.union_with(&other.component_read_and_writes);
+        self.component_read_and_writes
+            .union_with(&other.component_read_and_writes);
         self.component_writes.union_with(&other.component_writes);
-        self.resource_read_and_writes.union_with(&other.resource_read_and_writes);
+        self.resource_read_and_writes
+            .union_with(&other.resource_read_and_writes);
         self.resource_writes.union_with(&other.resource_writes);
     }
 
@@ -367,8 +384,11 @@ impl<T: SparseSetIndex> Access<T> {
             return !self.has_any_component_write();
         }
 
-        self.component_writes.is_disjoint(&other.component_read_and_writes)
-            && other.component_writes.is_disjoint(&self.component_read_and_writes)
+        self.component_writes
+            .is_disjoint(&other.component_read_and_writes)
+            && other
+                .component_writes
+                .is_disjoint(&self.component_read_and_writes)
     }
 
     /// Returns `true` if the access and `other` can be active at the same time.
@@ -392,8 +412,11 @@ impl<T: SparseSetIndex> Access<T> {
             return !self.has_any_resource_write();
         }
 
-        self.resource_writes.is_disjoint(&other.resource_read_and_writes)
-            && other.resource_writes.is_disjoint(&self.resource_read_and_writes)
+        self.resource_writes
+            .is_disjoint(&other.resource_read_and_writes)
+            && other
+                .resource_writes
+                .is_disjoint(&self.resource_read_and_writes)
     }
 
     /// Returns `true` if the access and `other` can be active at the same time.
@@ -407,11 +430,10 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
     pub fn is_subset(&self, other: &Access<T>) -> bool {
-
         if other.writes_all_components && other.reads_all_components {
             return true;
         }
-        
+
         if self.writes_all_components && !other.writes_all_components {
             return false;
         }
@@ -425,10 +447,18 @@ impl<T: SparseSetIndex> Access<T> {
             return false;
         }
 
-        (other.reads_all_components || self.component_read_and_writes.is_subset(&other.component_read_and_writes))
-            && (other.writes_all_components || self.component_writes.is_subset(&other.component_writes))
-            && (other.reads_all_resources || self.resource_read_and_writes.is_subset(&other.resource_read_and_writes))
-            && (other.writes_all_resources || self.resource_writes.is_subset(&other.resource_writes))
+        (other.reads_all_components
+            || self
+                .component_read_and_writes
+                .is_subset(&other.component_read_and_writes))
+            && (other.writes_all_components
+                || self.component_writes.is_subset(&other.component_writes))
+            && (other.reads_all_resources
+                || self
+                    .resource_read_and_writes
+                    .is_subset(&other.resource_read_and_writes))
+            && (other.writes_all_resources
+                || self.resource_writes.is_subset(&other.resource_writes))
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
@@ -469,10 +499,22 @@ impl<T: SparseSetIndex> Access<T> {
             conflicts.extend(self.resource_read_and_writes.ones());
         }
 
-        conflicts.extend(self.component_writes.intersection(&other.component_read_and_writes));
-        conflicts.extend(self.component_read_and_writes.intersection(&other.component_writes));
-        conflicts.extend(self.resource_writes.intersection(&other.resource_read_and_writes));
-        conflicts.extend(self.resource_read_and_writes.intersection(&other.resource_writes));
+        conflicts.extend(
+            self.component_writes
+                .intersection(&other.component_read_and_writes),
+        );
+        conflicts.extend(
+            self.component_read_and_writes
+                .intersection(&other.component_writes),
+        );
+        conflicts.extend(
+            self.resource_writes
+                .intersection(&other.resource_read_and_writes),
+        );
+        conflicts.extend(
+            self.resource_read_and_writes
+                .intersection(&other.resource_writes),
+        );
         conflicts
             .ones()
             .map(SparseSetIndex::get_sparse_set_index)
@@ -481,7 +523,9 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns the indices of the components this has access to.
     pub fn component_reads_and_writes(&self) -> impl Iterator<Item = T> + '_ {
-        self.component_read_and_writes.ones().map(T::get_sparse_set_index)
+        self.component_read_and_writes
+            .ones()
+            .map(T::get_sparse_set_index)
     }
 
     /// Returns the indices of the components this has non-exclusive access to.
@@ -601,7 +645,6 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     pub fn access_mut(&mut self) -> &mut Access<T> {
         &mut self.access
     }
-
 
     /// Adds access to the component given by `index`.
     pub fn add_component_read(&mut self, index: T) {
