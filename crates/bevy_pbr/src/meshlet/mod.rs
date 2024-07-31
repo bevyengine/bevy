@@ -105,7 +105,8 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
 /// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
-/// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
+/// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
+/// [`Msaa`] set to [`Msaa::Off`].
 ///
 /// This plugin does not work on WASM.
 ///

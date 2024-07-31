@@ -502,18 +502,18 @@ header_message = \"Examples (WebGL2)\"
                     continue;
                 }
 
-                // This beautifys the path
+                // This beautifys the category name
                 // to make it a good looking URL
                 // rather than having weird whitespace
                 // and other characters that don't
                 // work well in a URL path.
-                let category_path = root_path.join(
-                    to_show
-                        .category
-                        .replace(['(', ')'], "")
-                        .replace(' ', "-")
-                        .to_lowercase(),
-                );
+                let beautified_category = to_show
+                    .category
+                    .replace(['(', ')'], "")
+                    .replace(' ', "-")
+                    .to_lowercase();
+
+                let category_path = root_path.join(&beautified_category);
 
                 if !categories.contains_key(&to_show.category) {
                     let _ = fs::create_dir_all(&category_path);
@@ -556,7 +556,7 @@ aliases = [\"/examples{}/{}/{}\"]
 
 [extra]
 technical_name = \"{}\"
-link = \"/examples{}/{}/{}\"
+link = \"/examples{}/{}/{}/\"
 image = \"../static/screenshots/{}/{}.png\"
 code_path = \"content/examples{}/{}\"
 shader_code_paths = {:?}
@@ -581,7 +581,7 @@ header_message = \"Examples ({})\"
                                 WebApi::Webgpu => "-webgpu",
                                 WebApi::Webgl2 => "",
                             },
-                            &to_show.category,
+                            &beautified_category,
                             &to_show.technical_name.replace('_', "-"),
                             &to_show.category,
                             &to_show.technical_name,

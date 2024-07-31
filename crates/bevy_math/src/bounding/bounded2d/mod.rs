@@ -1,7 +1,10 @@
 mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::prelude::{Mat2, Rot2, Vec2};
+use crate::{
+    prelude::{Mat2, Rot2, Vec2},
+    Isometry2d,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -18,14 +21,12 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
     points.iter().fold(Vec2::ZERO, |acc, point| acc + *point) * denom
 }
 
-/// A trait with methods that return 2D bounded volumes for a shape
+/// A trait with methods that return 2D bounding volumes for a shape.
 pub trait Bounded2d {
-    /// Get an axis-aligned bounding box for the shape with the given translation and rotation.
-    /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rot2>) -> Aabb2d;
-    /// Get a bounding circle for the shape
-    /// The rotation is in radians, counterclockwise, with 0 meaning no rotation.
-    fn bounding_circle(&self, translation: Vec2, rotation: impl Into<Rot2>) -> BoundingCircle;
+    /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
+    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d;
+    /// Get a bounding circle for the shape translated and rotated by the given isometry.
+    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle;
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
@@ -51,20 +52,15 @@ impl Aabb2d {
     }
 
     /// Computes the smallest [`Aabb2d`] containing the given set of points,
-    /// transformed by `translation` and `rotation`.
+    /// transformed by the rotation and translation of the given isometry.
     ///
     /// # Panics
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
-    pub fn from_point_cloud(
-        translation: Vec2,
-        rotation: impl Into<Rot2>,
-        points: &[Vec2],
-    ) -> Aabb2d {
+    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> Aabb2d {
         // Transform all points by rotation
-        let rotation: Rot2 = rotation.into();
-        let mut iter = points.iter().map(|point| rotation * *point);
+        let mut iter = points.iter().map(|point| isometry.rotation * *point);
 
         let first = iter
             .next()
@@ -75,8 +71,8 @@ impl Aabb2d {
         });
 
         Aabb2d {
-            min: min + translation,
-            max: max + translation,
+            min: min + isometry.translation,
+            max: max + isometry.translation,
         }
     }
 
@@ -472,16 +468,11 @@ impl BoundingCircle {
     }
 
     /// Computes a [`BoundingCircle`] containing the given set of points,
-    /// transformed by `translation` and `rotation`.
+    /// transformed by the rotation and translation of the given isometry.
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
-    pub fn from_point_cloud(
-        translation: Vec2,
-        rotation: impl Into<Rot2>,
-        points: &[Vec2],
-    ) -> BoundingCircle {
-        let rotation: Rot2 = rotation.into();
+    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> BoundingCircle {
         let center = point_cloud_2d_center(points);
         let mut radius_squared = 0.0;
 
@@ -493,7 +484,7 @@ impl BoundingCircle {
             }
         }
 
-        BoundingCircle::new(rotation * center + translation, radius_squared.sqrt())
+        BoundingCircle::new(isometry * center, radius_squared.sqrt())
     }
 
     /// Get the radius of the bounding circle

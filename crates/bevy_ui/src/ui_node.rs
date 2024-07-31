@@ -1007,12 +1007,12 @@ impl Default for GridAutoFlow {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed pixel value
@@ -1024,6 +1024,7 @@ pub enum MinTrackSizingFunction {
     /// Track minimum size should be content sized under a max-content constraint
     MaxContent,
     /// Track minimum size should be automatically sized
+    #[default]
     Auto,
     /// Track minimum size should be a percent of the viewport's smaller dimension.
     VMin(f32),
@@ -1035,12 +1036,12 @@ pub enum MinTrackSizingFunction {
     Vw(f32),
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed pixel value
@@ -1056,6 +1057,7 @@ pub enum MaxTrackSizingFunction {
     /// Track maximum size should be sized according to the fit-content formula with a percentage limit
     FitContentPercent(f32),
     /// Track maximum size should be automatically sized
+    #[default]
     Auto,
     /// The dimension as a fraction of the total available grid space (`fr` units in CSS)
     /// Specified value is the numerator of the fraction. Denominator is the sum of all fractions specified in that grid dimension.
@@ -1234,7 +1236,7 @@ impl Default for GridTrack {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1255,6 +1257,12 @@ pub enum GridTrackRepetition {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat#auto-fit>
     AutoFit,
+}
+
+impl Default for GridTrackRepetition {
+    fn default() -> Self {
+        Self::Count(1)
+    }
 }
 
 impl From<u16> for GridTrackRepetition {
@@ -1289,7 +1297,7 @@ impl From<usize> for GridTrackRepetition {
 /// then all tracks (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
 #[derive(Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1446,6 +1454,15 @@ impl RepeatedGridTrack {
     }
 }
 
+impl Default for RepeatedGridTrack {
+    fn default() -> Self {
+        Self {
+            repetition: Default::default(),
+            tracks: SmallVec::from_buf([GridTrack::default()]),
+        }
+    }
+}
+
 impl From<GridTrack> for RepeatedGridTrack {
     fn from(track: GridTrack) -> Self {
         Self {
@@ -1457,10 +1474,7 @@ impl From<GridTrack> for RepeatedGridTrack {
 
 impl From<GridTrack> for Vec<GridTrack> {
     fn from(track: GridTrack) -> Self {
-        vec![GridTrack {
-            min_sizing_function: track.min_sizing_function,
-            max_sizing_function: track.max_sizing_function,
-        }]
+        vec![track]
     }
 }
 

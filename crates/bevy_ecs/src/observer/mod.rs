@@ -303,7 +303,7 @@ impl Observers {
 }
 
 impl World {
-    /// Spawn a "global" [`Observer`] and returns it's [`Entity`].
+    /// Spawns a "global" [`Observer`] and returns its [`Entity`].
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,

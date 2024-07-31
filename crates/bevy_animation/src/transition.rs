@@ -92,7 +92,11 @@ impl AnimationTransitions {
             }
         }
 
-        self.main_animation = Some(new_animation);
+        // If already transitioning away from this animation, cancel the transition.
+        // Otherwise the transition ending would incorrectly stop the new animation.
+        self.transitions
+            .retain(|transition| transition.animation != new_animation);
+
         player.start(new_animation)
     }
 

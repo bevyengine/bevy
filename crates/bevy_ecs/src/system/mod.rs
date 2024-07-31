@@ -809,6 +809,15 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn changed_trackers_or_conflict() {
+        fn sys(_: Query<&mut A>, _: Query<(), Or<(Changed<A>,)>>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     fn query_set_system() {
         fn sys(mut _set: ParamSet<(Query<&mut A>, Query<&A>)>) {}
         let mut world = World::default();
