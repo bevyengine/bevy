@@ -12,7 +12,6 @@ fn main() {
         // This must be below the `DefaultPlugins` plugin, as it depends on the `AssetPlugin`.
         .init_resource::<SoundEffects>()
         .add_systems(Startup, spawn_button)
-        // Running this system after `PreUpdate` will ensure that input events are processed before we check for button presses.
         .add_systems(Update, play_sound_effect_when_button_pressed)
         .run();
 }
@@ -164,13 +163,11 @@ fn play_sound_effect_when_button_pressed(
     mut sound_effects: ResMut<SoundEffects>,
     mut commands: Commands,
 ) {
-    // This is not a very robust way to check for button presses.
-    // Querying with a marker component or using a callback on the button would be better for non-example code.
-    let interaction = button_query.single();
-
-    if interaction.is_changed() {
-        if *interaction == Interaction::Pressed {
-            sound_effects.play("button_press", &mut commands);
+    for interaction in button_query.iter() {
+        if interaction.is_changed() {
+            if *interaction == Interaction::Pressed {
+                sound_effects.play("button_press", &mut commands);
+            }
         }
     }
 }
