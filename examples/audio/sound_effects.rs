@@ -5,6 +5,7 @@
 
 use bevy::{
     color::palettes::tailwind::{BLUE_600, BLUE_700, BLUE_800},
+    ecs::world::Command,
     prelude::*,
     utils::HashMap,
 };
@@ -60,7 +61,7 @@ impl SoundEffects {
     ///     }
     /// }
     /// ```
-    fn play(&mut self, name: impl AsRef<str>, commands: &mut Commands) {
+    fn play(&mut self, name: impl AsRef<str>, world: &mut World) {
         let name = name.as_ref();
         if let Some(sfx_list) = self.map.get_mut(name) {
             // If you need precise control over the randomization order of your sound effects,
@@ -72,7 +73,7 @@ impl SoundEffects {
             // because a copy is always stored in the SoundEffects resource.
             let source = sfx_list[index].clone_weak();
 
-            commands.spawn(AudioBundle {
+            world.spawn(AudioBundle {
                 source,
                 // We want the sound effect to play once and then despawn.
                 settings: PlaybackSettings::DESPAWN,
@@ -104,6 +105,39 @@ impl FromWorld for SoundEffects {
     }
 }
 
+/// A custom command used to play sound effects.
+struct PlaySoundEffect {
+    name: String,
+}
+
+impl Command for PlaySoundEffect {
+    fn apply(self, world: &mut World) {
+        // Access both the world and the resource we need from it using resource_scope
+        // which temporarily removes the SoundEffects resource from the world
+        world.resource_scope(|world, mut sound_effects: Mut<SoundEffects>| {
+            sound_effects.play(self.name, world)
+        })
+    }
+}
+
+/// An "extension trait" used to make it convenient to play sound effects via [`Commands`].
+///
+/// This technique allows us to implement methods for types that we don't own,
+/// which can be used as long as the trait is in scope.
+trait SfxCommands {
+    fn play_sound_effect(&mut self, name: impl AsRef<str>);
+}
+
+impl<'w, 's> SfxCommands for Commands<'w, 's> {
+    // By accepting an `AsRef<str>` here, we can be flexible about what we want to accept:
+    // &str literals are better for prototyping and data-driven sound effects,
+    // but enums are nicer for special-cased effects
+    fn play_sound_effect(&mut self, name: impl AsRef<str>) {
+        let name = name.as_ref().to_string();
+        self.add(PlaySoundEffect { name })
+    }
+}
+
 fn spawn_button(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
@@ -132,12 +166,11 @@ fn spawn_button(mut commands: Commands) {
 
 fn play_sound_effect_when_button_pressed(
     button_query: Query<&Interaction, Changed<Interaction>>,
-    mut sound_effects: ResMut<SoundEffects>,
     mut commands: Commands,
 ) {
     for interaction in button_query.iter() {
         if *interaction == Interaction::Pressed {
-            sound_effects.play("button_press", &mut commands);
+            commands.play_sound_effect("button_press");
         }
     }
 }
