@@ -546,6 +546,48 @@ impl Mesh {
         self
     }
 
+    /// Inverts the winding of the indices such that all counter-clockwise triangles are now
+    /// clockwise and vice versa.
+    ///
+    /// Does nothing if no [Indices] are set.
+    ///
+    /// # Panics
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the length of the indices isn't a multiple of 3.
+    pub fn invert_winding(&mut self) {
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "`invert_winding` can only work on `TriangleList`s"
+        );
+        fn invert<'a, I: 'static>(indices: impl Iterator<Item = &'a mut [I]>) {
+            for chunk in indices {
+                let [_, b, c] = chunk else {
+                    panic!("Indices length isn't a multiple of 3.");
+                };
+                std::mem::swap(b, c);
+            }
+        }
+        match &mut self.indices {
+            Some(Indices::U16(vec)) => invert(vec.chunks_mut(3)),
+            Some(Indices::U32(vec)) => invert(vec.chunks_mut(3)),
+            None => {}
+        }
+    }
+
+    /// Consumes the mesh and returns a mesh with inverted winding of the indices such
+    /// that all counter-clockwise triangles are now clockwise and vice versa.
+    ///
+    /// Does nothing if no [Indices] are set.
+    ///
+    /// # Panics
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the length of the indices isn't a multiple of 3.
+    #[must_use]
+    pub fn with_inverted_winding(mut self) -> Self {
+        self.invert_winding();
+        self
+    }
+
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
     /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
     /// normals.
@@ -1903,7 +1945,10 @@ fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::{mesh::VertexAttributeValues, render_asset::RenderAssetUsages};
+    use crate::{
+        mesh::{Indices, VertexAttributeValues},
+        render_asset::RenderAssetUsages,
+    };
     use bevy_math::Vec3;
     use bevy_transform::components::Transform;
     use wgpu::PrimitiveTopology;
@@ -1968,5 +2013,25 @@ mod tests {
         } else {
             panic!("Mesh does not have a uv attribute");
         }
+    }
+
+    #[test]
+    fn triangle_mesh_invert_winding() {
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_indices(Indices::U32(vec![
+            0, 3, 1, // First triangle
+            1, 3, 2, // Second triangle
+        ]));
+        let mesh = mesh.with_inverted_winding();
+        assert_eq!(
+            mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
+            vec![
+                0, 1, 3, // First triangle
+                1, 2, 3, // Second triangle
+            ]
+        );
     }
 }
