@@ -912,7 +912,7 @@ impl MeshletGpuScene {
                     ),
                 ),
             ),
-            remap_1d_to_2d_dispatch_bind_group_layout: cluster_buffer_slots.then(|| {
+            remap_1d_to_2d_dispatch_bind_group_layout: needs_dispatch_remap.then(|| {
                 render_device.create_bind_group_layout(
                     "meshlet_remap_1d_to_2d_dispatch_bind_group_layout",
                     &BindGroupLayoutEntries::sequential(
