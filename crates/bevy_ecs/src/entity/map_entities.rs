@@ -112,6 +112,15 @@ pub trait DynEntityMapper {
     fn dyn_mappings(&self) -> Vec<(Entity, Entity)>;
 }
 
+impl<'a> EntityMapper for &'a mut dyn DynEntityMapper {
+    fn map_entity(&mut self, entity: Entity) -> Entity {
+        (*self).dyn_map_entity(entity)
+    }
+    fn mappings(&self) -> impl Iterator<Item = (Entity, Entity)> {
+        (*self).dyn_mappings().into_iter()
+    }
+}
+
 impl<T: EntityMapper> DynEntityMapper for T {
     fn dyn_map_entity(&mut self, entity: Entity) -> Entity {
         <T as EntityMapper>::map_entity(self, entity)
