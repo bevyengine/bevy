@@ -122,6 +122,16 @@ impl<T: EntityMapper> DynEntityMapper for T {
     }
 }
 
+impl<'a> EntityMapper for &'a mut dyn DynEntityMapper {
+    fn map_entity(&mut self, entity: Entity) -> Entity {
+        (*self).dyn_map_entity(entity)
+    }
+
+    fn mappings(&self) -> impl Iterator<Item = (Entity, Entity)> {
+        (*self).dyn_mappings().into_iter()
+    }
+}
+
 impl EntityMapper for SceneEntityMapper<'_> {
     /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
     fn map_entity(&mut self, entity: Entity) -> Entity {
