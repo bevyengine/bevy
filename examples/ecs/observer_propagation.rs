@@ -78,8 +78,10 @@ fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
 }
 
 fn attack_hits(trigger: Trigger<Attack>, name: Query<&Name>) {
-    if let Ok(name) = name.get(trigger.entity()) {
-        info!("Attack hit {}", name);
+    if let Some(entity) = trigger.get_entity() {
+        if let Ok(name) = name.get(entity) {
+            info!("Attack hit {}", name);
+        }
     }
 }
 
