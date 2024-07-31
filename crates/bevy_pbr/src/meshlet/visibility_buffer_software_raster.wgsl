@@ -111,8 +111,7 @@ fn rasterize_cluster(
 
     // Rasterize triangle
     if subgroupAny(max_x - min_x > 4u) {
-        // Scanline
-        // TODO: Scanline variant not quite working
+        // Scanline setup
         let edge_012 = -w_x;
         let open_edge = edge_012 < vec3(0.0);
         let inverse_edge_012 = select(1.0 / edge_012, vec3(1e8), edge_012 == vec3(0.0));
@@ -124,12 +123,20 @@ fn rasterize_cluster(
             let max_x2 = select(cross_x, max_x_diff, open_edge);
             var x0 = u32(ceil(max3(min_x2[0], min_x2[1], min_x2[2])));
             let x1 = u32(min3(max_x2[0], max_x2[1], max_x2[2])) + min_x;
+
+            var w = w_row + w_x * f32(x0);
             var z = z_row + z_x * f32(x0);
             x0 += min_x;
 
-            // Fill in X interval
+            // Iterate scanline X interval
             for (var x = x0; x <= x1; x++) {
-                write_visibility_buffer_pixel(frag_coord_1d_row + x, z, packed_ids);
+                // Check if point at pixel is within triangle (not sure why this is needed for scanline)
+                if min3(w[0], w[1], w[2]) >= 0.0 {
+                    write_visibility_buffer_pixel(frag_coord_1d_row + x, z, packed_ids);
+                }
+
+                // Increment edge functions along the X-axis
+                w += w_x;
                 z += z_x;
             }
 
