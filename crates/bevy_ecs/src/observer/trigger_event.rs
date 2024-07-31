@@ -65,7 +65,8 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
     targets: Targets,
 ) {
     let mut world = DeferredWorld::from(world);
-    if targets.entities().is_empty() {
+    let mut entity_targets = targets.entities().peekable();
+    if entity_targets.peek().is_none() {
         // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
         unsafe {
             world.trigger_observers_with_data::<_, E::Traversal>(
@@ -77,12 +78,12 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
             );
         };
     } else {
-        for target in targets.entities() {
+        for target_entity in entity_targets {
             // SAFETY: T is accessible as the type represented by self.trigger, ensured in `Self::new`
             unsafe {
                 world.trigger_observers_with_data::<_, E::Traversal>(
                     event_type,
-                    *target,
+                    target_entity,
                     targets.components(),
                     event_data,
                     E::AUTO_PROPAGATE,
@@ -100,88 +101,88 @@ fn trigger_event<E: Event, Targets: TriggerTargets>(
 /// [`Observer`]: crate::observer::Observer
 pub trait TriggerTargets {
     /// The components the trigger should target.
-    fn components(&self) -> &[ComponentId];
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone;
 
     /// The entities the trigger should target.
-    fn entities(&self) -> &[Entity];
+    fn entities(&self) -> impl Iterator<Item = Entity>;
 }
 
 impl TriggerTargets for () {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        [].into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        [].into_iter()
     }
 }
 
 impl TriggerTargets for Entity {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        [].into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        std::slice::from_ref(self)
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        std::iter::once(*self)
     }
 }
 
 impl TriggerTargets for Vec<Entity> {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        [].into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        self.iter().copied()
     }
 }
 
 impl<const N: usize> TriggerTargets for [Entity; N] {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        [].into_iter()
     }
 
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        self.iter().copied()
     }
 }
 
 impl TriggerTargets for ComponentId {
-    fn components(&self) -> &[ComponentId] {
-        std::slice::from_ref(self)
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        std::iter::once(*self)
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        [].into_iter()
     }
 }
 
 impl TriggerTargets for Vec<ComponentId> {
-    fn components(&self) -> &[ComponentId] {
-        self.as_slice()
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        self.iter().copied()
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        [].into_iter()
     }
 }
 
 impl<const N: usize> TriggerTargets for [ComponentId; N] {
-    fn components(&self) -> &[ComponentId] {
-        self.as_slice()
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        self.iter().copied()
     }
 
-    fn entities(&self) -> &[Entity] {
-        &[]
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        [].into_iter()
     }
 }
 
-impl TriggerTargets for &Vec<Entity> {
-    fn components(&self) -> &[ComponentId] {
-        &[]
+impl<T1: TriggerTargets, T2: TriggerTargets> TriggerTargets for (T1, T2) {
+    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        self.0.components().chain(self.1.components())
     }
 
-    fn entities(&self) -> &[Entity] {
-        self.as_slice()
+    fn entities(&self) -> impl Iterator<Item = Entity> {
+        self.0.entities().chain(self.1.entities())
     }
 }
