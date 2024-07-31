@@ -3,7 +3,11 @@
 //! In this example, we'll showcase a simple abstraction that can be used to load and play randomized sound effects in response to an event.
 //! The logic here is highly customizable: we encourage you to adapt it to meet your game's needs!
 
-use bevy::{color::palettes::tailwind::BLUE_600, prelude::*, utils::HashMap};
+use bevy::{
+    color::palettes::tailwind::{BLUE_600, BLUE_700, BLUE_800},
+    prelude::*,
+    utils::HashMap,
+};
 use rand::{distributions::Uniform, Rng};
 
 fn main() {
@@ -12,7 +16,13 @@ fn main() {
         // This must be below the `DefaultPlugins` plugin, as it depends on the `AssetPlugin`.
         .init_resource::<SoundEffects>()
         .add_systems(Startup, spawn_button)
-        .add_systems(Update, play_sound_effect_when_button_pressed)
+        .add_systems(
+            Update,
+            (
+                play_sound_effect_when_button_pressed,
+                change_button_color_based_on_interaction,
+            ),
+        )
         .run();
 }
 
@@ -159,15 +169,25 @@ fn spawn_button(mut commands: Commands) {
 }
 
 fn play_sound_effect_when_button_pressed(
-    button_query: Query<Ref<Interaction>>,
+    button_query: Query<&Interaction, Changed<Interaction>>,
     mut sound_effects: ResMut<SoundEffects>,
     mut commands: Commands,
 ) {
     for interaction in button_query.iter() {
-        if interaction.is_changed() {
-            if *interaction == Interaction::Pressed {
-                sound_effects.play("button_press", &mut commands);
-            }
+        if *interaction == Interaction::Pressed {
+            sound_effects.play("button_press", &mut commands);
+        }
+    }
+}
+
+fn change_button_color_based_on_interaction(
+    mut button_query: Query<(&Interaction, &mut BackgroundColor), Changed<Interaction>>,
+) {
+    for (interaction, mut color) in button_query.iter_mut() {
+        *color = match interaction {
+            Interaction::None => BLUE_600.into(),
+            Interaction::Hovered => BLUE_700.into(),
+            Interaction::Pressed => BLUE_800.into(),
         }
     }
 }
