@@ -768,7 +768,7 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
     let mut runner_state = WinitAppRunnerState::new(app);
 
     trace!("starting winit event loop");
-    // TODO(clean): the winit docs mention using `spawn` instead of `run` on WASM.
+    // TODO(clean): the winit docs mention using `spawn` instead of `run` on Wasm.
     if let Err(err) = event_loop.run_app(&mut runner_state) {
         error!("winit event loop returned an error: {err}");
     }
