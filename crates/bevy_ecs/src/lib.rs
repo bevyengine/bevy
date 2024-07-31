@@ -1741,7 +1741,8 @@ mod tests {
         );
     }
 
-    // These fields are never read so we get a dead code lint here.
+    // These structs are primarily compilation tests to test the derive macros. Because they are
+    // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]
     #[derive(Component)]
     struct ComponentA(u32);
@@ -1749,4 +1750,19 @@ mod tests {
     #[allow(dead_code)]
     #[derive(Component)]
     struct ComponentB(u32);
+
+    #[allow(dead_code)]
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[allow(dead_code)]
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[allow(dead_code)]
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
+    }
 }
