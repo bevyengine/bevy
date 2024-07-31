@@ -153,7 +153,7 @@ impl AssetProcessor {
     /// Starts the processor in a background thread.
     pub fn start(_processor: Res<Self>) {
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        error!("Cannot run AssetProcessor in single threaded mode (or WASM) yet.");
+        error!("Cannot run AssetProcessor in single threaded mode (or Wasm) yet.");
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
             let processor = _processor.clone();
@@ -323,7 +323,7 @@ impl AssetProcessor {
             AssetPath::from_path(&path).with_source(source.id())
         );
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        error!("AddFolder event cannot be handled in single threaded mode (or WASM) yet.");
+        error!("AddFolder event cannot be handled in single threaded mode (or Wasm) yet.");
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         IoTaskPool::get().scope(|scope| {
             scope.spawn(async move {

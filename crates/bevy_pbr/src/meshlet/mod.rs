@@ -108,7 +108,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
 /// [`Msaa`] set to [`Msaa::Off`].
 ///
-/// This plugin does not work on WASM.
+/// This plugin does not work on Wasm.
 ///
 /// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
 /// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
