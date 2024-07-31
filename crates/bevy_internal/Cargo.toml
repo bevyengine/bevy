@@ -230,7 +230,6 @@ bevy_audio = { path = "../bevy_audio", optional = true, version = "0.15.0-dev" }
 bevy_color = { path = "../bevy_color", optional = true, version = "0.15.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.15.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.15.0-dev" }
-bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.15.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.15.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.15.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.15.0-dev" }
