@@ -55,7 +55,7 @@ use std::{
 
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
-#[cfg(feature = "track_change_detection")]
+
 use core::panic::Location;
 
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -1121,14 +1121,24 @@ impl World {
     /// assert!(world.get_entity(entity).is_none());
     /// assert!(world.get::<Position>(entity).is_none());
     /// ```
+    #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
+        self.despawn_with_caller(entity, Location::caller())
+    }
+
+    #[inline]
+    pub(crate) fn despawn_with_caller(
+        &mut self,
+        entity: Entity,
+        caller: &'static Location,
+    ) -> bool {
         self.flush();
         if let Some(entity) = self.get_entity_mut(entity) {
             entity.despawn();
             true
         } else {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+            warn!("{caller} error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
             false
         }
     }
