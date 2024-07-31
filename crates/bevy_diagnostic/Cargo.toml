@@ -32,8 +32,8 @@ sysinfo = { version = "0.31.0", optional = true, default-features = false, featu
   "system",
 ] }
 
-# Only include when on linux/windows/android
-[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android"))'.dependencies]
+# Only include when on linux/windows/android/freebsd
+[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android", target_os = "freebsd"))'.dependencies]
 sysinfo = { version = "0.31.0", optional = true, default-features = false, features = [
   "system",
 ] }
