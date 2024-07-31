@@ -691,7 +691,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
-        access.add_read(id);
+        access.add_component_read(id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -902,7 +902,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
-        access.add_read(id);
+        access.add_component_read(id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
