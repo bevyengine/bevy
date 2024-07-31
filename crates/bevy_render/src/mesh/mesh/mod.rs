@@ -537,7 +537,7 @@ impl Mesh {
     /// Consumes the mesh and returns a mesh with no shared vertices.
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
-    /// Does nothing if no [Indices] are set.
+    /// Does nothing if no [`Indices`] are set.
     ///
     /// (Alternatively, you can use [`Mesh::duplicate_vertices`] to mutate an existing mesh in-place)
     #[must_use]
@@ -549,43 +549,37 @@ impl Mesh {
     /// Inverts the winding of the indices such that all counter-clockwise triangles are now
     /// clockwise and vice versa.
     ///
-    /// Does nothing if no [Indices] are set.
-    ///
-    /// # Panics
-    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    /// Panics if the length of the indices isn't a multiple of 3.
-    pub fn invert_winding(&mut self) {
-        assert!(
-            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
-            "`invert_winding` can only work on `TriangleList`s"
-        );
-        fn invert<'a, I: 'static>(indices: impl Iterator<Item = &'a mut [I]>) {
+    /// Does nothing if no [`Indices`] are set.
+    pub fn invert_winding(&mut self) -> Result<(), MeshWindingInvertError> {
+        if self.primitive_topology != PrimitiveTopology::TriangleList {
+            return Err(MeshWindingInvertError::WrongTopology);
+        }
+
+        fn invert<'a, I: 'static>(
+            indices: impl Iterator<Item = &'a mut [I]>,
+        ) -> Result<(), MeshWindingInvertError> {
             for chunk in indices {
                 let [_, b, c] = chunk else {
-                    panic!("Indices length isn't a multiple of 3.");
+                    return Err(MeshWindingInvertError::AbruptIndicesEnd);
                 };
                 std::mem::swap(b, c);
             }
+            Ok(())
         }
         match &mut self.indices {
             Some(Indices::U16(vec)) => invert(vec.chunks_mut(3)),
             Some(Indices::U32(vec)) => invert(vec.chunks_mut(3)),
-            None => {}
+            None => Ok(()),
         }
     }
 
     /// Consumes the mesh and returns a mesh with inverted winding of the indices such
     /// that all counter-clockwise triangles are now clockwise and vice versa.
     ///
-    /// Does nothing if no [Indices] are set.
-    ///
-    /// # Panics
-    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    /// Panics if the length of the indices isn't a multiple of 3.
+    /// Does nothing if no [`Indices`] are set.
     #[must_use]
-    pub fn with_inverted_winding(mut self) -> Self {
-        self.invert_winding();
-        self
+    pub fn with_inverted_winding(mut self) -> Result<Self, MeshWindingInvertError> {
+        self.invert_winding().map(|_| self)
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
@@ -1223,6 +1217,15 @@ where
             FourIterators::Fourth(iter) => iter.next(),
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum MeshWindingInvertError {
+    #[error("Source mesh does not have primitive topology TriangleList")]
+    WrongTopology,
+
+    #[error("Indices weren't in chunks of 3")]
+    AbruptIndicesEnd,
 }
 
 /// An error that occurred while trying to extract a collection of triangles from a [`Mesh`].
@@ -2025,7 +2028,7 @@ mod tests {
             0, 3, 1, // First triangle
             1, 3, 2, // Second triangle
         ]));
-        let mesh = mesh.with_inverted_winding();
+        let mesh = mesh.with_inverted_winding().unwrap();
         assert_eq!(
             mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
             vec![
