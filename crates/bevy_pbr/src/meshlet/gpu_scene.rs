@@ -605,6 +605,7 @@ pub fn prepare_meshlet_view_bind_groups(
             gpu_scene
                 .visibility_buffer_raster_clusters
                 .as_entire_binding(),
+            gpu_scene.software_raster_cluster_count.as_entire_binding(),
             view_resources.visibility_buffer.as_entire_binding(),
             view_uniforms.clone(),
         ));
@@ -651,6 +652,34 @@ pub fn prepare_meshlet_view_bind_groups(
             )
         });
 
+        let remap_1d_to_2d_dispatch = gpu_scene
+            .remap_1d_to_2d_dispatch_bind_group_layout
+            .as_ref()
+            .map(|layout| {
+                (
+                    render_device.create_bind_group(
+                        "meshlet_remap_1d_to_2d_dispatch_first_bind_group",
+                        layout,
+                        &BindGroupEntries::sequential((
+                            view_resources
+                                .visibility_buffer_software_raster_indirect_args_first
+                                .as_entire_binding(),
+                            gpu_scene.software_raster_cluster_count.as_entire_binding(),
+                        )),
+                    ),
+                    render_device.create_bind_group(
+                        "meshlet_remap_1d_to_2d_dispatch_second_bind_group",
+                        layout,
+                        &BindGroupEntries::sequential((
+                            view_resources
+                                .visibility_buffer_software_raster_indirect_args_second
+                                .as_entire_binding(),
+                            gpu_scene.software_raster_cluster_count.as_entire_binding(),
+                        )),
+                    ),
+                )
+            });
+
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             first_node: Arc::clone(&first_node),
             fill_cluster_buffers,
@@ -661,6 +690,7 @@ pub fn prepare_meshlet_view_bind_groups(
             resolve_depth,
             resolve_material_depth,
             material_shade,
+            remap_1d_to_2d_dispatch,
         });
     }
 }
@@ -669,6 +699,7 @@ pub fn prepare_meshlet_view_bind_groups(
 #[derive(Resource)]
 pub struct MeshletGpuScene {
     visibility_buffer_raster_clusters: Buffer,
+    software_raster_cluster_count: Buffer,
     raster_cluster_rightmost_slot: u32,
     vertex_data: PersistentGpuBuffer<Arc<[u8]>>,
     vertex_ids: PersistentGpuBuffer<Arc<[u32]>>,
@@ -702,16 +733,26 @@ pub struct MeshletGpuScene {
     resolve_depth_bind_group_layout: BindGroupLayout,
     resolve_material_depth_bind_group_layout: BindGroupLayout,
     material_shade_bind_group_layout: BindGroupLayout,
+    remap_1d_to_2d_dispatch_bind_group_layout: Option<BindGroupLayout>,
     depth_pyramid_sampler: Sampler,
     depth_pyramid_dummy_texture: TextureView,
 }
 
 impl MeshletGpuScene {
     pub fn new(cluster_buffer_slots: u32, render_device: &RenderDevice) -> Self {
+        let needs_dispatch_remap =
+            cluster_buffer_slots < render_device.limits().max_compute_workgroups_per_dimension;
+
         Self {
             visibility_buffer_raster_clusters: render_device.create_buffer(&BufferDescriptor {
                 label: Some("meshlet_visibility_buffer_raster_clusters"),
                 size: cluster_buffer_slots as u64 * size_of::<u32>() as u64,
+                usage: BufferUsages::STORAGE,
+                mapped_at_creation: false,
+            }),
+            software_raster_cluster_count: render_device.create_buffer(&BufferDescriptor {
+                label: Some("meshlet_software_raster_cluster_count"),
+                size: size_of::<u32>() as u64,
                 usage: BufferUsages::STORAGE,
                 mapped_at_creation: false,
             }),
@@ -831,6 +872,7 @@ impl MeshletGpuScene {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                         storage_buffer_sized(false, None),
                         uniform_buffer::<ViewUniform>(true),
                     ),
@@ -870,6 +912,18 @@ impl MeshletGpuScene {
                     ),
                 ),
             ),
+            remap_1d_to_2d_dispatch_bind_group_layout: cluster_buffer_slots.then(|| {
+                render_device.create_bind_group_layout(
+                    "meshlet_remap_1d_to_2d_dispatch_bind_group_layout",
+                    &BindGroupLayoutEntries::sequential(
+                        ShaderStages::COMPUTE,
+                        (
+                            storage_buffer_sized(false, None),
+                            storage_buffer_sized(false, None),
+                        ),
+                    ),
+                )
+            }),
             depth_pyramid_sampler: render_device.create_sampler(&SamplerDescriptor {
                 label: Some("meshlet_depth_pyramid_sampler"),
                 ..default()
@@ -1026,6 +1080,10 @@ impl MeshletGpuScene {
     pub fn material_shade_bind_group_layout(&self) -> BindGroupLayout {
         self.material_shade_bind_group_layout.clone()
     }
+
+    pub fn remap_1d_to_2d_dispatch_bind_group_layout(&self) -> Option<BindGroupLayout> {
+        self.remap_1d_to_2d_dispatch_bind_group_layout.clone()
+    }
 }
 
 #[derive(Component)]
@@ -1059,4 +1117,5 @@ pub struct MeshletViewBindGroups {
     pub resolve_depth: BindGroup,
     pub resolve_material_depth: Option<BindGroup>,
     pub material_shade: Option<BindGroup>,
+    pub remap_1d_to_2d_dispatch: Option<(BindGroup, BindGroup)>,
 }

@@ -91,6 +91,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             resolve_depth_pipeline,
             resolve_depth_shadow_view_pipeline,
             resolve_material_depth_pipeline,
+            remap_1d_to_2d_dispatch_pipeline,
         )) = MeshletPipelines::get(world)
         else {
             return Ok(());
@@ -131,6 +132,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             culling_first_pipeline,
             thread_per_cluster_workgroups,
             meshlet_view_resources.raster_cluster_rightmost_slot,
+            meshlet_view_bind_groups
+                .remap_1d_to_2d_dispatch
+                .as_ref()
+                .map(|(bg1, _)| bg1),
+            remap_1d_to_2d_dispatch_pipeline,
         );
         raster_pass(
             true,
@@ -161,6 +167,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             culling_second_pipeline,
             thread_per_cluster_workgroups,
             meshlet_view_resources.raster_cluster_rightmost_slot,
+            meshlet_view_bind_groups
+                .remap_1d_to_2d_dispatch
+                .as_ref()
+                .map(|(_, bg2)| bg2),
+            remap_1d_to_2d_dispatch_pipeline,
         );
         raster_pass(
             false,
@@ -244,6 +255,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 culling_first_pipeline,
                 thread_per_cluster_workgroups,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
+                meshlet_view_bind_groups
+                    .remap_1d_to_2d_dispatch
+                    .as_ref()
+                    .map(|(bg1, _)| bg1),
+                remap_1d_to_2d_dispatch_pipeline,
             );
             raster_pass(
                 true,
@@ -274,6 +290,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 culling_second_pipeline,
                 thread_per_cluster_workgroups,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
+                meshlet_view_bind_groups
+                    .remap_1d_to_2d_dispatch
+                    .as_ref()
+                    .map(|(_, bg2)| bg2),
+                remap_1d_to_2d_dispatch_pipeline,
             );
             raster_pass(
                 false,
@@ -341,6 +362,8 @@ fn cull_pass(
     culling_pipeline: &ComputePipeline,
     culling_workgroups: u32,
     raster_cluster_rightmost_slot: u32,
+    remap_1d_to_2d_dispatch_bind_group: Option<&BindGroup>,
+    remap_1d_to_2d_dispatch_pipeline: Option<&ComputePipeline>,
 ) {
     let command_encoder = render_context.command_encoder();
     let mut cull_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -356,8 +379,14 @@ fn cull_pass(
     );
     cull_pass.dispatch_workgroups(culling_workgroups, culling_workgroups, culling_workgroups);
 
-    // TODO: Pass to convert 1d dispatch to 2d for visibility_buffer_hardware_software_indirect_args
-    //       to bypass low maxComputeWorkgroupsPerDimension limit
+    if let (Some(remap_1d_to_2d_dispatch_pipeline), Some(remap_1d_to_2d_dispatch_bind_group)) = (
+        remap_1d_to_2d_dispatch_pipeline,
+        remap_1d_to_2d_dispatch_bind_group,
+    ) {
+        cull_pass.set_pipeline(remap_1d_to_2d_dispatch_pipeline);
+        cull_pass.set_bind_group(0, remap_1d_to_2d_dispatch_bind_group, &[]);
+        cull_pass.dispatch_workgroups(1, 1, 1);
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

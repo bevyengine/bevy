@@ -193,6 +193,12 @@ impl Plugin for MeshletPlugin {
             "resolve_render_targets.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
+            "remap_1d_to_2d_dispatch.wgsl",
+            Shader::from_wgsl
+        );
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshSaverLoader)

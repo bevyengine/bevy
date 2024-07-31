@@ -20,6 +20,8 @@ pub const MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE: Handle<Shader
     Handle::weak_from_u128(8325134235233421);
 pub const MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(9325134235233421);
+pub const MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE: Handle<Shader> =
+    Handle::weak_from_u128(9425134235233421);
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
@@ -39,6 +41,7 @@ pub struct MeshletPipelines {
     resolve_depth: CachedRenderPipelineId,
     resolve_depth_shadow_view: CachedRenderPipelineId,
     resolve_material_depth: CachedRenderPipelineId,
+    remap_1d_to_2d_dispatch: Option<CachedComputePipelineId>,
 }
 
 impl FromWorld for MeshletPipelines {
@@ -52,6 +55,7 @@ impl FromWorld for MeshletPipelines {
             gpu_scene.visibility_buffer_raster_bind_group_layout();
         let resolve_depth_layout = gpu_scene.resolve_depth_bind_group_layout();
         let resolve_material_depth_layout = gpu_scene.resolve_material_depth_bind_group_layout();
+        let remap_1d_to_2d_dispatch_layout = gpu_scene.remap_1d_to_2d_dispatch_bind_group_layout();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
         Self {
@@ -406,6 +410,17 @@ impl FromWorld for MeshletPipelines {
                     }),
                 },
             ),
+
+            remap_1d_to_2d_dispatch: remap_1d_to_2d_dispatch_layout.map(|layout| {
+                pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                    label: Some("meshlet_remap_1d_to_2d_dispatch_pipeline".into()),
+                    layout: vec![layout],
+                    push_constant_ranges: vec![],
+                    shader: MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
+                    shader_defs: vec![],
+                    entry_point: "remap_dispatch".into(),
+                })
+            }),
         }
     }
 }
@@ -430,6 +445,7 @@ impl MeshletPipelines {
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
+        Option<&ComputePipeline>,
     )> {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
@@ -456,6 +472,10 @@ impl MeshletPipelines {
             pipeline_cache.get_render_pipeline(pipeline.resolve_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_depth_shadow_view)?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_material_depth)?,
+            match pipeline.remap_1d_to_2d_dispatch {
+                Some(id) => Some(pipeline_cache.get_compute_pipeline(id)?),
+                None => None,
+            },
         ))
     }
 }
