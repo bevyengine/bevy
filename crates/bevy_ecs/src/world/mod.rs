@@ -1138,7 +1138,7 @@ impl World {
             entity.despawn();
             true
         } else {
-            warn!("{caller} error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
+            warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
             false
         }
     }

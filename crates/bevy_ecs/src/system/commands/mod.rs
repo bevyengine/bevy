@@ -971,7 +971,7 @@ impl EntityCommands<'_> {
         let caller = Location::caller();
         // SAFETY: same invariants as parent call
         self.add(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("{caller} error[B0003]: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>());
+            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>());
         })});
         self
     }
@@ -1322,7 +1322,7 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
                 caller,
             );
         } else {
-            panic!("{caller} error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
         }
     }
 }
