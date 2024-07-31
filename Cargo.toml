@@ -1526,6 +1526,17 @@ category = "Audio"
 wasm = true
 
 [[example]]
+name = "sound_effects"
+path = "examples/audio/sound_effects.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sound_effects]
+name = "Sound Effects"
+description = "Shows how to load and play randomized sound effects"
+category = "Audio"
+wasm = true
+
+[[example]]
 name = "soundtrack"
 path = "examples/audio/soundtrack.rs"
 doc-scrape-examples = true
