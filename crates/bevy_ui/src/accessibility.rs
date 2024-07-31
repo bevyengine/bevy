@@ -31,7 +31,7 @@ fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
             name = Some(values.join(" "));
         }
     }
-    name.map(|v| v.into_boxed_str())
+    name.map(String::into_boxed_str)
 }
 
 fn calc_bounds(
@@ -124,14 +124,14 @@ fn label_changed(
             .collect::<Vec<String>>();
         let name = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
-            accessible.set_role(Role::StaticText);
+            accessible.set_role(Role::Label);
             if let Some(name) = name {
                 accessible.set_name(name);
             } else {
                 accessible.clear_name();
             }
         } else {
-            let mut node = NodeBuilder::new(Role::StaticText);
+            let mut node = NodeBuilder::new(Role::Label);
             if let Some(name) = name {
                 node.set_name(name);
             }

@@ -1,7 +1,7 @@
 //! This example shows how to align the orientations of objects in 3D space along two axes using the `Transform::align` API.
 
 use bevy::color::palettes::basic::{GRAY, RED, WHITE};
-use bevy::input::mouse::{MouseButtonInput, MouseMotion};
+use bevy::input::mouse::{AccumulatedMouseMotion, MouseButtonInput};
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -209,8 +209,8 @@ fn handle_keypress(
 
 // Handle user mouse input for panning the camera around
 fn handle_mouse(
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut motion_events: EventReader<MouseMotion>,
     mut camera: Query<&mut Transform, With<Camera>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
@@ -226,11 +226,11 @@ fn handle_mouse(
     if !mouse_pressed.0 {
         return;
     }
-    let displacement = motion_events
-        .read()
-        .fold(0., |acc, mouse_motion| acc + mouse_motion.delta.x);
-    let mut camera_transform = camera.single_mut();
-    camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 75.));
+    if accumulated_mouse_motion.delta != Vec2::ZERO {
+        let displacement = accumulated_mouse_motion.delta.x;
+        let mut camera_transform = camera.single_mut();
+        camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(-displacement / 75.));
+    }
 }
 
 // Helper functions (i.e. non-system functions)

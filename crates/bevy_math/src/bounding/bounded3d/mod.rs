@@ -4,7 +4,7 @@ mod primitive_impls;
 use glam::Mat3;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::{Quat, Vec3, Vec3A};
+use crate::{Isometry3d, Quat, Vec3A};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -24,12 +24,12 @@ fn point_cloud_3d_center(points: impl Iterator<Item = impl Into<Vec3A>>) -> Vec3
     acc / len as f32
 }
 
-/// A trait with methods that return 3D bounded volumes for a shape
+/// A trait with methods that return 3D bounding volumes for a shape.
 pub trait Bounded3d {
-    /// Get an axis-aligned bounding box for the shape with the given translation and rotation
-    fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d;
-    /// Get a bounding sphere for the shape with the given translation and rotation
-    fn bounding_sphere(&self, translation: Vec3, rotation: Quat) -> BoundingSphere;
+    /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
+    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d;
+    /// Get a bounding sphere for the shape translated and rotated by the given isometry.
+    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere;
 }
 
 /// A 3D axis-aligned bounding box
@@ -55,19 +55,18 @@ impl Aabb3d {
     }
 
     /// Computes the smallest [`Aabb3d`] containing the given set of points,
-    /// transformed by `translation` and `rotation`.
+    /// transformed by the rotation and translation of the given isometry.
     ///
     /// # Panics
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
     pub fn from_point_cloud(
-        translation: impl Into<Vec3A>,
-        rotation: Quat,
+        isometry: Isometry3d,
         points: impl Iterator<Item = impl Into<Vec3A>>,
     ) -> Aabb3d {
         // Transform all points by rotation
-        let mut iter = points.map(|point| rotation * point.into());
+        let mut iter = points.map(|point| isometry.rotation * point.into());
 
         let first = iter
             .next()
@@ -77,10 +76,9 @@ impl Aabb3d {
             (point.min(prev_min), point.max(prev_max))
         });
 
-        let translation = translation.into();
         Aabb3d {
-            min: min + translation,
-            max: max + translation,
+            min: min + isometry.translation,
+            max: max + isometry.translation,
         }
     }
 
@@ -473,13 +471,12 @@ impl BoundingSphere {
     }
 
     /// Computes a [`BoundingSphere`] containing the given set of points,
-    /// transformed by `translation` and `rotation`.
+    /// transformed by the rotation and translation of the given isometry.
     ///
     /// The bounding sphere is not guaranteed to be the smallest possible.
     #[inline(always)]
     pub fn from_point_cloud(
-        translation: impl Into<Vec3A>,
-        rotation: Quat,
+        isometry: Isometry3d,
         points: &[impl Copy + Into<Vec3A>],
     ) -> BoundingSphere {
         let center = point_cloud_3d_center(points.iter().map(|v| Into::<Vec3A>::into(*v)));
@@ -493,10 +490,7 @@ impl BoundingSphere {
             }
         }
 
-        BoundingSphere::new(
-            rotation * center + translation.into(),
-            radius_squared.sqrt(),
-        )
+        BoundingSphere::new(isometry * center, radius_squared.sqrt())
     }
 
     /// Get the radius of the bounding sphere

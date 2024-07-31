@@ -1,5 +1,5 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
+    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Set, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
@@ -223,6 +223,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
+            ReflectRef::Set(value) => SetSerializer {
+                set: value,
+                registry: self.registry,
+            }
+            .serialize(serializer),
             ReflectRef::Enum(value) => EnumSerializer {
                 enum_value: value,
                 registry: self.registry,
@@ -282,7 +287,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_struct(
             struct_info.type_path_table().ident().unwrap(),
             self.struct_value.field_len() - ignored_len,
@@ -335,7 +340,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_tuple_struct(
             tuple_struct_info.type_path_table().ident().unwrap(),
             self.tuple_struct.field_len() - ignored_len,
@@ -498,6 +503,24 @@ impl<'a> Serialize for MapSerializer<'a> {
                 &TypedReflectSerializer::new(key, self.registry),
                 &TypedReflectSerializer::new(value, self.registry),
             )?;
+        }
+        state.end()
+    }
+}
+
+pub struct SetSerializer<'a> {
+    pub set: &'a dyn Set,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for SetSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.set.len()))?;
+        for value in self.set.iter() {
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
     }

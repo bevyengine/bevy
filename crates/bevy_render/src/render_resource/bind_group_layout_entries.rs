@@ -272,7 +272,7 @@ all_tuples_with_size!(impl_to_indexed_binding_type_slice, 1, 32, T, n, s);
 
 impl<const N: usize> IntoBindGroupLayoutEntryBuilderArray<N> for [BindGroupLayoutEntry; N] {
     fn into_array(self) -> [BindGroupLayoutEntryBuilder; N] {
-        self.map(|x| x.into_bind_group_layout_entry_builder())
+        self.map(IntoBindGroupLayoutEntryBuilder::into_bind_group_layout_entry_builder)
     }
 }
 

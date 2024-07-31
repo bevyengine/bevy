@@ -61,7 +61,7 @@ impl Default for Viewport {
     fn default() -> Self {
         Self {
             physical_position: Default::default(),
-            physical_size: Default::default(),
+            physical_size: UVec2::new(1, 1),
             depth: 0.0..1.0,
         }
     }
@@ -211,7 +211,6 @@ pub struct Camera {
     #[reflect(ignore)]
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
-    #[reflect(ignore)]
     pub target: RenderTarget,
     /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
     /// This allows rendering with a wider range of lighting values.
@@ -510,8 +509,8 @@ impl Default for CameraOutputMode {
 }
 
 /// Configures the [`RenderGraph`](crate::render_graph::RenderGraph) name assigned to be run for a given [`Camera`] entity.
-#[derive(Component, Deref, DerefMut, Reflect, Clone)]
-#[reflect_value(Component)]
+#[derive(Component, Debug, Deref, DerefMut, Reflect, Clone)]
+#[reflect_value(Component, Debug)]
 pub struct CameraRenderGraph(InternedRenderSubGraph);
 
 impl CameraRenderGraph {
@@ -541,6 +540,12 @@ pub enum RenderTarget {
     TextureView(ManualTextureViewHandle),
 }
 
+impl Default for RenderTarget {
+    fn default() -> Self {
+        Self::Window(Default::default())
+    }
+}
+
 impl From<Handle<Image>> for RenderTarget {
     fn from(handle: Handle<Image>) -> Self {
         Self::Image(handle)
@@ -559,12 +564,6 @@ pub enum NormalizedRenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
-}
-
-impl Default for RenderTarget {
-    fn default() -> Self {
-        Self::Window(Default::default())
-    }
 }
 
 impl RenderTarget {
@@ -901,7 +900,7 @@ pub fn extract_cameras(
                     // this will be set in sort_cameras
                     sorted_camera_index_for_target: 0,
                     exposure: exposure
-                        .map(|e| e.exposure())
+                        .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr: camera.hdr,
                 },

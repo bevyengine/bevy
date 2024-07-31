@@ -122,7 +122,7 @@ impl TaskPool {
 
     /// Each thread should only create one `ThreadExecutor`, otherwise, there are good chances they will deadlock
     pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
-        Self::THREAD_EXECUTOR.with(|executor| executor.clone())
+        Self::THREAD_EXECUTOR.with(Clone::clone)
     }
 
     /// Create a `TaskPool` with the default configuration.

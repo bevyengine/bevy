@@ -1,20 +1,25 @@
 mod parallel_scope;
 
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
+
 use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
-    component::ComponentId,
+    component::{ComponentId, ComponentInfo},
     entity::{Entities, Entity},
     event::Event,
     observer::{Observer, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
-    world::command_queue::RawCommandQueue,
-    world::{Command, CommandQueue, EntityWorldMut, FromWorld, World},
+    world::{
+        command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
+        SpawnBatchIter, World,
+    },
 };
+use bevy_ptr::OwningPtr;
 use bevy_utils::tracing::{error, info};
 pub use parallel_scope::*;
-use std::marker::PhantomData;
 
 /// A [`Command`] queue to perform structural changes to the [`World`].
 ///
@@ -236,8 +241,7 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
-    /// and returns its corresponding [`EntityCommands`].
+    /// Reserves a new empty [`Entity`] to be spawned, and returns its corresponding [`EntityCommands`].
     ///
     /// See [`World::spawn_empty`] for more details.
     ///
@@ -353,6 +357,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
     /// - [`spawn_batch`](Self::spawn_batch) to spawn entities with a bundle each.
+    #[track_caller]
     pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
         let mut e = self.spawn_empty();
         e.insert(bundle);
@@ -489,6 +494,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// - [`spawn`](Self::spawn) to spawn an entity with a bundle.
     /// - [`spawn_empty`](Self::spawn_empty) to spawn an entity without any components.
+    #[track_caller]
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
@@ -534,6 +540,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Spawning a specific `entity` value is rarely the right choice. Most apps should use [`Commands::spawn_batch`].
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
+    #[track_caller]
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
@@ -566,6 +573,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(initialise_scoreboard);
     /// ```
+    #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
         self.push(init_resource::<R>);
     }
@@ -595,6 +603,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
+    #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, resource: R) {
         self.push(insert_resource(resource));
     }
@@ -751,13 +760,21 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Sends a "global" [`Trigger`] without any targets. This will run any [`Observer`] of the `event` that
     /// isn't scoped to specific targets.
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
     pub fn trigger(&mut self, event: impl Event) {
         self.add(TriggerEvent { event, targets: () });
     }
 
     /// Sends a [`Trigger`] for the given targets. This will run any [`Observer`] of the `event` that
     /// watches those targets.
-    pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
+    pub fn trigger_targets(
+        &mut self,
+        event: impl Event,
+        targets: impl TriggerTargets + Send + Sync + 'static,
+    ) {
         self.add(TriggerEvent { event, targets });
     }
 
@@ -825,34 +842,20 @@ impl<'w, 's> Commands<'w, 's> {
 /// ```
 pub trait EntityCommand<Marker = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
-    fn apply(self, id: Entity, world: &mut World);
+    fn apply(self, entity: Entity, world: &mut World);
+
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
-    fn with_entity(self, id: Entity) -> WithEntity<Marker, Self>
+    ///
+    /// This method is called when adding an [`EntityCommand`] to a command queue via [`Commands`].
+    /// You can override the provided implementation if you can return a `Command` with a smaller memory
+    /// footprint than `(Entity, Self)`.
+    /// In most cases the provided implementation is sufficient.
+    #[must_use = "commands do nothing unless applied to a `World`"]
+    fn with_entity(self, entity: Entity) -> impl Command
     where
         Self: Sized,
     {
-        WithEntity {
-            cmd: self,
-            id,
-            marker: PhantomData,
-        }
-    }
-}
-
-/// Turns an [`EntityCommand`] type into a [`Command`] type.
-pub struct WithEntity<Marker, C: EntityCommand<Marker>> {
-    cmd: C,
-    id: Entity,
-    marker: PhantomData<fn() -> Marker>,
-}
-
-impl<M, C: EntityCommand<M>> Command for WithEntity<M, C>
-where
-    M: 'static,
-{
-    #[inline]
-    fn apply(self, world: &mut World) {
-        self.cmd.apply(self.id, world);
+        move |world: &mut World| self.apply(entity, world)
     }
 }
 
@@ -941,8 +944,53 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
+    #[track_caller]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(insert(bundle))
+    }
+
+    /// Adds a dynamic component to an entity.
+    ///
+    /// See [`EntityWorldMut::insert_by_id`] for more information.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
+    /// To avoid a panic in this case, use the command [`Self::try_insert_by_id`] instead.
+    ///
+    /// # Safety
+    ///
+    /// - [`ComponentId`] must be from the same world as `self`.
+    /// - `T` must have the same layout as the one passed during `component_id` creation.
+    pub unsafe fn insert_by_id<T: Send + 'static>(
+        &mut self,
+        component_id: ComponentId,
+        value: T,
+    ) -> &mut Self {
+        // SAFETY: same invariants as parent call
+        self.add(unsafe {insert_by_id(component_id, value, move |entity| {
+            panic!("error[B0003]: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>());
+        })});
+        self
+    }
+
+    /// Attempts to add a dynamic component to an entity.
+    ///
+    /// See [`EntityWorldMut::insert_by_id`] for more information.
+    ///
+    /// # Safety
+    ///
+    /// - [`ComponentId`] must be from the same world as `self`.
+    /// - `T` must have the same layout as the one passed during `component_id` creation.
+    pub unsafe fn try_insert_by_id<T: Send + 'static>(
+        &mut self,
+        component_id: ComponentId,
+        value: T,
+    ) -> &mut Self {
+        // SAFETY: same invariants as parent call
+        self.add(unsafe { insert_by_id(component_id, value, |_| {}) });
+        self
     }
 
     /// Tries to add a [`Bundle`] of components to the entity.
@@ -993,6 +1041,7 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
+    #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(try_insert(bundle))
     }
@@ -1159,7 +1208,7 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
-    /// Creates an [`Observer`](crate::observer::Observer) listening for a trigger of type `T` that targets this entity.
+    /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
@@ -1199,13 +1248,21 @@ where
 /// A [`Command`] that consumes an iterator of [`Bundle`]s to spawn a series of entities.
 ///
 /// This is more efficient than spawning the entities individually.
+#[track_caller]
 fn spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator<Item = B> + Send + Sync + 'static,
     B: Bundle,
 {
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
     move |world: &mut World| {
-        world.spawn_batch(bundles_iter);
+        SpawnBatchIter::new(
+            world,
+            bundles_iter.into_iter(),
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
     }
 }
 
@@ -1213,13 +1270,20 @@ where
 /// If any entities do not already exist in the world, they will be spawned.
 ///
 /// This is more efficient than inserting the bundles individually.
+#[track_caller]
 fn insert_or_spawn_batch<I, B>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
+    #[cfg(feature = "track_change_detection")]
+    let caller = core::panic::Location::caller();
     move |world: &mut World| {
-        if let Err(invalid_entities) = world.insert_or_spawn_batch(bundles_iter) {
+        if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
+            bundles_iter,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        ) {
             error!(
                 "Failed to 'insert or spawn' bundle of type {} into the following invalid entities: {:?}",
                 std::any::type_name::<B>(),
@@ -1241,21 +1305,60 @@ fn despawn(entity: Entity, world: &mut World) {
 }
 
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
+#[track_caller]
 fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
+    #[cfg(feature = "track_change_detection")]
+    let caller = core::panic::Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.insert(bundle);
+            entity.insert_with_caller(
+                bundle,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
         }
     }
 }
 
 /// An [`EntityCommand`] that attempts to add the components in a [`Bundle`] to an entity.
+#[track_caller]
 fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
+    #[cfg(feature = "track_change_detection")]
+    let caller = core::panic::Location::caller();
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
-            entity.insert(bundle);
+            entity.insert_with_caller(
+                bundle,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
+        }
+    }
+}
+
+/// An [`EntityCommand`] that attempts to add the dynamic component to an entity.
+///
+/// # Safety
+///
+/// - The returned `EntityCommand` must be queued for the world where `component_id` was created.
+/// - `T` must be the type represented by `component_id`.
+unsafe fn insert_by_id<T: Send + 'static>(
+    component_id: ComponentId,
+    value: T,
+    on_none_entity: impl FnOnce(Entity) + Send + 'static,
+) -> impl EntityCommand {
+    move |entity, world: &mut World| {
+        if let Some(mut entity) = world.get_entity_mut(entity) {
+            // SAFETY:
+            // - `component_id` safety is ensured by the caller
+            // - `ptr` is valid within the `make` block;
+            OwningPtr::make(value, |ptr| unsafe {
+                entity.insert_by_id(component_id, ptr);
+            });
+        } else {
+            on_none_entity(entity);
         }
     }
 }
@@ -1301,19 +1404,28 @@ fn retain<T: Bundle>(entity: Entity, world: &mut World) {
 
 /// A [`Command`] that inserts a [`Resource`] into the world using a value
 /// created with the [`FromWorld`] trait.
+#[track_caller]
 fn init_resource<R: Resource + FromWorld>(world: &mut World) {
     world.init_resource::<R>();
 }
 
 /// A [`Command`] that removes the [resource](Resource) `R` from the world.
+#[track_caller]
 fn remove_resource<R: Resource>(world: &mut World) {
     world.remove_resource::<R>();
 }
 
 /// A [`Command`] that inserts a [`Resource`] into the world.
+#[track_caller]
 fn insert_resource<R: Resource>(resource: R) -> impl Command {
+    #[cfg(feature = "track_change_detection")]
+    let caller = Location::caller();
     move |world: &mut World| {
-        world.insert_resource(resource);
+        world.insert_resource_with_caller(
+            resource,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
     }
 }
 
@@ -1321,9 +1433,9 @@ fn insert_resource<R: Resource>(resource: R) -> impl Command {
 fn log_components(entity: Entity, world: &mut World) {
     let debug_infos: Vec<_> = world
         .inspect_entity(entity)
-        .map(|component_info| component_info.name())
+        .map(ComponentInfo::name)
         .collect();
-    info!("Entity {:?}: {:?}", entity, debug_infos);
+    info!("Entity {entity}: {debug_infos:?}");
 }
 
 fn observe<E: Event, B: Bundle, M>(

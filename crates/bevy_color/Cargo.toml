@@ -1,6 +1,6 @@
 [package]
 name = "bevy_color"
-version = "0.14.0-dev"
+version = "0.15.0-dev"
 edition = "2021"
 description = "Types for representing and manipulating color values"
 homepage = "https://bevyengine.org"
@@ -10,8 +10,8 @@ keywords = ["bevy", "color"]
 rust-version = "1.76.0"
 
 [dependencies]
-bevy_math = { path = "../bevy_math", version = "0.14.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
+bevy_math = { path = "../bevy_math", version = "0.15.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "bevy",
 ], optional = true }
 bytemuck = { version = "1", features = ["derive"] }
@@ -28,5 +28,5 @@ serialize = ["serde"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
