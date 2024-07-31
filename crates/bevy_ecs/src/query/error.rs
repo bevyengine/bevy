@@ -11,7 +11,7 @@ pub enum QueryEntityError<'w> {
     /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity, UnsafeWorldCell<'w>),
     /// The given [`Entity`] does not exist.
-    NoSuchEntity(Entity),
+    NoSuchEntity(Entity, UnsafeWorldCell<'w>),
     /// The [`Entity`] was requested mutably more than once.
     ///
     /// See [`QueryState::get_many_mut`](crate::query::QueryState::get_many_mut) for an example.
@@ -30,7 +30,21 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
                 )?;
                 format_archetype(f, world, entity)
             }
-            Self::NoSuchEntity(entity) => write!(f, "The entity {entity} does not exist"),
+            Self::NoSuchEntity(entity, world) => {
+                #[cfg(feature = "track_change_detection")]
+                {
+                    if let Some(location) = world.entities().get_entity_spawned_despawned_by(entity)
+                    {
+                        write!(f, "The entity {entity} was despawned by {location}",)
+                    } else {
+                        write!(f, "The entity {entity} was never spawned",)
+                    }
+                }
+                #[cfg(not(feature = "track_change_detection"))]
+                {
+                    write!(f, "The entity {entity} does not exist")
+                }
+            }
             Self::AliasedMutability(entity) => write!(
                 f,
                 "The entity {entity} was requested mutably more than once"
@@ -47,7 +61,21 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
                 format_archetype(f, world, entity)?;
                 write!(f, ")")
             }
-            Self::NoSuchEntity(entity) => write!(f, "NoSuchEntity({entity})"),
+            Self::NoSuchEntity(entity, world) => {
+                #[cfg(feature = "track_change_detection")]
+                {
+                    if let Some(location) = world.entities().get_entity_spawned_despawned_by(entity)
+                    {
+                        write!(f, "NoSuchEntity({entity} despawned by {location})")
+                    } else {
+                        write!(f, "NoSuchEntity({entity} never spawned)",)
+                    }
+                }
+                #[cfg(not(feature = "track_change_detection"))]
+                {
+                    write!(f, "NoSuchEntity({entity})",)
+                }
+            }
             Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
         }
     }
@@ -79,7 +107,7 @@ impl<'w> PartialEq for QueryEntityError<'w> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::QueryDoesNotMatch(e1, _), Self::QueryDoesNotMatch(e2, _)) if e1 == e2 => true,
-            (Self::NoSuchEntity(e1), Self::NoSuchEntity(e2)) if e1 == e2 => true,
+            (Self::NoSuchEntity(e1, _), Self::NoSuchEntity(e2, _)) if e1 == e2 => true,
             (Self::AliasedMutability(e1), Self::AliasedMutability(e2)) if e1 == e2 => true,
             _ => false,
         }

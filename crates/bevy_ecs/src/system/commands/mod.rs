@@ -391,10 +391,16 @@ impl<'w, 's> Commands<'w, 's> {
     /// apps, and only when they have a scheme worked out to share an ID space (which doesn't happen
     /// by default).
     #[deprecated(since = "0.15.0", note = "use Commands::spawn instead")]
+    #[track_caller]
     pub fn get_or_spawn(&mut self, entity: Entity) -> EntityCommands {
+        #[cfg(feature = "track_change_detection")]
+        let caller = Location::caller();
         self.queue(move |world: &mut World| {
-            #[allow(deprecated)]
-            world.get_or_spawn(entity);
+            world.get_or_spawn_with_caller(
+                entity,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         });
         EntityCommands {
             entity,

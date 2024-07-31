@@ -14,6 +14,8 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 use derive_more::derive::{Display, Error};
 
@@ -271,6 +273,14 @@ impl<'w> EntityRef<'w> {
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
+    }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    /// In a removal hook or observer, this points to the despawn.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.0.get_spawned_despawned_by()
     }
 }
 
@@ -790,6 +800,14 @@ impl<'w> EntityMut<'w> {
         // - We have exclusive access to all components of this entity.
         unsafe { component_ids.fetch_mut(self.0) }
     }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    /// In a removal hook or observer, this points to the despawn.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.0.get_spawned_despawned_by()
+    }
 }
 
 impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
@@ -1181,7 +1199,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle,
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 
@@ -1195,7 +1213,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle,
             InsertMode::Keep,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 
@@ -1206,7 +1224,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: T,
         mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
@@ -1666,8 +1684,30 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns the current entity.
     ///
     /// See [`World::despawn`] for more details.
+    #[track_caller]
     pub fn despawn(self) {
+        self.despawn_with_caller(
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+
+    pub(crate) fn despawn_with_caller(
+        self,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) {
         let world = self.world;
+
+        #[cfg(feature = "track_change_detection")]
+        {
+            // SAFETY: No structural changes
+            unsafe {
+                world
+                    .entities_mut()
+                    .set_spawned_despawned_by(self.entity.index(), caller);
+            }
+        }
+
         let archetype = &world.archetypes[self.location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
@@ -1889,6 +1929,17 @@ impl<'w> EntityWorldMut<'w> {
         self.world
             .spawn(Observer::new(observer).with_entity(self.entity));
         self
+    }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    /// In a removal hook or observer, this points to the despawn.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.world()
+            .entities()
+            .get_entity_spawned_despawned_by(self.entity)
+            .unwrap()
     }
 }
 
@@ -2444,6 +2495,14 @@ impl<'w> FilteredEntityRef<'w> {
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
     }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    /// In a removal hook or observer, this points to the despawn.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.entity.get_spawned_despawned_by()
+    }
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
@@ -2748,6 +2807,14 @@ impl<'w> FilteredEntityMut<'w> {
             .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
             .flatten()
     }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    /// In a removal hook or observer, this points to the despawn.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.entity.get_spawned_despawned_by()
+    }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
@@ -2890,6 +2957,14 @@ where
             unsafe { self.entity.get_ref() }
         }
     }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    /// In a removal hook or observer, this points to the despawn.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.entity.get_spawned_despawned_by()
+    }
 }
 
 impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
@@ -2998,6 +3073,14 @@ where
             unsafe { self.entity.get_mut() }
         }
     }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned. Returns `None` if this entity has never existed.
+    /// In a removal hook or observer, this points to the despawn.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_spawned_despawned_by(&self) -> &'static Location<'static> {
+        self.entity.get_spawned_despawned_by()
+    }
 }
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
@@ -3056,7 +3139,7 @@ unsafe fn insert_dynamic_bundle<
             bundle,
             InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            Location::caller(),
         )
     }
 }
@@ -3476,8 +3559,15 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 #[cfg(test)]
 mod tests {
     use bevy_ptr::{OwningPtr, Ptr};
+    use bevy_utils::default;
     use core::panic::AssertUnwindSafe;
+    use core::panic::Location;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use std::sync::OnceLock;
 
+    use crate::entity::Entities;
+    use crate::world::DeferredWorld;
     use crate::{
         self as bevy_ecs,
         change_detection::MutUntyped,
@@ -4481,5 +4571,48 @@ mod tests {
         y_component.0 -= 1;
 
         assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
+    }
+
+    #[test]
+    fn update_despawned_by_before_hooks() {
+        let mut world = World::new();
+
+        #[derive(Component)]
+        #[component(on_remove = get_tracked)]
+        struct C;
+
+        static TRACKED: OnceLock<&'static Location<'static>> = OnceLock::new();
+        fn get_tracked(world: DeferredWorld, entity: Entity, _: ComponentId) {
+            TRACKED.get_or_init(|| {
+                world
+                    .entities
+                    .get_entity_spawned_despawned_by(entity)
+                    .unwrap()
+            });
+        }
+
+        #[track_caller]
+        fn caller_spawn(world: &mut World) -> (Entity, &'static Location<'static>) {
+            let caller = Location::caller();
+            (world.spawn(C).id(), caller)
+        }
+        let (entity, spawner) = caller_spawn(&mut world);
+
+        assert_eq!(
+            spawner,
+            world
+                .entities()
+                .get_entity_spawned_despawned_by(entity)
+                .unwrap()
+        );
+
+        #[track_caller]
+        fn caller_despawn(world: &mut World, entity: Entity) -> &'static Location<'static> {
+            world.despawn(entity);
+            Location::caller()
+        }
+        let despawner = caller_despawn(&mut world, entity);
+
+        assert_eq!(despawner, *TRACKED.get().unwrap());
     }
 }

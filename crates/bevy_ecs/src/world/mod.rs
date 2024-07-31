@@ -38,10 +38,10 @@ use crate::{
         ComponentInfo, ComponentTicks, Components, RequiredComponents, RequiredComponentsError,
         Tick,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityHashSet, EntityLocation},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryEntityError, QueryFilter, QueryState},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -947,6 +947,19 @@ impl World {
     #[inline]
     #[deprecated(since = "0.15.0", note = "use `World::spawn` instead")]
     pub fn get_or_spawn(&mut self, entity: Entity) -> Option<EntityWorldMut> {
+        self.get_or_spawn_with_caller(
+            entity,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        )
+    }
+
+    #[inline]
+    pub(crate) fn get_or_spawn_with_caller(
+        &mut self,
+        entity: Entity,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> Option<EntityWorldMut> {
         self.flush();
         match self.entities.alloc_at_without_replacement(entity) {
             AllocAtWithoutReplacement::Exists(location) => {
@@ -955,7 +968,13 @@ impl World {
             }
             AllocAtWithoutReplacement::DidNotExist => {
                 // SAFETY: entity was just allocated
-                Some(unsafe { self.spawn_at_empty_internal(entity) })
+                Some(unsafe {
+                    self.spawn_at_empty_internal(
+                        entity,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    )
+                })
             }
             AllocAtWithoutReplacement::ExistsWithWrongGeneration => None,
         }
@@ -1149,124 +1168,6 @@ impl World {
         })
     }
 
-    /// Gets mutable access to multiple entities.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let [entity1, entity2] = world.get_many_entities_mut([id1, id2]).unwrap();
-    ///
-    /// // Trying to access the same entity multiple times will fail.
-    /// assert!(world.get_many_entities_mut([id1, id1]).is_err());
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::get_entity_mut::<[Entity; N]>` instead"
-    )]
-    pub fn get_many_entities_mut<const N: usize>(
-        &mut self,
-        entities: [Entity; N],
-    ) -> Result<[EntityMut<'_>; N], QueryEntityError<'_>> {
-        self.get_entity_mut(entities).map_err(|e| match e {
-            EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
-            EntityFetchError::AliasedMutability(entity) => {
-                QueryEntityError::AliasedMutability(entity)
-            }
-        })
-    }
-
-    /// Gets mutable access to multiple entities, whose number is determined at runtime.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world,
-    /// or if the same entity is specified multiple times.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// // Disjoint mutable access.
-    /// let mut entities = world.get_many_entities_dynamic_mut(&[id1, id2]).unwrap();
-    /// let entity1 = entities.get_mut(0).unwrap();
-    ///
-    /// // Trying to access the same entity multiple times will fail.
-    /// assert!(world.get_many_entities_dynamic_mut(&[id1, id1]).is_err());
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::get_entity_mut::<&[Entity]>` instead"
-    )]
-    pub fn get_many_entities_dynamic_mut<'w>(
-        &'w mut self,
-        entities: &[Entity],
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
-        self.get_entity_mut(entities).map_err(|e| match e {
-            EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
-            EntityFetchError::AliasedMutability(entity) => {
-                QueryEntityError::AliasedMutability(entity)
-            }
-        })
-    }
-
-    /// Gets mutable access to multiple entities, contained in a [`EntityHashSet`].
-    /// The uniqueness of items in a [`EntityHashSet`] allows us to avoid checking for duplicates.
-    ///
-    /// # Errors
-    ///
-    /// If any entities do not exist in the world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_ecs::entity::EntityHash;
-    /// # use bevy_ecs::entity::EntityHashSet;
-    /// # use bevy_utils::hashbrown::HashSet;
-    /// # use bevy_utils::hashbrown::hash_map::DefaultHashBuilder;
-    /// # let mut world = World::new();
-    /// # let id1 = world.spawn_empty().id();
-    /// # let id2 = world.spawn_empty().id();
-    /// let s = EntityHash::default();
-    /// let mut set = EntityHashSet::with_hasher(s);
-    /// set.insert(id1);
-    /// set.insert(id2);
-    ///
-    /// // Disjoint mutable access.
-    /// let mut entities = world.get_many_entities_from_set_mut(&set).unwrap();
-    /// let entity1 = entities.get_mut(0).unwrap();
-    /// ```
-    #[deprecated(
-        since = "0.15.0",
-        note = "Use `World::get_entity_mut::<&EntityHashSet>` instead."
-    )]
-    pub fn get_many_entities_from_set_mut<'w>(
-        &'w mut self,
-        entities: &EntityHashSet,
-    ) -> Result<Vec<EntityMut<'w>>, QueryEntityError<'w>> {
-        self.get_entity_mut(entities)
-            .map(|fetched| fetched.into_values().collect())
-            .map_err(|e| match e {
-                EntityFetchError::NoSuchEntity(entity) => QueryEntityError::NoSuchEntity(entity),
-                EntityFetchError::AliasedMutability(entity) => {
-                    QueryEntityError::AliasedMutability(entity)
-                }
-            })
-    }
-
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
     /// to add components to the entity or retrieve its id.
     ///
@@ -1292,11 +1193,18 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 0.0);
     /// ```
+    #[track_caller]
     pub fn spawn_empty(&mut self) -> EntityWorldMut {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
-        unsafe { self.spawn_at_empty_internal(entity) }
+        unsafe {
+            self.spawn_at_empty_internal(
+                entity,
+                #[cfg(feature = "track_change_detection")]
+                Location::caller(),
+            )
+        }
     }
 
     /// Spawns a new [`Entity`] with a given [`Bundle`] of [components](`Component`) and returns
@@ -1377,23 +1285,33 @@ impl World {
             }
         };
 
+        #[cfg(feature = "track_change_detection")]
+        self.entities
+            .set_spawned_despawned_by(entity.index(), Location::caller());
+
         // SAFETY: entity and location are valid, as they were just created above
         unsafe { EntityWorldMut::new(self, entity, entity_location) }
     }
 
     /// # Safety
     /// must be called on an entity that was just allocated
-    unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityWorldMut {
+    unsafe fn spawn_at_empty_internal(
+        &mut self,
+        entity: Entity,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> EntityWorldMut {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
-        // SAFETY: entity index was just allocated
-        unsafe {
-            self.entities.set(entity.index(), location);
-        }
+        self.entities.set(entity.index(), location);
+
+        #[cfg(feature = "track_change_detection")]
+        self.entities
+            .set_spawned_despawned_by(entity.index(), caller);
+
         EntityWorldMut::new(self, entity, location)
     }
 
@@ -1526,7 +1444,10 @@ impl World {
     ) -> bool {
         self.flush();
         if let Ok(entity) = self.get_entity_mut(entity) {
-            entity.despawn();
+            entity.despawn_with_caller(
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
             true
         } else {
             if log_warning {

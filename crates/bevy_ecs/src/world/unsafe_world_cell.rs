@@ -20,6 +20,8 @@ use crate::{
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
+#[cfg(feature = "track_change_detection")]
+use core::panic::Location;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -930,9 +932,7 @@ impl<'w> UnsafeEntityCell<'w> {
             None
         }
     }
-}
 
-impl<'w> UnsafeEntityCell<'w> {
     /// Gets the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API where possible and only
@@ -995,6 +995,16 @@ impl<'w> UnsafeEntityCell<'w> {
                 changed_by: _caller.deref_mut(),
             })
         }
+    }
+
+    /// Returns the source code location from which this entity has last been spawned
+    /// or despawned.
+    #[cfg(feature = "track_change_detection")]
+    pub fn get_spawned_despawned_by(self) -> &'static Location<'static> {
+        self.world()
+            .entities()
+            .get_entity_spawned_despawned_by(self.entity)
+            .unwrap()
     }
 }
 
