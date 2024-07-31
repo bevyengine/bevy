@@ -205,11 +205,14 @@ where
 
 #[cfg(test)]
 mod tests {
+    use bevy_app::App;
     use bevy_ecs::entity::{Entity, EntityHashMap, EntityMapper, MapEntities};
+    use bevy_ecs::observer::Trigger;
     use bevy_ecs::reflect::{ReflectMapEntitiesResource, ReflectResource};
-    use bevy_ecs::system::Resource;
+    use bevy_ecs::system::{Query, Resource};
+    use bevy_ecs::world::OnAdd;
     use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
-    use bevy_hierarchy::{Parent, PushChild};
+    use bevy_hierarchy::{BuildChildren, Children, Parent, PushChild};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
@@ -342,5 +345,53 @@ mod tests {
                 .get(),
             "something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
         );
+    }
+
+    #[test]
+    fn observers_should_see_mapped_entities() {
+        // Testing that Observers don't see the entities from the scene, but rather from the world itself.
+
+        let mut app = App::new();
+        app.init_resource::<AppTypeRegistry>()
+            .register_type::<Parent>()
+            .observe(|trigger: Trigger<OnAdd, Parent>, query: Query<&Parent>| {
+                let parent = query
+                    .get(trigger.entity())
+                    .expect("entity should have a parent");
+
+                assert_ne!(parent.get(), Entity::PLACEHOLDER);
+            });
+
+        let mut scene_world = World::new();
+        scene_world.insert_resource(app.world().resource::<AppTypeRegistry>().clone());
+
+        for _ in 0..5 {
+            scene_world.spawn_empty();
+        }
+
+        let scene_child = scene_world.spawn_empty().id();
+        let scene_parent = scene_world.spawn_empty().push_children(&[scene_child]).id();
+
+        app.observe(
+            move |trigger: Trigger<OnAdd, Parent>, query: Query<&Parent>| {
+                let parent = query
+                    .get(trigger.entity())
+                    .expect("entity should have a parent");
+
+                assert_ne!(parent.get(), scene_parent);
+            },
+        );
+
+        let scene = DynamicSceneBuilder::from_world(&scene_world)
+            .allow::<Parent>()
+            .allow::<Children>()
+            .extract_entities([scene_parent, scene_child].into_iter())
+            .build();
+
+        let mut entity_map = EntityHashMap::<Entity>::default();
+
+        scene
+            .write_to_world(app.world_mut(), &mut entity_map)
+            .expect("write scene to world");
     }
 }
