@@ -6,12 +6,15 @@
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-use self::{error::IdentifierError, kinds::IdKind, masks::IdentifierMask};
+use self::masks::IdentifierMask;
 use std::{hash::Hash, num::NonZero};
 
 pub mod error;
 pub(crate) mod kinds;
 pub(crate) mod masks;
+
+pub use self::error::IdentifierError;
+pub use self::kinds::IdKind;
 
 /// A unified identifier for all entity and similar IDs.
 ///

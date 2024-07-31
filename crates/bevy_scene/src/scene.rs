@@ -134,3 +134,60 @@ impl Scene {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_ecs::{
+        entity::{Entity, EntityHashMap},
+        observer::Trigger,
+        reflect::AppTypeRegistry,
+        system::Query,
+        world::{OnAdd, World},
+    };
+    use bevy_hierarchy::{BuildChildren, Children, Parent};
+
+    use crate::Scene;
+
+    #[test]
+    fn observers_should_see_mapped_entities() {
+        // Testing that Observers don't see the entities from the scene, but rather from the world itself.
+
+        let type_registry = AppTypeRegistry::default();
+        {
+            let mut registry_write = type_registry.write();
+            registry_write.register::<Parent>();
+            registry_write.register::<Children>();
+        }
+
+        let mut app = App::new();
+        app.insert_resource(type_registry.clone());
+
+        let mut scene_world = World::new();
+
+        for _ in 0..5 {
+            scene_world.spawn_empty();
+        }
+
+        let scene_child = scene_world.spawn_empty().id();
+        let scene_parent = scene_world.spawn_empty().add_children(&[scene_child]).id();
+
+        app.observe(
+            move |trigger: Trigger<OnAdd, Parent>, query: Query<&Parent>| {
+                let parent = query
+                    .get(trigger.entity())
+                    .expect("entity should have a parent");
+
+                assert_ne!(parent.get(), scene_parent);
+            },
+        );
+
+        let mut entity_map = EntityHashMap::<Entity>::default();
+
+        let scene = Scene { world: scene_world };
+
+        scene
+            .write_to_world_with(app.world_mut(), &mut entity_map, &type_registry)
+            .expect("write scene to world");
+    }
+}
