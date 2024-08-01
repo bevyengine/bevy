@@ -54,10 +54,7 @@ use crate::{graph::NodePbr, Material};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::{
-    core_3d::{
-        graph::{Core3d, Node3d},
-        Camera3d,
-    },
+    core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_ecs::{
@@ -70,7 +67,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, TextureUsages},
+    render_resource::Shader,
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{
@@ -316,7 +313,6 @@ pub type WithMeshletMesh = With<Handle<MeshletMesh>>;
 fn configure_meshlet_views(
     mut views_3d: Query<(
         Entity,
-        &mut Camera3d,
         &Msaa,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
@@ -324,16 +320,10 @@ fn configure_meshlet_views(
     )>,
     mut commands: Commands,
 ) {
-    for (entity, mut camera_3d, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        &mut views_3d
-    {
+    for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
         if *msaa != Msaa::Off {
             panic!("MeshletPlugin can't be used. MSAA is not supported.");
         }
-
-        let mut usages: TextureUsages = camera_3d.depth_texture_usages.into();
-        usages |= TextureUsages::TEXTURE_BINDING;
-        camera_3d.depth_texture_usages = usages.into();
 
         if !(normal_prepass || motion_vector_prepass || deferred_prepass) {
             commands
