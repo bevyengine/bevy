@@ -5,7 +5,7 @@ use bevy_ecs::{
     prelude::{Component, With},
     query::QueryData,
     reflect::ReflectComponent,
-    system::{Local, Query, Res},
+    system::{Commands, Local, Query, Res},
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
@@ -143,11 +143,54 @@ pub struct NodeQuery {
     target_camera: Option<&'static TargetCamera>,
 }
 
-/// A component that can be attached to a camera to pass mouse coordinates through to ui textures, allowing
-/// manual control of interactivity for world-space uis, or custom cursor position control for window-based uis.
-/// For optimal latency the contents should be updated in [`bevy_app::PreUpdate`], before [`crate::UiSystem::Focus`] and after [`bevy_input::InputSystem`].
+/// Stores the ui cursor coordinates for cameras, used internally for ui focus management.
+///
+/// For optimal ui latency the contents should be updated in [`bevy_app::PreUpdate`], after [`bevy_input::InputSystem`] and before [`ui_focus_system`].
+/// for window-based cameras this is set automatically in [`set_camera_window_cursor_position`].
 #[derive(Component, Default)]
-pub struct ManualCursorPosition(pub Option<Vec2>);
+pub struct CameraCursorPosition(pub Option<Vec2>);
+
+/// Set the cursor position for cameras that render to a Window.
+pub fn set_camera_window_cursor_position(
+    mut commands: Commands,
+    mut camera_query: Query<(Entity, &Camera, Option<&mut CameraCursorPosition>)>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
+    windows: Query<&Window>,
+    touches_input: Res<Touches>,
+    ui_scale: Res<UiScale>,
+) {
+    let primary_window = primary_window.iter().next();
+    for (camera_entity, camera, maybe_cursor) in &mut camera_query {
+        let maybe_window_ref = match camera.target.normalize(primary_window) {
+            Some(NormalizedRenderTarget::Window(w)) => Some(w),
+            _ => None,
+        };
+
+        let cursor_position = maybe_window_ref
+            .and_then(|w| windows.get(w.entity()).ok())
+            .and_then(Window::cursor_position)
+            .or_else(|| touches_input.first_pressed_position())
+            .map(|raw_cursor_position| {
+                let viewport_position = camera
+                    .logical_viewport_rect()
+                    .map(|rect| rect.min)
+                    .unwrap_or_default();
+
+                // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
+                // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
+                (raw_cursor_position - viewport_position) / ui_scale.0
+            });
+
+        // update or insert
+        if let Some(mut cursor) = maybe_cursor {
+            cursor.0 = cursor_position;
+        } else if let Some(pos) = cursor_position {
+            commands
+                .entity(camera_entity)
+                .insert(CameraCursorPosition(Some(pos)));
+        }
+    }
+}
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
@@ -155,18 +198,13 @@ pub struct ManualCursorPosition(pub Option<Vec2>);
 #[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
-    camera_query: Query<(Entity, &Camera, Option<&ManualCursorPosition>)>,
+    camera_query: Query<(Entity, &CameraCursorPosition)>,
     default_ui_camera: DefaultUiCamera,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-    windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
-    ui_scale: Res<UiScale>,
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
 ) {
-    let primary_window = primary_window.iter().next();
-
     // reset entities that were both clicked and released in the last frame
     for entity in state.entities_to_reset.drain(..) {
         if let Ok(NodeQueryItem {
@@ -195,32 +233,7 @@ pub fn ui_focus_system(
 
     let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
         .iter()
-        .filter_map(|(entity, camera, maybe_manual_cursor)| {
-            // Check for a manually specified cursor position
-            if let Some(manual_position) = maybe_manual_cursor {
-                return manual_position.0.map(|pos| (entity, pos));
-            }
-            // Interactions are only supported automatically for cameras rendering to a window.
-            let Some(NormalizedRenderTarget::Window(window_ref)) =
-                camera.target.normalize(primary_window)
-            else {
-                return None;
-            };
-
-            let viewport_position = camera
-                .logical_viewport_rect()
-                .map(|rect| rect.min)
-                .unwrap_or_default();
-            windows
-                .get(window_ref.entity())
-                .ok()
-                .and_then(Window::cursor_position)
-                .or_else(|| touches_input.first_pressed_position())
-                .map(|cursor_position| (entity, cursor_position - viewport_position))
-        })
-        // The cursor position returned by `Window` only takes into account the window scale factor and not `UiScale`.
-        // To convert the cursor position to logical UI viewport coordinates we have to divide it by `UiScale`.
-        .map(|(entity, cursor_position)| (entity, cursor_position / ui_scale.0))
+        .filter_map(|(entity, cursor)| cursor.0.map(|pos| (entity, pos)))
         .collect();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,

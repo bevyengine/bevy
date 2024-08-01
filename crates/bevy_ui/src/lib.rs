@@ -155,7 +155,9 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                (set_camera_window_cursor_position, ui_focus_system)
+                    .in_set(UiSystem::Focus)
+                    .after(InputSystem),
             );
 
         app.add_systems(

@@ -10,7 +10,7 @@ use bevy::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
     },
-    ui::{ManualCursorPosition, UiSystem},
+    ui::{CameraCursorPosition, UiSystem},
     window::PrimaryWindow,
 };
 
@@ -26,7 +26,7 @@ fn main() {
         .add_systems(Update, (button_system, move_quad_system))
         .add_systems(
             PreUpdate,
-            update_manual_cursor
+            update_ui_texture_cursor
                 .after(InputSystem) // after mouse input has been processed
                 .before(UiSystem::Focus), // before bevy_ui uses cursor positions to apply `Interaction`s to ui nodes.
         )
@@ -85,8 +85,9 @@ fn setup(
                 },
                 ..default()
             },
-            // add `ManualCursorPosition` which we will update in `update_manual_cursor`
-            ManualCursorPosition::default(),
+            // add `CameraCursorPosition` which we will update in `update_manual_cursor`
+            CameraCursorPosition::default(),
+            UiTextureCamera,
         ))
         .id();
 
@@ -160,27 +161,35 @@ fn setup(
     ));
 
     // The main pass camera.
-    commands
-        .spawn(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(-1.0, 1.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        })
-        .insert(CameraController {
+        },
+        CameraController {
             mouse_key_cursor_grab: MouseButton::Right,
             ..Default::default()
-        });
+        },
+        MainPassCamera,
+    ));
 }
+
+#[derive(Component)]
+struct MainPassCamera;
+
+#[derive(Component)]
+struct UiTextureCamera;
 
 #[derive(Component)]
 struct UiQuad;
 
 // calculate the manual cursor position for our in-world ui
-fn update_manual_cursor(
+fn update_ui_texture_cursor(
     quad: Query<&Transform, With<UiQuad>>,
-    main_pass_camera: Query<(&GlobalTransform, &Camera), Without<ManualCursorPosition>>,
+    main_pass_camera: Query<(&GlobalTransform, &Camera), With<MainPassCamera>>,
     main_window: Query<&Window, With<PrimaryWindow>>,
     touches_input: Res<Touches>,
-    mut position: Query<&mut ManualCursorPosition>,
+    mut position: Query<&mut CameraCursorPosition, With<UiTextureCamera>>,
 ) {
     // clear any previous cursor position
     position.single_mut().0 = None;
