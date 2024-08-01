@@ -20,7 +20,19 @@ use super::{In, IntoSystem, ReadOnlySystem, SystemBuilder};
 #[derive(Clone)]
 pub struct SystemMeta {
     pub(crate) name: Cow<'static, str>,
+    /// The set of component accesses for this system. This is used to determine
+    /// - soundness issues (e.g. multiple SystemParams mutably accessing the same component)
+    /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
+    /// This `Access` is used to determine which systems can run in parallel with each other
+    /// in the multithreaded executor.
+    ///
+    /// We use a `ArchetypeComponentId` as it is more precise than just checking `ComponentIds`:
+    /// for example if you have one system with `Query<&mut T, With<A>>` and one system with `Query<&mut T, With<B>>`
+    /// They conflict if you just look at the `ComponentId` of `T`; but if there's no archetypes with
+    /// both `A`, `B` and `T` then in practice there's no risk of conflict. By using `ArchetypeComponentId`
+    /// we can be more precise because we can check if the existing archetypes of the `World`
+    /// cause a conflict
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
