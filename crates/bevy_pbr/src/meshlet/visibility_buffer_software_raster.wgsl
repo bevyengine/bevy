@@ -130,7 +130,7 @@ fn rasterize_cluster(
 
             // Iterate scanline X interval
             for (var x = x0; x <= x1; x++) {
-                // Check if point at pixel is within triangle (not sure why this is needed for scanline)
+                // Check if point at pixel is within triangle (TODO: this shouldn't be needed, but there's bugs without it)
                 if min3(w[0], w[1], w[2]) >= 0.0 {
                     write_visibility_buffer_pixel(frag_coord_1d_row + x, z, packed_ids);
                 }
