@@ -83,14 +83,13 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
 
 pub(crate) fn despawn_fly_entity(
     world: &mut World,
-    mut state: SystemState<Query<Entity, With<RenderFlyEntity>>>,
+    state: &mut SystemState<Query<Entity, With<RenderFlyEntity>>>,
     mut local: Local<Vec<Entity>>,
 ) {
     let query = state.get(world);
 
     local.extend(query.iter());
     // ensure next frame allocation keeps order
-    // let mut entities: Vec<_> = query.iter().collect();
     local.sort_unstable_by_key(|e| e.index());
     for e in local.drain(..).rev() {
         world.despawn(e);
