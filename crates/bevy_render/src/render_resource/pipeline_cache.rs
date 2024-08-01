@@ -996,10 +996,8 @@ pub enum PipelineCacheError {
 
 // TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
 // https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
-// We use a modified version of the `create_validator` function because `naga_oil`'s composer stores the capabilities
-// and subgroup shader stages instead of a `Validator`.
-// We also can't use that function because `wgpu-core` isn't included in WebGPU builds.
-/// Get the device capabilities and subgroup support for use in `naga_oil`.
+// We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core` isn't included in WebGPU builds.
+/// Get the device's capabilities for use in `naga_oil`.
 fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
     let mut capabilities = Capabilities::empty();
     capabilities.set(
@@ -1044,6 +1042,16 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SHADER_INT64),
     );
     capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_MIN_MAX,
+        features.intersects(
+            Features::SHADER_INT64_ATOMIC_MIN_MAX | Features::SHADER_INT64_ATOMIC_ALL_OPS,
+        ),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_ALL_OPS,
+        features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
+    );
+    capabilities.set(
         Capabilities::MULTISAMPLED_SHADING,
         downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
     );
@@ -1062,6 +1070,10 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     capabilities.set(
         Capabilities::SUBGROUP_BARRIER,
         features.intersects(Features::SUBGROUP_BARRIER),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP_VERTEX_STAGE,
+        features.contains(Features::SUBGROUP_VERTEX),
     );
 
     capabilities
