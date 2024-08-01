@@ -2583,6 +2583,17 @@ category = "ECS (Entity Component System)"
 wasm = true
 
 [[example]]
+name = "responding_to_changes"
+path = "examples/ui/responding_to_changes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.reactivity]
+name = "Responding to Changes"
+description = "Demonstrates how and when to use change detection and `OnMutate` hooks and observers"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 doc-scrape-examples = true
@@ -2834,17 +2845,6 @@ doc-scrape-examples = true
 [package.metadata.example.ui]
 name = "UI"
 description = "Illustrates various features of Bevy UI"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "reactivity"
-path = "examples/ui/reactivity.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.reactivity]
-name = "Reactivity"
-description = "Demonstrates how to create reactive, automatically updating user interfaces in Bevy"
 category = "UI (User Interface)"
 wasm = true
 
