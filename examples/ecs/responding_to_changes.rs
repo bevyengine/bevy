@@ -1,53 +1,43 @@
-//! Reactivity is a technique that allows your UI to automatically update when the data that defines its state changes.
+//! Bevy has two primary ways to respond to changes in your ECS data:
 //!
-//! This example demonstrates how to use reactivity in Bevy with observers.
+//! 1. **Change detection:** whenever a component or resource is mutated, it will be flagged as changed.
+//! 2. **Hooks and observers:** whenever changes or lifecycle events occur, functions will be called to respond to them.
 //!
-//! There are a few key benefits to using reactivity in your UI:
+//! While similar, these two methods have different use cases and performance characteristics.
+//! Change detection is fundamentally a polling-based mechanism: changes need to be looked for proactively,
+//! and so the cost of change detection is paid every time the system runs (generally every frame),
+//! regardless of whether or not any changes have occurred.
 //!
-//! - **Deduplication of Spawning and Updating Logic**: When you spawn an entity, you can declare what its value should be.
-//! - **Automatic Updates**: When the data that defines your UI state changes, the UI will automatically update to reflect those changes.
-//! - **Widget-bound Behavior**: By defining the behavior of a widget in the same place as its data, you can simply spawn the widget and let the spawned observers handle the rest.
+//! By contrast, hooks and observers are event-driven: they only run when the event they're watching for occurs.
+//! However, each event is processed individually, increasing the overhead when many changes occur.
 //!
-//! # Observers
+//! As a result, change detection is better suited to use cases where large volumes of data are being processed,
+//! while hooks and observers are better suited to use cases where the data is relatively stable and changes are infrequent.
 //!
-//! Observers are a way to listen for and respond to entity-targeted events.
-//! In Bevy, they have several key properties:
+//! There are two more important differences. Firstly, change detection is triggered immediately when the change occurs,
+//! while hooks and observers are deferred until the next synchronization point where exclusive world access is available.
+//! In Bevy, systems are run in parallel by default, so synchronizing forces the scheduler to wait until
+//! all systems have finished running before proceeding and prevent systems before and after the sync point from running concurrently.
 //!
-//! - You can access both the event and the entity that the event is targeted at.
-//! - Observers can only be triggered via commands: any triggers will be deferred until the next synchronization point where exclusive world access is available.
-//! - Observers occur immediately after the event is triggered.
-//! - Observers can be used to trigger other events, creating a cascade of reactive updates.
-//! - Observers can be set to watch for events targeting a specific entity, or for any event of that type.
+//! Second, while change detection systems only run periodically,
+//! hooks and observers are checked after every mutation to the world during sync points.
 //!
-//! # Incrementalization
+//! Taken together, this means that change detection is good for periodic updates (but it's harder to avoid invalid state),
+//! while hooks and observers are good for immediate updates and can chain into other hooks/observers indefinitely,
+//! creating a cascade of reactions (but they need to wait until a sync point).
 //!
-//! In order to avoid recomputing the entire UI every frame, Bevy uses a technique called incrementalization.
-//! This means that Bevy will only update the parts of the UI that have changed.
+//! You might use change detection for:
 //!
-//! The key techniques here are **change detection**, which is tracked and triggered by the `Mut` and `ResMut` smart pointers,
-//! and **lifecycle hooks**, which are events emitted whenever components are added or removed (including when entities are spawned or despawned).
+//! - physics simulation
+//! - AI action planning
+//! - performance optimization in existing systems
 //!
-//! This gives us a very powerful set of standardized events that we can listen for and respond to:
+//! You might use hooks and observers for:
 //!
-//! - [`OnAdd`]: triggers when a matching component is added to an entity.
-//! - [`OnInsert`]: triggers when a component is added to or overwritten on an entity.
-//! - [`OnReplace`]: triggers when a component is removed from or overwritten on on an entity.
-//! - [`OnRemove`]: triggers when a component is removed from an entity.
-//!
-//! Note that "overwritten" has a specific meaning here: these are only triggered if the components value is changed via a new insertion operation.
-//! Ordinary mutations to the component's value will not trigger these events.
-//!
-//! However, we can opt into change-detection powered observers by calling `app.generate_on_mutate::<MyComponent>()`.
-//! This will watch for changes to the component and trigger a [`OnMutate`] event targeting the entity whose component has changed.
-//! It's important to note that mutations are observed whenever components are *added* to the entity as well,
-//! ensuring that reactive behavior is triggered even when the widget is first spawned.
-//!
-//! In addition, arbitrary events can be defined and triggered, which is an excellent pattern for behavior that requires a more complex or specialized response.
-//!
-//! # This example
-//!
-//! To demonstrate these concepts, we're going to create a simple UI that displays a counter.
-//! We'll then create a button that increments the counter when clicked.
+//! - complex logic in turn-based games
+//! - responding to user inputs
+//! - adding behavior to UI elements
+//! - upholding critical invariants, like hierarchical relationships (hooks are better suited than observers for this)
 
 use bevy::prelude::*;
 use on_mutate::{GenOnMutate, OnMutate};
