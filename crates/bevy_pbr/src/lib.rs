@@ -413,6 +413,12 @@ impl Plugin for PbrPlugin {
             .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
             .add_systems(
                 Render,
+                spawn_dir_view_light_entitiy
+                    .in_set(RenderSet::ManageViews)
+                    .before(prepare_lights),
+            )
+            .add_systems(
+                Render,
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)

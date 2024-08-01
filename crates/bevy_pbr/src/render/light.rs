@@ -1,6 +1,7 @@
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
@@ -398,6 +399,17 @@ pub fn extract_lights(
     }
 }
 
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ViewLightEntity(Vec<Entity>);
+pub fn spawn_dir_view_light_entitiy(
+    mut commands: Commands,
+    query: Query<Entity, (With<ExtractedDirectionalLight>, Without<ViewLightEntity>)>,
+) {
+    query.iter().for_each(|e| {
+        commands.entity(e).insert(ViewLightEntity::default());
+    })
+}
+
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
 
 pub(crate) struct CubeMapFace {
@@ -567,14 +579,17 @@ pub fn prepare_lights(
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
-    mut max_directional_lights_warning_emitted: Local<bool>,
-    mut max_cascades_per_light_warning_emitted: Local<bool>,
+    (mut max_directional_lights_warning_emitted, mut max_cascades_per_light_warning_emitted): (
+        Local<bool>,
+        Local<bool>,
+    ),
     point_lights: Query<(
         Entity,
         &ExtractedPointLight,
         AnyOf<(&CubemapFrusta, &Frustum)>,
     )>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
+    mut view_light_entites: Query<&mut ViewLightEntity>,
     mut live_shadow_mapping_lights: Local<EntityHashSet>,
 ) {
     let views_iter = views.iter();
@@ -1043,6 +1058,9 @@ pub fn prepare_lights(
         {
             let gpu_light = &mut gpu_lights.directional_lights[light_index];
 
+            let Ok(mut view_light_entites) = view_light_entites.get_mut(light_entity) else {
+                continue;
+            };
             // Check if the light intersects with the view.
             if !view_layers.intersects(&light.render_layers) {
                 gpu_light.skip = 1u32;
@@ -1066,10 +1084,16 @@ pub fn prepare_lights(
                 .unwrap()
                 .iter()
                 .take(MAX_CASCADES_PER_LIGHT);
-            for (cascade_index, ((cascade, frustum), bound)) in cascades
+
+            let iter = cascades
                 .zip(frusta)
-                .zip(&light.cascade_shadow_config.bounds)
-                .enumerate()
+                .zip(&light.cascade_shadow_config.bounds);
+            while view_light_entites.len() < iter.len() {
+                view_light_entites.push(commands.spawn_empty().id());
+            }
+
+            for (cascade_index, (((cascade, frustum), bound), view_light_entity)) in
+                iter.zip(view_light_entites.iter().copied()).enumerate()
             {
                 gpu_lights.directional_lights[light_index].cascades[cascade_index] =
                     GpuDirectionalCascade {
@@ -1098,34 +1122,32 @@ pub fn prepare_lights(
                 frustum.half_spaces[4] =
                     HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
 
-                let view_light_entity = commands
-                    .spawn((
-                        ShadowView {
-                            depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
-                            pass_name: format!(
-                                "shadow pass directional light {light_index} cascade {cascade_index}"),
-                        },
-                        ExtractedView {
-                            viewport: UVec4::new(
-                                0,
-                                0,
-                                directional_light_shadow_map.size as u32,
-                                directional_light_shadow_map.size as u32,
-                            ),
-                            world_from_view: GlobalTransform::from(cascade.world_from_cascade),
-                            clip_from_view: cascade.clip_from_cascade,
-                            clip_from_world: Some(cascade.clip_from_world),
-                            hdr: false,
-                            color_grading: Default::default(),
-                        },
-                        frustum,
-                        LightEntity::Directional {
-                            light_entity,
-                            cascade_index,
-                        },
-                        RenderFlyEntity
-                    ))
-                    .id();
+                commands.entity(view_light_entity).insert((
+                    ShadowView {
+                        depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
+                        pass_name: format!(
+                            "shadow pass directional light {light_index} cascade {cascade_index}"
+                        ),
+                    },
+                    ExtractedView {
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            directional_light_shadow_map.size as u32,
+                            directional_light_shadow_map.size as u32,
+                        ),
+                        world_from_view: GlobalTransform::from(cascade.world_from_cascade),
+                        clip_from_view: cascade.clip_from_cascade,
+                        clip_from_world: Some(cascade.clip_from_world),
+                        hdr: false,
+                        color_grading: Default::default(),
+                    },
+                    frustum,
+                    LightEntity::Directional {
+                        light_entity,
+                        cascade_index,
+                    },
+                ));
                 view_lights.push(view_light_entity);
 
                 shadow_render_phases.insert_or_clear(view_light_entity);
