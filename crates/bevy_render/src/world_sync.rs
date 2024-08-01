@@ -9,7 +9,7 @@ use bevy_ecs::{
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
-    system::{Query, ResMut, Resource},
+    system::{Local, Query, ResMut, Resource, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
 use bevy_hierarchy::DespawnRecursiveExt;
@@ -23,6 +23,7 @@ pub struct ToRenderWorld;
 #[derive(Component, Deref, Clone, Debug, Copy)]
 pub struct RenderEntity(Entity);
 impl RenderEntity {
+    #[inline]
     pub fn id(&self) -> Entity {
         self.0
     }
@@ -31,6 +32,7 @@ impl RenderEntity {
 #[derive(Component, Deref, Clone, Debug)]
 pub struct MainEntity(Entity);
 impl MainEntity {
+    #[inline]
     pub fn id(&self) -> Entity {
         self.0
     }
@@ -79,13 +81,18 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
-pub(crate) fn despawn_fly_entity(world: &mut World) {
-    let mut query = world.query_filtered::<Entity, With<RenderFlyEntity>>();
+pub(crate) fn despawn_fly_entity(
+    world: &mut World,
+    mut state: SystemState<Query<Entity, With<RenderFlyEntity>>>,
+    mut local: Local<Vec<Entity>>,
+) {
+    let query = state.get(world);
 
+    local.extend(query.iter());
     // ensure next frame allocation keeps order
-    let mut entities: Vec<_> = query.iter(world).collect();
-    entities.sort_unstable_by_key(|e| e.index());
-    for e in entities.into_iter().rev() {
+    // let mut entities: Vec<_> = query.iter().collect();
+    local.sort_unstable_by_key(|e| e.index());
+    for e in local.drain(..).rev() {
         world.despawn(e);
     }
 }
