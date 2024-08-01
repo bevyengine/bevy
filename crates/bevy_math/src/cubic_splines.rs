@@ -1062,6 +1062,11 @@ impl CubicSegment<Vec2> {
 /// [`CubicBezier`].
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct CubicCurve<P: VectorSpace> {
     /// The segments comprising the curve. This must always be nonempty.
     segments: Vec<CubicSegment<P>>,
