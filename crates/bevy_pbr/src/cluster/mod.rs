@@ -2,6 +2,7 @@
 
 use std::num::NonZeroU64;
 
+use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
@@ -348,7 +349,7 @@ impl Clusters {
 
 pub fn add_clusters(
     mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), Without<Clusters>>,
+    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
 ) {
     for (entity, config, camera) in &cameras {
         if !camera.is_active {
