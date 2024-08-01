@@ -81,7 +81,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
+    /// # use bevy_text::{Font, Text, TextStyle, JustifyText, TextSection};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #

@@ -248,6 +248,7 @@ fn setup(
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
+                flex_direction: FlexDirection::Column,
                 ..default()
             },
             ..default()
@@ -308,9 +309,30 @@ fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
     mut exposure: Query<&mut Exposure>,
-    mut aperture_text: Query<&mut Text, With<ApertureText>>,
-    mut shutter_text: Query<&mut Text, With<ShutterSpeedText>>,
-    mut sensitivity_text: Query<&mut Text, With<SensitivityText>>,
+    mut aperture_text: Query<
+        &mut Text,
+        (
+            With<ApertureText>,
+            Without<ShutterSpeedText>,
+            Without<SensitivityText>,
+        ),
+    >,
+    mut shutter_text: Query<
+        &mut Text,
+        (
+            With<ShutterSpeedText>,
+            Without<ApertureText>,
+            Without<SensitivityText>,
+        ),
+    >,
+    mut sensitivity_text: Query<
+        &mut Text,
+        (
+            With<SensitivityText>,
+            Without<ApertureText>,
+            Without<ShutterSpeedText>,
+        ),
+    >,
 ) {
     // TODO: Clamp values to a reasonable range
     if key_input.just_pressed(KeyCode::Digit2) {
