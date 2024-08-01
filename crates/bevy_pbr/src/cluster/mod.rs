@@ -6,7 +6,7 @@ use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
-    query::Without,
+    query::{With, Without},
     reflect::ReflectComponent,
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
