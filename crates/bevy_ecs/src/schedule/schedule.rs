@@ -23,9 +23,9 @@ use crate::{
     world::World,
 };
 
-pub use stepping::Stepping;
 use crate::query::AccessConflict;
 use crate::storage::SparseSetIndex;
+pub use stepping::Stepping;
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
 #[derive(Default, Resource)]

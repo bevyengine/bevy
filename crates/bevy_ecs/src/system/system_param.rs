@@ -1,4 +1,6 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
+use crate::query::AccessConflict;
+use crate::storage::SparseSetIndex;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -25,8 +27,6 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
-use crate::query::AccessConflict;
-use crate::storage::SparseSetIndex;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -299,10 +299,19 @@ fn assert_component_access_compatibility(
         return;
     }
     let accesses = match conflicts {
-        AccessConflict::All => {""}
-        AccessConflict::Individual(indices) => {
-            &format!(" {}", indices.ones().map(|index| world.components.get_info(ComponentId::get_sparse_set_index(index)).unwrap().name()).collect::<Vec<&str>>().join(", "))
-        }
+        AccessConflict::All => "",
+        AccessConflict::Individual(indices) => &format!(
+            " {}",
+            indices
+                .ones()
+                .map(|index| world
+                    .components
+                    .get_info(ComponentId::get_sparse_set_index(index))
+                    .unwrap()
+                    .name())
+                .collect::<Vec<&str>>()
+                .join(", ")
+        ),
     };
     panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }

@@ -1,7 +1,7 @@
 use crate::storage::SparseSetIndex;
 use core::fmt;
-use std::fmt::{Debug};
 use fixedbitset::FixedBitSet;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -389,7 +389,6 @@ impl<T: SparseSetIndex> Default for FilteredAccess<T> {
     }
 }
 
-
 impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
     fn from(filtered_access: FilteredAccess<T>) -> Self {
         let mut base = FilteredAccessSet::<T>::default();
@@ -404,9 +403,8 @@ pub enum AccessConflict {
     /// Conflict is for all indices
     All,
     /// Conflict is only for a subset of indices
-    Individual(FixedBitSet)
+    Individual(FixedBitSet),
 }
-
 
 impl AccessConflict {
     fn add(&mut self, other: &Self) {
@@ -993,8 +991,14 @@ mod tests {
         access_c.add_write(0);
         access_c.add_write(1);
 
-        assert_eq!(access_a.get_conflicts(&access_c), vec![0_usize, 1_usize].into());
-        assert_eq!(access_b.get_conflicts(&access_c), vec![0_usize, 1_usize].into());
+        assert_eq!(
+            access_a.get_conflicts(&access_c),
+            vec![0_usize, 1_usize].into()
+        );
+        assert_eq!(
+            access_b.get_conflicts(&access_c),
+            vec![0_usize, 1_usize].into()
+        );
 
         let mut access_d = Access::<usize>::default();
         access_d.add_read(0);
@@ -1013,11 +1017,9 @@ mod tests {
         filter_b.add_write(1);
 
         let conflicts = access_a.get_conflicts_single(&filter_b);
-        let mut raw_conflicts = FixedBitSet::new();
-        raw_conflicts.insert(1);
         assert_eq!(
             &conflicts,
-            &AccessConflict::Individual(raw_conflicts),
+            &AccessConflict::from(vec![1_usize]),
             "access_a: {access_a:?}, filter_b: {filter_b:?}"
         );
     }

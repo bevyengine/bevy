@@ -71,6 +71,7 @@ pub mod prelude {
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::world::EntityMut;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -90,7 +91,6 @@ mod tests {
             Arc, Mutex,
         },
     };
-    use crate::world::EntityMut;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Clone, Copy)]
     struct A(usize);
