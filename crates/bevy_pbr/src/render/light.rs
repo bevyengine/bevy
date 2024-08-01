@@ -6,7 +6,7 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::world_sync::{RenderEntity, RenderFlyEntity};
+use bevy_render::world_sync::RenderEntity;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -403,7 +403,13 @@ pub fn extract_lights(
 pub struct ViewLightEntity(Vec<Entity>);
 pub fn spawn_dir_view_light_entitiy(
     mut commands: Commands,
-    query: Query<Entity, (With<ExtractedDirectionalLight>, Without<ViewLightEntity>)>,
+    query: Query<
+        Entity,
+        (
+            Or<(With<ExtractedDirectionalLight>, With<ExtractedPointLight>)>,
+            Without<ViewLightEntity>,
+        ),
+    >,
 ) {
     query.iter().for_each(|e| {
         commands.entity(e).insert(ViewLightEntity::default());
@@ -932,9 +938,14 @@ pub fn prepare_lights(
             // and ignore rotation because we want the shadow map projections to align with the axes
             let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
-            for (face_index, (view_rotation, frustum)) in cube_face_rotations
+            let Ok(mut view_light_entities) = view_light_entites.get_mut(light_entity) else {
+                continue;
+            };
+            view_light_entities.resize_with(6, || commands.spawn_empty().id());
+            for (face_index, ((view_rotation, frustum), view_light_entity)) in cube_face_rotations
                 .iter()
                 .zip(&point_light_frusta.unwrap().frusta)
+                .zip(view_light_entities.iter().copied())
                 .enumerate()
             {
                 let depth_texture_view =
@@ -951,37 +962,35 @@ pub fn prepare_lights(
                             array_layer_count: Some(1u32),
                         });
 
-                let view_light_entity = commands
-                    .spawn((
-                        ShadowView {
-                            depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
-                            pass_name: format!(
-                                "shadow pass point light {} {}",
-                                light_index,
-                                face_index_to_name(face_index)
-                            ),
-                        },
-                        ExtractedView {
-                            viewport: UVec4::new(
-                                0,
-                                0,
-                                point_light_shadow_map.size as u32,
-                                point_light_shadow_map.size as u32,
-                            ),
-                            world_from_view: view_translation * *view_rotation,
-                            clip_from_world: None,
-                            clip_from_view: cube_face_projection,
-                            hdr: false,
-                            color_grading: Default::default(),
-                        },
-                        *frustum,
-                        LightEntity::Point {
-                            light_entity,
-                            face_index,
-                        },
-                        RenderFlyEntity,
-                    ))
-                    .id();
+                commands.entity(view_light_entity).insert((
+                    ShadowView {
+                        depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
+                        pass_name: format!(
+                            "shadow pass point light {} {}",
+                            light_index,
+                            face_index_to_name(face_index)
+                        ),
+                    },
+                    ExtractedView {
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            point_light_shadow_map.size as u32,
+                            point_light_shadow_map.size as u32,
+                        ),
+                        world_from_view: view_translation * *view_rotation,
+                        clip_from_world: None,
+                        clip_from_view: cube_face_projection,
+                        hdr: false,
+                        color_grading: Default::default(),
+                    },
+                    *frustum,
+                    LightEntity::Point {
+                        light_entity,
+                        face_index,
+                    },
+                ));
+
                 view_lights.push(view_light_entity);
 
                 shadow_render_phases.insert_or_clear(view_light_entity);
@@ -998,6 +1007,10 @@ pub fn prepare_lights(
         {
             let spot_world_from_view = spot_light_world_from_view(&light.transform);
             let spot_world_from_view = spot_world_from_view.into();
+
+            let Ok(mut view_light_entities) = view_light_entites.get_mut(light_entity) else {
+                continue;
+            };
 
             let angle = light.spot_light_angles.expect("lights should be sorted so that \
                 [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
@@ -1017,30 +1030,31 @@ pub fn prepare_lights(
                         array_layer_count: Some(1u32),
                     });
 
-            let view_light_entity = commands
-                .spawn((
-                    ShadowView {
-                        depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
-                        pass_name: format!("shadow pass spot light {light_index}"),
-                    },
-                    ExtractedView {
-                        viewport: UVec4::new(
-                            0,
-                            0,
-                            directional_light_shadow_map.size as u32,
-                            directional_light_shadow_map.size as u32,
-                        ),
-                        world_from_view: spot_world_from_view,
-                        clip_from_view: spot_projection,
-                        clip_from_world: None,
-                        hdr: false,
-                        color_grading: Default::default(),
-                    },
-                    *spot_light_frustum.unwrap(),
-                    LightEntity::Spot { light_entity },
-                    RenderFlyEntity,
-                ))
-                .id();
+            view_light_entities.resize_with(1, || commands.spawn_empty().id());
+
+            let view_light_entity = view_light_entities[0];
+
+            commands.entity(view_light_entity).insert((
+                ShadowView {
+                    depth_attachment: DepthAttachment::new(depth_texture_view, Some(0.0)),
+                    pass_name: format!("shadow pass spot light {light_index}"),
+                },
+                ExtractedView {
+                    viewport: UVec4::new(
+                        0,
+                        0,
+                        directional_light_shadow_map.size as u32,
+                        directional_light_shadow_map.size as u32,
+                    ),
+                    world_from_view: spot_world_from_view,
+                    clip_from_view: spot_projection,
+                    clip_from_world: None,
+                    hdr: false,
+                    color_grading: Default::default(),
+                },
+                *spot_light_frustum.unwrap(),
+                LightEntity::Spot { light_entity },
+            ));
 
             view_lights.push(view_light_entity);
 
