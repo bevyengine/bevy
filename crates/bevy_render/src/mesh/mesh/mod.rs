@@ -550,7 +550,7 @@ impl Mesh {
     /// clockwise and vice versa.
     ///
     /// Does nothing if no [`Indices`] are set.
-    /// If this operation succeeded, an [`Ok`] result is returned. 
+    /// If this operation succeeded, an [`Ok`] result is returned.
     pub fn invert_winding(&mut self) -> Result<(), MeshWindingInvertError> {
         if self.primitive_topology != PrimitiveTopology::TriangleList {
             return Err(MeshWindingInvertError::WrongTopology);
@@ -560,6 +560,8 @@ impl Mesh {
             indices: impl Iterator<Item = &'a mut [I]>,
         ) -> Result<(), MeshWindingInvertError> {
             for chunk in indices {
+                // We check this every run because it will be an overhead as long as we
+                // don't use unsafe checks inside.
                 let [_, b, c] = chunk else {
                     return Err(MeshWindingInvertError::AbruptIndicesEnd);
                 };
