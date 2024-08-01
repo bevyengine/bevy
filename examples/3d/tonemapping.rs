@@ -423,13 +423,13 @@ fn update_ui(
         *hide_ui = !*hide_ui;
     }
 
-    let old_text = &text_query.single().sections[0].value;
+    let old_text = &text_query.single().section.value;
 
     if *hide_ui {
         if !old_text.is_empty() {
             // single_mut() always triggers change detection,
             // so only access if text actually needs changing
-            text_query.single_mut().sections[0].value.clear();
+            text_query.single_mut().section.value.clear();
         }
         return;
     }
@@ -546,7 +546,7 @@ fn update_ui(
     if text != old_text.as_str() {
         // single_mut() always triggers change detection,
         // so only access if text actually changed
-        text_query.single_mut().sections[0].value = text;
+        text_query.single_mut().section.value = text;
     }
 }
 

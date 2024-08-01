@@ -444,9 +444,9 @@ fn buttons_handler<T>(
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
             for &child in children {
                 if let Ok(mut text) = text_query.get_mut(child) {
-                    text.sections[0].value = target.update_target(target_value.as_mut());
-                    text.sections[0].style.color = if text.sections[0].value.contains("None")
-                        || text.sections[0].value.contains("Hidden")
+                    text.section.value = target.update_target(target_value.as_mut());
+                    text.section.style.color = if text.section.value.contains("None")
+                        || text.section.value.contains("Hidden")
                     {
                         Color::srgb(1.0, 0.7, 0.7)
                     } else {
@@ -469,7 +469,7 @@ fn text_hover(
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
-                        text.bypass_change_detection().sections[0].style.color = YELLOW.into();
+                        text.bypass_change_detection().section.style.color = YELLOW.into();
                     }
                 }
             }
@@ -477,9 +477,9 @@ fn text_hover(
                 *color = Color::BLACK.with_alpha(0.5).into();
                 for &child in children {
                     if let Ok(mut text) = text_query.get_mut(child) {
-                        text.bypass_change_detection().sections[0].style.color =
-                            if text.sections[0].value.contains("None")
-                                || text.sections[0].value.contains("Hidden")
+                        text.bypass_change_detection().section.style.color =
+                            if text.section.value.contains("None")
+                                || text.section.value.contains("Hidden")
                             {
                                 HIDDEN_COLOR
                             } else {

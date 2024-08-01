@@ -207,7 +207,7 @@ pub struct TextBundle {
 
 #[cfg(feature = "bevy_text")]
 impl TextBundle {
-    /// Create a [`TextBundle`] from a single section.
+    /// Create a [`TextBundle`] from a section.
     ///
     /// See [`Text::from_section`] for usage.
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
@@ -217,12 +217,12 @@ impl TextBundle {
         }
     }
 
-    /// Create a [`TextBundle`] from a list of sections.
+    /// Creates a [`TextBundle`] from a [`TextSection`].
     ///
-    /// See [`Text::from_sections`] for usage.
-    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+    /// See [`Text::from_text_section`] for usage.
+    pub fn from_text_section(section: TextSection) -> Self {
         Self {
-            text: Text::from_sections(sections),
+            text: Text::from_text_section(section),
             ..Default::default()
         }
     }
@@ -259,7 +259,7 @@ where
     I: Into<TextSection>,
 {
     fn from(value: I) -> Self {
-        Self::from_sections(vec![value.into()])
+        Self::from_text_section(value.into())
     }
 }
 

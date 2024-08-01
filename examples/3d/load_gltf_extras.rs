@@ -94,6 +94,6 @@ fn check_for_gltf_extras(
             gltf_extra_infos_lines.push(formatted_extras);
         }
         let mut display = display.single_mut();
-        display.sections[0].value = gltf_extra_infos_lines.join("\n");
+        display.section.value = gltf_extra_infos_lines.join("\n");
     }
 }

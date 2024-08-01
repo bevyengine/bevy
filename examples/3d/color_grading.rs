@@ -611,24 +611,20 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        for section in &mut text.sections {
-            section.style.color = color;
-        }
+        text.section.style.color = color;
 
         // Update the displayed value, if this is the currently-selected option.
         if widget.widget_type == ColorGradingOptionWidgetType::Value
             && *currently_selected_option == widget.option
         {
             if let Some(ref value_label) = value_label {
-                for section in &mut text.sections {
-                    section.value.clone_from(value_label);
-                }
+                text.section.value.clone_from(value_label);
             }
         }
     }
 
     // Update the help text.
-    help_text.single_mut().sections[0].value = create_help_text(&currently_selected_option);
+    help_text.single_mut().section.value = create_help_text(&currently_selected_option);
 }
 
 /// Creates the help text at the top left of the window.

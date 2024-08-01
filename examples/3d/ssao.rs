@@ -156,7 +156,7 @@ fn update(
     }
 
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
+    let text = &mut text.section.value;
     text.clear();
 
     let (o, l, m, h, u) = match ssao_settings.map(|s| s.quality_level) {

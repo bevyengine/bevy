@@ -313,7 +313,7 @@ fn switch_mode(
     mut mode: Local<DefaultRenderMode>,
 ) {
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
+    let text = &mut text.section.value;
 
     text.clear();
 

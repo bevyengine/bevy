@@ -587,7 +587,7 @@ fn example_control_system(
     );
 
     let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    display.section.value = format!(
         concat!(
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",

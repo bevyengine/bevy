@@ -194,7 +194,7 @@ fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
 /// Update the `Real` time info text
 fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text, With<RealTime>>) {
     for mut text in &mut query {
-        text.sections[0].value = format!(
+        text.section.value = format!(
             "REAL TIME\nElapsed: {:.1}\nDelta: {:.5}\n",
             time.elapsed_seconds(),
             time.delta_seconds(),
@@ -208,7 +208,7 @@ fn update_virtual_time_info_text(
     mut query: Query<&mut Text, With<VirtualTime>>,
 ) {
     for mut text in &mut query {
-        text.sections[0].value = format!(
+        text.section.value = format!(
             "VIRTUAL TIME\nElapsed: {:.1}\nDelta: {:.5}\nSpeed: {:.2}",
             time.elapsed_seconds(),
             time.delta_seconds(),

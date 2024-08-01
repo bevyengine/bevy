@@ -23,12 +23,7 @@ fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
     let mut name = None;
     for child in children {
         if let Ok(text) = texts.get(*child) {
-            let values = text
-                .sections
-                .iter()
-                .map(|v| v.value.to_string())
-                .collect::<Vec<String>>();
-            name = Some(values.join(" "));
+            name = Some(text.section.value.to_string());
         }
     }
     name.map(String::into_boxed_str)
@@ -117,12 +112,7 @@ fn label_changed(
     mut query: Query<(Entity, &Text, Option<&mut AccessibilityNode>), Changed<Label>>,
 ) {
     for (entity, text, accessible) in &mut query {
-        let values = text
-            .sections
-            .iter()
-            .map(|v| v.value.to_string())
-            .collect::<Vec<String>>();
-        let name = Some(values.join(" ").into_boxed_str());
+        let name = Some(text.section.value.to_string());
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Label);
             if let Some(name) = name {

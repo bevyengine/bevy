@@ -212,7 +212,7 @@ fn example_control_system(
     };
 
     let mut display = display.single_mut();
-    display.sections[0].value = format!(
+    display.section.value = format!(
         "Compensation Curve: {}\nMetering Mask: {}",
         if auto_exposure.compensation_curve == resources.basic_compensation_curve {
             "Enabled"

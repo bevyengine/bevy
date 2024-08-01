@@ -29,8 +29,8 @@ impl Default for CosmicBuffer {
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct Text {
-    /// The text's sections
-    pub sections: Vec<TextSection>,
+    /// The text's section
+    pub section: TextSection,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
@@ -39,7 +39,7 @@ pub struct Text {
 }
 
 impl Text {
-    /// Constructs a [`Text`] with a single section.
+    /// Constructs a [`Text`] from a section.
     ///
     /// ```
     /// # use bevy_asset::Handle;
@@ -71,43 +71,46 @@ impl Text {
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
-            sections: vec![TextSection::new(value, style)],
+            section: TextSection::new(value, style),
             ..default()
         }
     }
 
-    /// Constructs a [`Text`] from a list of sections.
+    /// Constructs a [`Text`] from a [`TextSection`].
     ///
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_color::Color;
-    /// # use bevy_color::palettes::basic::{RED, BLUE};
-    /// # use bevy_text::{Font, Text, TextStyle, TextSection};
+    /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
-    /// let hello_world = Text::from_sections([
-    ///     TextSection::new(
-    ///         "Hello, ",
-    ///         TextStyle {
+    /// let hello_world = Text::from_text_section(
+    ///     TextSection {
+    ///         value: "hello world!".to_string(),
+    ///         style: TextStyle {
     ///             font: font_handle.clone().into(),
     ///             font_size: 60.0,
-    ///             color: BLUE.into(),
+    ///             color: Color::WHITE,
     ///         },
-    ///     ),
-    ///     TextSection::new(
-    ///         "World!",
-    ///         TextStyle {
+    ///     },
+    /// );
+    ///
+    /// let hello_bevy = Text::from_text_section(
+    ///     TextSection {
+    ///         value: "hello world\nand bevy!".to_string(),
+    ///         style: TextStyle {
     ///             font: font_handle.into(),
     ///             font_size: 60.0,
-    ///             color: RED.into(),
+    ///             color: Color::WHITE,
     ///         },
-    ///     ),
-    /// ]);
+    ///     },
+    /// ) // You can still add text justifaction.
+    /// .with_justify(JustifyText::Center);
     /// ```
-    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+    pub fn from_text_section(section: TextSection) -> Self {
         Self {
-            sections: sections.into_iter().collect(),
+            section,
             ..default()
         }
     }

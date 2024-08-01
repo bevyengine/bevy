@@ -97,7 +97,7 @@ fn create_text_measure(
 ) {
     match text_pipeline.create_text_measure(
         fonts,
-        &text.sections,
+        &text.section,
         scale_factor,
         text.linebreak_behavior,
         buffer,
@@ -221,7 +221,7 @@ fn queue_text(
 
         match text_pipeline.queue_text(
             fonts,
-            &text.sections,
+            &text.section,
             scale_factor.into(),
             text.justify,
             text.linebreak_behavior,

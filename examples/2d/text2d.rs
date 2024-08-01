@@ -90,10 +90,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
                 text: Text {
-                    sections: vec![TextSection::new(
+                    section: TextSection::new(
                         "this text wraps in the box\n(Unicode linebreaks)",
                         slightly_smaller_text_style.clone(),
-                    )],
+                    ),
                     justify: JustifyText::Left,
                     linebreak_behavior: BreakLineOn::WordBoundary,
                 },
@@ -120,10 +120,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
                 text: Text {
-                    sections: vec![TextSection::new(
+                    section: TextSection::new(
                         "this text wraps in the box\n(AnyCharacter linebreaks)",
                         slightly_smaller_text_style.clone(),
-                    )],
+                    ),
                     justify: JustifyText::Left,
                     linebreak_behavior: BreakLineOn::AnyCharacter,
                 },
@@ -143,13 +143,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ] {
         commands.spawn(Text2dBundle {
             text: Text {
-                sections: vec![TextSection::new(
+                section: TextSection::new(
                     format!(" Anchor::{text_anchor:?} "),
                     TextStyle {
                         color,
                         ..slightly_smaller_text_style.clone()
                     },
-                )],
+                ),
                 ..Default::default()
             },
             transform: Transform::from_translation(250. * Vec3::Y),

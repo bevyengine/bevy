@@ -129,7 +129,7 @@ fn update_colors(
     mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
     mut text: Query<&mut Text>,
 ) {
-    text.single_mut().sections[0].value = format!(
+    text.single_mut().section.value = format!(
         "Controls
 ---------------
 Z - Toggle global

@@ -61,7 +61,7 @@ impl TextPipeline {
     pub fn update_buffer(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        section: &TextSection,
         linebreak_behavior: BreakLineOn,
         bounds: TextBounds,
         scale_factor: f64,
@@ -72,46 +72,35 @@ impl TextPipeline {
 
         // return early if the fonts are not loaded yet
         let mut font_size = 0.;
-        for section in sections {
-            if section.style.font_size > font_size {
-                font_size = section.style.font_size;
-            }
-            fonts
-                .get(section.style.font.id())
-                .ok_or(TextError::NoSuchFont)?;
+
+        if section.style.font_size > font_size {
+            font_size = section.style.font_size;
         }
+        fonts
+            .get(section.style.font.id())
+            .ok_or(TextError::NoSuchFont)?;
         let line_height = font_size * 1.2;
         let metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
 
-        // Load Bevy fonts into cosmic-text's font system.
+        // Load Bevy font into cosmic-text's font system.
         // This is done as as separate pre-pass to avoid borrow checker issues
-        for section in sections.iter() {
-            load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
-        }
+        load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
 
-        // Map text sections to cosmic-text spans, and ignore sections with negative or zero fontsizes,
-        // since they cannot be rendered by cosmic-text.
-        //
-        // The section index is stored in the metadata of the spans, and could be used
-        // to look up the section the span came from and is not used internally
-        // in cosmic-text.
-        let spans: Vec<(&str, Attrs)> = sections
-            .iter()
-            .enumerate()
-            .filter(|(_section_index, section)| section.style.font_size > 0.0)
-            .map(|(section_index, section)| {
-                (
-                    &section.value[..],
-                    get_attrs(
-                        section,
-                        section_index,
-                        font_system,
-                        &self.map_handle_to_font_id,
-                        scale_factor,
-                    ),
-                )
-            })
-            .collect();
+        // Map the text section to a cosmic-text span, when the font size is non-zero.
+        // Since it cannot be rendered by cosmic-text without a font size.
+        let span: Option<(&str, Attrs)> = if section.style.font_size > 0. {
+            Some((
+                &section.value[..],
+                get_attrs(
+                    section,
+                    font_system,
+                    &self.map_handle_to_font_id,
+                    scale_factor,
+                ),
+            ))
+        } else {
+            None
+        };
 
         buffer.set_metrics(font_system, metrics);
         buffer.set_size(font_system, bounds.width, bounds.height);
@@ -126,7 +115,7 @@ impl TextPipeline {
             },
         );
 
-        buffer.set_rich_text(font_system, spans, Attrs::new(), Shaping::Advanced);
+        buffer.set_rich_text(font_system, span, Attrs::new(), Shaping::Advanced);
 
         // PERF: https://github.com/pop-os/cosmic-text/issues/166:
         // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
@@ -146,7 +135,7 @@ impl TextPipeline {
     pub fn queue_text(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        section: &TextSection,
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
@@ -157,13 +146,9 @@ impl TextPipeline {
         y_axis_orientation: YAxisOrientation,
         buffer: &mut CosmicBuffer,
     ) -> Result<TextLayoutInfo, TextError> {
-        if sections.is_empty() {
-            return Ok(TextLayoutInfo::default());
-        }
-
         self.update_buffer(
             fonts,
-            sections,
+            section,
             linebreak_behavior,
             bounds,
             scale_factor,
@@ -183,9 +168,7 @@ impl TextPipeline {
                     .map(move |layout_glyph| (layout_glyph, run.line_y))
             })
             .map(|(layout_glyph, line_y)| {
-                let section_index = layout_glyph.metadata;
-
-                let font_handle = sections[section_index].style.font.clone_weak();
+                let font_handle = section.style.font.clone_weak();
                 let font_atlas_set = font_atlas_sets.sets.entry(font_handle.id()).or_default();
 
                 let physical_glyph = layout_glyph.physical((0., 0.), 1.);
@@ -222,8 +205,7 @@ impl TextPipeline {
 
                 // TODO: recreate the byte index, that keeps track of where a cursor is,
                 // when glyphs are not limited to single byte representation, relevant for #1319
-                let pos_glyph =
-                    PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, section_index);
+                let pos_glyph = PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info);
                 Ok(pos_glyph)
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -241,7 +223,7 @@ impl TextPipeline {
     pub fn create_text_measure(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        section: &TextSection,
         scale_factor: f64,
         linebreak_behavior: BreakLineOn,
         buffer: &mut CosmicBuffer,
@@ -251,7 +233,7 @@ impl TextPipeline {
 
         self.update_buffer(
             fonts,
-            sections,
+            section,
             linebreak_behavior,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,
@@ -362,7 +344,6 @@ fn load_font_to_fontdb(
 /// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
 fn get_attrs<'a>(
     section: &TextSection,
-    section_index: usize,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &'a HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, String)>,
     scale_factor: f64,
@@ -373,7 +354,6 @@ fn get_attrs<'a>(
     let face = font_system.db().face(*face_id).unwrap();
 
     let attrs = Attrs::new()
-        .metadata(section_index)
         .family(Family::Name(family_name))
         .stretch(face.stretch)
         .style(face.style)

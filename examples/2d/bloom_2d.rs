@@ -86,7 +86,7 @@ fn update_bloom_settings(
 ) {
     let bloom_settings = camera.single_mut();
     let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
+    let text = &mut text.section.value;
 
     match bloom_settings {
         (entity, Some(mut bloom_settings)) => {

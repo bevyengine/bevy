@@ -155,10 +155,10 @@ fn update_system(
     .looking_at(Vec3::ZERO, Vec3::Y);
 
     // Fog Information
-    text.sections[0].value = format!("Fog Falloff: {:?}\nFog Color: {:?}", fog.falloff, fog.color);
+    text.section.value = format!("Fog Falloff: {:?}\nFog Color: {:?}", fog.falloff, fog.color);
 
     // Fog Falloff Mode Switching
-    text.sections[0]
+    text.section
         .value
         .push_str("\n\n1 / 2 / 3 - Fog Falloff Mode");
 
@@ -199,7 +199,7 @@ fn update_system(
         ref mut end,
     } = &mut fog.falloff
     {
-        text.sections[0]
+        text.section
             .value
             .push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
@@ -219,7 +219,7 @@ fn update_system(
 
     // Exponential Fog Controls
     if let FogFalloff::Exponential { ref mut density } = &mut fog.falloff {
-        text.sections[0].value.push_str("\nA / S - Change Density");
+        text.section.value.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
@@ -234,7 +234,7 @@ fn update_system(
 
     // ExponentialSquared Fog Controls
     if let FogFalloff::ExponentialSquared { ref mut density } = &mut fog.falloff {
-        text.sections[0].value.push_str("\nA / S - Change Density");
+        text.section.value.push_str("\nA / S - Change Density");
 
         if keycode.pressed(KeyCode::KeyA) {
             *density -= delta * 0.5 * *density;
@@ -248,7 +248,7 @@ fn update_system(
     }
 
     // RGBA Controls
-    text.sections[0]
+    text.section
         .value
         .push_str("\n\n- / = - Red\n[ / ] - Green\n; / ' - Blue\n. / ? - Alpha");
 

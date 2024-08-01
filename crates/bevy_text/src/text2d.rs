@@ -99,19 +99,13 @@ pub fn extract_text2d_sprite(
         let transform = *global_transform
             * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
-        let mut color = LinearRgba::WHITE;
-        let mut current_section = usize::MAX;
+        let color = LinearRgba::from(text.section.style.color);
         for PositionedGlyph {
             position,
             atlas_info,
-            section_index,
             ..
         } in &text_layout_info.glyphs
         {
-            if *section_index != current_section {
-                color = LinearRgba::from(text.sections[*section_index].style.color);
-                current_section = *section_index;
-            }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             let entity = commands.spawn_empty().id();
@@ -185,7 +179,7 @@ pub fn update_text2d_layout(
 
             match text_pipeline.queue_text(
                 &fonts,
-                &text.sections,
+                &text.section,
                 scale_factor.into(),
                 text.justify,
                 text.linebreak_behavior,

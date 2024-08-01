@@ -184,7 +184,7 @@ fn update_ui(
     let (fxaa, smaa, taa, cas_settings, msaa) = camera.single();
 
     let mut ui = ui.single_mut();
-    let ui = &mut ui.sections[0].value;
+    let ui = &mut ui.section.value;
 
     *ui = "Antialias Method\n".to_string();
 

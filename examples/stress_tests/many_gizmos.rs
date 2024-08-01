@@ -107,7 +107,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         return;
     };
 
-    text.sections[0].value = format!(
+    text.section.value = format!(
         "Line count: {}\n\
         FPS: {:.0}\n\n\
         Controls:\n\

@@ -447,7 +447,7 @@ fn update_ui(
             // Update the node labels with the current weights.
             let mut text_iter = text_query.iter_many_mut(children);
             if let Some(mut text) = text_iter.fetch_next() {
-                text.sections[0].value = format!(
+                text.section.value = format!(
                     "{}\n{:.2}",
                     clip_node.text, animation_weights.weights[clip_node.index]
                 );
