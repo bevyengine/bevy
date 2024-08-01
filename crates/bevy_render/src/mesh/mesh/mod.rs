@@ -550,6 +550,7 @@ impl Mesh {
     /// clockwise and vice versa.
     ///
     /// Does nothing if no [`Indices`] are set.
+    /// If this operation succeeded, an [`Ok`] result is returned. 
     pub fn invert_winding(&mut self) -> Result<(), MeshWindingInvertError> {
         if self.primitive_topology != PrimitiveTopology::TriangleList {
             return Err(MeshWindingInvertError::WrongTopology);
