@@ -341,7 +341,6 @@ impl<T> std::ops::DerefMut for In<T> {
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
-    use fixedbitset::FixedBitSet;
     use bevy_utils::default;
 
     use crate::{
@@ -364,8 +363,6 @@ mod tests {
         },
         world::{FromWorld, World},
     };
-    use crate::query::AccessConflict;
-    use crate::storage::SparseSetIndex;
     use crate::world::EntityMut;
 
     #[derive(Resource, PartialEq, Debug)]
@@ -1105,7 +1102,7 @@ mod tests {
             .get_resource_id(TypeId::of::<B>())
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
-        assert_eq!(conflicts, AccessConflict::Individual(vec![b_id.sparse_set_index(), d_id.sparse_set_index()].iter().copied().collect()));
+        assert_eq!(conflicts, vec![b_id, d_id].into());
     }
 
     #[test]
@@ -1612,7 +1609,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "error[B0001]: Query<bevy_ecs::world::entity_ref::EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001")]
     fn assert_entity_mut_system_does_conflict() {
         fn system(_query: Query<EntityMut>, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);

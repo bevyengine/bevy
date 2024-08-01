@@ -25,6 +25,8 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+use crate::query::AccessConflict;
+use crate::storage::SparseSetIndex;
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
@@ -296,12 +298,13 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let conflicting_components = conflicts
-        .into_iter()
-        .map(|component_id| world.components.get_info(component_id).unwrap().name())
-        .collect::<Vec<&str>>();
-    let accesses = conflicting_components.join(", ");
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
+    let accesses = match conflicts {
+        AccessConflict::All => {""}
+        AccessConflict::Individual(indices) => {
+            &format!(" {}", indices.ones().map(|index| world.components.get_info(ComponentId::get_sparse_set_index(index)).unwrap().name()).collect::<Vec<&str>>().join(", "))
+        }
+    };
+    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.

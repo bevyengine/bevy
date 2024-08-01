@@ -1,7 +1,6 @@
 use crate::storage::SparseSetIndex;
-use bevy_utils::HashSet;
 use core::fmt;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug};
 use fixedbitset::FixedBitSet;
 use std::marker::PhantomData;
 
@@ -270,7 +269,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
-    pub fn get_conflicts(&self, other: &Access<T>) -> AccessConflict<T> {
+    pub fn get_conflicts(&self, other: &Access<T>) -> AccessConflict {
         let mut conflicts = FixedBitSet::new();
         if self.reads_all {
             if other.writes_all {
@@ -400,46 +399,25 @@ impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
 }
 
 /// Records how two accesses conflict with each other
-pub enum AccessConflict<T: SparseSetIndex> {
+#[derive(Debug, PartialEq)]
+pub enum AccessConflict {
     /// Conflict is for all indices
     All,
     /// Conflict is only for a subset of indices
     Individual(FixedBitSet)
 }
 
-impl<T: SparseSetIndex> Debug for AccessConflict<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AccessConflict::All => {
-                write!(f, "All")
-            }
-            AccessConflict::Individual(set) => {
-                write!(f, "{:?}", FormattedBitSet::<T>::new(set))
-            }
-        }
-    }
-}
 
-impl<T: SparseSetIndex> PartialEq for AccessConflict<T> {
-    fn eq(&self, other: &Self) -> bool {
+impl AccessConflict {
+    fn add(&mut self, other: &Self) {
         match (self, other) {
-            (AccessConflict::All, AccessConflict::All) => true,
-            (AccessConflict::Individual(this), AccessConflict::Individual(other)) => this == other,
-            _ => false
-        }
-    }
-}
-
-
-impl<T: SparseSetIndex> AccessConflict<T> {
-    fn add(&mut self, other: &self) {
-        match (self, other) {
-            (AccessConflict::All, _) | (_, AccessConflict::All) => {
-                *self = AccessConflict::All;
+            (s, AccessConflict::All) => {
+                *s = AccessConflict::All;
             }
             (AccessConflict::Individual(this), AccessConflict::Individual(other)) => {
-                this.extend(other);
+                this.extend(other.ones());
             }
+            _ => {}
         }
     }
 
@@ -451,13 +429,19 @@ impl<T: SparseSetIndex> AccessConflict<T> {
     }
 }
 
-impl<T: SparseSetIndex> From<FixedBitSet> for AccessConflict<T> {
+impl From<FixedBitSet> for AccessConflict {
     fn from(value: FixedBitSet) -> Self {
         Self::Individual(value)
     }
 }
 
-impl<T: SparseSetIndex> Default for AccessConflict<T> {
+impl<T: SparseSetIndex> From<Vec<T>> for AccessConflict {
+    fn from(value: Vec<T>) -> Self {
+        Self::Individual(value.iter().map(T::sparse_set_index).collect())
+    }
+}
+
+impl Default for AccessConflict {
     fn default() -> Self {
         AccessConflict::Individual(FixedBitSet::new())
     }
@@ -570,7 +554,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 
     /// Returns a vector of elements that this and `other` cannot access at the same time.
-    pub fn get_conflicts(&self, other: &FilteredAccess<T>) -> AccessConflict<T> {
+    pub fn get_conflicts(&self, other: &FilteredAccess<T>) -> AccessConflict {
         if !self.is_compatible(other) {
             // filters are disjoint, so we can just look at the unfiltered intersection
             return self.access.get_conflicts(&other.access);
@@ -756,7 +740,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     /// Returns a vector of elements that this set and `other` cannot access at the same time.
-    pub fn get_conflicts(&self, other: &FilteredAccessSet<T>) -> AccessConflict<T> {
+    pub fn get_conflicts(&self, other: &FilteredAccessSet<T>) -> AccessConflict {
         // if the unfiltered access is incompatible, must check each pair
         let mut conflicts = AccessConflict::default();
         if !self.combined_access.is_compatible(other.combined_access()) {
@@ -770,7 +754,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     /// Returns a vector of elements that this set and `other` cannot access at the same time.
-    pub fn get_conflicts_single(&self, filtered_access: &FilteredAccess<T>) -> AccessConflict<T> {
+    pub fn get_conflicts_single(&self, filtered_access: &FilteredAccess<T>) -> AccessConflict {
         // if the unfiltered access is incompatible, must check each pair
         let mut conflicts = AccessConflict::default();
         if !self.combined_access.is_compatible(filtered_access.access()) {
@@ -841,7 +825,6 @@ mod tests {
     use crate::query::{Access, AccessConflict, FilteredAccess, FilteredAccessSet};
     use fixedbitset::FixedBitSet;
     use std::marker::PhantomData;
-    use crate::storage::SparseSetIndex;
 
     fn create_sample_access() -> Access<usize> {
         let mut access = Access::<usize>::default();
@@ -1004,21 +987,21 @@ mod tests {
         access_b.add_read(0);
         access_b.add_write(1);
 
-        assert_eq!(access_a.get_conflicts(&access_b), vec![1]);
+        assert_eq!(access_a.get_conflicts(&access_b), vec![1_usize].into());
 
         let mut access_c = Access::<usize>::default();
         access_c.add_write(0);
         access_c.add_write(1);
 
-        assert_eq!(access_a.get_conflicts(&access_c), vec![0, 1]);
-        assert_eq!(access_b.get_conflicts(&access_c), vec![0, 1]);
+        assert_eq!(access_a.get_conflicts(&access_c), vec![0_usize, 1_usize].into());
+        assert_eq!(access_b.get_conflicts(&access_c), vec![0_usize, 1_usize].into());
 
         let mut access_d = Access::<usize>::default();
         access_d.add_read(0);
 
-        assert_eq!(access_d.get_conflicts(&access_a), vec![]);
-        assert_eq!(access_d.get_conflicts(&access_b), vec![]);
-        assert_eq!(access_d.get_conflicts(&access_c), vec![0]);
+        assert_eq!(access_d.get_conflicts(&access_a), AccessConflict::default());
+        assert_eq!(access_d.get_conflicts(&access_b), AccessConflict::default());
+        assert_eq!(access_d.get_conflicts(&access_c), vec![0_usize].into());
     }
 
     #[test]
