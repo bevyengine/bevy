@@ -90,6 +90,7 @@ mod tests {
             Arc, Mutex,
         },
     };
+    use crate::world::EntityMut;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Clone, Copy)]
     struct A(usize);
@@ -1358,6 +1359,13 @@ mod tests {
     fn mut_and_entity_ref_query_panic() {
         let mut world = World::new();
         world.query::<(&mut A, EntityRef)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn entity_mut_and_entity_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityMut, EntityMut)>();
     }
 
     #[test]

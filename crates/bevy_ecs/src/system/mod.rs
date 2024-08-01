@@ -341,7 +341,7 @@ impl<T> std::ops::DerefMut for In<T> {
 #[cfg(test)]
 mod tests {
     use std::any::TypeId;
-
+    use fixedbitset::FixedBitSet;
     use bevy_utils::default;
 
     use crate::{
@@ -364,6 +364,9 @@ mod tests {
         },
         world::{FromWorld, World},
     };
+    use crate::query::AccessConflict;
+    use crate::storage::SparseSetIndex;
+    use crate::world::EntityMut;
 
     #[derive(Resource, PartialEq, Debug)]
     enum SystemRan {
@@ -1102,7 +1105,7 @@ mod tests {
             .get_resource_id(TypeId::of::<B>())
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
-        assert_eq!(conflicts, vec![b_id, d_id]);
+        assert_eq!(conflicts, AccessConflict::Individual(vec![b_id.sparse_set_index(), d_id.sparse_set_index()].iter().copied().collect()));
     }
 
     #[test]
@@ -1605,6 +1608,13 @@ mod tests {
     #[should_panic]
     fn assert_system_does_not_conflict() {
         fn system(_query: Query<(&mut W<u32>, &mut W<u32>)>) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn assert_entity_mut_system_does_conflict() {
+        fn system(_query: Query<EntityMut>, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);
     }
 
