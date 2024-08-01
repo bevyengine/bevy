@@ -81,7 +81,6 @@ impl SoundEffects {
                 source,
                 // We want the sound effect to play once and then despawn.
                 settings,
-                ..Default::default()
             });
         } else {
             warn!("Sound effect not found: {}", name);
@@ -120,8 +119,8 @@ impl Command for PlaySoundEffect {
         // Access both the world and the resource we need from it using resource_scope
         // which temporarily removes the SoundEffects resource from the world
         world.resource_scope(|world, mut sound_effects: Mut<SoundEffects>| {
-            sound_effects.play(self.name, world, self.settings)
-        })
+            sound_effects.play(self.name, world, self.settings);
+        });
     }
 }
 
@@ -140,7 +139,7 @@ trait SfxCommands {
         // This default method implementation saves work for types implementing this trait;
         // if not overwritten, the trait's default method will be used here, forwarding to the
         // more customizable method
-        self.play_sound_effect_with_settings(name, PlaybackSettings::DESPAWN)
+        self.play_sound_effect_with_settings(name, PlaybackSettings::DESPAWN);
     }
 }
 
@@ -154,7 +153,7 @@ impl<'w, 's> SfxCommands for Commands<'w, 's> {
         settings: PlaybackSettings,
     ) {
         let name = name.as_ref().to_string();
-        self.add(PlaySoundEffect { name, settings })
+        self.add(PlaySoundEffect { name, settings });
     }
 }
 
@@ -179,7 +178,7 @@ fn spawn_button(mut commands: Commands) {
         .with_children(|child_builder| {
             child_builder.spawn(TextBundle {
                 text: Text::from_section("Generate sound effect!", TextStyle::default()),
-                ..Default::default()
+                ..default()
             });
         });
 }
