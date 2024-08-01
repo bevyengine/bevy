@@ -38,9 +38,23 @@
 //! - responding to user inputs
 //! - adding behavior to UI elements
 //! - upholding critical invariants, like hierarchical relationships (hooks are better suited than observers for this)
+//!
+//! # This example
+//!
+//! In this example, we're demonstrating the APIs available by creating a simple counter
+//! in four different ways:
+//!
+//! 1. Using a system with a `Changed` filter.
+//! 2. Use the `Ref` query type and the `is_changed` method.
+//! 3. Using a hook.
+//! 4. Using an observer.
+//!
+//! The counter is incremented by pressing the corresponding button.
+//! At this scale, we have neither performance nor complexity concerns:
+//! see the discussion above for guidance on when to use each method.
 
 use bevy::prelude::*;
-use on_mutate::{GenOnMutate, OnMutate};
+use on_mutate::*;
 
 fn main() {
     App::new()
@@ -48,53 +62,160 @@ fn main() {
         .generate_on_mutate::<CounterValue>()
         .generate_on_mutate::<Interaction>()
         .add_systems(Startup, setup_ui)
+        .add_systems(
+            Update,
+            (change_button_color_based_on_interaction, update_button_text),
+        )
         .run();
 }
 
+/// Tracks the value of the counter for each button.
 #[derive(Component)]
 struct CounterValue(u32);
+
+/// A component that differentiates our buttons by their change-response strategy.
+#[derive(Component)]
+enum ChangeStrategy {
+    ChangedFilter,
+    RefQuery,
+    Hook,
+    Observer,
+}
+
+impl ChangeStrategy {
+    fn color(&self) -> Srgba {
+        use bevy::color::palettes::tailwind::*;
+
+        match self {
+            ChangeStrategy::ChangedFilter => RED_500,
+            ChangeStrategy::RefQuery => ORANGE_500,
+            ChangeStrategy::Hook => BLUE_500,
+            ChangeStrategy::Observer => GREEN_500,
+        }
+    }
+
+    fn button_string(&self) -> &'static str {
+        match self {
+            ChangeStrategy::ChangedFilter => "Changed Filter",
+            ChangeStrategy::RefQuery => "Ref Query",
+            ChangeStrategy::Hook => "Hook",
+            ChangeStrategy::Observer => "Observer",
+        }
+    }
+}
+
+/// Generates an interactive button with a counter,
+/// returning the entity ID of the button spawned.
+fn spawn_button_with_counter(commands: &mut Commands, change_strategy: ChangeStrategy) -> Entity {
+    commands
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    width: Val::Px(250.),
+                    height: Val::Px(120.),
+                    margin: UiRect::all(Val::Px(20.)),
+                    ..default()
+                },
+                background_color: change_strategy.color().into(),
+                border_radius: BorderRadius::all(Val::Px(20.)),
+                ..default()
+            },
+            change_strategy,
+            CounterValue(0),
+        ))
+        .with_children(|parent| {
+            // We don't need to set the initial value of the Text component here,
+            // as Changed filters are triggered whenever the value is mutated OR the component is added.
+            parent.spawn(TextBundle {
+                style: Style {
+                    align_self: AlignSelf::Center,
+                    width: Val::Percent(100.),
+                    ..default()
+                },
+                ..default()
+            });
+        })
+        .id()
+}
 
 fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
-    // Counter
-    let counter_entity = commands
-        .spawn(TextBundle { ..default() })
-        .insert(CounterValue(0))
-        .observe(
-            |trigger: Trigger<OnMutate<CounterValue>>,
-             mut query: Query<(&CounterValue, &mut Text)>| {
-                let (counter_value, mut text) = query.get_mut(trigger.entity()).unwrap();
-                *text = Text::from_section(counter_value.0.to_string(), TextStyle::default());
-            },
-        )
-        .id();
-
-    // Button
-    commands
-        .spawn(ButtonBundle {
+    let root_node = commands
+        .spawn(NodeBundle {
             style: Style {
-                width: Val::Px(100.),
-                height: Val::Px(100.),
-                justify_self: JustifySelf::End,
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: Color::WHITE.into(),
             ..default()
         })
-        .observe(
-            move |trigger: Trigger<OnMutate<Interaction>>,
-                  interaction_query: Query<&Interaction>,
-                  mut counter_query: Query<&mut CounterValue>| {
-                let interaction = interaction_query.get(trigger.entity()).unwrap();
-                if matches!(interaction, Interaction::Pressed) {
-                    // We can move this value into the closure that we define,
-                    // allowing us to create custom behavior for the button.
-                    let mut counter = counter_query.get_mut(counter_entity).unwrap();
-                    counter.0 += 1;
-                }
-            },
-        );
+        .id();
+
+    let changed_filter_button =
+        spawn_button_with_counter(&mut commands, ChangeStrategy::ChangedFilter);
+    let ref_query_button = spawn_button_with_counter(&mut commands, ChangeStrategy::RefQuery);
+    let hook_button = spawn_button_with_counter(&mut commands, ChangeStrategy::Hook);
+    let observer_button = spawn_button_with_counter(&mut commands, ChangeStrategy::Observer);
+
+    commands.entity(root_node).push_children(&[
+        changed_filter_button,
+        ref_query_button,
+        hook_button,
+        observer_button,
+    ]);
+}
+
+// This is another example of a change-detection based system,
+// which only acts on buttons whose `Interaction` component has changed to save on work.
+//
+// Because the operation is idempotent (calling it multiple times has the same effect as calling it once),
+// this is purely a performance optimization.
+fn change_button_color_based_on_interaction(
+    mut query: Query<(&mut BackgroundColor, &ChangeStrategy, &Interaction), Changed<Interaction>>,
+) {
+    for (mut background_color, change_strategy, interaction) in query.iter_mut() {
+        let standard_color = change_strategy.color();
+
+        *background_color = match interaction {
+            Interaction::None => standard_color.into(),
+            Interaction::Hovered => standard_color.darker(0.15).into(),
+            Interaction::Pressed => standard_color.darker(0.3).into(),
+        };
+    }
+}
+
+// Like other filters, `Changed` (and `Added`) filters can be composed via `Or` filters.
+// The default behavior for both query data and filters is to use AND logic.
+// In this case, a truly robust solution should update whenever the counter value
+// or the children that point to the text entity change.
+fn update_button_text(
+    counter_query: Query<
+        (&CounterValue, &ChangeStrategy, &Children),
+        Or<(Changed<CounterValue>, Changed<Children>)>,
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    for (counter, change_strategy, children) in counter_query.iter() {
+        for child in children.iter() {
+            // By attempting to fetch the Text component on each child and continuing if it fails,
+            // we can avoid panicking if non-text children are present.
+            if let Ok(mut text) = text_query.get_mut(*child) {
+                let string = format!("{}: {}", change_strategy.button_string(), counter.0);
+                *text = Text {
+                    sections: vec![TextSection {
+                        value: string,
+                        style: TextStyle::default(),
+                    }],
+                    justify: JustifyText::Center,
+                    ..default()
+                };
+            }
+        }
+    }
 }
 
 /// This temporary module prototypes a user-space implementation of the [`OnMutate`] event.

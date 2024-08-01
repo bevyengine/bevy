@@ -2573,7 +2573,7 @@ wasm = true
 
 [[example]]
 name = "responding_to_changes"
-path = "examples/ui/responding_to_changes.rs"
+path = "examples/ecs/responding_to_changes.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.reactivity]
