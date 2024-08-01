@@ -99,9 +99,9 @@ impl FromWorld for SoundEffects {
         // Load sound effects here.
         // Using string parsing to strip numbered suffixes + load_folder is a good way to load many sound effects at once.
         let button_press_sfxs = vec![
-            asset_server.load("sounds/button_press_1.mp3"),
-            asset_server.load("sounds/button_press_2.mp3"),
-            asset_server.load("sounds/button_press_3.mp3"),
+            asset_server.load("sounds/button_press_1.ogg"),
+            asset_server.load("sounds/button_press_2.ogg"),
+            asset_server.load("sounds/button_press_3.ogg"),
         ];
         map.insert("button_press".to_string(), button_press_sfxs);
 
