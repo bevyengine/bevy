@@ -39,6 +39,9 @@ struct A;
 #[derive(Component)]
 struct B;
 
+#[derive(Component)]
+struct LastTriggeredText;
+
 fn setup_with_commands(mut commands: Commands) {
     let system_id = commands.register_one_shot_system(system_a);
     commands.spawn((Callback(system_id), A));
@@ -79,40 +82,52 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
     }
 }
 
-fn system_a(mut query: Query<&mut Text>) {
+fn system_a(mut query: Query<&mut Text, With<LastTriggeredText>>) {
     let mut text = query.single_mut();
-    text.sections[2].value = String::from("A");
+    text.section.value = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
-fn system_b(mut query: Query<&mut Text>) {
+fn system_b(mut query: Query<&mut Text, With<LastTriggeredText>>) {
     let mut text = query.single_mut();
-    text.sections[2].value = String::from("B");
+    text.section.value = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
 
 fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(
-        TextBundle::from_sections([
-            TextSection::new(
-                "Press A or B to trigger a one-shot system\n",
-                TextStyle::default(),
-            ),
-            TextSection::new("Last Triggered: ", TextStyle::default()),
-            TextSection::new(
-                "-",
-                TextStyle {
-                    color: bevy::color::palettes::css::ORANGE.into(),
-                    ..default()
-                },
-            ),
-        ])
-        .with_text_justify(JustifyText::Center)
-        .with_style(Style {
-            align_self: AlignSelf::Center,
-            justify_self: JustifySelf::Center,
+
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                align_self: AlignSelf::Center,
+                justify_self: JustifySelf::Center,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
             ..default()
-        }),
-    );
+        })
+        .with_children(|root| {
+            root.spawn(
+                TextBundle::from_section(
+                    "Press A or B to trigger a one-shot system\n\n\
+        Last Triggered: ",
+                    TextStyle::default(),
+                )
+                .with_text_justify(JustifyText::Center),
+            );
+
+            root.spawn((
+                TextBundle::from_section(
+                    "-",
+                    TextStyle {
+                        color: bevy::color::palettes::css::ORANGE.into(),
+                        ..default()
+                    },
+                ),
+                LastTriggeredText,
+            ));
+        });
 }

@@ -282,16 +282,14 @@ fn setup(
             ));
 
             root.spawn(TextBundle::from_section(
-                [
-                    "\n",
-                    "Controls",
-                    "---------------",
-                    "Arrow keys - Move objects",
-                    "1/2 - Decrease/Increase aperture",
-                    "3/4 - Decrease/Increase shutter speed",
-                    "5/6 - Decrease/Increase sensitivity",
-                    "R - Reset exposure",
-                ]
+                ["\n\n\
+                    Controls\n\
+                    ---------------\n\
+                    Arrow keys - Move objects\n\
+                    1/2 - Decrease/Increase aperture\n\
+                    3/4 - Decrease/Increase shutter speed\n\
+                    5/6 - Decrease/Increase sensitivity\n\
+                    R - Reset exposure"]
                 .join("\n"),
                 style.clone(),
             ));
