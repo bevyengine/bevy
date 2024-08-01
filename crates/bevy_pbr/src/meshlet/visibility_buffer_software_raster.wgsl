@@ -20,9 +20,7 @@
 
 /// Compute shader for rasterizing small clusters into a visibility buffer.
 
-// TODO:
-// * Scanline variant for subgroups non-zero amount of large triangles
-// * Subpixel precision and top-left rule
+// TODO: Subpixel precision and top-left rule
 
 var<workgroup> viewport_vertices: array<vec3f, 64>;
 
