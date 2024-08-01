@@ -52,6 +52,11 @@
 //! The counter is incremented by pressing the corresponding button.
 //! At this scale, we have neither performance nor complexity concerns:
 //! see the discussion above for guidance on when to use each method.
+//!
+//! Hooks are not suitable for this application (as they represent intrinsic functionality for the type),
+//! and cannot sensibly be added to the general-purpose [`Interaction`] component just to make these buttons work.
+//! Instead, we demonstrate how to use them by adding a on-mutate hook to the [`CounterValue`] component which will
+//! update the text of each button whenever the counter is incremented.
 
 use bevy::prelude::*;
 use on_mutate::*;
@@ -59,26 +64,41 @@ use on_mutate::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .generate_on_mutate::<CounterValue>()
-        .generate_on_mutate::<Interaction>()
+        // Example setup
         .add_systems(Startup, setup_ui)
         .add_systems(
             Update,
-            (change_button_color_based_on_interaction, update_button_text),
+            (change_button_color_based_on_interaction, update_button_text)
+                .in_set(ChangeDetectionSet),
         )
+        // Change detection based methods
+        .add_systems(
+            Update,
+            (
+                update_counter_changed_filter.after(ChangeDetectionSet),
+                update_counter_ref_query,
+            ),
+        )
+        // Observer based methods
+        // Checking for OnMutate events is rather expensive,
+        // so unlike change detection, it is opt-in.
+        .generate_on_mutate::<CounterValue>()
+        .observe(update_counter_observer)
         .run();
 }
+
+#[derive(SystemSet, Debug, PartialEq, Eq, Hash, Clone)]
+struct ChangeDetectionSet;
 
 /// Tracks the value of the counter for each button.
 #[derive(Component)]
 struct CounterValue(u32);
 
 /// A component that differentiates our buttons by their change-response strategy.
-#[derive(Component)]
+#[derive(Component, PartialEq)]
 enum ChangeStrategy {
     ChangedFilter,
     RefQuery,
-    Hook,
     Observer,
 }
 
@@ -89,8 +109,7 @@ impl ChangeStrategy {
         match self {
             ChangeStrategy::ChangedFilter => RED_500,
             ChangeStrategy::RefQuery => ORANGE_500,
-            ChangeStrategy::Hook => BLUE_500,
-            ChangeStrategy::Observer => GREEN_500,
+            ChangeStrategy::Observer => BLUE_500,
         }
     }
 
@@ -98,7 +117,6 @@ impl ChangeStrategy {
         match self {
             ChangeStrategy::ChangedFilter => "Changed Filter",
             ChangeStrategy::RefQuery => "Ref Query",
-            ChangeStrategy::Hook => "Hook",
             ChangeStrategy::Observer => "Observer",
         }
     }
@@ -138,6 +156,65 @@ fn spawn_button_with_counter(commands: &mut Commands, change_strategy: ChangeStr
         .id()
 }
 
+// This system implicitly filters out any entities whose `Interaction` component hasn't changed.
+fn update_counter_changed_filter(
+    mut query: Query<(&Interaction, &ChangeStrategy, &mut CounterValue), Changed<Interaction>>,
+) {
+    for (interaction, change_strategy, mut counter) in query.iter_mut() {
+        if change_strategy != &ChangeStrategy::ChangedFilter {
+            continue;
+        }
+
+        if *interaction == Interaction::Pressed {
+            counter.0 += 1;
+        }
+    }
+}
+
+// This system works just like the one above, except entries that are not changed will be included.
+// We can check if the entity has changed by calling the `is_changed` method on the `Ref` type.
+// The [`Mut`] and [`ChangeTrackers`] types also have these methods.
+fn update_counter_ref_query(
+    mut query: Query<(Ref<Interaction>, &ChangeStrategy, &mut CounterValue)>,
+) {
+    for (interaction, change_strategy, mut counter) in query.iter_mut() {
+        if change_strategy != &ChangeStrategy::RefQuery {
+            continue;
+        }
+
+        // Being able to check if the entity has changed inside of the system is
+        // sometimes useful for more complex logic, but Changed filters are generally clearer.
+        if interaction.is_changed() && *interaction == Interaction::Pressed {
+            counter.0 += 1;
+        }
+    }
+}
+
+// This observer is added to the app using the `observe` method,
+// and will run whenever the `Interaction` component is mutated.
+// Like above, we're returning early if the button isn't the one we're interested in.
+// FIXME: this isn't currently working
+fn update_counter_observer(
+    trigger: Trigger<OnMutate<Interaction>>,
+    mut button_query: Query<(&mut CounterValue, &Interaction, &ChangeStrategy)>,
+) {
+    let Ok((mut counter, interaction, change_strategy)) = button_query.get_mut(trigger.entity())
+    else {
+        // Other entities may have the Interaction component, but we're only interested in these particular buttons.
+        return;
+    };
+
+    if *change_strategy != ChangeStrategy::Observer {
+        return;
+    }
+
+    // OnMutate events will be generated whenever *any* change occurs,
+    // even if it's not to the value we're interested in.
+    if *interaction == Interaction::Pressed {
+        counter.0 += 1;
+    }
+}
+
 fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
@@ -158,13 +235,11 @@ fn setup_ui(mut commands: Commands) {
     let changed_filter_button =
         spawn_button_with_counter(&mut commands, ChangeStrategy::ChangedFilter);
     let ref_query_button = spawn_button_with_counter(&mut commands, ChangeStrategy::RefQuery);
-    let hook_button = spawn_button_with_counter(&mut commands, ChangeStrategy::Hook);
     let observer_button = spawn_button_with_counter(&mut commands, ChangeStrategy::Observer);
 
     commands.entity(root_node).push_children(&[
         changed_filter_button,
         ref_query_button,
-        hook_button,
         observer_button,
     ]);
 }
@@ -188,6 +263,7 @@ fn change_button_color_based_on_interaction(
     }
 }
 
+// TODO: implement this using hooks
 // Like other filters, `Changed` (and `Added`) filters can be composed via `Or` filters.
 // The default behavior for both query data and filters is to use AND logic.
 // In this case, a truly robust solution should update whenever the counter value
