@@ -52,7 +52,7 @@ impl From<CustomCursor> for CursorIcon {
 pub enum CustomCursor {
     /// Image to use as a cursor.
     Image {
-        /// The image must be in 8 bit uint or 32bit float rgba. PNG images
+        /// The image must be in 8bit int or 32bit float rgba. PNG images
         /// work well for this.
         handle: Handle<Image>,
         /// X and Y coordinates of the hotspot in pixels. The hotspot must be
@@ -166,7 +166,7 @@ fn image_to_rgba_pixels(image: &Image) -> Option<Vec<u8>> {
                 .map(|chunk| {
                     let chunk = chunk.try_into().unwrap();
                     let num = bytemuck::cast_ref::<[u8; 4], f32>(chunk);
-                    (num / 255.0) as u8
+                    (num * 255.0) as u8
                 })
                 .collect(),
         ),
