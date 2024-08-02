@@ -1363,6 +1363,13 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn entity_ref_and_entity_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityRef, EntityMut)>();
+    }
+
+    #[test]
+    #[should_panic]
     fn entity_mut_and_entity_mut_query_panic() {
         let mut world = World::new();
         world.query::<(EntityMut, EntityMut)>();
