@@ -12,7 +12,7 @@
 # repository before you can use this action.
 #
 # This action will only install dependencies when the current operating system is Linux. It will do
-# nothing on any other OS (MacOS, Windows).
+# nothing on any other OS (macOS, Windows).
 
 name: Install Linux dependencies
 description: Installs the dependencies necessary to build Bevy on Linux.

@@ -69,7 +69,7 @@ pub fn main() {
 
     let total_ambiguities = ambiguities.total();
     assert_eq!(
-        total_ambiguities, 82,
+        total_ambiguities, 81,
         "Main app does not have an expected conflicting systems count, \
         you might consider verifying if it's normal, or change the expected number.\n\
         Details:\n{:#?}",

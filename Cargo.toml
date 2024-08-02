@@ -110,9 +110,6 @@ bevy_core_pipeline = [
   "bevy_render",
 ]
 
-# Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
-bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
-
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
@@ -348,13 +345,16 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
+# Enables source location tracking for change detection, which can assist with debugging
+track_change_detection = ["bevy_internal/track_change_detection"]
+
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
 
-# WASM does not support dynamic linking.
+# Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.15.0-dev", default-features = false, optional = true }
 
@@ -760,7 +760,8 @@ doc-scrape-examples = true
 name = "Lines"
 description = "Create a custom material to draw 3d lines"
 category = "3D Rendering"
-wasm = true
+# Wasm does not support the `POLYGON_MODE_LINE` feature.
+wasm = false
 
 [[example]]
 name = "ssao"
@@ -1610,13 +1611,14 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "component_change_detection"
-path = "examples/ecs/component_change_detection.rs"
+name = "change_detection"
+path = "examples/ecs/change_detection.rs"
 doc-scrape-examples = true
+required-features = ["track_change_detection"]
 
-[package.metadata.example.component_change_detection]
-name = "Component Change Detection"
-description = "Change detection on components"
+[package.metadata.example.change_detection]
+name = "Change Detection"
+description = "Change detection on components and resources"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2391,6 +2393,17 @@ name = "Texture Binding Array (Bindless Textures)"
 description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "specialized_mesh_pipeline"
+path = "examples/shader/specialized_mesh_pipeline.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.specialized_mesh_pipeline]
+name = "Specialized Mesh Pipeline"
+description = "Demonstrates how to write a specialized mesh pipeline"
+category = "Shaders"
+wasm = true
 
 # Stress tests
 [[package.metadata.example_category]]
@@ -3350,6 +3363,6 @@ lto = "fat"
 panic = "abort"
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]

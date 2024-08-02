@@ -500,7 +500,7 @@ impl AssetServer {
         let (mut meta, loader, mut reader) = self
             .get_meta_loader_and_reader(&path_clone, asset_type_id)
             .await
-            .map_err(|e| {
+            .inspect_err(|e| {
                 // if there was an input handle, a "load" operation has already started, so we must produce a "failure" event, if
                 // we cannot find the meta and loader
                 if let Some(handle) = &input_handle {
@@ -510,7 +510,6 @@ impl AssetServer {
                         error: e.clone(),
                     });
                 }
-                e
             })?;
 
         // This contains Some(UntypedHandle), if it was retrievable

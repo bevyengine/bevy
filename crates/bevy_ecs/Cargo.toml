@@ -11,11 +11,12 @@ categories = ["game-engines", "data-structures"]
 rust-version = "1.77.0"
 
 [features]
+default = ["bevy_reflect"]
 trace = []
 multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]
 bevy_debug_stepping = []
-default = ["bevy_reflect"]
 serialize = ["dep:serde"]
+track_change_detection = []
 
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
@@ -53,5 +54,5 @@ path = "examples/change_detection.rs"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
