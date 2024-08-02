@@ -79,7 +79,7 @@ pub fn update_cursors(
     mut queue: Local<HashSet<Entity>>,
 ) {
     for (entity, cursor) in windows.iter_mut() {
-        if !(cursor.is_changed() || queue.remove(&entity)) {
+        if !(queue.remove(&entity) || cursor.is_changed()) {
             continue;
         }
 
