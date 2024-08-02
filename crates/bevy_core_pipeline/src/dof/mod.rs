@@ -114,6 +114,7 @@ pub struct DepthOfFieldSettings {
 
 /// Controls the appearance of the effect.
 #[derive(Component, Clone, Copy, Default, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
 pub enum DepthOfFieldMode {
     /// A more accurate simulation, in which circles of confusion generate
     /// "spots" of light.
