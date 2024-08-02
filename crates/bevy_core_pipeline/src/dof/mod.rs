@@ -21,10 +21,12 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{QueryItem, With},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -67,7 +69,8 @@ const DOF_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(203186118073921
 pub struct DepthOfFieldPlugin;
 
 /// Depth of field settings.
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
 pub struct DepthOfFieldSettings {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,
@@ -110,7 +113,7 @@ pub struct DepthOfFieldSettings {
 }
 
 /// Controls the appearance of the effect.
-#[derive(Component, Clone, Copy, Default, PartialEq, Debug)]
+#[derive(Component, Clone, Copy, Default, PartialEq, Debug, Reflect)]
 pub enum DepthOfFieldMode {
     /// A more accurate simulation, in which circles of confusion generate
     /// "spots" of light.
@@ -195,6 +198,8 @@ impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, DOF_SHADER_HANDLE, "dof.wgsl", Shader::from_wgsl);
 
+        app.register_type::<DepthOfFieldSettings>();
+        app.register_type::<DepthOfFieldMode>();
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
