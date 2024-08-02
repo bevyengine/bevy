@@ -425,12 +425,17 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             // Unpack that index and metadata. Note that it's possible for index
             // and/or metadata to not be present, which signifies that this
             // entity is unbatchable. In that case, we break the batch here.
-            let (mut current_input_index, mut current_meta) = (None, None);
-            if let Some((input_index, maybe_meta)) = current_batch_input_index {
-                current_input_index = Some(input_index);
-                current_meta =
-                    maybe_meta.map(|meta| BatchMeta::new(&phase.items[current_index], meta));
-            }
+            // If the index isn't present the item is not part of this pipeline and so will be skipped.
+            let Some((current_input_index, current_meta)) = current_batch_input_index else {
+                // Break a batch if we need to.
+                if let Some(batch) = batch.take() {
+                    batch.flush(data_buffer.len() as u32, phase);
+                }
+
+                continue;
+            };
+            let current_meta =
+                current_meta.map(|meta| BatchMeta::new(&phase.items[current_index], meta));
 
             // Determine if this entity can be included in the batch we're
             // building up.
@@ -474,10 +479,9 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 
             // Add a new preprocessing work item so that the preprocessing
             // shader will copy the per-instance data over.
-            if let (Some(batch), Some(input_index)) = (batch.as_ref(), current_input_index.as_ref())
-            {
+            if let Some(batch) = batch.as_ref() {
                 work_item_buffer.buffer.push(PreprocessWorkItem {
-                    input_index: (*input_index).into(),
+                    input_index: current_input_index.into(),
                     output_index: match batch.indirect_parameters_index {
                         Some(indirect_parameters_index) => indirect_parameters_index.into(),
                         None => output_index,
