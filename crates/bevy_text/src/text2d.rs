@@ -1,6 +1,6 @@
 use crate::{
     BreakLineOn, CosmicBuffer, Font, FontAtlasSets, PositionedGlyph, Text, TextBounds, TextError,
-    TextLayoutInfo, TextPipeline, YAxisOrientation,
+    TextLayoutInfo, TextPipeline, TextSection, YAxisOrientation,
 };
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
@@ -13,6 +13,7 @@ use bevy_ecs::{
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
+use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
 use bevy_render::{
     primitives::Aabb,
@@ -70,15 +71,20 @@ pub fn extract_text2d_sprite(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &Text,
-            &TextLayoutInfo,
-            &Anchor,
-            &GlobalTransform,
-        )>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &TextLayoutInfo,
+                Option<&TextSection>,
+                &Anchor,
+                &GlobalTransform,
+                Option<&Children>,
+            ),
+            With<Text>,
+        >,
     >,
+    text2d_section_query: Extract<Query<&TextSection, With<Parent>>>,
 ) {
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
@@ -87,8 +93,15 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
-    for (original_entity, view_visibility, text, text_layout_info, anchor, global_transform) in
-        text2d_query.iter()
+    for (
+        original_entity,
+        view_visibility,
+        text_layout_info,
+        maybe_section,
+        anchor,
+        global_transform,
+        children,
+    ) in text2d_query.iter()
     {
         if !view_visibility.get() {
             continue;
@@ -99,13 +112,27 @@ pub fn extract_text2d_sprite(
         let transform = *global_transform
             * GlobalTransform::from_translation(alignment_translation.extend(0.))
             * scaling;
-        let color = LinearRgba::from(text.section.style.color);
+        let mut color = LinearRgba::WHITE;
+        let mut current_section = usize::MAX;
         for PositionedGlyph {
             position,
             atlas_info,
+            section_index,
             ..
         } in &text_layout_info.glyphs
         {
+            let section = if *section_index == 0 {
+                maybe_section.unwrap()
+            } else {
+                // unwrapping the children is fine here, because if the section index != 0, there must be children
+                text2d_section_query
+                    .get(children.unwrap()[*section_index - 1])
+                    .unwrap()
+            };
+            if *section_index != current_section {
+                color = LinearRgba::from(section.style.color);
+                current_section = *section_index;
+            }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             let entity = commands.spawn_empty().id();
@@ -149,9 +176,12 @@ pub fn update_text2d_layout(
         Entity,
         Ref<Text>,
         Ref<TextBounds>,
+        Option<Ref<TextSection>>,
+        Option<Ref<Children>>,
         &mut TextLayoutInfo,
         &mut CosmicBuffer,
     )>,
+    section_query: Query<Ref<TextSection>, With<Parent>>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.read().last().is_some();
@@ -164,8 +194,31 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
-        if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
+    for (entity, text, bounds, maybe_section, children, mut text_layout_info, mut buffer) in
+        &mut text_query
+    {
+        let mut sections = Vec::new();
+        let mut parent_section_present = false;
+        if let Some(section) = maybe_section {
+            sections.push(section);
+            parent_section_present = true;
+        }
+
+        let mut children_changed = false;
+        if let Some(children) = children {
+            children_changed = children.is_changed();
+            for section in section_query.iter_many(&children) {
+                sections.push(section);
+            }
+        }
+
+        if factor_changed
+            || text.is_changed()
+            || bounds.is_changed()
+            || children_changed
+            || sections.iter().any(DetectChanges::is_changed)
+            || queue.remove(&entity)
+        {
             let text_bounds = TextBounds {
                 width: if text.linebreak_behavior == BreakLineOn::NoWrap {
                     None
@@ -179,7 +232,8 @@ pub fn update_text2d_layout(
 
             match text_pipeline.queue_text(
                 &fonts,
-                &text.section,
+                &sections,
+                parent_section_present,
                 scale_factor.into(),
                 text.justify,
                 text.linebreak_behavior,
@@ -250,6 +304,7 @@ mod tests {
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
+    use bevy_hierarchy::{BuildChildren, ChildBuild as _};
     use bevy_utils::default;
 
     use super::*;
@@ -257,7 +312,7 @@ mod tests {
     const FIRST_TEXT: &str = "Sample text.";
     const SECOND_TEXT: &str = "Another, longer sample text.";
 
-    fn setup() -> (App, Entity) {
+    fn setup() -> (App, Entity, Entity) {
         let mut app = App::new();
         app.init_resource::<Assets<Font>>()
             .init_resource::<Assets<Image>>()
@@ -281,20 +336,30 @@ mod tests {
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 
+        let mut text_entity = Entity::from_raw(0);
+
         let entity = app
             .world_mut()
             .spawn((Text2dBundle {
-                text: Text::from_section(FIRST_TEXT, default()),
+                text: Text::default(),
                 ..default()
             },))
+            .with_children(|c| {
+                text_entity = c
+                    .spawn(TextSection {
+                        value: FIRST_TEXT.to_string(),
+                        style: default(),
+                    })
+                    .id();
+            })
             .id();
 
-        (app, entity)
+        (app, entity, text_entity)
     }
 
     #[test]
     fn calculate_bounds_text2d_create_aabb() {
-        let (mut app, entity) = setup();
+        let (mut app, entity, _) = setup();
 
         assert!(!app
             .world()
@@ -322,7 +387,7 @@ mod tests {
 
     #[test]
     fn calculate_bounds_text2d_update_aabb() {
-        let (mut app, entity) = setup();
+        let (mut app, entity, text_entity) = setup();
 
         // Creates the initial AABB after text layouting.
         app.update();
@@ -336,11 +401,14 @@ mod tests {
 
         let mut entity_ref = app
             .world_mut()
-            .get_entity_mut(entity)
+            .get_entity_mut(text_entity)
             .expect("Could not find entity");
         *entity_ref
-            .get_mut::<Text>()
-            .expect("Missing Text on entity") = Text::from_section(SECOND_TEXT, default());
+            .get_mut::<TextSection>()
+            .expect("Missing Text on entity") = TextSection {
+            value: SECOND_TEXT.to_string(),
+            style: default(),
+        };
 
         // Recomputes the AABB.
         app.update();

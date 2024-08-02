@@ -11,11 +11,8 @@ use bevy_ecs::{
     system::{Commands, Query, Res, Resource},
 };
 use bevy_hierarchy::{BuildChildren, ChildBuild};
-use bevy_text::{Font, Text, TextSection, TextStyle};
-use bevy_ui::{
-    node_bundles::{NodeBundle, TextBundle},
-    PositionType, Style, ZIndex,
-};
+use bevy_text::{Font, TextSection, TextStyle};
+use bevy_ui::{node_bundles::TextBundle, PositionType, Style, ZIndex};
 use bevy_utils::default;
 
 /// Global [`ZIndex`] used to render the fps overlay.
@@ -78,35 +75,35 @@ struct FpsText;
 
 fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                // We need to make sure the overlay doesn't affect the position of other UI nodes
-                position_type: PositionType::Absolute,
+        .spawn((
+            TextBundle {
+                style: Style {
+                    // We need to make sure the overlay doesn't affect the position of other UI nodes
+                    position_type: PositionType::Absolute,
+                    ..default()
+                },
+                // Render overlay on top of everything
+                z_index: ZIndex::Global(FPS_OVERLAY_ZINDEX),
                 ..default()
             },
-            // Render overlay on top of everything
-            z_index: ZIndex::Global(FPS_OVERLAY_ZINDEX),
-            ..default()
-        })
+            TextSection::new("FPS: ", overlay_config.text_config.clone()),
+        ))
         .with_children(|c| {
-            c.spawn(TextBundle::from_section(
-                "FPS: ",
-                overlay_config.text_config.clone(),
-            ));
             c.spawn((
-                TextBundle::from_text_section(TextSection::from_style(
-                    overlay_config.text_config.clone(),
-                )),
+                TextSection::from_style(overlay_config.text_config.clone()),
                 FpsText,
             ));
         });
 }
 
-fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<FpsText>>) {
-    for mut text in &mut query {
+fn update_text(
+    diagnostic: Res<DiagnosticsStore>,
+    mut query: Query<&mut TextSection, With<FpsText>>,
+) {
+    for mut section in &mut query {
         if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
             if let Some(value) = fps.smoothed() {
-                text.section.value = format!("{value:.2}");
+                section.value = format!("{value:.2}");
             }
         }
     }
@@ -114,9 +111,9 @@ fn update_text(diagnostic: Res<DiagnosticsStore>, mut query: Query<&mut Text, Wi
 
 fn customize_text(
     overlay_config: Res<FpsOverlayConfig>,
-    mut query: Query<&mut Text, With<FpsText>>,
+    mut query: Query<&mut TextSection, With<FpsText>>,
 ) {
-    for mut text in &mut query {
-        text.section.style = overlay_config.text_config.clone();
+    for mut section in &mut query {
+        section.style = overlay_config.text_config.clone();
     }
 }

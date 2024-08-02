@@ -31,6 +31,8 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::prelude::*;
+#[cfg(feature = "bevy_text")]
+use bevy_hierarchy::Children;
 use bevy_math::{FloatOrd, Mat4, Rect, URect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::Camera,
@@ -45,7 +47,7 @@ use bevy_render::{
 };
 use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
+use bevy_text::{PositionedGlyph, Text, TextLayoutInfo, TextSection};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
@@ -788,6 +790,7 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[cfg(feature = "bevy_text")]
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_text(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -796,19 +799,32 @@ pub fn extract_uinode_text(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
-        Query<(
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-            &Text,
-            &TextLayoutInfo,
-        )>,
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+                Option<&TextSection>,
+                &TextLayoutInfo,
+                Option<&Children>,
+            ),
+            With<Text>,
+        >,
     >,
+    text2d_section_query: Extract<Query<&TextSection, With<Parent>>>,
 ) {
-    for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
-        &uinode_query
+    for (
+        uinode,
+        global_transform,
+        view_visibility,
+        clip,
+        camera,
+        maybe_section,
+        text_layout_info,
+        children,
+    ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -844,13 +860,27 @@ pub fn extract_uinode_text(
         transform.translation = transform.translation.round();
         transform.translation *= inverse_scale_factor;
 
-        let color = LinearRgba::from(text.section.style.color);
+        let mut color = LinearRgba::WHITE;
+        let mut current_section = usize::MAX;
         for PositionedGlyph {
             position,
             atlas_info,
+            section_index,
             ..
         } in &text_layout_info.glyphs
         {
+            let section = if *section_index == 0 {
+                maybe_section.unwrap()
+            } else {
+                // unwrapping the children is fine here, because if the section index != 0, there must be children
+                text2d_section_query
+                    .get(children.unwrap()[*section_index - 1])
+                    .unwrap()
+            };
+            if *section_index != current_section {
+                color = LinearRgba::from(section.style.color);
+                current_section = *section_index;
+            }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();

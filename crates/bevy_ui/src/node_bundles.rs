@@ -16,9 +16,7 @@ use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
 use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
-use bevy_text::{
-    BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
-};
+use bevy_text::{BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node.
@@ -161,7 +159,8 @@ pub struct AtlasImageBundle {
 }
 
 #[cfg(feature = "bevy_text")]
-/// A UI node that is text
+/// A UI node that is a parent of zero or more text entities.
+/// To make this UI node also have text itself, add a [`TextSection`] component
 ///
 /// The positioning of this node is controlled by the UI layout system. If you need manual control,
 /// use [`Text2dBundle`](bevy_text::Text2dBundle).
@@ -172,7 +171,7 @@ pub struct TextBundle {
     /// Styles which control the layout (size and position) of the node and its children
     /// In some cases these styles also affect how the node drawn/painted.
     pub style: Style,
-    /// Contains the text of the node
+    /// Indicates this is the root node for some text.
     pub text: Text,
     /// Cached cosmic buffer for layout
     pub buffer: CosmicBuffer,
@@ -207,26 +206,6 @@ pub struct TextBundle {
 
 #[cfg(feature = "bevy_text")]
 impl TextBundle {
-    /// Create a [`TextBundle`] from a section.
-    ///
-    /// See [`Text::from_section`] for usage.
-    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            text: Text::from_section(value, style),
-            ..Default::default()
-        }
-    }
-
-    /// Creates a [`TextBundle`] from a [`TextSection`].
-    ///
-    /// See [`Text::from_text_section`] for usage.
-    pub fn from_text_section(section: TextSection) -> Self {
-        Self {
-            text: Text::from_text_section(section),
-            ..Default::default()
-        }
-    }
-
     /// Returns this [`TextBundle`] with a new [`JustifyText`] on [`Text`].
     pub const fn with_text_justify(mut self, justify: JustifyText) -> Self {
         self.text.justify = justify;
@@ -250,16 +229,6 @@ impl TextBundle {
     pub const fn with_no_wrap(mut self) -> Self {
         self.text.linebreak_behavior = BreakLineOn::NoWrap;
         self
-    }
-}
-
-#[cfg(feature = "bevy_text")]
-impl<I> From<I> for TextBundle
-where
-    I: Into<TextSection>,
-{
-    fn from(value: I) -> Self {
-        Self::from_text_section(value.into())
     }
 }
 

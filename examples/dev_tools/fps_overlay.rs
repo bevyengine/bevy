@@ -44,15 +44,18 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .with_children(|c| {
-            c.spawn(TextBundle::from_section(
-                concat!(
-                    "Press 1 to change color of the overlay.\n",
-                    "Press 2 to change size of the overlay."
+            c.spawn((
+                TextBundle::default(),
+                TextSection::new(
+                    concat!(
+                        "Press 1 to change color of the overlay.\n",
+                        "Press 2 to change size of the overlay."
+                    ),
+                    TextStyle {
+                        font_size: 25.0,
+                        ..default()
+                    },
                 ),
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
             ));
         });
 }

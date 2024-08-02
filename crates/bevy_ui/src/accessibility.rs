@@ -9,21 +9,41 @@ use bevy_a11y::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
-    query::{Changed, Without},
+    query::{Changed, With, Without},
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
     world::Ref,
 };
-use bevy_hierarchy::Children;
+use bevy_hierarchy::{Children, Parent};
 use bevy_render::{camera::CameraUpdateSystem, prelude::Camera};
-use bevy_text::Text;
+use bevy_text::{Text, TextSection};
 use bevy_transform::prelude::GlobalTransform;
 
-fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
+fn calc_name(
+    texts: &Query<Option<&Children>, With<Text>>,
+    text_sections: &Query<&TextSection, With<Parent>>,
+    children: &Children,
+) -> Option<Box<str>> {
     let mut name = None;
     for child in children {
-        if let Ok(text) = texts.get(*child) {
-            name = Some(text.section.value.to_string());
+        if let Ok(maybe_children) = texts.get(*child) {
+            let mut sections = Vec::new();
+
+            if let Ok(section) = text_sections.get(*child) {
+                sections.push(section);
+            }
+
+            if let Some(children) = maybe_children {
+                for section in text_sections.iter_many(children) {
+                    sections.push(section);
+                }
+            }
+
+            let values = sections
+                .iter()
+                .map(|v| v.value.to_string())
+                .collect::<Vec<String>>();
+            name = Some(values.join(" "));
         }
     }
     name.map(String::into_boxed_str)
@@ -55,10 +75,11 @@ fn calc_bounds(
 fn button_changed(
     mut commands: Commands,
     mut query: Query<(Entity, &Children, Option<&mut AccessibilityNode>), Changed<Button>>,
-    texts: Query<&Text>,
+    texts: Query<Option<&Children>, With<Text>>,
+    text_sections: Query<&TextSection, With<Parent>>,
 ) {
     for (entity, children, accessible) in &mut query {
-        let name = calc_name(&texts, children);
+        let name = calc_name(&texts, &text_sections, children);
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
             if let Some(name) = name {
@@ -84,10 +105,11 @@ fn image_changed(
         (Entity, &Children, Option<&mut AccessibilityNode>),
         (Changed<UiImage>, Without<Button>),
     >,
-    texts: Query<&Text>,
+    texts: Query<Option<&Children>, With<Text>>,
+    text_sections: Query<&TextSection, With<Parent>>,
 ) {
     for (entity, children, accessible) in &mut query {
-        let name = calc_name(&texts, children);
+        let name = calc_name(&texts, &text_sections, children);
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(name) = name {
@@ -109,10 +131,35 @@ fn image_changed(
 
 fn label_changed(
     mut commands: Commands,
-    mut query: Query<(Entity, &Text, Option<&mut AccessibilityNode>), Changed<Label>>,
+    mut query: Query<
+        (
+            Entity,
+            Option<&TextSection>,
+            Option<&Children>,
+            Option<&mut AccessibilityNode>,
+        ),
+        (Changed<Label>, With<Text>),
+    >,
+    text_sections: Query<&TextSection, With<Parent>>,
 ) {
-    for (entity, text, accessible) in &mut query {
-        let name = Some(text.section.value.to_string());
+    for (entity, maybe_section, maybe_children, accessible) in &mut query {
+        let mut sections = Vec::new();
+
+        if let Some(section) = maybe_section {
+            sections.push(section);
+        }
+
+        if let Some(children) = maybe_children {
+            for section in text_sections.iter_many(children) {
+                sections.push(section);
+            }
+        }
+
+        let values = sections
+            .iter()
+            .map(|v| v.value.to_string())
+            .collect::<Vec<String>>();
+        let name = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Label);
             if let Some(name) = name {

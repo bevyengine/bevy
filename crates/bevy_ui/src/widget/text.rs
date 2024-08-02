@@ -11,13 +11,14 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut},
     world::{Mut, Ref},
 };
+use bevy_hierarchy::{Children, Parent};
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::Image};
 use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, TextBounds,
-    TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation,
+    TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextSection, YAxisOrientation,
 };
 use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
@@ -89,6 +90,8 @@ fn create_text_measure(
     fonts: &Assets<Font>,
     scale_factor: f64,
     text: Ref<Text>,
+    sections: &[Ref<TextSection>],
+    parent_section_present: bool,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
@@ -97,7 +100,8 @@ fn create_text_measure(
 ) {
     match text_pipeline.create_text_measure(
         fonts,
-        &text.section,
+        sections,
+        parent_section_present,
         scale_factor,
         text.linebreak_behavior,
         buffer,
@@ -133,6 +137,7 @@ fn create_text_measure(
 ///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
+#[allow(clippy::too_many_arguments)]
 pub fn measure_text_system(
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
@@ -145,15 +150,20 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextFlags,
             Option<&TargetCamera>,
+            Option<Ref<TextSection>>,
             &mut CosmicBuffer,
+            Option<Ref<Children>>,
         ),
         With<Node>,
     >,
     mut text_pipeline: ResMut<TextPipeline>,
+    text2d_section_query: Query<Ref<TextSection>, With<Parent>>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (text, content_size, text_flags, camera, mut buffer) in &mut text_query {
+    for (text, content_size, text_flags, camera, maybe_section, mut buffer, children) in
+        &mut text_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -169,16 +179,37 @@ pub fn measure_text_system(
                     * ui_scale.0,
             ),
         };
+
+        let mut sections = Vec::new();
+        let mut parent_section_present = false;
+
+        if let Some(section) = maybe_section {
+            parent_section_present = true;
+            sections.push(section);
+        }
+
+        let mut children_changed = false;
+        if let Some(children) = children {
+            children_changed = children.is_changed();
+            for section in text2d_section_query.iter_many(&children) {
+                sections.push(section);
+            }
+        }
+
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || text.is_changed()
             || text_flags.needs_new_measure_func
             || content_size.is_added()
+            || children_changed
+            || sections.iter().any(DetectChanges::is_changed)
         {
             let text_alignment = text.justify;
             create_text_measure(
                 &fonts,
                 scale_factor.into(),
                 text,
+                &sections,
+                parent_section_present,
                 &mut text_pipeline,
                 content_size,
                 text_flags,
@@ -201,6 +232,8 @@ fn queue_text(
     scale_factor: f32,
     inverse_scale_factor: f32,
     text: &Text,
+    sections: &[Ref<TextSection>],
+    parent_section_present: bool,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
@@ -221,7 +254,8 @@ fn queue_text(
 
         match text_pipeline.queue_text(
             fonts,
-            &text.section,
+            sections,
+            parent_section_present,
             scale_factor.into(),
             text.justify,
             text.linebreak_behavior,
@@ -274,12 +308,17 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextFlags,
         Option<&TargetCamera>,
+        Option<Ref<TextSection>>,
         &mut CosmicBuffer,
+        Option<Ref<Children>>,
     )>,
+    text_section_query: Query<Ref<TextSection>, With<Parent>>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (node, text, text_layout_info, text_flags, camera, mut buffer) in &mut text_query {
+    for (node, text, text_layout_info, text_flags, camera, maybe_section, mut buffer, children) in
+        &mut text_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -297,8 +336,26 @@ pub fn text_system(
         };
         let inverse_scale_factor = scale_factor.recip();
 
+        let mut sections = Vec::new();
+        let mut parent_section_present = false;
+
+        if let Some(section) = maybe_section {
+            parent_section_present = true;
+            sections.push(section);
+        }
+
+        let mut children_changed = false;
+        if let Some(children) = children {
+            children_changed = children.is_changed();
+            for section in text_section_query.iter_many(&children) {
+                sections.push(section);
+            }
+        }
+
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || node.is_changed()
+            || children_changed
+            || sections.iter().any(DetectChanges::is_changed)
             || text_flags.needs_recompute
         {
             queue_text(
@@ -310,6 +367,8 @@ pub fn text_system(
                 scale_factor,
                 inverse_scale_factor,
                 text,
+                &sections,
+                parent_section_present,
                 node,
                 text_flags,
                 text_layout_info,

@@ -29,8 +29,6 @@ impl Default for CosmicBuffer {
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct Text {
-    /// The text's section
-    pub section: TextSection,
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub justify: JustifyText,
@@ -39,82 +37,6 @@ pub struct Text {
 }
 
 impl Text {
-    /// Constructs a [`Text`] from a section.
-    ///
-    /// ```
-    /// # use bevy_asset::Handle;
-    /// # use bevy_color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
-    /// #
-    /// # let font_handle: Handle<Font> = Default::default();
-    /// #
-    /// // Basic usage.
-    /// let hello_world = Text::from_section(
-    ///     // Accepts a String or any type that converts into a String, such as &str.
-    ///     "hello world!",
-    ///     TextStyle {
-    ///         font: font_handle.clone().into(),
-    ///         font_size: 60.0,
-    ///         color: Color::WHITE,
-    ///     },
-    /// );
-    ///
-    /// let hello_bevy = Text::from_section(
-    ///     "hello world\nand bevy!",
-    ///     TextStyle {
-    ///         font: font_handle.into(),
-    ///         font_size: 60.0,
-    ///         color: Color::WHITE,
-    ///     },
-    /// ) // You can still add text justifaction.
-    /// .with_justify(JustifyText::Center);
-    /// ```
-    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            section: TextSection::new(value, style),
-            ..default()
-        }
-    }
-
-    /// Constructs a [`Text`] from a [`TextSection`].
-    ///
-    /// ```
-    /// # use bevy_asset::Handle;
-    /// # use bevy_color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, JustifyText, TextSection};
-    /// #
-    /// # let font_handle: Handle<Font> = Default::default();
-    /// #
-    /// let hello_world = Text::from_text_section(
-    ///     TextSection {
-    ///         value: "hello world!".to_string(),
-    ///         style: TextStyle {
-    ///             font: font_handle.clone().into(),
-    ///             font_size: 60.0,
-    ///             color: Color::WHITE,
-    ///         },
-    ///     },
-    /// );
-    ///
-    /// let hello_bevy = Text::from_text_section(
-    ///     TextSection {
-    ///         value: "hello world\nand bevy!".to_string(),
-    ///         style: TextStyle {
-    ///             font: font_handle.into(),
-    ///             font_size: 60.0,
-    ///             color: Color::WHITE,
-    ///         },
-    ///     },
-    /// ) // You can still add text justifaction.
-    /// .with_justify(JustifyText::Center);
-    /// ```
-    pub fn from_text_section(section: TextSection) -> Self {
-        Self {
-            section,
-            ..default()
-        }
-    }
-
     /// Returns this [`Text`] with a new [`JustifyText`].
     pub const fn with_justify(mut self, justify: JustifyText) -> Self {
         self.justify = justify;
@@ -130,7 +52,7 @@ impl Text {
 }
 
 /// Contains the value of the text in a section and how it should be styled.
-#[derive(Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
 #[reflect(Default)]
 pub struct TextSection {
     /// The content (in `String` form) of the text in the section.
