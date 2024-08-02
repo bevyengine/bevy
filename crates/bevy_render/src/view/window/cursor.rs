@@ -1,13 +1,15 @@
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::{Changed, With},
+    query::With,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res},
+    system::{Commands, Local, Query, Res},
+    world::Ref,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::tracing::warn;
+use bevy_utils::{tracing::warn, HashSet};
 use bevy_window::{SystemCursorIcon, Window};
 use bevy_winit::{
     convert_system_cursor_icon, CursorSource, CustomCursorCache, CustomCursorCacheKey,
@@ -71,12 +73,17 @@ pub enum CustomCursor {
 
 pub fn update_cursors(
     mut commands: Commands,
-    windows: Query<(Entity, &CursorIcon), (With<Window>, Changed<CursorIcon>)>,
+    mut windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
     cursor_cache: Res<CustomCursorCache>,
     images: Res<Assets<Image>>,
+    mut queue: Local<HashSet<Entity>>,
 ) {
-    for (entity, cursor) in windows.iter() {
-        let cursor_source = match &cursor {
+    for (entity, cursor) in windows.iter_mut() {
+        if !(cursor.is_changed() || queue.remove(&entity)) {
+            continue;
+        }
+
+        let cursor_source = match cursor.as_ref() {
             CursorIcon::Custom(CustomCursor::Image { handle, hotspot }) => {
                 let cache_key = CustomCursorCacheKey::Asset(match handle.id() {
                     AssetId::Index { index, .. } => u128::from(index.to_bits()),
@@ -87,6 +94,10 @@ pub fn update_cursors(
                     CursorSource::CustomCached(cache_key)
                 } else {
                     let Some(image) = images.get(handle) else {
+                        warn!(
+                            "Cursor image {handle:?} is not loaded yet and couldn't be used. Trying again next frame."
+                        );
+                        queue.insert(entity);
                         continue;
                     };
                     let Some(rgba) = image_to_rgba_pixels(image) else {
