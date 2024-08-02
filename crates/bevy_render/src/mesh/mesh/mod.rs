@@ -552,21 +552,16 @@ impl Mesh {
     /// Does nothing if no [`Indices`] are set.
     /// If this operation succeeded, an [`Ok`] result is returned.
     pub fn invert_winding(&mut self) -> Result<(), MeshWindingInvertError> {
-        match self.primitive_topology {
-            PrimitiveTopology::TriangleList | PrimitiveTopology::TriangleStrip => {}
-            _ => return Err(MeshWindingInvertError::WrongTopology),
-        }
-
         fn invert<I>(
             indices: &mut [I],
             topology: PrimitiveTopology,
         ) -> Result<(), MeshWindingInvertError> {
-            // Early return if the index count doesn't match
-            if indices.len() % 3 != 0 {
-                return Err(MeshWindingInvertError::AbruptIndicesEnd);
-            }
             match topology {
                 PrimitiveTopology::TriangleList => {
+                    // Early return if the index count doesn't match
+                    if indices.len() % 3 != 0 {
+                        return Err(MeshWindingInvertError::AbruptIndicesEnd);
+                    }
                     for chunk in indices.chunks_mut(3) {
                         // This currently can only be optimized away with unsafe, rework this when `feature(slice_as_chunks)` gets stable.
                         let [_, b, c] = chunk else {
@@ -574,13 +569,14 @@ impl Mesh {
                         };
                         std::mem::swap(b, c);
                     }
+                    Ok(())
                 }
                 PrimitiveTopology::TriangleStrip => {
                     indices.reverse();
+                    Ok(())
                 }
-                _ => unreachable!(),
+                _ => Err(MeshWindingInvertError::WrongTopology),
             }
-            Ok(())
         }
         match &mut self.indices {
             Some(Indices::U16(vec)) => invert(vec, self.primitive_topology),
