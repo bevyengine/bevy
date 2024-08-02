@@ -548,6 +548,7 @@ impl Mesh {
 
     /// Inverts the winding of the indices such that all counter-clockwise triangles are now
     /// clockwise and vice versa.
+    /// For lines, their start and end indices are flipped.
     ///
     /// Does nothing if no [`Indices`] are set.
     /// If this operation succeeded, an [`Ok`] result is returned.
@@ -571,7 +572,15 @@ impl Mesh {
                     }
                     Ok(())
                 }
-                PrimitiveTopology::TriangleStrip => {
+                PrimitiveTopology::LineList => {
+                    // Early return if the index count doesn't match
+                    if indices.len() % 2 != 0 {
+                        return Err(MeshWindingInvertError::AbruptIndicesEnd);
+                    }
+                    indices.reverse();
+                    Ok(())
+                }
+                PrimitiveTopology::TriangleStrip | PrimitiveTopology::LineStrip => {
                     indices.reverse();
                     Ok(())
                 }
@@ -1230,12 +1239,17 @@ where
     }
 }
 
+/// An error that occurred while trying to invert the winding of a [`Mesh`].
 #[derive(Debug, Error)]
 pub enum MeshWindingInvertError {
-    #[error("Source mesh does not have primitive topology `TriangleList` or `TriangleStrip`")]
+    /// This error occurs when you try to invert the winding for a mesh with [`PrimitiveTopology::PointList`].
+    #[error("Mesh winding invertation does not work for primitive topology `PointList`")]
     WrongTopology,
 
-    #[error("Indices weren't in chunks of 3")]
+    /// This error occurs when you try to invert the winding for a mesh with
+    /// * [`PrimitiveTopology::TriangleList`], but the indices are not in chunks of 3.
+    /// * [`PrimitiveTopology::LineList`], but the indices are not in chunks of 2.
+    #[error("Indices weren't in chunks according to topology")]
     AbruptIndicesEnd,
 }
 
@@ -1960,7 +1974,7 @@ fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
 mod tests {
     use super::Mesh;
     use crate::{
-        mesh::{Indices, VertexAttributeValues},
+        mesh::{Indices, MeshWindingInvertError, VertexAttributeValues},
         render_asset::RenderAssetUsages,
     };
     use bevy_math::Vec3;
@@ -2030,6 +2044,48 @@ mod tests {
     }
 
     #[test]
+    fn point_list_mesh_invert_winding() {
+        let mesh = Mesh::new(PrimitiveTopology::PointList, RenderAssetUsages::default())
+            .with_inserted_indices(Indices::U32(vec![]));
+        assert!(matches!(
+            mesh.with_inverted_winding(),
+            Err(MeshWindingInvertError::WrongTopology)
+        ));
+    }
+
+    #[test]
+    fn line_list_mesh_invert_winding() {
+        let mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+            .with_inserted_indices(Indices::U32(vec![0, 1, 1, 2, 2, 3]));
+        let mesh = mesh.with_inverted_winding().unwrap();
+        assert_eq!(
+            mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
+            vec![3, 2, 2, 1, 1, 0]
+        );
+    }
+
+    #[test]
+    fn line_list_mesh_invert_winding_fail() {
+        let mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+            .with_inserted_indices(Indices::U32(vec![0, 1, 1]));
+        assert!(matches!(
+            mesh.with_inverted_winding(),
+            Err(MeshWindingInvertError::AbruptIndicesEnd)
+        ));
+    }
+
+    #[test]
+    fn line_strip_mesh_invert_winding() {
+        let mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::default())
+            .with_inserted_indices(Indices::U32(vec![0, 1, 2, 3]));
+        let mesh = mesh.with_inverted_winding().unwrap();
+        assert_eq!(
+            mesh.indices().unwrap().iter().collect::<Vec<usize>>(),
+            vec![3, 2, 1, 0]
+        );
+    }
+
+    #[test]
     fn triangle_list_mesh_invert_winding() {
         let mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -2047,6 +2103,19 @@ mod tests {
                 1, 2, 3, // Second triangle
             ]
         );
+    }
+
+    #[test]
+    fn triangle_list_mesh_invert_winding_fail() {
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_indices(Indices::U32(vec![0, 3, 1, 2]));
+        assert!(matches!(
+            mesh.with_inverted_winding(),
+            Err(MeshWindingInvertError::AbruptIndicesEnd)
+        ));
     }
 
     #[test]
