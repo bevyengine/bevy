@@ -343,6 +343,7 @@ mod tests {
     use bevy_utils::default;
     use std::any::TypeId;
 
+    use crate::prelude::EntityRef;
     use crate::world::EntityMut;
     use crate::{
         self as bevy_ecs,
@@ -364,7 +365,6 @@ mod tests {
         },
         world::{FromWorld, World},
     };
-    use crate::prelude::EntityRef;
 
     #[derive(Resource, PartialEq, Debug)]
     enum SystemRan {
