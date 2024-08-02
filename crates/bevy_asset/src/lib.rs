@@ -1511,6 +1511,7 @@ mod tests {
         Empty,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
@@ -1519,6 +1520,7 @@ mod tests {
         embedded: TestAsset,
     }
 
+    #[allow(dead_code)]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 }

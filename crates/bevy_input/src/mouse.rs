@@ -2,9 +2,6 @@
 
 use crate::{ButtonInput, ButtonState};
 use bevy_ecs::entity::Entity;
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::reflect::ReflectResource;
-use bevy_ecs::system::Resource;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     event::{Event, EventReader},
@@ -12,7 +9,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::Reflect;
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
