@@ -274,33 +274,29 @@ impl<T: SparseSetIndex> Access<T> {
         if self.reads_all {
             if other.writes_all {
                 return AccessConflict::All;
-            } else {
-                conflicts.extend(other.writes.ones());
             }
+            conflicts.extend(other.writes.ones());
         }
 
         if other.reads_all {
             if self.writes_all {
                 return AccessConflict::All;
-            } else {
-                conflicts.extend(self.writes.ones());
             }
+            conflicts.extend(self.writes.ones());
         }
 
         if self.writes_all {
             if other.reads_all {
                 return AccessConflict::All;
-            } else {
-                conflicts.extend(other.reads_and_writes.ones());
             }
+            conflicts.extend(other.reads_and_writes.ones());
         }
 
         if other.writes_all {
             if self.reads_all {
                 return AccessConflict::All;
-            } else {
-                conflicts.extend(self.reads_and_writes.ones());
             }
+            conflicts.extend(self.reads_and_writes.ones());
         }
         conflicts.extend(self.writes.intersection(&other.reads_and_writes));
         conflicts.extend(self.reads_and_writes.intersection(&other.writes));
