@@ -21,7 +21,7 @@ use super::{In, IntoSystem, ReadOnlySystem, SystemBuilder};
 pub struct SystemMeta {
     pub(crate) name: Cow<'static, str>,
     /// The set of component accesses for this system. This is used to determine
-    /// - soundness issues (e.g. multiple [SystemParams](`SystemParam`) mutably accessing the same component)
+    /// - soundness issues (e.g. multiple [`SystemParams`](`SystemParam`) mutably accessing the same component)
     /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
     /// This [`Access`] is used to determine which systems can run in parallel with each other
