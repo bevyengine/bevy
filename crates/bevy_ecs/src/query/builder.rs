@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use crate::{component::ComponentId, prelude::*};
-
 use super::{FilteredAccess, QueryData, QueryFilter};
 
 /// Builder struct to create [`QueryState`] instances at runtime.
@@ -112,9 +111,10 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Adds [`With<T>`] to the [`FilteredAccess`] of self.
-    pub fn with<T: Component>(&mut self) -> &mut Self {
+    pub fn with<T: Component>(mut self) -> QueryBuilder<'w, D, (F, With<T>)> {
         self.filter::<With<T>>();
-        self
+        // SAFETY: the two types only differ by the marker type
+        unsafe { std::mem::transmute(self) }
     }
 
     /// Adds [`With<T>`] to the [`FilteredAccess`] of self from a runtime [`ComponentId`].
@@ -126,9 +126,10 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Adds [`Without<T>`] to the [`FilteredAccess`] of self.
-    pub fn without<T: Component>(&mut self) -> &mut Self {
+    pub fn without<T: Component>(mut self) -> QueryBuilder<'w, D, (F, Without<T>)> {
         self.filter::<Without<T>>();
-        self
+        // SAFETY: the two types only differ by the marker type
+        unsafe { std::mem::transmute::<Self, QueryBuilder<'w, D, (F, Without<T>)>>(self) }
     }
 
     /// Adds [`Without<T>`] to the [`FilteredAccess`] of self from a runtime [`ComponentId`].
@@ -189,19 +190,23 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// # let mut world = World::new();
     /// #
     /// QueryBuilder::<Entity>::new(&mut world).or(|builder| {
-    ///     builder.with::<A>();
-    ///     builder.with::<B>();
+    ///     builder
+    ///       .with::<A>()
+    ///       .with::<B>()
     /// });
     /// // is equivalent to
     /// QueryBuilder::<Entity>::new(&mut world).filter::<Or<(With<A>, With<B>)>>();
     /// ```
-    pub fn or(&mut self, f: impl Fn(&mut QueryBuilder)) -> &mut Self {
+    pub fn or<F2: QueryFilter>(mut self, f: impl Fn(QueryBuilder<'w>) -> QueryBuilder<'w, (), F2>) -> QueryBuilder<'w, D, Or<(F, F2)>> {
         let mut builder = QueryBuilder::new(self.world);
         builder.or = true;
         builder.first = true;
-        f(&mut builder);
-        self.access.extend(builder.access());
-        self
+        let new_builder = f(builder);
+        self.access.extend(new_builder.access());
+        // SAFETY:
+        // - We have included all required accesses for Or<(F, F2)>
+        // - The layout of all QueryBuilder instances is the same
+        unsafe { std::mem::transmute(self) }
     }
 
     /// Returns a reference to the [`FilteredAccess`] that will be provided to the built [`Query`].
@@ -312,16 +317,15 @@ mod tests {
 
         let mut query_a = QueryBuilder::<Entity>::new(&mut world)
             .or(|builder| {
-                builder.with::<A>();
-                builder.with::<B>();
+                builder.with::<A>()
+                       .with::<B>()
             })
             .build();
         assert_eq!(2, query_a.iter(&world).count());
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
             .or(|builder| {
-                builder.with::<A>();
-                builder.without::<B>();
+                builder.with::<A>().without::<B>()
             })
             .build();
         dbg!(&query_b.component_access);
@@ -329,9 +333,7 @@ mod tests {
 
         let mut query_c = QueryBuilder::<Entity>::new(&mut world)
             .or(|builder| {
-                builder.with::<A>();
-                builder.with::<B>();
-                builder.with::<C>();
+                builder.with::<A>().with::<B>().with::<C>()
             })
             .build();
         assert_eq!(3, query_c.iter(&world).count());

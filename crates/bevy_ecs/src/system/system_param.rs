@@ -185,14 +185,14 @@ pub unsafe trait SystemParam: Sized {
 
 /// A parameter that can be built with [`SystemBuilder`](crate::system::builder::SystemBuilder)
 pub trait BuildableSystemParam: SystemParam {
-    /// A mutable reference to this type will be passed to the builder function
-    type Builder<'b>;
+    /// This type will be returned by the builder function
+    type OutputBuilder;
 
     /// Constructs [`SystemParam::State`] for `Self` using a given builder function
     fn build(
         world: &mut World,
         meta: &mut SystemMeta,
-        func: impl FnOnce(&mut Self::Builder<'_>),
+        func: impl FnOnce(&mut World) -> Self::OutputBuilder,
     ) -> Self::State;
 }
 
@@ -255,19 +255,18 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
-impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
+impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static > BuildableSystemParam
     for Query<'w, 's, D, F>
 {
-    type Builder<'b> = QueryBuilder<'b, D, F>;
+    type OutputBuilder = QueryBuilder<'w, D, F>;
 
     #[inline]
     fn build(
         world: &mut World,
         system_meta: &mut SystemMeta,
-        build: impl FnOnce(&mut Self::Builder<'_>),
+        build: impl FnOnce(&mut World) -> QueryBuilder<'w, D, F>,
     ) -> Self::State {
-        let mut builder = QueryBuilder::new(world);
-        build(&mut builder);
+        let mut builder = build(world);
         let state = builder.build();
         assert_component_access_compatibility(
             &system_meta.name,
@@ -863,15 +862,14 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 }
 
 impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
-    type Builder<'b> = T;
+    type OutputBuilder = T;
 
     fn build(
         world: &mut World,
         _meta: &mut SystemMeta,
-        func: impl FnOnce(&mut Self::Builder<'_>),
+        func: impl FnOnce(&mut World) -> Self::OutputBuilder,
     ) -> Self::State {
-        let mut value = T::from_world(world);
-        func(&mut value);
+        let value = func(world);
         SyncCell::new(value)
     }
 }
