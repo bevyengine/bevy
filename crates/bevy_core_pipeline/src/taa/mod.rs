@@ -410,7 +410,7 @@ fn prepare_taa_history_textures(
     views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasSettings>>,
 ) {
     for (entity, camera, view) in &views {
-        if let Some(physical_viewport_size) = camera.physical_viewport_size {
+        if let Some(physical_viewport_size) = camera.physical_target_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
                 size: Extent3d {
