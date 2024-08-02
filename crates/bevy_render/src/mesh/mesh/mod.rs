@@ -556,10 +556,14 @@ impl Mesh {
             return Err(MeshWindingInvertError::WrongTopology);
         }
 
-        fn invert<'a, I: 'static>(
-            indices: impl Iterator<Item = &'a mut [I]>,
+        fn invert<I>(
+            indices: &mut [I],
         ) -> Result<(), MeshWindingInvertError> {
-            for chunk in indices {
+            // Early return if the index count doesn't match
+            if indices.len() % 3 != 0 {
+                return Err(MeshWindingInvertError::AbruptIndicesEnd);
+            }
+            for chunk in indices.chunks_mut(3) {
                 // We check this every run because it will be an overhead as long as we
                 // don't use unsafe checks inside.
                 let [_, b, c] = chunk else {
@@ -570,8 +574,8 @@ impl Mesh {
             Ok(())
         }
         match &mut self.indices {
-            Some(Indices::U16(vec)) => invert(vec.chunks_mut(3)),
-            Some(Indices::U32(vec)) => invert(vec.chunks_mut(3)),
+            Some(Indices::U16(vec)) => invert(vec),
+            Some(Indices::U32(vec)) => invert(vec),
             None => Ok(()),
         }
     }
