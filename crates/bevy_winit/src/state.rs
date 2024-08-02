@@ -134,8 +134,10 @@ impl<T: Event> WinitAppRunnerState<T> {
 /// Identifiers for custom cursors used in caching.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum CustomCursorCacheKey {
+    /// u64 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
+    AssetIndex(u64),
     /// u128 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
-    Asset(u128),
+    AssetUuid(u128),
     /// A URL to a cursor.
     Url(String),
 }

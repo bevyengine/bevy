@@ -85,10 +85,12 @@ pub fn update_cursors(
 
         let cursor_source = match cursor.as_ref() {
             CursorIcon::Custom(CustomCursor::Image { handle, hotspot }) => {
-                let cache_key = CustomCursorCacheKey::Asset(match handle.id() {
-                    AssetId::Index { index, .. } => u128::from(index.to_bits()),
-                    AssetId::Uuid { uuid } => uuid.as_u128(),
-                });
+                let cache_key = match handle.id() {
+                    AssetId::Index { index, .. } => {
+                        CustomCursorCacheKey::AssetIndex(index.to_bits())
+                    }
+                    AssetId::Uuid { uuid } => CustomCursorCacheKey::AssetUuid(uuid.as_u128()),
+                };
 
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)
