@@ -396,7 +396,8 @@ impl Camera {
             return None;
         }
 
-        let depth = self.depth_ndc_to_view_z(ndc_space_coords.z);
+        // Streching ndc depth to value via near plane and negating result to be in positive room again.
+        let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
 
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
         let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
