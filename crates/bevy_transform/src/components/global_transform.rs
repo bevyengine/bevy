@@ -80,7 +80,7 @@ impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
-        GlobalTransform(Quat::rotation_translation_to_affine3a(rotation, Vec3::ZERO))
+        GlobalTransform(Affine3A::from_rotation_translation(rotation, Vec3::ZERO))
     }
 
     #[doc(hidden)]
@@ -107,7 +107,7 @@ impl GlobalTransform {
     /// will be invalid.
     #[inline]
     pub fn compute_transform(&self) -> Transform {
-        let (scale, rotation, translation) = Quat::affine3a_to_scale_rotation_translation(self.0);
+        let (scale, rotation, translation) = self.0.to_scale_rotation_translation();
         Transform {
             translation,
             rotation,
@@ -151,7 +151,7 @@ impl GlobalTransform {
     #[inline]
     pub fn reparented_to(&self, parent: &GlobalTransform) -> Transform {
         let relative_affine = parent.affine().inverse() * self.affine();
-        let (scale, rotation, translation) = Quat::affine3a_to_scale_rotation_translation(relative_affine);
+        let (scale, rotation, translation) = relative_affine.to_scale_rotation_translation();
         Transform {
             translation,
             rotation,
@@ -165,7 +165,7 @@ impl GlobalTransform {
     /// will be invalid.
     #[inline]
     pub fn to_scale_rotation_translation(&self) -> (Vec3, Quat, Vec3) {
-        Quat::affine3a_to_scale_rotation_translation(self.0)
+        self.0.to_scale_rotation_translation()
     }
 
     impl_local_axis!(right, left, X);

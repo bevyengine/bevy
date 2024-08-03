@@ -332,4 +332,5 @@ impl_reflect!(
 
 impl_reflect_value!(::glam::EulerRot(Debug, Default));
 impl_reflect_value!(::glam::BVec3A(Debug, Default));
+#[cfg(not(feature = "repr_c"))]
 impl_reflect_value!(::glam::BVec4A(Debug, Default));

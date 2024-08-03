@@ -20,6 +20,8 @@ uuid = ["dep:uuid"]
 # When enabled, allows documentation comments to be accessed via reflection
 documentation = ["bevy_reflect_derive/documentation"]
 
+repr_c = ["glam/scalar-math"]
+
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "derive", version = "0.15.0-dev" }

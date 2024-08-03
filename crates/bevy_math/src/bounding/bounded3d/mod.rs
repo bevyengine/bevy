@@ -233,7 +233,7 @@ impl BoundingVolume for Aabb3d {
     /// and consider storing the original AABB and rotating that every time instead.
     #[inline(always)]
     fn rotate_by(&mut self, rotation: impl Into<Self::Rotation>) {
-        let rot_mat = Into::<Quat>::into(rotation).to_mat3();
+        let rot_mat = Mat3::from_quat(rotation.into());
         let abs_rot_mat = Mat3::from_cols(
             rot_mat.x_axis.abs(),
             rot_mat.y_axis.abs(),

@@ -101,7 +101,7 @@ impl Bounded3d for Cuboid {
     fn aabb_3d(&self, translation: Vec3, rotation: Quat) -> Aabb3d {
         // Compute the AABB of the rotated cuboid by transforming the half-size
         // by an absolute rotation matrix.
-        let rot_mat = rotation.to_mat3();
+        let rot_mat = Mat3::from_quat(rotation);
         let abs_rot_mat = Mat3::from_cols(
             rot_mat.x_axis.abs(),
             rot_mat.y_axis.abs(),
