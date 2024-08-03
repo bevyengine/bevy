@@ -93,14 +93,14 @@ fn setup(
         ..default()
     });
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::default());
 }
 
 fn update(
@@ -112,7 +112,7 @@ fn update(
         ),
         With<Camera>,
     >,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextSection>,
     mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
@@ -156,7 +156,7 @@ fn update(
     }
 
     let mut text = text.single_mut();
-    let text = &mut text.section.value;
+    let text = &mut text.value;
     text.clear();
 
     let (o, l, m, h, u) = match ssao_settings.map(|s| s.quality_level) {

@@ -159,18 +159,14 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
 // Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     // Create the text.
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(app_status.create_text());
 }
 
 // Adds a world environment map to the camera. This separate system is needed because the camera is
@@ -243,7 +239,7 @@ fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<A
 }
 
 // A system that updates the help text.
-fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_text(mut text_query: Query<&mut TextSection>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }
@@ -276,14 +272,14 @@ impl Display for ReflectionMode {
 impl AppStatus {
     // Constructs the help text at the bottom of the screen based on the
     // application status.
-    fn create_text(&self) -> Text {
+    fn create_text(&self) -> TextSection {
         let rotation_help_text = if self.rotating {
             STOP_ROTATION_HELP_TEXT
         } else {
             START_ROTATION_HELP_TEXT
         };
 
-        Text::from_section(
+        TextSection::new(
             format!(
                 "{}\n{}\n{}",
                 self.reflection_mode, rotation_help_text, REFLECTION_MODE_HELP_TEXT

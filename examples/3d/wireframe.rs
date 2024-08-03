@@ -112,14 +112,14 @@ fn setup(
     });
 
     // Text used to show controls
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::default());
 }
 
 /// This system let's you toggle various wireframe settings
@@ -127,9 +127,9 @@ fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
     mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextSection>,
 ) {
-    text.single_mut().section.value = format!(
+    text.single_mut().value = format!(
         "Controls
 ---------------
 Z - Toggle global

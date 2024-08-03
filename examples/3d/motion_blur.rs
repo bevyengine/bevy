@@ -261,41 +261,38 @@ fn setup_ui(mut commands: Commands) {
     let style = TextStyle::default();
 
     commands
-        .spawn(NodeBundle {
+        .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
                 ..default()
             },
             ..default()
         })
         .with_children(|root| {
             root.spawn((
-                TextBundle::from_section(String::new(), style.clone()),
+                TextSection::new(String::new(), style.clone()),
                 ShutterAngleText,
             ));
 
-            root.spawn((
-                TextBundle::from_section(String::new(), style.clone()),
-                SamplesText,
-            ));
+            root.spawn((TextSection::new(String::new(), style.clone()), SamplesText));
 
-            root.spawn((TextBundle::from_section(
+            root.spawn(TextSection::new(
                 "1/2: -/+ shutter angle (blur amount)\n\
                     3/4: -/+ sample count (blur quality)\n\
                     Spacebar: cycle camera",
                 style,
-            ),));
+            ));
         });
 }
 
 fn keyboard_inputs(
     mut settings: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
-    mut shutter_angle_text: Query<&mut Text, (With<ShutterAngleText>, Without<SamplesText>)>,
-    mut samples_text: Query<&mut Text, (With<SamplesText>, Without<ShutterAngleText>)>,
+    mut text: Query<&mut TextSection>,
+    shutter_angle_text: Query<Entity, With<ShutterAngleText>>,
+    samples_text: Query<Entity, With<SamplesText>>,
     mut camera: ResMut<CameraMode>,
 ) {
     let mut settings = settings.single_mut();
@@ -316,11 +313,11 @@ fn keyboard_inputs(
     settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
     settings.samples = settings.samples.clamp(0, 64);
 
-    let mut shutter_angle_text = shutter_angle_text.single_mut();
-    let mut samples_text = samples_text.single_mut();
+    let mut shutter_angle_text = text.get_mut(shutter_angle_text.single()).unwrap();
+    shutter_angle_text.value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
 
-    shutter_angle_text.section.value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
-    samples_text.section.value = format!("Samples: {:.5}\n", settings.samples);
+    let mut samples_text = text.get_mut(samples_text.single()).unwrap();
+    samples_text.value = format!("Samples: {:.5}\n", settings.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset

@@ -134,18 +134,14 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns the help text at the bottom of the screen.
 fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
-    commands.spawn(
-        TextBundle {
-            text: create_help_text(app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(create_help_text(app_settings));
 }
 
 impl Default for AppSettings {
@@ -157,8 +153,8 @@ impl Default for AppSettings {
 }
 
 /// Creates help text at the bottom of the screen.
-fn create_help_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(
+fn create_help_text(app_settings: &AppSettings) -> TextSection {
+    TextSection::new(
         format!(
             "Chromatic aberration intensity: {} (Press Left or Right to change)",
             app_settings.chromatic_aberration_intensity
@@ -210,7 +206,7 @@ fn update_chromatic_aberration_settings(
 
 /// Updates the help text at the bottom of the screen to reflect the current
 /// [`AppSettings`].
-fn update_help_text(mut text: Query<&mut Text>, app_settings: Res<AppSettings>) {
+fn update_help_text(mut text: Query<&mut TextSection>, app_settings: Res<AppSettings>) {
     for mut text in text.iter_mut() {
         *text = create_help_text(&app_settings);
     }

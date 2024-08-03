@@ -179,24 +179,24 @@ fn setup_ui(mut commands: Commands) {
             ..default()
         })
         .with_children(|b| {
-            b.spawn((
-                TextBundle {
-                    text: Text {
-                        section: TextSection {
-                            value: "Loading...".to_owned(),
-                            style: TextStyle {
-                                font_size: 64.0,
-                                color: Color::BLACK,
-                                ..Default::default()
-                            },
-                        },
-                        justify: JustifyText::Right,
-                        ..Default::default()
-                    },
+            b.spawn((TextBundle {
+                text: Text {
+                    justify: JustifyText::Right,
                     ..Default::default()
                 },
-                LoadingText,
-            ));
+                ..Default::default()
+            },))
+                .with_child((
+                    TextSection {
+                        value: "Loading...".to_owned(),
+                        style: TextStyle {
+                            font_size: 64.0,
+                            color: Color::BLACK,
+                            ..Default::default()
+                        },
+                    },
+                    LoadingText,
+                ));
         });
 }
 
@@ -278,7 +278,7 @@ fn wait_on_load(
 fn get_async_loading_state(
     state: Res<AsyncLoadingState>,
     mut next_loading_state: ResMut<NextState<LoadingState>>,
-    mut text: Query<&mut Text, With<LoadingText>>,
+    mut text: Query<&mut TextSection, With<LoadingText>>,
 ) {
     // Load the value written by the `Future`.
     let is_loaded = state.0.load(Ordering::Acquire);
@@ -287,7 +287,7 @@ fn get_async_loading_state(
     if is_loaded {
         next_loading_state.set(LoadingState::Loaded);
         if let Ok(mut text) = text.get_single_mut() {
-            "Loaded!".clone_into(&mut text.section.value);
+            "Loaded!".clone_into(&mut text.value);
         }
     }
 }

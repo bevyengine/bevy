@@ -89,7 +89,7 @@ fn update_parallax_depth_scale(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
-    mut text: Query<&mut Text, With<ParallaxDepthText>>,
+    mut text: Query<&mut TextSection, With<ParallaxDepthText>>,
 ) {
     if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
@@ -107,7 +107,7 @@ fn update_parallax_depth_scale(
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
-            text.section.value = format!("Parallax depth scale: {new_depth:.5}\n");
+            text.value = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
                 *depth_update = false;
             }
@@ -118,7 +118,7 @@ fn update_parallax_depth_scale(
 fn switch_method(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut text: Query<&mut Text, With<ParallaxMethodText>>,
+    mut text: Query<&mut TextSection, With<ParallaxMethodText>>,
     mut current: Local<CurrentMethod>,
 ) {
     if input.just_pressed(KeyCode::Space) {
@@ -127,7 +127,7 @@ fn switch_method(
         return;
     }
     let mut text = text.single_mut();
-    text.section.value = format!("Method: {}\n", *current);
+    text.value = format!("Method: {}\n", *current);
 
     for (_, mat) in materials.iter_mut() {
         mat.parallax_mapping_method = current.0;
@@ -138,7 +138,7 @@ fn update_parallax_layers(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
-    mut text: Query<&mut Text, With<ParallaxLayersText>>,
+    mut text: Query<&mut TextSection, With<ParallaxLayersText>>,
 ) {
     if input.just_pressed(KeyCode::Digit3) {
         target_layers.0 -= 1.0;
@@ -150,7 +150,7 @@ fn update_parallax_layers(
     }
     let layer_count = target_layers.0.exp2();
     let mut text = text.single_mut();
-    text.section.value = format!("Layers: {layer_count:.0}\n");
+    text.value = format!("Layers: {layer_count:.0}\n");
 
     for (_, mat) in materials.iter_mut() {
         mat.max_parallax_layer_count = layer_count;
@@ -314,19 +314,18 @@ fn setup(
 
     // example instructions
     commands
-        .spawn(NodeBundle {
+        .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
                 ..default()
             },
             ..default()
         })
         .with_children(|root| {
             root.spawn((
-                TextBundle::from_section(
+                TextSection::new(
                     format!("Parallax depth scale: {parallax_depth_scale:.5}"),
                     style.clone(),
                 ),
@@ -334,7 +333,7 @@ fn setup(
             ));
 
             root.spawn((
-                TextBundle::from_section(
+                TextSection::new(
                     format!("Layers: {max_parallax_layer_count:.0}"),
                     style.clone(),
                 ),
@@ -342,11 +341,11 @@ fn setup(
             ));
 
             root.spawn((
-                TextBundle::from_section(format!("{parallax_mapping_method}"), style.clone()),
+                TextSection::new(format!("{parallax_mapping_method}"), style.clone()),
                 ParallaxMethodText,
             ));
 
-            root.spawn(TextBundle::from_section(
+            root.spawn(TextSection::new(
                 [
                     "\n",
                     "Controls:",

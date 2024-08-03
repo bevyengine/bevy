@@ -367,17 +367,14 @@ fn setup(
     ));
 
     // Controls Text
-    let text_style = TextStyle::default();
-
-    commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-        ExampleDisplay,
-    ));
+        }))
+        .with_child((ExampleDisplay, TextSection::default()));
 }
 
 #[derive(Component)]
@@ -433,7 +430,7 @@ fn example_control_system(
         ),
         With<Camera3d>,
     >,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Query<&mut TextSection, With<ExampleDisplay>>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -587,7 +584,7 @@ fn example_control_system(
     );
 
     let mut display = display.single_mut();
-    display.section.value = format!(
+    display.value = format!(
         concat!(
             " J / K / L / ;  Screen Space Specular Transmissive Quality: {:?}\n",
             "         O / P  Screen Space Specular Transmissive Steps: {}\n",

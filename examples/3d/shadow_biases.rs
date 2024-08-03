@@ -137,11 +137,10 @@ fn setup(
     let style = TextStyle::default();
 
     commands
-        .spawn(NodeBundle {
+        .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
-                flex_direction: FlexDirection::Column,
                 ..default()
             },
             z_index: ZIndex::Global(i32::MAX),
@@ -149,7 +148,7 @@ fn setup(
             ..default()
         })
         .with_children(|c| {
-            c.spawn(TextBundle::from_section(
+            c.spawn(TextSection::new(
                 "Controls:\n\
                 R / Z - reset biases to default / zero\n\
                 L     - switch between directional and point lights\n\
@@ -163,12 +162,12 @@ fn setup(
             ));
 
             c.spawn((
-                TextBundle::from_section("Current Lights: [DirectionalLight]", style.clone()),
+                TextSection::new("Current Lights: [DirectionalLight]", style.clone()),
                 LightTypeText,
             ));
 
             c.spawn((
-                TextBundle::from_section(
+                TextSection::new(
                     "Current Directional Light Filter: [Hardware2x2]",
                     style.clone(),
                 ),
@@ -176,25 +175,22 @@ fn setup(
             ));
 
             c.spawn((
-                TextBundle::from_section("Current Point Light Depth Bias: [0.00]", style.clone()),
+                TextSection::new("Current Point Light Depth Bias: [0.00]", style.clone()),
                 PointLightDepthBiasText,
             ));
 
             c.spawn((
-                TextBundle::from_section("Current Point Light Normal Bias: [0.0]", style.clone()),
+                TextSection::new("Current Point Light Normal Bias: [0.0]", style.clone()),
                 PointLightNormalBiasText,
             ));
 
             c.spawn((
-                TextBundle::from_section(
-                    "Current Directional Light Depth Bias: [0.0]",
-                    style.clone(),
-                ),
+                TextSection::new("Current Directional Light Depth Bias: [0.0]", style.clone()),
                 DirectionalLightDepthBiasText,
             ));
 
             c.spawn((
-                TextBundle::from_section(
+                TextSection::new(
                     "Current Directional Light Normal Bias: [0.0]",
                     style.clone(),
                 ),
@@ -202,7 +198,7 @@ fn setup(
             ));
 
             c.spawn((
-                TextBundle::from_section("Current Light Position: [0, 0, 0]", style.clone()),
+                TextSection::new("Current Light Position: [0, 0, 0]", style.clone()),
                 LightPositionText,
             ));
         });
@@ -212,13 +208,12 @@ fn toggle_light(
     input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
-    mut example_text: Query<&mut Text, With<LightTypeText>>,
+    mut example_text: Query<&mut TextSection, With<LightTypeText>>,
 ) {
     if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
-                example_text.single_mut().section.value =
-                    "Current Lights: [PointLight]".to_string();
+                example_text.single_mut().value = "Current Lights: [PointLight]".to_string();
                 100000000.0
             } else {
                 0.0
@@ -226,8 +221,7 @@ fn toggle_light(
         }
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
-                example_text.single_mut().section.value =
-                    "Current Lights: [DirectionalLight]".to_string();
+                example_text.single_mut().value = "Current Lights: [DirectionalLight]".to_string();
                 100000.0
             } else {
                 0.0
@@ -239,7 +233,7 @@ fn toggle_light(
 fn adjust_light_position(
     input: Res<ButtonInput<KeyCode>>,
     mut lights: Query<&mut Transform, With<Lights>>,
-    mut example_text: Query<&mut Text, With<LightPositionText>>,
+    mut example_text: Query<&mut TextSection, With<LightPositionText>>,
 ) {
     let mut offset = Vec3::ZERO;
     if input.just_pressed(KeyCode::ArrowLeft) {
@@ -265,7 +259,7 @@ fn adjust_light_position(
         for mut light in &mut lights {
             light.translation += offset;
             light.look_at(Vec3::ZERO, Vec3::Y);
-            example_text.section.value = format!(
+            example_text.value = format!(
                 "Current Light Position: [{:.1}, {:.1}, {:.1}]",
                 light.translation.x, light.translation.y, light.translation.z
             );
@@ -276,7 +270,7 @@ fn adjust_light_position(
 fn cycle_filter_methods(
     input: Res<ButtonInput<KeyCode>>,
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
-    mut example_text: Query<&mut Text, With<LightFilterText>>,
+    mut example_text: Query<&mut TextSection, With<LightFilterText>>,
 ) {
     if input.just_pressed(KeyCode::KeyF) {
         for mut filter_method in &mut filter_methods {
@@ -295,7 +289,7 @@ fn cycle_filter_methods(
                     ShadowFilteringMethod::Hardware2x2
                 }
             };
-            example_text.single_mut().section.value = format!(
+            example_text.single_mut().value = format!(
                 "Current Directional Light Filter: [{}]",
                 filter_method_string
             );
@@ -306,20 +300,9 @@ fn cycle_filter_methods(
 fn adjust_point_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut PointLight>,
-    mut example_depth_bias_text: Query<
-        &mut Text,
-        (
-            With<PointLightDepthBiasText>,
-            Without<PointLightNormalBiasText>,
-        ),
-    >,
-    mut example_normal_bias_text: Query<
-        &mut Text,
-        (
-            With<PointLightNormalBiasText>,
-            Without<PointLightDepthBiasText>,
-        ),
-    >,
+    mut text: Query<&mut TextSection>,
+    example_depth_bias_text: Query<Entity, With<PointLightDepthBiasText>>,
+    example_normal_bias_text: Query<Entity, With<PointLightNormalBiasText>>,
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
@@ -345,11 +328,15 @@ fn adjust_point_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        example_depth_bias_text.single_mut().section.value = format!(
+        text.get_mut(example_depth_bias_text.single())
+            .unwrap()
+            .value = format!(
             "Current Point Light Depth Bias: [{:.2}]",
             light.shadow_depth_bias
         );
-        example_normal_bias_text.single_mut().section.value = format!(
+        text.get_mut(example_normal_bias_text.single())
+            .unwrap()
+            .value = format!(
             "Current Point Light Normal Bias: [{:.1}]",
             light.shadow_normal_bias
         );
@@ -359,20 +346,9 @@ fn adjust_point_light_biases(
 fn adjust_directional_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut DirectionalLight>,
-    mut example_depth_bias_text: Query<
-        &mut Text,
-        (
-            With<DirectionalLightDepthBiasText>,
-            Without<DirectionalLightNormalBiasText>,
-        ),
-    >,
-    mut example_normal_bias_text: Query<
-        &mut Text,
-        (
-            With<DirectionalLightNormalBiasText>,
-            Without<DirectionalLightDepthBiasText>,
-        ),
-    >,
+    mut text: Query<&mut TextSection>,
+    example_depth_bias_text: Query<Entity, With<DirectionalLightDepthBiasText>>,
+    example_normal_bias_text: Query<Entity, With<DirectionalLightNormalBiasText>>,
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
@@ -398,11 +374,15 @@ fn adjust_directional_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        example_depth_bias_text.single_mut().section.value = format!(
+        text.get_mut(example_depth_bias_text.single())
+            .unwrap()
+            .value = format!(
             "Current Directional Light Depth Bias: [{:.2}]",
             light.shadow_depth_bias
         );
-        example_normal_bias_text.single_mut().section.value = format!(
+        text.get_mut(example_normal_bias_text.single())
+            .unwrap()
+            .value = format!(
             "Current Directional Light Normal Bias: [{:.1}]",
             light.shadow_normal_bias
         );

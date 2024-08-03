@@ -253,16 +253,17 @@ fn setup_scene(
 
 /// Places the help text at the top left of the window.
 fn setup_help_text(commands: &mut Commands) {
-    commands.spawn(TextBundle {
-        text: Text::from_section(HELP_TEXT, TextStyle::default()),
-        style: Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+    commands
+        .spawn(TextBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    });
+        })
+        .with_child(TextSection::new(HELP_TEXT, TextStyle::default()));
 }
 
 /// Initializes the node UI widgets.
@@ -275,17 +276,17 @@ fn setup_node_rects(commands: &mut Commands) {
 
         let text = commands
             .spawn(TextBundle {
-                text: Text::from_section(
-                    node_string,
-                    TextStyle {
-                        font_size: 16.0,
-                        color: ANTIQUE_WHITE.into(),
-                        ..default()
-                    },
-                )
-                .with_justify(JustifyText::Center),
+                text: Text::default().with_justify(JustifyText::Center),
                 ..default()
             })
+            .with_child(TextSection::new(
+                node_string,
+                TextStyle {
+                    font_size: 16.0,
+                    color: ANTIQUE_WHITE.into(),
+                    ..default()
+                },
+            ))
             .id();
 
         let container = {
@@ -429,7 +430,8 @@ fn handle_weight_drag(
 
 // Updates the UI based on the weights that the user has chosen.
 fn update_ui(
-    mut text_query: Query<&mut Text>,
+    text_query: Query<&Children, With<Text>>,
+    mut text_sections: Query<&mut TextSection, With<Parent>>,
     mut background_query: Query<&mut Style, Without<Text>>,
     container_query: Query<(&Children, &ClipNode)>,
     animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
@@ -445,9 +447,12 @@ fn update_ui(
             }
 
             // Update the node labels with the current weights.
-            let mut text_iter = text_query.iter_many_mut(children);
-            if let Some(mut text) = text_iter.fetch_next() {
-                text.section.value = format!(
+            let mut text_iter = text_query.iter_many(children);
+            if let Some(text) = text_iter.fetch_next() {
+                text_sections
+                    .get_mut(text.first().cloned().unwrap())
+                    .unwrap()
+                    .value = format!(
                     "{}\n{:.2}",
                     clip_node.text, animation_weights.weights[clip_node.index]
                 );
