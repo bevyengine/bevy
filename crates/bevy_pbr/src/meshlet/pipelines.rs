@@ -1,4 +1,4 @@
-use super::gpu_scene::MeshletGpuScene;
+use super::resource_manager::ResourceManager;
 use bevy_asset::Handle;
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
@@ -46,16 +46,22 @@ pub struct MeshletPipelines {
 
 impl FromWorld for MeshletPipelines {
     fn from_world(world: &mut World) -> Self {
-        let gpu_scene = world.resource::<MeshletGpuScene>();
-        let fill_cluster_buffers_bind_group_layout =
-            gpu_scene.fill_cluster_buffers_bind_group_layout();
-        let cull_layout = gpu_scene.culling_bind_group_layout();
-        let downsample_depth_layout = gpu_scene.downsample_depth_bind_group_layout();
-        let visibility_buffer_raster_layout =
-            gpu_scene.visibility_buffer_raster_bind_group_layout();
-        let resolve_depth_layout = gpu_scene.resolve_depth_bind_group_layout();
-        let resolve_material_depth_layout = gpu_scene.resolve_material_depth_bind_group_layout();
-        let remap_1d_to_2d_dispatch_layout = gpu_scene.remap_1d_to_2d_dispatch_bind_group_layout();
+        let resource_manager = world.resource::<ResourceManager>();
+        let fill_cluster_buffers_bind_group_layout = resource_manager
+            .fill_cluster_buffers_bind_group_layout
+            .clone();
+        let cull_layout = resource_manager.culling_bind_group_layout.clone();
+        let downsample_depth_layout = resource_manager.downsample_depth_bind_group_layout.clone();
+        let visibility_buffer_raster_layout = resource_manager
+            .visibility_buffer_raster_bind_group_layout
+            .clone();
+        let resolve_depth_layout = resource_manager.resolve_depth_bind_group_layout.clone();
+        let resolve_material_depth_layout = resource_manager
+            .resolve_material_depth_bind_group_layout
+            .clone();
+        let remap_1d_to_2d_dispatch_layout = resource_manager
+            .remap_1d_to_2d_dispatch_bind_group_layout
+            .clone();
         let pipeline_cache = world.resource_mut::<PipelineCache>();
 
         Self {

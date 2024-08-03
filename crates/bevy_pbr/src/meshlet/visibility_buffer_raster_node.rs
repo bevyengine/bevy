@@ -1,6 +1,6 @@
 use super::{
-    gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
     pipelines::MeshletPipelines,
+    resource_manager::{MeshletViewBindGroups, MeshletViewResources},
 };
 use crate::{LightEntity, ShadowView, ViewLightEntities};
 use bevy_color::LinearRgba;

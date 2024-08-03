@@ -3,12 +3,14 @@
 mod asset;
 #[cfg(feature = "meshlet_processor")]
 mod from_mesh;
-mod gpu_scene;
+mod instance_manager;
 mod material_pipeline_prepare;
 mod material_shade_nodes;
+mod meshlet_mesh_manager;
 mod persistent_buffer;
 mod persistent_buffer_impls;
 mod pipelines;
+mod resource_manager;
 mod visibility_buffer_raster_node;
 
 pub mod graph {
@@ -24,7 +26,7 @@ pub mod graph {
 }
 
 pub(crate) use self::{
-    gpu_scene::{queue_material_meshlet_meshes, MeshletGpuScene},
+    instance_manager::{queue_material_meshlet_meshes, InstanceManager},
     material_pipeline_prepare::{
         prepare_material_meshlet_meshes_main_opaque_pass, prepare_material_meshlet_meshes_prepass,
     },
@@ -35,11 +37,8 @@ pub use self::asset::{MeshletMesh, MeshletMeshSaverLoader};
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
 use self::{
-    gpu_scene::{
-        extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
-        prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
-    },
     graph::NodeMeshlet,
+    instance_manager::extract_meshlet_mesh_entities,
     material_pipeline_prepare::{
         MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
         MeshletViewMaterialsPrepass,
@@ -47,7 +46,11 @@ use self::{
     material_shade_nodes::{
         MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
+    meshlet_mesh_manager::{perform_pending_meshlet_mesh_writes, MeshletMeshManager},
     pipelines::*,
+    resource_manager::{
+        prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups, ResourceManager,
+    },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
 use crate::{graph::NodePbr, Material};
@@ -257,12 +260,14 @@ impl Plugin for MeshletPlugin {
                     Node3d::EndMainPass,
                 ),
             )
-            .insert_resource(MeshletGpuScene::new(
+            .init_resource::<MeshletMeshManager>()
+            .insert_resource(InstanceManager::new())
+            .insert_resource(ResourceManager::new(
                 self.cluster_buffer_slots,
                 &render_device,
             ))
             .init_resource::<MeshletPipelines>()
-            .add_systems(ExtractSchedule, extract_meshlet_meshes)
+            .add_systems(ExtractSchedule, extract_meshlet_mesh_entities)
             .add_systems(
                 Render,
                 (

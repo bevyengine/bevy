@@ -1,10 +1,10 @@
 use super::{
-    gpu_scene::{MeshletViewBindGroups, MeshletViewResources},
     material_pipeline_prepare::{
         MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
         MeshletViewMaterialsPrepass,
     },
-    MeshletGpuScene,
+    resource_manager::{MeshletViewBindGroups, MeshletViewResources},
+    InstanceManager,
 };
 use crate::{
     MeshViewBindGroup, PrepassViewBindGroup, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
@@ -72,12 +72,12 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         }
 
         let (
-            Some(meshlet_gpu_scene),
+            Some(instance_manager),
             Some(pipeline_cache),
             Some(meshlet_material_depth),
             Some(meshlet_material_shade_bind_group),
         ) = (
-            world.get_resource::<MeshletGpuScene>(),
+            world.get_resource::<InstanceManager>(),
             world.get_resource::<PipelineCache>(),
             meshlet_view_resources.material_depth.as_ref(),
             meshlet_view_bind_groups.material_shade.as_ref(),
@@ -122,7 +122,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if meshlet_gpu_scene.material_present_in_scene(material_id) {
+            if instance_manager.material_present_in_scene(material_id) {
                 if let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
@@ -175,13 +175,13 @@ impl ViewNode for MeshletPrepassNode {
 
         let (
             Some(prepass_view_bind_group),
-            Some(meshlet_gpu_scene),
+            Some(instance_manager),
             Some(pipeline_cache),
             Some(meshlet_material_depth),
             Some(meshlet_material_shade_bind_group),
         ) = (
             world.get_resource::<PrepassViewBindGroup>(),
-            world.get_resource::<MeshletGpuScene>(),
+            world.get_resource::<InstanceManager>(),
             world.get_resource::<PipelineCache>(),
             meshlet_view_resources.material_depth.as_ref(),
             meshlet_view_bind_groups.material_shade.as_ref(),
@@ -245,7 +245,7 @@ impl ViewNode for MeshletPrepassNode {
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if meshlet_gpu_scene.material_present_in_scene(material_id) {
+            if instance_manager.material_present_in_scene(material_id) {
                 if let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
@@ -298,13 +298,13 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
 
         let (
             Some(prepass_view_bind_group),
-            Some(meshlet_gpu_scene),
+            Some(instance_manager),
             Some(pipeline_cache),
             Some(meshlet_material_depth),
             Some(meshlet_material_shade_bind_group),
         ) = (
             world.get_resource::<PrepassViewBindGroup>(),
-            world.get_resource::<MeshletGpuScene>(),
+            world.get_resource::<InstanceManager>(),
             world.get_resource::<PipelineCache>(),
             meshlet_view_resources.material_depth.as_ref(),
             meshlet_view_bind_groups.material_shade.as_ref(),
@@ -373,7 +373,7 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if meshlet_gpu_scene.material_present_in_scene(material_id) {
+            if instance_manager.material_present_in_scene(material_id) {
                 if let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
                 {
