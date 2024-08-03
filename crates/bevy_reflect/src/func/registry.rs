@@ -22,26 +22,60 @@ pub struct FunctionRegistry {
 }
 
 impl FunctionRegistry {
-    /// Attempts to register the given function if it has not yet been registered already.
+    /// Attempts to register the given function with the given name.
     ///
     /// This function accepts both functions that satisfy [`IntoFunction`]
     /// and direct [`DynamicFunction`] instances.
+    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// with its [name] set to the given name.
     ///
-    /// Functions are mapped according to their [name].
-    /// If a `DynamicFunction` with the same name already exists, it will not be registered again,
-    /// and an error will be returned.
-    /// To register the function anyway, overwriting any existing registration, use [`overwrite_registration`] instead.
+    /// If a registered function with the same name already exists,
+    /// it will not be registered again and an error will be returned.
+    /// To register the function anyway, overwriting any existing registration,
+    /// use [`overwrite_registration`] instead.
+    ///
+    /// To avoid conflicts, it's recommended to use a unique name for the function.
+    /// This can be achieved by either using the function's [type name] or
+    /// by "namespacing" the function with a unique identifier,
+    /// such as the name of your crate.
+    ///
+    /// For example, to register a function, `add`, from a crate, `my_crate`,
+    /// you could use the name, `"my_crate::add"`.
+    ///
+    /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
+    /// on the function and inserting it into the registry using the [`register_dynamic`] method.
     ///
     /// [name]: DynamicFunction::name
     /// [`overwrite_registration`]: Self::overwrite_registration
+    /// [type name]: std::any::type_name
+    /// [`register_dynamic`]: Self::register_dynamic
     pub fn register<F, Marker>(
         &mut self,
+        name: impl Into<Cow<'static, str>>,
         function: F,
     ) -> Result<&mut Self, FunctionRegistrationError>
     where
         F: IntoFunction<Marker> + 'static,
     {
-        let function = function.into_function();
+        let function = function.into_function().with_name(name);
+        self.register_dynamic(function)
+    }
+
+    /// Attempts to register a [`DynamicFunction`] directly using its [name] as the key.
+    ///
+    /// If a registered function with the same name already exists,
+    /// it will not be registered again and an error will be returned.
+    /// To register the function anyway, overwriting any existing registration,
+    /// use [`overwrite_registration_dynamic`] instead.
+    ///
+    /// You can change the name of the function using [`DynamicFunction::with_name`].
+    ///
+    /// [name]: DynamicFunction::name
+    /// [`overwrite_registration_dynamic`]: Self::overwrite_registration_dynamic
+    pub fn register_dynamic(
+        &mut self,
+        function: DynamicFunction,
+    ) -> Result<&mut Self, FunctionRegistrationError> {
         let name = function.name().clone();
         self.functions
             .try_insert(name, function)
@@ -54,17 +88,42 @@ impl FunctionRegistry {
     ///
     /// This function accepts both functions that satisfy [`IntoFunction`]
     /// and direct [`DynamicFunction`] instances.
+    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// with its [name] set to the given name.
     ///
-    /// Functions are mapped according to their [name].
-    /// To avoid overwriting existing registrations, it's recommended to use the [`register`] method instead.
+    /// Functions are mapped according to their name.
+    /// To avoid overwriting existing registrations,
+    /// it's recommended to use the [`register`] method instead.
+    ///
+    /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
+    /// on the function and inserting it into the registry using the [`overwrite_registration_dynamic`] method.
     ///
     /// [name]: DynamicFunction::name
     /// [`register`]: Self::register
-    pub fn overwrite_registration<F, Marker>(&mut self, function: F)
-    where
+    /// [`overwrite_registration_dynamic`]: Self::overwrite_registration_dynamic
+    pub fn overwrite_registration<F, Marker>(
+        &mut self,
+        name: impl Into<Cow<'static, str>>,
+        function: F,
+    ) where
         F: IntoFunction<Marker> + 'static,
     {
-        let function = function.into_function();
+        let function = function.into_function().with_name(name);
+        self.overwrite_registration_dynamic(function);
+    }
+
+    /// Registers the given [`DynamicFunction`], overwriting any existing registration.
+    ///
+    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// with its [name] set to the given name.
+    ///
+    /// Functions are mapped according to their name.
+    /// To avoid overwriting existing registrations,
+    /// it's recommended to use the [`register_dynamic`] method instead.
+    ///
+    /// [name]: DynamicFunction::name
+    /// [`register_dynamic`]: Self::register_dynamic
+    pub fn overwrite_registration_dynamic(&mut self, function: DynamicFunction) {
         let name = function.name().clone();
         self.functions.insert(name, function);
     }
@@ -137,15 +196,25 @@ mod tests {
         }
 
         let mut registry = FunctionRegistry::default();
-        registry.register(foo).unwrap();
+        registry.register("foo", foo).unwrap();
 
-        let function = registry.get(std::any::type_name_of_val(&foo)).unwrap();
+        let function = registry.get("foo").unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.downcast_ref::<i32>(), Some(&123));
     }
 
     #[test]
-    fn should_register_function_with_custom_name() {
+    fn should_register_anonymous_function() {
+        let mut registry = FunctionRegistry::default();
+        registry.register("foo", || 123_i32).unwrap();
+
+        let function = registry.get("foo").unwrap();
+        let value = function.call(ArgList::new()).unwrap().unwrap_owned();
+        assert_eq!(value.downcast_ref::<i32>(), Some(&123));
+    }
+
+    #[test]
+    fn should_register_dynamic_function() {
         fn foo() -> i32 {
             123
         }
@@ -153,7 +222,7 @@ mod tests {
         let function = foo.into_function().with_name("custom_name");
 
         let mut registry = FunctionRegistry::default();
-        registry.register(function).unwrap();
+        registry.register_dynamic(function).unwrap();
 
         let function = registry.get("custom_name").unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
@@ -170,12 +239,11 @@ mod tests {
             321
         }
 
+        let name = std::any::type_name_of_val(&foo);
+
         let mut registry = FunctionRegistry::default();
-        registry.register(foo).unwrap();
-        let result = registry.register(
-            bar.into_function()
-                .with_name(std::any::type_name_of_val(&foo)),
-        );
+        registry.register(name, foo).unwrap();
+        let result = registry.register_dynamic(bar.into_function().with_name(name));
 
         assert!(matches!(
             result,
@@ -198,12 +266,11 @@ mod tests {
             321
         }
 
+        let name = std::any::type_name_of_val(&foo);
+
         let mut registry = FunctionRegistry::default();
-        registry.register(foo).unwrap();
-        registry.overwrite_registration(
-            bar.into_function()
-                .with_name(std::any::type_name_of_val(&foo)),
-        );
+        registry.register(name, foo).unwrap();
+        registry.overwrite_registration_dynamic(bar.into_function().with_name(name));
 
         assert_eq!(registry.len(), 1);
 
@@ -219,9 +286,9 @@ mod tests {
         }
 
         let mut registry = FunctionRegistry::default();
-        registry.register(foo).unwrap();
+        registry.register("foo", foo).unwrap();
 
         let debug = format!("{:?}", registry);
-        assert_eq!(debug, "{DynamicFunction(fn bevy_reflect::func::registry::tests::should_debug_function_registry::foo() -> i32)}");
+        assert_eq!(debug, "{DynamicFunction(fn foo() -> i32)}");
     }
 }

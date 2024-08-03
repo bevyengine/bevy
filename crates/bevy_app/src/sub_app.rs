@@ -411,12 +411,16 @@ impl SubApp {
 
     /// See [`App::register_function`].
     #[cfg(feature = "reflect_functions")]
-    pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
+    pub fn register_function<F, Marker>(
+        &mut self,
+        name: impl Into<std::borrow::Cow<'static, str>>,
+        function: F,
+    ) -> &mut Self
     where
         F: bevy_reflect::func::IntoFunction<Marker> + 'static,
     {
         let registry = self.world.resource_mut::<AppFunctionRegistry>();
-        registry.write().register(function).unwrap();
+        registry.write().register(name, function).unwrap();
         self
     }
 }

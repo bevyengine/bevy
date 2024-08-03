@@ -603,17 +603,19 @@ impl App {
         self
     }
 
-    /// Registers the given function in the [`AppFunctionRegistry`] resource.
-    ///
-    /// Functions are mapped according to their [name](bevy_reflect::func::DynamicFunction::name).
+    /// Registers the given function into the [`AppFunctionRegistry`] resource using the given name.
     ///
     /// See [`bevy_reflect::func::FunctionRegistry::register`] for more information.
     #[cfg(feature = "reflect_functions")]
-    pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
+    pub fn register_function<F, Marker>(
+        &mut self,
+        name: impl Into<std::borrow::Cow<'static, str>>,
+        function: F,
+    ) -> &mut Self
     where
         F: bevy_reflect::func::IntoFunction<Marker> + 'static,
     {
-        self.main_mut().register_function(function);
+        self.main_mut().register_function(name, function);
         self
     }
 
