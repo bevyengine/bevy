@@ -1339,6 +1339,7 @@ mod test {
             module: &shader_module,
             entry_point: "run_test",
             compilation_options: Default::default(),
+            cache: None,
         });
 
         let bindgroup = device.create_bind_group(&BindGroupDescriptor {

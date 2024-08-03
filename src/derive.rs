@@ -379,7 +379,7 @@ impl<'a> DerivedModule<'a> {
                             pointer: map_expr!(pointer),
                             fun,
                             value: map_expr!(value),
-                            result: map_expr!(result),
+                            result: map_expr_opt!(result),
                         }
                     }
                     Statement::WorkGroupUniformLoad { pointer, result } => {

@@ -79,6 +79,7 @@ use indexmap::IndexMap;
 /// - a module `a` containing a function `f`,
 /// - a module `b` that imports `a`, and containing an `override a::f` function,
 /// - a module `c` that imports `a` and `b`, and containing an `override a::f` function,
+///
 /// then b and c both specify an override for `a::f`.
 /// the `override fn a::f` declared in module `b` may call to `a::f` within its body.
 /// the `override fn a::f` declared in module 'c' may call to `a::f` within its body, but the call will be redirected to `b::f`.
@@ -126,10 +127,7 @@ use indexmap::IndexMap;
 ///
 /// codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
 ///
-use naga::{
-    valid::{Capabilities, ShaderStages},
-    EntryPoint,
-};
+use naga::EntryPoint;
 use regex::Regex;
 use std::collections::{hash_map::Entry, BTreeMap, HashMap, HashSet};
 use tracing::{debug, trace};
@@ -321,11 +319,6 @@ pub struct Composer {
     pub module_sets: HashMap<String, ComposableModuleDefinition>,
     pub module_index: HashMap<usize, String>,
     pub capabilities: naga::valid::Capabilities,
-    /// The shader stages that the subgroup operations are valid for.
-    /// Used when creating a validator for the module.
-    /// See https://github.com/gfx-rs/wgpu/blob/d9c054c645af0ea9ef81617c3e762fbf0f3fecda/wgpu-core/src/device/mod.rs#L515
-    /// for how to set this for proper subgroup ops support.
-    pub subgroup_stages: ShaderStages,
     preprocessor: Preprocessor,
     check_decoration_regex: Regex,
     undecorate_regex: Regex,
@@ -347,7 +340,6 @@ impl Default for Composer {
         Self {
             validate: true,
             capabilities: Default::default(),
-            subgroup_stages: ShaderStages::empty(),
             module_sets: Default::default(),
             module_index: Default::default(),
             preprocessor: Preprocessor::default(),
@@ -426,19 +418,9 @@ impl Composer {
         String::from_utf8(data_encoding::BASE32_NOPAD.decode(from.as_bytes()).unwrap()).unwrap()
     }
 
-    /// This creates a validator that properly detects subgroup support.
+    /// Shorthand for creating a naga validator.
     fn create_validator(&self) -> naga::valid::Validator {
-        let subgroup_operations = if self.capabilities.contains(Capabilities::SUBGROUP) {
-            use naga::valid::SubgroupOperationSet as S;
-            S::BASIC | S::VOTE | S::ARITHMETIC | S::BALLOT | S::SHUFFLE | S::SHUFFLE_RELATIVE
-        } else {
-            naga::valid::SubgroupOperationSet::empty()
-        };
-        let mut validator =
-            naga::valid::Validator::new(naga::valid::ValidationFlags::all(), self.capabilities);
-        validator.subgroup_stages(self.subgroup_stages);
-        validator.subgroup_operations(subgroup_operations);
-        validator
+        naga::valid::Validator::new(naga::valid::ValidationFlags::all(), self.capabilities)
     }
 
     fn undecorate(&self, string: &str) -> String {
@@ -1342,7 +1324,7 @@ impl Composer {
             imports,
         } = self
             .preprocessor
-            .preprocess(&module_set.sanitized_source, shader_defs, self.validate)
+            .preprocess(&module_set.sanitized_source, shader_defs)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Module {
@@ -1435,15 +1417,10 @@ impl Composer {
     /// purges any existing modules
     /// See https://github.com/gfx-rs/wgpu/blob/d9c054c645af0ea9ef81617c3e762fbf0f3fecda/wgpu-core/src/device/mod.rs#L515
     /// for how to set the subgroup_stages value.
-    pub fn with_capabilities(
-        self,
-        capabilities: naga::valid::Capabilities,
-        subgroup_stages: naga::valid::ShaderStages,
-    ) -> Self {
+    pub fn with_capabilities(self, capabilities: naga::valid::Capabilities) -> Self {
         Self {
             capabilities,
             validate: self.validate,
-            subgroup_stages,
             ..Default::default()
         }
     }
@@ -1697,7 +1674,7 @@ impl Composer {
             imports,
         } = self
             .preprocessor
-            .preprocess(&sanitized_source, &shader_defs, self.validate)
+            .preprocess(&sanitized_source, &shader_defs)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Constructing {

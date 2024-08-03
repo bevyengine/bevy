@@ -233,16 +233,12 @@ impl Preprocessor {
         &self,
         shader_str: &str,
         shader_defs: &HashMap<String, ShaderDefValue>,
-        validate_len: bool,
     ) -> Result<PreprocessOutput, ComposerErrorInner> {
         let mut declared_imports = IndexMap::new();
         let mut used_imports = IndexMap::new();
         let mut scope = Scope::new();
         let mut final_string = String::new();
         let mut offset = 0;
-
-        #[cfg(debug)]
-        let len = shader_str.len();
 
         // this code broadly stolen from bevy_render::ShaderProcessor
         let mut lines = shader_str.lines();
@@ -370,14 +366,6 @@ impl Preprocessor {
         }
 
         scope.finish(offset)?;
-
-        #[cfg(debug)]
-        if validate_len {
-            let revised_len = final_string.len();
-            assert_eq!(len, revised_len);
-        }
-        #[cfg(not(debug))]
-        let _ = validate_len;
 
         Ok(PreprocessOutput {
             preprocessed_source: final_string,
@@ -576,7 +564,6 @@ fn vertex(
         let result_missing = processor.preprocess(
             WGSL,
             &[("TEXTURE".to_owned(), ShaderDefValue::Bool(true))].into(),
-            true,
         );
 
         let expected: Result<Preprocessor, ComposerErrorInner> =
@@ -677,7 +664,6 @@ fn vertex(
             .preprocess(
                 WGSL,
                 &[("TEXTURE".to_string(), ShaderDefValue::Int(3))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(result_eq.preprocessed_source, EXPECTED_EQ);
@@ -686,12 +672,11 @@ fn vertex(
             .preprocess(
                 WGSL,
                 &[("TEXTURE".to_string(), ShaderDefValue::Int(7))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(result_neq.preprocessed_source, EXPECTED_NEQ);
 
-        let result_missing = processor.preprocess(WGSL, &Default::default(), true);
+        let result_missing = processor.preprocess(WGSL, &Default::default());
 
         let expected_err: Result<
             (Option<String>, String, Vec<ImportDefWithOffset>),
@@ -705,7 +690,6 @@ fn vertex(
         let result_wrong_type = processor.preprocess(
             WGSL,
             &[("TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
-            true,
         );
 
         let expected_err: Result<
@@ -814,7 +798,6 @@ fn vertex(
             .preprocess(
                 WGSL,
                 &[("TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(result_eq.preprocessed_source, EXPECTED_EQ);
@@ -823,7 +806,6 @@ fn vertex(
             .preprocess(
                 WGSL,
                 &[("TEXTURE".to_string(), ShaderDefValue::Bool(false))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(result_neq.preprocessed_source, EXPECTED_NEQ);
@@ -919,7 +901,6 @@ fn vertex(
             .preprocess(
                 WGSL,
                 &[("TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(result_eq.preprocessed_source, EXPECTED_EQ);
@@ -928,12 +909,11 @@ fn vertex(
             .preprocess(
                 WGSL,
                 &[("TEXTURE".to_string(), ShaderDefValue::Bool(false))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(result_neq.preprocessed_source, EXPECTED_NEQ);
 
-        let result_missing = processor.preprocess(WGSL, &[].into(), true);
+        let result_missing = processor.preprocess(WGSL, &[].into());
         let expected_err: Result<
             (Option<String>, String, Vec<ImportDefWithOffset>),
             ComposerErrorInner,
@@ -946,7 +926,6 @@ fn vertex(
         let result_wrong_type = processor.preprocess(
             WGSL,
             &[("TEXTURE".to_string(), ShaderDefValue::Int(7))].into(),
-            true,
         );
 
         let expected_err: Result<
@@ -1031,7 +1010,6 @@ fn vertex(
                     ("SECOND_VALUE".to_string(), ShaderDefValue::Int(3)),
                 ]
                 .into(),
-                true,
             )
             .unwrap();
         assert_eq!(result.preprocessed_source, EXPECTED_REPLACED);
@@ -1060,7 +1038,7 @@ defined
             ..
         } = processor.get_preprocessor_metadata(&WGSL, true).unwrap();
         println!("defines: {:?}", shader_defs);
-        let result = processor.preprocess(&WGSL, &shader_defs, true).unwrap();
+        let result = processor.preprocess(&WGSL, &shader_defs).unwrap();
         assert_eq!(result.preprocessed_source, EXPECTED);
     }
 
@@ -1103,7 +1081,7 @@ bool: false
             ..
         } = processor.get_preprocessor_metadata(&WGSL, true).unwrap();
         println!("defines: {:?}", shader_defs);
-        let result = processor.preprocess(&WGSL, &shader_defs, true).unwrap();
+        let result = processor.preprocess(&WGSL, &shader_defs).unwrap();
         assert_eq!(result.preprocessed_source, EXPECTED);
     }
 
@@ -1135,9 +1113,7 @@ fn vertex(
 }
 ";
         let processor = Preprocessor::default();
-        let result = processor
-            .preprocess(&WGSL_ELSE_IFDEF, &[].into(), true)
-            .unwrap();
+        let result = processor.preprocess(&WGSL_ELSE_IFDEF, &[].into()).unwrap();
         assert_eq!(
             result
                 .preprocessed_source
@@ -1214,7 +1190,7 @@ fn vertex(
 ";
         let processor = Preprocessor::default();
         let result = processor
-            .preprocess(&WGSL_ELSE_IFDEF_NO_ELSE_FALLBACK, &[].into(), true)
+            .preprocess(&WGSL_ELSE_IFDEF_NO_ELSE_FALLBACK, &[].into())
             .unwrap();
         assert_eq!(
             result
@@ -1265,7 +1241,6 @@ fn vertex(
             .preprocess(
                 &WGSL_ELSE_IFDEF,
                 &[("TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(
@@ -1314,7 +1289,6 @@ fn vertex(
             .preprocess(
                 &WGSL_ELSE_IFDEF,
                 &[("SECOND_TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(
@@ -1363,7 +1337,6 @@ fn vertex(
             .preprocess(
                 &WGSL_ELSE_IFDEF,
                 &[("THIRD_TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(
@@ -1416,7 +1389,6 @@ fn vertex(
                     ("THIRD_TEXTURE".to_string(), ShaderDefValue::Bool(true)),
                 ]
                 .into(),
-                true,
             )
             .unwrap();
         assert_eq!(
@@ -1471,7 +1443,6 @@ fn vertex(
             .preprocess(
                 &WGSL_COMPLICATED_ELSE_IFDEF,
                 &[("IS_DEFINED".to_string(), ShaderDefValue::Bool(true))].into(),
-                true,
             )
             .unwrap();
         assert_eq!(
@@ -1504,7 +1475,7 @@ fail 3
 
         const EXPECTED: &str = r"ok";
         let processor = Preprocessor::default();
-        let result = processor.preprocess(&INPUT, &[].into(), true).unwrap();
+        let result = processor.preprocess(&INPUT, &[].into()).unwrap();
         assert_eq!(
             result
                 .preprocessed_source
@@ -1536,11 +1507,7 @@ fail 3
         const EXPECTED: &str = r"ok";
         let processor = Preprocessor::default();
         let result = processor
-            .preprocess(
-                &INPUT,
-                &[("x".to_owned(), ShaderDefValue::Int(2))].into(),
-                true,
-            )
+            .preprocess(&INPUT, &[("x".to_owned(), ShaderDefValue::Int(2))].into())
             .unwrap();
         assert_eq!(
             result

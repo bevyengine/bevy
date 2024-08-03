@@ -40,9 +40,7 @@ impl ErrSource {
                 let Ok(PreprocessOutput {
                     preprocessed_source: source,
                     ..
-                }) = composer
-                    .preprocessor
-                    .preprocess(raw_source, defs, composer.validate)
+                }) = composer.preprocessor.preprocess(raw_source, defs)
                 else {
                     return Default::default();
                 };
@@ -78,7 +76,7 @@ pub enum ComposerErrorInner {
     WgslParseError(naga::front::wgsl::ParseError),
     #[cfg(feature = "glsl")]
     #[error("{0:?}")]
-    GlslParseError(naga::front::glsl::ParseError),
+    GlslParseError(naga::front::glsl::ParseErrors),
     #[error("naga_oil bug, please file a report: failed to convert imported module IR back into WGSL for use with WGSL shaders: {0}")]
     WgslBackError(naga::back::wgsl::Error),
     #[cfg(feature = "glsl")]

@@ -17,7 +17,7 @@ prune = []
 allow_deprecated = []
 
 [dependencies]
-naga = { version = "0.20", features = ["wgsl-in", "wgsl-out"] }
+naga = { version = "22.1", features = ["wgsl-in", "wgsl-out"] }
 tracing = "0.1"
 regex = "1.8"
 regex-syntax = "0.8"
@@ -31,6 +31,6 @@ once_cell = "1.17.0"
 indexmap = "2"
 
 [dev-dependencies]
-wgpu = { version = "0.20", features = ["naga-ir"] }
+wgpu = { version = "22", features = ["naga-ir"] }
 futures-lite = "1"
 tracing-subscriber = { version = "0.3", features = ["std", "fmt"] }
