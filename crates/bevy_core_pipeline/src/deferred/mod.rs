@@ -15,6 +15,7 @@ use bevy_render::{
 use crate::prepass::OpaqueNoLightmap3dBinKey;
 
 pub const DEFERRED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba32Uint;
+pub const DEFERRED_EXTENDED_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgba16Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_FORMAT: TextureFormat = TextureFormat::R8Uint;
 pub const DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth16Unorm;
 

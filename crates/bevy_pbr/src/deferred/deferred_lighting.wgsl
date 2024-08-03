@@ -5,7 +5,7 @@
     pbr_deferred_functions::pbr_input_from_deferred_gbuffer,
     pbr_deferred_types::unpack_unorm3x4_plus_unorm_20_,
     lighting,
-    mesh_view_bindings::deferred_prepass_texture,
+    mesh_view_bindings::{deferred_prepass_texture, deferred_extended_prepass_texture},
 }
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
@@ -47,6 +47,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     var frag_coord = vec4(in.position.xy, 0.0, 0.0);
 
     let deferred_data = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+    let deferred_extended_data = textureLoad(deferred_extended_prepass_texture, vec2<i32>(frag_coord.xy), 0);
 
 #ifdef WEBGL2
     frag_coord.z = unpack_unorm3x4_plus_unorm_20_(deferred_data.b).w;
@@ -56,7 +57,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 #endif
 #endif
 
-    var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data);
+    var pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, deferred_data, deferred_extended_data);
     var output_color = vec4(0.0);
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit

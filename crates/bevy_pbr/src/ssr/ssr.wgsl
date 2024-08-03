@@ -6,8 +6,13 @@
 #import bevy_pbr::{
     lighting,
     lighting::{LAYER_BASE, LAYER_CLEARCOAT},
-    mesh_view_bindings::{view, depth_prepass_texture, deferred_prepass_texture, ssr_settings},
-    pbr_deferred_functions::pbr_input_from_deferred_gbuffer,
+    mesh_view_bindings::{
+        view, depth_prepass_texture, 
+        deferred_prepass_texture, 
+        deferred_extended_prepass_texture, 
+        ssr_settings
+    },
+    pbr_deferred_functions::{pbr_input_from_deferred_gbuffer},
     pbr_deferred_types,
     pbr_functions,
     prepass_utils,
@@ -89,7 +94,8 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Load the G-buffer data.
     let fragment = textureLoad(color_texture, vec2<i32>(frag_coord.xy), 0);
     let gbuffer = textureLoad(deferred_prepass_texture, vec2<i32>(frag_coord.xy), 0);
-    let pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, gbuffer);
+    let gbuffer_extended = textureLoad(deferred_extended_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+    let pbr_input = pbr_input_from_deferred_gbuffer(frag_coord, gbuffer, gbuffer_extended);
 
     // Don't do anything if the surface is too rough, since we can't blur or do
     // temporal accumulation yet.
