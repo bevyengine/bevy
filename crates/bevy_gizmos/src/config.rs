@@ -200,7 +200,6 @@ impl From<&GizmoConfig> for GizmoMeshConfig {
         GizmoMeshConfig {
             line_perspective: item.line_perspective,
             line_style: item.line_style,
-            #[cfg(feature = "bevy_render")]
             render_layers: item.render_layers.clone(),
         }
     }
