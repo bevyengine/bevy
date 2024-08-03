@@ -91,7 +91,6 @@ fn create_text_measure(
     scale_factor: f64,
     text: Ref<Text>,
     sections: &[Ref<TextSection>],
-    parent_section_present: bool,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
@@ -101,7 +100,6 @@ fn create_text_measure(
     match text_pipeline.create_text_measure(
         fonts,
         sections,
-        parent_section_present,
         scale_factor,
         text.linebreak_behavior,
         buffer,
@@ -150,7 +148,6 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextFlags,
             Option<&TargetCamera>,
-            Option<Ref<TextSection>>,
             &mut CosmicBuffer,
             Option<Ref<Children>>,
         ),
@@ -161,9 +158,7 @@ pub fn measure_text_system(
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (text, content_size, text_flags, camera, maybe_section, mut buffer, children) in
-        &mut text_query
-    {
+    for (text, content_size, text_flags, camera, mut buffer, children) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -180,21 +175,14 @@ pub fn measure_text_system(
             ),
         };
 
-        let mut sections = Vec::new();
-        let mut parent_section_present = false;
-
-        if let Some(section) = maybe_section {
-            parent_section_present = true;
-            sections.push(section);
-        }
-
         let mut children_changed = false;
-        if let Some(children) = children {
+        let sections = if let Some(children) = children {
             children_changed = children.is_changed();
-            for section in text2d_section_query.iter_many(&children) {
-                sections.push(section);
-            }
-        }
+
+            text2d_section_query.iter_many(&children).collect()
+        } else {
+            vec![]
+        };
 
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || text.is_changed()
@@ -209,7 +197,6 @@ pub fn measure_text_system(
                 scale_factor.into(),
                 text,
                 &sections,
-                parent_section_present,
                 &mut text_pipeline,
                 content_size,
                 text_flags,
@@ -233,7 +220,6 @@ fn queue_text(
     inverse_scale_factor: f32,
     text: &Text,
     sections: &[Ref<TextSection>],
-    parent_section_present: bool,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
@@ -255,7 +241,6 @@ fn queue_text(
         match text_pipeline.queue_text(
             fonts,
             sections,
-            parent_section_present,
             scale_factor.into(),
             text.justify,
             text.linebreak_behavior,
@@ -308,7 +293,6 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextFlags,
         Option<&TargetCamera>,
-        Option<Ref<TextSection>>,
         &mut CosmicBuffer,
         Option<Ref<Children>>,
     )>,
@@ -316,8 +300,7 @@ pub fn text_system(
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (node, text, text_layout_info, text_flags, camera, maybe_section, mut buffer, children) in
-        &mut text_query
+    for (node, text, text_layout_info, text_flags, camera, mut buffer, children) in &mut text_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -336,21 +319,13 @@ pub fn text_system(
         };
         let inverse_scale_factor = scale_factor.recip();
 
-        let mut sections = Vec::new();
-        let mut parent_section_present = false;
-
-        if let Some(section) = maybe_section {
-            parent_section_present = true;
-            sections.push(section);
-        }
-
         let mut children_changed = false;
-        if let Some(children) = children {
+        let sections = if let Some(children) = children {
             children_changed = children.is_changed();
-            for section in text_section_query.iter_many(&children) {
-                sections.push(section);
-            }
-        }
+            text_section_query.iter_many(&children).collect()
+        } else {
+            vec![]
+        };
 
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || node.is_changed()
@@ -368,7 +343,6 @@ pub fn text_system(
                 inverse_scale_factor,
                 text,
                 &sections,
-                parent_section_present,
                 node,
                 text_flags,
                 text_layout_info,

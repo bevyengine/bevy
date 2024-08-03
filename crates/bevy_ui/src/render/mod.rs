@@ -806,7 +806,6 @@ pub fn extract_uinode_text(
                 &ViewVisibility,
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,
-                Option<&TextSection>,
                 &TextLayoutInfo,
                 Option<&Children>,
             ),
@@ -815,16 +814,8 @@ pub fn extract_uinode_text(
     >,
     text2d_section_query: Extract<Query<&TextSection, With<Parent>>>,
 ) {
-    for (
-        uinode,
-        global_transform,
-        view_visibility,
-        clip,
-        camera,
-        maybe_section,
-        text_layout_info,
-        children,
-    ) in &uinode_query
+    for (uinode, global_transform, view_visibility, clip, camera, text_layout_info, children) in
+        &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
@@ -869,14 +860,11 @@ pub fn extract_uinode_text(
             ..
         } in &text_layout_info.glyphs
         {
-            let section = if *section_index == 0 {
-                maybe_section.unwrap()
-            } else {
-                // unwrapping the children is fine here, because if the section index != 0, there must be children
-                text2d_section_query
-                    .get(children.unwrap()[*section_index - 1])
-                    .unwrap()
-            };
+            // unwrapping the children is fine here, because if the section index != 0, there must be children
+            let section = text2d_section_query
+                .get(children.unwrap()[*section_index])
+                .unwrap();
+
             if *section_index != current_section {
                 color = LinearRgba::from(section.style.color);
                 current_section = *section_index;

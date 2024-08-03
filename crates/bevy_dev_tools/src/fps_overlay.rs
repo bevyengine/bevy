@@ -75,20 +75,22 @@ struct FpsText;
 
 fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
     commands
-        .spawn((
-            TextBundle {
-                style: Style {
-                    // We need to make sure the overlay doesn't affect the position of other UI nodes
-                    position_type: PositionType::Absolute,
-                    ..default()
-                },
-                // Render overlay on top of everything
-                z_index: ZIndex::Global(FPS_OVERLAY_ZINDEX),
+        .spawn((TextBundle {
+            style: Style {
+                // We need to make sure the overlay doesn't affect the position of other UI nodes
+                position_type: PositionType::Absolute,
                 ..default()
             },
-            TextSection::new("FPS: ", overlay_config.text_config.clone()),
-        ))
+            // Render overlay on top of everything
+            z_index: ZIndex::Global(FPS_OVERLAY_ZINDEX),
+            ..default()
+        },))
         .with_children(|c| {
+            c.spawn(TextSection::new(
+                "FPS: ",
+                overlay_config.text_config.clone(),
+            ));
+
             c.spawn((
                 TextSection::from_style(overlay_config.text_config.clone()),
                 FpsText,

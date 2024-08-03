@@ -62,7 +62,6 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[Ref<TextSection>],
-        parent_section_present: bool,
         linebreak_behavior: BreakLineOn,
         bounds: TextBounds,
         scale_factor: f64,
@@ -100,10 +99,7 @@ impl TextPipeline {
             .iter()
             .enumerate()
             .filter(|(_section_index, section)| section.style.font_size > 0.0)
-            .map(|(mut section_index, section)| {
-                if !parent_section_present {
-                    section_index += 1;
-                }
+            .map(|(section_index, section)| {
                 (
                     &section.value[..],
                     get_attrs(
@@ -151,7 +147,6 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[Ref<TextSection>],
-        parent_section_present: bool,
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
@@ -169,7 +164,6 @@ impl TextPipeline {
         self.update_buffer(
             fonts,
             sections,
-            parent_section_present,
             linebreak_behavior,
             bounds,
             scale_factor,
@@ -249,7 +243,6 @@ impl TextPipeline {
         &mut self,
         fonts: &Assets<Font>,
         sections: &[Ref<TextSection>],
-        parent_section_present: bool,
         scale_factor: f64,
         linebreak_behavior: BreakLineOn,
         buffer: &mut CosmicBuffer,
@@ -260,7 +253,6 @@ impl TextPipeline {
         self.update_buffer(
             fonts,
             sections,
-            parent_section_present,
             linebreak_behavior,
             MIN_WIDTH_CONTENT_BOUNDS,
             scale_factor,

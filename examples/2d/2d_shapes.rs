@@ -68,8 +68,8 @@ fn setup(
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    commands.spawn((
-        TextBundle {
+    commands
+        .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
@@ -77,9 +77,11 @@ fn setup(
                 ..default()
             },
             ..default()
-        },
-        TextSection::new("Press space to toggle wireframes", TextStyle::default()),
-    ));
+        })
+        .with_child(TextSection::new(
+            "Press space to toggle wireframes",
+            TextStyle::default(),
+        ));
 }
 
 #[cfg(not(target_arch = "wasm32"))]

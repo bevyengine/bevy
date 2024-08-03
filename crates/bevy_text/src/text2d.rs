@@ -76,7 +76,6 @@ pub fn extract_text2d_sprite(
                 Entity,
                 &ViewVisibility,
                 &TextLayoutInfo,
-                Option<&TextSection>,
                 &Anchor,
                 &GlobalTransform,
                 Option<&Children>,
@@ -93,15 +92,8 @@ pub fn extract_text2d_sprite(
         .unwrap_or(1.0);
     let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
 
-    for (
-        original_entity,
-        view_visibility,
-        text_layout_info,
-        maybe_section,
-        anchor,
-        global_transform,
-        children,
-    ) in text2d_query.iter()
+    for (original_entity, view_visibility, text_layout_info, anchor, global_transform, children) in
+        text2d_query.iter()
     {
         if !view_visibility.get() {
             continue;
@@ -121,14 +113,10 @@ pub fn extract_text2d_sprite(
             ..
         } in &text_layout_info.glyphs
         {
-            let section = if *section_index == 0 {
-                maybe_section.unwrap()
-            } else {
-                // unwrapping the children is fine here, because if the section index != 0, there must be children
-                text2d_section_query
-                    .get(children.unwrap()[*section_index - 1])
-                    .unwrap()
-            };
+            // unwrapping the children is fine here, because if the section index != 0, there must be children
+            let section = text2d_section_query
+                .get(children.unwrap()[*section_index])
+                .unwrap();
             if *section_index != current_section {
                 color = LinearRgba::from(section.style.color);
                 current_section = *section_index;
@@ -176,7 +164,6 @@ pub fn update_text2d_layout(
         Entity,
         Ref<Text>,
         Ref<TextBounds>,
-        Option<Ref<TextSection>>,
         Option<Ref<Children>>,
         &mut TextLayoutInfo,
         &mut CosmicBuffer,
@@ -194,23 +181,14 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, text, bounds, maybe_section, children, mut text_layout_info, mut buffer) in
-        &mut text_query
-    {
-        let mut sections = Vec::new();
-        let mut parent_section_present = false;
-        if let Some(section) = maybe_section {
-            sections.push(section);
-            parent_section_present = true;
-        }
-
+    for (entity, text, bounds, children, mut text_layout_info, mut buffer) in &mut text_query {
         let mut children_changed = false;
-        if let Some(children) = children {
+        let sections = if let Some(children) = children {
             children_changed = children.is_changed();
-            for section in section_query.iter_many(&children) {
-                sections.push(section);
-            }
-        }
+            section_query.iter_many(children.iter()).collect()
+        } else {
+            vec![]
+        };
 
         if factor_changed
             || text.is_changed()
@@ -233,7 +211,6 @@ pub fn update_text2d_layout(
             match text_pipeline.queue_text(
                 &fonts,
                 &sections,
-                parent_section_present,
                 scale_factor.into(),
                 text.justify,
                 text.linebreak_behavior,
