@@ -167,6 +167,70 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         accum
     }
 
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
+    /// from an archetype which has the same entity count as its table.
+    ///
+    /// # Safety
+    ///  - all `indices` must be in `[0, archetype.len())`.
+    ///  - `archetype` must match D and F
+    ///  - `archetype` must have the same length with it's table.
+    ///  - Either `D::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
+    pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
+        &mut self,
+        mut accum: B,
+        func: &mut Func,
+        archetype: &'w Archetype,
+        rows: Range<usize>,
+    ) -> B
+    where
+        Func: FnMut(B, D::Item<'w>) -> B,
+    {
+        assert!(
+            rows.end <= u32::MAX as usize,
+            "TableRow is only valid up to u32::MAX"
+        );
+        let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
+
+        debug_assert!(
+            archetype.len() == table.entity_count(),
+            "archetype and it's table must have the same length. "
+        );
+
+        D::set_archetype(
+            &mut self.cursor.fetch,
+            &self.query_state.fetch_state,
+            archetype,
+            table,
+        );
+        F::set_archetype(
+            &mut self.cursor.filter,
+            &self.query_state.filter_state,
+            archetype,
+            table,
+        );
+        let entities = table.entities();
+        for row in rows {
+            // SAFETY: Caller assures `row` in range of the current archetype.
+            let entity = unsafe { *entities.get_unchecked(row) };
+            let row = TableRow::from_usize(row);
+
+            // SAFETY: set_table was called prior.
+            // Caller assures `row` in range of the current archetype.
+            let filter_matched = unsafe { F::filter_fetch(&mut self.cursor.filter, entity, row) };
+            if !filter_matched {
+                continue;
+            }
+
+            // SAFETY: set_table was called prior.
+            // Caller assures `row` in range of the current archetype.
+            let item = D::fetch(&mut self.cursor.fetch, entity, row);
+
+            accum = func(accum, item);
+        }
+        accum
+    }
+
     /// Sorts all query items into a new iterator, using the query lens as a key.
     ///
     /// This sort is stable (i.e., does not reorder equal elements).
@@ -914,12 +978,27 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                 let archetype =
                     // SAFETY: Matched archetype IDs are guaranteed to still exist.
                     unsafe { self.archetypes.get(id.archetype_id).debug_checked_unwrap() };
-                accum =
+                // SAFETY: Matched table IDs are guaranteed to still exist.
+                let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
+
+                // When an archetype and its table have equal entity counts, dense iteration can be safely used.
+                // this leverages cache locality to optimize performance.
+                if table.entity_count() == archetype.len() {
+                    accum =
+                    // SAFETY:
+                    // - The fetched archetype matches both D and F
+                    // - The provided archetype and its' table have the same length.
+                    // - The provided range is equivalent to [0, archetype.len)
+                    // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
+                    unsafe { self.fold_over_dense_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
+                } else {
+                    accum =
                     // SAFETY:
                     // - The fetched archetype matches both D and F
                     // - The provided range is equivalent to [0, archetype.len)
                     // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
-                    unsafe { self.fold_over_archetype_range(accum, &mut func, archetype, 0..archetype.len()) };
+                    unsafe { self.fold_over_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
+                }
             }
         }
         accum
