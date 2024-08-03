@@ -693,9 +693,30 @@ async fn load_gltf<'a, 'b, 'c>(
             // if it is, add the AnimationPlayer component
             for node in scene.nodes() {
                 if animation_roots.contains(&node.index()) {
+                    use bevy_hierarchy::Children;
+                    let mut grandparent_query = world.query::<(Entity,&Children, &bevy_asset::Handle<Scene>)>();
+                    let mut parent_query = world.query::<(Entity, &Children)>();
+                    let mut scene_root: Option<Entity> = None;
+                    for (grandparent_entity, grandparent_children, _) in grandparent_query.iter(&world) {
+                        for (parent_entity, parent_children) in parent_query.iter(&world) {
+                            if parent_children.iter().any(|e| {
+                                if let Some(player_entity) = node_index_to_entity_map.get(&node.index()){
+                                    e == player_entity
+                                } else {
+                                    false
+                                }
+                            }) {
+                                if grandparent_children.iter().any(|e| {*e == parent_entity}) {
+                                    scene_root = Some(grandparent_entity);
+                                }
+                            }
+                        }
+                    }
+
+
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(bevy_animation::AnimationPlayer::default());
+                        .insert(bevy_animation::AnimationPlayer::default().with_root(scene_root));
                 }
             }
         }

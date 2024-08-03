@@ -513,6 +513,8 @@ pub struct AnimationPlayer {
     /// ordering when applying the animations.
     active_animations: BTreeMap<AnimationNodeIndex, ActiveAnimation>,
     blend_weights: HashMap<AnimationNodeIndex, f32>,
+    /// An optional reference to the root entity, applicable when spawned via a
+    scene_root: Option<Entity>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -521,12 +523,14 @@ impl Clone for AnimationPlayer {
         Self {
             active_animations: self.active_animations.clone(),
             blend_weights: self.blend_weights.clone(),
+            scene_root: self.scene_root.clone(),
         }
     }
 
     fn clone_from(&mut self, source: &Self) {
         self.active_animations.clone_from(&source.active_animations);
         self.blend_weights.clone_from(&source.blend_weights);
+        self.scene_root.clone_from(&source.scene_root);
     }
 }
 
@@ -562,6 +566,14 @@ thread_local! {
 }
 
 impl AnimationPlayer {
+    /// Spawn the animation player with a given entity, most often the entity in which a
+    /// `Handle<Scene>` component exists
+    pub fn with_root(self, scene_root: Option<Entity>) -> Self {
+        Self {
+            scene_root,
+            ..Default::default()
+        }
+    }
     /// Start playing an animation, restarting it if necessary.
     pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
         let playing_animation = self.active_animations.entry(animation).or_default();
@@ -695,6 +707,12 @@ impl AnimationPlayer {
     /// if the animation is stopped.
     pub fn animation_is_playing(&self, animation: AnimationNodeIndex) -> bool {
         self.active_animations.contains_key(&animation)
+    }
+
+    /// Returns the root entity this player is a descendent of if applicable,
+    /// if none exists returns `None`.
+    pub fn scene_root(&self) -> Option<Entity> {
+        self.scene_root
     }
 }
 
