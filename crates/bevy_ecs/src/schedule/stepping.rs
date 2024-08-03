@@ -1,16 +1,16 @@
-#[cfg(all(test, feature = "bevy_debug_stepping"))]
-use bevy_utils::tracing::debug;
+use fixedbitset::FixedBitSet;
 use std::any::TypeId;
 use std::collections::HashMap;
-#[cfg(feature = "bevy_debug_stepping")]
-use {crate::schedule::Schedule, fixedbitset::FixedBitSet};
 
 use crate::{
-    schedule::{InternedScheduleLabel, NodeId, ScheduleLabel},
+    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource},
 };
 use bevy_utils::tracing::{error, info, warn};
 use thiserror::Error;
+
+#[cfg(test)]
+use bevy_utils::tracing::debug;
 
 use crate as bevy_ecs;
 use crate::schedule::{InternedSystemSet, IntoSystemSet, SystemSet};
@@ -565,7 +565,6 @@ impl Stepping {
 
     /// get the list of systems this schedule should skip for this render
     /// frame
-    #[cfg(feature = "bevy_debug_stepping")]
     pub fn skipped_systems(&mut self, schedule: &Schedule) -> Option<FixedBitSet> {
         if self.action == Action::RunAll {
             return None;
@@ -742,7 +741,6 @@ impl ScheduleState {
 
     // apply system behavior updates by looking up the node id of the system in
     // the schedule, and updating `systems`
-    #[cfg(feature = "bevy_debug_stepping")]
     fn apply_behavior_updates(&mut self, schedule: &Schedule) {
         // For system sets, we will apply the behaviour to every system inside the system set
         for (node_id, set, _) in schedule.graph().system_sets() {
@@ -791,7 +789,6 @@ impl ScheduleState {
         debug!("apply_updates(): {:?}", self.behaviors);
     }
 
-    #[cfg(feature = "bevy_debug_stepping")]
     /// Get the list of systems to skip in this [`Schedule`],
     /// and the index of the next system to run in this Schedule, if there is any
     fn skipped_systems(

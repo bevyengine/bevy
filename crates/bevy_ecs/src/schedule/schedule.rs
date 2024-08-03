@@ -436,7 +436,6 @@ impl Schedule {
         &mut self.graph
     }
 
-    #[cfg(feature = "bevy_debug_stepping")]
     /// Returns the [`SystemSchedule`].
     pub(crate) fn executable(&self) -> &SystemSchedule {
         &self.executable
@@ -617,7 +616,6 @@ pub struct ScheduleGraph {
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
     /// Map from a system-set to all the systems that are in it
-    #[cfg(feature = "bevy_debug_stepping")]
     pub(crate) sets_to_systems: HashMap<NodeId, Vec<NodeId>>,
 }
 
@@ -641,7 +639,6 @@ impl ScheduleGraph {
             settings: default(),
             no_sync_edges: BTreeSet::new(),
             auto_sync_node_ids: HashMap::new(),
-            #[cfg(feature = "bevy_debug_stepping")]
             sets_to_systems: HashMap::new(),
         }
     }
@@ -1142,10 +1139,7 @@ impl ScheduleGraph {
         self.optionally_check_conflicts(&conflicting_systems, components, schedule_label)?;
         self.conflicting_systems = conflicting_systems;
 
-        #[cfg(feature = "bevy_debug_stepping")]
-        {
-            self.sets_to_systems = set_systems;
-        }
+        self.sets_to_systems = set_systems;
 
         // build the schedule
         Ok(self.build_schedule_inner(dependency_flattened_dag, hier_results.reachable))
