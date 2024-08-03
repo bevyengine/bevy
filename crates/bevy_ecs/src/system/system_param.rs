@@ -1,5 +1,5 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
-use crate::query::AccessConflict;
+use crate::query::AccessConflicts;
 use crate::storage::SparseSetIndex;
 use crate::{
     archetype::{Archetype, Archetypes},
@@ -299,8 +299,8 @@ fn assert_component_access_compatibility(
         return;
     }
     let accesses = match conflicts {
-        AccessConflict::All => "",
-        AccessConflict::Individual(indices) => &format!(
+        AccessConflicts::All => "",
+        AccessConflicts::Individual(indices) => &format!(
             " {}",
             indices
                 .ones()

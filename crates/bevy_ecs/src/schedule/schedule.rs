@@ -23,7 +23,7 @@ use crate::{
     world::World,
 };
 
-use crate::query::AccessConflict;
+use crate::query::AccessConflicts;
 use crate::storage::SparseSetIndex;
 pub use stepping::Stepping;
 
@@ -1366,7 +1366,7 @@ impl ScheduleGraph {
                 let access_b = system_b.component_access();
                 if !access_a.is_compatible(access_b) {
                     match access_a.get_conflicts(access_b) {
-                        AccessConflict::Individual(conflicts) => {
+                        AccessConflicts::Individual(conflicts) => {
                             let conflicts: Vec<_> = conflicts
                                 .ones()
                                 .map(ComponentId::get_sparse_set_index)
@@ -1376,7 +1376,7 @@ impl ScheduleGraph {
                                 conflicting_systems.push((a, b, conflicts));
                             }
                         }
-                        AccessConflict::All => {
+                        AccessConflicts::All => {
                             // there is no specific component conflicting, but the systems are overall incompatible
                             // for example 2 systems with `Query<EntityMut>`
                             conflicting_systems.push((a, b, Vec::new()));
