@@ -354,7 +354,7 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
 
-# WASM does not support dynamic linking.
+# Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.15.0-dev", default-features = false, optional = true }
 
@@ -760,7 +760,7 @@ doc-scrape-examples = true
 name = "Lines"
 description = "Create a custom material to draw 3d lines"
 category = "3D Rendering"
-# WASM does not support the `POLYGON_MODE_LINE` feature.
+# Wasm does not support the `POLYGON_MODE_LINE` feature.
 wasm = false
 
 [[example]]
