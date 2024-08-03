@@ -149,6 +149,7 @@ impl Plugin for GltfPlugin {
             .register_type::<GltfSceneExtras>()
             .register_type::<GltfMeshExtras>()
             .register_type::<GltfMaterialExtras>()
+            .register_type::<GltfMaterialName>()
             .init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
@@ -386,6 +387,13 @@ pub struct GltfMaterialExtras {
     /// Content of the extra data.
     pub value: String,
 }
+
+/// The material name of a glTF primitive.
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-material).
+#[derive(Clone, Debug, Reflect, Default, Component)]
+#[reflect(Component)]
+pub struct GltfMaterialName(pub String);
 
 /// Labels that can be used to load part of a glTF
 ///
