@@ -194,28 +194,24 @@ fn setup(
         ..default()
     };
 
-    commands.spawn(
-        TextBundle::from_section(
-            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
-            text_style.clone(),
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    commands.spawn(TextBundle::default().with_style(Style {
+        position_type: PositionType::Absolute,
+        top: Val::Px(12.0),
+        left: Val::Px(12.0),
+        ..default()
+    })).with_child(TextSection::new(
+        "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
+        text_style.clone(),
+    ));
 
-    commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             right: Val::Px(12.0),
             ..default()
-        }),
-        ExampleDisplay,
-    ));
+        }))
+        .with_child((TextSection::from_style(text_style), ExampleDisplay));
 
     let mut label = |entity: Entity, label: &str| {
         commands
@@ -230,15 +226,17 @@ fn setup(
                 ExampleLabel { entity },
             ))
             .with_children(|parent| {
-                parent.spawn(
-                    TextBundle::from_section(label, label_text_style.clone())
-                        .with_style(Style {
-                            position_type: PositionType::Absolute,
-                            bottom: Val::ZERO,
-                            ..default()
-                        })
-                        .with_no_wrap(),
-                );
+                parent
+                    .spawn(
+                        TextBundle::default()
+                            .with_style(Style {
+                                position_type: PositionType::Absolute,
+                                bottom: Val::ZERO,
+                                ..default()
+                            })
+                            .with_no_wrap(),
+                    )
+                    .with_child(TextSection::new(label, label_text_style.clone()));
             });
     };
 
@@ -283,7 +281,7 @@ fn example_control_system(
     controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
     mut camera: Query<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Style, &ExampleLabel)>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Query<&mut TextSection, With<ExampleDisplay>>,
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
@@ -349,7 +347,7 @@ fn example_control_system(
     }
 
     let mut display = display.single_mut();
-    display.section.value = format!(
+    display.value = format!(
         "  HDR: {}\nAlpha: {:.2}",
         if camera.hdr { "ON " } else { "OFF" },
         state.alpha

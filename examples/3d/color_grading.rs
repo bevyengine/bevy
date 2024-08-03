@@ -6,7 +6,6 @@ use std::{
 };
 
 use bevy::{
-    ecs::system::EntityCommands,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
@@ -223,10 +222,16 @@ fn add_buttons_for_section(
         })
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
-            add_text(parent, &section.to_string(), font, Color::WHITE).insert(Style {
-                width: Val::Px(125.0),
-                ..default()
-            });
+            add_text(
+                parent,
+                &section.to_string(),
+                font,
+                Color::WHITE,
+                Style {
+                    width: Val::Px(125.0),
+                    ..default()
+                },
+            );
 
             // Spawn the buttons.
             for option in [
@@ -280,10 +285,16 @@ fn add_button_for_value(
                 SelectedColorGradingOption::Global(option) => option.to_string(),
                 SelectedColorGradingOption::Section(_, option) => option.to_string(),
             };
-            add_text(parent, &label, font, Color::WHITE).insert(ColorGradingOptionWidget {
-                widget_type: ColorGradingOptionWidgetType::Label,
-                option,
-            });
+            add_text(
+                parent,
+                &label,
+                font,
+                Color::WHITE,
+                ColorGradingOptionWidget {
+                    widget_type: ColorGradingOptionWidgetType::Label,
+                    option,
+                },
+            );
 
             // Add a spacer.
             parent.spawn(NodeBundle {
@@ -300,11 +311,11 @@ fn add_button_for_value(
                 &format!("{:.3}", option.get(color_grading)),
                 font,
                 Color::WHITE,
-            )
-            .insert(ColorGradingOptionWidget {
-                widget_type: ColorGradingOptionWidgetType::Value,
-                option,
-            });
+                ColorGradingOptionWidget {
+                    widget_type: ColorGradingOptionWidgetType::Value,
+                    option,
+                },
+            );
         });
 }
 
@@ -322,32 +333,39 @@ fn add_help_text(
                 top: Val::Px(10.0),
                 ..default()
             },
-            ..TextBundle::from_section(
+            ..default()
+        })
+        .with_child((
+            TextSection::new(
                 create_help_text(currently_selected_option),
                 TextStyle {
                     font: font.clone(),
                     ..default()
                 },
-            )
-        })
-        .insert(HelpText);
+            ),
+            HelpText,
+        ));
 }
 
 /// Adds some text to the scene.
-fn add_text<'a>(
-    parent: &'a mut ChildBuilder,
+fn add_text(
+    parent: &mut ChildBuilder,
     label: &str,
     font: &Handle<Font>,
     color: Color,
-) -> EntityCommands<'a> {
-    parent.spawn(TextBundle::from_section(
-        label,
-        TextStyle {
-            font: font.clone(),
-            font_size: 18.0,
-            color,
-        },
-    ))
+    bundle: impl Bundle,
+) {
+    parent.spawn(TextBundle::default()).with_child((
+        bundle,
+        TextSection::new(
+            label,
+            TextStyle {
+                font: font.clone(),
+                font_size: 18.0,
+                color,
+            },
+        ),
+    ));
 }
 
 fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
@@ -573,8 +591,8 @@ fn update_ui_state(
         &mut BorderColor,
         &ColorGradingOptionWidget,
     )>,
-    mut button_text: Query<(&mut Text, &ColorGradingOptionWidget), Without<HelpText>>,
-    mut help_text: Query<&mut Text, With<HelpText>>,
+    mut button_text: Query<(&mut TextSection, &ColorGradingOptionWidget), Without<HelpText>>,
+    mut help_text: Query<&mut TextSection, With<HelpText>>,
     cameras: Query<Ref<ColorGrading>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
@@ -611,20 +629,20 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        text.section.style.color = color;
+        text.style.color = color;
 
         // Update the displayed value, if this is the currently-selected option.
         if widget.widget_type == ColorGradingOptionWidgetType::Value
             && *currently_selected_option == widget.option
         {
             if let Some(ref value_label) = value_label {
-                text.section.value.clone_from(value_label);
+                text.value.clone_from(value_label);
             }
         }
     }
 
     // Update the help text.
-    help_text.single_mut().section.value = create_help_text(&currently_selected_option);
+    help_text.single_mut().value = create_help_text(&currently_selected_option);
 }
 
 /// Creates the help text at the top left of the window.

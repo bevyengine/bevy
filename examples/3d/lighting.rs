@@ -243,19 +243,18 @@ fn setup(
     let style = TextStyle::default();
 
     commands
-        .spawn(NodeBundle {
+        .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
                 ..default()
             },
             ..default()
         })
         .with_children(|root| {
             root.spawn((
-                TextBundle::from_section(
+                TextSection::new(
                     format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops),
                     style.clone(),
                 ),
@@ -263,7 +262,7 @@ fn setup(
             ));
 
             root.spawn((
-                TextBundle::from_section(
+                TextSection::new(
                     format!(
                         "Shutter speed: 1/{:.0}s\n",
                         1.0 / parameters.shutter_speed_s
@@ -274,14 +273,14 @@ fn setup(
             ));
 
             root.spawn((
-                TextBundle::from_section(
+                TextSection::new(
                     format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso),
                     style.clone(),
                 ),
                 SensitivityText,
             ));
 
-            root.spawn(TextBundle::from_section(
+            root.spawn(TextSection::new(
                 ["\n\n\
                     Controls\n\
                     ---------------\n\
@@ -307,30 +306,10 @@ fn update_exposure(
     key_input: Res<ButtonInput<KeyCode>>,
     mut parameters: ResMut<Parameters>,
     mut exposure: Query<&mut Exposure>,
-    mut aperture_text: Query<
-        &mut Text,
-        (
-            With<ApertureText>,
-            Without<ShutterSpeedText>,
-            Without<SensitivityText>,
-        ),
-    >,
-    mut shutter_text: Query<
-        &mut Text,
-        (
-            With<ShutterSpeedText>,
-            Without<ApertureText>,
-            Without<SensitivityText>,
-        ),
-    >,
-    mut sensitivity_text: Query<
-        &mut Text,
-        (
-            With<SensitivityText>,
-            Without<ApertureText>,
-            Without<ShutterSpeedText>,
-        ),
-    >,
+    mut text: Query<&mut TextSection>,
+    aperture_text: Query<Entity, With<ApertureText>>,
+    shutter_text: Query<Entity, With<ShutterSpeedText>>,
+    sensitivity_text: Query<Entity, With<SensitivityText>>,
 ) {
     // TODO: Clamp values to a reasonable range
     if key_input.just_pressed(KeyCode::Digit2) {
@@ -352,17 +331,16 @@ fn update_exposure(
         *parameters = Parameters::default();
     }
 
-    let mut aperture_text = aperture_text.single_mut();
-    let mut shutter_text = shutter_text.single_mut();
-    let mut sensitivity_text = sensitivity_text.single_mut();
+    let mut aperture_text = text.get_mut(aperture_text.single()).unwrap();
 
-    aperture_text.section.value = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
-    shutter_text.section.value = format!(
+    aperture_text.value = format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops);
+    let mut shutter_text = text.get_mut(shutter_text.single()).unwrap();
+    shutter_text.value = format!(
         "Shutter speed: 1/{:.0}s\n",
         1.0 / parameters.shutter_speed_s
     );
-    sensitivity_text.section.value =
-        format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
+    let mut sensitivity_text = text.get_mut(sensitivity_text.single()).unwrap();
+    sensitivity_text.value = format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso);
 
     *exposure.single_mut() = Exposure::from_physical_camera(**parameters);
 }

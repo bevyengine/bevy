@@ -43,32 +43,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("translation", text_style.clone())
-                .with_justify(text_justification),
-            ..default()
-        },
-        AnimateTranslation,
-    ));
+    commands
+        .spawn((
+            Text2dBundle {
+                text: Text::default().with_justify(text_justification),
+                ..default()
+            },
+            AnimateTranslation,
+        ))
+        .with_child(TextSection::new("translation", text_style.clone()));
     // Demonstrate changing rotation
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("rotation", text_style.clone())
-                .with_justify(text_justification),
-            ..default()
-        },
-        AnimateRotation,
-    ));
+    commands
+        .spawn((
+            Text2dBundle {
+                text: Text::default().with_justify(text_justification),
+                ..default()
+            },
+            AnimateRotation,
+        ))
+        .with_child(TextSection::new("rotation", text_style.clone()));
     // Demonstrate changing scale
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("scale", text_style).with_justify(text_justification),
-            transform: Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
-            ..default()
-        },
-        AnimateScale,
-    ));
+    commands
+        .spawn((
+            Text2dBundle {
+                text: Text::default().with_justify(text_justification),
+                transform: Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
+                ..default()
+            },
+            AnimateScale,
+        ))
+        .with_child(TextSection::new("scale", text_style.clone()));
     // Demonstrate text wrapping
     let slightly_smaller_text_style = TextStyle {
         font,
@@ -88,21 +92,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn(Text2dBundle {
-                text: Text {
-                    section: TextSection::new(
-                        "this text wraps in the box\n(Unicode linebreaks)",
-                        slightly_smaller_text_style.clone(),
-                    ),
-                    justify: JustifyText::Left,
-                    linebreak_behavior: BreakLineOn::WordBoundary,
-                },
-                // Wrap text in the rectangle
-                text_2d_bounds: TextBounds::from(box_size),
-                // ensure the text is drawn on top of the box
-                transform: Transform::from_translation(Vec3::Z),
-                ..default()
-            });
+            builder
+                .spawn(Text2dBundle {
+                    text: Text {
+                        justify: JustifyText::Left,
+                        linebreak_behavior: BreakLineOn::WordBoundary,
+                    },
+                    // Wrap text in the rectangle
+                    text_2d_bounds: TextBounds::from(box_size),
+                    // ensure the text is drawn on top of the box
+                    transform: Transform::from_translation(Vec3::Z),
+                    ..default()
+                })
+                .with_child(TextSection::new(
+                    "this text wraps in the box\n(Unicode linebreaks)",
+                    slightly_smaller_text_style.clone(),
+                ));
         });
 
     let other_box_size = Vec2::new(300.0, 200.0);
@@ -118,21 +123,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn(Text2dBundle {
-                text: Text {
-                    section: TextSection::new(
-                        "this text wraps in the box\n(AnyCharacter linebreaks)",
-                        slightly_smaller_text_style.clone(),
-                    ),
-                    justify: JustifyText::Left,
-                    linebreak_behavior: BreakLineOn::AnyCharacter,
-                },
-                // Wrap text in the rectangle
-                text_2d_bounds: TextBounds::from(other_box_size),
-                // ensure the text is drawn on top of the box
-                transform: Transform::from_translation(Vec3::Z),
-                ..default()
-            });
+            builder
+                .spawn(Text2dBundle {
+                    text: Text {
+                        justify: JustifyText::Left,
+                        linebreak_behavior: BreakLineOn::AnyCharacter,
+                    },
+                    // Wrap text in the rectangle
+                    text_2d_bounds: TextBounds::from(other_box_size),
+                    // ensure the text is drawn on top of the box
+                    transform: Transform::from_translation(Vec3::Z),
+                    ..default()
+                })
+                .with_child(TextSection::new(
+                    "this text wraps in the box\n(AnyCharacter linebreaks)",
+                    slightly_smaller_text_style.clone(),
+                ));
         });
 
     for (text_anchor, color) in [
@@ -141,21 +147,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         (Anchor::BottomRight, Color::Srgba(BLUE)),
         (Anchor::BottomLeft, Color::Srgba(YELLOW)),
     ] {
-        commands.spawn(Text2dBundle {
-            text: Text {
-                section: TextSection::new(
-                    format!(" Anchor::{text_anchor:?} "),
-                    TextStyle {
-                        color,
-                        ..slightly_smaller_text_style.clone()
-                    },
-                ),
-                ..Default::default()
-            },
-            transform: Transform::from_translation(250. * Vec3::Y),
-            text_anchor,
-            ..default()
-        });
+        commands
+            .spawn(Text2dBundle {
+                text: Text {
+                    ..Default::default()
+                },
+                transform: Transform::from_translation(250. * Vec3::Y),
+                text_anchor,
+                ..default()
+            })
+            .with_child(TextSection::new(
+                format!(" Anchor::{text_anchor:?} "),
+                TextStyle {
+                    color,
+                    ..slightly_smaller_text_style.clone()
+                },
+            ));
     }
 }
 

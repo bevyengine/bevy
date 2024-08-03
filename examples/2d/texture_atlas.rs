@@ -264,12 +264,14 @@ fn create_label(
     text: &str,
     text_style: TextStyle,
 ) {
-    commands.spawn(Text2dBundle {
-        text: Text::from_section(text, text_style).with_justify(JustifyText::Center),
-        transform: Transform {
-            translation: Vec3::new(translation.0, translation.1, translation.2),
+    commands
+        .spawn(Text2dBundle {
+            text: Text::default().with_justify(JustifyText::Center),
+            transform: Transform {
+                translation: Vec3::new(translation.0, translation.1, translation.2),
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    });
+        })
+        .with_child(TextSection::new(text, text_style));
 }

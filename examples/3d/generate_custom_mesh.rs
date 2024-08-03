@@ -64,18 +64,17 @@ fn setup(
     });
 
     // Text to describe the controls.
-    commands.spawn(
-        TextBundle::from_section(
-            "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::new(
+            "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
+            TextStyle::default(),
+        ));
 }
 
 // System to receive input from the user,

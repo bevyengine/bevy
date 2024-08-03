@@ -134,28 +134,24 @@ fn setup(
 
     let text_style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_section(
-            "Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask",
-            text_style.clone(),
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+    commands.spawn(TextBundle::default().with_style(Style {
+        position_type: PositionType::Absolute,
+        top: Val::Px(12.0),
+        left: Val::Px(12.0),
+        ..default()
+    })).with_child(TextSection::new(
+        "Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask",
+        text_style.clone(),
+    ));
 
-    commands.spawn((
-        TextBundle::from_section("", text_style).with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(10.0),
             right: Val::Px(10.0),
             ..default()
-        }),
-        ExampleDisplay,
-    ));
+        }))
+        .with_child((TextSection::from_style(text_style), ExampleDisplay));
 }
 
 #[derive(Component)]
@@ -169,7 +165,7 @@ struct ExampleResources {
 
 fn example_control_system(
     mut camera: Query<(&mut Transform, &mut AutoExposureSettings), With<Camera3d>>,
-    mut display: Query<&mut Text, With<ExampleDisplay>>,
+    mut display: Query<&mut TextSection, With<ExampleDisplay>>,
     mut mask_image: Query<&mut Style, With<UiImage>>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
@@ -212,7 +208,7 @@ fn example_control_system(
     };
 
     let mut display = display.single_mut();
-    display.section.value = format!(
+    display.value = format!(
         "Compensation Curve: {}\nMetering Mask: {}",
         if auto_exposure.compensation_curve == resources.basic_compensation_curve {
             "Enabled"

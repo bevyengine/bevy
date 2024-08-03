@@ -96,18 +96,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     });
 
     // Spawn the help text.
-    commands.spawn(
-        TextBundle {
-            text: create_text(&app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::default());
 }
 
 /// Adjusts the focal distance and f-number per user inputs.
@@ -215,15 +211,10 @@ fn tweak_scene(
 }
 
 /// Update the help text entity per the current app settings.
-fn update_text(mut texts: Query<&mut Text>, app_settings: Res<AppSettings>) {
+fn update_text(mut texts: Query<&mut TextSection>, app_settings: Res<AppSettings>) {
     for mut text in texts.iter_mut() {
-        *text = create_text(&app_settings);
+        text.value = app_settings.help_text();
     }
-}
-
-/// Regenerates the app text component per the current app settings.
-fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(app_settings.help_text(), TextStyle::default())
 }
 
 impl From<AppSettings> for Option<DepthOfFieldSettings> {
