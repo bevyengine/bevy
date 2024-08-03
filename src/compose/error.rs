@@ -195,7 +195,7 @@ impl ComposerError {
                     .map(|(span, desc)| {
                         trace!(
                             "mapping span {:?} -> {:?}",
-                            span.to_range().unwrap(),
+                            span.to_range().unwrap_or(0..0),
                             map_span(span.to_range().unwrap_or(0..0))
                         );
                         Label::primary((), map_span(span.to_range().unwrap_or(0..0)))
@@ -217,7 +217,8 @@ impl ComposerError {
             ComposerErrorInner::WgslParseError(e) => (
                 e.labels()
                     .map(|(range, msg)| {
-                        Label::primary((), map_span(range.to_range().unwrap())).with_message(msg)
+                        Label::primary((), map_span(range.to_range().unwrap_or(0..0)))
+                            .with_message(msg)
                     })
                     .collect(),
                 vec![e.message().to_owned()],
