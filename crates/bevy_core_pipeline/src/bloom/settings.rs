@@ -227,6 +227,7 @@ impl ExtractComponent for BloomSettings {
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
                     aspect: AspectRatio::from_pixels(size.x, size.y).into(),
+                    uv_offset: settings.uv_offset,
                 };
 
                 Some((settings.clone(), uniform))
