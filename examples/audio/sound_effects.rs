@@ -96,7 +96,7 @@ impl FromWorld for SoundEffects {
         let mut map = HashMap::default();
 
         // Load sound effects here.
-        // Using string parsing to strip numbered suffixes + load_folder is a good way to load many sound effects at once.
+        // Using string parsing to strip numbered suffixes + `AssetServer::load_folder` is a good way to load many sound effects at once, but is not supported on Wasm or Android.
         let button_press_sfxs = vec![
             asset_server.load("sounds/button_press_1.ogg"),
             asset_server.load("sounds/button_press_2.ogg"),
