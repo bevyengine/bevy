@@ -46,7 +46,7 @@ fn setup(
                 target_arch = "wasm32",
                 not(feature = "webgpu")
             )) {
-                // Currently limited to 1 cascade in WebGL
+                // Limited to 1 cascade in WebGL
                 1
             } else {
                 2
