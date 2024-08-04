@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::component::StorageType;
+use crate::component::{ComponentInfo, StorageType};
 use crate::{component::ComponentId, prelude::*};
 
 use super::{FilteredAccess, QueryData, QueryFilter};
@@ -74,7 +74,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             self.world()
                 .components()
                 .get_info(ComponentId::new(component_id))
-                .map(|component_info| component_info.storage_type())
+                .map(ComponentInfo::storage_type)
                 == Some(StorageType::Table)
         };
         D::IS_DENSE
