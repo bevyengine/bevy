@@ -1032,7 +1032,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
         for id in self.cursor.storage_id_iter.clone() {
-            if D::IS_DENSE && F::IS_DENSE {
+            if D::IS_DENSE && F::IS_DENSE && self.cursor.is_dense {
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(id.table_id).debug_checked_unwrap() };
                 accum =
@@ -1675,6 +1675,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
 }
 
 struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
+    is_dense: bool,
     storage_id_iter: std::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
@@ -1689,6 +1690,7 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
 impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
     fn clone(&self) -> Self {
         Self {
+            is_dense: self.is_dense,
             storage_id_iter: self.storage_id_iter.clone(),
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
@@ -1701,8 +1703,6 @@ impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> 
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
-    const IS_DENSE: bool = D::IS_DENSE && F::IS_DENSE;
-
     unsafe fn init_empty(
         world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<D, F>,
@@ -1732,6 +1732,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             table_entities: &[],
             archetype_entities: &[],
             storage_id_iter: query_state.matched_storage_ids.iter(),
+            is_dense: query_state.is_dense,
             current_len: 0,
             current_row: 0,
         }
@@ -1754,7 +1755,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
-            if Self::IS_DENSE {
+            if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                 let entity = self.table_entities.get_unchecked(index);
                 Some(D::fetch(
                     &mut self.fetch,
@@ -1780,7 +1781,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let ids = self.storage_id_iter.clone();
-        let remaining_matched: usize = if Self::IS_DENSE {
+        let remaining_matched: usize = if D::IS_DENSE && F::IS_DENSE && self.is_dense {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
@@ -1803,7 +1804,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w>> {
-        if Self::IS_DENSE {
+        if D::IS_DENSE && F::IS_DENSE && self.is_dense {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
