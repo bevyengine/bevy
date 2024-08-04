@@ -54,6 +54,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::{
+    camera::CameraUpdateSystem,
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
@@ -129,6 +130,16 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
+            .configure_sets(
+                PostUpdate,
+                (
+                    CameraUpdateSystem,
+                    UiSystem::Stack,
+                    UiSystem::Layout,
+                    UiSystem::Outlines,
+                )
+                    .chain(),
+            )
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
@@ -204,11 +215,6 @@ fn build_text_interop(app: &mut App) {
         (
             widget::measure_text_system
                 .before(UiSystem::Layout)
-                // Potential conflict: `Assets<Image>`
-                // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::measure_text_system`
-                // will never modify a pre-existing `Image` asset.
-                .ambiguous_with(bevy_render::camera::CameraUpdateSystem)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
