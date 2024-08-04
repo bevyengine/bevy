@@ -568,12 +568,13 @@ thread_local! {
 impl AnimationPlayer {
     /// Spawn the animation player with a given entity, most often the entity in which a
     /// `Handle<Scene>` component exists
-    pub fn with_root(self, scene_root: Option<Entity>) -> Self {
+    pub fn new(scene_root: Entity) -> Self {
         Self {
-            scene_root,
+            scene_root: Some(scene_root),
             ..Default::default()
         }
     }
+
     /// Start playing an animation, restarting it if necessary.
     pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
         let playing_animation = self.active_animations.entry(animation).or_default();
