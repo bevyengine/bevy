@@ -146,6 +146,7 @@ impl Plugin for UiPlugin {
             .configure_sets(
                 PostUpdate,
                 (
+                    CameraUpdateSystem,
                     UiSystem::Prepare.before(UiSystem::Stack),
                     UiSystem::Layout,
                     (UiSystem::PostLayout, UiSystem::Outlines),
@@ -225,11 +226,6 @@ fn build_text_interop(app: &mut App) {
         (
             widget::measure_text_system
                 .in_set(UiSystem::Prepare)
-                // Potential conflict: `Assets<Image>`
-                // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::measure_text_system`
-                // will never modify a pre-existing `Image` asset.
-                .ambiguous_with(bevy_render::camera::CameraUpdateSystem)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
