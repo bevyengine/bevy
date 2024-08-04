@@ -52,16 +52,18 @@ pub mod prelude {
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         observer::{Observer, Trigger},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{
+            Added, AnyOf, Changed, DynQueryState, Has, Or, QueryBuilder, QueryState, With, Without,
+        },
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
             IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemBuilder,
-            SystemParamFunction,
+            Commands, Deferred, DynQuery, In, IntoSystem, Local, NonSend, NonSendMut,
+            ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System,
+            SystemBuilder, SystemParamFunction,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove, OnReplace,

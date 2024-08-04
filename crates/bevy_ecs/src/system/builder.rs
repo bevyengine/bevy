@@ -147,7 +147,7 @@ all_tuples!(impl_system_builder, 0, 15, P);
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::{Component, Query};
+    use crate::prelude::{Component, DynQuery};
     use crate::system::{Local, RunSystemOnce};
 
     use super::*;
@@ -159,7 +159,7 @@ mod tests {
         *local
     }
 
-    fn query_system(query: Query<()>) -> usize {
+    fn query_system(query: DynQuery<()>) -> usize {
         query.iter().count()
     }
 
@@ -187,7 +187,7 @@ mod tests {
         world.spawn_empty();
 
         let system = SystemBuilder::<()>::new(&mut world)
-            .builder::<Query<()>>(|query| {
+            .builder::<DynQuery<()>>(|query| {
                 query.with::<A>();
             })
             .build(query_system);

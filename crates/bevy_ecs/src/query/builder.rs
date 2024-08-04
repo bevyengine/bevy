@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use crate::component::StorageType;
 use crate::{component::ComponentId, prelude::*};
 
 use super::{FilteredAccess, QueryData, QueryFilter};
@@ -37,6 +38,7 @@ pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     world: &'w mut World,
     or: bool,
     first: bool,
+    pub(super) is_dense: bool,
     _marker: PhantomData<(D, F)>,
 }
 
@@ -64,6 +66,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             world,
             or: false,
             first: false,
+            is_dense: D::IS_DENSE && F::IS_DENSE,
             _marker: PhantomData,
         }
     }
@@ -90,6 +93,22 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             }
         } else {
             self.access.extend(&access);
+        }
+
+        // Is this is not dense then there's no need to check whether `access` is.
+        if self.is_dense {
+            self.is_dense &= access
+                .filter_sets
+                .iter()
+                .flat_map(|filter_set| filter_set.with.ones().chain(filter_set.without.ones()))
+                .all(|component_id| {
+                    self.world
+                        .components()
+                        .get_info(ComponentId::new(component_id))
+                        .unwrap()
+                        .storage_type()
+                        == StorageType::Table
+                });
         }
     }
 
@@ -119,6 +138,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Adds [`With<T>`] to the [`FilteredAccess`] of self from a runtime [`ComponentId`].
     pub fn with_id(&mut self, id: ComponentId) -> &mut Self {
+        // TODO: Check that id exists in this world
         let mut access = FilteredAccess::default();
         access.and_with(id);
         self.extend_access(access);
@@ -133,6 +153,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Adds [`Without<T>`] to the [`FilteredAccess`] of self from a runtime [`ComponentId`].
     pub fn without_id(&mut self, id: ComponentId) -> &mut Self {
+        // TODO: Check that id exists in this world
         let mut access = FilteredAccess::default();
         access.and_without(id);
         self.extend_access(access);
@@ -141,6 +162,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Adds `&T` to the [`FilteredAccess`] of self.
     pub fn ref_id(&mut self, id: ComponentId) -> &mut Self {
+        // TODO: Check that id exists in this world
         self.with_id(id);
         self.access.add_component_read(id);
         self
@@ -148,6 +170,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Adds `&mut T` to the [`FilteredAccess`] of self.
     pub fn mut_id(&mut self, id: ComponentId) -> &mut Self {
+        // TODO: Check that id exists in this world
         self.with_id(id);
         self.access.add_component_write(id);
         self
@@ -242,8 +265,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     ///
     /// Takes `&mut self` to access the innner world reference while initializing
     /// state for the new [`QueryState`]
-    pub fn build(&mut self) -> QueryState<D, F> {
-        QueryState::<D, F>::from_builder(self)
+    pub fn build(&mut self) -> DynQueryState<D, F> {
+        DynQueryState::<D, F>::from_builder(self)
     }
 }
 

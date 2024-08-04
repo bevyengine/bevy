@@ -2,21 +2,22 @@ use crate::{
     batching::BatchingStrategy, component::Tick, world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{QueryData, QueryFilter, QueryItem, QueryState};
+use super::{QueryData, QueryFilter, QueryItem, QueryState, QueryStaticMarker, StaticMarker};
 
 /// A parallel iterator over query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
+// TODO: Does this actually need a M parameter?
+pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker = StaticMarker> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: &'s QueryState<D, F, M>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> QueryParIter<'w, 's, D, F, M> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -126,7 +127,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     fn get_batch_size(&self, thread_count: usize) -> usize {
         let max_items = || {
             let id_iter = self.state.matched_storage_ids.iter();
-            if D::IS_DENSE && F::IS_DENSE {
+            if (D::IS_DENSE && F::IS_DENSE && M::IS_STATIC)
+                || (!M::IS_STATIC && self.state.is_dense)
+            {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
                 id_iter

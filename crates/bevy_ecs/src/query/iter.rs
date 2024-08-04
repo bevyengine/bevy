@@ -11,31 +11,32 @@ use std::{
     cmp::Ordering,
     fmt::{self, Debug, Formatter},
     iter::FusedIterator,
+    marker::PhantomData,
     mem::MaybeUninit,
     ops::Range,
 };
 
-use super::{QueryData, QueryFilter, ReadOnlyQueryData};
+use super::{QueryData, QueryFilter, QueryStaticMarker, ReadOnlyQueryData, StaticMarker};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`Query::iter`](crate::system::Query::iter) and
 /// [`Query::iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryIter<'w, 's, D: QueryData, F: QueryFilter> {
+pub struct QueryIter<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker = StaticMarker> {
     world: UnsafeWorldCell<'w>,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    query_state: &'s QueryState<D, F>,
-    cursor: QueryIterationCursor<'w, 's, D, F>,
+    query_state: &'s QueryState<D, F, M>,
+    cursor: QueryIterationCursor<'w, 's, D, F, M>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> QueryIter<'w, 's, D, F, M> {
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s QueryState<D, F>,
+        query_state: &'s QueryState<D, F, M>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -56,7 +57,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Safety
     ///  - all `rows` must be in `[0, table.entity_count)`.
     ///  - `table` must match D and F
-    ///  - Both `D::IS_DENSE` and `F::IS_DENSE` must be true.
+    ///  - `self.query_state.is_dense` must be true.
     #[inline]
     pub(super) unsafe fn fold_over_table_range<B, Func>(
         &mut self,
@@ -108,7 +109,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Safety
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
-    ///  - Either `D::IS_DENSE` or `F::IS_DENSE` must be false.
+    ///  - `self.query_state.is_dense` must be false
     #[inline]
     pub(super) unsafe fn fold_over_archetype_range<B, Func>(
         &mut self,
@@ -351,6 +352,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+        M,
     > {
         // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
         // will be set to a non-zero value. The correctness of this method relies on this.
@@ -443,6 +445,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+        M,
     > {
         // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
         // will be set to a non-zero value. The correctness of this method relies on this.
@@ -543,6 +546,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+        M,
     > {
         // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
         // will be set to a non-zero value. The correctness of this method relies on this.
@@ -609,6 +613,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+        M,
     > {
         // On the first successful iteration of `QueryIterationCursor`, `archetype_entities` or `table_entities`
         // will be set to a non-zero value. The correctness of this method relies on this.
@@ -735,6 +740,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+        M,
     >
     where
         K: Ord,
@@ -804,6 +810,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+        M,
     >
     where
         K: Ord,
@@ -874,6 +881,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
+        M,
     >
     where
         K: Ord,
@@ -918,7 +926,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> Iterator
+    for QueryIter<'w, 's, D, F, M>
+{
     type Item = D::Item<'w>;
 
     #[inline(always)]
@@ -951,7 +961,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
         for id in self.cursor.storage_id_iter.clone() {
-            if D::IS_DENSE && F::IS_DENSE {
+            if (D::IS_DENSE && F::IS_DENSE && M::IS_STATIC)
+                || (!M::IS_STATIC && self.query_state.is_dense)
+            {
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(id.table_id).debug_checked_unwrap() };
                 accum =
@@ -992,9 +1004,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, 's, D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D, F> {}
+impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> FusedIterator
+    for QueryIter<'w, 's, D, F, M>
+{
+}
 
-impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> Debug
+    for QueryIter<'w, 's, D, F, M>
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryIter").finish()
     }
@@ -1005,8 +1022,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Debug for QueryIter<'w, 's, D, F> {
 /// This struct is created by the [`QueryIter::sort`], [`QueryIter::sort_unstable`],
 /// [`QueryIter::sort_by`], [`QueryIter::sort_unstable_by`], [`QueryIter::sort_by_key`],
 /// [`QueryIter::sort_unstable_by_key`], and [`QueryIter::sort_by_cached_key`] methods.
-pub struct QuerySortedIter<'w, 's, D: QueryData, F: QueryFilter, I>
-where
+pub struct QuerySortedIter<
+    'w,
+    's,
+    D: QueryData,
+    F: QueryFilter,
+    I,
+    M: QueryStaticMarker = StaticMarker,
+> where
     I: Iterator<Item = Entity>,
 {
     entity_iter: I,
@@ -1014,10 +1037,11 @@ where
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     fetch: D::Fetch<'w>,
-    query_state: &'s QueryState<D, F>,
+    query_state: &'s QueryState<D, F, M>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> QuerySortedIter<'w, 's, D, F, I>
+impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator, M: QueryStaticMarker>
+    QuerySortedIter<'w, 's, D, F, I, M>
 where
     I: Iterator<Item = Entity>,
 {
@@ -1027,11 +1051,11 @@ where
     /// - `entity_list` must only contain unique entities or be empty.
     pub(crate) unsafe fn new<EntityList: IntoIterator<IntoIter = I>>(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s QueryState<D, F>,
+        query_state: &'s QueryState<D, F, M>,
         entity_list: EntityList,
         last_run: Tick,
         this_run: Tick,
-    ) -> QuerySortedIter<'w, 's, D, F, I> {
+    ) -> Self {
         let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         QuerySortedIter {
             query_state,
@@ -1142,29 +1166,43 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>> Debug
 /// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> {
+// TODO: Does this actually need a M parameter?
+pub struct QueryManyIter<
+    'w,
+    's,
+    D: QueryData,
+    F: QueryFilter,
+    I: Iterator<Item: Borrow<Entity>>,
+    M: QueryStaticMarker = StaticMarker,
+> {
     entity_iter: I,
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
-    query_state: &'s QueryState<D, F>,
+    query_state: &'s QueryState<D, F, M>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
-    QueryManyIter<'w, 's, D, F, I>
+impl<
+        'w,
+        's,
+        D: QueryData,
+        F: QueryFilter,
+        I: Iterator<Item: Borrow<Entity>>,
+        M: QueryStaticMarker,
+    > QueryManyIter<'w, 's, D, F, I, M>
 {
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
     pub(crate) unsafe fn new<EntityList: IntoIterator<IntoIter = I>>(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s QueryState<D, F>,
+        query_state: &'s QueryState<D, F, M>,
         entity_list: EntityList,
         last_run: Tick,
         this_run: Tick,
-    ) -> QueryManyIter<'w, 's, D, F, I> {
+    ) -> Self {
         let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryManyIter {
@@ -1196,7 +1234,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>>
         archetypes: &'w Archetypes,
         fetch: &mut D::Fetch<'w>,
         filter: &mut F::Fetch<'w>,
-        query_state: &'s QueryState<D, F>,
+        query_state: &'s QueryState<D, F, M>,
     ) -> Option<D::Item<'w>> {
         for entity in entity_iter {
             let entity = *entity.borrow();
@@ -1419,30 +1457,41 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: Borrow<Entity>>> De
 /// [`Query`]: crate::system::Query
 /// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
 /// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
-pub struct QueryCombinationIter<'w, 's, D: QueryData, F: QueryFilter, const K: usize> {
+// TODO: Does this actually need a M parameter?
+pub struct QueryCombinationIter<
+    'w,
+    's,
+    D: QueryData,
+    F: QueryFilter,
+    const K: usize,
+    M: QueryStaticMarker = StaticMarker,
+> {
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    query_state: &'s QueryState<D, F>,
-    cursors: [QueryIterationCursor<'w, 's, D, F>; K],
+    query_state: &'s QueryState<D, F, M>,
+    cursors: [QueryIterationCursor<'w, 's, D, F, M>; K],
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<'w, 's, D, F, K> {
+impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize, M: QueryStaticMarker>
+    QueryCombinationIter<'w, 's, D, F, K, M>
+{
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s QueryState<D, F>,
+        query_state: &'s QueryState<D, F, M>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
-        let mut array: MaybeUninit<[QueryIterationCursor<'w, 's, D, F>; K]> = MaybeUninit::uninit();
+        let mut array: MaybeUninit<[QueryIterationCursor<'w, 's, D, F, M>; K]> =
+            MaybeUninit::uninit();
         let ptr = array
             .as_mut_ptr()
-            .cast::<QueryIterationCursor<'w, 's, D, F>>();
+            .cast::<QueryIterationCursor<'w, 's, D, F, M>>();
         if K != 0 {
             ptr.write(QueryIterationCursor::init(
                 world,
@@ -1531,8 +1580,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
 // Iterator type is intentionally implemented only for read-only access.
 // Doing so for mutable references would be unsound, because calling `next`
 // multiple times would allow multiple owned references to the same data to exist.
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
-    for QueryCombinationIter<'w, 's, D, F, K>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize, M: QueryStaticMarker> Iterator
+    for QueryCombinationIter<'w, 's, D, F, K, M>
 {
     type Item = [D::Item<'w>; K];
 
@@ -1574,7 +1623,8 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> ExactSizeIterator for QueryIter<'w, 's, D, F>
+impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> ExactSizeIterator
+    for QueryIter<'w, 's, D, F, M>
 where
     F: ArchetypeFilter,
 {
@@ -1584,20 +1634,21 @@ where
 }
 
 // This is correct as [`QueryCombinationIter`] always returns `None` once exhausted.
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> FusedIterator
-    for QueryCombinationIter<'w, 's, D, F, K>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize, M: QueryStaticMarker>
+    FusedIterator for QueryCombinationIter<'w, 's, D, F, K, M>
 {
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
-    for QueryCombinationIter<'w, 's, D, F, K>
+impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize, M: QueryStaticMarker> Debug
+    for QueryCombinationIter<'w, 's, D, F, K, M>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryCombinationIter").finish()
     }
 }
 
-struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
+struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> {
+    is_dense: bool,
     storage_id_iter: std::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
@@ -1607,11 +1658,15 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     current_len: usize,
     // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
     current_row: usize,
+    _marker: PhantomData<M>,
 }
 
-impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
+impl<D: QueryData, F: QueryFilter, M: QueryStaticMarker> Clone
+    for QueryIterationCursor<'_, '_, D, F, M>
+{
     fn clone(&self) -> Self {
         Self {
+            is_dense: self.is_dense,
             storage_id_iter: self.storage_id_iter.clone(),
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
@@ -1619,16 +1674,19 @@ impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> 
             filter: self.filter.clone(),
             current_len: self.current_len,
             current_row: self.current_row,
+            _marker: PhantomData,
         }
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
-    const IS_DENSE: bool = D::IS_DENSE && F::IS_DENSE;
+impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker>
+    QueryIterationCursor<'w, 's, D, F, M>
+{
+    const IS_STATIC_DENSE: bool = D::IS_DENSE && F::IS_DENSE && M::IS_STATIC;
 
     unsafe fn init_empty(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s QueryState<D, F>,
+        query_state: &'s QueryState<D, F, M>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -1643,13 +1701,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// - `world` must be the same one used to initialize `query_state`.
     unsafe fn init(
         world: UnsafeWorldCell<'w>,
-        query_state: &'s QueryState<D, F>,
+        query_state: &'s QueryState<D, F, M>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
         let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         QueryIterationCursor {
+            is_dense: query_state.is_dense,
             fetch,
             filter,
             table_entities: &[],
@@ -1657,6 +1716,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             storage_id_iter: query_state.matched_storage_ids.iter(),
             current_len: 0,
             current_row: 0,
+            _marker: PhantomData,
         }
     }
 
@@ -1665,7 +1725,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
-            if Self::IS_DENSE {
+            if Self::IS_STATIC_DENSE {
                 let entity = self.table_entities.get_unchecked(index);
                 Some(D::fetch(
                     &mut self.fetch,
@@ -1691,7 +1751,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let ids = self.storage_id_iter.clone();
-        let remaining_matched: usize = if Self::IS_DENSE {
+        let remaining_matched: usize = if Self::IS_STATIC_DENSE || (!M::IS_STATIC && self.is_dense)
+        {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
@@ -1712,9 +1773,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         &mut self,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
-        query_state: &'s QueryState<D, F>,
+        query_state: &'s QueryState<D, F, M>,
     ) -> Option<D::Item<'w>> {
-        if Self::IS_DENSE {
+        if Self::IS_STATIC_DENSE || (!M::IS_STATIC && self.is_dense) {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {

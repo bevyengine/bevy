@@ -8,9 +8,9 @@ use crate::{
     prelude::QueryBuilder,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
-        ReadOnlyQueryData,
+        QueryStaticMarker, ReadOnlyQueryData,
     },
-    system::{Query, SystemMeta},
+    system::{DynQuery, Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
@@ -206,16 +206,18 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
-    for Query<'w, 's, D, F>
+unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static, M: QueryStaticMarker>
+    ReadOnlySystemParam for Query<'w, 's, D, F, M>
 {
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
-    type State = QueryState<D, F>;
-    type Item<'w, 's> = Query<'w, 's, D, F>;
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static, M: QueryStaticMarker> SystemParam
+    for Query<'_, '_, D, F, M>
+{
+    type State = QueryState<D, F, M>;
+    type Item<'w, 's> = Query<'w, 's, D, F, M>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
@@ -256,7 +258,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
 }
 
 impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
-    for Query<'w, 's, D, F>
+    for DynQuery<'w, 's, D, F>
 {
     type Builder<'b> = QueryBuilder<'b, D, F>;
 
@@ -1523,8 +1525,12 @@ all_tuples!(impl_system_param_tuple, 0, 16, P);
 ///
 /// [`SystemParam`]: super::SystemParam
 pub mod lifetimeless {
+    use crate::query::StaticMarker;
+
     /// A [`Query`](super::Query) with `'static` lifetimes.
-    pub type SQuery<D, F = ()> = super::Query<'static, 'static, D, F>;
+    pub type SQuery<D, F = (), M = StaticMarker> = super::Query<'static, 'static, D, F, M>;
+    /// A [`DynQuery`](super::DynQuery) with `'static` lifetimes.
+    pub type SDynQuery<D, F = ()> = super::DynQuery<'static, 'static, D, F>;
     /// A shorthand for writing `&'static T`.
     pub type Read<T> = &'static T;
     /// A shorthand for writing `&'static mut T`.

@@ -14,12 +14,36 @@ use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
 use fixedbitset::FixedBitSet;
-use std::{borrow::Borrow, fmt, mem::MaybeUninit, ptr};
+use std::{borrow::Borrow, fmt, marker::PhantomData, mem::MaybeUninit, ptr};
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
     QuerySingleError, ROQueryItem,
 };
+
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for super::StaticMarker {}
+    impl Sealed for super::DynamicMarker {}
+}
+
+/// TODO
+pub trait QueryStaticMarker: sealed::Sealed + Send + Sync + 'static {
+    /// TODO
+    const IS_STATIC: bool;
+}
+
+/// TODO
+pub struct StaticMarker;
+impl QueryStaticMarker for StaticMarker {
+    const IS_STATIC: bool = true;
+}
+
+/// TODO
+pub struct DynamicMarker;
+impl QueryStaticMarker for DynamicMarker {
+    const IS_STATIC: bool = false;
+}
 
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
@@ -34,6 +58,7 @@ use super::{
 /// # Safety
 /// Must be initialized and accessed as a [`TableId`], if both generic parameters to the query are dense.
 /// Must be initialized and accessed as an [`ArchetypeId`] otherwise.
+// TODO: Remove in favour of an enum + unchecked unwrap
 #[derive(Clone, Copy)]
 pub(super) union StorageId {
     pub(super) table_id: TableId,
@@ -56,7 +81,7 @@ pub(super) union StorageId {
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
-pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
+pub struct QueryState<D: QueryData, F: QueryFilter = (), M: QueryStaticMarker = StaticMarker> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
     /// Metadata about the [`Table`](crate::storage::Table)s matched by this query.
@@ -68,13 +93,20 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
     pub(super) matched_storage_ids: Vec<StorageId>,
+    /// Whether the iteration will be dense or sparse. Needed to disambiguate whether
+    /// `matched_storage_ids` holds [`TableId`]s or [`ArchetypeId`]s.
+    pub(super) is_dense: bool,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
+    _marker: PhantomData<M>,
 }
 
-impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
+/// TODO
+pub type DynQueryState<D, F = ()> = QueryState<D, F, DynamicMarker>;
+
+impl<D: QueryData, F: QueryFilter, M: QueryStaticMarker> fmt::Debug for QueryState<D, F, M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
             .field("world_id", &self.world_id)
@@ -87,18 +119,18 @@ impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
     }
 }
 
-impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
+impl<D: QueryData, F: QueryFilter, M: QueryStaticMarker> FromWorld for QueryState<D, F, M> {
     fn from_world(world: &mut World) -> Self {
-        world.query_filtered()
+        world.query_filtered().transmute_marker()
     }
 }
 
-impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
+impl<D: QueryData, F: QueryFilter, M: QueryStaticMarker> QueryState<D, F, M> {
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
-    pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F> {
+    pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F, M> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
         // have a subset of the access, and match the exact same archetypes/tables as `D`/`F` respectively.
-        unsafe { self.as_transmuted_state::<D::ReadOnly, F>() }
+        unsafe { self.as_transmuted_state::<D::ReadOnly, F, M>() }
     }
 
     /// Converts this `QueryState` reference to a `QueryState` that does not return any data
@@ -106,10 +138,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This doesn't use `NopWorldQuery` as it loses filter functionality, for example
     /// `NopWorldQuery<Changed<T>>` is functionally equivalent to `With<T>`.
-    pub(crate) fn as_nop(&self) -> &QueryState<NopWorldQuery<D>, F> {
+    pub(crate) fn as_nop(&self) -> &QueryState<NopWorldQuery<D>, F, M> {
         // SAFETY: `NopWorldQuery` doesn't have any accesses and defers to
         // `D` for table/archetype matching
-        unsafe { self.as_transmuted_state::<NopWorldQuery<D>, F>() }
+        unsafe { self.as_transmuted_state::<NopWorldQuery<D>, F, M>() }
     }
 
     /// Converts this `QueryState` reference to any other `QueryState` with
@@ -121,13 +153,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// `NewD` must have a subset of the access that `D` does and match the exact same archetypes/tables
     /// `NewF` must have a subset of the access that `F` does and match the exact same archetypes/tables
+    /// `NewM` TODO
     pub(crate) unsafe fn as_transmuted_state<
         NewD: QueryData<State = D::State>,
         NewF: QueryFilter<State = F::State>,
+        NewM: QueryStaticMarker,
     >(
         &self,
-    ) -> &QueryState<NewD, NewF> {
-        &*ptr::from_ref(self).cast::<QueryState<NewD, NewF>>()
+    ) -> &QueryState<NewD, NewF, NewM> {
+        &*ptr::from_ref(self).cast::<QueryState<NewD, NewF, NewM>>()
     }
 
     /// Returns the components accessed by this query.
@@ -146,7 +180,61 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 }
 
-impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
+impl<D: QueryData, F: QueryFilter> DynQueryState<D, F> {
+    /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
+    pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
+        let mut fetch_state = D::init_state(builder.world_mut());
+        let filter_state = F::init_state(builder.world_mut());
+        D::set_access(&mut fetch_state, builder.access());
+
+        let mut state = Self {
+            world_id: builder.world().id(),
+            archetype_generation: ArchetypeGeneration::initial(),
+            matched_storage_ids: Vec::new(),
+            is_dense: builder.is_dense,
+            fetch_state,
+            filter_state,
+            component_access: builder.access().clone(),
+            matched_tables: Default::default(),
+            matched_archetypes: Default::default(),
+            #[cfg(feature = "trace")]
+            par_iter_span: bevy_utils::tracing::info_span!(
+                "par_for_each",
+                data = std::any::type_name::<D>(),
+                filter = std::any::type_name::<F>(),
+            ),
+            _marker: PhantomData,
+        };
+        state.update_archetypes(builder.world());
+        state
+    }
+}
+
+impl<D: QueryData, F: QueryFilter> QueryState<D, F, StaticMarker> {
+    /// TODO
+    pub fn transmute_marker<M: QueryStaticMarker>(self) -> QueryState<D, F, M> {
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_tables: self.matched_tables,
+            matched_archetypes: self.matched_archetypes,
+            component_access: self.component_access,
+            matched_storage_ids: self.matched_storage_ids,
+            is_dense: self.is_dense,
+            fetch_state: self.fetch_state,
+            filter_state: self.filter_state,
+            _marker: PhantomData,
+        }
+    }
+
+    /// TODO
+    pub fn transmute_marker_ref<M: QueryStaticMarker>(&self) -> &QueryState<D, F, M> {
+        // SAFETY: TODO
+        unsafe { &*(self as *const _ as *const QueryState<D, F, M>) }
+    }
+}
+
+impl<D: QueryData, F: QueryFilter, M: QueryStaticMarker> QueryState<D, F, M> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let mut state = Self::new_uninitialized(world);
@@ -198,6 +286,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
+            is_dense: D::IS_DENSE && F::IS_DENSE,
             fetch_state,
             filter_state,
             component_access,
@@ -209,33 +298,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 query = std::any::type_name::<D>(),
                 filter = std::any::type_name::<F>(),
             ),
+            _marker: PhantomData,
         }
-    }
-
-    /// Creates a new [`QueryState`] from a given [`QueryBuilder`] and inherits its [`FilteredAccess`].
-    pub fn from_builder(builder: &mut QueryBuilder<D, F>) -> Self {
-        let mut fetch_state = D::init_state(builder.world_mut());
-        let filter_state = F::init_state(builder.world_mut());
-        D::set_access(&mut fetch_state, builder.access());
-
-        let mut state = Self {
-            world_id: builder.world().id(),
-            archetype_generation: ArchetypeGeneration::initial(),
-            matched_storage_ids: Vec::new(),
-            fetch_state,
-            filter_state,
-            component_access: builder.access().clone(),
-            matched_tables: Default::default(),
-            matched_archetypes: Default::default(),
-            #[cfg(feature = "trace")]
-            par_iter_span: bevy_utils::tracing::info_span!(
-                "par_for_each",
-                data = std::any::type_name::<D>(),
-                filter = std::any::type_name::<F>(),
-            ),
-        };
-        state.update_archetypes(builder.world());
-        state
     }
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
@@ -450,7 +514,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
-                if !D::IS_DENSE || !F::IS_DENSE {
+                if !((D::IS_DENSE && F::IS_DENSE && M::IS_STATIC)
+                    || (!M::IS_STATIC && self.is_dense))
+                {
                     self.matched_storage_ids.push(StorageId {
                         archetype_id: archetype.id(),
                     });
@@ -459,7 +525,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow_and_insert(table_index);
-                if D::IS_DENSE && F::IS_DENSE {
+                if (D::IS_DENSE && F::IS_DENSE && M::IS_STATIC) || (!M::IS_STATIC && self.is_dense)
+                {
                     self.matched_storage_ids.push(StorageId {
                         table_id: archetype.table_id(),
                     });
@@ -524,7 +591,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn transmute<'a, NewD: QueryData>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
-    ) -> QueryState<NewD> {
+    ) -> DynQueryState<NewD> {
         self.transmute_filtered::<NewD, ()>(world.into())
     }
 
@@ -535,7 +602,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn transmute_filtered<'a, NewD: QueryData, NewF: QueryFilter>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
-    ) -> QueryState<NewD, NewF> {
+    ) -> DynQueryState<NewD, NewF> {
         let world = world.into();
         self.validate_world(world.id());
 
@@ -560,6 +627,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids: self.matched_storage_ids.clone(),
+            is_dense: self.is_dense,
             fetch_state,
             filter_state,
             component_access: self.component_access.clone(),
@@ -571,6 +639,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 query = std::any::type_name::<NewD>(),
                 filter = std::any::type_name::<NewF>(),
             ),
+            _marker: PhantomData,
         }
     }
 
@@ -597,7 +666,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
         other: &QueryState<OtherD>,
-    ) -> QueryState<NewD, ()> {
+    ) -> DynQueryState<NewD, ()> {
         self.join_filtered::<_, (), NewD, ()>(world, other)
     }
 
@@ -617,7 +686,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
         other: &QueryState<OtherD, OtherF>,
-    ) -> QueryState<NewD, NewF> {
+    ) -> DynQueryState<NewD, NewF> {
         if self.world_id != other.world_id {
             panic!("Joining queries initialized on different worlds is not allowed.");
         }
@@ -653,12 +722,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
         }
 
+        let is_dense = self.is_dense && other.is_dense;
+
         // take the intersection of the matched ids
         let mut matched_tables = self.matched_tables.clone();
         let mut matched_archetypes = self.matched_archetypes.clone();
         matched_tables.intersect_with(&other.matched_tables);
         matched_archetypes.intersect_with(&other.matched_archetypes);
-        let matched_storage_ids = if NewD::IS_DENSE && NewF::IS_DENSE {
+        let matched_storage_ids = if is_dense {
             matched_tables
                 .ones()
                 .map(|id| StorageId {
@@ -678,6 +749,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids,
+            is_dense,
             fetch_state: new_fetch_state,
             filter_state: new_filter_state,
             component_access: joined_component_access,
@@ -689,6 +761,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 query = std::any::type_name::<NewD>(),
                 filter = std::any::type_name::<NewF>(),
             ),
+            _marker: PhantomData,
         }
     }
 
@@ -1025,7 +1098,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries, see [`Self::iter_mut`] for write-queries.
     #[inline]
-    pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F> {
+    pub fn iter<'w, 's>(&'s mut self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F, M> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -1042,7 +1115,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
     /// Iteration order is not guaranteed.
     #[inline]
-    pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F> {
+    pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, D, F, M> {
         self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -1060,7 +1133,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This can only be called for read-only queries.
     #[inline]
-    pub fn iter_manual<'w, 's>(&'s self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F> {
+    pub fn iter_manual<'w, 's>(&'s self, world: &'w World) -> QueryIter<'w, 's, D::ReadOnly, F, M> {
         self.validate_world(world.id());
         // SAFETY: query is read only and world is validated
         unsafe {
@@ -1100,7 +1173,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn iter_combinations<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w World,
-    ) -> QueryCombinationIter<'w, 's, D::ReadOnly, F, K> {
+    ) -> QueryCombinationIter<'w, 's, D::ReadOnly, F, K, M> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -1133,7 +1206,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn iter_combinations_mut<'w, 's, const K: usize>(
         &'s mut self,
         world: &'w mut World,
-    ) -> QueryCombinationIter<'w, 's, D, F, K> {
+    ) -> QueryCombinationIter<'w, 's, D, F, K, M> {
         self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -1160,7 +1233,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &'s mut self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter>
+    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter, M>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -1195,7 +1268,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &'s self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter>
+    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter, M>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -1220,7 +1293,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
+    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter, M>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -1251,7 +1324,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn iter_unchecked<'w, 's>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> QueryIter<'w, 's, D, F> {
+    ) -> QueryIter<'w, 's, D, F, M> {
         self.update_archetypes_unsafe_world_cell(world);
         self.iter_unchecked_manual(world, world.last_change_tick(), world.change_tick())
     }
@@ -1271,7 +1344,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub unsafe fn iter_combinations_unchecked<'w, 's, const K: usize>(
         &'s mut self,
         world: UnsafeWorldCell<'w>,
-    ) -> QueryCombinationIter<'w, 's, D, F, K> {
+    ) -> QueryCombinationIter<'w, 's, D, F, K, M> {
         self.update_archetypes_unsafe_world_cell(world);
         self.iter_combinations_unchecked_manual(
             world,
@@ -1298,7 +1371,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> QueryIter<'w, 's, D, F> {
+    ) -> QueryIter<'w, 's, D, F, M> {
         QueryIter::new(world, self, last_run, this_run)
     }
 
@@ -1322,7 +1395,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
+    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter, M>
     where
         EntityList::Item: Borrow<Entity>,
     {
@@ -1348,7 +1421,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
-    ) -> QueryCombinationIter<'w, 's, D, F, K> {
+    ) -> QueryCombinationIter<'w, 's, D, F, K, M> {
         QueryCombinationIter::new(world, self, last_run, this_run)
     }
 
@@ -1364,7 +1437,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn par_iter<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> QueryParIter<'w, 's, D::ReadOnly, F> {
+    ) -> QueryParIter<'w, 's, D::ReadOnly, F, M> {
         self.update_archetypes(world);
         QueryParIter {
             world: world.as_unsafe_world_cell_readonly(),
@@ -1420,7 +1493,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// [`par_iter`]: Self::par_iter
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F> {
+    pub fn par_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryParIter<'w, 's, D, F, M> {
         self.update_archetypes(world);
         let this_run = world.change_tick();
         let last_run = world.last_change_tick();
@@ -1487,7 +1563,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
-                        if D::IS_DENSE && F::IS_DENSE {
+                        if (D::IS_DENSE && F::IS_DENSE && M::IS_STATIC)
+                            || (!M::IS_STATIC && self.is_dense)
+                        {
                             let id = storage_id.table_id;
                             let table = &world.storages().tables.get(id).debug_checked_unwrap();
                             accum = iter.fold_over_table_range(
@@ -1521,7 +1599,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
-                        if D::IS_DENSE && F::IS_DENSE {
+                        if (D::IS_DENSE && F::IS_DENSE && M::IS_STATIC)
+                            || (!M::IS_STATIC && self.is_dense)
+                        {
                             let id = storage_id.table_id;
                             let table = world.storages().tables.get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
@@ -1537,7 +1617,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             };
 
             let storage_entity_count = |storage_id: StorageId| -> usize {
-                if D::IS_DENSE && F::IS_DENSE {
+                if (D::IS_DENSE && F::IS_DENSE && M::IS_STATIC) || (!M::IS_STATIC && self.is_dense)
+                {
                     tables[storage_id.table_id].entity_count()
                 } else {
                     archetypes[storage_id.archetype_id].len()
@@ -1704,7 +1785,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 }
 
-impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D, F> {
+impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for DynQueryState<D, F> {
     fn from(mut value: QueryBuilder<D, F>) -> Self {
         QueryState::from_builder(&mut value)
     }
@@ -2052,7 +2133,7 @@ mod tests {
 
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
-        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+        let mut new_query: DynQueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
 
         assert_eq!(new_query.single(&world), entity_ab);
     }
@@ -2067,7 +2148,7 @@ mod tests {
 
         let query_1 = QueryState::<&A>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
-        let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
+        let mut new_query: DynQueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
 
         assert!(new_query.get(&world, entity_ab).is_ok());
         // should not be able to get entity with c.
@@ -2083,7 +2164,7 @@ mod tests {
         world.init_component::<C>();
         let query_1 = QueryState::<&A>::new(&mut world);
         let query_2 = QueryState::<&B>::new(&mut world);
-        let _query: QueryState<&C> = query_1.join(&world, &query_2);
+        let _query: DynQueryState<&C> = query_1.join(&world, &query_2);
     }
 
     #[test]
@@ -2097,6 +2178,6 @@ mod tests {
         let mut world = World::new();
         let query_1 = QueryState::<&A, Without<C>>::new(&mut world);
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
-        let _: QueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
+        let _: DynQueryState<Entity, Changed<C>> = query_1.join_filtered(&world, &query_2);
     }
 }
