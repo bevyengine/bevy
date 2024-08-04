@@ -2125,6 +2125,29 @@ mod tests {
         world.query::<(&A, &B)>().transmute::<&B>(&world2);
     }
 
+    /// Regression test for issue #14528
+    #[test]
+    fn transmute_from_sparse_to_dense() {
+        #[derive(Component)]
+        struct Dense;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        world.spawn(Dense);
+        world.spawn((Dense, Sparse));
+
+        let mut query = world
+            .query_filtered::<&Dense, With<Sparse>>()
+            .transmute::<&Dense>(world.components());
+
+        let matched = query.iter(&world).count();
+        assert_eq!(matched, 1);
+    }
+
     #[test]
     fn join() {
         let mut world = World::new();

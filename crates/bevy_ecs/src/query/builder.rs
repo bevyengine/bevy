@@ -419,4 +419,27 @@ mod tests {
             assert_eq!(1, b.deref::<B>().0);
         }
     }
+
+    /// Regression test for issue #14348
+    #[test]
+    fn builder_static_dense_dynamic_sparse() {
+        #[derive(Component)]
+        struct Dense;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        world.spawn(Dense);
+        world.spawn((Dense, Sparse));
+
+        let mut query = QueryBuilder::<&Dense>::new(&mut world)
+            .with::<Sparse>()
+            .build();
+
+        let matched = query.iter(&world).count();
+        assert_eq!(matched, 1);
+    }
 }
