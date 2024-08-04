@@ -339,9 +339,17 @@ pub trait BuildChildren {
     type Builder<'a>: ChildBuild;
 
     /// Takes a closure which builds children for this entity using [`ChildBuild`].
+    ///
+    /// For convenient spawning of a single child, you can use [`with_child`].
+    ///
+    /// [`with_child`]: BuildChildren::with_child
     fn with_children(&mut self, f: impl FnOnce(&mut Self::Builder<'_>)) -> &mut Self;
 
     /// Spawns the passed bundle and adds it to this entity as a child.
+    ///
+    /// For efficient spawning of multiple children, use [`with_children`].
+    ///
+    /// [`with_children`]: BuildChildren::with_children
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self;
 
     /// Pushes children to the back of the builder's children. For any entities that are
