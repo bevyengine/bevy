@@ -126,7 +126,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     fn get_batch_size(&self, thread_count: usize) -> usize {
         let max_items = || {
             let id_iter = self.state.matched_storage_ids.iter();
-            if D::IS_DENSE && F::IS_DENSE {
+            if D::IS_DENSE && F::IS_DENSE && self.state.is_dense {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
                 id_iter

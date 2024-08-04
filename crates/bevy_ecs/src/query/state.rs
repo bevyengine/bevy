@@ -68,6 +68,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
     pub(super) matched_storage_ids: Vec<StorageId>,
+    pub(super) is_dense: bool,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
@@ -198,6 +199,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
+            is_dense: D::IS_DENSE && F::IS_DENSE,
             fetch_state,
             filter_state,
             component_access,
@@ -222,6 +224,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
+            is_dense: builder.is_dense(),
             fetch_state,
             filter_state,
             component_access: builder.access().clone(),
@@ -450,7 +453,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
-                if !D::IS_DENSE || !F::IS_DENSE {
+                if !(D::IS_DENSE && F::IS_DENSE && self.is_dense) {
                     self.matched_storage_ids.push(StorageId {
                         archetype_id: archetype.id(),
                     });
@@ -459,7 +462,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow_and_insert(table_index);
-                if D::IS_DENSE && F::IS_DENSE {
+                if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                     self.matched_storage_ids.push(StorageId {
                         table_id: archetype.table_id(),
                     });
@@ -560,6 +563,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids: self.matched_storage_ids.clone(),
+            is_dense: NewD::IS_DENSE && NewF::IS_DENSE && self.is_dense,
             fetch_state,
             filter_state,
             component_access: self.component_access.clone(),
@@ -653,12 +657,14 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
         }
 
+        let is_dense = NewD::IS_DENSE && NewF::IS_DENSE && self.is_dense && other.is_dense;
+
         // take the intersection of the matched ids
         let mut matched_tables = self.matched_tables.clone();
         let mut matched_archetypes = self.matched_archetypes.clone();
         matched_tables.intersect_with(&other.matched_tables);
         matched_archetypes.intersect_with(&other.matched_archetypes);
-        let matched_storage_ids = if NewD::IS_DENSE && NewF::IS_DENSE {
+        let matched_storage_ids = if is_dense {
             matched_tables
                 .ones()
                 .map(|id| StorageId {
@@ -678,6 +684,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids,
+            is_dense,
             fetch_state: new_fetch_state,
             filter_state: new_filter_state,
             component_access: joined_component_access,
@@ -1487,7 +1494,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
-                        if D::IS_DENSE && F::IS_DENSE {
+                        if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                             let id = storage_id.table_id;
                             let table = &world.storages().tables.get(id).debug_checked_unwrap();
                             accum = iter.fold_over_table_range(
@@ -1521,7 +1528,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
-                        if D::IS_DENSE && F::IS_DENSE {
+                        if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                             let id = storage_id.table_id;
                             let table = world.storages().tables.get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
@@ -1537,7 +1544,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             };
 
             let storage_entity_count = |storage_id: StorageId| -> usize {
-                if D::IS_DENSE && F::IS_DENSE {
+                if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                     tables[storage_id.table_id].entity_count()
                 } else {
                     archetypes[storage_id.archetype_id].len()
@@ -2040,6 +2047,29 @@ mod tests {
         world2.init_component::<B>();
 
         world.query::<(&A, &B)>().transmute::<&B>(&world2);
+    }
+
+    /// Regression test for issue #14528
+    #[test]
+    fn transmute_from_sparse_to_dense() {
+        #[derive(Component)]
+        struct Dense;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        world.spawn(Dense);
+        world.spawn((Dense, Sparse));
+
+        let mut query = world
+            .query_filtered::<&Dense, With<Sparse>>()
+            .transmute::<&Dense>(world.components());
+
+        let matched = query.iter(&world).count();
+        assert_eq!(matched, 1);
     }
 
     #[test]
