@@ -54,6 +54,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::{
+    camera::CameraUpdateSystem,
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
@@ -154,7 +155,10 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 PreUpdate,
-                ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
+                (set_camera_window_cursor_position, ui_focus_system)
+                    .chain()
+                    .in_set(UiSystem::Focus)
+                    .after(InputSystem),
             );
 
         app.add_systems(
@@ -178,6 +182,7 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(resolve_outlines_system)
                     .ambiguous_with(ui_layout_system)
+                    .ambiguous_with(CameraUpdateSystem) // we only read the `Camera::order` field
                     .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
                 // Potential conflicts: `Assets<Image>`
