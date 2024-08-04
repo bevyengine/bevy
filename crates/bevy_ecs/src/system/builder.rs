@@ -4,7 +4,7 @@ use super::{
     BuildableSystemParam, FunctionSystem, Local, Res, ResMut, Resource, SystemMeta, SystemParam,
     SystemParamFunction, SystemState,
 };
-use crate::prelude::{FromWorld, Query, World};
+use crate::prelude::{DynQuery, FromWorld, Query, World};
 use crate::query::{QueryData, QueryFilter};
 
 /// Builder struct used to construct state for [`SystemParam`] passed to a system.
@@ -29,7 +29,7 @@ use crate::query::{QueryData, QueryFilter};
 /// # let mut world = World::new();
 /// # world.insert_resource(R);
 ///
-/// fn my_system(res: Res<R>, query: Query<&A>, param: MyParam) {
+/// fn my_system(res: Res<R>, query: DynQuery<&A>, param: MyParam) {
 ///     // ...
 /// }
 ///
@@ -37,19 +37,19 @@ use crate::query::{QueryData, QueryFilter};
 /// // alternatively use `.param::<T>()` for any other `SystemParam` types.
 /// let system = SystemBuilder::<()>::new(&mut world)
 ///     .resource::<R>()
-///     .query::<&A>()
+///     .dyn_query::<&A>()
 ///     .param::<MyParam>()
 ///     .build(my_system);
 ///
 /// // Parameters that the builder is initialised with will appear first in the arguments.
-/// let system = SystemBuilder::<(Res<R>, Query<&A>)>::new(&mut world)
+/// let system = SystemBuilder::<(Res<R>, DynQuery<&A>)>::new(&mut world)
 ///     .param::<MyParam>()
 ///     .build(my_system);
 ///
 /// // Parameters that implement `BuildableSystemParam` can use `.builder::<T>()` to build in place.
 /// let system = SystemBuilder::<()>::new(&mut world)
 ///     .resource::<R>()
-///     .builder::<Query<&A>>(|builder| { builder.with::<B>(); })
+///     .builder::<DynQuery<&A>>(|builder| { builder.with::<B>(); })
 ///     .param::<MyParam>()
 ///     .build(my_system);
 ///
@@ -123,6 +123,16 @@ macro_rules! impl_system_builder {
             /// Helper method for adding a filtered [`Query`] as a param, equivalent to `.param::<Query<D, F>>()`
             pub fn query_filtered<D: QueryData, F: QueryFilter>(self) -> SystemBuilder<'w,  ($($curr,)* Query<'static, 'static, D, F>,)> {
                 self.param::<Query<D, F>>()
+            }
+
+            /// Helper method for adding a [`DynQuery`] as a param, equivalent to `.param::<DynQuery<D>>()`
+            pub fn dyn_query<D: QueryData>(self) -> SystemBuilder<'w,  ($($curr,)* DynQuery<'static, 'static, D, ()>,)> {
+                self.dyn_query_filtered::<D, ()>()
+            }
+
+            /// Helper method for adding a filtered [`DynQuery`] as a param, equivalent to `.param::<DynQuery<D, F>>()`
+            pub fn dyn_query_filtered<D: QueryData, F: QueryFilter>(self) -> SystemBuilder<'w,  ($($curr,)* DynQuery<'static, 'static, D, F>,)> {
+                self.param::<DynQuery<D, F>>()
             }
 
             /// Add `T` as a parameter built with the given function

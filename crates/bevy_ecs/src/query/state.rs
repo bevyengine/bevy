@@ -223,6 +223,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, StaticMarker> {
             is_dense: self.is_dense,
             fetch_state: self.fetch_state,
             filter_state: self.filter_state,
+            #[cfg(feature = "trace")]
+            par_iter_span: self.par_iter_span,
             _marker: PhantomData,
         }
     }
@@ -230,7 +232,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, StaticMarker> {
     /// TODO
     pub fn transmute_marker_ref<M: QueryStaticMarker>(&self) -> &QueryState<D, F, M> {
         // SAFETY: TODO
-        unsafe { &*(self as *const _ as *const QueryState<D, F, M>) }
+        unsafe { &*std::ptr::from_ref(self).cast::<QueryState<D, F, M>>() }
     }
 }
 
