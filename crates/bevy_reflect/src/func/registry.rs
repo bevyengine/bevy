@@ -45,6 +45,43 @@ impl FunctionRegistry {
     /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
     /// on the function and inserting it into the registry using the [`register_dynamic`] method.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry};
+    /// fn mul(a: i32, b: i32) -> i32 {
+    ///     a * b
+    /// }
+    ///
+    /// # fn main() -> Result<(), FunctionRegistrationError> {
+    /// let mut registry = FunctionRegistry::default();
+    /// registry
+    ///   // Registering an anonymous function with a unique name
+    ///   .register("my_crate::add", |a: i32, b: i32| {
+    ///     a + b
+    ///   })?
+    ///   // Registering an existing function with its type name
+    ///   .register(std::any::type_name_of_val(&mul), mul)?
+    ///   // Registering an existing function with a custom name
+    ///   .register("my_crate::mul", mul)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Names must be unique.
+    ///
+    /// ```should_panic
+    /// # use bevy_reflect::func::FunctionRegistry;
+    /// fn one() {}
+    /// fn two() {}
+    ///
+    /// let mut registry = FunctionRegistry::default();
+    /// registry.register("my_function", one).unwrap();
+    ///
+    /// // Panic! A function has already been registered with the name "my_function"
+    /// registry.register("my_function", two).unwrap();
+    /// ```
+    ///
     /// [name]: DynamicFunction::name
     /// [`overwrite_registration`]: Self::overwrite_registration
     /// [type name]: std::any::type_name
@@ -69,6 +106,42 @@ impl FunctionRegistry {
     /// use [`overwrite_registration_dynamic`] instead.
     ///
     /// You can change the name of the function using [`DynamicFunction::with_name`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_reflect::func::{DynamicFunction, FunctionRegistrationError, FunctionRegistry, IntoFunction};
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///   a + b
+    /// }
+    ///
+    /// # fn main() -> Result<(), FunctionRegistrationError> {
+    /// let mut registry = FunctionRegistry::default();
+    ///
+    /// // Register a `DynamicFunction` directly
+    /// let function: DynamicFunction = add.into_function();
+    /// registry.register_dynamic(function)?;
+    ///
+    /// // Register a `DynamicFunction` with a custom name
+    /// let function: DynamicFunction = add.into_function().with_name("my_crate::add");
+    /// registry.register_dynamic(function)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Names must be unique.
+    ///
+    /// ```should_panic
+    /// # use bevy_reflect::func::{DynamicFunction, FunctionRegistry, IntoFunction};
+    /// fn one() {}
+    /// fn two() {}
+    ///
+    /// let mut registry = FunctionRegistry::default();
+    /// registry.register_dynamic(one.into_function().with_name("my_function")).unwrap();
+    ///
+    /// // Panic! A function has already been registered with the name "my_function"
+    /// registry.register_dynamic(two.into_function().with_name("my_function")).unwrap();
+    /// ```
     ///
     /// [name]: DynamicFunction::name
     /// [`overwrite_registration_dynamic`]: Self::overwrite_registration_dynamic

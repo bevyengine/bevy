@@ -605,7 +605,59 @@ impl App {
 
     /// Registers the given function into the [`AppFunctionRegistry`] resource using the given name.
     ///
-    /// See [`bevy_reflect::func::FunctionRegistry::register`] for more information.
+    /// To avoid conflicts, it's recommended to use a unique name for the function.
+    /// This can be achieved by either using the function's [type name] or
+    /// by "namespacing" the function with a unique identifier,
+    /// such as the name of your crate.
+    ///
+    /// For example, to register a function, `add`, from a crate, `my_crate`,
+    /// you could use the name, `"my_crate::add"`.
+    ///
+    /// Only functions that implement [`IntoFunction`] may be registered via this method.
+    ///
+    /// See [`FunctionRegistry::register`] for more information.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a function has already been registered with the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// fn yell(text: String) {
+    ///     println!("{}!", text);
+    /// }
+    ///
+    /// App::new()
+    ///     // Registering an anonymous function with a unique name
+    ///     .register_function("my_crate::yell_louder", |text: String| {
+    ///         println!("{}!!!", text.to_uppercase());
+    ///     })
+    ///     // Registering an existing function with its type name
+    ///     .register_function(std::any::type_name_of_val(&yell), yell)
+    ///     // Registering an existing function with a custom name
+    ///     .register_function("my_crate::yell", yell);
+    /// ```
+    ///
+    /// Names must be unique.
+    ///
+    /// ```should_panic
+    /// use bevy_app::App;
+    ///
+    /// fn one() {}
+    /// fn two() {}
+    ///
+    /// App::new()
+    ///     .register_function("my_function", one)
+    ///     // Panic! A function has already been registered with the name "my_function"
+    ///     .register_function("my_function", two);
+    /// ```
+    ///
+    /// [type name]: std::any::type_name
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
+    /// [`FunctionRegistry::register`]: bevy_reflect::func::FunctionRegistry::register
     #[cfg(feature = "reflect_functions")]
     pub fn register_function<F, Marker>(
         &mut self,
