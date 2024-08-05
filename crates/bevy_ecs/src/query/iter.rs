@@ -1032,10 +1032,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
         for id in self.cursor.storage_id_iter.clone() {
-            // Check whether the query iteration is dense or not.
-            // If `D::IS_DENSE && F::IS_DENSE` is false then `self.cursor.is_dense` must also be
-            // false, in that case the condition can be statically known.
-            if D::IS_DENSE && F::IS_DENSE && self.cursor.is_dense {
+            if self.cursor.is_dense {
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(id.table_id).debug_checked_unwrap() };
                 accum =
@@ -1066,7 +1063,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                     // SAFETY:
                     // - The fetched archetype matches both D and F
                     // - The provided range is equivalent to [0, archetype.len)
-                    // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
+                    // - The if block ensures that the query iteration is not dense.
                     unsafe { self.fold_over_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
                 }
             }
@@ -1759,9 +1756,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
-            // If `D::IS_DENSE && F::IS_DENSE` is false then `self.is_dense` must also be
-            // false, in that case the condition can be statically known.
-            if D::IS_DENSE && F::IS_DENSE && self.is_dense {
+            if self.is_dense {
                 let entity = self.table_entities.get_unchecked(index);
                 Some(D::fetch(
                     &mut self.fetch,
@@ -1787,9 +1782,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let ids = self.storage_id_iter.clone();
-        // If `D::IS_DENSE && F::IS_DENSE` is false then `self.is_dense` must also be
-        // false, in that case the condition can be statically known.
-        let remaining_matched: usize = if D::IS_DENSE && F::IS_DENSE && self.is_dense {
+        let remaining_matched: usize = if self.is_dense {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
@@ -1812,9 +1805,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w>> {
-        // If `D::IS_DENSE && F::IS_DENSE` is false then `self.is_dense` must also be
-        // false, in that case the condition can be statically known.
-        if D::IS_DENSE && F::IS_DENSE && self.is_dense {
+        if self.is_dense {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {

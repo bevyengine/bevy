@@ -77,11 +77,9 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .map(ComponentInfo::storage_type)
                 == Some(StorageType::Table)
         };
-        D::IS_DENSE
-            && F::IS_DENSE
-            && self.access.filter_sets.iter().all(|filter_set| {
-                filter_set.with.ones().all(is_dense) && filter_set.without.ones().all(is_dense)
-            })
+        self.access.filter_sets.iter().all(|filter_set| {
+            filter_set.with.ones().all(is_dense) && filter_set.without.ones().all(is_dense)
+        })
     }
 
     /// Returns a reference to the world passed to [`Self::new`].
