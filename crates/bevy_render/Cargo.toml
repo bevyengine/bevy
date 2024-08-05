@@ -62,11 +62,11 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
 
 # rendering
-image = { version = "0.25", default-features = false }
+image = { version = "0.25.2", default-features = false }
 
 # misc
 codespan-reporting = "0.11.0"
-# `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
+# `fragile-send-sync-non-atomic-wasm` feature means we can't use Wasm threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
@@ -101,6 +101,7 @@ profiling = { version = "1", features = [
 async-channel = "2.2.0"
 nonmax = "0.5"
 smallvec = { version = "1.11", features = ["const_new"] }
+offset-allocator = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
@@ -129,5 +130,5 @@ send_wrapper = "0.6.0"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

@@ -58,8 +58,20 @@ jobs:
       - name: Build docs
         env:
           # needs to be in sync with [package.metadata.docs.rs]
-          RUSTDOCFLAGS:  -Zunstable-options --cfg=docsrs
-        run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
+          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition
+        run: |
+          cargo doc \
+            -Zunstable-options \
+            -Zrustdoc-scrape-examples \
+            --all-features \
+            --workspace \
+            --no-deps \
+            --exclude ci \
+            --exclude errors \
+            --exclude bevy_mobile_example \
+            --exclude build-wasm-example \
+            --exclude build-templated-pages \
+            --exclude example-showcase
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation
@@ -69,7 +81,7 @@ jobs:
         run: |
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
           echo "dev-docs.bevyengine.org" > target/doc/CNAME
-          echo "User-Agent: *\nDisallow: /" > target/doc/robots.txt
+          echo $'User-Agent: *\nDisallow: /' > target/doc/robots.txt
           rm target/doc/.lock
 
       - name: Upload site artifact

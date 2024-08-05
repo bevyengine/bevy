@@ -232,6 +232,7 @@ Active initiatives in Bevy are organized into temporary working groups: choosing
 
 Working groups are public, open-membership groups that work together to tackle a broad-but-scoped initiative.
 The work that they do is coordinated in a forum-channel on [Discord](https://discord.gg/bevy), although they also create issues and may use project boards for tangible work that needs to be done.
+A list of existing working groups can be found in the [#working-groups](https://discord.com/channels/691052431525675048/1235758970703188008) channel.
 
 There are no special requirements to be a member, and no formal membership list or leadership.
 Anyone can help, and you should expect to compromise and work together with others to bring a shared vision to life.

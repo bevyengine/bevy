@@ -30,6 +30,7 @@ pub mod graph {
         Bloom,
         AutoExposure,
         DepthOfField,
+        PostProcessing,
         Tonemapping,
         Fxaa,
         Smaa,
@@ -609,16 +610,21 @@ pub fn extract_camera_prepass_phase(
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     opaque_3d_phases: Res<ViewBinnedRenderPhases<Opaque3d>>,
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
-    views_3d: Query<(Entity, &ExtractedCamera, Option<&DepthPrepass>, &Camera3d)>,
+    views_3d: Query<(
+        Entity,
+        &ExtractedCamera,
+        Option<&DepthPrepass>,
+        &Camera3d,
+        &Msaa,
+    )>,
 ) {
     let mut render_target_usage = HashMap::default();
-    for (view, camera, depth_prepass, camera_3d) in &views_3d {
+    for (view, camera, depth_prepass, camera_3d, _msaa) in &views_3d {
         if !opaque_3d_phases.contains_key(&view)
             || !alpha_mask_3d_phases.contains_key(&view)
             || !transmissive_3d_phases.contains_key(&view)
@@ -640,13 +646,13 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = HashMap::default();
-    for (entity, camera, _, camera_3d) in &views_3d {
+    for (entity, camera, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
 
         let cached_texture = textures
-            .entry(camera.target.clone())
+            .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
                 // The size of the depth texture
                 let size = Extent3d {
@@ -778,11 +784,8 @@ pub fn prepare_core_3d_transmission_textures(
 }
 
 // Disable MSAA and warn if using deferred rendering
-pub fn check_msaa(
-    mut msaa: ResMut<Msaa>,
-    deferred_views: Query<Entity, (With<Camera>, With<DeferredPrepass>)>,
-) {
-    if !deferred_views.is_empty() {
+pub fn check_msaa(mut deferred_views: Query<&mut Msaa, (With<Camera>, With<DeferredPrepass>)>) {
+    for mut msaa in deferred_views.iter_mut() {
         match *msaa {
             Msaa::Off => (),
             _ => {
@@ -798,7 +801,6 @@ pub fn check_msaa(
 pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     opaque_3d_prepass_phases: Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     alpha_mask_3d_prepass_phases: Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
@@ -807,6 +809,7 @@ pub fn prepare_prepass_textures(
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
+        &Msaa,
         Has<DepthPrepass>,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
@@ -818,8 +821,15 @@ pub fn prepare_prepass_textures(
     let mut deferred_textures = HashMap::default();
     let mut deferred_lighting_id_textures = HashMap::default();
     let mut motion_vectors_textures = HashMap::default();
-    for (entity, camera, depth_prepass, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        &views_3d
+    for (
+        entity,
+        camera,
+        msaa,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in &views_3d
     {
         if !opaque_3d_prepass_phases.contains_key(&entity)
             && !alpha_mask_3d_prepass_phases.contains_key(&entity)

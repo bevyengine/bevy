@@ -113,6 +113,7 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11627807
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
 /// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
+#[derive(Default)]
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
@@ -539,7 +540,7 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(uniform_index) = uniform_index else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(
             I,
@@ -565,10 +566,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(handle) = handle else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         if line_gizmo.vertex_count < 2 {
@@ -611,10 +612,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(handle) = handle else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         if line_gizmo.vertex_count <= 2 || !line_gizmo.strip {

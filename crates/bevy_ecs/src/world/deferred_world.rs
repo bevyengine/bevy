@@ -10,6 +10,7 @@ use crate::{
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
+    traversal::Traversal,
 };
 
 use super::{
@@ -316,6 +317,28 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
+    /// Triggers all `on_replace` hooks for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_on_replace(
+        &mut self,
+        archetype: &Archetype,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        if archetype.has_replace_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_replace {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
+            }
+        }
+    }
+
     /// Triggers all `on_remove` hooks for [`ComponentId`] in target.
     ///
     /// # Safety
@@ -329,9 +352,8 @@ impl<'w> DeferredWorld<'w> {
     ) {
         if archetype.has_remove_hook() {
             for component_id in targets {
-                let hooks =
                 // SAFETY: Caller ensures that these components exist
-                    unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_remove {
                     hook(DeferredWorld { world: self.world }, entity, component_id);
                 }
@@ -348,9 +370,16 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        components: &[ComponentId],
     ) {
-        Observers::invoke(self.reborrow(), event, entity, components, &mut ());
+        Observers::invoke::<_>(
+            self.reborrow(),
+            event,
+            entity,
+            components.iter().copied(),
+            &mut (),
+            &mut false,
+        );
     }
 
     /// Triggers all event observers for [`ComponentId`] in target.
@@ -358,14 +387,34 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event`
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<E>(
+    pub(crate) unsafe fn trigger_observers_with_data<E, C>(
         &mut self,
         event: ComponentId,
-        entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        mut entity: Entity,
+        components: &[ComponentId],
         data: &mut E,
-    ) {
-        Observers::invoke(self.reborrow(), event, entity, components, data);
+        mut propagate: bool,
+    ) where
+        C: Traversal,
+    {
+        loop {
+            Observers::invoke::<_>(
+                self.reborrow(),
+                event,
+                entity,
+                components.iter().copied(),
+                data,
+                &mut propagate,
+            );
+            if !propagate {
+                break;
+            }
+            if let Some(traverse_to) = self.get::<C>(entity).and_then(C::traverse) {
+                entity = traverse_to;
+            } else {
+                break;
+            }
+        }
     }
 
     /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
@@ -374,7 +423,11 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
-    pub fn trigger_targets(&mut self, trigger: impl Event, targets: impl TriggerTargets) {
+    pub fn trigger_targets(
+        &mut self,
+        trigger: impl Event,
+        targets: impl TriggerTargets + Send + Sync + 'static,
+    ) {
         self.commands().trigger_targets(trigger, targets);
     }
 

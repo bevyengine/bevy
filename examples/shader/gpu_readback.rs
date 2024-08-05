@@ -224,8 +224,8 @@ fn map_and_read_buffer(
     // buffered and receiving will just pick that up.
     //
     // It may also be worth noting that although on native, the usage of asynchronous
-    // channels is wholly unnecessary, for the sake of portability to WASM
-    // we'll use async channels that work on both native and WASM.
+    // channels is wholly unnecessary, for the sake of portability to Wasm
+    // we'll use async channels that work on both native and Wasm.
 
     let (s, r) = crossbeam_channel::unbounded::<()>();
 

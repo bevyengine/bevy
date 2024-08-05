@@ -19,7 +19,7 @@ mod compass;
 pub mod cubic_splines;
 mod direction;
 mod float_ord;
-pub mod isometry;
+mod isometry;
 pub mod primitives;
 mod ray;
 mod rects;
@@ -33,6 +33,7 @@ pub use aspect_ratio::AspectRatio;
 pub use common_traits::*;
 pub use direction::*;
 pub use float_ord::*;
+pub use isometry::{Isometry2d, Isometry3d};
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rot2;
@@ -48,8 +49,8 @@ pub mod prelude {
     pub use crate::{
         cubic_splines::{
             CubicBSpline, CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator,
-            CubicHermite, CubicNurbs, CubicNurbsError, CubicSegment, RationalCurve,
-            RationalGenerator, RationalSegment,
+            CubicHermite, CubicNurbs, CubicNurbsError, CubicSegment, CyclicCubicGenerator,
+            RationalCurve, RationalGenerator, RationalSegment,
         },
         direction::{Dir2, Dir3, Dir3A},
         primitives::*,

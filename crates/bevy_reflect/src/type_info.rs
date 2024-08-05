@@ -1,6 +1,7 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, ReflectKind, StructInfo, TupleInfo,
-    TupleStructInfo, TypePath, TypePathTable,
+    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, Reflect, ReflectKind, SetInfo, StructInfo,
+    TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
@@ -82,6 +83,45 @@ pub trait Typed: Reflect + TypePath {
     fn type_info() -> &'static TypeInfo;
 }
 
+/// A wrapper trait around [`Typed`].
+///
+/// This trait is used to provide a way to get compile-time type information for types that
+/// do implement `Typed` while also allowing for types that do not implement `Typed` to be used.
+/// It's used instead of `Typed` directly to avoid making dynamic types also
+/// implement `Typed` in order to be used as active fields.
+///
+/// This trait has a blanket implementation for all types that implement `Typed`
+/// and manual implementations for all dynamic types (which simply return `None`).
+#[doc(hidden)]
+pub trait MaybeTyped: Reflect {
+    /// Returns the compile-time [info] for the underlying type, if it exists.
+    ///
+    /// [info]: TypeInfo
+    fn maybe_type_info() -> Option<&'static TypeInfo> {
+        None
+    }
+}
+
+impl<T: Typed> MaybeTyped for T {
+    fn maybe_type_info() -> Option<&'static TypeInfo> {
+        Some(T::type_info())
+    }
+}
+
+impl MaybeTyped for DynamicEnum {}
+
+impl MaybeTyped for DynamicTupleStruct {}
+
+impl MaybeTyped for DynamicStruct {}
+
+impl MaybeTyped for DynamicMap {}
+
+impl MaybeTyped for DynamicList {}
+
+impl MaybeTyped for DynamicArray {}
+
+impl MaybeTyped for DynamicTuple {}
+
 /// A [`TypeInfo`]-specific error.
 #[derive(Debug, Error)]
 pub enum TypeInfoError {
@@ -124,6 +164,7 @@ pub enum TypeInfo {
     List(ListInfo),
     Array(ArrayInfo),
     Map(MapInfo),
+    Set(SetInfo),
     Enum(EnumInfo),
     Value(ValueInfo),
 }
@@ -138,6 +179,7 @@ impl TypeInfo {
             Self::List(info) => info.type_id(),
             Self::Array(info) => info.type_id(),
             Self::Map(info) => info.type_id(),
+            Self::Set(info) => info.type_id(),
             Self::Enum(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
         }
@@ -154,6 +196,7 @@ impl TypeInfo {
             Self::List(info) => info.type_path_table(),
             Self::Array(info) => info.type_path_table(),
             Self::Map(info) => info.type_path_table(),
+            Self::Set(info) => info.type_path_table(),
             Self::Enum(info) => info.type_path_table(),
             Self::Value(info) => info.type_path_table(),
         }
@@ -184,6 +227,7 @@ impl TypeInfo {
             Self::List(info) => info.docs(),
             Self::Array(info) => info.docs(),
             Self::Map(info) => info.docs(),
+            Self::Set(info) => info.docs(),
             Self::Enum(info) => info.docs(),
             Self::Value(info) => info.docs(),
         }
@@ -200,6 +244,7 @@ impl TypeInfo {
             Self::List(_) => ReflectKind::List,
             Self::Array(_) => ReflectKind::Array,
             Self::Map(_) => ReflectKind::Map,
+            Self::Set(_) => ReflectKind::Set,
             Self::Enum(_) => ReflectKind::Enum,
             Self::Value(_) => ReflectKind::Value,
         }

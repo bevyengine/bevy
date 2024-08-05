@@ -6,7 +6,7 @@ use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{MutUntyped, Ticks, TicksMut},
+    change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -17,6 +17,8 @@ use crate::{
     world::RawCommandQueue,
 };
 use bevy_ptr::Ptr;
+#[cfg(feature = "track_change_detection")]
+use bevy_ptr::UnsafeCellDeref;
 use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
@@ -276,7 +278,10 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn increment_change_tick(self) -> Tick {
         // SAFETY:
         // - we only access world metadata
-        unsafe { self.world_metadata() }.increment_change_tick()
+        let change_tick = unsafe { &self.world_metadata().change_tick };
+        // NOTE: We can used a relaxed memory ordering here, since nothing
+        // other than the atomic value itself is relying on atomic synchronization
+        Tick::new(change_tick.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
     }
 
     /// Provides unchecked access to the internal data stores of the [`World`].
@@ -331,7 +336,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
         // SAFETY: caller ensures `self` has permission to access the resource
         // caller also ensure that no mutable reference to the resource exists
-        let (ptr, ticks) = unsafe { self.get_resource_with_ticks(component_id)? };
+        let (ptr, ticks, _caller) = unsafe { self.get_resource_with_ticks(component_id)? };
 
         // SAFETY: `component_id` was obtained from the type ID of `R`
         let value = unsafe { ptr.deref::<R>() };
@@ -340,7 +345,16 @@ impl<'w> UnsafeWorldCell<'w> {
         let ticks =
             unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), self.change_tick()) };
 
-        Some(Res { value, ticks })
+        // SAFETY: caller ensures that no mutable reference to the resource exists
+        #[cfg(feature = "track_change_detection")]
+        let caller = unsafe { _caller.deref() };
+
+        Some(Res {
+            value,
+            ticks,
+            #[cfg(feature = "track_change_detection")]
+            changed_by: caller,
+        })
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -443,7 +457,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<MutUntyped<'w>> {
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
-        let (ptr, ticks) = unsafe { self.storages() }
+        let (ptr, ticks, _caller) = unsafe { self.storages() }
             .resources
             .get(component_id)?
             .get_with_ticks()?;
@@ -461,6 +475,11 @@ impl<'w> UnsafeWorldCell<'w> {
             // - caller ensures that the resource is unaliased
             value: unsafe { ptr.assert_unique() },
             ticks,
+            #[cfg(feature = "track_change_detection")]
+            // SAFETY:
+            // - caller ensures that `self` has permission to access the resource
+            // - caller ensures that the resource is unaliased
+            changed_by: unsafe { _caller.deref_mut() },
         })
     }
 
@@ -505,7 +524,7 @@ impl<'w> UnsafeWorldCell<'w> {
         let change_tick = self.change_tick();
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
-        let (ptr, ticks) = unsafe { self.storages() }
+        let (ptr, ticks, _caller) = unsafe { self.storages() }
             .non_send_resources
             .get(component_id)?
             .get_with_ticks()?;
@@ -520,6 +539,9 @@ impl<'w> UnsafeWorldCell<'w> {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
             value: unsafe { ptr.assert_unique() },
             ticks,
+            #[cfg(feature = "track_change_detection")]
+            // SAFETY: This function has exclusive access to the world
+            changed_by: unsafe { _caller.deref_mut() },
         })
     }
 
@@ -533,7 +555,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn get_resource_with_ticks(
         self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'w>, TickCells<'w>)> {
+    ) -> Option<(Ptr<'w>, TickCells<'w>, MaybeUnsafeCellLocation<'w>)> {
         // SAFETY:
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
@@ -557,7 +579,7 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn get_non_send_with_ticks(
         self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'w>, TickCells<'w>)> {
+    ) -> Option<(Ptr<'w>, TickCells<'w>, MaybeUnsafeCellLocation<'w>)> {
         // SAFETY:
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
@@ -729,10 +751,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| Ref {
+            .map(|(value, cells, _caller)| Ref {
                 // SAFETY: returned component is of type T
                 value: value.deref::<T>(),
                 ticks: Ticks::from_tick_cells(cells, last_change_tick, change_tick),
+                #[cfg(feature = "track_change_detection")]
+                changed_by: _caller.deref(),
             })
         }
     }
@@ -828,10 +852,12 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| Mut {
+            .map(|(value, cells, _caller)| Mut {
                 // SAFETY: returned component is of type T
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: TicksMut::from_tick_cells(cells, last_change_tick, change_tick),
+                #[cfg(feature = "track_change_detection")]
+                changed_by: _caller.deref_mut(),
             })
         }
     }
@@ -888,7 +914,7 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells)| MutUntyped {
+            .map(|(value, cells, _caller)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
                 ticks: TicksMut::from_tick_cells(
@@ -896,6 +922,8 @@ impl<'w> UnsafeEntityCell<'w> {
                     self.world.last_change_tick(),
                     self.world.change_tick(),
                 ),
+                #[cfg(feature = "track_change_detection")]
+                changed_by: _caller.deref_mut(),
             })
         }
     }
@@ -972,7 +1000,7 @@ unsafe fn get_component_and_ticks(
     storage_type: StorageType,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(Ptr<'_>, TickCells<'_>)> {
+) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
     match storage_type {
         StorageType::Table => {
             let components = world.fetch_table(location, component_id)?;
@@ -984,6 +1012,10 @@ unsafe fn get_component_and_ticks(
                     added: components.get_added_tick_unchecked(location.table_row),
                     changed: components.get_changed_tick_unchecked(location.table_row),
                 },
+                #[cfg(feature = "track_change_detection")]
+                components.get_changed_by_unchecked(location.table_row),
+                #[cfg(not(feature = "track_change_detection"))]
+                (),
             ))
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),

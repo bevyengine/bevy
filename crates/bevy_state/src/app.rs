@@ -1,9 +1,5 @@
-use bevy_app::{App, MainScheduleOrder, Plugin, PreUpdate, Startup, SubApp};
-use bevy_ecs::{
-    event::Events,
-    schedule::{IntoSystemConfigs, ScheduleLabel},
-    world::FromWorld,
-};
+use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
+use bevy_ecs::{event::Events, schedule::IntoSystemConfigs, world::FromWorld};
 use bevy_utils::{tracing::warn, warn_once};
 
 use crate::state::{
@@ -27,6 +23,8 @@ pub trait AppExtStates {
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
+    ///
+    /// The use of any states requires the presence of [`StatesPlugin`] (which is included in `DefaultPlugins`).
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self;
 
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
@@ -215,13 +213,15 @@ impl AppExtStates for App {
 }
 
 /// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state processing.
+#[derive(Default)]
 pub struct StatesPlugin;
 
 impl Plugin for StatesPlugin {
     fn build(&self, app: &mut App) {
         let mut schedule = app.world_mut().resource_mut::<MainScheduleOrder>();
         schedule.insert_after(PreUpdate, StateTransition);
-        setup_state_transitions_in_world(app.world_mut(), Some(Startup.intern()));
+        schedule.insert_startup_before(PreStartup, StateTransition);
+        setup_state_transitions_in_world(app.world_mut());
     }
 }
 
