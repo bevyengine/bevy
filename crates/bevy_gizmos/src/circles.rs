@@ -368,3 +368,23 @@ where
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::{App, Update};
+    use bevy_color::Color;
+    use bevy_math::{Quat, Vec3};
+
+    use crate::{gizmos::Gizmos, GizmoPlugin};
+
+    #[test]
+    fn test_sphere_regression_14142() {
+        App::new()
+            .add_plugins(GizmoPlugin)
+            .add_systems(Update, |mut gizmos: Gizmos| {
+                let rot = Quat::from_array([5.0, 0.0, 0.0, 0.0]); //.normalize();
+                gizmos.sphere(Vec3::ZERO, rot, 1.0, Color::srgb(1.0, 0.0, 0.0));
+            })
+            .run();
+    }
+}
