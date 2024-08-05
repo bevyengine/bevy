@@ -3,13 +3,14 @@
 #![warn(unsafe_op_in_unsafe_fn)]
 
 use super::{Mut, Ref, World, WorldId};
+#[cfg(feature = "observers")]
+use crate::observer::Observers;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityLocation},
-    observer::Observers,
     prelude::Component,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
@@ -244,13 +245,6 @@ impl<'w> UnsafeWorldCell<'w> {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.removed_components
-    }
-
-    /// Retrieves this world's [`Observers`] collection.
-    pub(crate) unsafe fn observers(self) -> &'w Observers {
-        // SAFETY:
-        // - we only access world metadata
-        &unsafe { self.world_metadata() }.observers
     }
 
     /// Retrieves this world's [`Bundles`] collection.
@@ -621,6 +615,16 @@ impl<'w> UnsafeWorldCell<'w> {
         // - caller ensures there are no existing mutable references
         // - caller ensures that we have permission to access the queue
         unsafe { (*self.0).command_queue.clone() }
+    }
+}
+
+#[cfg(feature = "observers")]
+impl<'w> UnsafeWorldCell<'w> {
+    /// Retrieves this world's [`Observers`] collection.
+    pub(crate) unsafe fn observers(self) -> &'w Observers {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.observers
     }
 
     /// # Safety
