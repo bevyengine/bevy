@@ -4,6 +4,14 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::system::Resource;
 
 /// Stores [`winit`] monitors and their corresponding entities
+///
+/// # Known Issues
+///
+/// On some platforms, physically disconnecting a monitor might result in a
+/// panic in [`winit`]'s loop. This will lead to a crash in the bevy app. See
+/// [13669] for investigations and discussions.
+///
+/// [13669]: https://github.com/bevyengine/bevy/pull/13669
 #[derive(Resource, Debug, Default)]
 pub struct WinitMonitors {
     /// Stores [`winit`] monitors and their corresponding entities
