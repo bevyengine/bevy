@@ -58,7 +58,7 @@ use bevy_ptr::UnsafeCellDeref;
 
 use core::panic::Location;
 
-use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
+use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell, WorldMetadata};
 
 /// A [`World`] mutation.
 ///
@@ -204,6 +204,12 @@ impl World {
     #[inline]
     pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
         UnsafeWorldCell::new_readonly(self)
+    }
+
+    /// Creates a new [`WorldMetadata`] giving read access to this world's metadata.
+    #[inline]
+    pub fn metadata(&self) -> WorldMetadata<'_> {
+        self.as_unsafe_world_cell_readonly().metadata()
     }
 
     /// Retrieves this world's [`Entities`] collection.
