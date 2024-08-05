@@ -375,8 +375,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     };
 
     // TODO: Move this check into the observer cache to avoid dynamic dispatch
-    // SAFETY: We only access world metadata
-    let last_trigger = unsafe { world.world_metadata() }.last_trigger_id();
+    let last_trigger = world.last_trigger_id();
     if state.last_trigger_id == last_trigger {
         return;
     }
