@@ -2,12 +2,26 @@ use std::{borrow::Cow, str::Lines};
 
 use regex::Regex;
 
-static RE_COMMENT: once_cell::sync::Lazy<Regex> =
-    once_cell::sync::Lazy::new(|| Regex::new(r"(//|/\*|\*/)").unwrap());
+// outside of blocks and quotes, change state on //, /* or "
+static RE_NONE: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r#"(//|/\*|\")"#).unwrap());
+// in blocks, change on /* and */
+static RE_BLOCK: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"(/\*|\*/)").unwrap());
+// in quotes, change only on "
+static RE_QUOTE: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r#"\""#).unwrap());
+
+#[derive(PartialEq, Eq)]
+enum CommentState {
+    None,
+    Block(usize),
+    Quote,
+}
 
 pub struct CommentReplaceIter<'a> {
     lines: &'a mut Lines<'a>,
-    block_depth: usize,
+    state: CommentState,
 }
 
 impl<'a> Iterator for CommentReplaceIter<'a> {
@@ -15,13 +29,9 @@ impl<'a> Iterator for CommentReplaceIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let line_in = self.lines.next()?;
-        let mut markers = RE_COMMENT
-            .captures_iter(line_in)
-            .map(|cap| cap.get(0).unwrap())
-            .peekable();
 
         // fast path
-        if self.block_depth == 0 && markers.peek().is_none() {
+        if self.state == CommentState::None && !RE_NONE.is_match(line_in) {
             return Some(Cow::Borrowed(line_in));
         }
 
@@ -29,45 +39,65 @@ impl<'a> Iterator for CommentReplaceIter<'a> {
         let mut section_start = 0;
 
         loop {
-            let mut next_marker = markers.next();
-            let mut section_end = next_marker.map(|m| m.start()).unwrap_or(line_in.len());
-
-            // skip partial tokens
-            while next_marker.is_some() && section_start > section_end {
-                next_marker = markers.next();
-                section_end = next_marker.map(|m| m.start()).unwrap_or(line_in.len());
+            let marker = match self.state {
+                CommentState::None => &RE_NONE,
+                CommentState::Block(_) => &RE_BLOCK,
+                CommentState::Quote => &RE_QUOTE,
             }
+            .find(&line_in[section_start..]);
 
-            if self.block_depth == 0 {
-                output.push_str(&line_in[section_start..section_end]);
-            } else {
+            let section_end = marker
+                .map(|m| section_start + m.start())
+                .unwrap_or(line_in.len());
+
+            if let CommentState::Block(_) = self.state {
                 output.extend(std::iter::repeat(' ').take(section_end - section_start));
+            } else {
+                output.push_str(&line_in[section_start..section_end]);
             }
 
-            match next_marker {
+            match marker {
                 None => return Some(Cow::Owned(output)),
                 Some(marker) => {
                     match marker.as_str() {
+                        // only possible in None state
                         "//" => {
-                            // the specs (https://www.w3.org/TR/WGSL/#comment, https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.pdf @ 3.4) state that
-                            // whichever comment-type starts first should cancel parsing of the other type
-                            if self.block_depth == 0 {
-                                output.extend(
-                                    std::iter::repeat(' ').take(line_in.len() - marker.start()),
-                                );
-                                return Some(Cow::Owned(output));
-                            }
+                            output.extend(
+                                std::iter::repeat(' ')
+                                    .take(line_in.len() - marker.start() - section_start),
+                            );
+                            return Some(Cow::Owned(output));
                         }
+                        // only possible in None or Block state
                         "/*" => {
-                            self.block_depth += 1;
+                            self.state = match self.state {
+                                CommentState::None => CommentState::Block(1),
+                                CommentState::Block(n) => CommentState::Block(n + 1),
+                                _ => unreachable!(),
+                            };
+                            output.push_str("  ");
                         }
+                        // only possible in Block state
                         "*/" => {
-                            self.block_depth = self.block_depth.saturating_sub(1);
+                            self.state = match self.state {
+                                CommentState::Block(1) => CommentState::None,
+                                CommentState::Block(n) => CommentState::Block(n - 1),
+                                _ => unreachable!(),
+                            };
+                            output.push_str("  ");
+                        }
+                        // only possible in None or Quote state
+                        "\"" => {
+                            self.state = match self.state {
+                                CommentState::None => CommentState::Quote,
+                                CommentState::Quote => CommentState::None,
+                                _ => unreachable!(),
+                            };
+                            output.push('"');
                         }
                         _ => unreachable!(),
                     }
-                    output.extend(std::iter::repeat(' ').take(marker.as_str().len()));
-                    section_start = marker.end();
+                    section_start += marker.end();
                 }
             }
         }
@@ -83,7 +113,7 @@ impl<'a> CommentReplaceExt<'a> for Lines<'a> {
     fn replace_comments(&'a mut self) -> CommentReplaceIter {
         CommentReplaceIter {
             lines: self,
-            block_depth: 0,
+            state: CommentState::None,
         }
     }
 }
@@ -119,7 +149,7 @@ not commented
         None
     );
 
-    const PARTIAL_TESTS: [(&str, &str); 4] = [
+    const PARTIAL_TESTS: [(&str, &str); 11] = [
         (
             "1.0 /* block comment with a partial line comment on the end *// 2.0",
             "1.0                                                           / 2.0",
@@ -136,11 +166,97 @@ not commented
             "1.0 /* block comment with real line comment after */// line comment",
             "1.0                                                                ",
         ),
+        ("*/", "*/"),
+        (
+            r#"#import "embedded://file.wgsl""#,
+            r#"#import "embedded://file.wgsl""#,
+        ),
+        (
+            r#"// #import "embedded://file.wgsl""#,
+            r#"                                 "#,
+        ),
+        (
+            r#"/* #import "embedded://file.wgsl" */"#,
+            r#"                                    "#,
+        ),
+        (
+            r#"/* #import "embedded:*/file.wgsl" */"#,
+            r#"                       file.wgsl" */"#,
+        ),
+        (
+            r#"#import "embedded://file.wgsl" // comment"#,
+            r#"#import "embedded://file.wgsl"           "#,
+        ),
+        (
+            r#"#import "embedded:/* */ /* /**/* / / /// * / //*/*/ / */*file.wgsl""#,
+            r#"#import "embedded:/* */ /* /**/* / / /// * / //*/*/ / */*file.wgsl""#,
+        ),
     ];
 
     for &(input, expected) in PARTIAL_TESTS.iter() {
         let mut nasty_processed = input.lines();
         let nasty_processed = nasty_processed.replace_comments().next().unwrap();
         assert_eq!(&nasty_processed, expected);
+    }
+}
+
+#[test]
+fn multiline_comment_test() {
+    let test_cases = [
+        (
+            // Basic test
+            r"/*
+hoho
+*/",
+            r"  
+    
+  ",
+        ),
+        (
+            // Testing the commenting-out of multiline comments
+            r"///*
+hehe
+//*/",
+            r"    
+hehe
+    ",
+        ),
+        (
+            // Testing the commenting-out of single-line comments
+            r"/* // */ code goes here /*
+Still a comment // */
+/* dummy */",
+            r"         code goes here   
+                     
+           ",
+        ),
+        (
+            // A comment with a nested multiline comment
+            // Notice how the "//" inside the multiline comment doesn't take effect
+            r"/*
+//*
+*/commented
+*/not commented",
+            r"  
+   
+           
+  not commented",
+        ),
+    ];
+
+    for &(input, expected) in test_cases.iter() {
+        for (output_line, expected_line) in input.lines().replace_comments().zip(expected.lines()) {
+            assert_eq!(output_line.as_ref(), expected_line);
+        }
+    }
+}
+
+#[test]
+fn test_comment_becomes_spaces() {
+    let test_cases = [("let a/**/b =3u;", "let a    b =3u;")];
+    for &(input, expected) in test_cases.iter() {
+        for (output_line, expected_line) in input.lines().replace_comments().zip(expected.lines()) {
+            assert_eq!(output_line.as_ref(), expected_line);
+        }
     }
 }
