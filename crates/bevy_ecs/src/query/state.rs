@@ -24,7 +24,8 @@ use super::{
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
 /// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
-/// both `D::IS_DENSE` and `F::IS_DENSE` are true or not.
+/// the query filters are dense or not. This is represented by the [`QueryState::is_dense`] field,
+/// which implies `D::IS_DENSE && F::IS_DENSE` when it's true.
 ///
 /// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
 /// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This
@@ -68,6 +69,8 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) component_access: FilteredAccess<ComponentId>,
     // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
     pub(super) matched_storage_ids: Vec<StorageId>,
+    // Represents whether this query iteration is dense or not. When this is true
+    // `matched_storage_ids` stores `TableId`s, otherwise it stores `ArchetypeId`s.
     pub(super) is_dense: bool,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
@@ -195,11 +198,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         component_access.extend(&filter_component_access);
 
+        // For queries without dynamic filters the dense-ness of the query is equal to the dense-ness
+        // of its static type parameters.
+        let is_dense = D::IS_DENSE && F::IS_DENSE;
+
         Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
-            is_dense: D::IS_DENSE && F::IS_DENSE,
+            is_dense,
             fetch_state,
             filter_state,
             component_access,
@@ -224,6 +231,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
+            // For dynamic queries the dense-ness is given by the query builder.
             is_dense: builder.is_dense(),
             fetch_state,
             filter_state,
@@ -453,6 +461,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let archetype_index = archetype.id().index();
             if !self.matched_archetypes.contains(archetype_index) {
                 self.matched_archetypes.grow_and_insert(archetype_index);
+                // If `D::IS_DENSE && F::IS_DENSE` is false then `self.cursor.is_dense` must also be
+                // false, in that case the condition can be statically known.
                 if !(D::IS_DENSE && F::IS_DENSE && self.is_dense) {
                     self.matched_storage_ids.push(StorageId {
                         archetype_id: archetype.id(),
@@ -462,6 +472,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let table_index = archetype.table_id().as_usize();
             if !self.matched_tables.contains(table_index) {
                 self.matched_tables.grow_and_insert(table_index);
+                // If `D::IS_DENSE && F::IS_DENSE` is false then `self.cursor.is_dense` must also be
+                // false, in that case the condition can be statically known.
                 if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                     self.matched_storage_ids.push(StorageId {
                         table_id: archetype.table_id(),
@@ -559,11 +571,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             std::any::type_name::<(NewD, NewF)>(), std::any::type_name::<(D, F)>()
         );
 
+        // The dense-ness of the transmuted query depends on the dense-ness of the original filters
+        // and the dense-ness of the new accessed data.
+        let is_dense = NewD::IS_DENSE && NewF::IS_DENSE && self.is_dense;
+
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
+            // TODO: This is unsound, since the dense-ness may have changed.
+            // in particular this can happen if the original access could access all components,
+            // in which case it was dense, but is now not dense due to `NewD::IS_DENSE && NewF::IS_DENSE` being false.
+            //
+            // Another way this is broken is if not all the originally matched tables match the new query filters,
+            // though in that case it is not unsound because the access is restricted.
             matched_storage_ids: self.matched_storage_ids.clone(),
-            is_dense: NewD::IS_DENSE && NewF::IS_DENSE && self.is_dense,
+            is_dense,
             fetch_state,
             filter_state,
             component_access: self.component_access.clone(),
@@ -657,6 +679,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             warn!("You have tried to join queries with different archetype_generations. This could lead to unpredictable results.");
         }
 
+        // The dense-ness of the joined query depends on the dense-ness of the original filters
+        // of the joined queries and the dense-ness of the new accessed data.
         let is_dense = NewD::IS_DENSE && NewF::IS_DENSE && self.is_dense && other.is_dense;
 
         // take the intersection of the matched ids
@@ -1494,6 +1518,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
+                        // If `D::IS_DENSE && F::IS_DENSE` is false then `self.is_dense` must also be
+                        // false, in that case the condition can be statically known.
                         if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                             let id = storage_id.table_id;
                             let table = &world.storages().tables.get(id).debug_checked_unwrap();
@@ -1528,6 +1554,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
+                        // If `D::IS_DENSE && F::IS_DENSE` is false then `self.is_dense` must also be
+                        // false, in that case the condition can be statically known.
                         if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                             let id = storage_id.table_id;
                             let table = world.storages().tables.get(id).debug_checked_unwrap();
@@ -1544,6 +1572,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             };
 
             let storage_entity_count = |storage_id: StorageId| -> usize {
+                // If `D::IS_DENSE && F::IS_DENSE` is false then `self.is_dense` must also be
+                // false, in that case the condition can be statically known.
                 if D::IS_DENSE && F::IS_DENSE && self.is_dense {
                     tables[storage_id.table_id].entity_count()
                 } else {
