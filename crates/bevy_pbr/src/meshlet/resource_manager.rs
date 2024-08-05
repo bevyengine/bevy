@@ -43,7 +43,7 @@ pub struct ResourceManager {
     second_pass_candidates_buffer: Option<Buffer>,
     /// Sampler for a depth pyramid
     depth_pyramid_sampler: Sampler,
-    /// Dummy texture view for binding depth pyramids with less than the maxmimum amount of mips
+    /// Dummy texture view for binding depth pyramids with less than the maximum amount of mips
     depth_pyramid_dummy_texture: TextureView,
 
     // TODO
@@ -322,7 +322,7 @@ pub fn prepare_meshlet_per_frame_resources(
 
     let instance_manager = instance_manager.as_mut();
 
-    // TODO: Move this and the submit to a seperate system and remove pub from the fields
+    // TODO: Move this and the submit to a separate system and remove pub from the fields
     instance_manager
         .instance_uniforms
         .write_buffer(&render_device, &render_queue);
