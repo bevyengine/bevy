@@ -3003,6 +3003,14 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
+name = "gizmos_regression"
+path = "tests/gizmos/gizmos_sphere_regression.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gizmos_regression]
+hidden = true
+
+[[example]]
 name = "resizing"
 path = "tests/window/resizing.rs"
 doc-scrape-examples = true
