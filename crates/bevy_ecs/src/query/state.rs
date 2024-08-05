@@ -1980,6 +1980,19 @@ mod tests {
         let _new_query = query.transmute_filtered::<Entity, Changed<B>>(world.metadata());
     }
 
+    // Regression test for #14629
+    #[test]
+    #[should_panic]
+    fn transmute_with_different_world() {
+        let mut world = World::new();
+        world.spawn((A(1), B(2)));
+
+        let mut world2 = World::new();
+        world2.init_component::<B>();
+
+        world.query::<(&A, &B)>().transmute::<&B>(world2.metadata());
+    }
+
     #[test]
     fn join() {
         let mut world = World::new();
