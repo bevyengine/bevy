@@ -31,7 +31,7 @@ use bevy_utils::tracing::error;
 
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
-    prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, MeshletGpuScene,
+    prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, InstanceManager,
     MeshletMesh,
 };
 use crate::*;
@@ -186,7 +186,7 @@ where
                 .in_set(RenderSet::QueueMeshes)
                 .after(prepare_assets::<PreparedMaterial<M>>)
                 .before(queue_material_meshlet_meshes::<M>)
-                .run_if(resource_exists::<MeshletGpuScene>),
+                .run_if(resource_exists::<InstanceManager>),
         );
     }
 }

@@ -13,11 +13,11 @@
 fn fill_cluster_buffers(
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
     @builtin(num_workgroups) num_workgroups: vec3<u32>,
-    @builtin(local_invocation_id) local_invocation_id: vec3<u32>
+    @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
     // Calculate the cluster ID for this thread
-    let cluster_id = local_invocation_id.x + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
-    if cluster_id >= cluster_count { return; }
+    let cluster_id = local_invocation_index + 128u * dot(workgroup_id, vec3(num_workgroups.x * num_workgroups.x, num_workgroups.x, 1u));
+    if cluster_id >= cluster_count { return; } // TODO: Could be an arrayLength?
 
     // Binary search to find the instance this cluster belongs to
     var left = 0u;
