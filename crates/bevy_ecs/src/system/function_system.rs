@@ -29,7 +29,7 @@ pub struct SystemMeta {
     ///
     /// We use a [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
     /// for example if you have one system with `Query<&mut T, With<A>>` and one system with `Query<&mut T, With<B>>`
-    /// They conflict if you just look at the [`ComponentId`] of `T`; but if there's no archetypes with
+    /// they conflict if you just look at the [`ComponentId`] of `T`; but if there are no archetypes with
     /// both `A`, `B` and `T` then in practice there's no risk of conflict. By using [`ArchetypeComponentId`]
     /// we can be more precise because we can check if the existing archetypes of the [`World`]
     /// cause a conflict
