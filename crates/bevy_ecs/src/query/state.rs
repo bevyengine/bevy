@@ -579,11 +579,6 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             // TODO: This is unsound, since the dense-ness may have changed.
-            // in particular this can happen if the original access could access all components,
-            // in which case it was dense, but is now not dense due to `NewD::IS_DENSE && NewF::IS_DENSE` being false.
-            //
-            // Another way this is broken is if not all the originally matched tables match the new query filters,
-            // though in that case it is not unsound because the access is restricted.
             matched_storage_ids: self.matched_storage_ids.clone(),
             is_dense,
             fetch_state,
