@@ -83,6 +83,18 @@ unsafe impl Send for UnsafeWorldCell<'_> {}
 // SAFETY: `&World` and `&mut World` are both `Sync`
 unsafe impl Sync for UnsafeWorldCell<'_> {}
 
+impl<'w> From<&'w mut World> for UnsafeWorldCell<'w> {
+    fn from(value: &'w mut World) -> Self {
+        value.as_unsafe_world_cell()
+    }
+}
+
+impl<'w> From<&'w World> for UnsafeWorldCell<'w> {
+    fn from(value: &'w World) -> Self {
+        value.as_unsafe_world_cell_readonly()
+    }
+}
+
 impl<'w> UnsafeWorldCell<'w> {
     /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
     #[inline]
@@ -176,13 +188,6 @@ impl<'w> UnsafeWorldCell<'w> {
         unsafe { self.unsafe_world() }
     }
 
-    /// Retrieves this [`World`]'s [`WorldMetadata`].
-    /// This can be used for arbitrary read only access of world metadata.
-    #[inline]
-    pub fn metadata(self) -> WorldMetadata<'w> {
-        WorldMetadata { cell: self }
-    }
-
     /// Variant on [`UnsafeWorldCell::world`] solely used for implementing this type's methods.
     /// It allows having an `&World` even with live mutable borrows of components and resources
     /// so the returned `&World` should not be handed out to safe code and care should be taken
@@ -205,30 +210,40 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Retrieves this world's unique [ID](WorldId).
     #[inline]
     pub fn id(self) -> WorldId {
-        self.metadata().id()
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.id()
     }
 
     /// Retrieves this world's [`Entities`] collection.
     #[inline]
     pub fn entities(self) -> &'w Entities {
-        self.metadata().entities()
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.entities
     }
 
     /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(self) -> &'w Archetypes {
-        self.metadata().archetypes()
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.archetypes
     }
 
     /// Retrieves this world's [`Components`] collection.
     #[inline]
     pub fn components(self) -> &'w Components {
-        self.metadata().components()
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.components
     }
 
     /// Retrieves this world's collection of [removed components](RemovedComponentEvents).
     pub fn removed_components(self) -> &'w RemovedComponentEvents {
-        self.metadata().removed_components()
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.removed_components
     }
 
     /// Retrieves this world's [`Observers`] collection.
@@ -241,13 +256,26 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Retrieves this world's [`Bundles`] collection.
     #[inline]
     pub fn bundles(self) -> &'w Bundles {
-        self.metadata().bundles()
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.bundles
     }
 
     /// Gets the current change tick of this world.
     #[inline]
     pub fn change_tick(self) -> Tick {
-        self.metadata().change_tick()
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.read_change_tick()
+    }
+
+    /// Returns the id of the last ECS event that was fired.
+    /// Used internally to ensure observers don't trigger multiple times for the same event.
+    #[inline]
+    pub fn last_trigger_id(&self) -> u32 {
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.last_trigger_id()
     }
 
     /// Returns the [`Tick`] indicating the last time that [`World::clear_trackers`] was called.
@@ -261,13 +289,20 @@ impl<'w> UnsafeWorldCell<'w> {
     /// [`System`]: crate::system::System
     #[inline]
     pub fn last_change_tick(self) -> Tick {
-        self.metadata().last_change_tick()
+        // SAFETY:
+        // - we only access world metadata
+        unsafe { self.world_metadata() }.last_change_tick()
     }
 
     /// Increments the world's current change tick and returns the old value.
     #[inline]
     pub fn increment_change_tick(self) -> Tick {
-        self.metadata().increment_change_tick()
+        // SAFETY:
+        // - we only access world metadata
+        let change_tick = unsafe { &self.world_metadata().change_tick };
+        // NOTE: We can used a relaxed memory ordering here, since nothing
+        // other than the atomic value itself is relying on atomic synchronization
+        Tick::new(change_tick.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
     }
 
     /// Provides unchecked access to the internal data stores of the [`World`].
@@ -601,94 +636,6 @@ impl Debug for UnsafeWorldCell<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         // SAFETY: World's Debug implementation only accesses metadata.
         Debug::fmt(unsafe { self.world_metadata() }, f)
-    }
-}
-
-/// Gives read-only access to a [`World`]'s metadata.
-#[derive(Clone, Copy)]
-pub struct WorldMetadata<'w> {
-    cell: UnsafeWorldCell<'w>,
-}
-
-impl<'w> WorldMetadata<'w> {
-    /// Retrieves this world's unique [ID](WorldId).
-    pub fn id(&self) -> WorldId {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.id()
-    }
-
-    /// Retrieves this world's [`Entities`] collection.
-    pub fn entities(&self) -> &'w Entities {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.entities()
-    }
-
-    /// Retrieves this world's [`Components`] collection.
-    pub fn components(&self) -> &'w Components {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.components()
-    }
-
-    /// Retrieves this world's [`Archetypes`] collection.
-    pub fn archetypes(&self) -> &'w Archetypes {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.archetypes()
-    }
-
-    /// Retrieves this world's [`Bundles`] collection.
-    pub fn bundles(&self) -> &'w Bundles {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.bundles()
-    }
-
-    /// Retrieves this world's collection of [removed components](RemovedComponentEvents).
-    pub fn removed_components(&self) -> &'w RemovedComponentEvents {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.removed_components()
-    }
-
-    /// Gets the current change tick of this world.
-    pub fn change_tick(&self) -> Tick {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.read_change_tick()
-    }
-
-    /// Increments the world's current change tick and returns the old value.
-    pub fn increment_change_tick(&self) -> Tick {
-        // SAFETY:
-        // - we only access world metadata
-        let change_tick = unsafe { &self.cell.world_metadata().change_tick };
-        // NOTE: We can used a relaxed memory ordering here, since nothing
-        // other than the atomic value itself is relying on atomic synchronization
-        Tick::new(change_tick.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
-    }
-
-    /// Returns the [`Tick`] indicating the last time that [`World::clear_trackers`] was called.
-    ///
-    /// If this `WorldMetadata` was created from inside of an exclusive system (a [`System`] that
-    /// takes `&mut World` as its first parameter), this will instead return the `Tick` indicating
-    /// the last time the system was run.
-    ///
-    /// See [`World::last_change_tick()`].
-    ///
-    /// [`System`]: crate::system::System
-    pub fn last_change_tick(&self) -> Tick {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.last_change_tick()
-    }
-
-    pub(crate) fn last_trigger_id(&self) -> u32 {
-        // SAFETY:
-        // - we only access world metadata
-        unsafe { self.cell.world_metadata() }.last_trigger_id()
     }
 }
 

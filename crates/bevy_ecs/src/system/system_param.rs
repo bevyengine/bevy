@@ -11,10 +11,7 @@ use crate::{
         ReadOnlyQueryData,
     },
     system::{Query, SystemMeta},
-    world::{
-        unsafe_world_cell::{UnsafeWorldCell, WorldMetadata},
-        DeferredWorld, FromWorld, World,
-    },
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
@@ -749,26 +746,6 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         world.into_deferred()
-    }
-}
-
-// SAFETY: Only reads World metadata
-unsafe impl<'w> ReadOnlySystemParam for WorldMetadata<'w> {}
-
-// SAFETY: no component value access
-unsafe impl<'w> SystemParam for WorldMetadata<'w> {
-    type State = ();
-    type Item<'world, 'state> = WorldMetadata<'world>;
-
-    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
-
-    unsafe fn get_param<'world, 'state>(
-        _state: &'state mut Self::State,
-        _system_meta: &SystemMeta,
-        world: UnsafeWorldCell<'world>,
-        _change_tick: Tick,
-    ) -> Self::Item<'world, 'state> {
-        world.metadata()
     }
 }
 
