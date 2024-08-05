@@ -540,7 +540,7 @@ impl AssetInfos {
             info.loading_rec_dependencies.remove(&loaded_id);
             if info.loading_rec_dependencies.is_empty() && info.failed_rec_dependencies.is_empty() {
                 info.rec_dep_load_state = RecursiveDependencyLoadState::Loaded;
-                if info.load_state == LoadState::Loaded {
+                if info.load_state.is_loaded() {
                     sender
                         .send(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
                         .unwrap();
