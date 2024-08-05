@@ -2082,6 +2082,30 @@ mod tests {
         let matched = query.iter(&world).count();
         assert_eq!(matched, 1);
     }
+    #[test]
+    fn transmute_from_dense_to_sparse() {
+        #[derive(Component)]
+        struct Dense;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        world.spawn(Dense);
+        world.spawn((Dense, Sparse));
+
+        let mut query = world
+            .query::<&Dense>()
+            .transmute_filtered::<&Dense, With<Sparse>>(world.components());
+
+        // Note: `transmute_filtered` is supposed to keep the same matched tables/archetypes,
+        // so it doesn't actually filter out those entities without `Sparse` and the iteration
+        // remains dense.
+        let matched = query.iter(&world).count();
+        assert_eq!(matched, 2);
+    }
 
     #[test]
     fn join() {
