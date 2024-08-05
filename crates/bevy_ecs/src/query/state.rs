@@ -48,7 +48,9 @@ impl QueryStaticMarker for DynamicMarker {
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
 /// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
-/// both `D::IS_DENSE` and `F::IS_DENSE` are true or not.
+/// [`QueryState::is_dense`] is true or not.
+/// Note that when `M::IS_STATIC` is true then `QueryState::is_dense` can be assumed to be equal to
+/// the statically known `D::IS_DENSE && F::IS_DENSE`.
 ///
 /// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
 /// a [`QueryState`] will be all [`TableId`]s or all [`ArchetypeId`]s, and not a mixture of both. This
@@ -191,7 +193,7 @@ impl<D: QueryData, F: QueryFilter> DynQueryState<D, F> {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
-            is_dense: builder.is_dense,
+            is_dense: builder.is_dense(),
             fetch_state,
             filter_state,
             component_access: builder.access().clone(),

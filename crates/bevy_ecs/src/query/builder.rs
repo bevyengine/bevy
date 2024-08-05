@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::component::StorageType;
+use crate::component::{ComponentInfo, StorageType};
 use crate::{component::ComponentId, prelude::*};
 
 use super::{FilteredAccess, QueryData, QueryFilter};
@@ -38,7 +38,6 @@ pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     world: &'w mut World,
     or: bool,
     first: bool,
-    pub(super) is_dense: bool,
     _marker: PhantomData<(D, F)>,
 }
 
@@ -66,9 +65,21 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             world,
             or: false,
             first: false,
-            is_dense: D::IS_DENSE && F::IS_DENSE,
             _marker: PhantomData,
         }
+    }
+
+    pub(super) fn is_dense(&self) -> bool {
+        let is_dense = |component_id| {
+            self.world()
+                .components()
+                .get_info(ComponentId::new(component_id))
+                .map(ComponentInfo::storage_type)
+                == Some(StorageType::Table)
+        };
+        self.access.filter_sets.iter().all(|filter_set| {
+            filter_set.with.ones().all(is_dense) && filter_set.without.ones().all(is_dense)
+        })
     }
 
     /// Returns a reference to the world passed to [`Self::new`].
@@ -93,22 +104,6 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             }
         } else {
             self.access.extend(&access);
-        }
-
-        // Is this is not dense then there's no need to check whether `access` is.
-        if self.is_dense {
-            self.is_dense &= access
-                .filter_sets
-                .iter()
-                .flat_map(|filter_set| filter_set.with.ones().chain(filter_set.without.ones()))
-                .all(|component_id| {
-                    self.world
-                        .components()
-                        .get_info(ComponentId::new(component_id))
-                        .unwrap()
-                        .storage_type()
-                        == StorageType::Table
-                });
         }
     }
 

@@ -57,7 +57,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> QueryIter<'w, '
     /// # Safety
     ///  - all `rows` must be in `[0, table.entity_count)`.
     ///  - `table` must match D and F
-    ///  - `self.query_state.is_dense` must be true.
+    ///  - The query iteration must be dense (i.e. `self.query_state.is_dense` must be true).
     #[inline]
     pub(super) unsafe fn fold_over_table_range<B, Func>(
         &mut self,
@@ -109,7 +109,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> QueryIter<'w, '
     /// # Safety
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
-    ///  - `self.query_state.is_dense` must be false
+    ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_archetype_range<B, Func>(
         &mut self,
@@ -175,7 +175,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> QueryIter<'w, '
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
     ///  - `archetype` must have the same length with it's table.
-    ///  - Either `D::IS_DENSE` or `F::IS_DENSE` must be false.
+    ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
         &mut self,
@@ -970,7 +970,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> Iterator
                     // SAFETY: 
                     // - The fetched table matches both D and F
                     // - The provided range is equivalent to [0, table.entity_count)
-                    // - The if block ensures that D::IS_DENSE and F::IS_DENSE are both true
+                    // - The if block ensures that `self.query_state.is_dense` is true
                     unsafe { self.fold_over_table_range(accum, &mut func, table, 0..table.entity_count()) };
             } else {
                 let archetype =
@@ -987,14 +987,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> Iterator
                     // - The fetched archetype matches both D and F
                     // - The provided archetype and its' table have the same length.
                     // - The provided range is equivalent to [0, archetype.len)
-                    // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
+                    // - The if block ensures that `self.query_state.is_dense` is false
                     unsafe { self.fold_over_dense_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
                 } else {
                     accum =
                     // SAFETY:
                     // - The fetched archetype matches both D and F
                     // - The provided range is equivalent to [0, archetype.len)
-                    // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
+                    // - The if block ensures that `self.query_state.is_dense` is false
                     unsafe { self.fold_over_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
                 }
             }
