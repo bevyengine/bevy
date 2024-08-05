@@ -727,7 +727,7 @@ pub struct Archetypes {
 
 /// Metadata about how a component is stored in an [`Archetype`].
 pub struct ArchetypeRecord {
-    /// Index of the component in the archetype's [`Table`],
+    /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
     #[allow(dead_code)]
     pub(crate) column: Option<usize>,
