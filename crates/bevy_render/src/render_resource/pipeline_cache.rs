@@ -464,7 +464,7 @@ pub struct PipelineCache {
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on MacOS, wasm, or without the `multi_threaded` feature.
+    /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
     synchronous_pipeline_compilation: bool,
 }
 

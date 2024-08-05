@@ -18,7 +18,6 @@ mod sub_app;
 mod terminal_ctrl_c_handler;
 
 pub use app::*;
-pub use bevy_derive::DynamicPlugin;
 pub use main_schedule::*;
 pub use panic_handler::*;
 pub use plugin::*;
@@ -38,6 +37,6 @@ pub mod prelude {
             PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
-        DynamicPlugin, Plugin, PluginGroup,
+        Plugin, PluginGroup,
     };
 }

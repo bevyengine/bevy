@@ -195,6 +195,9 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["dep:bevy_state"]
 
+# Enables source location tracking for change detection, which can assist with debugging
+track_change_detection = ["bevy_ecs/track_change_detection"]
+
 # Enable function reflection
 reflect_functions = ["bevy_reflect/functions"]
 
@@ -227,7 +230,6 @@ bevy_audio = { path = "../bevy_audio", optional = true, version = "0.15.0-dev" }
 bevy_color = { path = "../bevy_color", optional = true, version = "0.15.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.15.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.15.0-dev" }
-bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.15.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.15.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.15.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.15.0-dev" }

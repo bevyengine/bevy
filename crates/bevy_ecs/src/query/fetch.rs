@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, Archetypes},
-    change_detection::{Ticks, TicksMut},
+    change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
@@ -1026,6 +1026,7 @@ pub struct RefFetch<'w, T> {
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        MaybeThinSlicePtrLocation<'w>,
     )>,
     // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -1115,6 +1116,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             column.get_data_slice().into(),
             column.get_added_ticks_slice().into(),
             column.get_changed_ticks_slice().into(),
+            #[cfg(feature = "track_change_detection")]
+            column.get_changed_by_slice().into(),
+            #[cfg(not(feature = "track_change_detection"))]
+            (),
         ));
     }
 
@@ -1127,7 +1132,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
-                let (table_components, added_ticks, changed_ticks) =
+                let (table_components, added_ticks, changed_ticks, _callers) =
                     unsafe { fetch.table_data.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -1136,6 +1141,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 let added = unsafe { added_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                #[cfg(feature = "track_change_detection")]
+                let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 Ref {
                     value: component.deref(),
@@ -1145,6 +1153,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: caller.deref(),
                 }
             }
             StorageType::SparseSet => {
@@ -1152,7 +1162,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 let component_sparse_set = unsafe { fetch.sparse_set.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `entity` is in range.
-                let (component, ticks) = unsafe {
+                let (component, ticks, _caller) = unsafe {
                     component_sparse_set
                         .get_with_ticks(entity)
                         .debug_checked_unwrap()
@@ -1161,6 +1171,8 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 Ref {
                     value: component.deref(),
                     ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: _caller.deref(),
                 }
             }
         }
@@ -1209,6 +1221,7 @@ pub struct WriteFetch<'w, T> {
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        MaybeThinSlicePtrLocation<'w>,
     )>,
     // T::STORAGE_TYPE = StorageType::SparseSet
     sparse_set: Option<&'w ComponentSparseSet>,
@@ -1298,6 +1311,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column.get_data_slice().into(),
             column.get_added_ticks_slice().into(),
             column.get_changed_ticks_slice().into(),
+            #[cfg(feature = "track_change_detection")]
+            column.get_changed_by_slice().into(),
+            #[cfg(not(feature = "track_change_detection"))]
+            (),
         ));
     }
 
@@ -1310,7 +1327,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         match T::STORAGE_TYPE {
             StorageType::Table => {
                 // SAFETY: STORAGE_TYPE = Table
-                let (table_components, added_ticks, changed_ticks) =
+                let (table_components, added_ticks, changed_ticks, _callers) =
                     unsafe { fetch.table_data.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -1319,6 +1336,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 let added = unsafe { added_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                #[cfg(feature = "track_change_detection")]
+                let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 Mut {
                     value: component.deref_mut(),
@@ -1328,6 +1348,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: caller.deref_mut(),
                 }
             }
             StorageType::SparseSet => {
@@ -1335,7 +1357,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 let component_sparse_set = unsafe { fetch.sparse_set.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `entity` is in range.
-                let (component, ticks) = unsafe {
+                let (component, ticks, _caller) = unsafe {
                     component_sparse_set
                         .get_with_ticks(entity)
                         .debug_checked_unwrap()
@@ -1344,6 +1366,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: _caller.deref_mut(),
                 }
             }
         }
