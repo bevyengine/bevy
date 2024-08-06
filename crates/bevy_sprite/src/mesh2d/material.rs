@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_math::FloatOrd;
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
@@ -137,9 +137,18 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     }
 }
 
-#[derive(Clone, Copy, Debug, Reflect, PartialEq, Eq)]
+/// Sets how a 2d material's base color alpha channel is used for transparency.
+/// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
+/// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
+#[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
+#[reflect(Default, Debug)]
 pub enum AlphaMode2d {
+    /// Base color alpha values are overridden to be fully opaque (1.0).
+    #[default]
     Opaque,
+    /// The base color alpha value defines the opacity of the color.
+    /// Standard alpha-blending is used to blend the fragment's color
+    /// with the color behind it.
     Blend,
 }
 
@@ -507,9 +516,18 @@ pub fn queue_material2d_meshes<M: Material2d>(
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
+/// Common [`Material2d`] properties, calculated for a specific material instance.
 pub struct Material2dProperties {
+    /// The [`AlphaMode2d`] of this material.
     pub alpha_mode: AlphaMode2d,
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
+    /// The bias is in depth-texture units so large values may
     pub depth_bias: f32,
+    /// The bits in the [`Mesh2dPipelineKey`] for this material.
+    ///
+    /// These are precalculated so that we can just "or" them together in
+    /// [`queue_material_meshes`].
     pub mesh_pipeline_key_bits: Mesh2dPipelineKey,
 }
 
