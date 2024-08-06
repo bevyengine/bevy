@@ -6,7 +6,11 @@ use bevy_ecs::{
     removal_detection::RemovedComponents,
     system::{Local, NonSendMut, Query, SystemParamItem},
 };
-use bevy_utils::tracing::{error, info, warn};
+use bevy_input::keyboard::{Key, KeyCode};
+use bevy_utils::{
+    tracing::{error, info, warn},
+    HashMap,
+};
 use bevy_window::{
     ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
     WindowMode, WindowResized, WindowWrapper,
@@ -78,9 +82,12 @@ pub fn create_windows<F: QueryFilter + 'static>(
             .resolution
             .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
-        commands.entity(entity).insert(CachedWindow {
-            window: window.clone(),
-        });
+        commands.entity(entity).insert((
+            CachedWindow {
+                window: window.clone(),
+            },
+            WinitWindowPressedKeys::default(),
+        ));
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
             let mut entity = commands.entity(entity);
@@ -428,3 +435,8 @@ pub(crate) fn changed_windows(
         cache.window = window.clone();
     }
 }
+
+/// This keeps track of which keys are pressed on each window.
+/// When a window is unfocused, this is used to send key release events for all the currently held keys.
+#[derive(Default, Component)]
+pub struct WinitWindowPressedKeys(pub(crate) HashMap<KeyCode, Key>);
