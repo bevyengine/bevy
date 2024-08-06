@@ -208,7 +208,7 @@ impl Dir2 {
     /// ```
     #[inline]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
-        let angle = self.angle_between(rhs.0);
+        let angle = self.angle_to(rhs.0);
         Rot2::radians(angle * s) * self
     }
 
