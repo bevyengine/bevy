@@ -26,6 +26,8 @@ fn setup(
     let mesh_handle = meshes.add(Rectangle::from_size(Vec2::splat(256.0)));
 
     // opaque
+    // Each sprite should be square with the transparent parts being completely black
+    // The blue sprite should be on top with the white and green one behind it
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone().into(),
         material: materials.add(ColorMaterial {
@@ -57,7 +59,11 @@ fn setup(
         ..default()
     });
 
-    // transparent
+    // Test the interaction between opaque and transparent meshes
+    // The white sprite should be:
+    // - fully opaque
+    // - on top of the green sprite
+    // - behind the blue sprite
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone().into(),
         material: materials.add(ColorMaterial {
