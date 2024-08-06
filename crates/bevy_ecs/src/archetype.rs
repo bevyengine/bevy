@@ -19,11 +19,13 @@
 //! [`Table`]: crate::storage::Table
 //! [`World::archetypes`]: crate::world::World::archetypes
 
+use crate as bevy_ecs;
 use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     observer::Observers,
+    prelude::Event,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
@@ -107,6 +109,9 @@ impl ArchetypeId {
         self.0 as usize
     }
 }
+
+#[derive(Event)]
+pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum ComponentStatus {

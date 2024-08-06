@@ -1,15 +1,17 @@
 use crate::{
-    archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
+    archetype::{Archetype, ArchetypeComponentId, ArchetypeCreated, ArchetypeGeneration, ArchetypeId},
     batching::BatchingStrategy,
-    component::{ComponentId, Components, Tick},
+    component::{Component, ComponentHooks, ComponentId, Components, StorageType, Tick},
     entity::Entity,
     prelude::FromWorld,
     query::{
         Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter,
     },
+    observer::{Observer, Trigger},
     storage::{SparseSetIndex, TableId},
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
+use crate::world::DeferredWorld;
 use bevy_utils::tracing::warn;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Span;
@@ -72,6 +74,27 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
+}
+
+impl<D: QueryData + 'static, F: QueryFilter + 'static> Component for QueryState<D, F> {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks.on_add(|mut world, entity, _| {
+            let mut observer = Observer::new(|trigger: Trigger<ArchetypeCreated>,
+                                              mut world: DeferredWorld| {
+                let archetype_id: ArchetypeId = trigger.event().0;
+                let archetype_ptr: *const Archetype = world.archetypes().get(archetype_id).unwrap();
+                let mut entity = world.entity_mut(trigger.entity());
+                let mut state = entity.get_mut::<QueryState<D, F>>().unwrap();
+                unsafe {
+                    state.new_archetype(&*archetype_ptr, &mut Access::<ArchetypeComponentId>::default());
+                }
+            });
+            observer.watch_entity(entity);
+            world.commands().spawn(observer);
+        });
+    }
 }
 
 impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
