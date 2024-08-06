@@ -57,7 +57,7 @@ mod tests {
         let func = (|a: i32, b: i32| a + b + c).into_closure();
         assert_eq!(
             func.info().name(),
-            Some("bevy_reflect::func::closures::into_closure::tests::should_default_with_closure_type_name::{{closure}}")
+            "bevy_reflect::func::closures::into_closure::tests::should_default_with_closure_type_name::{{closure}}"
         );
     }
 }

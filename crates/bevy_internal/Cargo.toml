@@ -199,7 +199,11 @@ bevy_state = ["dep:bevy_state"]
 track_change_detection = ["bevy_ecs/track_change_detection"]
 
 # Enable function reflection
-reflect_functions = ["bevy_reflect/functions"]
+reflect_functions = [
+  "bevy_reflect/functions",
+  "bevy_app/reflect_functions",
+  "bevy_ecs/reflect_functions",
+]
 
 [dependencies]
 # bevy
