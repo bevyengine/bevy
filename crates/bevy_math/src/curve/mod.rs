@@ -18,16 +18,24 @@ use bevy_reflect::Reflect;
 /// of interpolable data can be represented instead (or in addition).
 pub trait Curve<T> {
     /// The interval over which this curve is parametrized.
+    ///
+    /// This is the range of values of `t` where we can sample the curve and receive valid output.
     fn domain(&self) -> Interval;
 
     /// Sample a point on this curve at the parameter value `t`, extracting the associated value.
-    fn sample(&self, t: f32) -> T;
+    /// This is the unchecked version of sampling, which should only be used if the sample time `t`
+    /// is already known to lie within the curve's domain.
+    ///
+    /// Values sampled from outside of a curve's domain are generally considered invalid; data which
+    /// is nonsensical or otherwise useless may be returned in such a circumstance, and extrapolation
+    /// beyond a curve's domain should not be relied upon.
+    fn sample_unchecked(&self, t: f32) -> T;
 
     /// Sample a point on this curve at the parameter value `t`, returning `None` if the point is
     /// outside of the curve's domain.
-    fn sample_checked(&self, t: f32) -> Option<T> {
+    fn sample(&self, t: f32) -> Option<T> {
         match self.domain().contains(t) {
-            true => Some(self.sample(t)),
+            true => Some(self.sample_unchecked(t)),
             false => None,
         }
     }
@@ -36,7 +44,7 @@ pub trait Curve<T> {
     /// domain of the curve.
     fn sample_clamped(&self, t: f32) -> T {
         let t = self.domain().clamp(t);
-        self.sample(t)
+        self.sample_unchecked(t)
     }
 
     /// Create a new curve by mapping the values of this curve via a function `f`; i.e., if the
@@ -88,7 +96,7 @@ pub trait Curve<T> {
     /// # let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
     /// # let easing_curve = constant_curve(interval(0.0, 1.0).unwrap(), vec2(1.0, 1.0));
     /// let domain = my_curve.domain();
-    /// let eased_curve = my_curve.reparametrize(domain, |t| easing_curve.sample(t).y);
+    /// let eased_curve = my_curve.reparametrize(domain, |t| easing_curve.sample_unchecked(t).y);
     /// ```
     fn reparametrize<F>(self, domain: Interval, f: F) -> ReparamCurve<T, Self, F>
     where
@@ -239,8 +247,8 @@ where
         <C as Curve<T>>::domain(self)
     }
 
-    fn sample(&self, t: f32) -> T {
-        <C as Curve<T>>::sample(self, t)
+    fn sample_unchecked(&self, t: f32) -> T {
+        <C as Curve<T>>::sample_unchecked(self, t)
     }
 }
 
@@ -290,7 +298,7 @@ where
     }
 
     #[inline]
-    fn sample(&self, _t: f32) -> T {
+    fn sample_unchecked(&self, _t: f32) -> T {
         self.value.clone()
     }
 }
@@ -333,7 +341,7 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> T {
+    fn sample_unchecked(&self, t: f32) -> T {
         (self.f)(t)
     }
 }
@@ -360,8 +368,8 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> T {
-        (self.f)(self.preimage.sample(t))
+    fn sample_unchecked(&self, t: f32) -> T {
+        (self.f)(self.preimage.sample_unchecked(t))
     }
 }
 
@@ -388,8 +396,8 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> T {
-        self.base.sample((self.f)(t))
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.base.sample_unchecked((self.f)(t))
     }
 }
 
@@ -415,9 +423,9 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> T {
+    fn sample_unchecked(&self, t: f32) -> T {
         let f = self.new_domain.linear_map_to(self.base.domain()).unwrap();
-        self.base.sample(f(t))
+        self.base.sample_unchecked(f(t))
     }
 }
 
@@ -443,9 +451,9 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> T {
-        let sample_time = self.reparam_curve.sample(t);
-        self.base.sample(sample_time)
+    fn sample_unchecked(&self, t: f32) -> T {
+        let sample_time = self.reparam_curve.sample_unchecked(t);
+        self.base.sample_unchecked(sample_time)
     }
 }
 
@@ -469,8 +477,8 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> (f32, T) {
-        (t, self.base.sample(t))
+    fn sample_unchecked(&self, t: f32) -> (f32, T) {
+        (t, self.base.sample_unchecked(t))
     }
 }
 
@@ -497,8 +505,11 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> (S, T) {
-        (self.first.sample(t), self.second.sample(t))
+    fn sample_unchecked(&self, t: f32) -> (S, T) {
+        (
+            self.first.sample_unchecked(t),
+            self.second.sample_unchecked(t),
+        )
     }
 }
 
@@ -532,14 +543,14 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> T {
+    fn sample_unchecked(&self, t: f32) -> T {
         if t > self.first.domain().end() {
-            self.second.sample(
+            self.second.sample_unchecked(
                 // `t - first.domain.end` computes the offset into the domain of the second.
                 t - self.first.domain().end() + self.second.domain().start(),
             )
         } else {
-            self.first.sample(t)
+            self.first.sample_unchecked(t)
         }
     }
 }
@@ -572,37 +583,40 @@ mod tests {
     #[test]
     fn constant_curves() {
         let curve = constant_curve(everywhere(), 5.0);
-        assert!(curve.sample(-35.0) == 5.0);
+        assert!(curve.sample_unchecked(-35.0) == 5.0);
 
         let curve = constant_curve(interval(0.0, 1.0).unwrap(), true);
-        assert!(curve.sample(2.0));
-        assert!(curve.sample_checked(2.0).is_none());
+        assert!(curve.sample_unchecked(2.0));
+        assert!(curve.sample(2.0).is_none());
     }
 
     #[test]
     fn function_curves() {
         let curve = function_curve(everywhere(), |t| t * t);
-        assert!(curve.sample(2.0).abs_diff_eq(&4.0, f32::EPSILON));
-        assert!(curve.sample(-3.0).abs_diff_eq(&9.0, f32::EPSILON));
+        assert!(curve.sample_unchecked(2.0).abs_diff_eq(&4.0, f32::EPSILON));
+        assert!(curve.sample_unchecked(-3.0).abs_diff_eq(&9.0, f32::EPSILON));
 
         let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), f32::log2);
-        assert_eq!(curve.sample(3.5), f32::log2(3.5));
-        assert!(curve.sample(-1.0).is_nan());
-        assert!(curve.sample_checked(-1.0).is_none());
+        assert_eq!(curve.sample_unchecked(3.5), f32::log2(3.5));
+        assert!(curve.sample_unchecked(-1.0).is_nan());
+        assert!(curve.sample(-1.0).is_none());
     }
 
     #[test]
     fn mapping() {
         let curve = function_curve(everywhere(), |t| t * 3.0 + 1.0);
         let mapped_curve = curve.map(|x| x / 7.0);
-        assert_eq!(mapped_curve.sample(3.5), (3.5 * 3.0 + 1.0) / 7.0);
-        assert_eq!(mapped_curve.sample(-1.0), (-1.0 * 3.0 + 1.0) / 7.0);
+        assert_eq!(mapped_curve.sample_unchecked(3.5), (3.5 * 3.0 + 1.0) / 7.0);
+        assert_eq!(
+            mapped_curve.sample_unchecked(-1.0),
+            (-1.0 * 3.0 + 1.0) / 7.0
+        );
         assert_eq!(mapped_curve.domain(), everywhere());
 
         let curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * TAU);
         let mapped_curve = curve.map(Quat::from_rotation_z);
-        assert_eq!(mapped_curve.sample(0.0), Quat::IDENTITY);
-        assert!(mapped_curve.sample(1.0).is_near_identity());
+        assert_eq!(mapped_curve.sample_unchecked(0.0), Quat::IDENTITY);
+        assert!(mapped_curve.sample_unchecked(1.0).is_near_identity());
         assert_eq!(mapped_curve.domain(), interval(0.0, 1.0).unwrap());
     }
 
@@ -612,8 +626,8 @@ mod tests {
         let reparametrized_curve = curve
             .by_ref()
             .reparametrize(interval(0.0, f32::INFINITY).unwrap(), f32::exp2);
-        assert_abs_diff_eq!(reparametrized_curve.sample(3.5), 3.5);
-        assert_abs_diff_eq!(reparametrized_curve.sample(100.0), 100.0);
+        assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(3.5), 3.5);
+        assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(100.0), 100.0);
         assert_eq!(
             reparametrized_curve.domain(),
             interval(0.0, f32::INFINITY).unwrap()
@@ -622,8 +636,8 @@ mod tests {
         let reparametrized_curve = curve
             .by_ref()
             .reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
-        assert_abs_diff_eq!(reparametrized_curve.sample(0.0), 0.0);
-        assert_abs_diff_eq!(reparametrized_curve.sample(1.0), 1.0);
+        assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(0.0), 0.0);
+        assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(1.0), 1.0);
         assert_eq!(reparametrized_curve.domain(), interval(0.0, 1.0).unwrap());
     }
 
@@ -633,9 +647,9 @@ mod tests {
         let curve = function_curve(interval(0.0, 1.0).unwrap(), f32::exp2);
         let first_mapped = curve.map(f32::log2);
         let second_mapped = first_mapped.map(|x| x * -2.0);
-        assert_abs_diff_eq!(second_mapped.sample(0.0), 0.0);
-        assert_abs_diff_eq!(second_mapped.sample(0.5), -1.0);
-        assert_abs_diff_eq!(second_mapped.sample(1.0), -2.0);
+        assert_abs_diff_eq!(second_mapped.sample_unchecked(0.0), 0.0);
+        assert_abs_diff_eq!(second_mapped.sample_unchecked(0.5), -1.0);
+        assert_abs_diff_eq!(second_mapped.sample_unchecked(1.0), -2.0);
     }
 
     #[test]
@@ -644,8 +658,8 @@ mod tests {
         let curve = function_curve(interval(0.0, 1.0).unwrap(), f32::exp2);
         let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), f32::log2);
         let second_reparam = first_reparam.reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
-        assert_abs_diff_eq!(second_reparam.sample(0.0), 1.0);
-        assert_abs_diff_eq!(second_reparam.sample(0.5), 1.5);
-        assert_abs_diff_eq!(second_reparam.sample(1.0), 2.0);
+        assert_abs_diff_eq!(second_reparam.sample_unchecked(0.0), 1.0);
+        assert_abs_diff_eq!(second_reparam.sample_unchecked(0.5), 1.5);
+        assert_abs_diff_eq!(second_reparam.sample_unchecked(1.0), 2.0);
     }
 }
