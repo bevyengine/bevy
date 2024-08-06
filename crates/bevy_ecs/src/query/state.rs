@@ -341,16 +341,55 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
-        let archetypes = world.archetypes();
-        let old_generation =
-            std::mem::replace(&mut self.archetype_generation, archetypes.generation());
+        if self.component_access.required.is_empty() {
+            let archetypes = world.archetypes();
+            let old_generation =
+                std::mem::replace(&mut self.archetype_generation, archetypes.generation());
 
-        for archetype in &archetypes[old_generation..] {
-            // SAFETY: The validate_world call ensures that the world is the same the QueryState
-            // was initialized from.
-            unsafe {
-                self.new_archetype_internal(archetype);
+            for archetype in &archetypes[old_generation..] {
+                // SAFETY: The validate_world call ensures that the world is the same the QueryState
+                // was initialized from.
+                unsafe {
+                    self.new_archetype_internal(archetype);
+                }
             }
+        } else {
+            // skip if we are already up to date
+            if self.archetype_generation == world.archetypes().generation() {
+                return;
+            }
+            // if there are required components, we can optimize by only iterating through archetypes
+            // that contain at least one of the required components
+            let potential_archetypes = self
+                .component_access
+                .required
+                .ones()
+                .filter_map(|idx| {
+                    let component_id = ComponentId::get_sparse_set_index(idx);
+                    world
+                        .archetypes()
+                        .component_index()
+                        .get(&component_id)
+                        .map(|index| index.keys())
+                })
+                // select the component with the fewest archetypes
+                .min_by_key(std::iter::ExactSizeIterator::len);
+            if let Some(archetypes) = potential_archetypes {
+                for archetype_id in archetypes {
+                    // exclude archetypes that have already been processed
+                    if archetype_id < &self.archetype_generation.0 {
+                        continue;
+                    }
+                    // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
+                    let archetype = &world.archetypes()[*archetype_id];
+                    // SAFETY: The validate_world call ensures that the world is the same the QueryState
+                    // was initialized from.
+                    unsafe {
+                        self.new_archetype_internal(archetype);
+                    }
+                }
+            }
+            self.archetype_generation = world.archetypes().generation();
         }
     }
 
@@ -1540,7 +1579,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, D> {
         match self.get_single(world) {
             Ok(items) => items,
-            Err(error) => panic!("Cannot get single mutable query result: {error}"),
+            Err(error) => panic!("Cannot get single query result: {error}"),
         }
     }
 
