@@ -3355,3 +3355,14 @@ panic = "abort"
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+
+[[example]]
+name = "monitor_info"
+path = "examples/window/monitor_info.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.monitor_info]
+name = "Monitor info"
+description = "Displays information about available monitors (displays)."
+category = "Window"
+wasm = false
