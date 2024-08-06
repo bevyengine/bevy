@@ -83,7 +83,7 @@ impl SoundEffects {
                 settings,
             });
         } else {
-            warn!("Sound effect not found: {}", name);
+            warn!("Sound effect not found: {name}");
         }
     }
 }
