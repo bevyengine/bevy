@@ -527,7 +527,7 @@ pub struct Material2dProperties {
     /// The bits in the [`Mesh2dPipelineKey`] for this material.
     ///
     /// These are precalculated so that we can just "or" them together in
-    /// [`queue_material_meshes`].
+    /// [`queue_material2d_meshes`].
     pub mesh_pipeline_key_bits: Mesh2dPipelineKey,
 }
 
