@@ -15,7 +15,7 @@ use bevy_reflect::Reflect;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 /// Typical examples of this are actual geometric curves where `T: VectorSpace`, but other kinds
-/// of interpolable data can be represented instead (or in addition).
+/// of interpolable data can be represented as well.
 pub trait Curve<T> {
     /// The interval over which this curve is parametrized.
     ///

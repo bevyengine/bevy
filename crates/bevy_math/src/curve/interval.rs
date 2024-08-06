@@ -142,7 +142,7 @@ impl Interval {
         Ok(Either::Right(iter))
     }
 
-    /// Get the linear map which maps this curve onto the `other` one. Returns an error if either
+    /// Get the linear function which maps this interval onto the `other` one. Returns an error if either
     /// interval is infinite.
     #[inline]
     pub(super) fn linear_map_to(
