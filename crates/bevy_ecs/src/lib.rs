@@ -1420,8 +1420,8 @@ mod tests {
         let mut expected = FilteredAccess::<ComponentId>::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
         let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
-        expected.add_write(a_id);
-        expected.add_read(b_id);
+        expected.add_component_write(a_id);
+        expected.add_component_read(b_id);
         assert!(
             query.component_access.eq(&expected),
             "ComponentId access from query fetch and query filter should be combined"
