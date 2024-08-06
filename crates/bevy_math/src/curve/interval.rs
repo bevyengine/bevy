@@ -3,6 +3,7 @@
 use itertools::Either;
 use std::{
     cmp::{max_by, min_by},
+    f32::{INFINITY, NEG_INFINITY},
     ops::RangeInclusive,
 };
 use thiserror::Error;
@@ -47,6 +48,12 @@ impl Interval {
             Ok(Self { start, end })
         }
     }
+
+    /// An interval which stretches across the entire real line from negative infinity to infinity.
+    pub const EVERYWHERE: Self = Self {
+        start: NEG_INFINITY,
+        end: INFINITY,
+    };
 
     /// Get the start of this interval.
     #[inline]
@@ -161,12 +168,6 @@ impl TryFrom<RangeInclusive<f32>> for Interval {
 #[inline]
 pub fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalError> {
     Interval::new(start, end)
-}
-
-/// The [`Interval`] from negative infinity to infinity.
-#[inline]
-pub fn everywhere() -> Interval {
-    Interval::new(f32::NEG_INFINITY, f32::INFINITY).unwrap()
 }
 
 #[cfg(test)]

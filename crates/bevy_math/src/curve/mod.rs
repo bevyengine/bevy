@@ -4,7 +4,7 @@
 
 pub mod interval;
 
-pub use interval::{everywhere, interval, Interval};
+pub use interval::{interval, Interval};
 
 use interval::{InfiniteIntervalError, InvalidIntervalError};
 use std::{marker::PhantomData, ops::Deref};
@@ -582,7 +582,7 @@ mod tests {
 
     #[test]
     fn constant_curves() {
-        let curve = constant_curve(everywhere(), 5.0);
+        let curve = constant_curve(Interval::EVERYWHERE, 5.0);
         assert!(curve.sample_unchecked(-35.0) == 5.0);
 
         let curve = constant_curve(interval(0.0, 1.0).unwrap(), true);
@@ -592,7 +592,7 @@ mod tests {
 
     #[test]
     fn function_curves() {
-        let curve = function_curve(everywhere(), |t| t * t);
+        let curve = function_curve(Interval::EVERYWHERE, |t| t * t);
         assert!(curve.sample_unchecked(2.0).abs_diff_eq(&4.0, f32::EPSILON));
         assert!(curve.sample_unchecked(-3.0).abs_diff_eq(&9.0, f32::EPSILON));
 
@@ -604,14 +604,14 @@ mod tests {
 
     #[test]
     fn mapping() {
-        let curve = function_curve(everywhere(), |t| t * 3.0 + 1.0);
+        let curve = function_curve(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
         let mapped_curve = curve.map(|x| x / 7.0);
         assert_eq!(mapped_curve.sample_unchecked(3.5), (3.5 * 3.0 + 1.0) / 7.0);
         assert_eq!(
             mapped_curve.sample_unchecked(-1.0),
             (-1.0 * 3.0 + 1.0) / 7.0
         );
-        assert_eq!(mapped_curve.domain(), everywhere());
+        assert_eq!(mapped_curve.domain(), Interval::EVERYWHERE);
 
         let curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * TAU);
         let mapped_curve = curve.map(Quat::from_rotation_z);
