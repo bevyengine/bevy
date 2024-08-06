@@ -74,6 +74,7 @@ pub mod prelude {
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::world::EntityMut;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -1387,6 +1388,26 @@ mod tests {
     fn mut_and_entity_ref_query_panic() {
         let mut world = World::new();
         world.query::<(&mut A, EntityRef)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn entity_ref_and_entity_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityRef, EntityMut)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn entity_mut_and_entity_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityMut, EntityMut)>();
+    }
+
+    #[test]
+    fn entity_ref_and_entity_ref_query_no_panic() {
+        let mut world = World::new();
+        world.query::<(EntityRef, EntityRef)>();
     }
 
     #[test]
