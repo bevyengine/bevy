@@ -1,4 +1,4 @@
-//! Used to test transforms with mesh2d
+//! This example is used to test how transforms interact with alpha modes for [`MaterialMesh2dBundle`] entities.
 //! This makes sure the depth buffer is correctly being used for opaque and transparent 2d meshes
 
 use bevy::{
