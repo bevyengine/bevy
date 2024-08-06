@@ -37,7 +37,8 @@ pub struct InfiniteIntervalError;
 
 impl Interval {
     /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be infinite
-    /// but cannot be empty and neither endpoint can be NaN; invalid parameters will result in an error.
+    /// but cannot be empty (so `start` must be less than `end`) and neither endpoint can be NaN; invalid
+    /// parameters will result in an error.
     #[inline]
     pub fn new(start: f32, end: f32) -> Result<Self, InvalidIntervalError> {
         if start >= end || start.is_nan() || end.is_nan() {
@@ -79,15 +80,15 @@ impl Interval {
         self.length().is_finite()
     }
 
-    /// Returns `true` if this interval has a finite left endpoint.
+    /// Returns `true` if this interval has a finite start.
     #[inline]
-    pub fn is_left_finite(self) -> bool {
+    pub fn has_finite_start(self) -> bool {
         self.start.is_finite()
     }
 
-    /// Returns `true` if this interval has a finite right endpoint.
+    /// Returns `true` if this interval has a finite end.
     #[inline]
-    pub fn is_right_finite(self) -> bool {
+    pub fn has_finite_end(self) -> bool {
         self.end.is_finite()
     }
 
@@ -97,7 +98,9 @@ impl Interval {
         (self.start..=self.end).contains(&item)
     }
 
-    /// Returns `true` if the other interval is contained in this interval (non-strictly).
+    /// Returns `true` if the other interval is contained in this interval.
+    ///
+    /// This is non-strict: each interval will contain itself.
     #[inline]
     pub fn contains_interval(self, other: Self) -> bool {
         self.start <= other.start && self.end >= other.end

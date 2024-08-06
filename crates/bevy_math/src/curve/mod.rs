@@ -60,13 +60,12 @@ pub trait Curve<T> {
     /// function `f` is expected to take `domain` into `self.domain()`.
     ///
     /// Note that this is the opposite of what one might expect intuitively; for example, if this
-    /// curve has a parameter interval of `[0, 1]`, then linearly mapping the parameter domain to
+    /// curve has a parameter domain of `[0, 1]`, then stretching the parameter domain to
     /// `[0, 2]` would be performed as follows, dividing by what might be perceived as the scaling
     /// factor rather than multiplying:
     /// ```
     /// # use bevy_math::curve::*;
     /// let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
-    /// let domain = my_curve.domain();
     /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
@@ -128,9 +127,10 @@ pub trait Curve<T> {
 
     /// Reparametrize this [`Curve`] by sampling from another curve.
     ///
-    /// TODO: Figure out what the right signature for this is; currently, this is less flexible than
-    /// just using `C`, because `&C` is a curve anyway, but this version probably footguns less.
-    fn reparametrize_by_curve<C>(self, other: &C) -> CurveReparamCurve<T, Self, &C>
+    /// The resulting curve samples at time `t` by first sampling `other` at time `t`, which produces
+    /// another sample time `s` which is then used to sample this curve. The domain of the resulting
+    /// curve is the domain of `other`.
+    fn reparametrize_by_curve<C>(self, other: C) -> CurveReparamCurve<T, Self, C>
     where
         Self: Sized,
         C: Curve<f32>,
@@ -142,9 +142,12 @@ pub trait Curve<T> {
         }
     }
 
-    /// Create a new [`Curve`] which is the graph of this one; that is, its output includes the
-    /// parameter itself in the samples. For example, if this curve outputs `x` at time `t`, then
-    /// the produced curve will produce `(t, x)` at time `t`.
+    /// Create a new [`Curve`] which is the graph of this one; that is, its output echoes the sample
+    /// time as part of a tuple.
+    ///
+    /// For example, if this curve outputs `x` at time `t`, then the produced curve will produce
+    /// `(t, x)` at time `t`. In particular, if this curve is a `Curve<T>`, the output of this method
+    /// is a `Curve<(f32, T)>`.
     fn graph(self) -> GraphCurve<T, Self>
     where
         Self: Sized,
@@ -155,11 +158,12 @@ pub trait Curve<T> {
         }
     }
 
-    /// Create a new [`Curve`] by zipping this curve together with another. The sample at time `t`
-    /// in the new curve is `(x, y)`, where `x` is the sample of `self` at time `t` and `y` is the
-    /// sample of `other` at time `t`. The domain of the new curve is the intersection of the
-    /// domains of its constituents. If the domain intersection would be empty, an
-    /// [`InvalidIntervalError`] is returned.
+    /// Create a new [`Curve`] by zipping this curve together with another.
+    ///
+    /// The sample at time `t` in the new curve is `(x, y)`, where `x` is the sample of `self` at
+    /// time `t` and `y` is the sample of `other` at time `t`. The domain of the new curve is the
+    /// intersection of the domains of its constituents. If the domain intersection would be empty,
+    /// an [`InvalidIntervalError`] is returned.
     fn zip<S, C>(self, other: C) -> Result<ProductCurve<T, S, Self, C>, InvalidIntervalError>
     where
         Self: Sized,
@@ -183,11 +187,11 @@ pub trait Curve<T> {
         Self: Sized,
         C: Curve<T>,
     {
-        if !self.domain().is_right_finite() {
-            return Err(ChainError::RightInfiniteFirst);
+        if !self.domain().has_finite_end() {
+            return Err(ChainError::FirstEndInfinite);
         }
-        if !other.domain().is_left_finite() {
-            return Err(ChainError::LeftInfiniteSecond);
+        if !other.domain().has_finite_start() {
+            return Err(ChainError::SecondStartInfinite);
         }
         Ok(ChainCurve {
             first: self,
@@ -246,21 +250,34 @@ where
 #[error("Could not compose these curves together")]
 pub enum ChainError {
     /// The right endpoint of the first curve was infinite.
-    #[error("The first curve has an infinite right endpoint")]
-    RightInfiniteFirst,
+    #[error("The first curve's domain has an infinite end")]
+    FirstEndInfinite,
 
     /// The left endpoint of the second curve was infinite.
-    #[error("The second curve has an infinite left endpoint")]
-    LeftInfiniteSecond,
+    #[error("The second curve's domain has an infinite start")]
+    SecondStartInfinite,
 }
 
-/// A curve which takes a constant value over its domain.
+/// A curve with a constant value over its domain.
+///
+/// This is a curve that holds an inner value and always produces a clone of that value when sampled.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ConstantCurve<T> {
     domain: Interval,
     value: T,
+}
+
+impl<T> ConstantCurve<T>
+where
+    T: Clone,
+{
+    /// Create a constant curve, which has the given `domain` and always produces the given `value`
+    /// when sampled.
+    pub fn new(domain: Interval, value: T) -> Self {
+        Self { domain, value }
+    }
 }
 
 impl<T> Curve<T> for ConstantCurve<T>
@@ -278,7 +295,10 @@ where
     }
 }
 
-/// A curve defined by a function.
+/// A curve defined by a function together with a fixed domain.
+///
+/// This is a curve that holds an inner function `f` which takes numbers (`f32`) as input and produces
+/// output of type `T`. The value of this curve when sampled at time `t` is just `f(t)`.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -286,6 +306,21 @@ pub struct FunctionCurve<T, F> {
     domain: Interval,
     f: F,
     _phantom: PhantomData<T>,
+}
+
+impl<T, F> FunctionCurve<T, F>
+where
+    F: Fn(f32) -> T,
+{
+    /// Create a new curve with the given `domain` from the given `function`. When sampled, the
+    /// `function` is evaluated at the sample time to compute the output.
+    pub fn new(domain: Interval, function: F) -> Self {
+        FunctionCurve {
+            domain,
+            f: function,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<T, F> Curve<T> for FunctionCurve<T, F>
@@ -304,7 +339,7 @@ where
 }
 
 /// A curve whose samples are defined by mapping samples from another curve through a
-/// given function.
+/// given function. Curves of this type are produced by [`Curve::map`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -331,6 +366,7 @@ where
 }
 
 /// A curve whose sample space is mapped onto that of some base curve's before sampling.
+/// Curves of this type are produced by [`Curve::reparametrize`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -357,7 +393,8 @@ where
     }
 }
 
-/// A curve that has had its domain altered by a linear remapping.
+/// A curve that has had its domain changed by a linear reparametrization (stretching and scaling).
+/// Curves of this type are produced by [`Curve::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -385,7 +422,7 @@ where
 }
 
 /// A curve that has been reparametrized by another curve, using that curve to transform the
-/// sample times before sampling.
+/// sample times before sampling. Curves of this type are produced by [`Curve::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -412,7 +449,8 @@ where
     }
 }
 
-/// A curve that is the graph of another curve over its parameter space.
+/// A curve that is the graph of another curve over its parameter space. Curves of this type are
+/// produced by [`Curve::graph`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -436,7 +474,8 @@ where
     }
 }
 
-/// A curve that combines the data from two constituent curves into a tuple output type.
+/// A curve that combines the output data from two constituent curves into a tuple output. Curves
+/// of this type are produced by [`Curve::zip`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -468,6 +507,8 @@ where
 ///
 /// For this to be well-formed, the first curve's domain must be right-finite and the second's
 /// must be left-finite.
+///
+/// Curves of this type are produced by [`Curve::chain`].
 pub struct ChainCurve<T, C, D> {
     first: C,
     second: D,
