@@ -17,7 +17,7 @@ pub struct SpotLight {
 
     /// Range in meters that this light illuminates.
     ///
-    /// Note that this value affects resolution the shadow maps; generally, the
+    /// Note that this value affects resolution of the shadow maps; generally, the
     /// higher you set it, the lower-resolution your shadow maps will be.
     /// Consequently, you should set this value to be only the size that you need.
     pub range: f32,
@@ -64,7 +64,7 @@ pub struct SpotLight {
     /// away.
     pub shadow_normal_bias: f32,
 
-    /// The distance from the light to near Z plane in the shadow map.
+    /// The distance from the light to the near Z plane in the shadow map.
     ///
     /// Objects closer than this distance to the light won't cast shadows.
     /// Setting this higher increases the shadow map's precision.
