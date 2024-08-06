@@ -487,14 +487,14 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn get_conflicts(&self, other: &Access<T>) -> AccessConflicts {
         let mut conflicts = FixedBitSet::new();
         if self.reads_all_components {
-            if other.writes_all {
+            if other.writes_all_components {
                 return AccessConflicts::All;
             }
             conflicts.extend(other.component_writes.ones());
         }
 
         if other.reads_all_components {
-            if self.writes_all {
+            if self.writes_all_components {
                 return AccessConflicts::All;
             }
             conflicts.extend(self.component_writes.ones());
@@ -508,21 +508,19 @@ impl<T: SparseSetIndex> Access<T> {
             conflicts.extend(self.component_read_and_writes.ones());
         }
         if self.reads_all_resources {
-            // QUESTION: How to handle `other.writes_all`?
-            if other.reads_all {
+            if other.reads_all_resources {
                 return AccessConflicts::All;
             }
             conflicts.extend(other.resource_writes.ones());
         }
 
         if other.reads_all_resources {
-            // QUESTION: How to handle `self.writes_all`.
-            if self.reads_all {
+            if self.reads_all_resources {
                 return AccessConflicts::All;
             }
             conflicts.extend(self.resource_writes.ones());
         }
-if self.writes_all_resources {
+        if self.writes_all_resources {
             conflicts.extend(other.resource_read_and_writes.ones());
         }
 
