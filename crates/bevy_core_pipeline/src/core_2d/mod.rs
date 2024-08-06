@@ -272,14 +272,13 @@ pub fn extract_core_2d_camera_phases(
 pub fn prepare_core_2d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: ResMut<ViewSortedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera), (With<Camera2d>,)>,
+    views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera) in &views_2d {
+    for (entity, camera, msaa) in &views_2d {
         if !opaque_2d_phases.contains_key(&entity) || !transparent_2d_phases.contains_key(&entity) {
             continue;
         };

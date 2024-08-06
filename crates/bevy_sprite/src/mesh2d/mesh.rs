@@ -1,7 +1,7 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
-use bevy_core_pipeline::core_2d::{Camera2d, Transparent2d};
+use bevy_core_pipeline::core_2d::{Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT};
 use bevy_core_pipeline::tonemapping::{
     get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
 };
@@ -30,8 +30,7 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, FallbackImage, GpuImage, Image, ImageSampler,
-        TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
