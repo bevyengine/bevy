@@ -2077,7 +2077,7 @@ mod tests {
 
         let mut query = world
             .query_filtered::<&Dense, With<Sparse>>()
-            .transmute::<&Dense>(world.components());
+            .transmute::<&Dense>(&world);
 
         let matched = query.iter(&world).count();
         assert_eq!(matched, 1);
@@ -2098,7 +2098,7 @@ mod tests {
 
         let mut query = world
             .query::<&Dense>()
-            .transmute_filtered::<&Dense, With<Sparse>>(world.components());
+            .transmute_filtered::<&Dense, With<Sparse>>(&world);
 
         // Note: `transmute_filtered` is supposed to keep the same matched tables/archetypes,
         // so it doesn't actually filter out those entities without `Sparse` and the iteration
