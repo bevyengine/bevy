@@ -52,12 +52,9 @@ mod tests {
     }
 
     #[test]
-    fn should_default_with_closure_type_name() {
+    fn should_default_closure_name_to_none() {
         let c = 23;
         let func = (|a: i32, b: i32| a + b + c).into_closure();
-        assert_eq!(
-            func.info().name(),
-            "bevy_reflect::func::closures::into_closure::tests::should_default_with_closure_type_name::{{closure}}"
-        );
+        assert_eq!(func.info().name(), None);
     }
 }

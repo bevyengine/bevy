@@ -107,6 +107,8 @@ impl FunctionRegistry {
     ///
     /// You can change the name of the function using [`DynamicFunction::with_name`].
     ///
+    /// Returns an error if the function is missing a name.
+    ///
     /// # Examples
     ///
     /// ```
@@ -143,13 +145,29 @@ impl FunctionRegistry {
     /// registry.register_dynamic(two.into_function().with_name("my_function")).unwrap();
     /// ```
     ///
+    /// Names must also be present on the function.
+    ///
+    /// ```should_panic
+    /// # use bevy_reflect::func::{DynamicFunction, FunctionRegistry, IntoFunction};
+    ///
+    /// let anonymous = || -> i32 { 123 };
+    ///
+    /// let mut registry = FunctionRegistry::default();
+    ///
+    /// // Panic! The function is missing a name
+    /// registry.register_dynamic(anonymous.into_function()).unwrap();
+    /// ```
+    ///
     /// [name]: DynamicFunction::name
     /// [`overwrite_registration_dynamic`]: Self::overwrite_registration_dynamic
     pub fn register_dynamic(
         &mut self,
         function: DynamicFunction,
     ) -> Result<&mut Self, FunctionRegistrationError> {
-        let name = function.name().clone();
+        let name = function
+            .name()
+            .ok_or(FunctionRegistrationError::MissingName)?
+            .clone();
         self.functions
             .try_insert(name, function)
             .map_err(|err| FunctionRegistrationError::DuplicateName(err.entry.key().clone()))?;
@@ -178,11 +196,20 @@ impl FunctionRegistry {
         &mut self,
         name: impl Into<Cow<'static, str>>,
         function: F,
-    ) where
+    ) -> Option<DynamicFunction>
+    where
         F: IntoFunction<Marker> + 'static,
     {
         let function = function.into_function().with_name(name);
-        self.overwrite_registration_dynamic(function);
+        match self.overwrite_registration_dynamic(function) {
+            Ok(existing) => existing,
+            Err(FunctionRegistrationError::MissingName) => {
+                unreachable!("the function should have a name")
+            }
+            Err(FunctionRegistrationError::DuplicateName(_)) => {
+                unreachable!("should overwrite functions with the same name")
+            }
+        }
     }
 
     /// Registers the given [`DynamicFunction`], overwriting any existing registration.
@@ -194,11 +221,20 @@ impl FunctionRegistry {
     /// To avoid overwriting existing registrations,
     /// it's recommended to use the [`register_dynamic`] method instead.
     ///
+    /// Returns an error if the function is missing a name.
+    ///
     /// [name]: DynamicFunction::name
     /// [`register_dynamic`]: Self::register_dynamic
-    pub fn overwrite_registration_dynamic(&mut self, function: DynamicFunction) {
-        let name = function.name().clone();
-        self.functions.insert(name, function);
+    pub fn overwrite_registration_dynamic(
+        &mut self,
+        function: DynamicFunction,
+    ) -> Result<Option<DynamicFunction>, FunctionRegistrationError> {
+        let name = function
+            .name()
+            .ok_or(FunctionRegistrationError::MissingName)?
+            .clone();
+
+        Ok(self.functions.insert(name, function))
     }
 
     /// Get a reference to a registered function by [name].
@@ -343,13 +379,30 @@ mod tests {
 
         let mut registry = FunctionRegistry::default();
         registry.register(name, foo).unwrap();
-        registry.overwrite_registration_dynamic(bar.into_function().with_name(name));
+        registry
+            .overwrite_registration_dynamic(bar.into_function().with_name(name))
+            .unwrap();
 
         assert_eq!(registry.len(), 1);
 
         let function = registry.get(std::any::type_name_of_val(&foo)).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.downcast_ref::<i32>(), Some(&321));
+    }
+
+    #[test]
+    fn should_error_on_missing_name() {
+        let foo = || -> i32 { 123 };
+
+        let function = foo.into_function();
+
+        let mut registry = FunctionRegistry::default();
+        let result = registry.register_dynamic(function);
+
+        assert!(matches!(
+            result,
+            Err(FunctionRegistrationError::MissingName)
+        ));
     }
 
     #[test]

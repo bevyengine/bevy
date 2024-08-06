@@ -36,4 +36,7 @@ pub enum FunctionRegistrationError {
     /// Contains the duplicate function name.
     #[error("a function has already been registered with name {0:?}")]
     DuplicateName(Cow<'static, str>),
+    /// The function is missing a name by which it can be registered.
+    #[error("function name is missing")]
+    MissingName,
 }
