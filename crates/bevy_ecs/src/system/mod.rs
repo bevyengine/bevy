@@ -1496,7 +1496,7 @@ mod tests {
         assert_eq!(
             system
                 .archetype_component_access()
-                .reads()
+                .component_reads()
                 .collect::<HashSet<_>>(),
             expected_ids
         );
@@ -1526,7 +1526,7 @@ mod tests {
         assert_eq!(
             system
                 .archetype_component_access()
-                .reads()
+                .component_reads()
                 .collect::<HashSet<_>>(),
             expected_ids
         );
@@ -1544,7 +1544,7 @@ mod tests {
         assert_eq!(
             system
                 .archetype_component_access()
-                .reads()
+                .component_reads()
                 .collect::<HashSet<_>>(),
             expected_ids
         );

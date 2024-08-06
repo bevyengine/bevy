@@ -129,7 +129,7 @@ impl<'env> DynamicClosure<'env> {
 /// Names for arguments and the closure itself are optional and will default to `_` if not provided.
 impl<'env> Debug for DynamicClosure<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.info.name().unwrap_or("_");
+        let name = self.info.name();
         write!(f, "DynamicClosure(fn {name}(")?;
 
         for (index, arg) in self.info.args().iter().enumerate() {
@@ -164,7 +164,7 @@ mod tests {
         let func = (|a: i32, b: i32| a + b + c)
             .into_closure()
             .with_name("my_closure");
-        assert_eq!(func.info().name(), Some("my_closure"));
+        assert_eq!(func.info().name(), "my_closure");
     }
 
     #[test]

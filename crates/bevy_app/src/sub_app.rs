@@ -408,6 +408,21 @@ impl SubApp {
         registry.write().register_type_data::<T, D>();
         self
     }
+
+    /// See [`App::register_function`].
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function<F, Marker>(
+        &mut self,
+        name: impl Into<std::borrow::Cow<'static, str>>,
+        function: F,
+    ) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+    {
+        let registry = self.world.resource_mut::<AppFunctionRegistry>();
+        registry.write().register(name, function).unwrap();
+        self
+    }
 }
 
 /// The collection of sub-apps that belong to an [`App`].
