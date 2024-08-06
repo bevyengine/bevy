@@ -478,6 +478,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                         mut adapters,
                         mut handlers,
                         accessibility_requested,
+                        monitors,
                     ) = create_window.get_mut(self.world_mut());
 
                     let winit_window = winit_windows.create_window(
@@ -487,6 +488,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                         &mut adapters,
                         &mut handlers,
                         &accessibility_requested,
+                        &monitors,
                     );
 
                     let wrapper = RawHandleWrapper::new(winit_window).unwrap();
