@@ -508,14 +508,14 @@ impl<T: SparseSetIndex> Access<T> {
             conflicts.extend(self.component_read_and_writes.ones());
         }
         if self.reads_all_resources {
-            if other.reads_all_resources {
+            if other.writes_all_resources {
                 return AccessConflicts::All;
             }
             conflicts.extend(other.resource_writes.ones());
         }
 
         if other.reads_all_resources {
-            if self.reads_all_resources {
+            if self.writes_all_resources {
                 return AccessConflicts::All;
             }
             conflicts.extend(self.resource_writes.ones());
