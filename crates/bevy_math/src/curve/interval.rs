@@ -3,7 +3,6 @@
 use itertools::Either;
 use std::{
     cmp::{max_by, min_by},
-    f32::{INFINITY, NEG_INFINITY},
     ops::RangeInclusive,
 };
 use thiserror::Error;
@@ -51,8 +50,8 @@ impl Interval {
 
     /// An interval which stretches across the entire real line from negative infinity to infinity.
     pub const EVERYWHERE: Self = Self {
-        start: NEG_INFINITY,
-        end: INFINITY,
+        start: f32::NEG_INFINITY,
+        end: f32::INFINITY,
     };
 
     /// Get the start of this interval.
@@ -222,7 +221,7 @@ mod tests {
         let ivl = interval(f32::NEG_INFINITY, 0.0).unwrap();
         assert_eq!(ivl.length(), f32::INFINITY);
 
-        let ivl = everywhere();
+        let ivl = Interval::EVERYWHERE;
         assert_eq!(ivl.length(), f32::INFINITY);
     }
 
@@ -233,7 +232,7 @@ mod tests {
         let ivl3 = interval(-3.0, 0.0).unwrap();
         let ivl4 = interval(0.0, f32::INFINITY).unwrap();
         let ivl5 = interval(f32::NEG_INFINITY, 0.0).unwrap();
-        let ivl6 = everywhere();
+        let ivl6 = Interval::EVERYWHERE;
 
         assert!(ivl1
             .intersect(ivl2)
@@ -275,7 +274,7 @@ mod tests {
 
     #[test]
     fn finiteness() {
-        assert!(!everywhere().is_finite());
+        assert!(!Interval::EVERYWHERE.is_finite());
         assert!(interval(0.0, 3.5e5).unwrap().is_finite());
         assert!(!interval(-2.0, f32::INFINITY).unwrap().is_finite());
         assert!(!interval(f32::NEG_INFINITY, 5.0).unwrap().is_finite());
@@ -291,7 +290,7 @@ mod tests {
             && f(1.0).abs_diff_eq(&0.5, f32::EPSILON)));
 
         let ivl1 = interval(0.0, 1.0).unwrap();
-        let ivl2 = everywhere();
+        let ivl2 = Interval::EVERYWHERE;
         assert!(ivl1.linear_map_to(ivl2).is_err());
 
         let ivl1 = interval(f32::NEG_INFINITY, -4.0).unwrap();
