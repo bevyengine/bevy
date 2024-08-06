@@ -97,6 +97,8 @@ pub struct QueryState<D: QueryData, F: QueryFilter = (), M: QueryStaticMarker = 
     pub(super) matched_storage_ids: Vec<StorageId>,
     /// Whether the iteration will be dense or sparse. Needed to disambiguate whether
     /// `matched_storage_ids` holds [`TableId`]s or [`ArchetypeId`]s.
+    /// When `M::IS_STATIC`` is true this is guaranteed to be the same as `D::IS_DENSE && F::IS_DENSE`,
+    /// so that can be used instead to avoid a runtime branch.
     pub(super) is_dense: bool,
     pub(crate) fetch_state: D::State,
     pub(crate) filter_state: F::State,
@@ -2144,7 +2146,7 @@ mod tests {
 
         let mut query = world
             .query_filtered::<&Dense, With<Sparse>>()
-            .transmute::<&Dense>(world.components());
+            .transmute::<&Dense>(&world);
 
         let matched = query.iter(&world).count();
         assert_eq!(matched, 1);

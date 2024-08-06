@@ -1648,15 +1648,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize, M: QueryStaticMarker>
 }
 
 struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker> {
+    // Mirrors the `is_dense` field of the `QueryState` this cursor was created for.
     is_dense: bool,
     storage_id_iter: std::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
-    // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
+    // length of the table or length of the archetype, depending on whether `is_dense` is true or not.
     current_len: usize,
-    // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
+    // either table row or archetype index, depending on whether `is_dense` is true or not.
     current_row: usize,
     _marker: PhantomData<M>,
 }
@@ -1725,7 +1726,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, M: QueryStaticMarker>
     unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
-            if Self::IS_STATIC_DENSE {
+            if Self::IS_STATIC_DENSE || (!M::IS_STATIC && self.is_dense) {
                 let entity = self.table_entities.get_unchecked(index);
                 Some(D::fetch(
                     &mut self.fetch,
