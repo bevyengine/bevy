@@ -778,9 +778,10 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
-    /// Adds a [`Bundle`] of components to the entity.
+    /// Adds a [`Bundle`] of components to the entity without overwriting.
     ///
-    /// This will overwrite any previous value(s) of the same component type.
+    /// This will leave any previous value(s) of the same component type
+    /// unchanged.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         self.insert_with_caller(

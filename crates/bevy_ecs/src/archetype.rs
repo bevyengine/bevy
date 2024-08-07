@@ -109,6 +109,8 @@ impl ArchetypeId {
     }
 }
 
+/// Used in AddBundle to track whether components in the bundle are newly
+/// added or already existed in the entity's archetype.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum ComponentStatus {
     Added,
@@ -207,7 +209,7 @@ impl Edges {
         archetype_id: ArchetypeId,
         bundle_status: Vec<ComponentStatus>,
         added: Vec<ComponentId>,
-        mutated: Vec<ComponentId>,
+        existing: Vec<ComponentId>,
     ) {
         self.add_bundle.insert(
             bundle_id,
@@ -215,7 +217,7 @@ impl Edges {
                 archetype_id,
                 bundle_status,
                 added,
-                existing: mutated,
+                existing,
             },
         );
     }

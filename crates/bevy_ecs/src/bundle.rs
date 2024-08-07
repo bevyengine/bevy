@@ -303,7 +303,9 @@ impl SparseSetIndex for BundleId {
 // What to do on insertion if component already exists
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum InsertMode {
+    /// Any existing components of a matching type will be overwritten.
     Replace,
+    /// Any existing components of a matching type will kept unchanged.
     Keep,
 }
 
@@ -1390,7 +1392,6 @@ mod tests {
     #[test]
     fn insert_if_new() {
         let mut world = World::new();
-        world.init_resource::<R>();
         let id = world.spawn(V("one")).id();
         let mut entity = world.entity_mut(id);
         entity.insert_if_new(V("two"));

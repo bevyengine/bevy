@@ -438,8 +438,10 @@ impl BlobVec {
         }
     }
 
-    /// Get the dropper for this vector. Used if caller has type-erased pointer
-    /// which they have decided _not_ to add to this vector.
+    /// Get the `drop` argument that was passed to `BlobVec::new`.
+    ///
+    /// Callers can use this if they have a type-erased pointer of the correct
+    /// type to add to this BlobVec, which they just want to drop instead.
     pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.drop
     }
