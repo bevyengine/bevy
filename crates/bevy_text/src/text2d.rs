@@ -13,7 +13,7 @@ use bevy_ecs::{
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_math::Vec2;
+use bevy_math::{FloatOrd, Vec2};
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
@@ -205,6 +205,17 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(mut info) => {
+                    if let Some(min_x) = info
+                        .glyphs
+                        .iter()
+                        .map(|glyph| FloatOrd(glyph.position.x - 0.5 * glyph.size.x))
+                        .min()
+                    {
+                        for glyph in info.glyphs.iter_mut() {
+                            glyph.position.x -= min_x.0;
+                        }
+                    }
+
                     info.size.x = scale_value(info.size.x, inverse_scale_factor);
                     info.size.y = scale_value(info.size.y, inverse_scale_factor);
                     *text_layout_info = info;
