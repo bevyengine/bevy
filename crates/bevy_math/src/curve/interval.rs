@@ -86,8 +86,8 @@ impl Interval {
     /// Create an [`Interval`] by intersecting this interval with another. Returns an error if the
     /// intersection would be empty (hence an invalid interval).
     pub fn intersect(self, other: Interval) -> Result<Interval, InvalidIntervalError> {
-        let lower = max_by(self.start, other.start, |x, y| x.total_cmp(y));
-        let upper = min_by(self.end, other.end, |x, y| x.total_cmp(y));
+        let lower = max_by(self.start, other.start, f32::total_cmp);
+        let upper = min_by(self.end, other.end, f32::total_cmp);
         Self::new(lower, upper)
     }
 
