@@ -1368,8 +1368,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        let components = self.world.components();
-        let state = self.state.transmute_filtered::<NewD, NewF>(components);
+        let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
         QueryLens {
             world: self.world,
             state,
@@ -1460,10 +1459,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &mut self,
         other: &mut Query<OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
-        let components = self.world.components();
         let state = self
             .state
-            .join_filtered::<OtherD, OtherF, NewD, NewF>(components, other.state);
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(self.world, other.state);
         QueryLens {
             world: self.world,
             state,

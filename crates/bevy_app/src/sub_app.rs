@@ -1,4 +1,4 @@
-use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState};
+use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
@@ -408,6 +408,32 @@ impl SubApp {
         registry.write().register_type_data::<T, D>();
         self
     }
+
+    /// See [`App::register_function`].
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+    {
+        let registry = self.world.resource_mut::<AppFunctionRegistry>();
+        registry.write().register(function).unwrap();
+        self
+    }
+
+    /// See [`App::register_function_with_name`].
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function_with_name<F, Marker>(
+        &mut self,
+        name: impl Into<std::borrow::Cow<'static, str>>,
+        function: F,
+    ) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+    {
+        let registry = self.world.resource_mut::<AppFunctionRegistry>();
+        registry.write().register_with_name(name, function).unwrap();
+        self
+    }
 }
 
 /// The collection of sub-apps that belong to an [`App`].
@@ -448,5 +474,13 @@ impl SubApps {
     /// Returns a mutable iterator over the sub-apps (starting with the main one).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SubApp> + '_ {
         std::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+    }
+
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
+        if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
+            sub_app.extract(&mut self.main.world);
+            sub_app.update();
+        }
     }
 }

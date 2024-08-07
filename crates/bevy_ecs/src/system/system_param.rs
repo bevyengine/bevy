@@ -1,4 +1,6 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
+use crate::query::AccessConflicts;
+use crate::storage::SparseSetIndex;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -18,6 +20,8 @@ pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::{all_tuples, synccell::SyncCell};
+#[cfg(feature = "track_change_detection")]
+use std::panic::Location;
 use std::{
     fmt::Debug,
     marker::PhantomData,
@@ -294,12 +298,22 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let conflicting_components = conflicts
-        .into_iter()
-        .map(|component_id| world.components.get_info(component_id).unwrap().name())
-        .collect::<Vec<&str>>();
-    let accesses = conflicting_components.join(", ");
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/#b0001");
+    let accesses = match conflicts {
+        AccessConflicts::All => "",
+        AccessConflicts::Individual(indices) => &format!(
+            " {}",
+            indices
+                .ones()
+                .map(|index| world
+                    .components
+                    .get_info(ComponentId::get_sparse_set_index(index))
+                    .unwrap()
+                    .name())
+                .collect::<Vec<&str>>()
+                .join(", ")
+        ),
+    };
+    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
@@ -502,21 +516,21 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
-            !combined_access.has_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+            !combined_access.has_resource_write(component_id),
+            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
         system_meta
             .component_access_set
-            .add_unfiltered_read(component_id);
+            .add_unfiltered_resource_read(component_id);
 
         let archetype_component_id = world
             .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
-            .add_read(archetype_component_id);
+            .add_resource_read(archetype_component_id);
 
         component_id
     }
@@ -528,15 +542,16 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_resource_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
+        let (ptr, ticks, _caller) =
+            world
+                .get_resource_with_ticks(component_id)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Resource requested by {} does not exist: {}",
+                        system_meta.name,
+                        std::any::type_name::<T>()
+                    )
+                });
         Res {
             value: ptr.deref(),
             ticks: Ticks {
@@ -545,6 +560,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
+            #[cfg(feature = "track_change_detection")]
+            changed_by: _caller.deref(),
         }
     }
 }
@@ -570,7 +587,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_resource_with_ticks(component_id)
-            .map(|(ptr, ticks)| Res {
+            .map(|(ptr, ticks, _caller)| Res {
                 value: ptr.deref(),
                 ticks: Ticks {
                     added: ticks.added.deref(),
@@ -578,6 +595,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
+                #[cfg(feature = "track_change_detection")]
+                changed_by: _caller.deref(),
             })
     }
 }
@@ -593,25 +612,25 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         world.initialize_resource_internal(component_id);
 
         let combined_access = system_meta.component_access_set.combined_access();
-        if combined_access.has_write(component_id) {
+        if combined_access.has_resource_write(component_id) {
             panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_read(component_id) {
+        } else if combined_access.has_resource_read(component_id) {
             panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
             .component_access_set
-            .add_unfiltered_write(component_id);
+            .add_unfiltered_resource_write(component_id);
 
         let archetype_component_id = world
             .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
-            .add_write(archetype_component_id);
+            .add_resource_write(archetype_component_id);
 
         component_id
     }
@@ -640,6 +659,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
+            #[cfg(feature = "track_change_detection")]
+            changed_by: value.changed_by,
         }
     }
 }
@@ -670,6 +691,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                     last_run: system_meta.last_run,
                     this_run: change_tick,
                 },
+                #[cfg(feature = "track_change_detection")]
+                changed_by: value.changed_by,
             })
     }
 }
@@ -1071,6 +1094,8 @@ pub struct NonSend<'w, T: 'static> {
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
+    #[cfg(feature = "track_change_detection")]
+    changed_by: &'static Location<'static>,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1095,6 +1120,12 @@ impl<'w, T: 'static> NonSend<'w, T> {
     pub fn is_changed(&self) -> bool {
         self.ticks.is_changed(self.last_run, self.this_run)
     }
+
+    /// The location that last caused this to change.
+    #[cfg(feature = "track_change_detection")]
+    pub fn changed_by(&self) -> &'static Location<'static> {
+        self.changed_by
+    }
 }
 
 impl<'w, T> Deref for NonSend<'w, T> {
@@ -1114,6 +1145,8 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
             },
             this_run: nsm.ticks.this_run,
             last_run: nsm.ticks.last_run,
+            #[cfg(feature = "track_change_detection")]
+            changed_by: nsm.changed_by,
         }
     }
 }
@@ -1132,21 +1165,21 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
-            !combined_access.has_write(component_id),
-            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+            !combined_access.has_resource_write(component_id),
+            "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
         system_meta
             .component_access_set
-            .add_unfiltered_read(component_id);
+            .add_unfiltered_resource_read(component_id);
 
         let archetype_component_id = world
             .get_non_send_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
-            .add_read(archetype_component_id);
+            .add_resource_read(archetype_component_id);
 
         component_id
     }
@@ -1158,21 +1191,24 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_non_send_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
+        let (ptr, ticks, _caller) =
+            world
+                .get_non_send_with_ticks(component_id)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Non-send resource requested by {} does not exist: {}",
+                        system_meta.name,
+                        std::any::type_name::<T>()
+                    )
+                });
 
         NonSend {
             value: ptr.deref(),
             ticks: ticks.read(),
             last_run: system_meta.last_run,
             this_run: change_tick,
+            #[cfg(feature = "track_change_detection")]
+            changed_by: _caller.deref(),
         }
     }
 }
@@ -1198,11 +1234,13 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_non_send_with_ticks(component_id)
-            .map(|(ptr, ticks)| NonSend {
+            .map(|(ptr, ticks, _caller)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
+                #[cfg(feature = "track_change_detection")]
+                changed_by: _caller.deref(),
             })
     }
 }
@@ -1220,25 +1258,25 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world.initialize_non_send_internal(component_id);
 
         let combined_access = system_meta.component_access_set.combined_access();
-        if combined_access.has_write(component_id) {
+        if combined_access.has_component_write(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_read(component_id) {
+        } else if combined_access.has_component_read(component_id) {
             panic!(
-                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/#b0002",
+                "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
             .component_access_set
-            .add_unfiltered_write(component_id);
+            .add_unfiltered_resource_write(component_id);
 
         let archetype_component_id = world
             .get_non_send_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
-            .add_write(archetype_component_id);
+            .add_resource_write(archetype_component_id);
 
         component_id
     }
@@ -1250,18 +1288,21 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks) = world
-            .get_non_send_with_ticks(component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
+        let (ptr, ticks, _caller) =
+            world
+                .get_non_send_with_ticks(component_id)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "Non-send resource requested by {} does not exist: {}",
+                        system_meta.name,
+                        std::any::type_name::<T>()
+                    )
+                });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
+            #[cfg(feature = "track_change_detection")]
+            changed_by: _caller.deref_mut(),
         }
     }
 }
@@ -1284,9 +1325,11 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     ) -> Self::Item<'w, 's> {
         world
             .get_non_send_with_ticks(component_id)
-            .map(|(ptr, ticks)| NonSendMut {
+            .map(|(ptr, ticks, _caller)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
+                #[cfg(feature = "track_change_detection")]
+                changed_by: _caller.deref_mut(),
             })
     }
 }
@@ -1607,6 +1650,10 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
         P::apply(state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        P::queue(state, system_meta, world);
     }
 
     unsafe fn get_param<'world, 'state>(

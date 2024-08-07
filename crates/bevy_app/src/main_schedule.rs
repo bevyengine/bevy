@@ -17,7 +17,7 @@ use bevy_ecs::{
 /// Then it will run:
 /// * [`First`]
 /// * [`PreUpdate`]
-/// * [`StateTransition`](bevy_state::transition::StateTransition)
+/// * [`StateTransition`]
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
@@ -32,6 +32,7 @@ use bevy_ecs::{
 ///
 /// See [`RenderPlugin`] and [`PipelinedRenderingPlugin`] for more details.
 ///
+/// [`StateTransition`]: https://docs.rs/bevy/latest/bevy/prelude/struct.StateTransition.html
 /// [`RenderPlugin`]: https://docs.rs/bevy/latest/bevy/render/struct.RenderPlugin.html
 /// [`PipelinedRenderingPlugin`]: https://docs.rs/bevy/latest/bevy/render/pipelined_rendering/struct.PipelinedRenderingPlugin.html
 /// [`SubApp`]: crate::SubApp
@@ -93,8 +94,16 @@ pub struct FixedFirst;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedPreUpdate;
 
-/// The schedule that contains most gameplay logic.
+/// The schedule that contains most gameplay logic, which runs at a fixed rate rather than every render frame.
+/// For logic that should run once per render frame, use the [`Update`] schedule instead.
 ///
+/// Examples of systems that should run at a fixed rate include (but are not limited to):
+/// - Physics
+/// - AI
+/// - Networking
+/// - Game rules
+///
+/// See the [`Update`] schedule for examples of systems that *should not* use this schedule.
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
@@ -127,9 +136,15 @@ pub struct FixedLast;
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedMain;
 
-/// The schedule that contains app logic. Ideally containing anything that must run once per
-/// render frame, such as UI.
+/// The schedule that contains any app logic that must run once per render frame.
+/// For most gameplay logic, consider using [`FixedUpdate`] instead.
 ///
+/// Examples of systems that should run once per render frame include (but are not limited to):
+/// - UI
+/// - Input handling
+/// - Audio control
+///
+/// See the [`FixedUpdate`] schedule for examples of systems that *should not* use this schedule.
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Update;

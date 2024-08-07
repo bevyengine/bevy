@@ -9,6 +9,9 @@ mod identifier;
 mod spawn_batch;
 pub mod unsafe_world_cell;
 
+#[cfg(feature = "bevy_reflect")]
+pub mod reflect;
+
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
@@ -49,6 +52,12 @@ use std::{
     mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
+
+#[cfg(feature = "track_change_detection")]
+use bevy_ptr::UnsafeCellDeref;
+
+use core::panic::Location;
+
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// A [`World`] mutation.
@@ -164,6 +173,7 @@ impl World {
     fn bootstrap(&mut self) {
         assert_eq!(ON_ADD, self.init_component::<OnAdd>());
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
+        assert_eq!(ON_REPLACE, self.init_component::<OnReplace>());
         assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
     }
     /// Creates a new empty [`World`].
@@ -812,8 +822,8 @@ impl World {
         unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
     }
 
-    /// Gets mutable access to multiple entities, contained in a [`HashSet`].
-    /// The uniqueness of items in a [`HashSet`] allows us to avoid checking for duplicates.
+    /// Gets mutable access to multiple entities, contained in a [`EntityHashSet`].
+    /// The uniqueness of items in a [`EntityHashSet`] allows us to avoid checking for duplicates.
     ///
     /// # Errors
     ///
@@ -967,6 +977,7 @@ impl World {
     /// let position = world.entity(entity).get::<Position>().unwrap();
     /// assert_eq!(position.x, 2.0);
     /// ```
+    #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
         self.flush();
         let change_tick = self.change_tick();
@@ -974,7 +985,14 @@ impl World {
         let entity_location = {
             let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle) }
+            unsafe {
+                bundle_spawner.spawn_non_existent(
+                    entity,
+                    bundle,
+                    #[cfg(feature = "track_change_detection")]
+                    Location::caller(),
+                )
+            }
         };
 
         // SAFETY: entity and location are valid, as they were just created above
@@ -1019,12 +1037,18 @@ impl World {
     ///
     /// assert_eq!(entities.len(), 2);
     /// ```
+    #[track_caller]
     pub fn spawn_batch<I>(&mut self, iter: I) -> SpawnBatchIter<'_, I::IntoIter>
     where
         I: IntoIterator,
         I::Item: Bundle,
     {
-        SpawnBatchIter::new(self, iter.into_iter())
+        SpawnBatchIter::new(
+            self,
+            iter.into_iter(),
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        )
     }
 
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given type.
@@ -1097,14 +1121,24 @@ impl World {
     /// assert!(world.get_entity(entity).is_none());
     /// assert!(world.get::<Position>(entity).is_none());
     /// ```
+    #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
+        self.despawn_with_caller(entity, Location::caller())
+    }
+
+    #[inline]
+    pub(crate) fn despawn_with_caller(
+        &mut self,
+        entity: Entity,
+        caller: &'static Location,
+    ) -> bool {
         self.flush();
         if let Some(entity) = self.get_entity_mut(entity) {
             entity.despawn();
             true
         } else {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", entity);
+            warn!("error[B0003]: {caller}: Could not despawn entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", entity);
             false
         }
     }
@@ -1262,7 +1296,7 @@ impl World {
             .map(|removed| removed.iter_current_update_events().cloned())
             .into_iter()
             .flatten()
-            .map(|e| e.into())
+            .map(Into::into)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -1273,7 +1307,10 @@ impl World {
     /// Note that any resource with the [`Default`] trait automatically implements [`FromWorld`],
     /// and those default values will be here instead.
     #[inline]
+    #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
+        #[cfg(feature = "track_change_detection")]
+        let caller = Location::caller();
         let component_id = self.components.init_resource::<R>();
         if self
             .storages
@@ -1285,7 +1322,12 @@ impl World {
             OwningPtr::make(value, |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    self.insert_resource_by_id(component_id, ptr);
+                    self.insert_resource_by_id(
+                        component_id,
+                        ptr,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
                 }
             });
         }
@@ -1298,12 +1340,33 @@ impl World {
     /// If you insert a resource of a type that already exists,
     /// you will overwrite any existing data.
     #[inline]
+    #[track_caller]
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
+        self.insert_resource_with_caller(
+            value,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        );
+    }
+
+    /// Split into a new function so we can pass the calling location into the function when using
+    /// as a command.
+    #[inline]
+    pub(crate) fn insert_resource_with_caller<R: Resource>(
+        &mut self,
+        value: R,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) {
         let component_id = self.components.init_resource::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
-                self.insert_resource_by_id(component_id, ptr);
+                self.insert_resource_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    caller,
+                );
             }
         });
     }
@@ -1320,7 +1383,10 @@ impl World {
     ///
     /// Panics if called from a thread other than the main thread.
     #[inline]
+    #[track_caller]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> ComponentId {
+        #[cfg(feature = "track_change_detection")]
+        let caller = Location::caller();
         let component_id = self.components.init_non_send::<R>();
         if self
             .storages
@@ -1332,7 +1398,12 @@ impl World {
             OwningPtr::make(value, |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    self.insert_non_send_by_id(component_id, ptr);
+                    self.insert_non_send_by_id(
+                        component_id,
+                        ptr,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
                 }
             });
         }
@@ -1349,12 +1420,20 @@ impl World {
     /// If a value is already present, this function will panic if called
     /// from a different thread than where the original value was inserted from.
     #[inline]
+    #[track_caller]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
+        #[cfg(feature = "track_change_detection")]
+        let caller = Location::caller();
         let component_id = self.components.init_non_send::<R>();
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
-                self.insert_non_send_by_id(component_id, ptr);
+                self.insert_non_send_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    caller,
+                );
             }
         });
     }
@@ -1363,7 +1442,7 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        let (ptr, _) = self.storages.resources.get_mut(component_id)?.remove()?;
+        let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
         // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
     }
@@ -1382,7 +1461,7 @@ impl World {
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        let (ptr, _) = self
+        let (ptr, _, _) = self
             .storages
             .non_send_resources
             .get_mut(component_id)?
@@ -1397,7 +1476,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
-            .map(|info| info.is_present())
+            .map(ResourceData::is_present)
             .unwrap_or(false)
     }
 
@@ -1407,7 +1486,7 @@ impl World {
         self.components
             .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
-            .map(|info| info.is_present())
+            .map(ResourceData::is_present)
             .unwrap_or(false)
     }
 
@@ -1494,7 +1573,7 @@ impl World {
         self.storages
             .resources
             .get(component_id)
-            .and_then(|resource| resource.get_ticks())
+            .and_then(ResourceData::get_ticks)
     }
 
     /// Gets a reference to the resource of the given type
@@ -1599,10 +1678,13 @@ impl World {
     /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
+    #[track_caller]
     pub fn get_resource_or_insert_with<R: Resource>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
+        #[cfg(feature = "track_change_detection")]
+        let caller = Location::caller();
         let change_tick = self.change_tick();
         let last_change_tick = self.last_change_tick();
 
@@ -1612,7 +1694,12 @@ impl World {
             OwningPtr::make(func(), |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
-                    data.insert(ptr, change_tick);
+                    data.insert(
+                        ptr,
+                        change_tick,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
                 }
             });
         }
@@ -1745,7 +1832,28 @@ impl World {
     ///
     /// assert_eq!(world.get::<B>(e0), Some(&B(0.0)));
     /// ```
+    #[track_caller]
     pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
+    where
+        I: IntoIterator,
+        I::IntoIter: Iterator<Item = (Entity, B)>,
+        B: Bundle,
+    {
+        self.insert_or_spawn_batch_with_caller(
+            iter,
+            #[cfg(feature = "track_change_detection")]
+            Location::caller(),
+        )
+    }
+
+    /// Split into a new function so we can pass the calling location into the function when using
+    /// as a command.
+    #[inline]
+    pub(crate) fn insert_or_spawn_batch_with_caller<I, B>(
+        &mut self,
+        iter: I,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+    ) -> Result<(), Vec<Entity>>
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
@@ -1788,7 +1896,15 @@ impl World {
                             if location.archetype_id == archetype =>
                         {
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location, bundle) };
+                            unsafe {
+                                inserter.insert(
+                                    entity,
+                                    location,
+                                    bundle,
+                                    #[cfg(feature = "track_change_detection")]
+                                    caller,
+                                )
+                            };
                         }
                         _ => {
                             // SAFETY: we initialized this bundle_id in `init_info`
@@ -1801,7 +1917,15 @@ impl World {
                                 )
                             };
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location, bundle) };
+                            unsafe {
+                                inserter.insert(
+                                    entity,
+                                    location,
+                                    bundle,
+                                    #[cfg(feature = "track_change_detection")]
+                                    caller,
+                                )
+                            };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
                         }
@@ -1810,13 +1934,27 @@ impl World {
                 AllocAtWithoutReplacement::DidNotExist => {
                     if let SpawnOrInsert::Spawn(ref mut spawner) = spawn_or_insert {
                         // SAFETY: `entity` is allocated (but non existent), bundle matches inserter
-                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                        unsafe {
+                            spawner.spawn_non_existent(
+                                entity,
+                                bundle,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            )
+                        };
                     } else {
                         // SAFETY: we initialized this bundle_id in `init_info`
                         let mut spawner =
                             unsafe { BundleSpawner::new_with_id(self, bundle_id, change_tick) };
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe { spawner.spawn_non_existent(entity, bundle) };
+                        unsafe {
+                            spawner.spawn_non_existent(
+                                entity,
+                                bundle,
+                                #[cfg(feature = "track_change_detection")]
+                                caller,
+                            )
+                        };
                         spawn_or_insert = SpawnOrInsert::Spawn(spawner);
                     }
                 }
@@ -1856,6 +1994,7 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
+    #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
@@ -1864,11 +2003,11 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        let (ptr, mut ticks) = self
+        let (ptr, mut ticks, mut _caller) = self
             .storages
             .resources
             .get_mut(component_id)
-            .and_then(|info| info.remove())
+            .and_then(ResourceData::remove)
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: `ptr` was obtained from the TypeId of `R`.
@@ -1881,6 +2020,8 @@ impl World {
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
+            #[cfg(feature = "track_change_detection")]
+            changed_by: &mut _caller,
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
@@ -1894,7 +2035,14 @@ impl World {
                 self.storages
                     .resources
                     .get_mut(component_id)
-                    .map(|info| info.insert_with_ticks(ptr, ticks))
+                    .map(|info| {
+                        info.insert_with_ticks(
+                            ptr,
+                            ticks,
+                            #[cfg(feature = "track_change_detection")]
+                            _caller,
+                        );
+                    })
                     .unwrap_or_else(|| {
                         panic!(
                             "No resource of type {} exists in the World.",
@@ -1949,17 +2097,24 @@ impl World {
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
+    #[track_caller]
     pub unsafe fn insert_resource_by_id(
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
         let change_tick = self.change_tick();
 
         let resource = self.initialize_resource_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
-            resource.insert(value, change_tick);
+            resource.insert(
+                value,
+                change_tick,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         }
     }
 
@@ -1976,17 +2131,24 @@ impl World {
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
+    #[track_caller]
     pub unsafe fn insert_non_send_by_id(
         &mut self,
         component_id: ComponentId,
         value: OwningPtr<'_>,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
         let change_tick = self.change_tick();
 
         let resource = self.initialize_non_send_internal(component_id);
         // SAFETY: `value` is valid for `component_id`, ensured by caller
         unsafe {
-            resource.insert(value, change_tick);
+            resource.insert(
+                value,
+                change_tick,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
         }
     }
 
@@ -2037,7 +2199,7 @@ impl World {
         }
     }
 
-    /// Calls both [`World::flush_entities`] and [`World::flush_commands`].
+    /// Flushes queued entities and calls [`World::flush_commands`].
     #[inline]
     pub fn flush(&mut self) {
         self.flush_entities();
@@ -2059,9 +2221,16 @@ impl World {
     }
 
     /// Increments the world's current change tick and returns the old value.
+    ///
+    /// If you need to call this method, but do not have `&mut` access to the world,
+    /// consider using [`as_unsafe_world_cell_readonly`](Self::as_unsafe_world_cell_readonly)
+    /// to obtain an [`UnsafeWorldCell`] and calling [`increment_change_tick`](UnsafeWorldCell::increment_change_tick) on that.
+    /// Note that this *can* be done in safe code, despite the name of the type.
     #[inline]
-    pub fn increment_change_tick(&self) -> Tick {
-        let prev_tick = self.change_tick.fetch_add(1, Ordering::AcqRel);
+    pub fn increment_change_tick(&mut self) -> Tick {
+        let change_tick = self.change_tick.get_mut();
+        let prev_tick = *change_tick;
+        *change_tick = change_tick.wrapping_add(1);
         Tick::new(prev_tick)
     }
 
@@ -2502,7 +2671,7 @@ impl World {
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                let (ptr, ticks) = data.get_with_ticks()?;
+                let (ptr, ticks, _caller) = data.get_with_ticks()?;
 
                 // SAFETY:
                 // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
@@ -2521,6 +2690,11 @@ impl World {
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     value: unsafe { ptr.assert_unique() },
                     ticks,
+                    #[cfg(feature = "track_change_detection")]
+                    // SAFETY:
+                    // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
+                    // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
+                    changed_by: unsafe { _caller.deref_mut() },
                 };
 
                 Some((component_info, mut_untyped))
@@ -3077,7 +3251,12 @@ mod tests {
         OwningPtr::make(value, |ptr| {
             // SAFETY: value is valid for the component layout
             unsafe {
-                world.insert_resource_by_id(component_id, ptr);
+                world.insert_resource_by_id(
+                    component_id,
+                    ptr,
+                    #[cfg(feature = "track_change_detection")]
+                    core::panic::Location::caller(),
+                );
             }
         });
 
@@ -3153,7 +3332,7 @@ mod tests {
         fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(|component_info| component_info.type_id())
+                .map(ComponentInfo::type_id)
                 .collect()
         }
 

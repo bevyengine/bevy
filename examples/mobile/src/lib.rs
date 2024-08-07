@@ -14,7 +14,7 @@ fn main() {
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             resizable: false,
-            mode: WindowMode::BorderlessFullscreen,
+            mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
             // on iOS, gestures must be enabled.
             // This doesn't work on Android
             recognize_rotation_gesture: true,
@@ -23,14 +23,8 @@ fn main() {
         ..default()
     }))
     .add_systems(Startup, (setup_scene, setup_music))
-    .add_systems(Update, (touch_camera, button_handler, handle_lifetime));
-
-    // MSAA makes some Android devices panic, this is under investigation
-    // https://github.com/bevyengine/bevy/issues/8229
-    #[cfg(target_os = "android")]
-    app.insert_resource(Msaa::Off);
-
-    app.run();
+    .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
+    .run();
 }
 
 fn touch_camera(
@@ -109,27 +103,27 @@ fn setup_scene(
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // MSAA makes some Android devices panic, this is under investigation
+        // https://github.com/bevyengine/bevy/issues/8229
+        #[cfg(target_os = "android")]
+        msaa: Msaa::Off,
         ..default()
     });
 
     // Test ui
     commands
-        .spawn((
-            ButtonBundle {
-                style: Style {
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(50.0),
-                    right: Val::Px(50.0),
-                    bottom: Val::Px(50.0),
-                    ..default()
-                },
-                image: UiImage::default().with_color(Color::NONE),
+        .spawn(ButtonBundle {
+            style: Style {
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
+                left: Val::Px(50.0),
+                right: Val::Px(50.0),
+                bottom: Val::Px(50.0),
                 ..default()
             },
-            BackgroundColor(Color::WHITE),
-        ))
+            ..default()
+        })
         .with_children(|b| {
             b.spawn(
                 TextBundle::from_section(

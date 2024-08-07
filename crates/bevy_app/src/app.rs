@@ -4,7 +4,7 @@ use crate::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::{event_update_system, ManualEventReader},
+    event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -96,6 +96,10 @@ impl Default for App {
 
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
+
+        #[cfg(feature = "reflect_functions")]
+        app.init_resource::<AppFunctionRegistry>();
+
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
             First,
@@ -242,7 +246,7 @@ impl App {
         let main = self.main_mut();
         main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Finished;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.finish());
+        self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
@@ -256,12 +260,12 @@ impl App {
         let main = self.main_mut();
         main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Cleaned;
-        self.sub_apps.iter_mut().skip(1).for_each(|s| s.cleanup());
+        self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
     }
 
     /// Returns `true` if any of the sub-apps are building plugins.
     pub(crate) fn is_building_plugins(&self) -> bool {
-        self.sub_apps.iter().any(|s| s.is_building_plugins())
+        self.sub_apps.iter().any(SubApp::is_building_plugins)
     }
 
     /// Adds one or more systems to the given schedule in this app's [`Schedules`].
@@ -318,7 +322,7 @@ impl App {
     }
 
     /// Initializes `T` event handling by inserting an event queue resource ([`Events::<T>`])
-    /// and scheduling an [`event_update_system`] in [`First`](crate::First).
+    /// and scheduling an [`event_update_system`] in [`First`].
     ///
     /// See [`Events`] for information on how to define events.
     ///
@@ -553,7 +557,7 @@ impl App {
         self
     }
 
-    /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
+    /// Registers the type `T` in the [`AppTypeRegistry`] resource,
     /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
     /// ```ignore (No serde "derive" feature)
     /// #[derive(Component, Serialize, Deserialize, Reflect)]
@@ -567,7 +571,7 @@ impl App {
         self
     }
 
-    /// Associates type data `D` with type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
+    /// Associates type data `D` with type `T` in the [`AppTypeRegistry`] resource.
     ///
     /// Most of the time [`register_type`](Self::register_type) can be used instead to register a
     /// type you derived [`Reflect`](bevy_reflect::Reflect) for. However, in cases where you want to
@@ -596,6 +600,156 @@ impl App {
         &mut self,
     ) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
+        self
+    }
+
+    /// Registers the given function into the [`AppFunctionRegistry`] resource.
+    ///
+    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// and mapped according to its [name].
+    ///
+    /// Because the function must have a name,
+    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) must instead
+    /// be registered using [`register_function_with_name`] or converted to a [`DynamicFunction`]
+    /// and named using [`DynamicFunction::with_name`].
+    /// Failure to do so will result in an error being returned.
+    ///
+    /// Only functions that implement [`IntoFunction`] may be registered via this method.
+    ///
+    /// See [`FunctionRegistry::register`] for more information.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a function has already been registered with the given name
+    /// or if the function is missing a name (such as when it is an anonymous function).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// App::new().register_function(add);
+    /// ```
+    ///
+    /// Functions cannot be registered more than once.
+    ///
+    /// ```should_panic
+    /// use bevy_app::App;
+    ///
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// App::new()
+    ///     .register_function(add)
+    ///     // Panic! A function has already been registered with the name "my_function"
+    ///     .register_function(add);
+    /// ```
+    ///
+    /// Anonymous functions should be registered using [`register_function_with_name`] or given a name using [`DynamicFunction::with_name`].
+    ///
+    /// ```should_panic
+    /// use bevy_app::App;
+    ///
+    /// // Panic! Anonymous functions cannot be registered using `register_function`
+    /// App::new().register_function(|a: i32, b: i32| a + b);
+    /// ```
+    ///
+    /// [`register_function_with_name`]: Self::register_function_with_name
+    /// [`DynamicFunction`]: bevy_reflect::func::DynamicFunction
+    /// [name]: bevy_reflect::func::FunctionInfo::name
+    /// [`DynamicFunction::with_name`]: bevy_reflect::func::DynamicFunction::with_name
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
+    /// [`FunctionRegistry::register`]: bevy_reflect::func::FunctionRegistry::register
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+    {
+        self.main_mut().register_function(function);
+        self
+    }
+
+    /// Registers the given function into the [`AppFunctionRegistry`] resource using the given name.
+    ///
+    /// To avoid conflicts, it's recommended to use a unique name for the function.
+    /// This can be achieved by "namespacing" the function with a unique identifier,
+    /// such as the name of your crate.
+    ///
+    /// For example, to register a function, `add`, from a crate, `my_crate`,
+    /// you could use the name, `"my_crate::add"`.
+    ///
+    /// Another approach could be to use the [type name] of the function,
+    /// however, it should be noted that anonymous functions do _not_ have unique type names.
+    ///
+    /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
+    /// it's recommended to use [`register_function`] instead as the generated name is guaranteed to be unique.
+    ///
+    /// Only functions that implement [`IntoFunction`] may be registered via this method.
+    ///
+    /// See [`FunctionRegistry::register_with_name`] for more information.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a function has already been registered with the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// fn mul(a: i32, b: i32) -> i32 {
+    ///     a * b
+    /// }
+    ///
+    /// let div = |a: i32, b: i32| a / b;
+    ///
+    /// App::new()
+    ///     // Registering an anonymous function with a unique name
+    ///     .register_function_with_name("my_crate::add", |a: i32, b: i32| {
+    ///         a + b
+    ///     })
+    ///     // Registering an existing function with its type name
+    ///     .register_function_with_name(std::any::type_name_of_val(&mul), mul)
+    ///     // Registering an existing function with a custom name
+    ///     .register_function_with_name("my_crate::mul", mul)
+    ///     // Be careful not to register anonymous functions with their type name.
+    ///     // This code works but registers the function with the non-unique name of `fn(i32, i32) -> i32`
+    ///     .register_function_with_name(std::any::type_name_of_val(&div), div);
+    /// ```
+    ///
+    /// Names must be unique.
+    ///
+    /// ```should_panic
+    /// use bevy_app::App;
+    ///
+    /// fn one() {}
+    /// fn two() {}
+    ///
+    /// App::new()
+    ///     .register_function_with_name("my_function", one)
+    ///     // Panic! A function has already been registered with the name "my_function"
+    ///     .register_function_with_name("my_function", two);
+    /// ```
+    ///
+    /// [type name]: std::any::type_name
+    /// [`register_function`]: Self::register_function
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
+    /// [`FunctionRegistry::register_with_name`]: bevy_reflect::func::FunctionRegistry::register_with_name
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function_with_name<F, Marker>(
+        &mut self,
+        name: impl Into<std::borrow::Cow<'static, str>>,
+        function: F,
+    ) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+    {
+        self.main_mut().register_function_with_name(name, function);
         self
     }
 
@@ -661,6 +815,11 @@ impl App {
     /// Removes the [`SubApp`] with the given label, if it exists.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
         self.sub_apps.sub_apps.remove(&label.intern())
+    }
+
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_sub_app_by_label(&mut self, label: impl AppLabel) {
+        self.sub_apps.update_subapp_by_label(label);
     }
 
     /// Inserts a new `schedule` under the provided `label`, overwriting any existing
@@ -813,7 +972,7 @@ impl App {
     /// This should be called after every [`update()`](App::update) otherwise you risk
     /// dropping possible [`AppExit`] events.
     pub fn should_exit(&self) -> Option<AppExit> {
-        let mut reader = ManualEventReader::default();
+        let mut reader = EventCursor::default();
 
         let events = self.world().get_resource::<Events<AppExit>>()?;
         let mut events = reader.read(events);

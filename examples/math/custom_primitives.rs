@@ -6,8 +6,11 @@ use std::f32::consts::{PI, SQRT_2};
 use bevy::{
     color::palettes::css::{RED, WHITE},
     input::common_conditions::input_just_pressed,
-    math::bounding::{
-        Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
+    math::{
+        bounding::{
+            Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
+        },
+        Isometry2d,
     },
     prelude::*,
     render::{
@@ -199,18 +202,20 @@ fn bounding_shapes_2d(
     for transform in shapes.iter() {
         // Get the rotation angle from the 3D rotation.
         let rotation = transform.rotation.to_scaled_axis().z;
+        let rotation = Rot2::radians(rotation);
+        let isometry = Isometry2d::new(transform.translation.xy(), rotation);
 
         match bounding_shape.get() {
             BoundingShape::None => (),
             BoundingShape::BoundingBox => {
                 // Get the AABB of the primitive with the rotation and translation of the mesh.
-                let aabb = HEART.aabb_2d(transform.translation.xy(), rotation);
+                let aabb = HEART.aabb_2d(isometry);
 
                 gizmos.rect_2d(aabb.center(), 0., aabb.half_size() * 2., WHITE);
             }
             BoundingShape::BoundingSphere => {
                 // Get the bounding sphere of the primitive with the rotation and translation of the mesh.
-                let bounding_circle = HEART.bounding_circle(transform.translation.xy(), rotation);
+                let bounding_circle = HEART.bounding_circle(isometry);
 
                 gizmos
                     .circle_2d(bounding_circle.center(), bounding_circle.radius(), WHITE)
@@ -240,7 +245,7 @@ fn bounding_shapes_3d(
             BoundingShape::None => (),
             BoundingShape::BoundingBox => {
                 // Get the AABB of the extrusion with the rotation and translation of the mesh.
-                let aabb = EXTRUSION.aabb_3d(transform.translation, transform.rotation);
+                let aabb = EXTRUSION.aabb_3d(transform.to_isometry());
 
                 gizmos.primitive_3d(
                     &Cuboid::from_size(Vec3::from(aabb.half_size()) * 2.),
@@ -251,8 +256,7 @@ fn bounding_shapes_3d(
             }
             BoundingShape::BoundingSphere => {
                 // Get the bounding sphere of the extrusion with the rotation and translation of the mesh.
-                let bounding_sphere =
-                    EXTRUSION.bounding_sphere(transform.translation, transform.rotation);
+                let bounding_sphere = EXTRUSION.bounding_sphere(transform.to_isometry());
 
                 gizmos.sphere(
                     bounding_sphere.center().into(),
@@ -338,29 +342,28 @@ impl Measured2d for Heart {
 
 // The `Bounded2d` or `Bounded3d` traits are used to compute the Axis Aligned Bounding Boxes or bounding circles / spheres for primitives.
 impl Bounded2d for Heart {
-    fn aabb_2d(&self, translation: Vec2, rotation: impl Into<Rot2>) -> Aabb2d {
-        let rotation = rotation.into();
+    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d {
         // The center of the circle at the center of the right wing of the heart
-        let circle_center = rotation * Vec2::new(self.radius, 0.0);
+        let circle_center = isometry.rotation * Vec2::new(self.radius, 0.0);
         // The maximum X and Y positions of the two circles of the wings of the heart.
         let max_circle = circle_center.abs() + Vec2::splat(self.radius);
         // Since the two circles of the heart are mirrored around the origin, the minimum position is the negative of the maximum.
         let min_circle = -max_circle;
 
         // The position of the tip at the bottom of the heart
-        let tip_position = rotation * Vec2::new(0.0, -self.radius * (1. + SQRT_2));
+        let tip_position = isometry.rotation * Vec2::new(0.0, -self.radius * (1. + SQRT_2));
 
         Aabb2d {
-            min: translation + min_circle.min(tip_position),
-            max: translation + max_circle.max(tip_position),
+            min: isometry.translation + min_circle.min(tip_position),
+            max: isometry.translation + max_circle.max(tip_position),
         }
     }
 
-    fn bounding_circle(&self, translation: Vec2, rotation: impl Into<Rot2>) -> BoundingCircle {
+    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle {
         // The bounding circle of the heart is not at its origin. This `offset` is the offset between the center of the bounding circle and its translation.
         let offset = self.radius / 2f32.powf(1.5);
         // The center of the bounding circle
-        let center = translation + rotation.into() * Vec2::new(0.0, -offset);
+        let center = isometry * Vec2::new(0.0, -offset);
         // The radius of the bounding circle
         let radius = self.radius * (1.0 + 2f32.sqrt()) - offset;
 

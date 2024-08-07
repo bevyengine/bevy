@@ -169,6 +169,15 @@ impl Dir2 {
         Self::new(Vec2::new(x, y))
     }
 
+    /// Create a direction from its `x` and `y` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x` and `y` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xy_unchecked(x: f32, y: f32) -> Self {
+        Self::new_unchecked(Vec2::new(x, y))
+    }
+
     /// Returns the inner [`Vec2`]
     pub const fn as_vec2(&self) -> Vec2 {
         self.0
@@ -199,7 +208,7 @@ impl Dir2 {
     /// ```
     #[inline]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
-        let angle = self.angle_between(rhs.0);
+        let angle = self.angle_to(rhs.0);
         Rot2::radians(angle * s) * self
     }
 
@@ -229,7 +238,7 @@ impl Dir2 {
         self.rotation_from_x().inverse()
     }
 
-    /// Get the rotation that rotates this direction to the Y-axis.
+    /// Get the rotation that rotates the Y-axis to this direction.
     #[inline]
     pub fn rotation_from_y(self) -> Rot2 {
         // `x <- y`, `y <- -x` correspond to rotating clockwise by pi/2;
@@ -238,10 +247,20 @@ impl Dir2 {
         Rot2::from_sin_cos(-self.0.x, self.0.y)
     }
 
-    /// Get the rotation that rotates the Y-axis to this direction.
+    /// Get the rotation that rotates this direction to the Y-axis.
     #[inline]
     pub fn rotation_to_y(self) -> Rot2 {
         self.rotation_from_y().inverse()
+    }
+
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        let length_squared = self.0.length_squared();
+        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
+        Self(self * (0.5 * (3.0 - length_squared)))
     }
 }
 
@@ -409,6 +428,15 @@ impl Dir3 {
         Self::new(Vec3::new(x, y, z))
     }
 
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x`, `y`, and `z` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyz_unchecked(x: f32, y: f32, z: f32) -> Self {
+        Self::new_unchecked(Vec3::new(x, y, z))
+    }
+
     /// Returns the inner [`Vec3`]
     pub const fn as_vec3(&self) -> Vec3 {
         self.0
@@ -445,6 +473,56 @@ impl Dir3 {
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
         let quat = Quat::IDENTITY.slerp(Quat::from_rotation_arc(self.0, rhs.0), s);
         Dir3(quat.mul_vec3(self.0))
+    }
+
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    ///
+    /// # Example
+    /// The following seemingly benign code would start accumulating errors over time,
+    /// leading to `dir` eventually not being normalized anymore.
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # let N: usize = 200;
+    /// let mut dir = Dir3::X;
+    /// let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    /// for i in 0..N {
+    ///     dir = quaternion * dir;
+    /// }
+    /// ```
+    /// Instead, do the following.
+    /// ```
+    /// # use bevy_math::prelude::*;
+    /// # let N: usize = 200;
+    /// let mut dir = Dir3::X;
+    /// let quaternion = Quat::from_euler(EulerRot::XYZ, 1.0, 2.0, 3.0);
+    /// for i in 0..N {
+    ///     dir = quaternion * dir;
+    ///     dir = dir.fast_renormalize();
+    /// }
+    /// ```
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        // We numerically approximate the inverse square root by a Taylor series around 1
+        // As we expect the error (x := length_squared - 1) to be small
+        // inverse_sqrt(length_squared) = (1 + x)^(-1/2) = 1 - 1/2 x + O(x²)
+        // inverse_sqrt(length_squared) ≈ 1 - 1/2 (length_squared - 1) = 1/2 (3 - length_squared)
+
+        // Iterative calls to this method quickly converge to a normalized value,
+        // so long as the denormalization is not large ~ O(1/10).
+        // One iteration can be described as:
+        // l_sq <- l_sq * (1 - 1/2 (l_sq - 1))²;
+        // Rewriting in terms of the error x:
+        // 1 + x <- (1 + x) * (1 - 1/2 x)²
+        // 1 + x <- (1 + x) * (1 - x + 1/4 x²)
+        // 1 + x <- 1 - x + 1/4 x² + x - x² + 1/4 x³
+        // x <- -1/4 x² (3 - x)
+        // If the error is small, say in a range of (-1/2, 1/2), then:
+        // |-1/4 x² (3 - x)| <= (3/4 + 1/4 * |x|) * x² <= (3/4 + 1/4 * 1/2) * x² < x² < 1/2 x
+        // Therefore the sequence of iterates converges to 0 error as a second order method.
+
+        let length_squared = self.0.length_squared();
+        Self(self * (0.5 * (3.0 - length_squared)))
     }
 }
 
@@ -615,6 +693,15 @@ impl Dir3A {
         Self::new(Vec3A::new(x, y, z))
     }
 
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x`, `y`, and `z` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyz_unchecked(x: f32, y: f32, z: f32) -> Self {
+        Self::new_unchecked(Vec3A::new(x, y, z))
+    }
+
     /// Returns the inner [`Vec3A`]
     pub const fn as_vec3a(&self) -> Vec3A {
         self.0
@@ -654,6 +741,17 @@ impl Dir3A {
             s,
         );
         Dir3A(quat.mul_vec3a(self.0))
+    }
+
+    /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
+    /// Useful for preventing numerical error accumulation.
+    ///
+    /// See [`Dir3::fast_renormalize`] for an example of when such error accumulation might occur.
+    #[inline]
+    pub fn fast_renormalize(self) -> Self {
+        let length_squared = self.0.length_squared();
+        // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`] for more details.
+        Self(self * (0.5 * (3.0 - length_squared)))
     }
 }
 
@@ -816,6 +914,31 @@ mod tests {
     }
 
     #[test]
+    fn dir2_renorm() {
+        // Evil denormalized Rot2
+        let (sin, cos) = 1.0_f32.sin_cos();
+        let rot2 = Rot2::from_sin_cos(sin * (1.0 + 1e-5), cos * (1.0 + 1e-5));
+        let mut dir_a = Dir2::X;
+        let mut dir_b = Dir2::X;
+
+        // We test that renormalizing an already normalized dir doesn't do anything
+        assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
+
+        for _ in 0..50 {
+            dir_a = rot2 * dir_a;
+            dir_b = rot2 * dir_b;
+            dir_b = dir_b.fast_renormalize();
+        }
+
+        // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
+        assert!(
+            !dir_a.is_normalized(),
+            "Dernormalization doesn't work, test is faulty"
+        );
+        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
+    #[test]
     fn dir3_creation() {
         assert_eq!(Dir3::new(Vec3::X * 12.5), Ok(Dir3::X));
         assert_eq!(
@@ -863,6 +986,30 @@ mod tests {
     }
 
     #[test]
+    fn dir3_renorm() {
+        // Evil denormalized quaternion
+        let rot3 = Quat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0) * (1.0 + 1e-5);
+        let mut dir_a = Dir3::X;
+        let mut dir_b = Dir3::X;
+
+        // We test that renormalizing an already normalized dir doesn't do anything
+        assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
+
+        for _ in 0..50 {
+            dir_a = rot3 * dir_a;
+            dir_b = rot3 * dir_b;
+            dir_b = dir_b.fast_renormalize();
+        }
+
+        // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
+        assert!(
+            !dir_a.is_normalized(),
+            "Dernormalization doesn't work, test is faulty"
+        );
+        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
+    #[test]
     fn dir3a_creation() {
         assert_eq!(Dir3A::new(Vec3A::X * 12.5), Ok(Dir3A::X));
         assert_eq!(
@@ -907,5 +1054,29 @@ mod tests {
             Dir3A::Z.slerp(Dir3A::Y, 2.0 / 3.0),
             Dir3A::from_xyz(0.0, 0.75f32.sqrt(), 0.5).unwrap()
         );
+    }
+
+    #[test]
+    fn dir3a_renorm() {
+        // Evil denormalized quaternion
+        let rot3 = Quat::from_euler(glam::EulerRot::XYZ, 1.0, 2.0, 3.0) * (1.0 + 1e-5);
+        let mut dir_a = Dir3A::X;
+        let mut dir_b = Dir3A::X;
+
+        // We test that renormalizing an already normalized dir doesn't do anything
+        assert_relative_eq!(dir_b, dir_b.fast_renormalize(), epsilon = 0.000001);
+
+        for _ in 0..50 {
+            dir_a = rot3 * dir_a;
+            dir_b = rot3 * dir_b;
+            dir_b = dir_b.fast_renormalize();
+        }
+
+        // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
+        assert!(
+            !dir_a.is_normalized(),
+            "Dernormalization doesn't work, test is faulty"
+        );
+        assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }
 }

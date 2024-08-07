@@ -3,7 +3,7 @@
 //! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
 //! - Attach the [`CameraController`] component to an entity with a [`Camera3dBundle`].
 
-use bevy::input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel};
+use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit};
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 use std::{f32::consts::*, fmt};
@@ -101,8 +101,8 @@ Freecam Controls:
 fn run_camera_controller(
     time: Res<Time>,
     mut windows: Query<&mut Window>,
-    mut mouse_events: EventReader<MouseMotion>,
-    mut scroll_events: EventReader<MouseWheel>,
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
+    accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
@@ -120,18 +120,16 @@ fn run_camera_controller(
             info!("{}", *controller);
         }
         if !controller.enabled {
-            mouse_events.clear();
             return;
         }
 
         let mut scroll = 0.0;
-        for scroll_event in scroll_events.read() {
-            let amount = match scroll_event.unit {
-                MouseScrollUnit::Line => scroll_event.y,
-                MouseScrollUnit::Pixel => scroll_event.y / 16.0,
-            };
-            scroll += amount;
-        }
+
+        let amount = match accumulated_mouse_scroll.unit {
+            MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
+            MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / 16.0,
+        };
+        scroll += amount;
         controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
         controller.run_speed = controller.walk_speed * 3.0;
 
@@ -212,21 +210,13 @@ fn run_camera_controller(
         }
 
         // Handle mouse input
-        let mut mouse_delta = Vec2::ZERO;
-        if cursor_grab {
-            for mouse_event in mouse_events.read() {
-                mouse_delta += mouse_event.delta;
-            }
-        } else {
-            mouse_events.clear();
-        }
-
-        if mouse_delta != Vec2::ZERO {
+        if accumulated_mouse_motion.delta != Vec2::ZERO && cursor_grab {
             // Apply look update
             controller.pitch = (controller.pitch
-                - mouse_delta.y * RADIANS_PER_DOT * controller.sensitivity)
+                - accumulated_mouse_motion.delta.y * RADIANS_PER_DOT * controller.sensitivity)
                 .clamp(-PI / 2., PI / 2.);
-            controller.yaw -= mouse_delta.x * RADIANS_PER_DOT * controller.sensitivity;
+            controller.yaw -=
+                accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * controller.sensitivity;
             transform.rotation =
                 Quat::from_euler(EulerRot::ZYX, 0.0, controller.yaw, controller.pitch);
         }

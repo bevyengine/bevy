@@ -212,7 +212,7 @@ where
             gizmos: self,
             radius,
             position,
-            rotation,
+            rotation: rotation.normalize(),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
@@ -306,7 +306,7 @@ where
     }
 }
 
-/// Builder for configuring the drawing options of [`Sphere`].
+/// A builder returned by [`Gizmos::sphere`].
 pub struct SphereBuilder<'a, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,

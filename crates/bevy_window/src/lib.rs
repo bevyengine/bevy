@@ -17,6 +17,7 @@ use bevy_a11y::Focus;
 
 mod cursor;
 mod event;
+mod monitor;
 mod raw_handle;
 mod system;
 mod window;
@@ -25,6 +26,7 @@ pub use crate::raw_handle::*;
 
 pub use cursor::*;
 pub use event::*;
+pub use monitor::*;
 pub use system::*;
 pub use window::*;
 

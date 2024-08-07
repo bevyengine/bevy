@@ -79,7 +79,7 @@ fn main() {
                     let Some(name) = component.next() else {
                         return;
                     };
-                    let size = match component.next().map(|s| s.parse::<usize>()) {
+                    let size = match component.next().map(str::parse) {
                         Some(Ok(size)) => size,
                         _ => 0,
                     };
@@ -168,7 +168,7 @@ fn main() {
                             };
 
                             // If we have write access, increment each value once
-                            if filtered_entity.access().has_write(id) {
+                            if filtered_entity.access().has_component_write(id) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
                                 });

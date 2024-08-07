@@ -146,7 +146,10 @@ mod tests {
     };
 
     use super::DespawnRecursiveExt;
-    use crate::{child_builder::BuildChildren, components::Children};
+    use crate::{
+        child_builder::{BuildChildren, ChildBuild},
+        components::Children,
+    };
 
     #[derive(Component, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Debug)]
     struct Idx(u32);

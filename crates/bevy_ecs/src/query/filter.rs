@@ -443,20 +443,21 @@ macro_rules! impl_or_query_filter {
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                let mut _new_access = access.clone();
-                let mut _not_first = false;
+                let mut _new_access = FilteredAccess::matches_nothing();
+
                 $(
-                    if _not_first {
-                        let mut intermediate = access.clone();
-                        $filter::update_component_access($filter, &mut intermediate);
-                        _new_access.append_or(&intermediate);
-                        _new_access.extend_access(&intermediate);
-                    } else {
-                        $filter::update_component_access($filter, &mut _new_access);
-                        _new_access.required = access.required.clone();
-                        _not_first = true;
-                    }
+                    // Create an intermediate because `access`'s value needs to be preserved
+                    // for the next filter, and `_new_access` has to be modified only by `append_or` to it.
+                    let mut intermediate = access.clone();
+                    $filter::update_component_access($filter, &mut intermediate);
+                    _new_access.append_or(&intermediate);
+                    // Also extend the accesses required to compute the filter. This is required because
+                    // otherwise a `Query<(), Or<(Changed<Foo>,)>` won't conflict with `Query<&mut Foo>`.
+                    _new_access.extend_access(&intermediate);
                 )*
+
+                // The required components remain the same as the original `access`.
+                _new_access.required = std::mem::take(&mut access.required);
 
                 *access = _new_access;
             }
@@ -687,10 +688,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        if access.access().has_write(id) {
+        if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
-        access.add_read(id);
+        access.add_component_read(id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -898,10 +899,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        if access.access().has_write(id) {
+        if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
-        access.add_read(id);
+        access.add_component_read(id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {

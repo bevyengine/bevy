@@ -1,14 +1,13 @@
-use bevy_asset::AssetId;
+use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
+use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::mesh::Mesh;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    mesh::GpuMesh,
+    mesh::RenderMesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -16,7 +15,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
+    view::{ExtractedView, RenderLayers, ViewVisibility},
     Extract,
 };
 #[cfg(any(
@@ -194,7 +193,7 @@ pub fn extract_lights(
     spot_lights: Extract<
         Query<(
             &SpotLight,
-            &VisibleEntities,
+            &VisibleMeshEntities,
             &GlobalTransform,
             &ViewVisibility,
             &Frustum,
@@ -535,12 +534,15 @@ pub fn prepare_lights(
     render_adapter: Res<RenderAdapter>,
     mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        &ExtractedClusterConfig,
-        Option<&RenderLayers>,
-    )>,
+    views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            Option<&RenderLayers>,
+        ),
+        With<Camera3d>,
+    >,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
@@ -1185,7 +1187,7 @@ pub fn prepare_lights(
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
@@ -1197,7 +1199,7 @@ pub fn queue_shadows<M: Material>(
     mut view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
-    spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
+    spot_light_entities: Query<&VisibleMeshEntities, With<ExtractedPointLight>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -1241,7 +1243,7 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
-            for entity in visible_entities.iter::<WithMesh>().copied() {
+            for entity in visible_entities.iter().copied() {
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity)
                 else {
                     continue;
@@ -1308,10 +1310,10 @@ pub fn queue_shadows<M: Material>(
                     ShadowBinKey {
                         draw_function: draw_shadow_mesh,
                         pipeline: pipeline_id,
-                        asset_id: mesh_instance.mesh_asset_id,
+                        asset_id: mesh_instance.mesh_asset_id.into(),
                     },
                     entity,
-                    mesh_instance.should_batch(),
+                    BinnedRenderPhaseType::mesh(mesh_instance.should_batch()),
                 );
             }
         }
@@ -1325,6 +1327,7 @@ pub struct Shadow {
     pub extra_index: PhaseItemExtraIndex,
 }
 
+/// Data used to bin each object in the shadow map phase.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ShadowBinKey {
     /// The identifier of the render pipeline.
@@ -1333,8 +1336,8 @@ pub struct ShadowBinKey {
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
 
-    /// The mesh.
-    pub asset_id: AssetId<Mesh>,
+    /// The object.
+    pub asset_id: UntypedAssetId,
 }
 
 impl PhaseItem for Shadow {
@@ -1467,7 +1470,11 @@ impl Node for ShadowPassNode {
                     let pass_span =
                         diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
 
-                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+                    if let Err(err) =
+                        shadow_phase.render(&mut render_pass, world, view_light_entity)
+                    {
+                        error!("Error encountered while rendering the shadow phase {err:?}");
+                    }
 
                     pass_span.end(&mut render_pass);
                     drop(render_pass);

@@ -5,7 +5,7 @@
 )]
 
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
-//! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
+//! apps, and automatically configures platform specific log handlers (i.e. Wasm or Android).
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
 //! and behave identically to it.
@@ -75,7 +75,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///     logging to `stdout`.
 /// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
 ///     logging to Android logs.
-/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
 ///     to the browser console.
 ///
 /// You can configure this plugin.
@@ -100,6 +100,21 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// It has the same syntax as the field [`LogPlugin::filter`], see [`EnvFilter`].
 /// If you define the `RUST_LOG` environment variable, the [`LogPlugin`] settings
 /// will be ignored.
+///
+/// Also, to disable colour terminal output (ANSI escape codes), you can
+/// set the environment variable `NO_COLOR` to any value. This common
+/// convention is documented at [no-color.org](https://no-color.org/).
+/// For example:
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::LogPlugin;
+/// fn main() {
+///     std::env::set_var("NO_COLOR", "1");
+///     App::new()
+///        .add_plugins(DefaultPlugins)
+///        .run();
+/// }
+/// ```
 ///
 /// If you want to setup your own tracing collector, you should disable this
 /// plugin from `DefaultPlugins`:
@@ -132,8 +147,8 @@ pub struct LogPlugin {
     ///
     /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
     ///
-    /// Access to [`App`] is also provided to allow for communication between the [`Subscriber`]
-    /// and the [`App`].
+    /// Access to [`App`] is also provided to allow for communication between the
+    /// [`Subscriber`](bevy_utils::tracing::Subscriber) and the [`App`].
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
@@ -218,6 +233,9 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::default();
 
+            // note: the implementation of `Default` reads from the env var NO_COLOR
+            // to decide whether to use ANSI color codes, which is common convention
+            // https://no-color.org/
             let fmt_layer = tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
 
             // bevy_render::renderer logs a `tracy.frame_mark` event every frame

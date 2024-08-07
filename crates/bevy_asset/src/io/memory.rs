@@ -277,29 +277,41 @@ impl AsyncSeek for DataReader {
     }
 }
 
+impl Reader for DataReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+        stackfuture::StackFuture::from(async {
+            if self.bytes_read >= self.data.value().len() {
+                Ok(0)
+            } else {
+                buf.extend_from_slice(&self.data.value()[self.bytes_read..]);
+                let n = self.data.value().len() - self.bytes_read;
+                self.bytes_read = self.data.value().len();
+                Ok(n)
+            }
+        })
+    }
+}
+
 impl AssetReader for MemoryAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_asset(path)
-            .map(|data| {
-                let reader: Box<Reader> = Box::new(DataReader {
-                    data,
-                    bytes_read: 0,
-                });
-                reader
+            .map(|data| DataReader {
+                data,
+                bytes_read: 0,
             })
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_metadata(path)
-            .map(|data| {
-                let reader: Box<Reader> = Box::new(DataReader {
-                    data,
-                    bytes_read: 0,
-                });
-                reader
+            .map(|data| DataReader {
+                data,
+                bytes_read: 0,
             })
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }

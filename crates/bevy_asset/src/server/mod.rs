@@ -230,7 +230,7 @@ impl AssetServer {
 
             let mut extensions = vec![full_extension.clone()];
             extensions.extend(
-                AssetPath::iter_secondary_extensions(&full_extension).map(|e| e.to_string()),
+                AssetPath::iter_secondary_extensions(&full_extension).map(ToString::to_string),
             );
 
             MissingAssetLoaderForExtensionError { extensions }
@@ -493,14 +493,14 @@ impl AssetServer {
         force: bool,
         meta_transform: Option<MetaTransform>,
     ) -> Result<UntypedHandle, AssetLoadError> {
-        let asset_type_id = input_handle.as_ref().map(|handle| handle.type_id());
+        let asset_type_id = input_handle.as_ref().map(UntypedHandle::type_id);
 
         let path = path.into_owned();
         let path_clone = path.clone();
         let (mut meta, loader, mut reader) = self
             .get_meta_loader_and_reader(&path_clone, asset_type_id)
             .await
-            .map_err(|e| {
+            .inspect_err(|e| {
                 // if there was an input handle, a "load" operation has already started, so we must produce a "failure" event, if
                 // we cannot find the meta and loader
                 if let Some(handle) = &input_handle {
@@ -510,7 +510,6 @@ impl AssetServer {
                         error: e.clone(),
                     });
                 }
-                e
             })?;
 
         // This contains Some(UntypedHandle), if it was retrievable
@@ -938,7 +937,7 @@ impl AssetServer {
     /// or is still "alive".
     pub fn get_handle<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Option<Handle<A>> {
         self.get_path_and_type_id_handle(&path.into(), TypeId::of::<A>())
-            .map(|h| h.typed_debug_checked())
+            .map(UntypedHandle::typed_debug_checked)
     }
 
     /// Get a `Handle` from an `AssetId`.
@@ -949,7 +948,8 @@ impl AssetServer {
     /// Consider using [`Assets::get_strong_handle`] in the case the `Handle`
     /// comes from [`Assets::add`].
     pub fn get_id_handle<A: Asset>(&self, id: AssetId<A>) -> Option<Handle<A>> {
-        self.get_id_handle_untyped(id.untyped()).map(|h| h.typed())
+        self.get_id_handle_untyped(id.untyped())
+            .map(UntypedHandle::typed)
     }
 
     /// Get an `UntypedHandle` from an `UntypedAssetId`.
@@ -1064,7 +1064,7 @@ impl AssetServer {
         (
             Box<dyn AssetMetaDyn>,
             Arc<dyn ErasedAssetLoader>,
-            Box<Reader<'a>>,
+            Box<dyn Reader + 'a>,
         ),
         AssetLoadError,
     > {
@@ -1168,7 +1168,7 @@ impl AssetServer {
         asset_path: &AssetPath<'_>,
         meta: Box<dyn AssetMetaDyn>,
         loader: &dyn ErasedAssetLoader,
-        reader: &mut Reader<'_>,
+        reader: &mut dyn Reader,
         load_dependencies: bool,
         populate_hashes: bool,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {

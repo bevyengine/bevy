@@ -281,28 +281,29 @@ pub struct Window {
     /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
     /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
     pub desired_maximum_frame_latency: Option<NonZeroU32>,
-    /// Sets whether this window recognizes [`PinchGesture`]
+    /// Sets whether this window recognizes [`PinchGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.PinchGesture.html)
     ///
     /// ## Platform-specific
     ///
     /// - Only used on iOS.
     /// - On macOS, they are recognized by default and can't be disabled.
     pub recognize_pinch_gesture: bool,
-    /// Sets whether this window recognizes [`RotationGesture`]
+    /// Sets whether this window recognizes [`RotationGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.RotationGesture.html)
     ///
     /// ## Platform-specific
     ///
     /// - Only used on iOS.
     /// - On macOS, they are recognized by default and can't be disabled.
     pub recognize_rotation_gesture: bool,
-    /// Sets whether this window recognizes [`DoubleTapGesture`]
+    /// Sets whether this window recognizes [`DoubleTapGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.DoubleTapGesture.html)
     ///
     /// ## Platform-specific
     ///
     /// - Only used on iOS.
     /// - On macOS, they are recognized by default and can't be disabled.
     pub recognize_doubletap_gesture: bool,
-    /// Sets whether this window recognizes [`PanGesture`], with a number of fingers between the first value and the last.
+    /// Sets whether this window recognizes [`PanGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.PanGesture.html),
+    /// with a number of fingers between the first value and the last.
     ///
     /// ## Platform-specific
     ///
@@ -817,6 +818,18 @@ impl WindowResolution {
         self.scale_factor = scale_factor;
     }
 
+    /// Set the window's scale factor, and apply it to the currently known physical size.
+    /// This may get overridden by the backend. This is mostly useful on window creation,
+    /// so that the window is created with the expected size instead of waiting for a resize
+    /// event after its creation.
+    #[inline]
+    #[doc(hidden)]
+    pub fn set_scale_factor_and_apply_to_physical_size(&mut self, scale_factor: f32) {
+        self.scale_factor = scale_factor;
+        self.physical_width = (self.physical_width as f32 * scale_factor) as u32;
+        self.physical_height = (self.physical_height as f32 * scale_factor) as u32;
+    }
+
     /// Set the window's scale factor, this will be used over what the backend decides.
     ///
     /// This can change the logical and physical sizes if the resulting physical
@@ -932,6 +945,8 @@ pub enum MonitorSelection {
     Primary,
     /// Uses the monitor with the specified index.
     Index(usize),
+    /// Uses a given [`crate::monitor::Monitor`] entity.
+    Entity(Entity),
 }
 
 /// Presentation mode for a [`Window`].
@@ -1079,7 +1094,7 @@ pub enum WindowMode {
     #[default]
     Windowed,
     /// The window should appear fullscreen by being borderless and using the full
-    /// size of the screen.
+    /// size of the screen on the given [`MonitorSelection`].
     ///
     /// When setting this, the window's physical size will be modified to match the size
     /// of the current monitor resolution, and the logical size will follow based
@@ -1089,8 +1104,8 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    BorderlessFullscreen,
-    /// The window should be in "true"/"legacy" Fullscreen mode.
+    BorderlessFullscreen(MonitorSelection),
+    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
     ///
     /// When setting this, the operating system will be requested to use the
     /// **closest** resolution available for the current monitor to match as
@@ -1098,8 +1113,8 @@ pub enum WindowMode {
     /// After that, the window's physical size will be modified to match
     /// that monitor resolution, and the logical size will follow based on the
     /// scale factor, see [`WindowResolution`].
-    SizedFullscreen,
-    /// The window should be in "true"/"legacy" Fullscreen mode.
+    SizedFullscreen(MonitorSelection),
+    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
     ///
     /// When setting this, the operating system will be requested to use the
     /// **biggest** resolution available for the current monitor.
@@ -1111,7 +1126,7 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    Fullscreen,
+    Fullscreen(MonitorSelection),
 }
 
 /// Specifies where a [`Window`] should appear relative to other overlapping windows (on top or under) .

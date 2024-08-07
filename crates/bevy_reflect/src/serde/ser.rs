@@ -1,5 +1,5 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
+    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Set, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
@@ -223,6 +223,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
+            ReflectRef::Set(value) => SetSerializer {
+                set: value,
+                registry: self.registry,
+            }
+            .serialize(serializer),
             ReflectRef::Enum(value) => EnumSerializer {
                 enum_value: value,
                 registry: self.registry,
@@ -282,7 +287,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_struct(
             struct_info.type_path_table().ident().unwrap(),
             self.struct_value.field_len() - ignored_len,
@@ -335,7 +340,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             .registry
             .get(type_info.type_id())
             .and_then(|registration| registration.data::<SerializationData>());
-        let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
+        let ignored_len = serialization_data.map(SerializationData::len).unwrap_or(0);
         let mut state = serializer.serialize_tuple_struct(
             tuple_struct_info.type_path_table().ident().unwrap(),
             self.tuple_struct.field_len() - ignored_len,
@@ -503,6 +508,24 @@ impl<'a> Serialize for MapSerializer<'a> {
     }
 }
 
+pub struct SetSerializer<'a> {
+    pub set: &'a dyn Set,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for SetSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_seq(Some(self.set.len()))?;
+        for value in self.set.iter() {
+            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
+        }
+        state.end()
+    }
+}
+
 pub struct ListSerializer<'a> {
     pub list: &'a dyn List,
     pub registry: &'a TypeRegistry,
@@ -544,7 +567,7 @@ mod tests {
     use crate::serde::ReflectSerializer;
     use crate::{self as bevy_reflect, Struct};
     use crate::{Reflect, ReflectSerialize, TypeRegistry};
-    use bevy_utils::HashMap;
+    use bevy_utils::{HashMap, HashSet};
     use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;
     use serde::Serialize;
@@ -560,6 +583,7 @@ mod tests {
         list_value: Vec<i32>,
         array_value: [i32; 5],
         map_value: HashMap<u8, usize>,
+        set_value: HashSet<u8>,
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
         unit_struct: SomeUnitStruct,
@@ -649,6 +673,10 @@ mod tests {
     fn get_my_struct() -> MyStruct {
         let mut map = HashMap::new();
         map.insert(64, 32);
+
+        let mut set = HashSet::new();
+        set.insert(64);
+
         MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
@@ -657,6 +685,7 @@ mod tests {
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
+            set_value: set,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_struct: SomeUnitStruct,
@@ -710,6 +739,9 @@ mod tests {
         map_value: {
             64: 32,
         },
+        set_value: [
+            64,
+        ],
         struct_value: (
             foo: 999999999,
         ),
@@ -865,12 +897,12 @@ mod tests {
             0, 0, 0, 0, 219, 15, 73, 64, 57, 5, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 254, 255,
             255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255,
             255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32,
-            0, 0, 0, 0, 0, 0, 0, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 84, 117,
-            112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0, 0, 0, 0,
-            0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0, 0, 0, 0,
-            0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
-            108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0,
-            0,
+            0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0,
+            0, 0, 0, 0, 0, 0, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0,
+            1, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64,
+            3, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105,
+            97, 110, 116, 32, 118, 97, 108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0,
+            0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         assert_eq!(expected, bytes);
@@ -887,15 +919,15 @@ mod tests {
         let expected: Vec<u8> = vec![
             129, 217, 41, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
             101, 114, 100, 101, 58, 58, 115, 101, 114, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77,
-            121, 83, 116, 114, 117, 99, 116, 220, 0, 19, 123, 172, 72, 101, 108, 108, 111, 32, 119,
+            121, 83, 116, 114, 117, 99, 116, 220, 0, 20, 123, 172, 72, 101, 108, 108, 111, 32, 119,
             111, 114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255,
-            0, 1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172,
-            84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116,
-            129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146,
-            202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116,
-            145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
-            108, 117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117,
-            112, 108, 101, 144, 146, 100, 145, 101,
+            0, 1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 64, 145, 206, 59, 154, 201, 255,
+            145, 172, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110,
+            105, 116, 129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108,
+            101, 146, 202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117,
+            99, 116, 145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32,
+            118, 97, 108, 117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165,
+            84, 117, 112, 108, 101, 144, 146, 100, 145, 101,
         ];
 
         assert_eq!(expected, bytes);

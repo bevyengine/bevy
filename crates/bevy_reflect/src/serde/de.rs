@@ -1,9 +1,9 @@
 use crate::serde::SerializationData;
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
-    ReflectDeserialize, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo,
-    TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
+    DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField,
+    Reflect, ReflectDeserialize, Set, SetInfo, StructInfo, StructVariantInfo, TupleInfo,
+    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{
@@ -582,6 +582,14 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 dynamic_map.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_map))
             }
+            TypeInfo::Set(set_info) => {
+                let mut dynamic_set = deserializer.deserialize_seq(SetVisitor {
+                    set_info,
+                    registry: self.registry,
+                })?;
+                dynamic_set.set_represented_type(Some(self.registration.type_info()));
+                Ok(Box::new(dynamic_set))
+            }
             TypeInfo::Tuple(tuple_info) => {
                 let mut dynamic_tuple = deserializer.deserialize_tuple(
                     tuple_info.field_len(),
@@ -817,6 +825,39 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
     }
 }
 
+struct SetVisitor<'a> {
+    set_info: &'static SetInfo,
+    registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
+    type Value = DynamicSet;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter.write_str("reflected set value")
+    }
+
+    fn visit_seq<V>(self, mut set: V) -> Result<Self::Value, V::Error>
+    where
+        V: SeqAccess<'de>,
+    {
+        let mut dynamic_set = DynamicSet::default();
+        let value_registration = get_registration(
+            self.set_info.value_type_id(),
+            self.set_info.value_type_path_table().path(),
+            self.registry,
+        )?;
+        while let Some(value) = set.next_element_seed(TypedReflectDeserializer {
+            registration: value_registration,
+            registry: self.registry,
+        })? {
+            dynamic_set.insert_boxed(value);
+        }
+
+        Ok(dynamic_set)
+    }
+}
+
 struct EnumVisitor<'a> {
     enum_info: &'static EnumInfo,
     registration: &'a TypeRegistration,
@@ -920,7 +961,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
                 E: Error,
             {
                 self.0.variant(variant_name).ok_or_else(|| {
-                    let names = self.0.iter().map(|variant| variant.name());
+                    let names = self.0.iter().map(VariantInfo::name);
                     Error::custom(format_args!(
                         "unknown variant `{}`, expected one of {:?}",
                         variant_name,
@@ -1046,7 +1087,7 @@ where
     let mut dynamic_struct = DynamicStruct::default();
     while let Some(Ident(key)) = map.next_key::<Ident>()? {
         let field = info.get_field(&key).ok_or_else(|| {
-            let fields = info.iter_fields().map(|field| field.name());
+            let fields = info.iter_fields().map(NamedField::name);
             Error::custom(format_args!(
                 "unknown field `{}`, expected one of {:?}",
                 key,
@@ -1179,7 +1220,7 @@ mod tests {
     use serde::de::DeserializeSeed;
     use serde::Deserialize;
 
-    use bevy_utils::HashMap;
+    use bevy_utils::{HashMap, HashSet};
 
     use crate as bevy_reflect;
     use crate::serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer};
@@ -1194,6 +1235,7 @@ mod tests {
         list_value: Vec<i32>,
         array_value: [i32; 5],
         map_value: HashMap<u8, usize>,
+        set_value: HashSet<u8>,
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
         unit_struct: SomeUnitStruct,
@@ -1284,6 +1326,7 @@ mod tests {
         registry.register::<[i32; 5]>();
         registry.register::<Vec<i32>>();
         registry.register::<HashMap<u8, usize>>();
+        registry.register::<HashSet<u8>>();
         registry.register::<Option<SomeStruct>>();
         registry.register::<Option<String>>();
         registry.register_type_data::<Option<String>, ReflectDeserialize>();
@@ -1294,6 +1337,9 @@ mod tests {
         let mut map = HashMap::new();
         map.insert(64, 32);
 
+        let mut set = HashSet::new();
+        set.insert(64);
+
         MyStruct {
             primitive_value: 123,
             option_value: Some(String::from("Hello world!")),
@@ -1302,6 +1348,7 @@ mod tests {
             list_value: vec![-2, -1, 0, 1, 2],
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
+            set_value: set,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_struct: SomeUnitStruct,
@@ -1348,6 +1395,9 @@ mod tests {
                 map_value: {
                     64: 32,
                 },
+                set_value: [
+                    64,
+                ],
                 struct_value: (
                     foo: 999999999,
                 ),
@@ -1585,12 +1635,12 @@ mod tests {
             0, 0, 219, 15, 73, 64, 57, 5, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 254, 255, 255,
             255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255, 255,
             255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32, 0,
-            0, 0, 0, 0, 0, 0, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 84, 117, 112,
-            108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0, 0, 0, 0, 0,
-            0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0, 0, 0, 0, 0,
-            0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
-            108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0,
-            0,
+            0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0,
+            0, 0, 0, 0, 0, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1,
+            0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3,
+            0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105,
+            97, 110, 116, 32, 118, 97, 108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0,
+            0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         let deserializer = ReflectDeserializer::new(&registry);
@@ -1612,15 +1662,15 @@ mod tests {
         let input = vec![
             129, 217, 40, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
             101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
-            83, 116, 114, 117, 99, 116, 220, 0, 19, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
+            83, 116, 114, 117, 99, 116, 220, 0, 20, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
             114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0,
-            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172, 84,
-            117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116, 129,
-            167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202,
-            63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145,
-            180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108,
-            117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117, 112,
-            108, 101, 144, 146, 100, 145, 101,
+            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 64, 145, 206, 59, 154, 201, 255, 145,
+            172, 84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105,
+            116, 129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101,
+            146, 202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99,
+            116, 145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32,
+            118, 97, 108, 117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165,
+            84, 117, 112, 108, 101, 144, 146, 100, 145, 101,
         ];
 
         let mut reader = std::io::BufReader::new(input.as_slice());

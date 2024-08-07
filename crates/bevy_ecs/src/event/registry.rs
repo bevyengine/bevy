@@ -41,7 +41,10 @@ pub enum ShouldUpdateEvents {
 }
 
 impl EventRegistry {
-    /// Registers an event type to be updated.
+    /// Registers an event type to be updated in a given [`World`]
+    ///
+    /// If no instance of the [`EventRegistry`] exists in the world, this will add one - otherwise it will use
+    /// the existing instance.
     pub fn register_event<T: Event>(world: &mut World) {
         // By initializing the resource here, we can be sure that it is present,
         // and receive the correct, up-to-date `ComponentId` even if it was previously removed.
@@ -76,5 +79,15 @@ impl EventRegistry {
                 }
             }
         }
+    }
+
+    /// Removes an event from the world and it's associated [`EventRegistry`].
+    pub fn deregister_events<T: Event>(world: &mut World) {
+        let component_id = world.init_resource::<Events<T>>();
+        let mut registry = world.get_resource_or_insert_with(Self::default);
+        registry
+            .event_updates
+            .retain(|e| e.component_id != component_id);
+        world.remove_resource::<Events<T>>();
     }
 }
