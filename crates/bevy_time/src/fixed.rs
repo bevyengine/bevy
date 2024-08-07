@@ -4,7 +4,7 @@ use bevy_ecs::world::World;
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
-use crate::{time::Time, virt::Virtual};
+use crate::{context::Context, time::Time, virt::Virtual};
 
 /// The fixed timestep game clock following virtual time.
 ///
@@ -69,6 +69,10 @@ use crate::{time::Time, virt::Virtual};
 pub struct Fixed {
     timestep: Duration,
     overstep: Duration,
+}
+
+impl Context for Fixed {
+    const IS_FIXED_UPDATE: bool = true;
 }
 
 impl Time<Fixed> {

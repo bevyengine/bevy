@@ -8,25 +8,31 @@
 
 /// Common run conditions
 pub mod common_conditions;
+mod components;
+mod context;
 mod fixed;
 mod real;
 mod stopwatch;
 #[allow(clippy::module_inception)]
 mod time;
+mod time_tracking;
 mod timer;
 mod virt;
 
+pub use components::*;
+pub use context::*;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;
 pub use time::*;
+pub use time_tracking::*;
 pub use timer::*;
 pub use virt::*;
 
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
+    pub use crate::{Fixed, Real, Time, TimeTrackingAppExtension, Timer, TimerMode, Virtual};
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
@@ -47,21 +53,26 @@ pub struct TimePlugin;
 /// this.
 pub struct TimeSystem;
 
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
+/// Updates all the time trackers. Any systems that interact with [`TimeTracker`]s in the [`First`]
+/// and [`FixedPreUpdate`] schedules should run after this.
+pub struct UpdateTimeTrackers;
+
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
             .init_resource::<Time<Real>>()
-            .init_resource::<Time<Virtual>>()
             .init_resource::<Time<Fixed>>()
+            .init_resource::<Time<Virtual>>()
             .init_resource::<TimeUpdateStrategy>();
 
         #[cfg(feature = "bevy_reflect")]
         {
             app.register_type::<Time>()
+                .register_type::<Timer>()
                 .register_type::<Time<Real>>()
-                .register_type::<Time<Virtual>>()
                 .register_type::<Time<Fixed>>()
-                .register_type::<Timer>();
+                .register_type::<Time<Virtual>>();
         }
 
         app.add_systems(
@@ -72,7 +83,15 @@ impl Plugin for TimePlugin {
         )
         .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
 
-        // Ensure the events are not dropped until `FixedMain` systems can observe them
+        app.configure_sets(First, UpdateTimeTrackers.after(TimeSystem));
+
+        app.register_time_context::<Real>()
+            .register_time_context::<Fixed>()
+            .register_time_context::<Virtual>()
+            .register_time_tracker::<MixedTimer>()
+            .register_time_tracker::<MixedStopwatch>();
+
+        // ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);
         let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
         // We need to start in a waiting state so that the events are not updated until the first fixed update
@@ -151,7 +170,10 @@ pub fn time_system(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
+    use crate::{
+        Fixed, MixedStopwatch, MixedTimer, Real, Time, TimePlugin, TimeUpdateStrategy, Timer,
+        UpdatingStopwatch, UpdatingTimer, Virtual,
+    };
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
         event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
@@ -368,5 +390,101 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn time_trackers_track_time() {
+        // Setup the timesteps so that all the times (fixed, virtual and real) have different values after one update.
+        let fixed_timestep = Time::<Fixed>::default().timestep();
+        let virtual_timestep = fixed_timestep + fixed_timestep / 2;
+        let real_timestep = virtual_timestep * 2;
+
+        let mut app = App::new();
+        app.add_plugins(TimePlugin)
+            .insert_resource(TimeUpdateStrategy::ManualDuration(real_timestep));
+
+        app.world_mut()
+            .resource_mut::<Time<Virtual>>()
+            .set_relative_speed(0.5);
+
+        let one_second_timer = Timer::new(Duration::from_secs(1), crate::TimerMode::Once);
+
+        let tracking_entity = app
+            .world_mut()
+            .spawn((
+                UpdatingStopwatch::<Virtual>::default(),
+                UpdatingStopwatch::<Fixed>::default(),
+                UpdatingStopwatch::<Real>::default(),
+                MixedStopwatch::default(),
+                UpdatingTimer::<Virtual>::new(one_second_timer.clone()),
+                UpdatingTimer::<Fixed>::new(one_second_timer.clone()),
+                UpdatingTimer::<Real>::new(one_second_timer.clone()),
+                MixedTimer::new(one_second_timer.clone()),
+            ))
+            .id();
+
+        // Time does not increment on the first update.
+        app.update();
+        // Time will increment now.
+        app.update();
+
+        let tracking_entity = app.world().entity(tracking_entity);
+
+        assert_eq!(
+            tracking_entity
+                .get::<UpdatingStopwatch::<Virtual>>()
+                .unwrap()
+                .elapsed(),
+            virtual_timestep
+        );
+        assert_eq!(
+            tracking_entity
+                .get::<UpdatingStopwatch::<Fixed>>()
+                .unwrap()
+                .elapsed(),
+            fixed_timestep
+        );
+        assert_eq!(
+            tracking_entity
+                .get::<UpdatingStopwatch::<Real>>()
+                .unwrap()
+                .elapsed(),
+            real_timestep
+        );
+        assert_eq!(
+            tracking_entity
+                .get::<UpdatingTimer::<Virtual>>()
+                .unwrap()
+                .elapsed(),
+            virtual_timestep
+        );
+        assert_eq!(
+            tracking_entity
+                .get::<UpdatingTimer::<Fixed>>()
+                .unwrap()
+                .elapsed(),
+            fixed_timestep
+        );
+        assert_eq!(
+            tracking_entity
+                .get::<UpdatingTimer::<Real>>()
+                .unwrap()
+                .elapsed(),
+            real_timestep
+        );
+
+        let timer = tracking_entity.get::<MixedTimer>().unwrap();
+        // Mixed timer should be tracking virtual time right now.
+        assert_eq!(timer.elapsed(), virtual_timestep);
+        let (virt, fixed) = timer.timers();
+        assert_eq!(virt.elapsed(), virtual_timestep);
+        assert_eq!(fixed.elapsed(), fixed_timestep);
+
+        let watch = tracking_entity.get::<MixedStopwatch>().unwrap();
+        // Mixed stopwatch should be tracking virtual time right now.
+        assert_eq!(watch.elapsed(), virtual_timestep);
+        let (virt, fixed) = timer.timers();
+        assert_eq!(virt.elapsed(), virtual_timestep);
+        assert_eq!(fixed.elapsed(), fixed_timestep);
     }
 }

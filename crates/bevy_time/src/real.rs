@@ -2,7 +2,7 @@
 use bevy_reflect::Reflect;
 use bevy_utils::{Duration, Instant};
 
-use crate::time::Time;
+use crate::{context::Context, time::Time};
 
 /// Real time clock representing elapsed wall clock time.
 ///
@@ -36,6 +36,8 @@ pub struct Real {
     first_update: Option<Instant>,
     last_update: Option<Instant>,
 }
+
+impl Context for Real {}
 
 impl Default for Real {
     fn default() -> Self {
