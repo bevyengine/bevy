@@ -1,7 +1,8 @@
 //! This example illustrates how to add custom log layers in bevy.
 
 use bevy::log::BoxedLayer;
-use bevy::{log::tracing_subscriber::Layer, prelude::*, utils::tracing::Subscriber};
+use bevy::{prelude::*, utils::tracing::Subscriber};
+use tracing_subscriber::Layer;
 
 struct CustomLayer;
 
@@ -9,7 +10,7 @@ impl<S: Subscriber> Layer<S> for CustomLayer {
     fn on_event(
         &self,
         event: &bevy::utils::tracing::Event<'_>,
-        _ctx: bevy::log::tracing_subscriber::layer::Context<'_, S>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
         println!("Got event!");
         println!("  level={:?}", event.metadata().level());
@@ -23,9 +24,7 @@ impl<S: Subscriber> Layer<S> for CustomLayer {
 fn custom_layer(_app: &mut App) -> Option<BoxedLayer> {
     // You can provide multiple layers like this, since Vec<Layer> is also a layer:
     Some(Box::new(vec![
-        bevy::log::tracing_subscriber::fmt::layer()
-            .with_file(true)
-            .boxed(),
+        tracing_subscriber::fmt::layer().with_file(true).boxed(),
         CustomLayer.boxed(),
     ]))
 }

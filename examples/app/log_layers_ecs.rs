@@ -14,12 +14,8 @@
 use std::sync::mpsc;
 
 use bevy::log::BoxedLayer;
-use bevy::{
-    log::tracing_subscriber::{self, Layer},
-    prelude::*,
-    utils::tracing,
-    utils::tracing::Subscriber,
-};
+use bevy::{prelude::*, utils::tracing, utils::tracing::Subscriber};
+use tracing_subscriber::Layer;
 
 /// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
 #[derive(Debug, Event)]
