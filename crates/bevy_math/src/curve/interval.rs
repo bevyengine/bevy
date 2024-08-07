@@ -12,7 +12,10 @@ use bevy_reflect::Reflect;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A nonempty closed interval, possibly infinite in either direction.
+/// A nonempty closed interval, possibly unbounded in either direction.
+///
+/// In other words, the interval may stretch all the way to positive or negative infinity, but it
+/// will always have some nonempty interior.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -30,13 +33,13 @@ pub struct Interval {
 #[error("The resulting interval would be invalid (empty or with a NaN endpoint)")]
 pub struct InvalidIntervalError;
 
-/// An error indicating that an infinite interval was used where it was inappropriate.
+/// An error indicating that an unbounded interval was used where it was inappropriate.
 #[derive(Debug, Error)]
-#[error("This operation does not make sense in the context of an infinite interval")]
-pub struct InfiniteIntervalError;
+#[error("This operation does not make sense in the context of an unbounded interval")]
+pub struct UnboundedIntervalError;
 
 impl Interval {
-    /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be infinite
+    /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be unbounded
     /// but cannot be empty (so `start` must be less than `end`) and neither endpoint can be NaN; invalid
     /// parameters will result in an error.
     #[inline]
@@ -80,9 +83,11 @@ impl Interval {
         self.end - self.start
     }
 
-    /// Returns `true` if both endpoints of this interval are finite.
+    /// Returns `true` if this interval is bounded — that is, if both its start and end are finite.
+    ///
+    /// Equivalently, an interval is bounded if its length is finite.
     #[inline]
-    pub fn is_finite(self) -> bool {
+    pub fn is_bounded(self) -> bool {
         self.length().is_finite()
     }
 
@@ -125,9 +130,9 @@ impl Interval {
     pub fn spaced_points(
         self,
         points: usize,
-    ) -> Result<impl Iterator<Item = f32>, InfiniteIntervalError> {
-        if !self.is_finite() {
-            return Err(InfiniteIntervalError);
+    ) -> Result<impl Iterator<Item = f32>, UnboundedIntervalError> {
+        if !self.is_bounded() {
+            return Err(UnboundedIntervalError);
         }
         if points < 2 {
             // If `points` is 1, this is `Some(self.start)` as an iterator, and if `points` is 0,
@@ -142,14 +147,14 @@ impl Interval {
     }
 
     /// Get the linear function which maps this interval onto the `other` one. Returns an error if either
-    /// interval is infinite.
+    /// interval is unbounded.
     #[inline]
     pub(super) fn linear_map_to(
         self,
         other: Self,
-    ) -> Result<impl Fn(f32) -> f32, InfiniteIntervalError> {
-        if !self.is_finite() || !other.is_finite() {
-            return Err(InfiniteIntervalError);
+    ) -> Result<impl Fn(f32) -> f32, UnboundedIntervalError> {
+        if !self.is_bounded() || !other.is_bounded() {
+            return Err(UnboundedIntervalError);
         }
         let scale = other.length() / self.length();
         Ok(move |x| (x - self.start) * scale + other.start)
@@ -273,11 +278,11 @@ mod tests {
     }
 
     #[test]
-    fn finiteness() {
-        assert!(!Interval::EVERYWHERE.is_finite());
-        assert!(interval(0.0, 3.5e5).unwrap().is_finite());
-        assert!(!interval(-2.0, f32::INFINITY).unwrap().is_finite());
-        assert!(!interval(f32::NEG_INFINITY, 5.0).unwrap().is_finite());
+    fn boundedness() {
+        assert!(!Interval::EVERYWHERE.is_bounded());
+        assert!(interval(0.0, 3.5e5).unwrap().is_bounded());
+        assert!(!interval(-2.0, f32::INFINITY).unwrap().is_bounded());
+        assert!(!interval(f32::NEG_INFINITY, 5.0).unwrap().is_bounded());
     }
 
     #[test]

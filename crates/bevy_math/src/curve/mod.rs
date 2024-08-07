@@ -6,7 +6,7 @@ pub mod interval;
 
 pub use interval::{interval, Interval};
 
-use interval::{InfiniteIntervalError, InvalidIntervalError};
+use interval::InvalidIntervalError;
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 
@@ -112,18 +112,22 @@ pub trait Curve<T> {
     }
 
     /// Linearly reparametrize this [`Curve`], producing a new curve whose domain is the given
-    /// `domain` instead of the current one. This operation is only valid for curves with finite
-    /// domains; if either this curve's domain or the given `domain` is infinite, an
-    /// [`InfiniteIntervalError`] is returned.
+    /// `domain` instead of the current one. This operation is only valid for curves with bounded
+    /// domains; if either this curve's domain or the given `domain` is unbounded, an error is
+    /// returned.
     fn reparametrize_linear(
         self,
         domain: Interval,
-    ) -> Result<LinearReparamCurve<T, Self>, InfiniteIntervalError>
+    ) -> Result<LinearReparamCurve<T, Self>, LinearReparamError>
     where
         Self: Sized,
     {
-        if !domain.is_finite() {
-            return Err(InfiniteIntervalError);
+        if !self.domain().is_bounded() {
+            return Err(LinearReparamError::SourceCurveUnbounded);
+        }
+
+        if !domain.is_bounded() {
+            return Err(LinearReparamError::TargetIntervalUnbounded);
         }
 
         Ok(LinearReparamCurve {
@@ -171,7 +175,7 @@ pub trait Curve<T> {
     /// The sample at time `t` in the new curve is `(x, y)`, where `x` is the sample of `self` at
     /// time `t` and `y` is the sample of `other` at time `t`. The domain of the new curve is the
     /// intersection of the domains of its constituents. If the domain intersection would be empty,
-    /// an [`InvalidIntervalError`] is returned.
+    /// an error is returned.
     fn zip<S, C>(self, other: C) -> Result<ProductCurve<T, S, Self, C>, InvalidIntervalError>
     where
         Self: Sized,
@@ -189,7 +193,7 @@ pub trait Curve<T> {
     /// Create a new [`Curve`] by composing this curve end-to-end with another, producing another curve
     /// with outputs of the same type. The domain of the other curve is translated so that its start
     /// coincides with where this curve ends. A [`ChainError`] is returned if this curve's domain
-    /// doesn't have a finite right endpoint or if `other`'s domain doesn't have a finite left endpoint.
+    /// doesn't have a finite end or if `other`'s domain doesn't have a finite start.
     fn chain<C>(self, other: C) -> Result<ChainCurve<T, Self, C>, ChainError>
     where
         Self: Sized,
@@ -250,6 +254,20 @@ where
     fn sample_unchecked(&self, t: f32) -> T {
         <C as Curve<T>>::sample_unchecked(self, t)
     }
+}
+
+/// An error indicating that a linear reparametrization couldn't be performed because of
+/// malformed inputs.
+#[derive(Debug, Error)]
+#[error("Could not build a linear function to reparametrize this curve")]
+pub enum LinearReparamError {
+    /// The source curve that was to be reparametrized had unbounded domain.
+    #[error("This curve has unbounded domain")]
+    SourceCurveUnbounded,
+
+    /// The target interval for reparametrization was unbounded.
+    #[error("The target interval for reparametrization is unbounded")]
+    TargetIntervalUnbounded,
 }
 
 /// An error indicating that an end-to-end composition couldn't be performed because of
