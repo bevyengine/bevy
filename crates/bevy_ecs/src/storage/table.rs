@@ -240,6 +240,8 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn drop(&self, data: OwningPtr<'_>) {
         if let Some(drop) = self.data.get_drop() {
+            // Safety: we're using the same drop fn that the BlobVec would
+            // if we inserted the data instead of dropping it.
             unsafe { drop(data) }
         }
     }
