@@ -14,16 +14,30 @@ use crate::TypePath;
 /// [`DynamicClosure`]: crate::func::DynamicClosure
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
-    name: Cow<'static, str>,
+    name: Option<Cow<'static, str>>,
     args: Vec<ArgInfo>,
     return_info: ReturnInfo,
 }
 
 impl FunctionInfo {
     /// Create a new [`FunctionInfo`] for a function with the given name.
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+    pub fn named(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
-            name: name.into(),
+            name: Some(name.into()),
+            args: Vec::new(),
+            return_info: ReturnInfo::new::<()>(),
+        }
+    }
+
+    /// Create a new [`FunctionInfo`] with no name.
+    ///
+    /// For the purposes of debugging and [registration],
+    /// it's recommended to use [`FunctionInfo::named`] instead.
+    ///
+    /// [registration]: crate::func::FunctionRegistry
+    pub fn anonymous() -> Self {
+        Self {
+            name: None,
             args: Vec::new(),
             return_info: ReturnInfo::new::<()>(),
         }
@@ -39,7 +53,7 @@ impl FunctionInfo {
 
     /// Set the name of the function.
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.name = name.into();
+        self.name = Some(name.into());
         self
     }
 
@@ -98,8 +112,8 @@ impl FunctionInfo {
     /// [`IntoFunction`]: crate::func::IntoFunction
     /// [`DynamicClosures`]: crate::func::DynamicClosure
     /// [`IntoClosure`]: crate::func::IntoClosure
-    pub fn name(&self) -> &Cow<'static, str> {
-        &self.name
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.name.as_ref()
     }
 
     /// The arguments of the function.
@@ -181,7 +195,7 @@ impl ReturnInfo {
 /// }
 ///
 /// let info = print.get_function_info();
-/// assert!(info.name().ends_with("print"));
+/// assert!(info.name().unwrap().ends_with("print"));
 /// assert_eq!(info.arg_count(), 1);
 /// assert_eq!(info.args()[0].type_path(), "alloc::string::String");
 /// assert_eq!(info.return_info().type_path(), "()");
@@ -222,7 +236,7 @@ macro_rules! impl_typed_function {
             Function: FnMut($($Arg),*) -> ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                FunctionInfo::new(std::borrow::Cow::Borrowed(std::any::type_name::<Function>()))
+                create_info::<Function>()
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 0;
@@ -246,7 +260,7 @@ macro_rules! impl_typed_function {
             Function: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a ReturnType,
         {
             fn function_info() -> $crate::func::FunctionInfo {
-                FunctionInfo::new(std::borrow::Cow::Borrowed(std::any::type_name::<Function>()))
+                create_info::<Function>()
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;
@@ -271,7 +285,7 @@ macro_rules! impl_typed_function {
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                FunctionInfo::new(std::borrow::Cow::Borrowed(std::any::type_name::<Function>()))
+                create_info::<Function>()
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;
@@ -296,7 +310,7 @@ macro_rules! impl_typed_function {
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                FunctionInfo::new(std::borrow::Cow::Borrowed(std::any::type_name::<Function>()))
+                create_info::<Function>()
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;
@@ -315,3 +329,74 @@ macro_rules! impl_typed_function {
 }
 
 all_tuples!(impl_typed_function, 0, 15, Arg, arg);
+
+/// Helper function for creating [`FunctionInfo`] with the proper name value.
+///
+/// Names are only given if:
+/// - The function is not a closure
+/// - The function is not a function pointer
+/// - The function is not an anonymous function
+///
+/// This function relies on the [`type_name`] of `F` to determine this.
+/// The following table describes the behavior for different types of functions:
+///
+/// | Category           | `type_name`             | `FunctionInfo::name`    |
+/// | ------------------ | ----------------------- | ----------------------- |
+/// | Named function     | `foo::bar::baz`         | `Some("foo::bar::baz")`    |
+/// | Closure            | `foo::bar::{{closure}}` | `None`                  |
+/// | Anonymous function | `fn() -> String`        | `None`                  |
+/// | Function pointer   | `fn() -> String`        | `None`                  |
+///
+/// [`type_name`]: std::any::type_name
+fn create_info<F>() -> FunctionInfo {
+    let name = std::any::type_name::<F>();
+
+    if name.ends_with("{{closure}}") || name.starts_with("fn(") {
+        FunctionInfo::anonymous()
+    } else {
+        FunctionInfo::named(name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_create_function_info() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let info = add.get_function_info();
+        assert_eq!(
+            info.name().unwrap(),
+            "bevy_reflect::func::info::tests::should_create_function_info::add"
+        );
+        assert_eq!(info.arg_count(), 2);
+        assert_eq!(info.args()[0].type_path(), "i32");
+        assert_eq!(info.args()[1].type_path(), "i32");
+        assert_eq!(info.return_info().type_path(), "i32");
+    }
+
+    #[test]
+    fn should_create_anonymous_function_info() {
+        let info = (|a: i32, b: i32| a + b).get_function_info();
+        assert!(info.name().is_none());
+        assert_eq!(info.arg_count(), 2);
+        assert_eq!(info.args()[0].type_path(), "i32");
+        assert_eq!(info.args()[1].type_path(), "i32");
+        assert_eq!(info.return_info().type_path(), "i32");
+    }
+
+    #[test]
+    fn should_create_closure_info() {
+        let mut total = 0;
+        let info = (|a: i32, b: i32| total = a + b).get_function_info();
+        assert!(info.name().is_none());
+        assert_eq!(info.arg_count(), 2);
+        assert_eq!(info.args()[0].type_path(), "i32");
+        assert_eq!(info.args()[1].type_path(), "i32");
+        assert_eq!(info.return_info().type_path(), "()");
+    }
+}

@@ -60,7 +60,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 ///
 /// // Instead, we need to define the function manually.
 /// // We start by defining the shape of the function:
-/// let info = FunctionInfo::new("append")
+/// let info = FunctionInfo::named("append")
 ///   .with_arg::<String>("value")
 ///   .with_arg::<&mut Vec<String>>("list")
 ///   .with_return::<&mut String>();
@@ -164,14 +164,18 @@ impl DynamicFunction {
 
     /// The [name] of the function.
     ///
-    /// For [`DynamicFunctions`] created using [`IntoFunction`],
-    /// the name will always be the full path to the function as returned by [`std::any::type_name`].
+    /// If this [`DynamicFunction`] was created using [`IntoFunction`],
+    /// then the name will default to one of the following:
+    /// - If the function was anonymous (e.g. `|a: i32, b: i32| { a + b }`),
+    ///   then the name will be `None`
+    /// - If the function was named (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`),
+    ///   then the name will be the full path to the function as returned by [`std::any::type_name`].
+    ///
     /// This can be overridden using [`with_name`].
     ///
     /// [name]: FunctionInfo::name
-    /// [`DynamicFunctions`]: DynamicFunction
     /// [`with_name`]: Self::with_name
-    pub fn name(&self) -> &Cow<'static, str> {
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.info.name()
     }
 }
@@ -183,7 +187,7 @@ impl DynamicFunction {
 /// Names for arguments are optional and will default to `_` if not provided.
 impl Debug for DynamicFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.name();
+        let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
         write!(f, "DynamicFunction(fn {name}(")?;
 
         for (index, arg) in self.info.args().iter().enumerate() {
@@ -227,7 +231,7 @@ mod tests {
         fn foo() {}
 
         let func = foo.into_function().with_name("my_function");
-        assert_eq!(func.info().name(), "my_function");
+        assert_eq!(func.info().name().unwrap(), "my_function");
     }
 
     #[test]
@@ -253,7 +257,8 @@ mod tests {
                 let index = args.pop::<usize>()?;
                 Ok(Return::Ref(get(index, list)))
             },
-            FunctionInfo::new("get")
+            FunctionInfo::anonymous()
+                .with_name("get")
                 .with_arg::<usize>("index")
                 .with_arg::<&Vec<String>>("list")
                 .with_return::<&String>(),

@@ -148,12 +148,16 @@ fn main() {
 
             Ok(Return::Ref(get_or_insert(value, container)))
         },
-        // All functions require a name.
-        // We can either give it a custom name or use the function's name as
+        // Functions can be either anonymous or named.
+        // It's good practice, though, to try and name your functions whenever possible.
+        // This makes it easier to debug and is also required for function registration.
+        // We can either give it a custom name or use the function's type name as
         // derived from `std::any::type_name_of_val`.
-        FunctionInfo::new(std::any::type_name_of_val(&get_or_insert))
+        FunctionInfo::named(std::any::type_name_of_val(&get_or_insert))
             // We can always change the name if needed.
-            .with_name("get_or_insert")
+            // It's a good idea to also ensure that the name is unique,
+            // such as by using its type name or by prefixing it with your crate name.
+            .with_name("my_crate::get_or_insert")
             // Since our function takes arguments, we should provide that argument information.
             // This helps ensure that consumers of the function can validate the arguments they
             // pass into the function and helps for debugging.
