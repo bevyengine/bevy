@@ -3161,6 +3161,17 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "animated_gizmos"
+path = "examples/gizmos/animated_gizmos.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animated_gizmos]
+name = "Animated Gizmos"
+description = "A scene showcasing animated gizmos"
+category = "Gizmos"
+wasm = true
+
+[[example]]
 name = "axes"
 path = "examples/gizmos/axes.rs"
 doc-scrape-examples = true
