@@ -60,7 +60,7 @@ pub trait AppExtStates {
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_reflect")]
-    /// Registers the state type `T` using [`App::register`],
+    /// Registers the state type `T` using [`App::register_type`],
     /// and adds [`ReflectState`](crate::reflect::ReflectState) type data to `T` in the type registry.
     ///
     /// This enables reflection code to access the state. For detailed information, see the docs on [`crate::reflect::ReflectState`] .
@@ -69,7 +69,7 @@ pub trait AppExtStates {
         S: States + FromReflect + GetTypeRegistration + Typed;
 
     #[cfg(feature = "bevy_reflect")]
-    /// Registers the state type `T` using [`App::register`],
+    /// Registers the state type `T` using [`App::register_type`],
     /// and adds [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`] type data to `T` in the type registry.
     ///
     /// This enables reflection code to access and modify the state.
