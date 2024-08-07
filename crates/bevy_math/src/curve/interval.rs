@@ -278,6 +278,25 @@ mod tests {
     }
 
     #[test]
+    fn interval_containment() {
+        let ivl = interval(0.0, 1.0).unwrap();
+        assert!(ivl.contains_interval(interval(-0.0, 0.5).unwrap()));
+        assert!(ivl.contains_interval(interval(0.5, 1.0).unwrap()));
+        assert!(ivl.contains_interval(interval(0.25, 0.75).unwrap()));
+        assert!(!ivl.contains_interval(interval(-0.25, 0.5).unwrap()));
+        assert!(!ivl.contains_interval(interval(0.5, 1.25).unwrap()));
+        assert!(!ivl.contains_interval(interval(0.25, f32::INFINITY).unwrap()));
+        assert!(!ivl.contains_interval(interval(f32::NEG_INFINITY, 0.75).unwrap()));
+
+        let big_ivl = interval(0.0, f32::INFINITY).unwrap();
+        assert!(big_ivl.contains_interval(interval(0.0, 5.0).unwrap()));
+        assert!(big_ivl.contains_interval(interval(0.0, f32::INFINITY).unwrap()));
+        assert!(big_ivl.contains_interval(interval(1.0, 5.0).unwrap()));
+        assert!(!big_ivl.contains_interval(interval(-1.0, f32::INFINITY).unwrap()));
+        assert!(!big_ivl.contains_interval(interval(-2.0, 5.0).unwrap()));
+    }
+
+    #[test]
     fn boundedness() {
         assert!(!Interval::EVERYWHERE.is_bounded());
         assert!(interval(0.0, 3.5e5).unwrap().is_bounded());
