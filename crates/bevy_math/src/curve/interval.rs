@@ -33,10 +33,24 @@ pub struct Interval {
 #[error("The resulting interval would be invalid (empty or with a NaN endpoint)")]
 pub struct InvalidIntervalError;
 
-/// An error indicating that an unbounded interval was used where it was inappropriate.
+/// An error indicating that spaced points could not be extracted from an unbounded interval.
 #[derive(Debug, Error)]
-#[error("This operation does not make sense in the context of an unbounded interval")]
-pub struct UnboundedIntervalError;
+#[error("Cannot extract spaced points from an unbounded interval")]
+pub struct SpacedPointsError;
+
+/// An error indicating that a linear map between intervals could not be constructed because of
+/// unboundedness.
+#[derive(Debug, Error)]
+#[error("Could not construct linear function to map between intervals")]
+pub(super) enum LinearMapError {
+    /// The source interval being mapped out of was unbounded.
+    #[error("The source interval is unbounded")]
+    SourceUnbounded,
+
+    /// The target interval being mapped into was unbounded.
+    #[error("The target interval is unbounded")]
+    TargetUnbounded,
+}
 
 impl Interval {
     /// Create a new [`Interval`] with the specified `start` and `end`. The interval can be unbounded
@@ -130,9 +144,9 @@ impl Interval {
     pub fn spaced_points(
         self,
         points: usize,
-    ) -> Result<impl Iterator<Item = f32>, UnboundedIntervalError> {
+    ) -> Result<impl Iterator<Item = f32>, SpacedPointsError> {
         if !self.is_bounded() {
-            return Err(UnboundedIntervalError);
+            return Err(SpacedPointsError);
         }
         if points < 2 {
             // If `points` is 1, this is `Some(self.start)` as an iterator, and if `points` is 0,
@@ -149,13 +163,15 @@ impl Interval {
     /// Get the linear function which maps this interval onto the `other` one. Returns an error if either
     /// interval is unbounded.
     #[inline]
-    pub(super) fn linear_map_to(
-        self,
-        other: Self,
-    ) -> Result<impl Fn(f32) -> f32, UnboundedIntervalError> {
-        if !self.is_bounded() || !other.is_bounded() {
-            return Err(UnboundedIntervalError);
+    pub(super) fn linear_map_to(self, other: Self) -> Result<impl Fn(f32) -> f32, LinearMapError> {
+        if !self.is_bounded() {
+            return Err(LinearMapError::SourceUnbounded);
         }
+
+        if !other.is_bounded() {
+            return Err(LinearMapError::TargetUnbounded);
+        }
+
         let scale = other.length() / self.length();
         Ok(move |x| (x - self.start) * scale + other.start)
     }

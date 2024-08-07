@@ -425,6 +425,7 @@ where
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct LinearReparamCurve<T, C> {
+    /// Invariants: The domain of this curve must always be bounded.
     base: C,
     /// Invariants: This interval must always be bounded.
     new_domain: Interval,
@@ -442,6 +443,7 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        // The invariants imply this unwrap always succeeds.
         let f = self.new_domain.linear_map_to(self.base.domain()).unwrap();
         self.base.sample_unchecked(f(t))
     }
