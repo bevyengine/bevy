@@ -27,7 +27,7 @@ pub use spawn_batch::*;
 
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
-    bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles},
+    bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
@@ -41,8 +41,7 @@ use crate::{
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::{Commands, Res, Resource},
-    world::command_queue::RawCommandQueue,
-    world::error::TryRunScheduleError,
+    world::{command_queue::RawCommandQueue, error::TryRunScheduleError},
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
@@ -1901,6 +1900,7 @@ impl World {
                                     entity,
                                     location,
                                     bundle,
+                                    InsertMode::Replace,
                                     #[cfg(feature = "track_change_detection")]
                                     caller,
                                 )
@@ -1922,6 +1922,7 @@ impl World {
                                     entity,
                                     location,
                                     bundle,
+                                    InsertMode::Replace,
                                     #[cfg(feature = "track_change_detection")]
                                     caller,
                                 )

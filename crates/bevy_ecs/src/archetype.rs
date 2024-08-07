@@ -112,7 +112,7 @@ impl ArchetypeId {
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum ComponentStatus {
     Added,
-    Mutated,
+    Existing,
 }
 
 pub(crate) struct AddBundle {
@@ -122,7 +122,7 @@ pub(crate) struct AddBundle {
     /// indicate if the component is newly added to the target archetype or if it already existed
     pub bundle_status: Vec<ComponentStatus>,
     pub added: Vec<ComponentId>,
-    pub mutated: Vec<ComponentId>,
+    pub existing: Vec<ComponentId>,
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
@@ -215,7 +215,7 @@ impl Edges {
                 archetype_id,
                 bundle_status,
                 added,
-                mutated,
+                existing: mutated,
             },
         );
     }

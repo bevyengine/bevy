@@ -232,6 +232,18 @@ impl Column {
         }
     }
 
+    /// Call [`drop`] on a value.
+    ///
+    /// # Safety
+    /// [`data`] must point to the same type that this table stores, so the
+    /// correct drop function is called.
+    #[inline]
+    pub(crate) unsafe fn drop(&self, data: OwningPtr<'_>) {
+        if let Some(drop) = self.data.get_drop() {
+            unsafe { drop(data) }
+        }
+    }
+
     /// Gets the current number of elements stored in the column.
     #[inline]
     pub fn len(&self) -> usize {

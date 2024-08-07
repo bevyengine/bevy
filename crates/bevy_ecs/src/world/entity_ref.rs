@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle},
+    bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
@@ -772,6 +772,20 @@ impl<'w> EntityWorldMut<'w> {
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         self.insert_with_caller(
             bundle,
+            InsertMode::Replace,
+            #[cfg(feature = "track_change_detection")]
+            core::panic::Location::caller(),
+        )
+    }
+
+    /// Adds a [`Bundle`] of components to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    #[track_caller]
+    pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Keep,
             #[cfg(feature = "track_change_detection")]
             core::panic::Location::caller(),
         )
@@ -783,6 +797,7 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,
         bundle: T,
+        mode: InsertMode,
         #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
     ) -> &mut Self {
         let change_tick = self.world.change_tick();
@@ -791,7 +806,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location =
             // SAFETY: location matches current entity. `T` matches `bundle_info`
             unsafe {
-                bundle_inserter.insert(self.entity, self.location, bundle,  #[cfg(feature = "track_change_detection")] caller)
+                bundle_inserter.insert(self.entity, self.location, bundle, mode, #[cfg(feature = "track_change_detection")] caller)
             };
         self
     }
@@ -2355,6 +2370,7 @@ unsafe fn insert_dynamic_bundle<
             entity,
             location,
             bundle,
+            InsertMode::Replace,
             #[cfg(feature = "track_change_detection")]
             core::panic::Location::caller(),
         )

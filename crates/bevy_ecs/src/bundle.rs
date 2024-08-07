@@ -300,6 +300,13 @@ impl SparseSetIndex for BundleId {
     }
 }
 
+// What to do on insertion if component already exists
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum InsertMode {
+    Replace,
+    Keep,
+}
+
 /// Stores metadata associated with a specific type of [`Bundle`] for a given [`World`].
 ///
 /// [`World`]: crate::world::World
@@ -403,6 +410,7 @@ impl BundleInfo {
         table_row: TableRow,
         change_tick: Tick,
         bundle: T,
+        insert_mode: InsertMode,
         #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
@@ -418,8 +426,8 @@ impl BundleInfo {
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
-                    match status {
-                        ComponentStatus::Added => {
+                    match (status, insert_mode) {
+                        (ComponentStatus::Added, _) => {
                             column.initialize(
                                 table_row,
                                 component_ptr,
@@ -428,7 +436,7 @@ impl BundleInfo {
                                 caller,
                             );
                         }
-                        ComponentStatus::Mutated => {
+                        (ComponentStatus::Existing, InsertMode::Replace) => {
                             column.replace(
                                 table_row,
                                 component_ptr,
@@ -436,6 +444,9 @@ impl BundleInfo {
                                 #[cfg(feature = "track_change_detection")]
                                 caller,
                             );
+                        }
+                        (ComponentStatus::Existing, InsertMode::Keep) => {
+                            column.drop(component_ptr);
                         }
                     }
                 }
@@ -482,7 +493,7 @@ impl BundleInfo {
         let current_archetype = &mut archetypes[archetype_id];
         for component_id in self.component_ids.iter().cloned() {
             if current_archetype.contains(component_id) {
-                bundle_status.push(ComponentStatus::Mutated);
+                bundle_status.push(ComponentStatus::Existing);
                 mutated.push(component_id);
             } else {
                 bundle_status.push(ComponentStatus::Added);
@@ -685,6 +696,7 @@ impl<'w> BundleInserter<'w> {
         entity: Entity,
         location: EntityLocation,
         bundle: T,
+        insert_mode: InsertMode,
         #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
@@ -698,13 +710,15 @@ impl<'w> BundleInserter<'w> {
             // SAFETY: Mutable references do not alias and will be dropped after this block
             let mut deferred_world = self.world.into_deferred();
 
-            deferred_world.trigger_on_replace(
-                archetype,
-                entity,
-                add_bundle.mutated.iter().copied(),
-            );
-            if archetype.has_replace_observer() {
-                deferred_world.trigger_observers(ON_REPLACE, entity, &add_bundle.mutated);
+            if insert_mode == InsertMode::Replace {
+                deferred_world.trigger_on_replace(
+                    archetype,
+                    entity,
+                    add_bundle.existing.iter().copied(),
+                );
+                if archetype.has_replace_observer() {
+                    deferred_world.trigger_observers(ON_REPLACE, entity, &add_bundle.existing);
+                }
             }
         }
 
@@ -728,6 +742,7 @@ impl<'w> BundleInserter<'w> {
                     location.table_row,
                     self.change_tick,
                     bundle,
+                    insert_mode,
                     #[cfg(feature = "track_change_detection")]
                     caller,
                 );
@@ -768,6 +783,7 @@ impl<'w> BundleInserter<'w> {
                     result.table_row,
                     self.change_tick,
                     bundle,
+                    insert_mode,
                     #[cfg(feature = "track_change_detection")]
                     caller,
                 );
@@ -849,6 +865,7 @@ impl<'w> BundleInserter<'w> {
                     move_result.new_row,
                     self.change_tick,
                     bundle,
+                    insert_mode,
                     #[cfg(feature = "track_change_detection")]
                     caller,
                 );
@@ -970,6 +987,7 @@ impl<'w> BundleSpawner<'w> {
                 table_row,
                 self.change_tick,
                 bundle,
+                InsertMode::Replace,
                 #[cfg(feature = "track_change_detection")]
                 caller,
             );
@@ -1223,6 +1241,9 @@ mod tests {
     #[derive(Component)]
     struct D;
 
+    #[derive(Component, Eq, PartialEq, Debug)]
+    struct V(&'static str); // component with a value
+
     #[derive(Resource, Default)]
     struct R(usize);
 
@@ -1295,6 +1316,7 @@ mod tests {
         world.init_resource::<R>();
         let mut entity = world.entity_mut(entity);
         entity.insert(A);
+        entity.insert_if_new(A); // this will not trigger on_replace or on_insert
         entity.flush();
         assert_eq!(2, world.resource::<R>().0);
     }
@@ -1363,5 +1385,20 @@ mod tests {
 
         world.spawn(A).flush();
         assert_eq!(4, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn insert_if_new() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        let id = world.spawn(V("one")).id();
+        let mut entity = world.entity_mut(id);
+        entity.insert_if_new(V("two"));
+        entity.insert_if_new((A, V("three")));
+        entity.flush();
+        // should still contain "one"
+        let entity = world.entity(id);
+        assert!(entity.contains::<A>());
+        assert_eq!(entity.get(), Some(&V("one")));
     }
 }

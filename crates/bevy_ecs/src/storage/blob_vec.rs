@@ -437,6 +437,12 @@ impl BlobVec {
             }
         }
     }
+
+    /// Get the dropper for this vector. Used if caller has type-erased pointer
+    /// which they have decided _not_ to add to this vector.
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.drop
+    }
 }
 
 impl Drop for BlobVec {
