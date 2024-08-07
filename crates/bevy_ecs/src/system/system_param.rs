@@ -12,7 +12,10 @@ use crate::{
         ReadOnlyQueryData,
     },
     system::{Query, SystemMeta},
-    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
+    world::{
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
+        FromWorld, World,
+    },
 };
 use bevy_ecs_macros::impl_param_set;
 pub use bevy_ecs_macros::Resource;
@@ -2101,6 +2104,59 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         state.0.queue(system_meta, world);
+    }
+}
+
+// SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResources` with no access.
+// Therefore, `init_state` trivially registers all access, and no accesses can conflict.
+// Note that the safety requirements for non-empty access are handled by the `SystemParamBuilder` impl that builds them.
+unsafe impl SystemParam for FilteredResources<'_> {
+    type State = Access<ComponentId>;
+
+    type Item<'world, 'state> = FilteredResources<'world>;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        Access::new()
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        let access = state.clone();
+        // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
+        // and the builder registers `access` in `build`.
+        unsafe { FilteredResources::new(world, access, system_meta.last_run, change_tick) }
+    }
+}
+
+// SAFETY: FilteredResources only reads resources.
+unsafe impl ReadOnlySystemParam for FilteredResources<'_> {}
+
+// SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResourcesMut` with no access.
+// Therefore, `init_state` trivially registers all access, and no accesses can conflict.
+// Note that the safety requirements for non-empty access are handled by the `SystemParamBuilder` impl that builds them.
+unsafe impl SystemParam for FilteredResourcesMut<'_> {
+    type State = Access<ComponentId>;
+
+    type Item<'world, 'state> = FilteredResourcesMut<'world>;
+
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        Access::new()
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        let access = state.clone();
+        // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
+        // and the builder registers `access` in `build`.
+        unsafe { FilteredResourcesMut::new(world, access, system_meta.last_run, change_tick) }
     }
 }
 

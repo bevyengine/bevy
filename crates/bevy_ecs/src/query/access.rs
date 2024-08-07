@@ -566,6 +566,25 @@ impl<T: SparseSetIndex> Access<T> {
         self.component_writes.ones().map(T::get_sparse_set_index)
     }
 
+    /// Returns the indices of the resources this has access to.
+    pub fn resource_reads_and_writes(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_read_and_writes
+            .ones()
+            .map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the resources this has non-exclusive access to.
+    pub fn resource_reads(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_read_and_writes
+            .difference(&self.resource_writes)
+            .map(T::get_sparse_set_index)
+    }
+
+    /// Returns the indices of the resources this has exclusive access to.
+    pub fn resource_writes(&self) -> impl Iterator<Item = T> + '_ {
+        self.resource_writes.ones().map(T::get_sparse_set_index)
+    }
+
     /// Returns the indices of the components that this has an archetypal access to.
     ///
     /// These are components whose values are not accessed (and thus will never cause conflicts),
