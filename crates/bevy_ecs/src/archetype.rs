@@ -207,7 +207,7 @@ impl Edges {
         archetype_id: ArchetypeId,
         bundle_status: Vec<ComponentStatus>,
         added: Vec<ComponentId>,
-        mutated: Vec<ComponentId>,
+        existing: Vec<ComponentId>,
     ) {
         self.add_bundle.insert(
             bundle_id,
@@ -215,7 +215,7 @@ impl Edges {
                 archetype_id,
                 bundle_status,
                 added,
-                existing: mutated,
+                existing,
             },
         );
     }
