@@ -342,9 +342,9 @@ all_tuples!(impl_typed_function, 0, 15, Arg, arg);
 ///
 /// | Category           | `type_name`             | `FunctionInfo::name`    |
 /// | ------------------ | ----------------------- | ----------------------- |
-/// | Named function     | `foo::bar::baz`         | `Some("foo::bar::baz")`    |
+/// | Named function     | `foo::bar::baz`         | `Some("foo::bar::baz")` |
 /// | Closure            | `foo::bar::{{closure}}` | `None`                  |
-/// | Anonymous function | `fn() -> String`        | `None`                  |
+/// | Anonymous function | `foo::bar::{{closure}}` | `None`                  |
 /// | Function pointer   | `fn() -> String`        | `None`                  |
 ///
 /// [`type_name`]: std::any::type_name
@@ -368,6 +368,12 @@ mod tests {
             a + b
         }
 
+        // Sanity check:
+        assert_eq!(
+            std::any::type_name_of_val(&add),
+            "bevy_reflect::func::info::tests::should_create_function_info::add"
+        );
+
         let info = add.get_function_info();
         assert_eq!(
             info.name().unwrap(),
@@ -380,8 +386,35 @@ mod tests {
     }
 
     #[test]
+    fn should_create_function_pointer_info() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let add = add as fn(i32, i32) -> i32;
+
+        // Sanity check:
+        assert_eq!(std::any::type_name_of_val(&add), "fn(i32, i32) -> i32");
+
+        let info = add.get_function_info();
+        assert!(info.name().is_none());
+        assert_eq!(info.arg_count(), 2);
+        assert_eq!(info.args()[0].type_path(), "i32");
+        assert_eq!(info.args()[1].type_path(), "i32");
+        assert_eq!(info.return_info().type_path(), "i32");
+    }
+
+    #[test]
     fn should_create_anonymous_function_info() {
-        let info = (|a: i32, b: i32| a + b).get_function_info();
+        let add = |a: i32, b: i32| a + b;
+
+        // Sanity check:
+        assert_eq!(
+            std::any::type_name_of_val(&add),
+            "bevy_reflect::func::info::tests::should_create_anonymous_function_info::{{closure}}"
+        );
+
+        let info = add.get_function_info();
         assert!(info.name().is_none());
         assert_eq!(info.arg_count(), 2);
         assert_eq!(info.args()[0].type_path(), "i32");
@@ -392,7 +425,15 @@ mod tests {
     #[test]
     fn should_create_closure_info() {
         let mut total = 0;
-        let info = (|a: i32, b: i32| total = a + b).get_function_info();
+        let add = |a: i32, b: i32| total = a + b;
+
+        // Sanity check:
+        assert_eq!(
+            std::any::type_name_of_val(&add),
+            "bevy_reflect::func::info::tests::should_create_closure_info::{{closure}}"
+        );
+
+        let info = add.get_function_info();
         assert!(info.name().is_none());
         assert_eq!(info.arg_count(), 2);
         assert_eq!(info.args()[0].type_path(), "i32");
