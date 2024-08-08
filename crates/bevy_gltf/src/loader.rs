@@ -13,7 +13,7 @@ use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3dBundle;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{entity::Entity, world::World};
-use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
+use bevy_hierarchy::{BuildChildren, ChildBuild, Parent, WorldChildBuilder};
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
     DirectionalLight, DirectionalLightBundle, PbrBundle, PointLight, PointLightBundle, SpotLight,
@@ -721,9 +721,19 @@ async fn load_gltf<'a, 'b, 'c>(
             // if it is, add the AnimationPlayer component
             for node in scene.nodes() {
                 if animation_roots.contains(&node.index()) {
+                    use bevy_hierarchy::Parent;
+
+                    let player_ref = world
+                        .entity(*node_index_to_entity_map.get(&node.index()).unwrap());
+                    let parent = player_ref.get::<Parent>().unwrap();
+
+                    let parent_ref = world.entity(**parent);
+                    let grandparent = parent_ref.get::<Parent>().unwrap();
+                    let grandparent_raw = **grandparent;
+
                     world
                         .entity_mut(*node_index_to_entity_map.get(&node.index()).unwrap())
-                        .insert(bevy_animation::AnimationPlayer::default());
+                        .insert(bevy_animation::AnimationPlayer::new(grandparent_raw));
                 }
             }
         }
