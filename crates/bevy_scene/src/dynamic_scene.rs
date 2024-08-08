@@ -1,12 +1,11 @@
 use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::{EntityHashMap, SceneEntityMapper};
 use bevy_ecs::{
     entity::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
 use bevy_reflect::{Reflect, TypePath, TypeRegistry};
-use bevy_utils::TypeIdMap;
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
@@ -71,23 +70,26 @@ impl DynamicScene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
-        // For each component types that reference other entities, we keep track
-        // of which entities in the scene use that component.
-        // This is so we can update the scene-internal references to references
-        // of the actual entities in the world.
-        let mut scene_mappings: TypeIdMap<Vec<Entity>> = Default::default();
-
+        // First ensure that every entity in the scene has a corresponding world
+        // entity in the entity map.
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
-            let entity = *entity_map
+            entity_map
                 .entry(scene_entity.entity)
                 .or_insert_with(|| world.spawn_empty().id());
-            let entity_mut = &mut world.entity_mut(entity);
+        }
+
+        for scene_entity in &self.entities {
+            // Fetch the entity with the given entity id from the `entity_map`.
+            let entity = *entity_map
+                .get(&scene_entity.entity)
+                .expect("should have previously spawned an empty entity");
 
             // Apply/ add each component to the given entity.
             for component in &scene_entity.components {
+                let mut component = component.clone_value();
                 let type_info = component.get_represented_type_info().ok_or_else(|| {
                     SceneSpawnError::NoRepresentedType {
                         type_path: component.reflect_type_path().to_string(),
@@ -105,29 +107,19 @@ impl DynamicScene {
                         }
                     })?;
 
-                // If this component references entities in the scene, track it
-                // so we can update it to the entity in the world.
-                if registration.data::<ReflectMapEntities>().is_some() {
-                    scene_mappings
-                        .entry(registration.type_id())
-                        .or_default()
-                        .push(entity);
+                // If this component references entities in the scene, update
+                // them to the entities in the world.
+                if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
+                    SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
+                        map_entities.map_entities(&mut *component, mapper);
+                    });
                 }
 
-                // If the entity already has the given component attached,
-                // just apply the (possibly) new value, otherwise add the
-                // component to the entity.
-                reflect_component.apply_or_insert(entity_mut, &**component, &type_registry);
-            }
-        }
-
-        // Updates references to entities in the scene to entities in the world
-        for (type_id, entities) in scene_mappings.into_iter() {
-            let registration = type_registry.get(type_id).expect(
-                "we should be getting TypeId from this TypeRegistration in the first place",
-            );
-            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect.map_entities(world, entity_map, &entities);
+                reflect_component.apply_or_insert(
+                    &mut world.entity_mut(entity),
+                    &*component,
+                    &type_registry,
+                );
             }
         }
 
@@ -205,11 +197,14 @@ where
 
 #[cfg(test)]
 mod tests {
+    use bevy_app::App;
     use bevy_ecs::entity::{Entity, EntityHashMap, EntityMapper, MapEntities};
+    use bevy_ecs::observer::Trigger;
     use bevy_ecs::reflect::{ReflectMapEntitiesResource, ReflectResource};
-    use bevy_ecs::system::Resource;
+    use bevy_ecs::system::{Query, Resource};
+    use bevy_ecs::world::OnAdd;
     use bevy_ecs::{reflect::AppTypeRegistry, world::Command, world::World};
-    use bevy_hierarchy::{Parent, PushChild};
+    use bevy_hierarchy::{BuildChildren, Children, Parent, PushChild};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
@@ -342,5 +337,53 @@ mod tests {
                 .get(),
             "something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
         );
+    }
+
+    #[test]
+    fn observers_should_see_mapped_entities() {
+        // Testing that Observers don't see the entities from the scene, but rather from the world itself.
+
+        let mut app = App::new();
+        app.init_resource::<AppTypeRegistry>()
+            .register_type::<Parent>()
+            .observe(|trigger: Trigger<OnAdd, Parent>, query: Query<&Parent>| {
+                let parent = query
+                    .get(trigger.entity())
+                    .expect("entity should have a parent");
+
+                assert_ne!(parent.get(), Entity::PLACEHOLDER);
+            });
+
+        let mut scene_world = World::new();
+        scene_world.insert_resource(app.world().resource::<AppTypeRegistry>().clone());
+
+        for _ in 0..5 {
+            scene_world.spawn_empty();
+        }
+
+        let scene_child = scene_world.spawn_empty().id();
+        let scene_parent = scene_world.spawn_empty().push_children(&[scene_child]).id();
+
+        app.observe(
+            move |trigger: Trigger<OnAdd, Parent>, query: Query<&Parent>| {
+                let parent = query
+                    .get(trigger.entity())
+                    .expect("entity should have a parent");
+
+                assert_ne!(parent.get(), scene_parent);
+            },
+        );
+
+        let scene = DynamicSceneBuilder::from_world(&scene_world)
+            .allow::<Parent>()
+            .allow::<Children>()
+            .extract_entities([scene_parent, scene_child].into_iter())
+            .build();
+
+        let mut entity_map = EntityHashMap::<Entity>::default();
+
+        scene
+            .write_to_world(app.world_mut(), &mut entity_map)
+            .expect("write scene to world");
     }
 }
