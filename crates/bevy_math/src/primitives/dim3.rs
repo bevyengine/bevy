@@ -1317,10 +1317,58 @@ mod tests {
     }
 
     #[test]
-    fn infinite_plane_from_points() {
-        let (plane, translation) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+    fn infinite_plane_math() {
+        let (plane, origin) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
-        assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
+        assert_eq!(origin, Vec3::Z * 0.33333334, "incorrect translation");
+
+        let point_in_plane = Vec3::X + Vec3::Z;
+        assert_eq!(
+            plane.signed_distance(origin, point_in_plane),
+            0.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(origin, point_in_plane),
+            point_in_plane,
+            "incorrect point"
+        );
+
+        let point_outside = Vec3::Y;
+        assert_eq!(
+            plane.signed_distance(origin, point_outside),
+            1.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(origin, point_outside),
+            Vec3::ZERO,
+            "incorrect point"
+        );
+
+        let point_outside = Vec3::NEG_Y;
+        assert_eq!(
+            plane.signed_distance(origin, point_outside),
+            -1.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(origin, point_outside),
+            Vec3::ZERO,
+            "incorrect point"
+        );
+
+        let area_f = |[a, b, c]: [Vec3; 3]| (a - b).cross(a - c).length() * 0.5;
+        let (proj, inj) = plane.congruent_transformations_xy(origin);
+
+        let triangle = [Vec3::X, Vec3::Y, Vec3::ZERO];
+        assert_eq!(area_f(triangle), 0.5, "incorrect area");
+
+        let triangle_proj = triangle.map(|p| proj.transform_point3(p));
+        assert_relative_eq!(area_f(triangle_proj), 0.5);
+
+        let triangle_proj_inj = triangle_proj.map(|p| inj.transform_point3(p));
+        assert_relative_eq!(area_f(triangle_proj_inj), 0.5);
     }
 
     #[test]
