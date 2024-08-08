@@ -293,24 +293,15 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
             },
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
-                entity.into_mut::<C>().map(|c| Mut {
-                    value: c.value as &mut dyn Reflect,
-                    ticks: c.ticks,
-                    #[cfg(feature = "track_change_detection")]
-                    changed_by: c.changed_by,
-                })
+                entity
+                    .into_mut::<C>()
+                    .map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
             },
             reflect_unchecked_mut: |entity| {
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
                 // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
-                unsafe {
-                    entity.get_mut::<C>().map(|c| Mut {
-                        value: c.value as &mut dyn Reflect,
-                        ticks: c.ticks,
-                        #[cfg(feature = "track_change_detection")]
-                        changed_by: c.changed_by,
-                    })
-                }
+                unsafe { entity.get_mut::<C>() }
+                    .map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
             },
         })
     }
