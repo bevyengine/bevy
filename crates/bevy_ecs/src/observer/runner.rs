@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentHooks, ComponentId, StorageType},
+    component::{Component, ComponentHooks, ComponentId, StorageType},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
