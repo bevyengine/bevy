@@ -97,6 +97,19 @@ fn draw_example_collection(
     );
     gizmos.sphere(Isometry3d::from_translation(Vec3::ONE * 10.0), 1.0, PURPLE);
 
+    gizmos
+        .primitive_3d(
+            &Plane3d {
+                normal: Dir3::Y,
+                half_size: Vec2::splat(1.0),
+            },
+            Vec3::ONE * 4.0,
+            Quat::from_rotation_x(PI / 2.),
+            GREEN,
+        )
+        .cell_count(UVec2::new(5, 10))
+        .spacing(Vec2::new(0.2, 0.1));
+
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         BLACK,
