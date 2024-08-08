@@ -7,9 +7,14 @@ mod trigger_event;
 pub use runner::*;
 pub use trigger_event::*;
 
-use crate::observer::entity_observer::ObservedBy;
-use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
-use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
+use crate::{
+    archetype::ArchetypeFlags,
+    component::ComponentId,
+    observer::entity_observer::ObservedBy,
+    prelude::*,
+    system::{IntoObserverSystem, ObserverSystem},
+    world::DeferredWorld,
+};
 use bevy_ptr::Ptr;
 use bevy_utils::{EntityHashMap, HashMap};
 use std::marker::PhantomData;
@@ -425,6 +430,41 @@ impl World {
             }
         }
     }
+}
+
+/// Returns an [`Observer`] that watches for an input event, maps it to a new event type, and triggers
+/// that event.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::observer::trigger_map;
+/// # let mut world = World::new();
+///
+/// #[derive(Event, Clone, Debug)]
+/// struct Foo(usize);
+///
+/// #[derive(Event, Debug)]
+/// struct Bar(bool);
+///
+/// #[derive(Event, Debug)]
+/// enum Combined {
+///     Foo(Foo),
+///     Bar(Bar),
+/// }
+///
+/// world.observe(trigger_map(Combined::Foo));
+/// world.observe(|trigger: Trigger<Combined>| {
+///     println!("Combined Event: {:?}", trigger.event());
+/// });
+/// ```
+pub fn trigger_map<T: Event + Clone, U: Event, F: Fn(T) -> U + Send + Sync + 'static>(
+    map: F,
+) -> impl ObserverSystem<T, ()> {
+    IntoObserverSystem::into_system(move |trigger: Trigger<T>, mut commands: Commands| {
+        commands.trigger(map(trigger.event().clone()));
+    })
 }
 
 #[cfg(test)]
