@@ -10,6 +10,7 @@ struct BloomUniforms {
     threshold_precomputations: vec4<f32>,
     viewport: vec4<f32>,
     aspect: f32,
+    uv_offset: f32
 };
 
 @group(0) @binding(0) var input_texture: texture_2d<f32>;
@@ -94,9 +95,9 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 
 // [COD] slide 162
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
-    // Radius. Empirically chosen by and tweaked from the LearnOpenGL article.
-    let x = 0.004 / uniforms.aspect;
-    let y = 0.004;
+    // UV offsets configured from uniforms.
+    let x = uniforms.uv_offset / uniforms.aspect;
+    let y = uniforms.uv_offset;
 
     let a = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y + y)).rgb;
     let b = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y + y)).rgb;
