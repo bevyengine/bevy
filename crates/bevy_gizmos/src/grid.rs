@@ -380,8 +380,7 @@ fn draw_grid<Config, Clear>(
         * if cell_count.z != 0 { 1. } else { 0. };
 
     // Bottom-left-front corner of the grid
-    let grid_start = position
-        - cell_count.x as f32 / 2.0 * dx
+    let grid_start = -(cell_count.x as f32 / 2.0 * dx)
         - cell_count.y as f32 / 2.0 * dy
         - cell_count.z as f32 / 2.0 * dz;
 
@@ -415,7 +414,11 @@ fn draw_grid<Config, Clear>(
             let line_start = x_start + iy * dy + iz * dz;
             let line_end = line_start + dline;
 
-            gizmos.line(rotation * line_start, rotation * line_end, color);
+            gizmos.line(
+                position + rotation * line_start,
+                position + rotation * line_end,
+                color,
+            );
         }
     }
     // Lines along the y direction
@@ -427,7 +430,11 @@ fn draw_grid<Config, Clear>(
             let line_start = y_start + ix * dx + iz * dz;
             let line_end = line_start + dline;
 
-            gizmos.line(rotation * line_start, rotation * line_end, color);
+            gizmos.line(
+                position + rotation * line_start,
+                position + rotation * line_end,
+                color,
+            );
         }
     }
     // Lines along the z direction
@@ -439,7 +446,11 @@ fn draw_grid<Config, Clear>(
             let line_start = z_start + ix * dx + iy * dy;
             let line_end = line_start + dline;
 
-            gizmos.line(rotation * line_start, rotation * line_end, color);
+            gizmos.line(
+                position + rotation * line_start,
+                position + rotation * line_end,
+                color,
+            );
         }
     }
 }
