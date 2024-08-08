@@ -109,7 +109,7 @@ impl ArchetypeId {
     }
 }
 
-/// Used in AddBundle to track whether components in the bundle are newly
+/// Used in [`AddBundle`] to track whether components in the bundle are newly
 /// added or already existed in the entity's archetype.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum ComponentStatus {

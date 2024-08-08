@@ -235,7 +235,7 @@ impl Column {
     /// Call [`drop`] on a value.
     ///
     /// # Safety
-    /// [`data`] must point to the same type that this table stores, so the
+    /// `data` must point to the same type that this table stores, so the
     /// correct drop function is called.
     #[inline]
     pub(crate) unsafe fn drop(&self, data: OwningPtr<'_>) {
