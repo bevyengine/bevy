@@ -5,8 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::LinearRgba;
-use bevy_ecs::system::IntoSystem;
-use bevy_math::{Quat, UVec2, UVec3, Vec2, Vec3};
+use bevy_math::{Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
 
 /// A builder returned by [`Gizmos::grid_3d`]
 pub struct GridBuilder3d<'a, 'w, 's, Config, Clear>
@@ -405,52 +404,35 @@ fn draw_grid<Config, Clear>(
     let y_start = grid_start + or_zero(!outer_edges[1], dx + dz);
     let z_start = grid_start + or_zero(!outer_edges[2], dx + dy);
 
+    fn iter_lines(
+        delta_a: Vec3,
+        delta_b: Vec3,
+        delta_c: Vec3,
+        line_count: UVec2,
+        cell_count: u32,
+        start: Vec3,
+    ) -> impl Iterator<Item = [Vec3; 2]> {
+        let dline = delta_a * cell_count as f32;
+        (0..line_count.x).map(|v| v as f32).flat_map(move |b| {
+            (0..line_count.y).map(|v| v as f32).map(move |c| {
+                let line_start = start + b * delta_b + c * delta_c;
+                let line_end = line_start + dline;
+                [line_start, line_end]
+            })
+        })
+    }
+
     // Lines along the x direction
-    let dline = dx * cell_count.x as f32;
-    for iy in 0..line_count.y {
-        let iy = iy as f32;
-        for iz in 0..line_count.z {
-            let iz = iz as f32;
-            let line_start = x_start + iy * dy + iz * dz;
-            let line_end = line_start + dline;
-
-            gizmos.line(
-                position + rotation * line_start,
-                position + rotation * line_end,
-                color,
-            );
-        }
-    }
+    let x_lines = iter_lines(dx, dy, dz, line_count.yz(), cell_count.x, x_start);
     // Lines along the y direction
-    let dline = dy * cell_count.y as f32;
-    for ix in 0..line_count.x {
-        let ix = ix as f32;
-        for iz in 0..line_count.z {
-            let iz = iz as f32;
-            let line_start = y_start + ix * dx + iz * dz;
-            let line_end = line_start + dline;
-
-            gizmos.line(
-                position + rotation * line_start,
-                position + rotation * line_end,
-                color,
-            );
-        }
-    }
+    let y_lines = iter_lines(dy, dz, dx, line_count.zx(), cell_count.y, y_start);
     // Lines along the z direction
-    let dline = dz * cell_count.z as f32;
-    for ix in 0..line_count.x {
-        let ix = ix as f32;
-        for iy in 0..line_count.y {
-            let iy = iy as f32;
-            let line_start = z_start + ix * dx + iy * dy;
-            let line_end = line_start + dline;
-
-            gizmos.line(
-                position + rotation * line_start,
-                position + rotation * line_end,
-                color,
-            );
-        }
-    }
+    let z_lines = iter_lines(dz, dx, dy, line_count.xy(), cell_count.z, z_start);
+    x_lines
+        .chain(y_lines)
+        .chain(z_lines)
+        .map(|ps| ps.map(|p| position + rotation * p))
+        .for_each(|[start, end]| {
+            gizmos.line(start, end, color);
+        });
 }
