@@ -7,6 +7,7 @@ use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use glam::{Affine3A, Quat};
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -213,6 +214,77 @@ impl InfinitePlane3d {
         let translation = (a + b + c) / 3.0;
 
         (Self { normal }, translation)
+    }
+
+    /// Computes the distance of a plane with the given origin to the point Vec3::ZERO.
+    ///
+    /// This is the distance used in the plane representation called
+    /// [`Hesse normal form`](https://en.wikipedia.org/wiki/Hesse_normal_form) and it has some nice
+    /// mathematical properties.
+    ///
+    /// This representation uses
+    ///
+    /// - normal direction
+    /// - distance to Vec3::ZERO
+    ///
+    /// to fully specify the plane. The point in the plane with minimum distance to `Vec3::ZERO`
+    /// can be calculated by `normal * distance`.
+    #[inline]
+    pub fn plane_distance(&self, origin: Vec3) -> f32 {
+        origin.dot(self.normal.as_vec3())
+    }
+
+    /// Computes an [`Affine3A`] which transforms points from the plane in 3D space with the given
+    /// `origin` to the XY-plane.
+    ///
+    /// The transformation is [congruent](https://en.wikipedia.org/wiki/Congruence_(geometry))
+    /// meaning it will preserve shapes. This is **not** the case with normal projections.
+    ///
+    /// See [`InfinitePlane3d::congruent_transformations_xy`] for more information.
+    #[inline]
+    pub fn congruent_projection_xy(&self, origin: Vec3) -> Affine3A {
+        let rotation = Quat::from_rotation_arc(self.normal.as_vec3(), Vec3::Z);
+        let transformed_origin = rotation * origin;
+        Affine3A::from_translation(-Vec3::Z * transformed_origin.z) * Affine3A::from_quat(rotation)
+    }
+
+    /// Computes an [`Affine3A`] which transforms points from the XY-plane to this plane with the
+    /// given `origin`.
+    ///
+    /// The transformation is [congruent](https://en.wikipedia.org/wiki/Congruence_(geometry))
+    /// meaning it will preserve shapes. This is **not** the case with normal injections.
+    ///
+    /// See [`InfinitePlane3d::congruent_transformations_xy`] for more information.
+    #[inline]
+    pub fn congruent_injection_xy(&self, origin: Vec3) -> Affine3A {
+        self.congruent_projection_xy(origin).inverse()
+    }
+
+    /// Computes both [`Affine3A`]s which transforms points from the plane in 3D space with the
+    /// given `origin` to the XY-plane and back.
+    ///
+    /// # Example
+    ///
+    /// The projection and its inverse can be used to run 2D algorithms on flat shapes in 3D. The
+    /// workflow would usually look like this:
+    ///
+    /// - project the shape from its plane to the XY-plane
+    /// - `.truncate()` all points (`Vec3` -> `Vec2`)
+    /// - run 2D algorithm
+    /// - `extend(0.0)` all points (`Vec2` -> `Vec3`)
+    /// - inject the shape from the XY-plane to its original plane
+    #[inline]
+    pub fn congruent_transformations_xy(&self, origin: Vec3) -> (Affine3A, Affine3A) {
+        let projection = self.congruent_projection_xy(origin);
+        (projection, projection.inverse())
+    }
+
+    /// Injects the `point` into the plane with the given `origin`. This projects the point
+    /// orthogonally along the shortest path onto the plane.
+    #[inline]
+    pub fn inject_point(&self, origin: Vec3, point: Vec3) -> Vec3 {
+        let dist = self.normal.dot(point - origin);
+        point - self.normal * dist
     }
 }
 
