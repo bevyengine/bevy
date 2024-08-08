@@ -185,6 +185,8 @@ where
     ///
     /// This should be called for each frame the grid needs to be rendered.
     ///
+    /// The grid's default orientation aligns with the XY-plane.
+    ///
     /// # Arguments
     ///
     /// - `position`: The center point of the grid.
