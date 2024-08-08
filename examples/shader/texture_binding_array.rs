@@ -17,6 +17,7 @@ use bevy::{
         RenderApp,
     },
 };
+use bevy_render::storage::GpuStorageBuffer;
 use std::{num::NonZeroU32, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory
@@ -105,7 +106,9 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
+        image_assets: &RenderAssets<GpuImage>,
+        fallback_image: &FallbackImage,
+        _buffer_assets: &RenderAssets<GpuStorageBuffer>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
         let mut images = vec![];
@@ -143,9 +146,11 @@ impl AsBindGroup for BindlessMaterial {
 
     fn unprepared_bind_group(
         &self,
-        _layout: &BindGroupLayout,
-        _render_device: &RenderDevice,
-        _param: &mut SystemParamItem<'_, '_, Self::Param>,
+        _: &BindGroupLayout,
+        _: &RenderDevice,
+        _: &RenderAssets<GpuImage>,
+        _: &FallbackImage,
+        _: &RenderAssets<GpuStorageBuffer>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // we implement as_bind_group directly because
         panic!("bindless texture arrays can't be owned")

@@ -3,7 +3,8 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
-    texture::GpuImage,
+    storage::GpuStorageBuffer,
+    texture::{FallbackImage, GpuImage},
 };
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
@@ -77,6 +78,8 @@ impl Deref for BindGroup {
 /// # use bevy_render::{render_resource::*, texture::Image};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
+/// # use bevy_render::storage::Storage;
+///
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
@@ -85,10 +88,8 @@ impl Deref for BindGroup {
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
 ///     #[storage(3, read_only)]
-///     values: Vec<f32>,
-///     #[storage(4, read_only, buffer)]
-///     buffer: Buffer,
-///     #[storage_texture(5)]
+///     values: Handle<Storage>,
+///     #[storage_texture(4)]
 ///     storage_texture: Handle<Image>,
 /// }
 /// ```
@@ -100,7 +101,7 @@ impl Deref for BindGroup {
 /// @group(2) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// @group(2) @binding(3) var<storage> values: array<f32>;
-/// @group(2) @binding(5) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
+/// @group(2) @binding(4) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 2.
@@ -153,7 +154,7 @@ impl Deref for BindGroup {
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` |   `vertex`, `fragment` |
 ///
 /// * `storage(BINDING_INDEX, arguments)`
-///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a storage buffer.
+///     * The field's [`Handle<Storage>`] will be used to look up the matching [`Buffer`] GPU resource, which will be bound as a storage buffer in shaders.
 ///     * It supports and optional `read_only` parameter. Defaults to false if not present.
 ///
 /// | Arguments              | Values                                                                  | Default              |
@@ -297,10 +298,18 @@ pub trait AsBindGroup {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        param: &mut SystemParamItem<'_, '_, Self::Param>,
+        images: &RenderAssets<GpuImage>,
+        fallback_image: &FallbackImage,
+        buffers: &RenderAssets<GpuStorageBuffer>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
-        let UnpreparedBindGroup { bindings, data } =
-            Self::unprepared_bind_group(self, layout, render_device, param)?;
+        let UnpreparedBindGroup { bindings, data } = Self::unprepared_bind_group(
+            self,
+            layout,
+            render_device,
+            images,
+            fallback_image,
+            buffers,
+        )?;
 
         let entries = bindings
             .iter()
@@ -327,7 +336,9 @@ pub trait AsBindGroup {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        param: &mut SystemParamItem<'_, '_, Self::Param>,
+        images: &RenderAssets<GpuImage>,
+        fallback_image: &FallbackImage,
+        buffers: &RenderAssets<GpuStorageBuffer>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]

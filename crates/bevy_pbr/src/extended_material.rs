@@ -1,6 +1,7 @@
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::system::SystemParamItem;
 use bevy_reflect::{impl_type_path, Reflect};
+use bevy_render::storage::GpuStorageBuffer;
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef,
     render_resource::{
@@ -152,15 +153,30 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
+        images: &RenderAssets<GpuImage>,
+        fallback_image: &FallbackImage,
+        buffers: &RenderAssets<GpuStorageBuffer>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
             mut bindings,
             data: base_data,
-        } = B::unprepared_bind_group(&self.base, layout, render_device, base_param)?;
-        let extended_bindgroup =
-            E::unprepared_bind_group(&self.extension, layout, render_device, extended_param)?;
+        } = B::unprepared_bind_group(
+            &self.base,
+            layout,
+            render_device,
+            images,
+            fallback_image,
+            buffers,
+        )?;
+        let extended_bindgroup = E::unprepared_bind_group(
+            &self.extension,
+            layout,
+            render_device,
+            images,
+            fallback_image,
+            buffers,
+        )?;
 
         bindings.extend(extended_bindgroup.bindings);
 

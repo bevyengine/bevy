@@ -2416,6 +2416,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "storage"
+path = "examples/shader/storage.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.storage]
+name = "Storage Buffer"
+description = "A shader that shows how to bind a storage buffer using a custom material."
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "specialized_mesh_pipeline"
 path = "examples/shader/specialized_mesh_pipeline.rs"
 doc-scrape-examples = true
