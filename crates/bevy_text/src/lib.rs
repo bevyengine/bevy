@@ -80,7 +80,18 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
 /// plugin is included by default in the `DefaultPlugins`.
 #[derive(Default)]
-pub struct TextPlugin;
+pub struct TextPlugin {
+    /// Attempts to load system fonts if [true].
+    ///
+    /// Supports Windows, Linux, and macOS.
+    /// It will simply scan some predefined directories.
+    ///
+    /// For details on which directories are considered on each platform,
+    /// refer to the source code of [`fontdb::Database::load_system_fonts`](https://docs.rs/fontdb/latest/fontdb/struct.Database.html#method.load_system_fonts).
+    ///
+    /// Considering the current API, the primary use case for this member variable is to enable system fonts as a fallback for missing glyphs.
+    pub load_system_fonts: bool,
+}
 
 /// Text is rendered for two different view projections;
 /// 2-dimensional text ([`Text2dBundle`]) is rendered in "world space" with a `BottomToTop` Y-axis,
@@ -105,7 +116,7 @@ impl Plugin for TextPlugin {
             .register_type::<TextBounds>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
-            .insert_resource(TextPipeline::default())
+            .insert_resource(TextPipeline::new(self.load_system_fonts))
             .add_systems(
                 PostUpdate,
                 (

@@ -7,11 +7,17 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::TextPlugin,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin))
+        .add_plugins((
+            DefaultPlugins.set(TextPlugin {
+                load_system_fonts: true,
+            }),
+            FrameTimeDiagnosticsPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, text_color_system))
         .run();
@@ -26,6 +32,13 @@ struct FpsText;
 struct ColorText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Emojis won't be rendered properly on wasm32 because the default loaded font doesn't support them, and loading system fonts isn't supported on this platform.
+    let text_content = if cfg!(target_arch = "wasm32") {
+        "hello\nbevy!"
+    } else {
+        "hello\nbevy! 😌"
+    };
+
     // UI camera
     commands.spawn(Camera2dBundle::default());
     // Text with one section
@@ -33,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Create a TextBundle that has a Text with a single section.
         TextBundle::from_section(
             // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            "hello\nbevy!",
+            text_content,
             TextStyle {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
