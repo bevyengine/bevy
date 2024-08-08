@@ -58,6 +58,7 @@ pub(super) union StorageId {
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
+#[derive(Clone)]
 pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
@@ -88,7 +89,7 @@ impl<D: QueryData + 'static, F: QueryFilter + 'static> Component for QueryState<
                 let mut entity = world.entity_mut(trigger.entity());
                 let mut state = entity.get_mut::<QueryState<D, F>>().unwrap();
                 unsafe {
-                    state.new_archetype(&*archetype_ptr, &mut Access::<ArchetypeComponentId>::default());
+                    state.new_archetype_internal(&*archetype_ptr);
                 }
             });
             observer.watch_entity(entity);

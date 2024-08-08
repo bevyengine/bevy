@@ -10,6 +10,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
         ReadOnlyQueryData,
     },
+    prelude::Entity,
     system::{Query, SystemMeta},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FromWorld, World},
 };
@@ -214,11 +215,11 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
-    type State = QueryState<D, F>;
+    type State = Entity;
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
+        let state: QueryState<D, F> = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
         assert_component_access_compatibility(
             &system_meta.name,
             std::any::type_name::<D>(),
@@ -230,15 +231,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         system_meta
             .component_access_set
             .add(state.component_access.clone());
-        state
-    }
-
-    unsafe fn new_archetype(
-        state: &mut Self::State,
-        archetype: &Archetype,
-        system_meta: &mut SystemMeta,
-    ) {
-        state.new_archetype(archetype, &mut system_meta.archetype_component_access);
+        world.spawn(state).id()
     }
 
     #[inline]
@@ -251,7 +244,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+        unsafe { Query::new(world, *state, system_meta.last_run, change_tick) }
     }
 }
 
@@ -280,7 +273,7 @@ impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemPa
         system_meta
             .component_access_set
             .add(state.component_access.clone());
-        state
+        world.spawn(state).id()
     }
 }
 

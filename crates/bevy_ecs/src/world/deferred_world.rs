@@ -127,9 +127,10 @@ impl<'w> DeferredWorld<'w> {
         // SAFETY: We ran validate_world to ensure our state matches
         unsafe {
             let world_cell = self.world;
+            let id = world_cell.world_mut().spawn(*state).id();
             Query::new(
                 world_cell,
-                state,
+                id,
                 world_cell.last_change_tick(),
                 world_cell.change_tick(),
             )
