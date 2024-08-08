@@ -316,7 +316,6 @@ impl<E: Event, B: Bundle> Component for Observer<E, B> {
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
             world.commands().add(move |world: &mut World| {
-                world.entity_mut(entity).insert(ObserverMarker);
                 let event_type = world.init_component::<E>();
                 let mut components = Vec::new();
                 B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
@@ -349,6 +348,7 @@ impl<E: Event, B: Bundle> Component for Observer<E, B> {
                             runner: observer_system_runner::<E, B>,
                             ..Default::default()
                         });
+                        entity.insert(ObserverMarker);
                     }
                 }
             });
