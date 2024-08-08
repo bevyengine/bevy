@@ -887,9 +887,34 @@ impl<'w> BundleInserter<'w> {
             if new_archetype.has_add_observer() {
                 deferred_world.trigger_observers(ON_ADD, entity, &add_bundle.added);
             }
-            deferred_world.trigger_on_insert(new_archetype, entity, bundle_info.iter_components());
-            if new_archetype.has_insert_observer() {
-                deferred_world.trigger_observers(ON_INSERT, entity, bundle_info.components());
+            match insert_mode {
+                InsertMode::Replace => {
+                    // insert triggers for both new and existing components if we're replacing them
+                    deferred_world.trigger_on_insert(
+                        new_archetype,
+                        entity,
+                        bundle_info.iter_components(),
+                    );
+                    if new_archetype.has_insert_observer() {
+                        deferred_world.trigger_observers(
+                            ON_INSERT,
+                            entity,
+                            bundle_info.components(),
+                        );
+                    }
+                }
+                InsertMode::Keep => {
+                    // insert triggers only for new components if we're not replacing them (since
+                    // nothing is actually inserted).
+                    deferred_world.trigger_on_insert(
+                        new_archetype,
+                        entity,
+                        add_bundle.added.iter().cloned(),
+                    );
+                    if new_archetype.has_insert_observer() {
+                        deferred_world.trigger_observers(ON_INSERT, entity, &add_bundle.added);
+                    }
+                }
             }
         }
 
