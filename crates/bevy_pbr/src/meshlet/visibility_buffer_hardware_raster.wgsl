@@ -36,6 +36,7 @@ fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) v
     let meshlet = meshlets[meshlet_id];
 
     let triangle_id = vertex_index / 3u;
+    if triangle_id >= meshlet.triangle_count { return; }
     let index_id = (triangle_id * 3u) + (vertex_index % 3u);
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
