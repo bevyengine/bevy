@@ -30,7 +30,7 @@ fn draw_cursor(
 
     // Calculate if and where the ray is hitting the ground plane.
     let Some(distance) =
-        ray.intersect_plane(ground.translation(), InfinitePlane3d::new(ground.up()))
+        ray.intersect_plane(InfinitePlane3d::new(ground.up(), ground.translation()))
     else {
         return;
     };

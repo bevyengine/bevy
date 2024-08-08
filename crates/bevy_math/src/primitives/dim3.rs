@@ -7,6 +7,7 @@ use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use glam::{Affine3A, Quat};
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -151,7 +152,7 @@ impl Plane3d {
     }
 }
 
-/// An unbounded plane in 3D space. It forms a separating surface through the origin,
+/// An unbounded plane in 3D space. It forms a separating surface through the `Vec3::ZERO`,
 /// stretching infinitely far
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -164,21 +165,21 @@ impl Plane3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct InfinitePlane3d {
+pub struct HalfSpace3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
 }
-impl Primitive3d for InfinitePlane3d {}
+impl Primitive3d for HalfSpace3d {}
 
-impl Default for InfinitePlane3d {
-    /// Returns the default [`InfinitePlane3d`] with a normal pointing in the `+Y` direction.
+impl Default for HalfSpace3d {
+    /// Returns the default [`HalfSpace3d`] with a normal pointing in the `+Y` direction.
     fn default() -> Self {
         Self { normal: Dir3::Y }
     }
 }
 
-impl InfinitePlane3d {
-    /// Create a new `InfinitePlane3d` from a normal
+impl HalfSpace3d {
+    /// Create a new `HalfSpace3d` from a normal
     ///
     /// # Panics
     ///
@@ -195,7 +196,7 @@ impl InfinitePlane3d {
         }
     }
 
-    /// Create a new `InfinitePlane3d` based on three points and compute the geometric center
+    /// Create a new `HalfSpace3d` based on three points and compute the geometric center
     /// of those points.
     ///
     /// The direction of the plane normal is determined by the winding order
@@ -213,6 +214,145 @@ impl InfinitePlane3d {
         let translation = (a + b + c) / 3.0;
 
         (Self { normal }, translation)
+    }
+}
+
+/// An unbounded plane in 3D space. It forms a separating surface through the specified origin,
+/// stretching infinitely far
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Default)
+)]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct InfinitePlane3d {
+    /// The normal of the plane. The plane will be placed perpendicular to this direction
+    pub normal: Dir3,
+    /// The origin of the plane. This point is guaranteed to be inside of the plane
+    pub origin: Vec3,
+}
+impl Primitive3d for InfinitePlane3d {}
+
+impl Default for InfinitePlane3d {
+    /// Returns the default [`InfinitePlane3d`] with a normal pointing in the `+Y` direction going
+    /// through the origin of the coordinate system `Vec3::ZERO`.
+    fn default() -> Self {
+        Self {
+            normal: Dir3::Y,
+            origin: Vec3::ZERO,
+        }
+    }
+}
+
+impl InfinitePlane3d {
+    /// Create a new `InfinitePlane3d` from a normal and an origin point
+    ///
+    /// # Panics
+    ///
+    /// Panics if the given `normal` is zero (or very close to zero), or non-finite.
+    #[inline(always)]
+    pub fn new<T: TryInto<Dir3>>(normal: T, origin: Vec3) -> Self
+    where
+        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+    {
+        Self {
+            normal: normal
+                .try_into()
+                .expect("normal must be nonzero and finite"),
+            origin,
+        }
+    }
+
+    /// Create a new `InfinitePlane3d` based on three points. The geometric center
+    /// of those points is computed and used as the plane's origin.
+    ///
+    /// The direction of the plane normal is determined by the winding order
+    /// of the triangular shape formed by the points.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a valid normal can not be computed, for example when the points
+    /// are *collinear* and lie on the same line.
+    #[inline(always)]
+    pub fn from_three_points(a: Vec3, b: Vec3, c: Vec3) -> Self {
+        let normal = Dir3::new((b - a).cross(c - a)).expect(
+            "infinite plane must be defined by three finite points that don't lie on the same line",
+        );
+        let origin = (a + b + c) / 3.0;
+
+        Self { normal, origin }
+    }
+
+    /// Moves the origin to the position with minimum distance to Vec3::ZERO. This is called
+    /// [`Hesse normal form`](https://en.wikipedia.org/wiki/Hesse_normal_form) and has some nice
+    /// mathematical properties.
+    ///
+    /// In theory it would be enough to represent the plane by
+    ///
+    /// - normal direction
+    /// - distance to Vec3::ZERO
+    ///
+    /// We could omit the origin point, as it can be calculated by `normal * distance`
+    pub fn hesse_normal_form(self) -> Self {
+        let projection_scalar = self.origin.dot(self.normal.as_vec3());
+        let new_origin = self.normal * projection_scalar;
+        Self {
+            origin: new_origin,
+            ..self
+        }
+    }
+
+    /// Computes an [`Affine3A`] which transforms points from the plane in 3D space to the
+    /// XY-plane.
+    ///
+    /// The transformation is [congruent](https://en.wikipedia.org/wiki/Congruence_(geometry))
+    /// meaning it will preserve shapes. This is **not** the case with normal projections.
+    ///
+    /// See [`InfinitePlane3d::congruent_transformations_xy`] for more information.
+    pub fn congruent_projection_xy(&self) -> Affine3A {
+        let rotation = Quat::from_rotation_arc(self.normal.as_vec3(), Vec3::Z);
+        let transformed_origin = rotation * self.origin;
+        Affine3A::from_translation(-Vec3::Z * transformed_origin.z) * Affine3A::from_quat(rotation)
+    }
+
+    /// Computes an [`Affine3A`] which transforms points from the XY-plane to this plane.
+    ///
+    /// The transformation is [congruent](https://en.wikipedia.org/wiki/Congruence_(geometry))
+    /// meaning it will preserve shapes. This is **not** the case with normal injections.
+    ///
+    /// See [`InfinitePlane3d::congruent_transformations_xy`] for more information.
+    pub fn congruent_injection_xy(&self) -> Affine3A {
+        self.congruent_projection_xy().inverse()
+    }
+
+    /// Computes both [`Affine3A`]s which transforms points from the plane in 3D space to the
+    /// XY-plane and back.
+    ///
+    /// # Example
+    ///
+    /// The projection and its inverse can be used to run 2D algorithms on flat shapes in 3D. The
+    /// workflow would usually look like this:
+    ///
+    /// - project the shape from its plane to the XY-plane
+    /// - `.truncate()` all points (`Vec3` -> `Vec2`)
+    /// - run 2D algorithm
+    /// - `extend(0.0)` all points (`Vec2` -> `Vec3`)
+    /// - inject the shape from the XY-plane to its original plane
+    pub fn congruent_transformations_xy(&self) -> (Affine3A, Affine3A) {
+        let projection = self.congruent_projection_xy();
+        (projection, projection.inverse())
+    }
+
+    /// Injects the point into the plane. This projects the point orthogonally along the shortest
+    /// path onto the plane.
+    pub fn inject_point(&self, pos: Vec3) -> Vec3 {
+        let dist = self.normal.dot(pos - self.origin);
+        pos - self.normal * dist
     }
 }
 
@@ -1258,7 +1398,7 @@ mod tests {
 
     #[test]
     fn infinite_plane_from_points() {
-        let (plane, translation) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+        let (plane, translation) = HalfSpace3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
         assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
     }

@@ -486,7 +486,7 @@ fn handle_mouse_clicks(
     let Some(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
-    let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
+    let Some(ray_distance) = ray.intersect_plane(InfinitePlane3d::new(Vec3::Y, Vec3::ZERO)) else {
         return;
     };
     let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
