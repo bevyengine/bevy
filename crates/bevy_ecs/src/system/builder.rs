@@ -49,7 +49,7 @@ use crate::query::{QueryData, QueryFilter};
 /// // Parameters that implement `BuildableSystemParam` can use `.builder::<T>()` to build in place.
 /// let system = SystemBuilder::<()>::new(&mut world)
 ///     .resource::<R>()
-///     .builder::<Query<&A>>(|builder| { builder.with::<B>(); })
+///     .builder::<Query<&A>>(|builder| { builder.with::<B>() })
 ///     .param::<MyParam>()
 ///     .build(my_system);
 ///
@@ -72,7 +72,7 @@ impl<'w, T: SystemParam> SystemBuilder<'w, T> {
         }
     }
 
-    /// Construct the a system with the built params
+    /// Construct a system with the built params
     pub fn build<F, Marker>(self, func: F) -> FunctionSystem<Marker, F>
     where
         F: SystemParamFunction<Marker, Param = T>,
@@ -128,7 +128,7 @@ macro_rules! impl_system_builder {
             /// Add `T` as a parameter built with the given function
             pub fn builder<T: BuildableSystemParam>(
                 mut self,
-                func: impl FnOnce(&mut T::Builder<'_>),
+                func: impl FnOnce(&mut World) -> T::OutputBuilder,
             ) -> SystemBuilder<'w, ($($curr,)* T,)> {
                 #[allow(non_snake_case)]
                 let ($($curr,)*) = self.state;
@@ -147,7 +147,8 @@ all_tuples!(impl_system_builder, 0, 15, P);
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::prelude::{Component, Query};
+    use crate::prelude::{Component, Query, With};
+    use crate::query::QueryBuilder;
     use crate::system::{Local, RunSystemOnce};
 
     use super::*;
@@ -159,7 +160,7 @@ mod tests {
         *local
     }
 
-    fn query_system(query: Query<()>) -> usize {
+    fn query_system(query: Query<(), With<A>>) -> usize {
         query.iter().count()
     }
 
@@ -172,7 +173,7 @@ mod tests {
         let mut world = World::new();
 
         let system = SystemBuilder::<()>::new(&mut world)
-            .builder::<Local<u64>>(|x| *x = 10)
+            .builder::<Local<u64>>(|_: &mut World| 10)
             .build(local_system);
 
         let result = world.run_system_once(system);
@@ -187,8 +188,8 @@ mod tests {
         world.spawn_empty();
 
         let system = SystemBuilder::<()>::new(&mut world)
-            .builder::<Query<()>>(|query| {
-                query.with::<A>();
+            .builder(|w: &mut World| {
+                QueryBuilder::new(w).with::<A>()
             })
             .build(query_system);
 
