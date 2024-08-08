@@ -215,15 +215,6 @@ impl HalfSpace3d {
 
         (Self { normal }, translation)
     }
-
-    /// Offsets the `HalfSpace3d` to create an [`InfinitePlane3d`] which doesn't necessarily pass
-    /// through the point `Vec3::ZERO` anymore.
-    pub fn to_infinite_plane(&self, plane_origin: Vec3) -> InfinitePlane3d {
-        InfinitePlane3d {
-            normal: self.normal,
-            origin: plane_origin,
-        }
-    }
 }
 
 /// An unbounded plane in 3D space. It forms a separating surface through the specified origin,
