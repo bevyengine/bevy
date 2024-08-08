@@ -41,7 +41,7 @@ pub mod state_scoped;
 
 #[cfg(feature = "bevy_reflect")]
 /// Provides definitions for the basic traits required by the state system
-mod reflect;
+pub mod reflect;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
