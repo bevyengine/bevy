@@ -26,9 +26,9 @@ use futures_lite::StreamExt;
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
-use std::future::Future;
 use std::{any::Any, path::PathBuf};
 use std::{any::TypeId, path::Path, sync::Arc};
+use std::{future::Future, task::Poll};
 use thiserror::Error;
 
 // Needed for doc string
@@ -1027,6 +1027,102 @@ impl AssetServer {
         Some(info.path.as_ref()?.clone())
     }
 
+    /// Returns a future that will suspend until the specified asset and its dependencies finish loading.
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if the asset or any of its dependencies fail to load,
+    /// or if the asset has not been queued up to be loaded.
+    pub async fn wait_for_asset<A: Asset>(
+        &self,
+        // NOTE: We take a reference to a handle so we know it will outlive the future,
+        // which ensures the handle won't be dropped while waiting for the asset.
+        handle: &Handle<A>,
+    ) -> Result<(), WaitForAssetError> {
+        self.wait_for_asset_id(handle.id()).await
+    }
+
+    /// Returns a future that will suspend until the specified asset and its dependencies finish loading.
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if the asset or any of its dependencies fail to load,
+    /// or if the asset has not been queued up to be loaded.
+    pub async fn wait_for_asset_untyped(
+        &self,
+        // NOTE: We take a reference to a handle so we know it will outlive the future,
+        // which ensures the handle won't be dropped while waiting for the asset.
+        handle: &UntypedHandle,
+    ) -> Result<(), WaitForAssetError> {
+        self.wait_for_asset_id(handle.id()).await
+    }
+
+    /// Returns a future that will suspend until the specified asset and its dependencies finish loading.
+    ///
+    /// Note that since an asset ID does not count as a reference to the asset,
+    /// the future returned from this method will *not* keep the asset alive.
+    /// This may lead to the asset unexpectedly being dropped while you are waiting for it to finish loading.
+    ///
+    /// When calling this method, make sure a strong handle is stored elsewhere to prevent the asset from being dropped.
+    /// If you have access to an asset's strong [`Handle`], you should prefer to call [`AssetServer::wait_for_asset`]
+    /// or [`wait_for_assest_untyped`](Self::wait_for_asset_untyped) to ensure the asset finishes loading.
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if the asset or any of its dependencies fail to load,
+    /// or if the asset has not been queued up to be loaded.
+    pub async fn wait_for_asset_id(
+        &self,
+        id: impl Into<UntypedAssetId>,
+    ) -> Result<(), WaitForAssetError> {
+        let id = id.into();
+        std::future::poll_fn(move |cx| {
+            let infos = self.data.infos.read();
+            let info = infos.get(id).ok_or(WaitForAssetError::NotLoaded)?;
+            match (&info.load_state, info.rec_dep_load_state) {
+                (LoadState::Loaded, RecursiveDependencyLoadState::Loaded) => Poll::Ready(Ok(())),
+                // Return an error immediately if the asset is not in the process of loading
+                (LoadState::NotLoaded, _) => Poll::Ready(Err(WaitForAssetError::NotLoaded)),
+                // If the asset is loading, leave our waker behind
+                (LoadState::Loading, _)
+                | (_, RecursiveDependencyLoadState::Loading)
+                | (LoadState::Loaded, RecursiveDependencyLoadState::NotLoaded) => {
+                    // Check if our waker is already there
+                    let has_waker = info
+                        .waiting_tasks
+                        .iter()
+                        .any(|waker| waker.will_wake(cx.waker()));
+                    if !has_waker {
+                        std::mem::drop(infos);
+                        let mut infos = self.data.infos.write();
+                        let info = infos.get_mut(id).ok_or(WaitForAssetError::NotLoaded)?;
+                        // If the load state changed while reacquiring the lock, immediately reawaken the task
+                        let is_loading = matches!(
+                            (&info.load_state, info.rec_dep_load_state),
+                            (LoadState::Loading, _)
+                                | (_, RecursiveDependencyLoadState::Loading)
+                                | (LoadState::Loaded, RecursiveDependencyLoadState::NotLoaded)
+                        );
+                        if !is_loading {
+                            cx.waker().wake_by_ref();
+                        } else {
+                            // Leave our waker behind
+                            info.waiting_tasks.push(cx.waker().clone());
+                        }
+                    }
+                    Poll::Pending
+                }
+                (LoadState::Failed(error), _) => {
+                    Poll::Ready(Err(WaitForAssetError::Failed(error.clone())))
+                }
+                (_, RecursiveDependencyLoadState::Failed) => {
+                    Poll::Ready(Err(WaitForAssetError::DependencyFailed))
+                }
+            }
+        })
+        .await
+    }
+
     /// Returns the [`AssetServerMode`] this server is currently in.
     pub fn mode(&self) -> AssetServerMode {
         self.data.mode
@@ -1207,6 +1303,11 @@ pub fn handle_internal_asset_events(world: &mut World) {
                         .get(&id.type_id())
                         .expect("Asset event sender should exist");
                     sender(world, id);
+                    if let Some(info) = infos.get_mut(id) {
+                        for waker in info.waiting_tasks.drain(..) {
+                            waker.wake();
+                        }
+                    }
                 }
                 InternalAssetEvent::Failed { id, path, error } => {
                     infos.process_asset_fail(id, error.clone());
@@ -1506,3 +1607,13 @@ impl std::fmt::Debug for AssetServer {
 /// This is appended to asset sources when loading a [`LoadedUntypedAsset`]. This provides a unique
 /// source for a given [`AssetPath`].
 const UNTYPED_SOURCE_SUFFIX: &str = "--untyped";
+
+#[derive(Error, Debug, Clone)]
+pub enum WaitForAssetError {
+    #[error("tried to wait for an asset that is not being loaded")]
+    NotLoaded,
+    #[error(transparent)]
+    Failed(Box<AssetLoadError>),
+    #[error("waiting for an an asset whose dependency failed to load")]
+    DependencyFailed,
+}
