@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::num::NonZeroU32;
 
 use bevy_ecs::{
@@ -709,8 +710,8 @@ pub struct WindowResolution {
 impl Default for WindowResolution {
     fn default() -> Self {
         WindowResolution {
-            physical_width: 1280,
-            physical_height: 720,
+            physical_width: UVec2::from(CommonScreenResolution::R720p).x,
+            physical_height: UVec2::from(CommonScreenResolution::R720p).y,
             scale_factor_override: None,
             scale_factor: 1.0,
         }
@@ -867,6 +868,70 @@ impl From<Vec2> for WindowResolution {
 impl From<DVec2> for WindowResolution {
     fn from(res: DVec2) -> WindowResolution {
         WindowResolution::new(res.x as f32, res.y as f32)
+    }
+}
+
+/// Common screen resolutions.
+///
+/// These resolutions are common resolutions that are more than likely going to be used, using the
+/// common name. This keeps developers from having to remember each resolution they wish to use, along
+/// with makes things simpler for implementing menus.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[non_exhaustive]
+pub enum CommonScreenResolution {
+    /// 640 x 360
+    R360p,
+
+    /// 1280 x 720
+    R720p,
+
+    /// 1920 x 1080
+    R1080p,
+
+    /// 2560 x 1440
+    R2k,
+}
+
+impl CommonScreenResolution {
+    /// Iterates through all [`CommonScreenResolution`] variants.
+    pub fn iter() -> impl Iterator<Item = CommonScreenResolution> {
+        [
+            CommonScreenResolution::R360p,
+            CommonScreenResolution::R720p,
+            CommonScreenResolution::R1080p,
+            CommonScreenResolution::R2k,
+        ]
+        .into_iter()
+    }
+}
+
+impl From<CommonScreenResolution> for UVec2 {
+    fn from(resolution: CommonScreenResolution) -> Self {
+        match resolution {
+            CommonScreenResolution::R360p => Self::new(640, 360),
+            CommonScreenResolution::R720p => Self::new(1280, 720),
+            CommonScreenResolution::R1080p => Self::new(1920, 1080),
+            CommonScreenResolution::R2k => Self::new(2560, 1440),
+        }
+    }
+}
+
+impl From<CommonScreenResolution> for Vec2 {
+    fn from(resolution: CommonScreenResolution) -> Self {
+        UVec2::from(resolution).as_vec2()
+    }
+}
+
+impl From<CommonScreenResolution> for WindowResolution {
+    fn from(resolution: CommonScreenResolution) -> Self {
+        WindowResolution::from(Vec2::from(resolution))
+    }
+}
+
+impl Display for CommonScreenResolution {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let res = UVec2::from(*self);
+        write!(f, "{} x {}", res.x, res.y)
     }
 }
 
