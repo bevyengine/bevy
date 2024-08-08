@@ -5,6 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::LinearRgba;
+use bevy_ecs::system::IntoSystem;
 use bevy_math::{Quat, UVec2, UVec3, Vec2, Vec3};
 
 /// A builder returned by [`Gizmos::grid_3d`]
@@ -368,39 +369,41 @@ fn draw_grid<Config, Clear>(
         return;
     }
 
+    #[inline]
+    fn or_zero(cond: bool, val: Vec3) -> Vec3 {
+        if cond {
+            val
+        } else {
+            Vec3::ZERO
+        }
+    }
+
     // Offset between two adjacent grid cells along the x/y-axis and accounting for skew.
     let skew_tan = Vec3::from(skew.to_array().map(|v| v.tan()));
-    let dx =
-        spacing.x * Vec3::new(1., skew_tan.y, skew_tan.z) * if cell_count.x != 0 { 1. } else { 0. };
-    let dy =
-        spacing.y * Vec3::new(skew_tan.x, 1., skew_tan.z) * if cell_count.y != 0 { 1. } else { 0. };
-    let dz =
-        spacing.z * Vec3::new(skew_tan.x, skew_tan.y, 1.) * if cell_count.z != 0 { 1. } else { 0. };
+    let dx = or_zero(
+        cell_count.x != 0,
+        spacing.x * Vec3::new(1., skew_tan.y, skew_tan.z),
+    );
+    let dy = or_zero(
+        cell_count.y != 0,
+        spacing.y * Vec3::new(skew_tan.x, 1., skew_tan.z),
+    );
+    let dz = or_zero(
+        cell_count.z != 0,
+        spacing.z * Vec3::new(skew_tan.x, skew_tan.y, 1.),
+    );
 
     // Bottom-left-front corner of the grid
     let cell_count_half = cell_count.as_vec3() * 0.5;
     let grid_start = -cell_count_half.x * dx - cell_count_half.y * dy - cell_count_half.z * dz;
 
-    let line_count = UVec3::new(
-        if outer_edges[0] {
-            cell_count.x + 1
-        } else {
-            cell_count.x.saturating_sub(1)
-        },
-        if outer_edges[1] {
-            cell_count.y + 1
-        } else {
-            cell_count.y.saturating_sub(1)
-        },
-        if outer_edges[2] {
-            cell_count.z + 1
-        } else {
-            cell_count.z.saturating_sub(1)
-        },
-    );
-    let x_start = grid_start + if outer_edges[0] { Vec3::ZERO } else { dy + dz };
-    let y_start = grid_start + if outer_edges[1] { Vec3::ZERO } else { dx + dz };
-    let z_start = grid_start + if outer_edges[2] { Vec3::ZERO } else { dx + dy };
+    let outer_edges_u32 = UVec3::from(outer_edges.map(|v| v as u32));
+    let line_count = outer_edges_u32 * cell_count.saturating_add(UVec3::ONE)
+        + (UVec3::ONE - outer_edges_u32) * cell_count.saturating_sub(UVec3::ONE);
+
+    let x_start = grid_start + or_zero(!outer_edges[0], dy + dz);
+    let y_start = grid_start + or_zero(!outer_edges[1], dx + dz);
+    let z_start = grid_start + or_zero(!outer_edges[2], dx + dy);
 
     // Lines along the x direction
     let dline = dx * cell_count.x as f32;
