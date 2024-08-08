@@ -445,7 +445,7 @@ impl World {
 /// #[derive(Event, Clone, Debug)]
 /// struct Foo(usize);
 ///
-/// #[derive(Event, Debug)]
+/// #[derive(Event, Clone, Debug)]
 /// struct Bar(bool);
 ///
 /// #[derive(Event, Debug)]
@@ -458,6 +458,29 @@ impl World {
 /// world.observe(trigger_map(Combined::Bar));
 /// world.observe(|trigger: Trigger<Combined>| {
 ///     println!("Combined Event: {:?}", trigger.event());
+/// });
+/// ```
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::observer::trigger_map;
+/// # let mut world = World::new();
+///
+/// #[derive(Event, Clone, Debug)]
+/// struct Foo(usize);
+///
+/// #[derive(Event, Clone, Debug)]
+/// struct Bar(bool);
+///
+/// // If you don't care about capturing the original event context,
+/// // you can just use a unit struct.
+/// #[derive(Event, Debug)]
+/// struct Combined;
+///
+/// world.observe(trigger_map(|event: Foo| Combined));
+/// world.observe(trigger_map(|event: Bar| Combined));
+/// world.observe(|trigger: Trigger<Combined>| {
+///     println!("Combined Event");
 /// });
 /// ```
 pub fn trigger_map<T: Event + Clone, U: Event, F: Fn(T) -> U + Send + Sync + 'static>(
