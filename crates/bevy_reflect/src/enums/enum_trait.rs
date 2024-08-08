@@ -130,6 +130,13 @@ pub trait Enum: Reflect {
     fn variant_path(&self) -> String {
         format!("{}::{}", self.reflect_type_path(), self.variant_name())
     }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    ///
+    /// [`TypeInfo`]: crate::TypeInfo
+    fn get_represented_enum_info(&self) -> Option<&'static EnumInfo> {
+        self.get_represented_type_info()?.as_enum().ok()
+    }
 }
 
 /// A container for compile-time enum info, used by [`TypeInfo`](crate::TypeInfo).
