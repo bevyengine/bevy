@@ -1,7 +1,7 @@
 //! A module for rendering each of the 3D [`bevy_math::primitives`] with [`Gizmos`].
 
 use super::helpers::*;
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy_color::Color;
 use bevy_math::primitives::{
