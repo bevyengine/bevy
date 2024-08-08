@@ -455,6 +455,7 @@ impl World {
 /// }
 ///
 /// world.observe(trigger_map(Combined::Foo));
+/// world.observe(trigger_map(Combined::Bar));
 /// world.observe(|trigger: Trigger<Combined>| {
 ///     println!("Combined Event: {:?}", trigger.event());
 /// });
