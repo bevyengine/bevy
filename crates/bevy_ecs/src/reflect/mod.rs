@@ -85,7 +85,7 @@ impl DerefMut for AppFunctionRegistry {
 /// this method will panic.
 ///
 /// If none of the strategies succeed, this method will panic.
-fn from_reflect_with_fallback<T: Reflect>(
+pub fn from_reflect_with_fallback<T: Reflect>(
     reflected: &dyn Reflect,
     world: &mut World,
     registry: &TypeRegistry,
