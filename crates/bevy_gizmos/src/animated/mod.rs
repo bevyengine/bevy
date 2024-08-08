@@ -15,13 +15,13 @@ use crate::prelude::{DefaultGizmoConfigGroup, GizmoConfigGroup, Gizmos};
 /// [`Gizmos`] themselves, please refer to the linked documentation.
 ///
 /// The wrapper additionally queries `Res<Time<T>>` through
-/// [`SystemParam`](bevy_ecs::system::SystemParam) which can be used to visuallize changes over
+/// [`SystemParam`] which can be used to visuallize changes over
 /// time.
 ///
 /// The type of time `T` can be defined using a generic type parameter, theoretically allowing
 /// animations to occur in [`Fixed`](bevy_time::Fixed) time schedules. By default, animated gizmos
 /// utilize the standard [`Time<()>`](bevy_time::Time). More information about this can be found
-/// under [`Time`](bevy_time::Time).
+/// under [`Time`].
 ///
 /// It's important to note that you can still use it to draw standard, non-animated shapes just
 /// like with regular [`Gizmos`]. This means you don't need to add both [`AnimatedGizmos`] and
