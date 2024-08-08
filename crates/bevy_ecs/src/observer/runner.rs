@@ -265,6 +265,10 @@ pub struct Observer<T: 'static, B: Bundle> {
     descriptor: ObserverDescriptor,
 }
 
+/// Marker [`Component`](Component) for identifying [`Observer`] [`Entity`]s.
+#[derive(Component)]
+pub struct ObserverMarker;
+
 impl<E: Event, B: Bundle> Observer<E, B> {
     /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
     /// for _any_ entity (or no entity).
@@ -312,6 +316,7 @@ impl<E: Event, B: Bundle> Component for Observer<E, B> {
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
             world.commands().add(move |world: &mut World| {
+                world.entity_mut(entity).insert(ObserverMarker);
                 let event_type = world.init_component::<E>();
                 let mut components = Vec::new();
                 B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
