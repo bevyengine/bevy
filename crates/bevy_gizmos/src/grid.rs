@@ -378,9 +378,8 @@ fn draw_grid<Config, Clear>(
         spacing.z * Vec3::new(skew_tan.x, skew_tan.y, 1.) * if cell_count.z != 0 { 1. } else { 0. };
 
     // Bottom-left-front corner of the grid
-    let grid_start = -(cell_count.x as f32 / 2.0 * dx)
-        - cell_count.y as f32 / 2.0 * dy
-        - cell_count.z as f32 / 2.0 * dz;
+    let cell_count_half = cell_count.as_vec3() * 0.5;
+    let grid_start = -cell_count_half.x * dx - cell_count_half.y * dy - cell_count_half.z * dz;
 
     let line_count = UVec3::new(
         if outer_edges[0] {
