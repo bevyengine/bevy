@@ -369,15 +369,13 @@ fn draw_grid<Config, Clear>(
     }
 
     // Offset between two adjacent grid cells along the x/y-axis and accounting for skew.
-    let dx = spacing.x
-        * Vec3::new(1., skew.y.tan(), skew.z.tan())
-        * if cell_count.x != 0 { 1. } else { 0. };
-    let dy = spacing.y
-        * Vec3::new(skew.x.tan(), 1., skew.z.tan())
-        * if cell_count.y != 0 { 1. } else { 0. };
-    let dz = spacing.z
-        * Vec3::new(skew.x.tan(), skew.y.tan(), 1.)
-        * if cell_count.z != 0 { 1. } else { 0. };
+    let skew_tan = Vec3::from(skew.to_array().map(|v| v.tan()));
+    let dx =
+        spacing.x * Vec3::new(1., skew_tan.y, skew_tan.z) * if cell_count.x != 0 { 1. } else { 0. };
+    let dy =
+        spacing.y * Vec3::new(skew_tan.x, 1., skew_tan.z) * if cell_count.y != 0 { 1. } else { 0. };
+    let dz =
+        spacing.z * Vec3::new(skew_tan.x, skew_tan.y, 1.) * if cell_count.z != 0 { 1. } else { 0. };
 
     // Bottom-left-front corner of the grid
     let grid_start = -(cell_count.x as f32 / 2.0 * dx)
