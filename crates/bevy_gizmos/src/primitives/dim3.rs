@@ -156,9 +156,11 @@ where
 
         self.gizmos
             .primitive_3d(&self.normal, self.position, self.rotation, self.color);
+        // the default orientation of the grid is Z-up
+        let rot = Quat::from_rotation_arc(Vec3::Z, self.normal.as_vec3());
         self.gizmos.grid(
             self.position,
-            self.rotation,
+            self.rotation * rot,
             self.cell_count,
             self.spacing,
             self.color,
