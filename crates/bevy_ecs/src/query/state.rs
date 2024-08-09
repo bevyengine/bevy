@@ -1503,11 +1503,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     scope.spawn(async move {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
-
                         let accum = init_accum();
-                        let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
-
-                        iter.fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
+                        self.iter_unchecked_manual(world, last_run, this_run)
+                            .fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
                     });
                 }
             };
