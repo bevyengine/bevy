@@ -52,7 +52,7 @@ impl From<CustomCursor> for CursorIcon {
 pub enum CustomCursor {
     /// Image to use as a cursor.
     Image {
-        /// The image must be in 8bit int or 32bit float rgba. PNG images
+        /// The image must be in 8 bit int or 32 bit float rgba. PNG images
         /// work well for this.
         handle: Handle<Image>,
         /// X and Y coordinates of the hotspot in pixels. The hotspot must be
