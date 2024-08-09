@@ -355,7 +355,7 @@ pub async fn initialize_renderer(
                 label: options.device_label.as_ref().map(AsRef::as_ref),
                 required_features: features,
                 required_limits: limits,
-                memory_hints: wgpu::MemoryHints::default(),
+                memory_hints: options.memory_hints.clone(),
             },
             trace_path,
         )
