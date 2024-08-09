@@ -53,6 +53,6 @@ fn toggle_mouse_passthrough(
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyP) {
         let mut window = windows.single_mut();
-        window.cursor.hit_test = !window.cursor.hit_test;
+        window.cursor_options.hit_test = !window.cursor_options.hit_test;
     }
 }

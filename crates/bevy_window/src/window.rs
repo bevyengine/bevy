@@ -12,8 +12,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
 
-use crate::CursorIcon;
-
 /// Marker [`Component`] for the window considered the primary window.
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
@@ -107,16 +105,16 @@ impl NormalizedWindowRef {
 ///
 /// Because this component is synchronized with `winit`, it can be used to perform
 /// OS-integrated windowing operations. For example, here's a simple system
-/// to change the cursor type:
+/// to change the window mode:
 ///
 /// ```
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_window::{CursorIcon, PrimaryWindow, Window};
-/// fn change_cursor(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+/// # use bevy_window::{WindowMode, PrimaryWindow, Window, MonitorSelection};
+/// fn change_window_mode(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
 ///     // Query returns one window typically.
 ///     for mut window in windows.iter_mut() {
-///         window.cursor.icon = CursorIcon::Wait;
+///         window.mode = WindowMode::Fullscreen(MonitorSelection::Current);
 ///     }
 /// }
 /// ```
@@ -128,8 +126,9 @@ impl NormalizedWindowRef {
 )]
 #[reflect(Component, Default)]
 pub struct Window {
-    /// The cursor of this window.
-    pub cursor: Cursor,
+    /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
+    /// window entity.
+    pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used.
@@ -316,7 +315,7 @@ impl Default for Window {
         Self {
             title: "App".to_owned(),
             name: None,
-            cursor: Default::default(),
+            cursor_options: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
@@ -543,23 +542,20 @@ impl WindowResizeConstraints {
 }
 
 /// Cursor data for a [`Window`].
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, Default)]
-pub struct Cursor {
-    /// What the cursor should look like while inside the window.
-    pub icon: CursorIcon,
-
+pub struct CursorOptions {
     /// Whether the cursor is visible or not.
     ///
     /// ## Platform-specific
     ///
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    ///     To stop the cursor from leaving the window, change [`Cursor::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
+    ///     To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub visible: bool,
@@ -583,10 +579,9 @@ pub struct Cursor {
     pub hit_test: bool,
 }
 
-impl Default for Cursor {
+impl Default for CursorOptions {
     fn default() -> Self {
-        Cursor {
-            icon: CursorIcon::Default,
+        CursorOptions {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
@@ -870,7 +865,7 @@ impl From<DVec2> for WindowResolution {
     }
 }
 
-/// Defines if and how the [`Cursor`] is grabbed by a [`Window`].
+/// Defines if and how the cursor is grabbed by a [`Window`].
 ///
 /// ## Platform-specific
 ///

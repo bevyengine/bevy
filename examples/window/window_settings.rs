@@ -5,7 +5,8 @@ use bevy::{
     core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    render::view::cursor::{CursorIcon, CustomCursor},
+    window::{CursorGrabMode, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme},
 };
 
 fn main() {
@@ -37,6 +38,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))
+        .add_systems(Startup, init_cursor_icons)
         .add_systems(
             Update,
             (
@@ -137,8 +139,8 @@ fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode
     if input.just_pressed(KeyCode::Space) {
         let mut window = windows.single_mut();
 
-        window.cursor.visible = !window.cursor.visible;
-        window.cursor.grab_mode = match window.cursor.grab_mode {
+        window.cursor_options.visible = !window.cursor_options.visible;
+        window.cursor_options.grab_mode = match window.cursor_options.grab_mode {
             CursorGrabMode::None => CursorGrabMode::Locked,
             CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
         };
@@ -159,31 +161,46 @@ fn toggle_theme(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>
     }
 }
 
+#[derive(Resource)]
+struct CursorIcons(Vec<CursorIcon>);
+
+fn init_cursor_icons(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(CursorIcons(vec![
+        SystemCursorIcon::Default.into(),
+        SystemCursorIcon::Pointer.into(),
+        SystemCursorIcon::Wait.into(),
+        SystemCursorIcon::Text.into(),
+        CustomCursor::Image {
+            handle: asset_server.load("branding/icon.png"),
+            hotspot: (128, 128),
+        }
+        .into(),
+    ]));
+}
+
 /// This system cycles the cursor's icon through a small set of icons when clicking
 fn cycle_cursor_icon(
-    mut windows: Query<&mut Window>,
+    mut commands: Commands,
+    windows: Query<Entity, With<Window>>,
     input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
+    cursor_icons: Res<CursorIcons>,
 ) {
-    let mut window = windows.single_mut();
-
-    const ICONS: &[CursorIcon] = &[
-        CursorIcon::Default,
-        CursorIcon::Pointer,
-        CursorIcon::Wait,
-        CursorIcon::Text,
-        CursorIcon::Copy,
-    ];
+    let window_entity = windows.single();
 
     if input.just_pressed(MouseButton::Left) {
-        *index = (*index + 1) % ICONS.len();
+        *index = (*index + 1) % cursor_icons.0.len();
+        commands
+            .entity(window_entity)
+            .insert(cursor_icons.0[*index].clone());
     } else if input.just_pressed(MouseButton::Right) {
         *index = if *index == 0 {
-            ICONS.len() - 1
+            cursor_icons.0.len() - 1
         } else {
             *index - 1
         };
+        commands
+            .entity(window_entity)
+            .insert(cursor_icons.0[*index].clone());
     }
-
-    window.cursor.icon = ICONS[*index];
 }
