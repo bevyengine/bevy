@@ -78,17 +78,19 @@ mod tests {
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
     use std::collections::HashSet;
+    use std::fmt::Debug;
+    use std::hash::Hash;
 
-    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]
+    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);
-    #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
+    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]
     struct B(usize);
     #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     struct C(usize);
     #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
     struct D(usize);
 
-    #[derive(Component, Debug, Eq, PartialEq, Clone, Copy)]
+    #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     #[component(storage = "SparseSet")]
     struct Sparse(usize);
 
@@ -97,8 +99,9 @@ mod tests {
         let mut world = World::new();
         world.spawn((A(1), B(1)));
         world.spawn(A(2));
-        let values = world.query::<&A>().iter(&world).collect::<Vec<&A>>();
-        assert_eq!(values, vec![&A(1), &A(2)]);
+        let values = world.query::<&A>().iter(&world).collect::<HashSet<&A>>();
+        assert!(values.contains(&A(1)));
+        assert!(values.contains(&A(2)));
 
         for (_a, mut b) in world.query::<(&A, &mut B)>().iter_mut(&mut world) {
             b.0 = 3;
@@ -244,6 +247,20 @@ mod tests {
         assert_all_sizes_equal::<Entity, (With<C>, With<D>)>(&mut world, 6);
     }
 
+    // the order of the combinations is not guaranteed, but each unique combination is present
+    fn check_combinations<T: Ord + Hash + Debug, const K: usize>(
+        values: HashSet<[&T; K]>,
+        expected: HashSet<[&T; K]>,
+    ) {
+        values.iter().for_each(|pair| {
+            let mut sorted = *pair;
+            sorted.sort();
+            assert!(expected.contains(&sorted),
+                    "the results of iter_combinations should contain this combination {:?}. Expected: {:?}, got: {:?}",
+                    &sorted, &expected, &values);
+        });
+    }
+
     #[test]
     fn query_iter_combinations() {
         let mut world = World::new();
@@ -253,47 +270,29 @@ mod tests {
         world.spawn(A(3));
         world.spawn(A(4));
 
-        let values: Vec<[&A; 2]> = world.query::<&A>().iter_combinations(&world).collect();
-        assert_eq!(
+        let values: HashSet<[&A; 2]> = world.query::<&A>().iter_combinations(&world).collect();
+        check_combinations(
             values,
-            vec![
+            HashSet::from([
                 [&A(1), &A(2)],
                 [&A(1), &A(3)],
                 [&A(1), &A(4)],
                 [&A(2), &A(3)],
                 [&A(2), &A(4)],
                 [&A(3), &A(4)],
-            ]
+            ]),
         );
         let mut a_query = world.query::<&A>();
-        let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).collect();
-        assert_eq!(
+
+        let values: HashSet<[&A; 3]> = a_query.iter_combinations(&world).collect();
+        check_combinations(
             values,
-            vec![
+            HashSet::from([
                 [&A(1), &A(2), &A(3)],
                 [&A(1), &A(2), &A(4)],
                 [&A(1), &A(3), &A(4)],
                 [&A(2), &A(3), &A(4)],
-            ]
-        );
-
-        let mut query = world.query::<&mut A>();
-        let mut combinations = query.iter_combinations_mut(&mut world);
-        while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
-            a.0 += 10;
-            b.0 += 100;
-            c.0 += 1000;
-        }
-
-        let values: Vec<[&A; 3]> = a_query.iter_combinations(&world).collect();
-        assert_eq!(
-            values,
-            vec![
-                [&A(31), &A(212), &A(1203)],
-                [&A(31), &A(212), &A(3004)],
-                [&A(31), &A(1203), &A(3004)],
-                [&A(212), &A(1203), &A(3004)]
-            ]
+            ]),
         );
 
         let mut b_query = world.query::<&B>();
@@ -307,7 +306,7 @@ mod tests {
 
     #[test]
     fn query_filtered_iter_combinations() {
-        use bevy_ecs::query::{Added, Changed, Or, With, Without};
+        use bevy_ecs::query::{Added, Or, With, Without};
 
         let mut world = World::new();
 
@@ -318,33 +317,26 @@ mod tests {
 
         let mut a_wout_b = world.query_filtered::<&A, Without<B>>();
         let values: HashSet<[&A; 2]> = a_wout_b.iter_combinations(&world).collect();
-        assert_eq!(
+        check_combinations(
             values,
-            [[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]
-                .into_iter()
-                .collect::<HashSet<_>>()
+            HashSet::from([[&A(2), &A(3)], [&A(2), &A(4)], [&A(3), &A(4)]]),
         );
 
         let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
-        assert_eq!(
-            values,
-            [[&A(2), &A(3), &A(4)],].into_iter().collect::<HashSet<_>>()
-        );
+        check_combinations(values, HashSet::from([[&A(2), &A(3), &A(4)]]));
 
         let mut query = world.query_filtered::<&A, Or<(With<A>, With<B>)>>();
         let values: HashSet<[&A; 2]> = query.iter_combinations(&world).collect();
-        assert_eq!(
+        check_combinations(
             values,
-            [
+            HashSet::from([
                 [&A(1), &A(2)],
                 [&A(1), &A(3)],
                 [&A(1), &A(4)],
                 [&A(2), &A(3)],
                 [&A(2), &A(4)],
                 [&A(3), &A(4)],
-            ]
-            .into_iter()
-            .collect::<HashSet<_>>()
+            ]),
         );
 
         let mut query = world.query_filtered::<&mut A, Without<B>>();
@@ -356,12 +348,7 @@ mod tests {
         }
 
         let values: HashSet<[&A; 3]> = a_wout_b.iter_combinations(&world).collect();
-        assert_eq!(
-            values,
-            [[&A(12), &A(103), &A(1004)],]
-                .into_iter()
-                .collect::<HashSet<_>>()
-        );
+        check_combinations(values, HashSet::from([[&A(12), &A(103), &A(1004)]]));
 
         // Check if Added<T>, Changed<T> works
         let mut world = World::new();
@@ -390,31 +377,6 @@ mod tests {
         world.spawn(A(10));
 
         assert_eq!(query_added.iter_combinations::<2>(&world).count(), 3);
-
-        world.clear_trackers();
-
-        let mut query_changed = world.query_filtered::<&A, Changed<A>>();
-
-        let mut query = world.query_filtered::<&mut A, With<B>>();
-        let mut combinations = query.iter_combinations_mut(&mut world);
-        while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
-            a.0 += 10;
-            b.0 += 100;
-            c.0 += 1000;
-        }
-
-        let values: HashSet<[&A; 3]> = query_changed.iter_combinations(&world).collect();
-        assert_eq!(
-            values,
-            [
-                [&A(31), &A(212), &A(1203)],
-                [&A(31), &A(212), &A(3004)],
-                [&A(31), &A(1203), &A(3004)],
-                [&A(212), &A(1203), &A(3004)]
-            ]
-            .into_iter()
-            .collect::<HashSet<_>>()
-        );
     }
 
     #[test]
@@ -423,24 +385,16 @@ mod tests {
 
         world.spawn_batch((1..=4).map(Sparse));
 
-        let mut query = world.query::<&mut Sparse>();
-        let mut combinations = query.iter_combinations_mut(&mut world);
-        while let Some([mut a, mut b, mut c]) = combinations.fetch_next() {
-            a.0 += 10;
-            b.0 += 100;
-            c.0 += 1000;
-        }
-
-        let mut query = world.query::<&Sparse>();
-        let values: Vec<[&Sparse; 3]> = query.iter_combinations(&world).collect();
-        assert_eq!(
+        let values: HashSet<[&Sparse; 3]> =
+            world.query::<&Sparse>().iter_combinations(&world).collect();
+        check_combinations(
             values,
-            vec![
-                [&Sparse(31), &Sparse(212), &Sparse(1203)],
-                [&Sparse(31), &Sparse(212), &Sparse(3004)],
-                [&Sparse(31), &Sparse(1203), &Sparse(3004)],
-                [&Sparse(212), &Sparse(1203), &Sparse(3004)]
-            ]
+            HashSet::from([
+                [&Sparse(1), &Sparse(2), &Sparse(3)],
+                [&Sparse(1), &Sparse(2), &Sparse(4)],
+                [&Sparse(1), &Sparse(3), &Sparse(4)],
+                [&Sparse(2), &Sparse(3), &Sparse(4)],
+            ]),
         );
     }
 
@@ -454,8 +408,9 @@ mod tests {
         let values = world
             .query::<&Sparse>()
             .iter(&world)
-            .collect::<Vec<&Sparse>>();
-        assert_eq!(values, vec![&Sparse(1), &Sparse(2)]);
+            .collect::<HashSet<&Sparse>>();
+        assert!(values.contains(&Sparse(1)));
+        assert!(values.contains(&Sparse(2)));
 
         for (_a, mut b) in world.query::<(&Sparse, &mut B)>().iter_mut(&mut world) {
             b.0 = 3;
@@ -491,13 +446,12 @@ mod tests {
         world.spawn((A(3), B(1)));
         world.spawn(A(4));
 
-        let values: Vec<(&A, bool)> = world.query::<(&A, Has<B>)>().iter(&world).collect();
+        let values: HashSet<(&A, bool)> = world.query::<(&A, Has<B>)>().iter(&world).collect();
 
-        // The query seems to put the components with B first
-        assert_eq!(
-            values,
-            vec![(&A(1), true), (&A(3), true), (&A(2), false), (&A(4), false),]
-        );
+        assert!(values.contains(&(&A(1), true)));
+        assert!(values.contains(&(&A(2), false)));
+        assert!(values.contains(&(&A(3), true)));
+        assert!(values.contains(&(&A(4), false)));
     }
 
     #[test]

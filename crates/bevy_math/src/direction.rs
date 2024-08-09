@@ -169,6 +169,15 @@ impl Dir2 {
         Self::new(Vec2::new(x, y))
     }
 
+    /// Create a direction from its `x` and `y` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x` and `y` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xy_unchecked(x: f32, y: f32) -> Self {
+        Self::new_unchecked(Vec2::new(x, y))
+    }
+
     /// Returns the inner [`Vec2`]
     pub const fn as_vec2(&self) -> Vec2 {
         self.0
@@ -199,7 +208,7 @@ impl Dir2 {
     /// ```
     #[inline]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
-        let angle = self.angle_between(rhs.0);
+        let angle = self.angle_to(rhs.0);
         Rot2::radians(angle * s) * self
     }
 
@@ -417,6 +426,15 @@ impl Dir3 {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3::new(x, y, z))
+    }
+
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x`, `y`, and `z` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyz_unchecked(x: f32, y: f32, z: f32) -> Self {
+        Self::new_unchecked(Vec3::new(x, y, z))
     }
 
     /// Returns the inner [`Vec3`]
@@ -673,6 +691,15 @@ impl Dir3A {
     /// of the vector formed by the components is zero (or very close to zero), infinite, or `NaN`.
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Result<Self, InvalidDirectionError> {
         Self::new(Vec3A::new(x, y, z))
+    }
+
+    /// Create a direction from its `x`, `y`, and `z` components, assuming the resulting vector is normalized.
+    ///
+    /// # Warning
+    ///
+    /// The vector produced from `x`, `y`, and `z` must be normalized, i.e its length must be `1.0`.
+    pub fn from_xyz_unchecked(x: f32, y: f32, z: f32) -> Self {
+        Self::new_unchecked(Vec3A::new(x, y, z))
     }
 
     /// Returns the inner [`Vec3A`]

@@ -1,8 +1,8 @@
 #[cfg(all(feature = "file_watcher", target_arch = "wasm32"))]
 compile_error!(
     "The \"file_watcher\" feature for hot reloading does not work \
-    on WASM.\nDisable \"file_watcher\" \
-    when compiling to WASM"
+    on Wasm.\nDisable \"file_watcher\" \
+    when compiling to Wasm"
 );
 
 #[cfg(target_os = "android")]

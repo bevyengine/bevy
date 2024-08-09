@@ -1860,7 +1860,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
     pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.access.reads_and_writes()
+        self.access.component_reads_and_writes()
     }
 
     /// Returns a reference to the underlying [`Access`].
@@ -1912,7 +1912,7 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_read(id)
+            .has_component_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get() })
             .flatten()
@@ -1926,7 +1926,7 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_read(id)
+            .has_component_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_ref() })
             .flatten()
@@ -1938,7 +1938,7 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_read(id)
+            .has_component_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_change_ticks::<T>() })
             .flatten()
@@ -1953,7 +1953,7 @@ impl<'w> FilteredEntityRef<'w> {
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         self.access
-            .has_read(component_id)
+            .has_component_read(component_id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_change_ticks_by_id(component_id) })
             .flatten()
@@ -1970,7 +1970,7 @@ impl<'w> FilteredEntityRef<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.access
-            .has_read(component_id)
+            .has_component_read(component_id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
@@ -2117,7 +2117,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
     pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.access.reads_and_writes()
+        self.access.component_reads_and_writes()
     }
 
     /// Returns a reference to the underlying [`Access`].
@@ -2185,7 +2185,7 @@ impl<'w> FilteredEntityMut<'w> {
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_write(id)
+            .has_component_write(id)
             // SAFETY: We have write access
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
@@ -2198,7 +2198,7 @@ impl<'w> FilteredEntityMut<'w> {
     pub fn into_mut<T: Component>(self) -> Option<Mut<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_write(id)
+            .has_component_write(id)
             // SAFETY: We have write access
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
@@ -2246,7 +2246,7 @@ impl<'w> FilteredEntityMut<'w> {
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         self.access
-            .has_write(component_id)
+            .has_component_write(component_id)
             // SAFETY: We have write access
             .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
             .flatten()

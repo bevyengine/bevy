@@ -381,12 +381,54 @@ impl Debug for DynamicSet {
     }
 }
 
+impl FromIterator<Box<dyn Reflect>> for DynamicSet {
+    fn from_iter<I: IntoIterator<Item = Box<dyn Reflect>>>(values: I) -> Self {
+        let mut this = Self {
+            represented_type: None,
+            hash_table: HashTable::new(),
+        };
+
+        for value in values {
+            this.insert_boxed(value);
+        }
+
+        this
+    }
+}
+
+impl<T: Reflect> FromIterator<T> for DynamicSet {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
+        let mut this = Self {
+            represented_type: None,
+            hash_table: HashTable::new(),
+        };
+
+        for value in values {
+            this.insert(value);
+        }
+
+        this
+    }
+}
+
 impl IntoIterator for DynamicSet {
     type Item = Box<dyn Reflect>;
     type IntoIter = bevy_utils::hashbrown::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.hash_table.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DynamicSet {
+    type Item = &'a dyn Reflect;
+    type IntoIter = std::iter::Map<
+        bevy_utils::hashbrown::hash_table::Iter<'a, Box<dyn Reflect>>,
+        fn(&'a Box<dyn Reflect>) -> Self::Item,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.hash_table.iter().map(|v| v.as_reflect())
     }
 }
 

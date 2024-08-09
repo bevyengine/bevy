@@ -1,5 +1,6 @@
 use crate::func::args::ArgError;
 use crate::func::Return;
+use alloc::borrow::Cow;
 use thiserror::Error;
 
 /// An error that occurs when calling a [`DynamicFunction`] or [`DynamicClosure`].
@@ -24,3 +25,18 @@ pub enum FunctionError {
 /// [`DynamicFunction`]: crate::func::DynamicFunction
 /// [`DynamicClosure`]: crate::func::DynamicClosure
 pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
+
+/// An error that occurs when registering a function into a [`FunctionRegistry`].
+///
+/// [`FunctionRegistry`]: crate::func::FunctionRegistry
+#[derive(Debug, Error, PartialEq)]
+pub enum FunctionRegistrationError {
+    /// A function with the given name has already been registered.
+    ///
+    /// Contains the duplicate function name.
+    #[error("a function has already been registered with name {0:?}")]
+    DuplicateName(Cow<'static, str>),
+    /// The function is missing a name by which it can be registered.
+    #[error("function name is missing")]
+    MissingName,
+}

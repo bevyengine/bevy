@@ -173,8 +173,8 @@ mod tests {
 
         let func = foo.into_function();
         assert_eq!(
-            func.info().name(),
-            Some("bevy_reflect::func::into_function::tests::should_default_with_function_type_name::foo")
+            func.info().name().unwrap(),
+            "bevy_reflect::func::into_function::tests::should_default_with_function_type_name::foo"
         );
     }
 }

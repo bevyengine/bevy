@@ -49,7 +49,7 @@ use std::{
 
 #[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
-    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. WASM),
+    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
     /// futures aren't Send.
     pub trait ConditionalSend: Send {}
     impl<T: Send> ConditionalSend for T {}
@@ -64,7 +64,7 @@ mod conditional_send {
 
 pub use conditional_send::*;
 
-/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. WASM),
+/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
 /// futures aren't Send.
 pub trait ConditionalSendFuture: std::future::Future + ConditionalSend {}
 impl<T: std::future::Future + ConditionalSend> ConditionalSendFuture for T {}

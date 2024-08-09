@@ -17,6 +17,7 @@ multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]
 bevy_debug_stepping = []
 serialize = ["dep:serde"]
 track_change_detection = []
+reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
 
 [dependencies]
 bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }

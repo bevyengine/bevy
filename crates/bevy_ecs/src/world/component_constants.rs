@@ -29,6 +29,7 @@ pub struct OnInsert;
 /// Trigger emitted when a component is replaced on an entity. See [`crate::component::ComponentHooks::on_replace`]
 /// for more information.
 #[derive(Event)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct OnReplace;
 
 /// Trigger emitted when a component is removed from an entity. See [`crate::component::ComponentHooks::on_remove`]

@@ -20,10 +20,22 @@ pub struct FunctionInfo {
 }
 
 impl FunctionInfo {
-    /// Create a new [`FunctionInfo`].
+    /// Create a new [`FunctionInfo`] for a function with the given name.
+    pub fn named(name: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            name: Some(name.into()),
+            args: Vec::new(),
+            return_info: ReturnInfo::new::<()>(),
+        }
+    }
+
+    /// Create a new [`FunctionInfo`] with no name.
     ///
-    /// To set the name of the function, use [`Self::with_name`].
-    pub fn new() -> Self {
+    /// For the purposes of debugging and [registration],
+    /// it's recommended to use [`FunctionInfo::named`] instead.
+    ///
+    /// [registration]: crate::func::FunctionRegistry
+    pub fn anonymous() -> Self {
         Self {
             name: None,
             args: Vec::new(),
@@ -40,9 +52,6 @@ impl FunctionInfo {
     }
 
     /// Set the name of the function.
-    ///
-    /// Reflected functions are not required to have a name,
-    /// so this method must be called manually to set the name.
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.name = Some(name.into());
         self
@@ -94,7 +103,7 @@ impl FunctionInfo {
         self
     }
 
-    /// The name of the function, if it was given one.
+    /// The name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicClosures`] created using [`IntoClosure`],
     /// the name will always be the full path to the function as returned by [`std::any::type_name`].
@@ -103,8 +112,8 @@ impl FunctionInfo {
     /// [`IntoFunction`]: crate::func::IntoFunction
     /// [`DynamicClosures`]: crate::func::DynamicClosure
     /// [`IntoClosure`]: crate::func::IntoClosure
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.name.as_ref()
     }
 
     /// The arguments of the function.
@@ -120,12 +129,6 @@ impl FunctionInfo {
     /// The return information of the function.
     pub fn return_info(&self) -> &ReturnInfo {
         &self.return_info
-    }
-}
-
-impl Default for FunctionInfo {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -233,8 +236,7 @@ macro_rules! impl_typed_function {
             Function: FnMut($($Arg),*) -> ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                FunctionInfo::new()
-                    .with_name(std::any::type_name::<Function>())
+                create_info::<Function>()
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 0;
@@ -258,8 +260,7 @@ macro_rules! impl_typed_function {
             Function: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a ReturnType,
         {
             fn function_info() -> $crate::func::FunctionInfo {
-                FunctionInfo::new()
-                    .with_name(std::any::type_name::<Function>())
+                create_info::<Function>()
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;
@@ -284,8 +285,7 @@ macro_rules! impl_typed_function {
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                FunctionInfo::new()
-                    .with_name(std::any::type_name::<Function>())
+                create_info::<Function>()
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;
@@ -310,8 +310,7 @@ macro_rules! impl_typed_function {
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a ReturnType,
         {
             fn function_info() -> FunctionInfo {
-                FunctionInfo::new()
-                    .with_name(std::any::type_name::<Function>())
+                create_info::<Function>()
                     .with_args({
                         #[allow(unused_mut)]
                         let mut _index = 1;
@@ -330,3 +329,115 @@ macro_rules! impl_typed_function {
 }
 
 all_tuples!(impl_typed_function, 0, 15, Arg, arg);
+
+/// Helper function for creating [`FunctionInfo`] with the proper name value.
+///
+/// Names are only given if:
+/// - The function is not a closure
+/// - The function is not a function pointer
+/// - The function is not an anonymous function
+///
+/// This function relies on the [`type_name`] of `F` to determine this.
+/// The following table describes the behavior for different types of functions:
+///
+/// | Category           | `type_name`             | `FunctionInfo::name`    |
+/// | ------------------ | ----------------------- | ----------------------- |
+/// | Named function     | `foo::bar::baz`         | `Some("foo::bar::baz")` |
+/// | Closure            | `foo::bar::{{closure}}` | `None`                  |
+/// | Anonymous function | `foo::bar::{{closure}}` | `None`                  |
+/// | Function pointer   | `fn() -> String`        | `None`                  |
+///
+/// [`type_name`]: std::any::type_name
+fn create_info<F>() -> FunctionInfo {
+    let name = std::any::type_name::<F>();
+
+    if name.ends_with("{{closure}}") || name.starts_with("fn(") {
+        FunctionInfo::anonymous()
+    } else {
+        FunctionInfo::named(name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_create_function_info() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        // Sanity check:
+        assert_eq!(
+            std::any::type_name_of_val(&add),
+            "bevy_reflect::func::info::tests::should_create_function_info::add"
+        );
+
+        let info = add.get_function_info();
+        assert_eq!(
+            info.name().unwrap(),
+            "bevy_reflect::func::info::tests::should_create_function_info::add"
+        );
+        assert_eq!(info.arg_count(), 2);
+        assert_eq!(info.args()[0].type_path(), "i32");
+        assert_eq!(info.args()[1].type_path(), "i32");
+        assert_eq!(info.return_info().type_path(), "i32");
+    }
+
+    #[test]
+    fn should_create_function_pointer_info() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let add = add as fn(i32, i32) -> i32;
+
+        // Sanity check:
+        assert_eq!(std::any::type_name_of_val(&add), "fn(i32, i32) -> i32");
+
+        let info = add.get_function_info();
+        assert!(info.name().is_none());
+        assert_eq!(info.arg_count(), 2);
+        assert_eq!(info.args()[0].type_path(), "i32");
+        assert_eq!(info.args()[1].type_path(), "i32");
+        assert_eq!(info.return_info().type_path(), "i32");
+    }
+
+    #[test]
+    fn should_create_anonymous_function_info() {
+        let add = |a: i32, b: i32| a + b;
+
+        // Sanity check:
+        assert_eq!(
+            std::any::type_name_of_val(&add),
+            "bevy_reflect::func::info::tests::should_create_anonymous_function_info::{{closure}}"
+        );
+
+        let info = add.get_function_info();
+        assert!(info.name().is_none());
+        assert_eq!(info.arg_count(), 2);
+        assert_eq!(info.args()[0].type_path(), "i32");
+        assert_eq!(info.args()[1].type_path(), "i32");
+        assert_eq!(info.return_info().type_path(), "i32");
+    }
+
+    #[test]
+    fn should_create_closure_info() {
+        let mut total = 0;
+        let add = |a: i32, b: i32| total = a + b;
+
+        // Sanity check:
+        assert_eq!(
+            std::any::type_name_of_val(&add),
+            "bevy_reflect::func::info::tests::should_create_closure_info::{{closure}}"
+        );
+
+        let info = add.get_function_info();
+        assert!(info.name().is_none());
+        assert_eq!(info.arg_count(), 2);
+        assert_eq!(info.args()[0].type_path(), "i32");
+        assert_eq!(info.args()[1].type_path(), "i32");
+        assert_eq!(info.return_info().type_path(), "()");
+    }
+}

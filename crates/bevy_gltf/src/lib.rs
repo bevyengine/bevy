@@ -109,7 +109,7 @@ use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
-    mesh::{Mesh, MeshVertexAttribute},
+    mesh::{skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute},
     renderer::RenderDevice,
     texture::CompressedImageFormats,
 };
@@ -153,6 +153,7 @@ impl Plugin for GltfPlugin {
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
+            .init_asset::<GltfSkin>()
             .preregister_asset_loader::<GltfLoader>(&["gltf", "glb"]);
     }
 
@@ -187,6 +188,10 @@ pub struct Gltf {
     pub nodes: Vec<Handle<GltfNode>>,
     /// Named nodes loaded from the glTF file.
     pub named_nodes: HashMap<Box<str>, Handle<GltfNode>>,
+    /// All skins loaded from the glTF file.
+    pub skins: Vec<Handle<GltfSkin>>,
+    /// Named skins loaded from the glTF file.
+    pub named_skins: HashMap<Box<str>, Handle<GltfSkin>>,
     /// Default scene to be displayed.
     pub default_scene: Option<Handle<Scene>>,
     /// All animations loaded from the glTF file.
@@ -200,7 +205,8 @@ pub struct Gltf {
 }
 
 /// A glTF node with all of its child nodes, its [`GltfMesh`],
-/// [`Transform`](bevy_transform::prelude::Transform) and an optional [`GltfExtras`].
+/// [`Transform`](bevy_transform::prelude::Transform), its optional [`GltfSkin`]
+/// and an optional [`GltfExtras`].
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-node).
 #[derive(Asset, Debug, Clone, TypePath)]
@@ -213,8 +219,13 @@ pub struct GltfNode {
     pub children: Vec<Handle<GltfNode>>,
     /// Mesh of the node.
     pub mesh: Option<Handle<GltfMesh>>,
+    /// Skin of the node.
+    pub skin: Option<Handle<GltfSkin>>,
     /// Local transform.
     pub transform: bevy_transform::prelude::Transform,
+    /// Is this node used as an animation root
+    #[cfg(feature = "bevy_animation")]
+    pub is_animation_root: bool,
     /// Additional data.
     pub extras: Option<GltfExtras>,
 }
@@ -226,6 +237,7 @@ impl GltfNode {
         children: Vec<Handle<GltfNode>>,
         mesh: Option<Handle<GltfMesh>>,
         transform: bevy_transform::prelude::Transform,
+        skin: Option<Handle<GltfSkin>>,
         extras: Option<GltfExtras>,
     ) -> Self {
         Self {
@@ -238,13 +250,70 @@ impl GltfNode {
             children,
             mesh,
             transform,
+            skin,
+            #[cfg(feature = "bevy_animation")]
+            is_animation_root: false,
             extras,
+        }
+    }
+
+    /// Create a node with animation root mark
+    #[cfg(feature = "bevy_animation")]
+    pub fn with_animation_root(self, is_animation_root: bool) -> Self {
+        Self {
+            is_animation_root,
+            ..self
         }
     }
 
     /// Subasset label for this node within the gLTF parent asset.
     pub fn asset_label(&self) -> GltfAssetLabel {
         GltfAssetLabel::Node(self.index)
+    }
+}
+
+/// A glTF skin with all of its joint nodes, [`SkinnedMeshInversiveBindposes`](bevy_render::mesh::skinning::SkinnedMeshInverseBindposes)
+/// and an optional [`GltfExtras`].
+///
+/// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-skin).
+#[derive(Asset, Debug, Clone, TypePath)]
+pub struct GltfSkin {
+    /// Index of the skin inside the scene
+    pub index: usize,
+    /// Computed name for a skin - either a user defined skin name from gLTF or a generated name from index
+    pub name: String,
+    /// All the nodes that form this skin.
+    pub joints: Vec<Handle<GltfNode>>,
+    /// Inverse-bind matricy of this skin.
+    pub inverse_bind_matrices: Handle<SkinnedMeshInverseBindposes>,
+    /// Additional data.
+    pub extras: Option<GltfExtras>,
+}
+
+impl GltfSkin {
+    /// Create a skin extracting name and index from glTF def
+    pub fn new(
+        skin: &gltf::Skin,
+        joints: Vec<Handle<GltfNode>>,
+        inverse_bind_matrices: Handle<SkinnedMeshInverseBindposes>,
+        extras: Option<GltfExtras>,
+    ) -> Self {
+        Self {
+            index: skin.index(),
+            name: if let Some(name) = skin.name() {
+                name.to_string()
+            } else {
+                format!("GltfSkin{}", skin.index())
+            },
+            joints,
+            inverse_bind_matrices,
+            extras,
+        }
+    }
+
+    /// Subasset label for this skin within the gLTF parent asset.
+    pub fn asset_label(&self) -> GltfAssetLabel {
+        GltfAssetLabel::Skin(self.index)
     }
 }
 
@@ -449,8 +518,10 @@ pub enum GltfAssetLabel {
     DefaultMaterial,
     /// `Animation{}`: glTF Animation as Bevy `AnimationClip`
     Animation(usize),
-    /// `Skin{}`: glTF mesh skin as Bevy `SkinnedMeshInverseBindposes`
+    /// `Skin{}`: glTF mesh skin as `GltfSkin`
     Skin(usize),
+    /// `Skin{}/InverseBindMatrices`: glTF mesh skin matrices as Bevy `SkinnedMeshInverseBindposes`
+    InverseBindMatrices(usize),
 }
 
 impl std::fmt::Display for GltfAssetLabel {
@@ -480,6 +551,9 @@ impl std::fmt::Display for GltfAssetLabel {
             GltfAssetLabel::DefaultMaterial => f.write_str("DefaultMaterial"),
             GltfAssetLabel::Animation(index) => f.write_str(&format!("Animation{index}")),
             GltfAssetLabel::Skin(index) => f.write_str(&format!("Skin{index}")),
+            GltfAssetLabel::InverseBindMatrices(index) => {
+                f.write_str(&format!("Skin{index}/InverseBindMatrices"))
+            }
         }
     }
 }

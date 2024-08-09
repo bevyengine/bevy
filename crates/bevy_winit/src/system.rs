@@ -8,8 +8,8 @@ use bevy_ecs::{
 };
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
-    ClosingWindow, RawHandleWrapper, Window, WindowClosed, WindowClosing, WindowCreated,
-    WindowMode, WindowResized, WindowWrapper,
+    ClosingWindow, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window, WindowClosed,
+    WindowClosing, WindowCreated, WindowMode, WindowResized, WindowWrapper,
 };
 
 use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize};
@@ -18,18 +18,22 @@ use winit::event_loop::ActiveEventLoop;
 use bevy_app::AppExit;
 use bevy_ecs::prelude::EventReader;
 use bevy_ecs::query::With;
+use bevy_ecs::system::Res;
+use bevy_math::{IVec2, UVec2};
 #[cfg(target_os = "ios")]
 use winit::platform::ios::WindowExtIOS;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
 use crate::state::react_to_resize;
+use crate::winit_monitors::WinitMonitors;
 use crate::{
     converters::{
         self, convert_enabled_buttons, convert_window_level, convert_window_theme,
         convert_winit_theme,
     },
-    get_best_videomode, get_fitting_videomode, CreateWindowParams, WinitWindows,
+    get_best_videomode, get_fitting_videomode, select_monitor, CreateMonitorParams,
+    CreateWindowParams, WinitWindows,
 };
 
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
@@ -48,6 +52,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         mut adapters,
         mut handlers,
         accessibility_requested,
+        monitors,
     ): SystemParamItem<CreateWindowParams<F>>,
 ) {
     for (entity, mut window, handle_holder) in &mut created_windows {
@@ -68,6 +73,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             &mut adapters,
             &mut handlers,
             &accessibility_requested,
+            &monitors,
         );
 
         if let Some(theme) = winit_window.theme() {
@@ -116,6 +122,69 @@ pub fn create_windows<F: QueryFilter + 'static>(
 
         window_created_events.send(WindowCreated { window: entity });
     }
+}
+
+/// Synchronize available monitors as reported by [`winit`] with [`Monitor`] entities in the world.
+pub fn create_monitors(
+    event_loop: &ActiveEventLoop,
+    (mut commands, mut monitors): SystemParamItem<CreateMonitorParams>,
+) {
+    let primary_monitor = event_loop.primary_monitor();
+    let mut seen_monitors = vec![false; monitors.monitors.len()];
+
+    'outer: for monitor in event_loop.available_monitors() {
+        for (idx, (m, _)) in monitors.monitors.iter().enumerate() {
+            if &monitor == m {
+                seen_monitors[idx] = true;
+                continue 'outer;
+            }
+        }
+
+        let size = monitor.size();
+        let position = monitor.position();
+
+        let entity = commands
+            .spawn(Monitor {
+                name: monitor.name(),
+                physical_height: size.height,
+                physical_width: size.width,
+                physical_position: IVec2::new(position.x, position.y),
+                refresh_rate_millihertz: monitor.refresh_rate_millihertz(),
+                scale_factor: monitor.scale_factor(),
+                video_modes: monitor
+                    .video_modes()
+                    .map(|v| {
+                        let size = v.size();
+                        VideoMode {
+                            physical_size: UVec2::new(size.width, size.height),
+                            bit_depth: v.bit_depth(),
+                            refresh_rate_millihertz: v.refresh_rate_millihertz(),
+                        }
+                    })
+                    .collect(),
+            })
+            .id();
+
+        if primary_monitor.as_ref() == Some(&monitor) {
+            commands.entity(entity).insert(PrimaryMonitor);
+        }
+
+        seen_monitors.push(true);
+        monitors.monitors.push((monitor, entity));
+    }
+
+    let mut idx = 0;
+    monitors.monitors.retain(|(_m, entity)| {
+        if seen_monitors[idx] {
+            idx += 1;
+            true
+        } else {
+            info!("Monitor removed {:?}", entity);
+            commands.entity(*entity).despawn();
+            idx += 1;
+            false
+        }
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -178,6 +247,7 @@ pub struct CachedWindow {
 pub(crate) fn changed_windows(
     mut changed_windows: Query<(Entity, &mut Window, &mut CachedWindow), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
+    monitors: Res<WinitMonitors>,
     mut window_resized: EventWriter<WindowResized>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
@@ -191,26 +261,44 @@ pub(crate) fn changed_windows(
 
         if window.mode != cache.window.mode {
             let new_mode = match window.mode {
-                WindowMode::BorderlessFullscreen => {
-                    Some(Some(winit::window::Fullscreen::Borderless(None)))
+                WindowMode::BorderlessFullscreen(monitor_selection) => {
+                    Some(Some(winit::window::Fullscreen::Borderless(select_monitor(
+                        &monitors,
+                        winit_window.primary_monitor(),
+                        winit_window.current_monitor(),
+                        &monitor_selection,
+                    ))))
                 }
-                mode @ (WindowMode::Fullscreen | WindowMode::SizedFullscreen) => {
-                    if let Some(current_monitor) = winit_window.current_monitor() {
-                        let videomode = match mode {
-                            WindowMode::Fullscreen => get_best_videomode(&current_monitor),
-                            WindowMode::SizedFullscreen => get_fitting_videomode(
-                                &current_monitor,
-                                window.width() as u32,
-                                window.height() as u32,
-                            ),
-                            _ => unreachable!(),
-                        };
+                mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
+                    let videomode = match mode {
+                        WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
+                            &select_monitor(
+                                &monitors,
+                                winit_window.primary_monitor(),
+                                winit_window.current_monitor(),
+                                &monitor_selection,
+                            )
+                            .unwrap_or_else(|| {
+                                panic!("Could not find monitor for {:?}", monitor_selection)
+                            }),
+                        ),
+                        WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
+                            &select_monitor(
+                                &monitors,
+                                winit_window.primary_monitor(),
+                                winit_window.current_monitor(),
+                                &monitor_selection,
+                            )
+                            .unwrap_or_else(|| {
+                                panic!("Could not find monitor for {:?}", monitor_selection)
+                            }),
+                            window.width() as u32,
+                            window.height() as u32,
+                        ),
+                        _ => unreachable!(),
+                    };
 
-                        Some(Some(winit::window::Fullscreen::Exclusive(videomode)))
-                    } else {
-                        warn!("Could not determine current monitor, ignoring exclusive fullscreen request for window {:?}", window.title);
-                        None
-                    }
+                    Some(Some(winit::window::Fullscreen::Exclusive(videomode)))
                 }
                 WindowMode::Windowed => Some(None),
             };
@@ -336,7 +424,7 @@ pub(crate) fn changed_windows(
             if let Some(position) = crate::winit_window_position(
                 &window.position,
                 &window.resolution,
-                winit_window.available_monitors(),
+                &monitors,
                 winit_window.primary_monitor(),
                 winit_window.current_monitor(),
             ) {

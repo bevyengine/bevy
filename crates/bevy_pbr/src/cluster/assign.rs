@@ -478,7 +478,7 @@ pub(crate) fn assign_objects_to_clusters(
                 // as they often assume that the widest part of the sphere under projection is the
                 // center point on the axis of interest plus the radius, and that is not true!
                 let view_clusterable_object_sphere = Sphere {
-                    center: Vec3A::from(
+                    center: Vec3A::from_vec4(
                         view_from_world * clusterable_object_sphere.center.extend(1.0),
                     ),
                     radius: clusterable_object_sphere.radius * view_from_world_scale_max,
@@ -798,7 +798,7 @@ fn cluster_space_clusterable_object_aabb(
     clusterable_object_sphere: &Sphere,
 ) -> (Vec3, Vec3) {
     let clusterable_object_aabb_view = Aabb {
-        center: Vec3A::from(view_from_world * clusterable_object_sphere.center.extend(1.0)),
+        center: Vec3A::from_vec4(view_from_world * clusterable_object_sphere.center.extend(1.0)),
         half_extents: Vec3A::from(clusterable_object_sphere.radius * view_from_world_scale.abs()),
     };
     let (mut clusterable_object_aabb_view_min, mut clusterable_object_aabb_view_max) = (

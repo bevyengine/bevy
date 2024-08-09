@@ -1,6 +1,5 @@
 mod parallel_scope;
 
-#[cfg(feature = "track_change_detection")]
 use core::panic::Location;
 
 use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
@@ -963,14 +962,16 @@ impl EntityCommands<'_> {
     ///
     /// - [`ComponentId`] must be from the same world as `self`.
     /// - `T` must have the same layout as the one passed during `component_id` creation.
+    #[track_caller]
     pub unsafe fn insert_by_id<T: Send + 'static>(
         &mut self,
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
+        let caller = Location::caller();
         // SAFETY: same invariants as parent call
         self.add(unsafe {insert_by_id(component_id, value, move |entity| {
-            panic!("error[B0003]: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>());
+            panic!("error[B0003]: {caller}: Could not insert a component {component_id:?} (with type {}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/#b0003", std::any::type_name::<T>());
         })});
         self
     }
@@ -1125,8 +1126,9 @@ impl EntityCommands<'_> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_character_system);
     /// ```
+    #[track_caller]
     pub fn despawn(&mut self) {
-        self.add(despawn);
+        self.add(despawn());
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
@@ -1300,14 +1302,17 @@ where
 ///
 /// This won't clean up external references to the entity (such as parent-child relationships
 /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
-fn despawn(entity: Entity, world: &mut World) {
-    world.despawn(entity);
+#[track_caller]
+fn despawn() -> impl EntityCommand {
+    let caller = Location::caller();
+    move |entity: Entity, world: &mut World| {
+        world.despawn_with_caller(entity, caller);
+    }
 }
 
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
 fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
-    #[cfg(feature = "track_change_detection")]
     let caller = core::panic::Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
@@ -1317,7 +1322,7 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
                 caller,
             );
         } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
+            panic!("error[B0003]: {caller}: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003", std::any::type_name::<T>(), entity);
         }
     }
 }

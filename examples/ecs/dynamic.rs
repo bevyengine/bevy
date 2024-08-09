@@ -168,7 +168,7 @@ fn main() {
                             };
 
                             // If we have write access, increment each value once
-                            if filtered_entity.access().has_write(id) {
+                            if filtered_entity.access().has_component_write(id) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
                                 });

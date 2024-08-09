@@ -1,7 +1,7 @@
 doc-valid-idents = [
   "GilRs",
   "glTF",
-  "MacOS",
+  "macOS",
   "NVidia",
   "OpenXR",
   "sRGB",

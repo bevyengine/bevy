@@ -193,10 +193,7 @@ impl<A: Asset> DenseAssetStorage<A> {
             Entry::None => return None,
             Entry::Some { value, generation } => {
                 if *generation == index.generation {
-                    value.take().map(|value| {
-                        self.len -= 1;
-                        value
-                    })
+                    value.take().inspect(|_| self.len -= 1)
                 } else {
                     return None;
                 }
