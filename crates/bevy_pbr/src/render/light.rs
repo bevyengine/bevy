@@ -414,7 +414,7 @@ pub fn insert_light_view_entities(
 ) {
     query.iter().for_each(|e| {
         commands.entity(e).insert(LightViewEntities::default());
-    })
+    });
 }
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
@@ -1037,7 +1037,7 @@ pub fn prepare_lights(
                     });
 
             while light_view_entities.len() < offset + 1 {
-                light_view_entities.push(commands.spawn_empty().id())
+                light_view_entities.push(commands.spawn_empty().id());
             }
 
             let view_light_entity = light_view_entities[offset];
