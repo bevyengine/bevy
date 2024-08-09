@@ -553,12 +553,11 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
             if !self.ran_update_since_last_redraw || all_invisible {
                 self.run_app_update();
+                self.update_cursors(event_loop);
                 self.ran_update_since_last_redraw = true;
             } else {
                 self.redraw_requested = true;
             }
-
-            self.update_cursors(event_loop);
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());
