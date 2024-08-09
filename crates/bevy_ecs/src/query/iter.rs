@@ -1436,6 +1436,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
+        assert!(K != 0, "K should not equal to zero");
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
@@ -1443,14 +1444,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         let ptr = array
             .as_mut_ptr()
             .cast::<QueryIterationCursor<'w, 's, D, F>>();
-        if K != 0 {
-            ptr.write(QueryIterationCursor::init(
-                world,
-                query_state,
-                last_run,
-                this_run,
-            ));
-        }
+        ptr.write(QueryIterationCursor::init(
+            world,
+            query_state,
+            last_run,
+            this_run,
+        ));
         for slot in (1..K).map(|offset| ptr.add(offset)) {
             slot.write(QueryIterationCursor::init_empty(
                 world,
@@ -1475,11 +1474,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
+    #[inline]
     unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[D::Item<'w>; K]> {
-        if K == 0 {
-            return None;
-        }
-
         // PERF: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
         // when D::IS_ARCHETYPAL && F::IS_ARCHETYPAL
         //
