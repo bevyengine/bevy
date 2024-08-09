@@ -2,9 +2,11 @@
 
 mod entity_observer;
 mod runner;
+mod set;
 mod trigger_event;
 
 pub use runner::*;
+pub use set::*;
 pub use trigger_event::*;
 
 use crate::observer::entity_observer::ObservedBy;
@@ -17,16 +19,16 @@ use std::marker::PhantomData;
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
-pub struct Trigger<'w, E, B: Bundle = ()> {
-    event: &'w mut E,
+pub struct Trigger<'w, E: EventSet, B: Bundle = ()> {
+    event: E::Out<'w>,
     propagate: &'w mut bool,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
-impl<'w, E, B: Bundle> Trigger<'w, E, B> {
+impl<'w, E: EventSet, B: Bundle> Trigger<'w, E, B> {
     /// Creates a new trigger for the given event and observer information.
-    pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
+    pub fn new(event: E::Out<'w>, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
             event,
             propagate,
@@ -41,18 +43,18 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns a reference to the triggered event.
-    pub fn event(&self) -> &E {
-        self.event
+    pub fn event(&self) -> E::OutReadonly<'_> {
+        todo!()
     }
 
     /// Returns a mutable reference to the triggered event.
-    pub fn event_mut(&mut self) -> &mut E {
-        self.event
+    pub fn event_mut(&mut self) -> E::Out<'_> {
+        todo!()
     }
 
     /// Returns a pointer to the triggered event.
     pub fn event_ptr(&self) -> Ptr {
-        Ptr::from(&self.event)
+        todo!()
     }
 
     /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
@@ -304,7 +306,7 @@ impl Observers {
 
 impl World {
     /// Spawns a "global" [`Observer`] and returns its [`Entity`].
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EventSet, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
@@ -602,6 +604,21 @@ mod tests {
 
     #[test]
     fn observer_multiple_events() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        #[derive(Event)]
+        struct Foo;
+        #[derive(Event)]
+        struct Bar;
+        world.observe(|_: Trigger<(Foo, Bar)>, mut res: ResMut<R>| res.0 += 1);
+        world.flush();
+        world.trigger(Foo);
+        world.trigger(Bar);
+        assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_multiple_events_unsafe() {
         let mut world = World::new();
         world.init_resource::<R>();
         let on_remove = world.init_component::<OnRemove>();
