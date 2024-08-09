@@ -6,7 +6,7 @@
 use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Quat, Vec2, Vec3};
+use bevy_math::{Isometry2d, Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
 // === 2D ===
@@ -49,16 +49,14 @@ where
     #[inline]
     pub fn arc_2d(
         &mut self,
-        position: Vec2,
-        direction_angle: f32,
+        isometry: Isometry2d,
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
-            position,
-            direction_angle,
+            isometry,
             arc_angle,
             radius,
             color: color.into(),
@@ -74,8 +72,7 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec2,
-    direction_angle: f32,
+    isometry: Isometry2d,
     arc_angle: f32,
     radius: f32,
     color: Color,
@@ -108,25 +105,15 @@ where
             .resolution
             .unwrap_or_else(|| resolution_from_angle(self.arc_angle));
 
-        let positions = arc_2d_inner(
-            self.direction_angle,
-            self.arc_angle,
-            self.radius,
-            resolution,
-        )
-        .map(|vec2| (vec2 + self.position));
+        let positions =
+            arc_2d_inner(self.arc_angle, self.radius, resolution).map(|vec2| self.isometry * vec2);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
 
-fn arc_2d_inner(
-    direction_angle: f32,
-    arc_angle: f32,
-    radius: f32,
-    resolution: u32,
-) -> impl Iterator<Item = Vec2> {
+fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<Item = Vec2> {
     (0..resolution + 1).map(move |i| {
-        let start = direction_angle - arc_angle / 2.;
+        let start = -arc_angle / 2.;
 
         let angle =
             start + (i as f32 * (arc_angle / resolution as f32)) + std::f32::consts::FRAC_PI_2;

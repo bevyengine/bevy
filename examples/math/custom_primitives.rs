@@ -218,7 +218,11 @@ fn bounding_shapes_2d(
                 let bounding_circle = HEART.bounding_circle(isometry);
 
                 gizmos
-                    .circle_2d(bounding_circle.center(), bounding_circle.radius(), WHITE)
+                    .circle_2d(
+                        Isometry2d::from_translation(bounding_circle.center()),
+                        bounding_circle.radius(),
+                        WHITE,
+                    )
                     .resolution(64);
             }
         }
