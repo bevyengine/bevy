@@ -102,7 +102,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
 /// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
-/// This plugin requires a fairly recent GPU that supports [WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX].
+/// This plugin requires a fairly recent GPU that supports [`WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX`].
 ///
 /// This plugin currently works only on the Vulkan backend.
 ///
@@ -125,7 +125,7 @@ pub struct MeshletPlugin {
 }
 
 impl MeshletPlugin {
-    /// [WgpuFeatures] required for this plugin to function.
+    /// [`WgpuFeatures`] required for this plugin to function.
     pub fn required_wgpu_features() -> WgpuFeatures {
         WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
             | WgpuFeatures::SHADER_INT64

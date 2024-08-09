@@ -576,6 +576,7 @@ pub fn prepare_meshlet_per_frame_resources(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_meshlet_view_bind_groups(
     meshlet_mesh_manager: Res<MeshletMeshManager>,
     resource_manager: Res<ResourceManager>,

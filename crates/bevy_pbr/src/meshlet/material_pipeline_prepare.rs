@@ -25,7 +25,7 @@ use std::hash::Hash;
 pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
 /// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletMainOpaquePass3dNode`],
-/// and register the material with [`MeshletGpuScene`].
+/// and register the material with [`InstanceManager`].
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     resource_manager: ResMut<ResourceManager>,
@@ -223,7 +223,7 @@ pub struct MeshletViewMaterialsDeferredGBufferPrepass(
 );
 
 /// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletPrepassNode`],
-/// and [`super::MeshletDeferredGBufferPrepassNode`] and register the material with [`MeshletGpuScene`].
+/// and [`super::MeshletDeferredGBufferPrepassNode`] and register the material with [`InstanceManager`].
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     resource_manager: ResMut<ResourceManager>,

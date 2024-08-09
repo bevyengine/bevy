@@ -76,6 +76,7 @@ impl InstanceManager {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn add_instance(
         &mut self,
         instance: Entity,
