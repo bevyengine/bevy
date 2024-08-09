@@ -173,7 +173,7 @@ impl ShaderDefVal {
 
 impl ShaderCache {
     fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
-        let (capabilities, subgroup_stages) = get_capabilities(
+        let capabilities = get_capabilities(
             render_device.features(),
             render_adapter.get_downlevel_capabilities().flags,
         );
@@ -183,7 +183,7 @@ impl ShaderCache {
         #[cfg(not(debug_assertions))]
         let composer = naga_oil::compose::Composer::non_validating();
 
-        let composer = composer.with_capabilities(capabilities, subgroup_stages);
+        let composer = composer.with_capabilities(capabilities);
 
         Self {
             composer,
@@ -1000,10 +1000,7 @@ pub enum PipelineCacheError {
 // and subgroup shader stages instead of a `Validator`.
 // We also can't use that function because `wgpu-core` isn't included in WebGPU builds.
 /// Get the device capabilities and subgroup support for use in `naga_oil`.
-fn get_capabilities(
-    features: Features,
-    downlevel: DownlevelFlags,
-) -> (Capabilities, naga::valid::ShaderStages) {
+fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
     let mut capabilities = Capabilities::empty();
     capabilities.set(
         Capabilities::PUSH_CONSTANT,
@@ -1067,15 +1064,5 @@ fn get_capabilities(
         features.intersects(Features::SUBGROUP_BARRIER),
     );
 
-    let mut subgroup_stages = naga::valid::ShaderStages::empty();
-    subgroup_stages.set(
-        naga::valid::ShaderStages::COMPUTE | naga::valid::ShaderStages::FRAGMENT,
-        features.contains(Features::SUBGROUP),
-    );
-    subgroup_stages.set(
-        naga::valid::ShaderStages::VERTEX,
-        features.contains(Features::SUBGROUP_VERTEX),
-    );
-
-    (capabilities, subgroup_stages)
+    capabilities
 }
