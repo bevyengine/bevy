@@ -253,8 +253,7 @@ fn bounding_shapes_3d(
 
                 gizmos.primitive_3d(
                     &Cuboid::from_size(Vec3::from(aabb.half_size()) * 2.),
-                    aabb.center().into(),
-                    Quat::IDENTITY,
+                    Isometry3d::from_translation(aabb.center()),
                     WHITE,
                 );
             }
@@ -263,8 +262,7 @@ fn bounding_shapes_3d(
                 let bounding_sphere = EXTRUSION.bounding_sphere(transform.to_isometry());
 
                 gizmos.sphere(
-                    bounding_sphere.center().into(),
-                    Quat::IDENTITY,
+                    Isometry3d::from_translation(bounding_sphere.center()),
                     bounding_sphere.radius(),
                     WHITE,
                 );
