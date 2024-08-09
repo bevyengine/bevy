@@ -82,6 +82,8 @@ default = [
   "smaa_luts",
   "default_font",
   "webgl2",
+  "wayland",
+  "bevy_debug_stepping",
   "sysinfo_plugin",
 ]
 
