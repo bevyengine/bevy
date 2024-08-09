@@ -171,6 +171,18 @@ impl Color {
         })
     }
 
+    /// Creates a new [`Color`] object storing a [`Srgba`] color from a [`u32`] value with an alpha of 1.0.
+    ///
+    /// For example, a value of `0x000000` results in black, and a value of `0xff0000` results in red.
+    pub fn srgb_u32(color: u32) -> Self {
+        Self::Srgba(Srgba {
+            red: ((color >> 16) & 0xff) as f32 / 255.,
+            green: ((color >> 8) & 0xff) as f32 / 255.,
+            blue: (color & 0xff) as f32 / 255.,
+            alpha: 1.0,
+        })
+    }
+
     #[deprecated = "Use Color::linear_rgba instead."]
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
     pub const fn rbga_linear(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
