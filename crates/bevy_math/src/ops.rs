@@ -1,6 +1,9 @@
 //! This mod re-exports the correct versions of floating-point operations with
 //! unspecified precision in the standard library depending on whether the `libm`
 //! crate feature is enabled.
+//!
+//! All the functions here are named according to their versions in the standard
+//! library.
 
 #![allow(dead_code)]
 #![allow(unused_imports)]
