@@ -1,7 +1,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
-use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
+use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -216,18 +216,33 @@ impl InfinitePlane3d {
         (Self { normal }, translation)
     }
 
-    /// Computes the shortest distance between a plane with the given `origin` and a `point`.
+    /// Computes the shortest distance between a plane transformed with the given `isometry` and a
+    /// `point`.
     #[inline]
-    pub fn signed_distance(&self, origin: Vec3, point: Vec3) -> f32 {
-        self.normal.dot(origin - point)
+    pub fn signed_distance(&self, isometry: Isometry3d, point: Vec3) -> f32 {
+        (isometry * self.normal).dot(isometry * Vec3::ZERO - point)
     }
 
-    /// Injects the `point` into the plane with the given `origin`.
+    /// Injects the `point` into the plane transformed with the given `isometry`.
     ///
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
-    pub fn project_point(&self, origin: Vec3, point: Vec3) -> Vec3 {
-        point + self.normal * self.signed_distance(origin, point)
+    pub fn project_point(&self, isometry: Isometry3d, point: Vec3) -> Vec3 {
+        point + self.normal * self.signed_distance(isometry, point)
+    }
+
+    /// Computes the shortest distance between a plane going through `Vec3::ZERO` and a `point`.
+    #[inline]
+    pub fn local_signed_distance(&self, point: Vec3) -> f32 {
+        self.normal.dot(point)
+    }
+
+    /// Injects the `point` into the plane going through `Vec3::ZERO`.
+    ///
+    /// This projects the point orthogonally along the shortest path onto the plane.
+    #[inline]
+    pub fn local_project_point(&self, point: Vec3) -> Vec3 {
+        point + self.normal * self.local_signed_distance(point)
     }
 
     /// Computes an [`Affine3A`] which transforms points from the plane in 3D space with the given
@@ -1324,36 +1339,36 @@ mod tests {
 
         let point_in_plane = Vec3::X + Vec3::Z;
         assert_eq!(
-            plane.signed_distance(origin, point_in_plane),
+            plane.signed_distance(Isometry3d::from_translation(origin), point_in_plane),
             0.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(origin, point_in_plane),
+            plane.project_point(Isometry3d::from_translation(origin), point_in_plane),
             point_in_plane,
             "incorrect point"
         );
 
         let point_outside = Vec3::Y;
         assert_eq!(
-            plane.signed_distance(origin, point_outside),
+            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
             1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(origin, point_outside),
+            plane.project_point(Isometry3d::from_translation(origin), point_outside),
             Vec3::ZERO,
             "incorrect point"
         );
 
         let point_outside = Vec3::NEG_Y;
         assert_eq!(
-            plane.signed_distance(origin, point_outside),
+            plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
             -1.0,
             "incorrect distance"
         );
         assert_eq!(
-            plane.project_point(origin, point_outside),
+            plane.project_point(Isometry3d::from_translation(origin), point_outside),
             Vec3::ZERO,
             "incorrect point"
         );
