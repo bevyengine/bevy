@@ -26,7 +26,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Set};
+/// use bevy_reflect::{PartialReflect, Set};
 /// use bevy_utils::HashSet;
 ///
 ///
@@ -34,8 +34,8 @@ use crate::{
 /// foo.insert_boxed(Box::new(123_u32));
 /// assert_eq!(foo.len(), 1);
 ///
-/// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
-/// assert_eq!(field.downcast_ref::<u32>(), Some(&123_u32));
+/// let field: &dyn PartialReflect = foo.get(&123_u32).unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
