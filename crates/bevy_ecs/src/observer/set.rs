@@ -31,6 +31,7 @@ pub unsafe trait EventSet: 'static {
     fn init_components(world: &mut World, ids: impl FnMut(ComponentId));
 }
 
+// SAFETY: Forwards its implementation to `(A,)`, which is itself safe.
 unsafe impl<A: Event> EventSet for A {
     type Out<'trigger> = &'trigger mut A;
     type OutReadonly<'trigger> = &'trigger A;
@@ -44,10 +45,12 @@ unsafe impl<A: Event> EventSet for A {
     }
 
     fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {
-        <(A,) as EventSet>::init_components(world, ids)
+        <(A,) as EventSet>::init_components(world, ids);
     }
 }
 
+// SAFETY: All event types have a component id registered in `init_components`,
+// and `checked_cast` checks that the component id matches the event type.
 unsafe impl<A: Event> EventSet for (A,) {
     type Out<'trigger> = &'trigger mut A;
     type OutReadonly<'trigger> = &'trigger A;
@@ -57,9 +60,7 @@ unsafe impl<A: Event> EventSet for (A,) {
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Out<'trigger>> {
-        let Some(a_id) = world.component_id::<A>() else {
-            return None;
-        };
+        let a_id = world.component_id::<A>()?;
 
         if a_id == observer_trigger.event_type {
             // SAFETY: We just checked that the component id matches the event type
@@ -84,15 +85,8 @@ pub enum Or2<A, B> {
     B(B),
 }
 
-impl<'a, A, B> From<&'a Or2<&'a mut A, &'a mut B>> for Or2<&'a A, &'a B> {
-    fn from(or: &'a Or2<&'a mut A, &'a mut B>) -> Self {
-        match or {
-            Or2::A(a) => Or2::A(a),
-            Or2::B(b) => Or2::B(b),
-        }
-    }
-}
-
+// SAFETY: All event types have a component id registered in `init_components`,
+// and `checked_cast` checks that the component id matches one of the event types before casting.
 unsafe impl<A: Event, B: Event> EventSet for (A, B) {
     type Out<'trigger> = Or2<&'trigger mut A, &'trigger mut B>;
     type OutReadonly<'trigger> = Or2<&'trigger A, &'trigger B>;
@@ -102,12 +96,8 @@ unsafe impl<A: Event, B: Event> EventSet for (A, B) {
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Out<'trigger>> {
-        let Some(a_id) = world.component_id::<A>() else {
-            return None;
-        };
-        let Some(b_id) = world.component_id::<B>() else {
-            return None;
-        };
+        let a_id = world.component_id::<A>()?;
+        let b_id = world.component_id::<B>()?;
 
         if a_id == observer_trigger.event_type {
             // SAFETY: We just checked that the component id matches the event type
@@ -140,16 +130,8 @@ pub enum Or3<A, B, C> {
     C(C),
 }
 
-impl<'a, A, B, C> From<&'a Or3<&'a mut A, &'a mut B, &'a mut C>> for Or3<&'a A, &'a B, &'a C> {
-    fn from(or: &'a Or3<&'a mut A, &'a mut B, &'a mut C>) -> Self {
-        match or {
-            Or3::A(a) => Or3::A(a),
-            Or3::B(b) => Or3::B(b),
-            Or3::C(c) => Or3::C(c),
-        }
-    }
-}
-
+// SAFETY: All event types have a component id registered in `init_components`,
+// and `checked_cast` checks that the component id matches one of the event types before casting.
 unsafe impl<A: Event, B: Event, C: Event> EventSet for (A, B, C) {
     type Out<'trigger> = Or3<&'trigger mut A, &'trigger mut B, &'trigger mut C>;
     type OutReadonly<'trigger> = Or3<&'trigger A, &'trigger B, &'trigger C>;
@@ -159,15 +141,9 @@ unsafe impl<A: Event, B: Event, C: Event> EventSet for (A, B, C) {
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Out<'trigger>> {
-        let Some(a_id) = world.component_id::<A>() else {
-            return None;
-        };
-        let Some(b_id) = world.component_id::<B>() else {
-            return None;
-        };
-        let Some(c_id) = world.component_id::<C>() else {
-            return None;
-        };
+        let a_id = world.component_id::<A>()?;
+        let b_id = world.component_id::<B>()?;
+        let c_id = world.component_id::<C>()?;
 
         if a_id == observer_trigger.event_type {
             // SAFETY: We just checked that the component id matches the event type
