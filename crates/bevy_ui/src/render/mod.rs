@@ -42,6 +42,7 @@ use bevy_render::{
     texture::Image,
     view::{ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderSet,
+    extract_component::Mayfly,
 };
 use bevy_sprite::TextureAtlasLayout;
 #[cfg(feature = "bevy_text")]
@@ -757,7 +758,7 @@ pub fn extract_default_ui_camera_view(
                 UI_CAMERA_FAR,
             );
             let default_camera_view = commands
-                .spawn(ExtractedView {
+                .spawn((ExtractedView {
                     clip_from_view: projection_matrix,
                     world_from_view: GlobalTransform::from_xyz(
                         0.0,
@@ -773,7 +774,7 @@ pub fn extract_default_ui_camera_view(
                         physical_size.y,
                     ),
                     color_grading: Default::default(),
-                })
+                }, Mayfly{}))
                 .id();
             commands
                 .get_or_spawn(entity)

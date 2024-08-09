@@ -17,6 +17,7 @@ use bevy_render::{
     texture::*,
     view::{ExtractedView, RenderLayers, ViewVisibility},
     Extract,
+    extract_component::Mayfly,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 #[cfg(feature = "trace")]
@@ -925,6 +926,7 @@ pub fn prepare_lights(
                             light_entity,
                             face_index,
                         },
+                        Mayfly {},
                     ))
                     .id();
                 view_lights.push(view_light_entity);
@@ -983,6 +985,7 @@ pub fn prepare_lights(
                     },
                     *spot_light_frustum.unwrap(),
                     LightEntity::Spot { light_entity },
+                    Mayfly {},
                 ))
                 .id();
 
@@ -1082,6 +1085,7 @@ pub fn prepare_lights(
                             light_entity,
                             cascade_index,
                         },
+                        Mayfly {},
                     ))
                     .id();
                 view_lights.push(view_light_entity);
