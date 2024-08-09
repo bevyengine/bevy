@@ -951,14 +951,17 @@ impl EntityCommands<'_> {
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
     ///
-    /// This is the same as [`insert`], but in case of duplicate components
-    /// will leave the old values instead of replacing them with new ones.
+    /// This is the same as [`EntityCommands::insert`], but in case of duplicate
+    /// components will leave the old values instead of replacing them with new
+    /// ones.
     ///
     /// # Panics
     ///
-    /// The command will panic when applied if the associated entity does not exist.
+    /// The command will panic when applied if the associated entity does not
+    /// exist.
     ///
-    /// To avoid a panic in this case, use the command [`Self::try_insert`] instead.
+    /// To avoid a panic in this case, use the command [`Self::try_insert`]
+    /// instead.
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(insert(bundle, InsertMode::Keep))
     }
