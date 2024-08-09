@@ -20,6 +20,7 @@ pub mod cubic_splines;
 mod direction;
 mod float_ord;
 mod isometry;
+mod ops;
 pub mod primitives;
 mod ray;
 mod rects;
