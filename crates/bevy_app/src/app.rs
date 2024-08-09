@@ -6,6 +6,7 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
+    observer::EventData,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId},
@@ -1020,7 +1021,7 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EventData, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {

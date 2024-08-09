@@ -1,6 +1,6 @@
 use crate::{
     component::{ComponentHooks, ComponentId, StorageType},
-    observer::{ObserverDescriptor, ObserverTrigger},
+    observer::{DynamicEvent, EventData, ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{IntoObserverSystem, ObserverSystem},
@@ -261,12 +261,12 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// [`With<ObserverState>`].
 ///
 /// [`SystemParam`]: crate::system::SystemParam
-pub struct Observer<T: 'static, B: Bundle> {
-    system: BoxedObserverSystem<T, B>,
+pub struct Observer<E: EventData + 'static, B: Bundle> {
+    system: BoxedObserverSystem<E, B>,
     descriptor: ObserverDescriptor,
 }
 
-impl<E: Event, B: Bundle> Observer<E, B> {
+impl<E: EventData, B: Bundle> Observer<E, B> {
     /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
     /// for _any_ entity (or no entity).
     pub fn new<M>(system: impl IntoObserverSystem<E, B, M>) -> Self {
@@ -302,24 +302,40 @@ impl<E: Event, B: Bundle> Observer<E, B> {
     /// # Safety
     /// The type of the `event` [`ComponentId`] _must_ match the actual value
     /// of the event passed into the observer system.
-    pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
+    pub unsafe fn with_event_unchecked(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
     }
 }
 
-impl<E: Event, B: Bundle> Component for Observer<E, B> {
+impl<B: Bundle> Observer<DynamicEvent, B> {
+    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
+    /// is triggered.
+    ///
+    /// # Note
+    /// As opposed to [`Observer::with_event_unchecked`], this method is safe to use because no pointer casting is performed automatically.
+    /// That is left to the user to do manually.
+    pub fn with_event(self, event: ComponentId) -> Self {
+        // SAFETY: DynamicEvent itself does not perform any unsafe operations (like casting), so this is safe.
+        unsafe { self.with_event_unchecked(event) }
+    }
+}
+
+impl<E: EventData, B: Bundle> Component for Observer<E, B> {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|mut world, entity, _| {
             world.commands().add(move |world: &mut World| {
-                let event_type = world.init_component::<E>();
+                let mut events = Vec::new();
+                E::init_components(world, |id| {
+                    events.push(id);
+                });
                 let mut components = Vec::new();
                 B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
                     components.push(id);
                 });
                 let mut descriptor = ObserverDescriptor {
-                    events: vec![event_type],
+                    events,
                     components,
                     ..Default::default()
                 };
@@ -355,7 +371,7 @@ impl<E: Event, B: Bundle> Component for Observer<E, B> {
 /// Equivalent to [`BoxedSystem`](crate::system::BoxedSystem) for [`ObserverSystem`].
 pub type BoxedObserverSystem<E = (), B = ()> = Box<dyn ObserverSystem<E, B>>;
 
-fn observer_system_runner<E: Event, B: Bundle>(
+fn observer_system_runner<E: EventData, B: Bundle>(
     mut world: DeferredWorld,
     observer_trigger: ObserverTrigger,
     ptr: PtrMut,
@@ -382,12 +398,12 @@ fn observer_system_runner<E: Event, B: Bundle>(
     }
     state.last_trigger_id = last_trigger;
 
-    let trigger: Trigger<E, B> = Trigger::new(
-        // SAFETY: Caller ensures `ptr` is castable to `&mut T`
-        unsafe { ptr.deref_mut() },
-        propagate,
-        observer_trigger,
-    );
+    // SAFETY: We have immutable access to the world from the passed in DeferredWorld
+    let world_ref = unsafe { world.world() };
+    // SAFETY: Observer was triggered with an event type in its list of valid types, so it must be convertible to E
+    let event = unsafe { E::cast(world_ref, &observer_trigger, ptr) };
+
+    let trigger: Trigger<E, B> = Trigger::new(event, propagate, observer_trigger);
     // SAFETY: the static lifetime is encapsulated in Trigger / cannot leak out.
     // Additionally, IntoObserverSystem is only implemented for functions starting
     // with for<'a> Trigger<'a>, meaning users cannot specify Trigger<'static> manually,
