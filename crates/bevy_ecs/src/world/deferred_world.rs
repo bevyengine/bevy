@@ -8,7 +8,7 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
-    query::{QueryData, QueryFilter},
+    query::{QueryData, QueryFilter, QueryStaticMarker},
     system::{Commands, Query, Resource},
     traversal::Traversal,
 };
@@ -118,10 +118,10 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     /// If state is from a different world then self
     #[inline]
-    pub fn query<'s, D: QueryData, F: QueryFilter>(
+    pub fn query<'s, D: QueryData, F: QueryFilter, M: QueryStaticMarker>(
         &'w mut self,
-        state: &'s mut QueryState<D, F>,
-    ) -> Query<'w, 's, D, F> {
+        state: &'s mut QueryState<D, F, M>,
+    ) -> Query<'w, 's, D, F, M> {
         state.validate_world(self.world.id());
         state.update_archetypes(self);
         // SAFETY: We ran validate_world to ensure our state matches
