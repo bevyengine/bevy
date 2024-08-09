@@ -435,7 +435,7 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace, Or2,
+        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace, Or2, Untyped,
     };
     use crate::prelude::*;
     use crate::traversal::Traversal;
@@ -624,16 +624,28 @@ mod tests {
     }
 
     #[test]
+    fn observer_multiple_events_untyped() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        world.spawn(Observer::new(
+            |_: Trigger<Untyped<(OnAdd, OnRemove)>, A>, mut res: ResMut<R>| res.0 += 1,
+        ));
+
+        let entity = world.spawn(A).id();
+        world.despawn(entity);
+        assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
     fn observer_multiple_events_unsafe() {
         let mut world = World::new();
         world.init_resource::<R>();
+        let on_add = world.init_component::<OnAdd>();
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
-            // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
-            unsafe {
-                Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
-                    .with_event(on_remove)
-            },
+            Observer::new(|_: Trigger<Untyped<()>, A>, mut res: ResMut<R>| res.0 += 1)
+                .with_event_safe(on_add)
+                .with_event_safe(on_remove),
         );
 
         let entity = world.spawn(A).id();

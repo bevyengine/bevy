@@ -1,6 +1,6 @@
 use crate::{
     component::{ComponentHooks, ComponentId, StorageType},
-    observer::{EventSet, ObserverDescriptor, ObserverTrigger},
+    observer::{EventSet, ObserverDescriptor, ObserverTrigger, Untyped},
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{IntoObserverSystem, ObserverSystem},
@@ -307,6 +307,20 @@ impl<E: EventSet, B: Bundle> Observer<E, B> {
     }
 }
 
+impl<E, B: Bundle> Observer<Untyped<E>, B>
+where
+    Untyped<E>: EventSet,
+{
+    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
+    /// is triggered.
+    ///
+    /// As opposed to [`Observer::with_event`], this method is safe to use because it does not cast the event to a specific type.
+    pub fn with_event_safe(mut self, event: ComponentId) -> Self {
+        self.descriptor.events.push(event);
+        self
+    }
+}
+
 impl<E: EventSet, B: Bundle> Component for Observer<E, B> {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     fn register_component_hooks(hooks: &mut ComponentHooks) {
@@ -386,9 +400,7 @@ fn observer_system_runner<E: EventSet, B: Bundle>(
 
     // SAFETY: We have immutable access to the world from the passed in DeferredWorld
     let world_ref = unsafe { world.world() };
-    // TODO: should we check E::matches here?
-    // SAFETY: Caller ensures `ptr` is castable to `&mut T`, or the function will check it itself.
-    let Some(event) = (unsafe { E::cast(world_ref, &observer_trigger, ptr) }) else {
+    let Some(event) = E::cast(world_ref, &observer_trigger, ptr) else {
         return;
     };
 

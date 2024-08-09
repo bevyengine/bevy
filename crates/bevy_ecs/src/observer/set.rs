@@ -23,15 +23,15 @@ pub unsafe trait EventSet: 'static {
     ///
     /// # Safety
     ///
-    /// Caller must check that [`matches`] returns `true` before calling this method.
-    unsafe fn cast<'trigger>(
+    /// Implementor must ensure that the component id matches the event type before casting the pointer.
+    fn cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Item<'trigger>>;
 
     /// Checks if the event type matches the observer trigger.
-    fn matches<'trigger>(world: &World, observer_trigger: &ObserverTrigger) -> bool;
+    fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool;
 
     /// Initialize the components required by the event set.
     fn init_components(world: &mut World, ids: impl FnMut(ComponentId));
@@ -58,16 +58,20 @@ unsafe impl<E: Event> EventSet for E {
     type Item<'trigger> = &'trigger mut E;
     type ReadOnlyItem<'trigger> = &'trigger E;
 
-    unsafe fn cast<'trigger>(
-        _world: &World,
-        _observer_trigger: &ObserverTrigger,
+    fn cast<'trigger>(
+        world: &World,
+        observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Item<'trigger>> {
-        // SAFETY: Caller must ensure that `matches` returns true before calling `cast`
-        Some(unsafe { ptr.deref_mut() })
+        if Self::matches(world, observer_trigger) {
+            // SAFETY: We just checked that the component id matches the event type
+            Some(unsafe { ptr.deref_mut() })
+        } else {
+            None
+        }
     }
 
-    fn matches<'trigger>(world: &World, observer_trigger: &ObserverTrigger) -> bool {
+    fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool {
         world
             .component_id::<E>()
             .is_some_and(|id| id == observer_trigger.event_type)
@@ -97,16 +101,15 @@ unsafe impl<A: EventSet> EventSet for (A,) {
     type Item<'trigger> = A::Item<'trigger>;
     type ReadOnlyItem<'trigger> = A::ReadOnlyItem<'trigger>;
 
-    unsafe fn cast<'trigger>(
+    fn cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Item<'trigger>> {
-        // SAFETY: Caller must ensure that `matches` returns true before calling `cast`
-        unsafe { A::cast(world, observer_trigger, ptr) }
+        A::cast(world, observer_trigger, ptr)
     }
 
-    fn matches<'trigger>(world: &World, observer_trigger: &ObserverTrigger) -> bool {
+    fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool {
         A::matches(world, observer_trigger)
     }
 
@@ -146,7 +149,7 @@ macro_rules! impl_event_set {
             type Item<'trigger> = $Or<$($P::Item<'trigger>),*>;
             type ReadOnlyItem<'trigger> = $Or<$($P::ReadOnlyItem<'trigger>),*>;
 
-            unsafe fn cast<'trigger>(
+             fn cast<'trigger>(
                 world: &World,
                 observer_trigger: &ObserverTrigger,
                 ptr: PtrMut<'trigger>,
@@ -156,9 +159,7 @@ macro_rules! impl_event_set {
                 }
                 $(
                     else if $P::matches(world, observer_trigger) {
-                        // SAFETY: We just checked that the component id matches the event type
-                        let $p = unsafe { $P::cast(world, observer_trigger, ptr) };
-                        if let Some($p) = $p {
+                        if let Some($p) = $P::cast(world, observer_trigger, ptr)  {
                             return Some($Or::$P($p));
                         }
                     }
@@ -167,7 +168,7 @@ macro_rules! impl_event_set {
                 None
             }
 
-            fn matches<'trigger>(world: &World, observer_trigger: &ObserverTrigger) -> bool {
+            fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool {
                 $(
                     $P::matches(world, observer_trigger) ||
                 )*
@@ -226,3 +227,74 @@ impl_event_set!(
     (G, g),
     (H, h)
 );
+
+/// A wrapper around an [`EventSet`] that foregoes safety checks and casting.
+pub struct Untyped<E>(std::marker::PhantomData<E>);
+
+unsafe impl<E: EventSet> EventSet for Untyped<E> {
+    type Item<'trigger> = PtrMut<'trigger>;
+    type ReadOnlyItem<'trigger> = Ptr<'trigger>;
+
+    fn cast<'trigger>(
+        _world: &World,
+        _observer_trigger: &ObserverTrigger,
+        ptr: PtrMut<'trigger>,
+    ) -> Option<Self::Item<'trigger>> {
+        Some(ptr)
+    }
+
+    fn matches(_world: &World, _observer_trigger: &ObserverTrigger) -> bool {
+        true
+    }
+
+    fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {
+        E::init_components(world, ids);
+    }
+
+    fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
+        item.reborrow()
+    }
+
+    fn shrink_readonly<'long: 'short, 'short>(
+        item: &'short Self::Item<'long>,
+    ) -> Self::ReadOnlyItem<'short> {
+        item.as_ref()
+    }
+
+    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
+        item.as_ref()
+    }
+}
+
+unsafe impl EventSet for Untyped<()> {
+    type Item<'trigger> = PtrMut<'trigger>;
+    type ReadOnlyItem<'trigger> = Ptr<'trigger>;
+
+    fn cast<'trigger>(
+        _world: &World,
+        _observer_trigger: &ObserverTrigger,
+        ptr: PtrMut<'trigger>,
+    ) -> Option<Self::Item<'trigger>> {
+        Some(ptr)
+    }
+
+    fn matches(_world: &World, _observer_trigger: &ObserverTrigger) -> bool {
+        true
+    }
+
+    fn init_components(_world: &mut World, _ids: impl FnMut(ComponentId)) {}
+
+    fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
+        item.reborrow()
+    }
+
+    fn shrink_readonly<'long: 'short, 'short>(
+        item: &'short Self::Item<'long>,
+    ) -> Self::ReadOnlyItem<'short> {
+        item.as_ref()
+    }
+
+    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
+        item.as_ref()
+    }
+}
