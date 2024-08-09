@@ -33,6 +33,7 @@ pub mod render_resource;
 pub mod renderer;
 pub mod settings;
 mod spatial_bundle;
+pub mod storage;
 pub mod texture;
 pub mod view;
 pub mod prelude {

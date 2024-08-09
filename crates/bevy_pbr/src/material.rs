@@ -21,6 +21,7 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_reflect::Reflect;
+use bevy_render::storage::GpuStorageBuffer;
 use bevy_render::{
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
@@ -912,17 +913,19 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         SRes<FallbackImage>,
         SRes<MaterialPipeline<M>>,
         SRes<DefaultOpaqueRendererMethod>,
+        SRes<RenderAssets<GpuStorageBuffer>>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline, default_opaque_render_method): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image, pipeline, default_opaque_render_method, buffers): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(
             &pipeline.material_layout,
             render_device,
             images,
             fallback_image,
+            buffers,
         ) {
             Ok(prepared) => {
                 let method = match material.opaque_render_method() {

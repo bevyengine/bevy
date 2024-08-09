@@ -1,5 +1,6 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
+use crate::*;
 use bevy_asset::*;
 use bevy_ecs::{
     prelude::Component,
@@ -9,6 +10,7 @@ use bevy_ecs::{
     system::*,
 };
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_render::storage::GpuStorageBuffer;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -23,8 +25,6 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
-
-use crate::*;
 
 pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
 
@@ -609,13 +609,22 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
         SRes<RenderAssets<GpuImage>>,
         SRes<FallbackImage>,
         SRes<UiMaterialPipeline<M>>,
+        SRes<RenderAssets<GpuStorageBuffer>>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image, pipeline, buffers): &mut SystemParamItem<
+            Self::Param,
+        >,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(&pipeline.ui_layout, render_device, images, fallback_image) {
+        match material.as_bind_group(
+            &pipeline.ui_layout,
+            render_device,
+            images,
+            fallback_image,
+            buffers,
+        ) {
             Ok(prepared) => Ok(PreparedUiMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,

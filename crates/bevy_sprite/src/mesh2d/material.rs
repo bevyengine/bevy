@@ -1,3 +1,7 @@
+use crate::{
+    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -12,6 +16,7 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::storage::GpuStorageBuffer;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
@@ -34,11 +39,6 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use std::{hash::Hash, marker::PhantomData};
-
-use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
-};
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
@@ -555,17 +555,21 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         SRes<RenderAssets<GpuImage>>,
         SRes<FallbackImage>,
         SRes<Material2dPipeline<M>>,
+        SRes<RenderAssets<GpuStorageBuffer>>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image, pipeline, buffers): &mut SystemParamItem<
+            Self::Param,
+        >,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(
             &pipeline.material2d_layout,
             render_device,
             images,
             fallback_image,
+            buffers,
         ) {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
