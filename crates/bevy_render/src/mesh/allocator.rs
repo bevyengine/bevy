@@ -671,7 +671,7 @@ impl MeshAllocator {
         'slab: for &slab_id in &*candidate_slabs {
             loop {
                 let Some(Slab::General(ref mut slab)) = self.slabs.get_mut(&slab_id) else {
-                    unreachable!("Slab not found")
+                    continue 'slab;
                 };
 
                 if let Some(allocation) = slab.allocator.allocate(data_slot_count) {
