@@ -190,7 +190,7 @@ impl std::fmt::Display for ReflectKind {
 /// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be introspected",
+    message = "`{Self}` does not implement `PartialReflect` and cannot be introspected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait PartialReflect: DynamicTypePath + Send + Sync
@@ -396,7 +396,7 @@ where
 /// meaning any type which implements `Reflect` implements `PartialReflect` by definition.
 ///
 /// It's recommended to use [the derive macro] rather than manually implementing this trait.
-/// Doing so will automatically implement this trait, [`PartialReflect`] and many other useful traits for reflection,
+/// Doing so will automatically implement this trait, [`PartialReflect`], and many other useful traits for reflection,
 /// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
 /// See the [crate-level documentation] to see how this trait can be used.
@@ -405,7 +405,7 @@ where
 /// [the derive macro]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be fully reflected",
+    message = "`{Self}` does not implement `Reflect` and cannot be fully reflected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait Reflect: PartialReflect + Any {

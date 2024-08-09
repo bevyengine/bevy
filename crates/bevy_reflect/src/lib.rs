@@ -68,7 +68,7 @@
 //! * [`PartialReflect::as_partial_reflect_mut`] for `&mut dyn PartialReflect`
 //! * [`PartialReflect::into_partial_reflect`] for `Box<dyn PartialReflect>`
 //!
-//! For conversion in the other direction --- downcasting `dyn PartialReflect` to `dyn Reflect`,
+//! For conversion in the other direction — downcasting `dyn PartialReflect` to `dyn Reflect` —
 //! there are fallible methods:
 //! * [`PartialReflect::try_as_reflect`] for `&dyn Reflect`
 //! * [`PartialReflect::try_as_reflect_mut`] for `&mut dyn Reflect`
