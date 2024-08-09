@@ -951,7 +951,7 @@ impl EntityCommands<'_> {
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
     ///
-    /// This is the same as [`Commands::insert`], but in case of duplicate components
+    /// This is the same as [`insert`], but in case of duplicate components
     /// will leave the old values instead of replacing them with new ones.
     ///
     /// # Panics
