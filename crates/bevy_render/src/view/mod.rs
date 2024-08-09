@@ -281,17 +281,17 @@ pub struct ColorGradingGlobal {
 /// The [`ColorGrading`] structure, packed into the most efficient form for the
 /// GPU.
 #[derive(Clone, Copy, Debug, ShaderType)]
-struct ColorGradingUniform {
-    balance: Mat3,
-    saturation: Vec3,
-    contrast: Vec3,
-    gamma: Vec3,
-    gain: Vec3,
-    lift: Vec3,
-    midtone_range: Vec2,
-    exposure: f32,
-    hue: f32,
-    post_saturation: f32,
+pub struct ColorGradingUniform {
+    pub balance: Mat3,
+    pub saturation: Vec3,
+    pub contrast: Vec3,
+    pub gamma: Vec3,
+    pub gain: Vec3,
+    pub lift: Vec3,
+    pub midtone_range: Vec2,
+    pub exposure: f32,
+    pub hue: f32,
+    pub post_saturation: f32,
 }
 
 /// A section of color grading values that can be selectively applied to
@@ -408,20 +408,20 @@ impl ColorGrading {
 
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
-    clip_from_world: Mat4,
-    unjittered_clip_from_world: Mat4,
-    world_from_clip: Mat4,
-    world_from_view: Mat4,
-    view_from_world: Mat4,
-    clip_from_view: Mat4,
-    view_from_clip: Mat4,
-    world_position: Vec3,
-    exposure: f32,
+    pub clip_from_world: Mat4,
+    pub unjittered_clip_from_world: Mat4,
+    pub world_from_clip: Mat4,
+    pub world_from_view: Mat4,
+    pub view_from_world: Mat4,
+    pub clip_from_view: Mat4,
+    pub view_from_clip: Mat4,
+    pub world_position: Vec3,
+    pub exposure: f32,
     // viewport(x_origin, y_origin, width, height)
-    viewport: Vec4,
-    frustum: [Vec4; 6],
-    color_grading: ColorGradingUniform,
-    mip_bias: f32,
+    pub viewport: Vec4,
+    pub frustum: [Vec4; 6],
+    pub color_grading: ColorGradingUniform,
+    pub mip_bias: f32,
 }
 
 #[derive(Resource)]

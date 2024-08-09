@@ -18,7 +18,7 @@ bytemuck = { version = "1", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 wgpu-types = { version = "0.20", default-features = false, optional = true }
-encase = { version = "0.8", default-features = false }
+encase = { version = "0.9", default-features = false }
 
 [features]
 default = ["bevy_reflect"]
@@ -28,5 +28,5 @@ serialize = ["serde"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

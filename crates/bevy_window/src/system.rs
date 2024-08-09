@@ -50,6 +50,9 @@ pub fn close_when_requested(
     }
     // Mark the window as closing so we can despawn it on the next frame
     for event in closed.read() {
-        commands.entity(event.window).insert(ClosingWindow);
+        // When spamming the window close button on windows (other platforms too probably)
+        // we may receive a `WindowCloseRequested` for a window we've just despawned in the above
+        // loop.
+        commands.entity(event.window).try_insert(ClosingWindow);
     }
 }

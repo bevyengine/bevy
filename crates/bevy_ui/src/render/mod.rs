@@ -164,7 +164,7 @@ pub struct ExtractedUiNode {
     pub color: LinearRgba,
     pub rect: Rect,
     pub image: AssetId<Image>,
-    pub atlas_size: Option<Vec2>,
+    pub atlas_scaling: Option<Vec2>,
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
@@ -283,7 +283,7 @@ pub fn extract_uinode_background_colors(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-                atlas_size: None,
+                atlas_scaling: None,
                 flip_x: false,
                 flip_y: false,
                 camera_entity: camera_entity.id(),
@@ -370,19 +370,17 @@ pub fn extract_uinode_images(
             continue;
         }
 
-        let (rect, atlas_size) = match atlas {
+        let (rect, atlas_scaling) = match atlas {
             Some(atlas) => {
                 let Some(layout) = texture_atlases.get(&atlas.layout) else {
                     // Atlas not present in assets resource (should this warn the user?)
                     continue;
                 };
                 let mut atlas_rect = layout.textures[atlas.index].as_rect();
-                let mut atlas_size = layout.size.as_vec2();
-                let scale = uinode.size() / atlas_rect.size();
-                atlas_rect.min *= scale;
-                atlas_rect.max *= scale;
-                atlas_size *= scale;
-                (atlas_rect, Some(atlas_size))
+                let atlas_scaling = uinode.size() / atlas_rect.size();
+                atlas_rect.min *= atlas_scaling;
+                atlas_rect.max *= atlas_scaling;
+                (atlas_rect, Some(atlas_scaling))
             }
             None => (
                 Rect {
@@ -430,7 +428,7 @@ pub fn extract_uinode_images(
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
-                atlas_size,
+                atlas_scaling,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity: camera_entity.id(),
@@ -613,7 +611,7 @@ pub fn extract_uinode_borders(
                     ..Default::default()
                 },
                 image,
-                atlas_size: None,
+                atlas_scaling: None,
                 clip: clip.map(|clip| clip.clip),
                 flip_x: false,
                 flip_y: false,
@@ -710,7 +708,7 @@ pub fn extract_uinode_outlines(
                             ..Default::default()
                         },
                         image,
-                        atlas_size: None,
+                        atlas_scaling: None,
                         clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
@@ -902,7 +900,7 @@ pub fn extract_uinode_text(
                     color,
                     rect,
                     image: atlas_info.texture.id(),
-                    atlas_size: Some(atlas.size.as_vec2() * inverse_scale_factor),
+                    atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -1204,7 +1202,14 @@ pub fn prepare_uinodes(
                     let uvs = if flags == shader_flags::UNTEXTURED {
                         [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                     } else {
-                        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+                        let image = gpu_images
+                            .get(extracted_uinode.image)
+                            .expect("Image was checked during batching and should still exist");
+                        // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
+                        let atlas_extent = extracted_uinode
+                            .atlas_scaling
+                            .map(|scaling| image.size.as_vec2() * scaling)
+                            .unwrap_or(uinode_rect.max);
                         if extracted_uinode.flip_x {
                             std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                             positions_diff[0].x *= -1.;

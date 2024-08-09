@@ -176,7 +176,7 @@ impl ReflectResource {
     }
 }
 
-impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
+impl<R: Resource + Reflect> FromType<R> for ReflectResource {
     fn from_type() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {
@@ -207,6 +207,8 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
                     world.get_resource_mut::<R>().map(|res| Mut {
                         value: res.value as &mut dyn Reflect,
                         ticks: res.ticks,
+                        #[cfg(feature = "track_change_detection")]
+                        changed_by: res.changed_by,
                     })
                 }
             },

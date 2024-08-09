@@ -152,7 +152,11 @@ accesskit_unix = ["bevy_winit/accesskit_unix"]
 
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 
-bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
+bevy_render = [
+  "dep:bevy_render",
+  "bevy_scene?/bevy_render",
+  "bevy_gizmos?/bevy_render",
+]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
@@ -195,8 +199,15 @@ ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["dep:bevy_state"]
 
+# Enables source location tracking for change detection, which can assist with debugging
+track_change_detection = ["bevy_ecs/track_change_detection"]
+
 # Enable function reflection
-reflect_functions = ["bevy_reflect/functions"]
+reflect_functions = [
+  "bevy_reflect/functions",
+  "bevy_app/reflect_functions",
+  "bevy_ecs/reflect_functions",
+]
 
 [dependencies]
 # bevy
@@ -227,7 +238,6 @@ bevy_audio = { path = "../bevy_audio", optional = true, version = "0.15.0-dev" }
 bevy_color = { path = "../bevy_color", optional = true, version = "0.15.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.15.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.15.0-dev" }
-bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.15.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.15.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.15.0-dev", default-features = false }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.15.0-dev" }
@@ -244,5 +254,5 @@ bevy_winit = { path = "../bevy_winit", optional = true, version = "0.15.0-dev" }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

@@ -212,7 +212,7 @@ where
             gizmos: self,
             radius,
             position,
-            rotation,
+            rotation: rotation.normalize(),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
