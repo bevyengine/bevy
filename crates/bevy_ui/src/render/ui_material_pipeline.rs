@@ -18,6 +18,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, FallbackImage, GpuImage},
     view::*,
+    world_sync::{RenderEntity, RenderFlyEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -352,7 +353,9 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_ui_material_nodes<M: UiMaterial>(
+    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
     ui_stack: Extract<Res<UiStack>>,
@@ -360,7 +363,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     uinode_query: Extract<
         Query<
             (
-                Entity,
                 &Node,
                 &Style,
                 &GlobalTransform,
@@ -374,6 +376,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     >,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
@@ -387,11 +390,14 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     let default_single_camera = default_ui_camera.get();
 
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, style, transform, handle, view_visibility, clip, camera)) =
+        if let Ok((uinode, style, transform, handle, view_visibility, clip, camera)) =
             uinode_query.get(*entity)
         {
             let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
             else {
+                continue;
+            };
+            let Ok(&camera_entity) = mapping.get(camera_entity) else {
                 continue;
             };
 
@@ -426,7 +432,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             ) / uinode.size().y;
 
             extracted_uinodes.uinodes.insert(
-                entity,
+                commands.spawn(RenderFlyEntity).id(),
                 ExtractedUiMaterialNode {
                     stack_index,
                     transform: transform.compute_matrix(),
@@ -437,7 +443,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                     },
                     border: [left, right, top, bottom],
                     clip: clip.map(|clip| clip.clip),
-                    camera_entity,
+                    camera_entity: camera_entity.id(),
                 },
             );
         };

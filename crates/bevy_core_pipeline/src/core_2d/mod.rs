@@ -55,6 +55,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -244,10 +245,9 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 }
 
 pub fn extract_core_2d_camera_phases(
-    mut commands: Commands,
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    cameras_2d: Extract<Query<(&RenderEntity, &Camera), With<Camera2d>>>,
     mut opaque_2d_phases: ResMut<ViewSortedRenderPhases<Opaque2d>>,
-    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -256,8 +256,7 @@ pub fn extract_core_2d_camera_phases(
         if !camera.is_active {
             continue;
         }
-
-        commands.get_or_spawn(entity);
+        let entity = entity.id();
         transparent_2d_phases.insert_or_clear(entity);
         opaque_2d_phases.insert_or_clear(entity);
 

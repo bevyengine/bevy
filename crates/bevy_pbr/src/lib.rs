@@ -118,6 +118,7 @@ use bevy_render::{
     render_resource::Shader,
     texture::{GpuImage, Image},
     view::{check_visibility, VisibilitySystems},
+    world_sync::WorldSyncPlugin,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
@@ -332,6 +333,7 @@ impl Plugin for PbrPlugin {
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
             ))
+            .add_plugins(WorldSyncPlugin::<(PointLight, SpotLight, DirectionalLight)>::default())
             .configure_sets(
                 PostUpdate,
                 (
@@ -409,6 +411,12 @@ impl Plugin for PbrPlugin {
         // Extract the required data from the main world
         render_app
             .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
+            .add_systems(
+                Render,
+                insert_light_view_entities
+                    .in_set(RenderSet::ManageViews)
+                    .before(prepare_lights),
+            )
             .add_systems(
                 Render,
                 (

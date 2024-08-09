@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
+use crate::DefaultUiCamera;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
@@ -9,6 +10,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
+use bevy_render::world_sync::{RenderEntity, RenderFlyEntity};
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
@@ -23,8 +25,7 @@ pub use ui_material_pipeline::*;
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, BorderRadius,
-    CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage,
-    UiScale, Val,
+    CalculatedClip, ContentSize, Node, Outline, Style, TargetCamera, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -185,14 +186,15 @@ pub struct ExtractedUiNodes {
     pub uinodes: EntityHashMap<ExtractedUiNode>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_background_colors(
+    mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<&Camera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
         Query<(
-            Entity,
             &Node,
             &GlobalTransform,
             &ViewVisibility,
@@ -205,9 +207,10 @@ pub fn extract_uinode_background_colors(
         )>,
     >,
     node_query: Extract<Query<&Node>>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
+    let default_ui_camera = default_ui_camera.get();
     for (
-        entity,
         uinode,
         transform,
         view_visibility,
@@ -219,8 +222,7 @@ pub fn extract_uinode_background_colors(
         parent,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
 
@@ -232,12 +234,15 @@ pub fn extract_uinode_background_colors(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
+            .and_then(bevy_render::camera::Camera::logical_viewport_size)
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
 
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+            continue;
+        };
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = parent
@@ -267,7 +272,7 @@ pub fn extract_uinode_background_colors(
         };
 
         extracted_uinodes.uinodes.insert(
-            entity,
+            commands.spawn(RenderFlyEntity).id(),
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -281,7 +286,7 @@ pub fn extract_uinode_background_colors(
                 atlas_scaling: None,
                 flip_x: false,
                 flip_y: false,
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 border,
                 border_radius,
                 node_type: NodeType::Rect,
@@ -294,7 +299,7 @@ pub fn extract_uinode_background_colors(
 pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<&Camera>>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
@@ -314,7 +319,9 @@ pub fn extract_uinode_images(
         )>,
     >,
     node_query: Extract<Query<&Node>>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
+    let default_ui_camera = default_ui_camera.get();
     for (
         uinode,
         transform,
@@ -329,8 +336,7 @@ pub fn extract_uinode_images(
         style,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
 
@@ -342,11 +348,24 @@ pub fn extract_uinode_images(
             continue;
         }
 
+        let ui_logical_viewport_size = camera_query
+        .get(camera_entity)
+        .ok()
+        .and_then(bevy_render::camera::Camera::logical_viewport_size)
+        .unwrap_or(Vec2::ZERO)
+        // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+        // so we have to divide by `UiScale` to get the size of the UI viewport.
+        / ui_scale.0;
+
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+            continue;
+        };
+
         if let Some(slices) = slices {
             extracted_uinodes.uinodes.extend(
                 slices
-                    .extract_ui_nodes(transform, uinode, image, clip, camera_entity)
-                    .map(|e| (commands.spawn_empty().id(), e)),
+                    .extract_ui_nodes(transform, uinode, image, clip, camera_entity.id())
+                    .map(|e| (commands.spawn(RenderFlyEntity).id(), e)),
             );
             continue;
         }
@@ -372,15 +391,6 @@ pub fn extract_uinode_images(
             ),
         };
 
-        let ui_logical_viewport_size = camera_query
-            .get(camera_entity)
-            .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
-            .unwrap_or(Vec2::ZERO)
-            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
-            // so we have to divide by `UiScale` to get the size of the UI viewport.
-            / ui_scale.0;
-
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = parent
@@ -410,7 +420,7 @@ pub fn extract_uinode_images(
         };
 
         extracted_uinodes.uinodes.insert(
-            commands.spawn_empty().id(),
+            commands.spawn(RenderFlyEntity).id(),
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -421,7 +431,7 @@ pub fn extract_uinode_images(
                 atlas_scaling,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 border,
                 border_radius,
                 node_type: NodeType::Rect,
@@ -491,10 +501,11 @@ fn clamp_radius(
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<&Camera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
@@ -514,8 +525,10 @@ pub fn extract_uinode_borders(
         >,
     >,
     node_query: Extract<Query<&Node>>,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
+    let default_ui_camera = default_ui_camera.get();
 
     for (
         node,
@@ -529,11 +542,9 @@ pub fn extract_uinode_borders(
         border_radius,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
-
         // Skip invisible borders
         if !view_visibility.get()
             || border_color.0.is_fully_transparent()
@@ -546,11 +557,15 @@ pub fn extract_uinode_borders(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
+            .and_then(bevy_render::camera::Camera::logical_viewport_size)
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
             / ui_scale.0;
+
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+            continue;
+        };
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
@@ -585,7 +600,7 @@ pub fn extract_uinode_borders(
         let transform = global_transform.compute_matrix();
 
         extracted_uinodes.uinodes.insert(
-            commands.spawn_empty().id(),
+            commands.spawn(RenderFlyEntity).id(),
             ExtractedUiNode {
                 stack_index: node.stack_index,
                 // This translates the uinode's transform to the center of the current border rectangle
@@ -600,7 +615,7 @@ pub fn extract_uinode_borders(
                 clip: clip.map(|clip| clip.clip),
                 flip_x: false,
                 flip_y: false,
-                camera_entity,
+                camera_entity: camera_entity.id(),
                 border_radius,
                 border,
                 node_type: NodeType::Border,
@@ -623,11 +638,15 @@ pub fn extract_uinode_outlines(
             &Outline,
         )>,
     >,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
+    let default_ui_camera = default_ui_camera.get();
     let image = AssetId::<Image>::default();
     for (node, global_transform, view_visibility, maybe_clip, camera, outline) in &uinode_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
+            continue;
+        };
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -677,7 +696,7 @@ pub fn extract_uinode_outlines(
         for edge in outline_edges {
             if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
                 extracted_uinodes.uinodes.insert(
-                    commands.spawn_empty().id(),
+                    commands.spawn(RenderFlyEntity).id(),
                     ExtractedUiNode {
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
@@ -693,7 +712,7 @@ pub fn extract_uinode_outlines(
                         clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
-                        camera_entity,
+                        camera_entity: camera_entity.id(),
                         border: [0.; 4],
                         border_radius: [0.; 4],
                         node_type: NodeType::Rect,
@@ -723,7 +742,7 @@ pub fn extract_default_ui_camera_view(
     mut commands: Commands,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     ui_scale: Extract<Res<UiScale>>,
-    query: Extract<Query<(Entity, &Camera), Or<(With<Camera2d>, With<Camera3d>)>>>,
+    query: Extract<Query<(&RenderEntity, &Camera), Or<(With<Camera2d>, With<Camera3d>)>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
@@ -747,6 +766,7 @@ pub fn extract_default_ui_camera_view(
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
         ) {
+            let entity = entity.id();
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -757,23 +777,26 @@ pub fn extract_default_ui_camera_view(
                 UI_CAMERA_FAR,
             );
             let default_camera_view = commands
-                .spawn(ExtractedView {
-                    clip_from_view: projection_matrix,
-                    world_from_view: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
-                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ),
-                    clip_from_world: None,
-                    hdr: camera.hdr,
-                    viewport: UVec4::new(
-                        physical_origin.x,
-                        physical_origin.y,
-                        physical_size.x,
-                        physical_size.y,
-                    ),
-                    color_grading: Default::default(),
-                })
+                .spawn((
+                    ExtractedView {
+                        clip_from_view: projection_matrix,
+                        world_from_view: GlobalTransform::from_xyz(
+                            0.0,
+                            0.0,
+                            UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                        ),
+                        clip_from_world: None,
+                        hdr: camera.hdr,
+                        viewport: UVec4::new(
+                            physical_origin.x,
+                            physical_origin.y,
+                            physical_size.x,
+                            physical_size.y,
+                        ),
+                        color_grading: Default::default(),
+                    },
+                    RenderFlyEntity,
+                ))
                 .id();
             commands
                 .get_or_spawn(entity)
@@ -788,10 +811,11 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[cfg(feature = "bevy_text")]
+#[allow(clippy::too_many_arguments)]
 pub fn extract_uinode_text(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
+    camera_query: Extract<Query<&Camera>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     ui_scale: Extract<Res<UiScale>>,
@@ -806,12 +830,13 @@ pub fn extract_uinode_text(
             &TextLayoutInfo,
         )>,
     >,
+    mapping: Extract<Query<&RenderEntity>>,
 ) {
+    let default_ui_camera = default_ui_camera.get();
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
             continue;
         };
 
@@ -823,11 +848,14 @@ pub fn extract_uinode_text(
         let scale_factor = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.target_scaling_factor())
+            .and_then(bevy_render::camera::Camera::target_scaling_factor)
             .unwrap_or(1.0)
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();
 
+        let Ok(&camera_entity) = mapping.get(camera_entity) else {
+            continue;
+        };
         // Align the text to the nearest physical pixel:
         // * Translate by minus the text node's half-size
         //      (The transform translates to the center of the node but the text coordinates are relative to the node's top left corner)
@@ -862,8 +890,9 @@ pub fn extract_uinode_text(
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
+            let id = commands.spawn(RenderFlyEntity).id();
             extracted_uinodes.uinodes.insert(
-                commands.spawn_empty().id(),
+                id,
                 ExtractedUiNode {
                     stack_index: uinode.stack_index,
                     transform: transform
@@ -875,7 +904,7 @@ pub fn extract_uinode_text(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    camera_entity,
+                    camera_entity: camera_entity.id(),
                     border: [0.; 4],
                     border_radius: [0.; 4],
                     node_type: NodeType::Rect,

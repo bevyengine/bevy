@@ -38,6 +38,7 @@ use bevy_render::{
         ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
         ViewVisibility, VisibleEntities,
     },
+    world_sync::{RenderEntity, RenderFlyEntity},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
@@ -371,6 +372,7 @@ pub fn extract_sprites(
     sprite_query: Extract<
         Query<(
             Entity,
+            &RenderEntity,
             &ViewVisibility,
             &Sprite,
             &GlobalTransform,
@@ -381,7 +383,9 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (entity, view_visibility, sprite, transform, handle, sheet, slices) in sprite_query.iter() {
+    for (original_entity, entity, view_visibility, sprite, transform, handle, sheet, slices) in
+        sprite_query.iter()
+    {
         if !view_visibility.get() {
             continue;
         }
@@ -389,8 +393,8 @@ pub fn extract_sprites(
         if let Some(slices) = slices {
             extracted_sprites.sprites.extend(
                 slices
-                    .extract_sprites(transform, entity, sprite, handle)
-                    .map(|e| (commands.spawn_empty().id(), e)),
+                    .extract_sprites(transform, original_entity, sprite, handle)
+                    .map(|e| (commands.spawn(RenderFlyEntity).id(), e)),
             );
         } else {
             let atlas_rect =
@@ -409,7 +413,7 @@ pub fn extract_sprites(
 
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
             extracted_sprites.sprites.insert(
-                entity,
+                entity.id(),
                 ExtractedSprite {
                     color: sprite.color.into(),
                     transform: *transform,
@@ -420,7 +424,7 @@ pub fn extract_sprites(
                     flip_y: sprite.flip_y,
                     image_handle_id: handle.id(),
                     anchor: sprite.anchor.as_vec(),
-                    original_entity: None,
+                    original_entity: Some(original_entity),
                 },
             );
         }
