@@ -60,7 +60,7 @@ pub mod prelude {
         },
         system::{
             Commands, Deferred, In, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemBuilder,
+            ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource, System, SystemParamBuilder,
             SystemParamFunction,
         },
         world::{

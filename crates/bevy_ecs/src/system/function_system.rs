@@ -14,7 +14,7 @@ use std::{borrow::Cow, marker::PhantomData};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::{info_span, Span};
 
-use super::{In, IntoSystem, ReadOnlySystem, SystemBuilder};
+use super::{In, IntoSystem, ReadOnlySystem, SystemParamBuilder};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -216,13 +216,31 @@ impl<Param: SystemParam> SystemState<Param> {
         }
     }
 
-    // Create a [`SystemState`] from a [`SystemBuilder`]
-    pub(crate) fn from_builder(builder: SystemBuilder<Param>) -> Self {
+    /// Create a [`SystemState`] from a [`SystemParamBuilder`]
+    pub(crate) fn from_builder(world: &mut World, builder: impl SystemParamBuilder<Param>) -> Self {
+        let mut meta = SystemMeta::new::<Param>();
+        meta.last_run = world.change_tick().relative_to(Tick::MAX);
+        let param_state = builder.build(world, &mut meta);
         Self {
-            meta: builder.meta,
-            param_state: builder.state,
-            world_id: builder.world.id(),
+            meta,
+            param_state,
+            world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
+        }
+    }
+
+    /// Create a [`FunctionSystem`] from a [`SystemState`].
+    pub fn build_system<Marker, F: SystemParamFunction<Marker, Param = Param>>(
+        self,
+        func: F,
+    ) -> FunctionSystem<Marker, F> {
+        FunctionSystem {
+            func,
+            param_state: Some(self.param_state),
+            system_meta: self.meta,
+            world_id: Some(self.world_id),
+            archetype_generation: self.archetype_generation,
+            marker: PhantomData,
         }
     }
 
@@ -425,18 +443,6 @@ impl<Marker, F> FunctionSystem<Marker, F>
 where
     F: SystemParamFunction<Marker>,
 {
-    // Create a [`FunctionSystem`] from a [`SystemBuilder`]
-    pub(crate) fn from_builder(builder: SystemBuilder<F::Param>, func: F) -> Self {
-        Self {
-            func,
-            param_state: Some(builder.state),
-            system_meta: builder.meta,
-            world_id: Some(builder.world.id()),
-            archetype_generation: ArchetypeGeneration::initial(),
-            marker: PhantomData,
-        }
-    }
-
     /// Return this system with a new name.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.

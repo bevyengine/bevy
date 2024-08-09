@@ -7,7 +7,6 @@ use crate::{
     change_detection::{Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
-    prelude::QueryBuilder,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
         ReadOnlyQueryData,
@@ -185,19 +184,6 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 }
 
-/// A parameter that can be built with [`SystemBuilder`](crate::system::builder::SystemBuilder)
-pub trait BuildableSystemParam: SystemParam {
-    /// A mutable reference to this type will be passed to the builder function
-    type Builder<'b>;
-
-    /// Constructs [`SystemParam::State`] for `Self` using a given builder function
-    fn build(
-        world: &mut World,
-        meta: &mut SystemMeta,
-        func: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State;
-}
-
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
@@ -221,17 +207,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
-        assert_component_access_compatibility(
-            &system_meta.name,
-            std::any::type_name::<D>(),
-            std::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &state.component_access,
-            world,
-        );
-        system_meta
-            .component_access_set
-            .add(state.component_access.clone());
+        init_query_param(world, system_meta, &state);
         state
     }
 
@@ -257,33 +233,22 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
-impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
-    for Query<'w, 's, D, F>
-{
-    type Builder<'b> = QueryBuilder<'b, D, F>;
-
-    #[inline]
-    fn build(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-        build: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        let mut builder = QueryBuilder::new(world);
-        build(&mut builder);
-        let state = builder.build();
-        assert_component_access_compatibility(
-            &system_meta.name,
-            std::any::type_name::<D>(),
-            std::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &state.component_access,
-            world,
-        );
-        system_meta
-            .component_access_set
-            .add(state.component_access.clone());
-        state
-    }
+pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>(
+    world: &mut World,
+    system_meta: &mut SystemMeta,
+    state: &QueryState<D, F>,
+) {
+    assert_component_access_compatibility(
+        &system_meta.name,
+        std::any::type_name::<D>(),
+        std::any::type_name::<F>(),
+        &system_meta.component_access_set,
+        &state.component_access,
+        world,
+    );
+    system_meta
+        .component_access_set
+        .add(state.component_access.clone());
 }
 
 fn assert_component_access_compatibility(
@@ -871,20 +836,6 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
-    }
-}
-
-impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
-    type Builder<'b> = T;
-
-    fn build(
-        world: &mut World,
-        _meta: &mut SystemMeta,
-        func: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        let mut value = T::from_world(world);
-        func(&mut value);
-        SyncCell::new(value)
     }
 }
 
