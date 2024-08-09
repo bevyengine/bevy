@@ -1,18 +1,9 @@
 use std::f32::consts::TAU;
 
 use bevy_color::Color;
-use bevy_math::{Mat2, Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
-
-/// Performs an isometric transformation on 2D vectors.
-///
-/// This function takes angle and a position vector, and returns a closure that applies
-/// the isometric transformation to any given 2D vector. The transformation involves rotating
-/// the vector by the specified angle and then translating it by the given position.
-pub(crate) fn rotate_then_translate_2d(angle: f32, position: Vec2) -> impl Fn(Vec2) -> Vec2 {
-    move |v| Mat2::from_angle(angle) * v + position
-}
 
 /// Performs an isometric transformation on 3D vectors.
 ///

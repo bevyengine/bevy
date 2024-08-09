@@ -5,7 +5,7 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::Mat2;
+use bevy_math::Isometry2d;
 use bevy_math::{Dir3, Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
@@ -85,15 +85,13 @@ where
     #[inline]
     pub fn ellipse_2d(
         &mut self,
-        position: Vec2,
-        angle: f32,
+        isometry: Isometry2d,
         half_size: Vec2,
         color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
-            position,
-            rotation: Mat2::from_angle(angle),
+            isometry,
             half_size,
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -161,14 +159,13 @@ where
     #[inline]
     pub fn circle_2d(
         &mut self,
-        position: Vec2,
+        isometry: Isometry2d,
         radius: f32,
         color: impl Into<Color>,
     ) -> Ellipse2dBuilder<'_, 'w, 's, Config, Clear> {
         Ellipse2dBuilder {
             gizmos: self,
-            position,
-            rotation: Mat2::IDENTITY,
+            isometry,
             half_size: Vec2::splat(radius),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -264,8 +261,7 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec2,
-    rotation: Mat2,
+    isometry: Isometry2d,
     half_size: Vec2,
     color: Color,
     resolution: u32,
@@ -294,9 +290,8 @@ where
             return;
         };
 
-        let positions = ellipse_inner(self.half_size, self.resolution)
-            .map(|vec2| self.rotation * vec2)
-            .map(|vec2| vec2 + self.position);
+        let positions =
+            ellipse_inner(self.half_size, self.resolution).map(|vec2| self.isometry * vec2);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
