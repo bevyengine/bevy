@@ -84,8 +84,11 @@ impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMu
     fn from_type() -> Self {
         ReflectFreelyMutableState(ReflectFreelyMutableStateFns {
             set_next_state: |world, reflected_state, registry| {
-                let new_state: S =
-                    from_reflect_with_fallback(reflected_state.as_ref(), world, registry);
+                let new_state: S = from_reflect_with_fallback(
+                    reflected_state.as_partial_reflect(),
+                    world,
+                    registry,
+                );
                 if let Some(mut next_state) = world.get_resource_mut::<NextState<S>>() {
                     next_state.set(new_state);
                 }

@@ -568,18 +568,6 @@ impl Typed for dyn Reflect {
     }
 }
 
-impl AsRef<dyn PartialReflect> for dyn Reflect {
-    fn as_ref(&self) -> &dyn PartialReflect {
-        self.as_partial_reflect()
-    }
-}
-
-impl AsMut<dyn PartialReflect> for dyn Reflect {
-    fn as_mut(&mut self) -> &mut dyn PartialReflect {
-        self.as_partial_reflect_mut()
-    }
-}
-
 // The following implementation never actually shadows the concrete `TypePath` implementation.
 // See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
 impl TypePath for dyn Reflect {
@@ -592,8 +580,6 @@ impl TypePath for dyn Reflect {
     }
 }
 
-#[macro_export]
-#[doc(hidden)]
 macro_rules! impl_full_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
         impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
@@ -631,3 +617,5 @@ macro_rules! impl_full_reflect {
         }
     };
 }
+
+pub(crate) use impl_full_reflect;

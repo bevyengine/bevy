@@ -3,12 +3,13 @@ use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
 };
 use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, set_apply,
-    set_partial_eq, set_try_apply, ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet,
-    DynamicTypePath, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map,
-    MapInfo, MapIter, MaybeTyped, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr,
-    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
-    SetInfo, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed, ValueInfo,
+    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
+    reflect::impl_full_reflect, set_apply, set_partial_eq, set_try_apply, ApplyError, Array,
+    ArrayInfo, ArrayIter, DynamicMap, DynamicSet, DynamicTypePath, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
+    PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set, SetInfo, TypeInfo, TypePath,
+    TypeRegistration, TypeRegistry, Typed, ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -514,36 +515,7 @@ macro_rules! impl_reflect_for_veclike {
             }
         }
 
-        impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> Reflect for $ty {
-            fn into_any(self: Box<Self>) -> Box<dyn Any> {
-                self
-            }
-
-            fn as_any(&self) -> &dyn Any {
-                self
-            }
-
-            fn as_any_mut(&mut self) -> &mut dyn Any {
-                self
-            }
-
-            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-                self
-            }
-
-            fn as_reflect(&self) -> &dyn Reflect {
-                self
-            }
-
-            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-                self
-            }
-
-            fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-                *self = value.take()?;
-                Ok(())
-            }
-        }
+        impl_full_reflect!(<T> for $ty where T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration);
 
         impl<T: FromReflect + MaybeTyped + TypePath + GetTypeRegistration> Typed for $ty {
             fn type_info() -> &'static TypeInfo {
@@ -1239,41 +1211,13 @@ where
         map_try_apply(self, value)
     }
 }
-impl<K, V> Reflect for ::std::collections::BTreeMap<K, V>
-where
-    K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
-    V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
-{
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
 
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
+impl_full_reflect!(
+    <K, V> for ::std::collections::BTreeMap<K, V>
+    where
+        K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Ord,
+        V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+);
 
 impl<K, V> Typed for ::std::collections::BTreeMap<K, V>
 where
@@ -1644,36 +1588,7 @@ impl PartialReflect for Cow<'static, str> {
     }
 }
 
-impl Reflect for Cow<'static, str> {
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
+impl_full_reflect!(for Cow<'static, str>);
 
 impl Typed for Cow<'static, str> {
     fn type_info() -> &'static TypeInfo {
@@ -1846,38 +1761,11 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
     }
 }
 
-impl<T: FromReflect + Clone + MaybeTyped + TypePath + GetTypeRegistration> Reflect
-    for Cow<'static, [T]>
-{
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
-    }
-}
+impl_full_reflect!(
+    <T> for Cow<'static, [T]>
+    where
+        T: FromReflect + Clone + MaybeTyped + TypePath + GetTypeRegistration,
+);
 
 impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Typed
     for Cow<'static, [T]>
