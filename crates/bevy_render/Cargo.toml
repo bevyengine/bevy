@@ -66,7 +66,7 @@ image = { version = "0.25.2", default-features = false }
 
 # misc
 codespan-reporting = "0.11.0"
-# `fragile-send-sync-non-atomic-wasm` feature means we can't use WASM threads for rendering
+# `fragile-send-sync-non-atomic-wasm` feature means we can't use Wasm threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
@@ -85,7 +85,7 @@ bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = "1.2.0"
 thiserror = "1.0"
 futures-lite = "2.0.1"
-hexasphere = "12.0"
+hexasphere = "14.0"
 ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # For ktx2 supercompression
@@ -93,7 +93,7 @@ flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.7.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
-encase = { version = "0.8", features = ["glam"] }
+encase = { version = "0.9", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [
   "profile-with-tracing",

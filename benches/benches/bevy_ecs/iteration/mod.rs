@@ -11,6 +11,7 @@ mod iter_frag_wide;
 mod iter_frag_wide_sparse;
 mod iter_simple;
 mod iter_simple_foreach;
+mod iter_simple_foreach_hybrid;
 mod iter_simple_foreach_sparse_set;
 mod iter_simple_foreach_wide;
 mod iter_simple_foreach_wide_sparse_set;
@@ -69,6 +70,10 @@ fn iter_simple(c: &mut Criterion) {
     });
     group.bench_function("foreach_wide_sparse_set", |b| {
         let mut bench = iter_simple_foreach_wide_sparse_set::Benchmark::new();
+        b.iter(move || bench.run());
+    });
+    group.bench_function("foreach_hybrid", |b| {
+        let mut bench = iter_simple_foreach_hybrid::Benchmark::new();
         b.iter(move || bench.run());
     });
     group.finish();

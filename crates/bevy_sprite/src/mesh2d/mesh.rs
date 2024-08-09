@@ -1,13 +1,13 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
-use bevy_core_pipeline::core_2d::{Camera2d, Transparent2d};
+use bevy_core_pipeline::core_2d::{Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT};
 use bevy_core_pipeline::tonemapping::{
     get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -107,6 +107,8 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
+                        batch_and_prepare_sorted_render_phase::<Opaque2d, Mesh2dPipeline>
+                            .in_set(RenderSet::PrepareResources),
                         batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
                         write_batched_instance_buffer::<Mesh2dPipeline>
@@ -388,6 +390,7 @@ bitflags::bitflags! {
         const HDR                               = 1 << 0;
         const TONEMAP_IN_SHADER                 = 1 << 1;
         const DEBAND_DITHER                     = 1 << 2;
+        const BLEND_ALPHA                       = 1 << 3;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -539,6 +542,17 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             false => TextureFormat::bevy_default(),
         };
 
+        let (depth_write_enabled, label, blend);
+        if key.contains(Mesh2dPipelineKey::BLEND_ALPHA) {
+            label = "transparent_mesh2d_pipeline";
+            blend = Some(BlendState::ALPHA_BLENDING);
+            depth_write_enabled = false;
+        } else {
+            label = "opaque_mesh2d_pipeline";
+            blend = None;
+            depth_write_enabled = true;
+        }
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH2D_SHADER_HANDLE,
@@ -552,7 +566,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
+                    blend,
                     write_mask: ColorWrites::ALL,
                 })],
             }),
@@ -567,13 +581,28 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 topology: key.primitive_topology(),
                 strip_index_format: None,
             },
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_2D_DEPTH_FORMAT,
+                depth_write_enabled,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("transparent_mesh2d_pipeline".into()),
+            label: Some(label.into()),
         })
     }
 }

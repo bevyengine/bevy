@@ -39,6 +39,10 @@ pub mod state;
 /// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
 pub mod state_scoped;
 
+#[cfg(feature = "bevy_reflect")]
+/// Provides definitions for the basic traits required by the state system
+pub mod reflect;
+
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
@@ -46,6 +50,9 @@ pub mod prelude {
     pub use crate::app::AppExtStates;
     #[doc(hidden)]
     pub use crate::condition::*;
+    #[cfg(feature = "bevy_app")]
+    #[doc(hidden)]
+    pub use crate::reflect::{ReflectFreelyMutableState, ReflectState};
     #[doc(hidden)]
     pub use crate::state::{
         last_transition, ComputedStates, EnterSchedules, ExitSchedules, NextState, OnEnter, OnExit,

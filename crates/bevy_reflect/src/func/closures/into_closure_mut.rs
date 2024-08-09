@@ -65,12 +65,9 @@ mod tests {
     }
 
     #[test]
-    fn should_default_with_closure_type_name() {
+    fn should_default_closure_name_to_none() {
         let mut total = 0;
         let func = (|a: i32, b: i32| total = a + b).into_closure_mut();
-        assert_eq!(
-            func.info().name(),
-            Some("bevy_reflect::func::closures::into_closure_mut::tests::should_default_with_closure_type_name::{{closure}}")
-        );
+        assert_eq!(func.info().name(), None);
     }
 }
