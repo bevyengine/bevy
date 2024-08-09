@@ -231,6 +231,7 @@ impl_event_set!(
 /// A wrapper around an [`EventSet`] that foregoes safety checks and casting.
 pub struct Untyped<E>(std::marker::PhantomData<E>);
 
+/// An [`EventSet`] that matches the specified event type(s), but does not cast the pointer.
 unsafe impl<E: EventSet> EventSet for Untyped<E> {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
@@ -243,8 +244,8 @@ unsafe impl<E: EventSet> EventSet for Untyped<E> {
         Some(ptr)
     }
 
-    fn matches(_world: &World, _observer_trigger: &ObserverTrigger) -> bool {
-        true
+    fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool {
+        E::matches(world, observer_trigger)
     }
 
     fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {
@@ -266,6 +267,7 @@ unsafe impl<E: EventSet> EventSet for Untyped<E> {
     }
 }
 
+/// An [`EventSet`] that matches any event type.
 unsafe impl EventSet for Untyped<()> {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
