@@ -7,7 +7,7 @@ use bevy_ecs::prelude::*;
 use bevy_hierarchy::Parent;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, Duration, HashMap, Instant};
 
 use crate::{
     backend::{prelude::PointerLocation, HitData},
@@ -116,6 +116,8 @@ pub struct Click {
     pub button: PointerButton,
     /// Information about the picking intersection.
     pub hit: HitData,
+    /// Duration between the pointer pressed and lifted for this click
+    pub duration: Duration,
 }
 
 /// Fires while a pointer is moving over the `target` entity.
@@ -372,7 +374,9 @@ pub fn send_click_and_drag_events(
     pointer_map: Res<PointerMap>,
     pointers: Query<&PointerLocation>,
     // Locals
-    mut down_map: Local<HashMap<(PointerId, PointerButton), HashMap<Entity, Pointer<Down>>>>,
+    mut down_map: Local<
+        HashMap<(PointerId, PointerButton), HashMap<Entity, (Pointer<Down>, Instant)>>,
+    >,
     // Output
     mut drag_map: ResMut<DragMap>,
     mut pointer_click: EventWriter<Pointer<Click>>,
@@ -400,7 +404,7 @@ pub fn send_click_and_drag_events(
             };
             let drag_list = drag_map.entry((pointer_id, button)).or_default();
 
-            for down in down_list.values() {
+            for (down, _instant) in down_list.values() {
                 if drag_list.contains_key(&down.target) {
                     continue; // this entity is already logged as being dragged
                 }
@@ -440,6 +444,7 @@ pub fn send_click_and_drag_events(
     }
 
     // Triggers when button is released over an entity
+    let now = Instant::now();
     for Pointer {
         pointer_id,
         pointer_location,
@@ -448,16 +453,20 @@ pub fn send_click_and_drag_events(
     } in pointer_up.read().cloned()
     {
         // Can't have a click without the button being pressed down first
-        if down_map
+        if let Some((_down, down_instant)) = down_map
             .get(&(pointer_id, button))
             .and_then(|down| down.get(&target))
-            .is_some()
         {
+            let duration = now - *down_instant;
             pointer_click.send(Pointer::new(
                 pointer_id,
                 pointer_location,
                 target,
-                Click { button, hit },
+                Click {
+                    button,
+                    hit,
+                    duration,
+                },
             ));
         }
     }
@@ -466,7 +475,7 @@ pub fn send_click_and_drag_events(
     for event in pointer_down.read() {
         let button = event.button;
         let down_button_entity_map = down_map.entry((event.pointer_id, button)).or_default();
-        down_button_entity_map.insert(event.target, event.clone());
+        down_button_entity_map.insert(event.target, (event.clone(), now));
     }
 
     // Triggered for all button presses
