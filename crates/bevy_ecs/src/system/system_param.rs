@@ -512,7 +512,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.components.init_resource::<T>();
-        world.initialize_resource_internal(component_id);
+        let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
@@ -525,9 +525,6 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             .component_access_set
             .add_unfiltered_resource_read(component_id);
 
-        let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
-            .unwrap();
         system_meta
             .archetype_component_access
             .add_resource_read(archetype_component_id);
@@ -609,7 +606,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.components.init_resource::<T>();
-        world.initialize_resource_internal(component_id);
+        let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_resource_write(component_id) {
@@ -625,9 +622,6 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             .component_access_set
             .add_unfiltered_resource_write(component_id);
 
-        let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
-            .unwrap();
         system_meta
             .archetype_component_access
             .add_resource_write(archetype_component_id);
@@ -1161,7 +1155,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         system_meta.set_non_send();
 
         let component_id = world.components.init_non_send::<T>();
-        world.initialize_non_send_internal(component_id);
+        let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
@@ -1174,9 +1168,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             .component_access_set
             .add_unfiltered_resource_read(component_id);
 
-        let archetype_component_id = world
-            .get_non_send_archetype_component_id(component_id)
-            .unwrap();
         system_meta
             .archetype_component_access
             .add_resource_read(archetype_component_id);
@@ -1255,7 +1246,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta.set_non_send();
 
         let component_id = world.components.init_non_send::<T>();
-        world.initialize_non_send_internal(component_id);
+        let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_component_write(component_id) {
@@ -1271,9 +1262,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             .component_access_set
             .add_unfiltered_resource_write(component_id);
 
-        let archetype_component_id = world
-            .get_non_send_archetype_component_id(component_id)
-            .unwrap();
         system_meta
             .archetype_component_access
             .add_resource_write(archetype_component_id);
