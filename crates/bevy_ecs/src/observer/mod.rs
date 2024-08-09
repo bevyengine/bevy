@@ -611,7 +611,7 @@ mod tests {
         #[derive(Event)]
         struct Bar;
         world.observe(|_: Trigger<(Foo, Bar)>, mut res: ResMut<R>| res.0 += 1);
-        world.flush();
+        world.flush(); // TODO: should we auto-flush after observe?
         world.trigger(Foo);
         world.trigger(Bar);
         assert_eq!(2, world.resource::<R>().0);

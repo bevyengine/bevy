@@ -21,7 +21,7 @@ pub unsafe trait EventSet: 'static {
 
     /// Safely casts the pointer to the output type, or a variant of it.
     /// Returns `None` if the event type does not match.
-    fn checked_cast<'trigger>(
+    unsafe fn checked_cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
@@ -36,7 +36,7 @@ unsafe impl<A: Event> EventSet for A {
     type Out<'trigger> = &'trigger mut A;
     type OutReadonly<'trigger> = &'trigger A;
 
-    fn checked_cast<'trigger>(
+    unsafe fn checked_cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
@@ -55,20 +55,13 @@ unsafe impl<A: Event> EventSet for (A,) {
     type Out<'trigger> = &'trigger mut A;
     type OutReadonly<'trigger> = &'trigger A;
 
-    fn checked_cast<'trigger>(
-        world: &World,
-        observer_trigger: &ObserverTrigger,
+    unsafe fn checked_cast<'trigger>(
+        _world: &World,
+        _observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Out<'trigger>> {
-        let a_id = world.component_id::<A>()?;
-
-        if a_id == observer_trigger.event_type {
-            // SAFETY: We just checked that the component id matches the event type
-            let a = unsafe { ptr.deref_mut() };
-            Some(a)
-        } else {
-            None
-        }
+        // SAFETY: Caller must ensure that the component id matches the event type
+        Some(unsafe { ptr.deref_mut() })
     }
 
     fn init_components(world: &mut World, mut ids: impl FnMut(ComponentId)) {
@@ -91,7 +84,7 @@ unsafe impl<A: Event, B: Event> EventSet for (A, B) {
     type Out<'trigger> = Or2<&'trigger mut A, &'trigger mut B>;
     type OutReadonly<'trigger> = Or2<&'trigger A, &'trigger B>;
 
-    fn checked_cast<'trigger>(
+    unsafe fn checked_cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
@@ -136,7 +129,7 @@ unsafe impl<A: Event, B: Event, C: Event> EventSet for (A, B, C) {
     type Out<'trigger> = Or3<&'trigger mut A, &'trigger mut B, &'trigger mut C>;
     type OutReadonly<'trigger> = Or3<&'trigger A, &'trigger B, &'trigger C>;
 
-    fn checked_cast<'trigger>(
+    unsafe fn checked_cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
