@@ -4,7 +4,6 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    event::Event,
     observer::{EventSet, Observer, Observers},
     query::Access,
     removal_detection::RemovedComponentEvents,

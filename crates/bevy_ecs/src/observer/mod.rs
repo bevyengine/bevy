@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
 pub struct Trigger<'w, E: EventSet, B: Bundle = ()> {
-    event: E::Out<'w>,
+    event: E::Item<'w>,
     propagate: &'w mut bool,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
@@ -28,7 +28,7 @@ pub struct Trigger<'w, E: EventSet, B: Bundle = ()> {
 
 impl<'w, E: EventSet, B: Bundle> Trigger<'w, E, B> {
     /// Creates a new trigger for the given event and observer information.
-    pub fn new(event: E::Out<'w>, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
+    pub fn new(event: E::Item<'w>, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
             event,
             propagate,
@@ -43,18 +43,18 @@ impl<'w, E: EventSet, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns a reference to the triggered event.
-    pub fn event(&self) -> E::OutReadonly<'_> {
-        todo!()
+    pub fn event(&self) -> E::ReadOnlyItem<'_> {
+        E::shrink_readonly(&self.event)
     }
 
     /// Returns a mutable reference to the triggered event.
-    pub fn event_mut(&mut self) -> E::Out<'_> {
-        todo!()
+    pub fn event_mut(&mut self) -> E::Item<'_> {
+        E::shrink(&mut self.event)
     }
 
     /// Returns a pointer to the triggered event.
     pub fn event_ptr(&self) -> Ptr {
-        todo!()
+        E::shrink_ptr(&self.event)
     }
 
     /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
@@ -435,7 +435,7 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace, Or2,
     };
     use crate::prelude::*;
     use crate::traversal::Traversal;
@@ -607,13 +607,19 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         #[derive(Event)]
-        struct Foo;
+        struct Foo(i32);
         #[derive(Event)]
-        struct Bar;
-        world.observe(|_: Trigger<(Foo, Bar)>, mut res: ResMut<R>| res.0 += 1);
+        struct Bar(bool);
+        world.observe(|t: Trigger<(Foo, Bar)>, mut res: ResMut<R>| {
+            res.0 += 1;
+            match t.event() {
+                Or2::A(Foo(v)) => assert_eq!(5, *v),
+                Or2::B(Bar(v)) => assert_eq!(true, *v),
+            }
+        });
         world.flush(); // TODO: should we auto-flush after observe?
-        world.trigger(Foo);
-        world.trigger(Bar);
+        world.trigger(Foo(5));
+        world.trigger(Bar(true));
         assert_eq!(2, world.resource::<R>().0);
     }
 
