@@ -575,11 +575,16 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
         }
 
         let instances = if line_gizmo.strip {
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(..));
+            let item_size = VertexFormat::Float32x3.size();
+            let buffer_size = line_gizmo.position_buffer.size() - item_size;
 
-            pass.set_vertex_buffer(2, line_gizmo.color_buffer.slice(..));
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(..));
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size));
+            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(item_size..));
+
+            let item_size = VertexFormat::Float32x4.size();
+            let buffer_size = line_gizmo.color_buffer.size() - item_size;
+            pass.set_vertex_buffer(2, line_gizmo.color_buffer.slice(..buffer_size));
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..));
 
             u32::max(line_gizmo.vertex_count, 1) - 1
         } else {
@@ -674,13 +679,11 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
             position_layout.clone(),
             {
                 position_layout.attributes[0].shader_location = 1;
-                position_layout.attributes[0].offset = Float32x3.size();
                 position_layout
             },
             color_layout.clone(),
             {
                 color_layout.attributes[0].shader_location = 3;
-                color_layout.attributes[0].offset = Float32x4.size();
                 color_layout
             },
         ]
