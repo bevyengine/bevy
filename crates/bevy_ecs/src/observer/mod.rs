@@ -644,8 +644,8 @@ mod tests {
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
             Observer::new(|_: Trigger<Untyped<()>, A>, mut res: ResMut<R>| res.0 += 1)
-                .with_event_safe(on_add)
-                .with_event_safe(on_remove),
+                .with_event(on_add)
+                .with_event(on_remove),
         );
 
         let entity = world.spawn(A).id();

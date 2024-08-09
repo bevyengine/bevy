@@ -228,7 +228,7 @@ impl_event_set!(
     (H, h)
 );
 
-/// A wrapper around an [`EventSet`] that foregoes safety checks and casting.
+/// A wrapper around an [`EventSet`] that foregoes safety checks and casting, and passes the pointer as is.
 pub struct Untyped<E>(std::marker::PhantomData<E>);
 
 /// An [`EventSet`] that matches the specified event type(s), but does not cast the pointer.

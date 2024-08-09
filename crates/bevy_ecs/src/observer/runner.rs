@@ -298,24 +298,10 @@ impl<E: EventSet, B: Bundle> Observer<E, B> {
 
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
-    /// # Safety
-    /// The type of the `event` [`ComponentId`] _must_ match the actual value
-    /// of the event passed into the observer system.
-    pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
-        self.descriptor.events.push(event);
-        self
-    }
-}
-
-impl<E, B: Bundle> Observer<Untyped<E>, B>
-where
-    Untyped<E>: EventSet,
-{
-    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
-    /// is triggered.
     ///
-    /// As opposed to [`Observer::with_event`], this method is safe to use because it does not cast the event to a specific type.
-    pub fn with_event_safe(mut self, event: ComponentId) -> Self {
+    /// Note that for any event types that are not matched by `E`, the observer will not be triggered.
+    /// Use [`Untyped<()>`] to match all events added through this method.
+    pub fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
     }
