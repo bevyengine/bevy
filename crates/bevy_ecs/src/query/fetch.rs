@@ -633,7 +633,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
 
     #[inline]
     fn set_access<'w>(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
-        *state = access.clone();
+        state.clone_from(access);
         state.access_mut().clear_writes();
     }
 
@@ -746,7 +746,7 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
 
     #[inline]
     fn set_access<'w>(state: &mut Self::State, access: &FilteredAccess<ComponentId>) {
-        *state = access.clone();
+        state.clone_from(access);
     }
 
     #[inline(always)]
