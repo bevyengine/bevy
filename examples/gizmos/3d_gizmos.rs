@@ -140,8 +140,10 @@ fn draw_example_collection(
         .arc_3d(
             180.0_f32.to_radians(),
             0.2,
-            Vec3::ONE,
-            Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
+            Isometry3d::new(
+                Vec3::ONE,
+                Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
+            ),
             ORANGE,
         )
         .resolution(10);

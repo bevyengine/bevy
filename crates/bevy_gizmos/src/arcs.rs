@@ -6,7 +6,7 @@
 use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Isometry2d, Quat, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Quat, Vec2, Vec3};
 use std::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===
@@ -176,15 +176,13 @@ where
         &mut self,
         angle: f32,
         radius: f32,
-        position: Vec3,
-        rotation: Quat,
+        isometry: Isometry3d,
         color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
-            center: position,
-            rotation,
+            isometry,
             angle,
             radius,
             color: color.into(),
@@ -317,8 +315,7 @@ where
         Arc3dBuilder {
             gizmos: self,
             start_vertex,
-            center,
-            rotation,
+            isometry: Isometry3d::new(center, rotation),
             angle,
             radius,
             color: color.into(),
@@ -344,8 +341,7 @@ where
     //
     // DO NOT expose this field to users as it is easy to mess this up
     start_vertex: Vec3,
-    center: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     angle: f32,
     radius: f32,
     color: Color,
@@ -380,8 +376,7 @@ where
 
         let positions = arc_3d_inner(
             self.start_vertex,
-            self.center,
-            self.rotation,
+            self.isometry,
             self.angle,
             self.radius,
             resolution,
@@ -392,8 +387,7 @@ where
 
 fn arc_3d_inner(
     start_vertex: Vec3,
-    center: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     angle: f32,
     radius: f32,
     resolution: u32,
@@ -406,7 +400,8 @@ fn arc_3d_inner(
         .map(move |frac| frac as f32 / resolution as f32)
         .map(move |percentage| angle * percentage)
         .map(move |frac_angle| Quat::from_axis_angle(Vec3::Y, frac_angle) * start_vertex)
-        .map(move |p| rotation * (p * radius) + center)
+        .map(move |vec3| vec3 * radius)
+        .map(move |vec3| isometry * vec3)
 }
 
 // helper function for getting a default value for the resolution parameter
