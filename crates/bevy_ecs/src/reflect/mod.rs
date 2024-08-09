@@ -45,6 +45,32 @@ impl DerefMut for AppTypeRegistry {
     }
 }
 
+/// A [`Resource`] storing [`FunctionRegistry`] for
+/// function registrations relevant to a whole app.
+///
+/// [`FunctionRegistry`]: bevy_reflect::func::FunctionRegistry
+#[cfg(feature = "reflect_functions")]
+#[derive(Resource, Clone, Default)]
+pub struct AppFunctionRegistry(pub bevy_reflect::func::FunctionRegistryArc);
+
+#[cfg(feature = "reflect_functions")]
+impl Deref for AppFunctionRegistry {
+    type Target = bevy_reflect::func::FunctionRegistryArc;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[cfg(feature = "reflect_functions")]
+impl DerefMut for AppFunctionRegistry {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 /// Creates a `T` from a `&dyn PartialReflect`.
 ///
 /// This will try the following strategies, in this order:
@@ -61,7 +87,7 @@ impl DerefMut for AppTypeRegistry {
 /// this method will panic.
 ///
 /// If none of the strategies succeed, this method will panic.
-fn from_reflect_with_fallback<T: Reflect + TypePath>(
+pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
     reflected: &dyn PartialReflect,
     world: &mut World,
     registry: &TypeRegistry,

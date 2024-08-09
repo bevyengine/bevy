@@ -1,6 +1,6 @@
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind,
+    DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo,
     StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
@@ -172,6 +172,7 @@ pub enum TypeInfo {
     List(ListInfo),
     Array(ArrayInfo),
     Map(MapInfo),
+    Set(SetInfo),
     Enum(EnumInfo),
     Value(ValueInfo),
 }
@@ -186,6 +187,7 @@ impl TypeInfo {
             Self::List(info) => info.type_id(),
             Self::Array(info) => info.type_id(),
             Self::Map(info) => info.type_id(),
+            Self::Set(info) => info.type_id(),
             Self::Enum(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
         }
@@ -202,6 +204,7 @@ impl TypeInfo {
             Self::List(info) => info.type_path_table(),
             Self::Array(info) => info.type_path_table(),
             Self::Map(info) => info.type_path_table(),
+            Self::Set(info) => info.type_path_table(),
             Self::Enum(info) => info.type_path_table(),
             Self::Value(info) => info.type_path_table(),
         }
@@ -232,6 +235,7 @@ impl TypeInfo {
             Self::List(info) => info.docs(),
             Self::Array(info) => info.docs(),
             Self::Map(info) => info.docs(),
+            Self::Set(info) => info.docs(),
             Self::Enum(info) => info.docs(),
             Self::Value(info) => info.docs(),
         }
@@ -248,6 +252,7 @@ impl TypeInfo {
             Self::List(_) => ReflectKind::List,
             Self::Array(_) => ReflectKind::Array,
             Self::Map(_) => ReflectKind::Map,
+            Self::Set(_) => ReflectKind::Set,
             Self::Enum(_) => ReflectKind::Enum,
             Self::Value(_) => ReflectKind::Value,
         }

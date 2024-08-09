@@ -1,6 +1,6 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Struct, Tuple, TupleStruct,
+    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Set, Struct, Tuple, TupleStruct,
     TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
@@ -24,6 +24,7 @@ macro_rules! impl_reflect_enum {
                     Self::List(_) => ReflectKind::List,
                     Self::Array(_) => ReflectKind::Array,
                     Self::Map(_) => ReflectKind::Map,
+                    Self::Set(_) => ReflectKind::Set,
                     Self::Enum(_) => ReflectKind::Enum,
                     Self::Value(_) => ReflectKind::Value,
                 }
@@ -39,6 +40,7 @@ macro_rules! impl_reflect_enum {
                     $name::List(_) => Self::List,
                     $name::Array(_) => Self::Array,
                     $name::Map(_) => Self::Map,
+                    $name::Set(_) => Self::Set,
                     $name::Enum(_) => Self::Enum,
                     $name::Value(_) => Self::Value,
                 }
@@ -60,6 +62,7 @@ pub enum ReflectRef<'a> {
     List(&'a dyn List),
     Array(&'a dyn Array),
     Map(&'a dyn Map),
+    Set(&'a dyn Set),
     Enum(&'a dyn Enum),
     Value(&'a dyn PartialReflect),
 }
@@ -78,6 +81,7 @@ pub enum ReflectMut<'a> {
     List(&'a mut dyn List),
     Array(&'a mut dyn Array),
     Map(&'a mut dyn Map),
+    Set(&'a mut dyn Set),
     Enum(&'a mut dyn Enum),
     Value(&'a mut dyn PartialReflect),
 }
@@ -96,6 +100,7 @@ pub enum ReflectOwned {
     List(Box<dyn List>),
     Array(Box<dyn Array>),
     Map(Box<dyn Map>),
+    Set(Box<dyn Set>),
     Enum(Box<dyn Enum>),
     Value(Box<dyn PartialReflect>),
 }
@@ -149,6 +154,7 @@ pub enum ReflectKind {
     List,
     Array,
     Map,
+    Set,
     Enum,
     Value,
 }
@@ -162,6 +168,7 @@ impl std::fmt::Display for ReflectKind {
             ReflectKind::List => f.pad("list"),
             ReflectKind::Array => f.pad("array"),
             ReflectKind::Map => f.pad("map"),
+            ReflectKind::Set => f.pad("set"),
             ReflectKind::Enum => f.pad("enum"),
             ReflectKind::Value => f.pad("value"),
         }
@@ -561,6 +568,18 @@ impl Typed for dyn Reflect {
     }
 }
 
+impl AsRef<dyn PartialReflect> for dyn Reflect {
+    fn as_ref(&self) -> &dyn PartialReflect {
+        self.as_partial_reflect()
+    }
+}
+
+impl AsMut<dyn PartialReflect> for dyn Reflect {
+    fn as_mut(&mut self) -> &mut dyn PartialReflect {
+        self.as_partial_reflect_mut()
+    }
+}
+
 // The following implementation never actually shadows the concrete `TypePath` implementation.
 // See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
 impl TypePath for dyn Reflect {
@@ -571,4 +590,44 @@ impl TypePath for dyn Reflect {
     fn short_type_path() -> &'static str {
         "dyn Reflect"
     }
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! impl_full_reflect {
+    ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
+        impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
+            fn into_any(self: Box<Self>) -> Box<dyn ::std::any::Any> {
+                self
+            }
+
+            fn as_any(&self) -> &dyn ::std::any::Any {
+                self
+            }
+
+            fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any {
+                self
+            }
+
+            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
+                self
+            }
+
+            fn as_reflect(&self) -> &dyn $crate::Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn $crate::Reflect {
+                self
+            }
+
+            fn set(
+                &mut self,
+                value: Box<dyn $crate::Reflect>,
+            ) -> Result<(), Box<dyn $crate::Reflect>> {
+                *self = <dyn $crate::Reflect>::take(value)?;
+                Ok(())
+            }
+        }
+    };
 }

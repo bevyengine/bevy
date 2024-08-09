@@ -523,6 +523,9 @@
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
 //! [derive `Reflect`]: derive@crate::Reflect
 
+#[macro_use]
+mod reflect;
+
 mod array;
 mod fields;
 mod from_reflect;
@@ -531,7 +534,7 @@ pub mod func;
 mod list;
 mod map;
 mod path;
-mod reflect;
+mod set;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -581,6 +584,7 @@ pub use list::*;
 pub use map::*;
 pub use path::*;
 pub use reflect::*;
+pub use set::*;
 pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;

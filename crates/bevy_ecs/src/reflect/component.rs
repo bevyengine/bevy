@@ -296,6 +296,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 entity.into_mut::<C>().map(|c| Mut {
                     value: c.value as &mut dyn Reflect,
                     ticks: c.ticks,
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: c.changed_by,
                 })
             },
             reflect_unchecked_mut: |entity| {
@@ -305,6 +307,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                     entity.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn Reflect,
                         ticks: c.ticks,
+                        #[cfg(feature = "track_change_detection")]
+                        changed_by: c.changed_by,
                     })
                 }
             },

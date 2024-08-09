@@ -564,14 +564,14 @@ thread_local! {
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
     pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        self.active_animations.entry(animation).or_default()
+        let playing_animation = self.active_animations.entry(animation).or_default();
+        playing_animation.replay();
+        playing_animation
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
     pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        let playing_animation = self.active_animations.entry(animation).or_default();
-        playing_animation.weight = 1.0;
-        playing_animation
+        self.active_animations.entry(animation).or_default()
     }
 
     /// Stops playing the given animation, removing it from the list of playing
@@ -875,12 +875,12 @@ impl AnimationTargetContext<'_> {
             // Some curves have only one keyframe used to set a transform
             if curve.keyframe_timestamps.len() == 1 {
                 self.apply_single_keyframe(curve, weight);
-                return;
+                continue;
             }
 
             // Find the current keyframe
             let Some(step_start) = curve.find_current_keyframe(seek_time) else {
-                return;
+                continue;
             };
 
             let timestamp_start = curve.keyframe_timestamps[step_start];

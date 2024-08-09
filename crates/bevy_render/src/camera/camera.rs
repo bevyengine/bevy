@@ -61,7 +61,7 @@ impl Default for Viewport {
     fn default() -> Self {
         Self {
             physical_position: Default::default(),
-            physical_size: Default::default(),
+            physical_size: UVec2::new(1, 1),
             depth: 0.0..1.0,
         }
     }
@@ -211,7 +211,6 @@ pub struct Camera {
     #[reflect(ignore)]
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
-    #[reflect(ignore)]
     pub target: RenderTarget,
     /// If this is set to `true`, the camera will use an intermediate "high dynamic range" render texture.
     /// This allows rendering with a wider range of lighting values.
@@ -374,6 +373,39 @@ impl Camera {
         Some(viewport_position)
     }
 
+    /// Given a position in world space, use the camera to compute the viewport-space coordinates and depth.
+    ///
+    /// To get the coordinates in Normalized Device Coordinates, you should use
+    /// [`world_to_ndc`](Self::world_to_ndc).
+    ///
+    /// Returns `None` if any of these conditions occur:
+    /// - The computed coordinates are beyond the near or far plane
+    /// - The logical viewport size cannot be computed. See [`logical_viewport_size`](Camera::logical_viewport_size)
+    /// - The world coordinates cannot be mapped to the Normalized Device Coordinates. See [`world_to_ndc`](Camera::world_to_ndc)
+    ///     May also panic if `glam_assert` is enabled. See [`world_to_ndc`](Camera::world_to_ndc).
+    #[doc(alias = "world_to_screen_with_depth")]
+    pub fn world_to_viewport_with_depth(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Option<Vec3> {
+        let target_size = self.logical_viewport_size()?;
+        let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
+        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
+        if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
+            return None;
+        }
+
+        // Stretching ndc depth to value via near plane and negating result to be in positive room again.
+        let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
+
+        // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
+        let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
+        // Flip the Y co-ordinate origin from the bottom to the top.
+        viewport_position.y = target_size.y - viewport_position.y;
+        Some(viewport_position.extend(depth))
+    }
+
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
     ///
     /// The resulting ray starts on the near plane of the camera.
@@ -479,6 +511,24 @@ impl Camera {
 
         (!world_space_coords.is_nan()).then_some(world_space_coords)
     }
+
+    /// Converts the depth in Normalized Device Coordinates
+    /// to linear view z for perspective projections.
+    ///
+    /// Note: Depth values in front of the camera will be negative as -z is forward
+    pub fn depth_ndc_to_view_z(&self, ndc_depth: f32) -> f32 {
+        let near = self.clip_from_view().w_axis.z; // [3][2]
+        -near / ndc_depth
+    }
+
+    /// Converts the depth in Normalized Device Coordinates
+    /// to linear view z for orthographic projections.
+    ///
+    /// Note: Depth values in front of the camera will be negative as -z is forward
+    pub fn depth_ndc_to_view_z_2d(&self, ndc_depth: f32) -> f32 {
+        -(self.clip_from_view().w_axis.z - ndc_depth) / self.clip_from_view().z_axis.z
+        //                       [3][2]                                         [2][2]
+    }
 }
 
 /// Control how this camera outputs once rendering is completed.
@@ -541,6 +591,12 @@ pub enum RenderTarget {
     TextureView(ManualTextureViewHandle),
 }
 
+impl Default for RenderTarget {
+    fn default() -> Self {
+        Self::Window(Default::default())
+    }
+}
+
 impl From<Handle<Image>> for RenderTarget {
     fn from(handle: Handle<Image>) -> Self {
         Self::Image(handle)
@@ -559,12 +615,6 @@ pub enum NormalizedRenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
-}
-
-impl Default for RenderTarget {
-    fn default() -> Self {
-        Self::Window(Default::default())
-    }
 }
 
 impl RenderTarget {

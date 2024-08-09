@@ -1,6 +1,6 @@
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
+use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
@@ -515,12 +515,15 @@ pub fn prepare_lights(
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        &ExtractedClusterConfig,
-        Option<&RenderLayers>,
-    )>,
+    views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            Option<&RenderLayers>,
+        ),
+        With<Camera3d>,
+    >,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
@@ -1445,7 +1448,11 @@ impl Node for ShadowPassNode {
                     let pass_span =
                         diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
 
-                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+                    if let Err(err) =
+                        shadow_phase.render(&mut render_pass, world, view_light_entity)
+                    {
+                        error!("Error encountered while rendering the shadow phase {err:?}");
+                    }
 
                     pass_span.end(&mut render_pass);
                     drop(render_pass);

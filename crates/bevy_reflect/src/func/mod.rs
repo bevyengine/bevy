@@ -108,6 +108,7 @@ pub use info::*;
 pub use into_function::*;
 pub use reflect_fn::*;
 pub use reflect_fn_mut::*;
+pub use registry::*;
 pub use return_type::*;
 
 pub mod args;
@@ -119,6 +120,7 @@ mod into_function;
 pub(crate) mod macros;
 mod reflect_fn;
 mod reflect_fn_mut;
+mod registry;
 mod return_type;
 
 #[cfg(test)]

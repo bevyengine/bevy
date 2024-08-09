@@ -2,12 +2,12 @@
 
 use bevy::reflect::{
     reflect_trait, serde::TypedReflectDeserializer, std_traits::ReflectDefault, DynamicArray,
-    DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple, DynamicTupleStruct,
-    DynamicVariant, FromReflect, PartialReflect, Reflect, ReflectFromReflect, ReflectRef,
-    TypeRegistry, Typed,
+    DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, DynamicVariant, FromReflect, PartialReflect, Reflect, ReflectFromReflect,
+    ReflectRef, Set, TypeRegistry, Typed,
 };
 use serde::de::DeserializeSeed;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 fn main() {
     #[derive(Reflect, Default)]
@@ -190,7 +190,19 @@ fn main() {
         assert_eq!(my_list, vec![1, 2, 3]);
     }
 
-    // 4. `DynamicMap`
+    // 4. `DynamicSet`
+    {
+        let mut dynamic_set = DynamicSet::from_iter(["x", "y", "z"]);
+        assert!(dynamic_set.contains(&"x"));
+
+        dynamic_set.remove(&"y");
+
+        let mut my_set: HashSet<&str> = HashSet::new();
+        my_set.apply(&dynamic_set);
+        assert_eq!(my_set, HashSet::from_iter(["x", "z"]));
+    }
+
+    // 5. `DynamicMap`
     {
         let dynamic_map = DynamicMap::from_iter([("x", 1u32), ("y", 2u32), ("z", 3u32)]);
 
@@ -201,7 +213,7 @@ fn main() {
         assert_eq!(my_map.get("z"), Some(&3));
     }
 
-    // 5. `DynamicStruct`
+    // 6. `DynamicStruct`
     {
         #[derive(Reflect, Default, Debug, PartialEq)]
         struct MyStruct {
@@ -220,7 +232,7 @@ fn main() {
         assert_eq!(my_struct, MyStruct { x: 1, y: 2, z: 3 });
     }
 
-    // 6. `DynamicTupleStruct`
+    // 7. `DynamicTupleStruct`
     {
         #[derive(Reflect, Default, Debug, PartialEq)]
         struct MyTupleStruct(u32, u32, u32);
@@ -235,7 +247,7 @@ fn main() {
         assert_eq!(my_tuple_struct, MyTupleStruct(1, 2, 3));
     }
 
-    // 7. `DynamicEnum`
+    // 8. `DynamicEnum`
     {
         #[derive(Reflect, Default, Debug, PartialEq)]
         enum MyEnum {

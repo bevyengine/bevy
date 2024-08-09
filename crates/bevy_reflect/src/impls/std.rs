@@ -3,12 +3,12 @@ use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
 };
 use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, ApplyError,
-    Array, ArrayInfo, ArrayIter, DynamicMap, DynamicTypePath, FromReflect, FromType,
-    GetTypeRegistration, List, ListInfo, ListIter, Map, MapInfo, MapIter, MaybeTyped,
-    PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr, ReflectFromReflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, TypeInfo, TypePath, TypeRegistration,
-    TypeRegistry, Typed, ValueInfo,
+    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply, set_apply,
+    set_partial_eq, set_try_apply, ApplyError, Array, ArrayInfo, ArrayIter, DynamicMap, DynamicSet,
+    DynamicTypePath, FromReflect, FromType, GetTypeRegistration, List, ListInfo, ListIter, Map,
+    MapInfo, MapIter, MaybeTyped, PartialReflect, Reflect, ReflectDeserialize, ReflectFromPtr,
+    ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
+    SetInfo, TypeInfo, TypePath, TypeRegistration, TypeRegistry, Typed, ValueInfo,
 };
 use bevy_reflect_derive::{impl_reflect, impl_reflect_value};
 use std::fmt;
@@ -97,8 +97,6 @@ impl_reflect_value!(::std::path::PathBuf(
 ));
 impl_reflect_value!(::std::any::TypeId(Debug, Hash, PartialEq,));
 impl_reflect_value!(::std::collections::BTreeSet<T: Ord + Eq + Clone + Send + Sync>());
-impl_reflect_value!(::std::collections::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
-impl_reflect_value!(::bevy_utils::hashbrown::HashSet<T: Hash + Eq + Clone + Send + Sync, S: TypePath + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::Range<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
@@ -216,9 +214,176 @@ impl_reflect_value!(::std::ffi::OsString(
 impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
 impl_reflect_value!(::alloc::collections::BinaryHeap<T: Clone>);
 
-impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::EntityHash);
-impl_type_path!(::bevy_utils::FixedState);
+macro_rules! impl_reflect_for_atomic {
+    ($ty:ty, $ordering:expr) => {
+        const _: () = {
+            impl_type_path!($ty);
+
+            #[cfg(feature = "functions")]
+            crate::func::macros::impl_function_traits!($ty);
+
+            #[allow(unused_mut)]
+            impl GetTypeRegistration for $ty
+            where
+                $ty: Any + Send + Sync,
+            {
+                fn get_type_registration() -> TypeRegistration {
+                    let mut registration = TypeRegistration::of::<Self>();
+                    registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                    registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+                    registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
+                    registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+                    registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+                    registration
+                }
+            }
+
+            impl Typed for $ty
+            where
+                $ty: Any + Send + Sync,
+            {
+                fn type_info() -> &'static TypeInfo {
+                    static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+                    CELL.get_or_set(|| {
+                        let info = ValueInfo::new::<Self>();
+                        TypeInfo::Value(info)
+                    })
+                }
+            }
+
+            impl PartialReflect for $ty
+            where
+                $ty: Any + Send + Sync,
+            {
+                #[inline]
+                fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+                    Some(<Self as Typed>::type_info())
+                }
+                #[inline]
+                fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+                    self
+                }
+                #[inline]
+                fn as_partial_reflect(&self) -> &dyn PartialReflect {
+                    self
+                }
+                #[inline]
+                fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+                    self
+                }
+                #[inline]
+                fn try_into_reflect(
+                    self: Box<Self>,
+                ) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+                    Ok(self)
+                }
+                #[inline]
+                fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+                    Some(self)
+                }
+                #[inline]
+                fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+                    Some(self)
+                }
+                #[inline]
+                fn clone_value(&self) -> Box<dyn PartialReflect> {
+                    Box::new(<$ty>::new(self.load($ordering)))
+                }
+                #[inline]
+                fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+                    if let Some(value) = value.try_downcast_ref::<Self>() {
+                        *self = <$ty>::new(value.load($ordering));
+                    } else {
+                        return Err(ApplyError::MismatchedTypes {
+                            from_type: Into::into(DynamicTypePath::reflect_type_path(value)),
+                            to_type: Into::into(<Self as TypePath>::type_path()),
+                        });
+                    }
+                    Ok(())
+                }
+                #[inline]
+                fn reflect_kind(&self) -> ReflectKind {
+                    ReflectKind::Value
+                }
+                #[inline]
+                fn reflect_ref(&self) -> ReflectRef {
+                    ReflectRef::Value(self)
+                }
+                #[inline]
+                fn reflect_mut(&mut self) -> ReflectMut {
+                    ReflectMut::Value(self)
+                }
+                #[inline]
+                fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+                    ReflectOwned::Value(self)
+                }
+                fn debug(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    fmt::Debug::fmt(self, f)
+                }
+            }
+
+            // strange rustfmt bug gives this invocation the wrong indentation!
+            #[rustfmt::skip]
+            impl_full_reflect!(for $ty where $ty: Any + Send + Sync);
+
+            impl FromReflect for $ty
+            where
+                $ty: Any + Send + Sync,
+            {
+                fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
+                    Some(<$ty>::new(
+                        reflect.try_downcast_ref::<$ty>()?.load($ordering),
+                    ))
+                }
+            }
+        };
+    };
+}
+
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicIsize,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicUsize,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicI64,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicU64,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicI32,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicU32,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicI16,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicU16,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicI8,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicU8,
+    ::std::sync::atomic::Ordering::SeqCst
+);
+impl_reflect_for_atomic!(
+    ::std::sync::atomic::AtomicBool,
+    ::std::sync::atomic::Ordering::SeqCst
+);
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:ty, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
@@ -606,42 +771,13 @@ macro_rules! impl_reflect_for_hashmap {
             }
         }
 
-        impl<K, V, S> Reflect for $ty
-        where
-            K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
-            V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
-            S: TypePath + BuildHasher + Send + Sync,
-        {
-            fn into_any(self: Box<Self>) -> Box<dyn Any> {
-                self
-            }
-
-            fn as_any(&self) -> &dyn Any {
-                self
-            }
-
-            fn as_any_mut(&mut self) -> &mut dyn Any {
-                self
-            }
-
-            #[inline]
-            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-                self
-            }
-
-            fn as_reflect(&self) -> &dyn Reflect {
-                self
-            }
-
-            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-                self
-            }
-
-            fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-                *self = value.take()?;
-                Ok(())
-            }
-        }
+        impl_full_reflect!(
+            <K, V, S> for $ty
+            where
+                K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
+                V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+                S: TypePath + BuildHasher + Send + Sync,
+        );
 
         impl<K, V, S> Typed for $ty
         where
@@ -716,6 +852,226 @@ crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashMap<K, V
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
+
+macro_rules! impl_reflect_for_hashset {
+    ($ty:path) => {
+        impl<V, S> Set for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Send + Sync,
+        {
+            fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
+                value
+                    .try_downcast_ref::<V>()
+                    .and_then(|value| Self::get(self, value))
+                    .map(|value| value as &dyn PartialReflect)
+            }
+
+            fn len(&self) -> usize {
+                Self::len(self)
+            }
+
+            fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_> {
+                let iter = self.iter().map(|v| v as &dyn PartialReflect);
+                Box::new(iter)
+            }
+
+            fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
+                self.into_iter()
+                    .map(|value| Box::new(value) as Box<dyn PartialReflect>)
+                    .collect()
+            }
+
+            fn clone_dynamic(&self) -> DynamicSet {
+                let mut dynamic_set = DynamicSet::default();
+                dynamic_set.set_represented_type(self.get_represented_type_info());
+                for v in self {
+                    dynamic_set.insert_boxed(v.clone_value());
+                }
+                dynamic_set
+            }
+
+            fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
+                let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+                    panic!(
+                        "Attempted to insert invalid value of type {}.",
+                        value.reflect_type_path()
+                    )
+                });
+                self.insert(value)
+            }
+
+            fn remove(&mut self, value: &dyn PartialReflect) -> bool {
+                let mut from_reflect = None;
+                value
+                    .try_downcast_ref::<V>()
+                    .or_else(|| {
+                        from_reflect = V::from_reflect(value);
+                        from_reflect.as_ref()
+                    })
+                    .map_or(false, |value| self.remove(value))
+            }
+
+            fn contains(&self, value: &dyn PartialReflect) -> bool {
+                let mut from_reflect = None;
+                value
+                    .try_downcast_ref::<V>()
+                    .or_else(|| {
+                        from_reflect = V::from_reflect(value);
+                        from_reflect.as_ref()
+                    })
+                    .map_or(false, |value| self.contains(value))
+            }
+        }
+
+        impl<V, S> PartialReflect for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Send + Sync,
+        {
+            fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+                Some(<Self as Typed>::type_info())
+            }
+
+            #[inline]
+            fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+                self
+            }
+
+            fn as_partial_reflect(&self) -> &dyn PartialReflect {
+                self
+            }
+
+            fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+                self
+            }
+
+            #[inline]
+            fn try_into_reflect(
+                self: Box<Self>,
+            ) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+                Ok(self)
+            }
+
+            fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+                Some(self)
+            }
+
+            fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+                Some(self)
+            }
+
+            fn apply(&mut self, value: &dyn PartialReflect) {
+                set_apply(self, value);
+            }
+
+            fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+                set_try_apply(self, value)
+            }
+
+            fn reflect_kind(&self) -> ReflectKind {
+                ReflectKind::Set
+            }
+
+            fn reflect_ref(&self) -> ReflectRef {
+                ReflectRef::Set(self)
+            }
+
+            fn reflect_mut(&mut self) -> ReflectMut {
+                ReflectMut::Set(self)
+            }
+
+            fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+                ReflectOwned::Set(self)
+            }
+
+            fn clone_value(&self) -> Box<dyn PartialReflect> {
+                Box::new(self.clone_dynamic())
+            }
+
+            fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+                set_partial_eq(self, value)
+            }
+        }
+
+        impl<V, S> Typed for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Send + Sync,
+        {
+            fn type_info() -> &'static TypeInfo {
+                static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+                CELL.get_or_insert::<Self, _>(|| TypeInfo::Set(SetInfo::new::<Self, V>()))
+            }
+        }
+
+        impl<V, S> GetTypeRegistration for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Send + Sync,
+        {
+            fn get_type_registration() -> TypeRegistration {
+                let mut registration = TypeRegistration::of::<Self>();
+                registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration
+            }
+
+            fn register_type_dependencies(registry: &mut TypeRegistry) {
+                registry.register::<V>();
+            }
+        }
+
+        impl_full_reflect!(
+            <V, S> for $ty
+            where
+                V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+                S: TypePath + BuildHasher + Send + Sync,
+        );
+
+        impl<V, S> FromReflect for $ty
+        where
+            V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
+            S: TypePath + BuildHasher + Default + Send + Sync,
+        {
+            fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
+                if let ReflectRef::Set(ref_set) = reflect.reflect_ref() {
+                    let mut new_set = Self::with_capacity_and_hasher(ref_set.len(), S::default());
+                    for value in ref_set.iter() {
+                        let new_value = V::from_reflect(value)?;
+                        new_set.insert(new_value);
+                    }
+                    Some(new_set)
+                } else {
+                    None
+                }
+            }
+        }
+    };
+}
+
+impl_type_path!(::bevy_utils::NoOpHash);
+impl_type_path!(::bevy_utils::EntityHash);
+impl_type_path!(::bevy_utils::FixedState);
+
+impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
+impl_type_path!(::std::collections::HashSet<V, S>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
+    <
+        V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
+        S: TypePath + BuildHasher + Default + Send + Sync
+    >
+);
+
+impl_reflect_for_hashset!(::bevy_utils::hashbrown::HashSet<V,S>);
+impl_type_path!(::bevy_utils::hashbrown::HashSet<V, S>);
+#[cfg(feature = "functions")]
+crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashSet<V, S>;
+    <
+        V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
     >
 );

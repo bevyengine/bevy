@@ -212,6 +212,8 @@ impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
                     world.get_resource_mut::<R>().map(|res| Mut {
                         value: res.value as &mut dyn Reflect,
                         ticks: res.ticks,
+                        #[cfg(feature = "track_change_detection")]
+                        changed_by: res.changed_by,
                     })
                 }
             },
