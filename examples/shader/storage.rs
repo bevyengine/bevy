@@ -38,27 +38,26 @@ fn setup(
     ));
 
     // Create the custom material with the storage buffer
-    let custom_material = CustomMaterial {
-        color: LinearRgba::WHITE,
-        colors,
-    };
+    let custom_material = CustomMaterial { colors };
 
     let material_handle = materials.add(custom_material);
     commands.insert_resource(CustomMaterialHandle(material_handle.clone()));
 
     // Spawn cubes with the custom material
-    for i in 0..5 {
-        commands.spawn(MaterialMeshBundle {
-            mesh: meshes.add(Cuboid::new(0.9, 0.9, 0.9)),
-            transform: Transform::from_xyz(i as f32 - 2.0, 0.5, 0.0),
-            material: material_handle.clone(),
-            ..default()
-        });
+    for i in 0..10 {
+        for j in 0..10 {
+            commands.spawn(MaterialMeshBundle {
+                mesh: meshes.add(Cuboid::from_size(Vec3::splat(0.3))),
+                material: material_handle.clone(),
+                transform: Transform::from_xyz(i as f32 - 5.0, j as f32 - 5.0, 0.0),
+                ..default()
+            });
+        }
     }
 
     // Camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 }
@@ -68,10 +67,24 @@ fn update(
     time: Res<Time>,
     material_handle: Res<CustomMaterialHandle>,
     mut materials: ResMut<Assets<CustomMaterial>>,
+    mut buffers: ResMut<Assets<Storage>>,
 ) {
     let mut material = materials.get_mut(&material_handle.0).unwrap();
-    let strength = (time.elapsed_seconds() * 3.0).sin() * 0.5 + 0.5;
-    material.color = LinearRgba::from(Color::linear_rgb(strength, strength, strength));
+    material.colors = buffers.add(Storage::new(
+        bytemuck::cast_slice((0..5)
+            .map(|i| {
+                let t = time.elapsed_seconds() * 5.0;
+                [
+                    (t + i as f32).sin() / 2.0 + 0.5,
+                    (t + i as f32 + 2.0).sin() / 2.0 + 0.5,
+                    (t + i as f32 + 4.0).sin() / 2.0 + 0.5,
+                    1.0,
+                ]
+            })
+            .collect::<Vec<[f32; 4]>>()
+            .as_slice()),
+        RenderAssetUsages::default(),
+    ));
 }
 
 // Holds a handle to the custom material
@@ -81,9 +94,7 @@ pub struct CustomMaterialHandle(Handle<CustomMaterial>);
 // This struct defines the data that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {
-    #[uniform(0)]
-    color: LinearRgba,
-    #[storage(1, read_only)]
+    #[storage(0, read_only)]
     colors: Handle<Storage>,
 }
 
