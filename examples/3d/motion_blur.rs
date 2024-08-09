@@ -54,6 +54,12 @@ struct CameraTracked;
 #[derive(Component)]
 struct Rotates;
 
+#[derive(Component)]
+struct ShutterAngleText;
+
+#[derive(Component)]
+struct SamplesText;
+
 fn setup_scene(
     asset_server: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
@@ -254,27 +260,39 @@ fn spawn_trees(
 fn setup_ui(mut commands: Commands) {
     let style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new(String::new(), style.clone()),
-            TextSection::new("1/2: -/+ shutter angle (blur amount)\n", style.clone()),
-            TextSection::new("3/4: -/+ sample count (blur quality)\n", style.clone()),
-            TextSection::new("Spacebar: cycle camera\n", style.clone()),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+    commands
+        .spawn(TextBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
             ..default()
-        }),
-    );
+        })
+        .with_children(|root| {
+            root.spawn((
+                TextSection::new(String::new(), style.clone()),
+                ShutterAngleText,
+            ));
+
+            root.spawn((TextSection::new(String::new(), style.clone()), SamplesText));
+
+            root.spawn(TextSection::new(
+                "1/2: -/+ shutter angle (blur amount)\n\
+                    3/4: -/+ sample count (blur quality)\n\
+                    Spacebar: cycle camera",
+                style,
+            ));
+        });
 }
 
 fn keyboard_inputs(
     mut settings: Query<&mut MotionBlur>,
     presses: Res<ButtonInput<KeyCode>>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextSection>,
+    shutter_angle_text: Query<Entity, With<ShutterAngleText>>,
+    samples_text: Query<Entity, With<SamplesText>>,
     mut camera: ResMut<CameraMode>,
 ) {
     let mut settings = settings.single_mut();
@@ -294,9 +312,12 @@ fn keyboard_inputs(
     }
     settings.shutter_angle = settings.shutter_angle.clamp(0.0, 1.0);
     settings.samples = settings.samples.clamp(0, 64);
-    let mut text = text.single_mut();
-    text.sections[0].value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
-    text.sections[1].value = format!("Samples: {:.5}\n", settings.samples);
+
+    let mut shutter_angle_text = text.get_mut(shutter_angle_text.single()).unwrap();
+    shutter_angle_text.value = format!("Shutter angle: {:.2}\n", settings.shutter_angle);
+
+    let mut samples_text = text.get_mut(samples_text.single()).unwrap();
+    samples_text.value = format!("Samples: {:.5}\n", settings.samples);
 }
 
 /// Parametric function for a looping race track. `offset` will return the point offset

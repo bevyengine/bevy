@@ -67,21 +67,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // Add the help text.
-    commands.spawn(
-        TextBundle {
-            text: Text::from_section(
-                "Press WASD or the arrow keys to change the light direction",
-                TextStyle::default(),
-            ),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::new(
+            "Press WASD or the arrow keys to change the light direction",
+            TextStyle::default(),
+        ));
 }
 
 /// A system that makes directional lights in the glTF scene into volumetric

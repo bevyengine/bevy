@@ -255,23 +255,19 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 
 // Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
-    commands.spawn(
-        TextBundle {
-            text: create_text(app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(create_text(app_settings));
 }
 
 // Creates or recreates the help text.
-fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(
+fn create_text(app_settings: &AppSettings) -> TextSection {
+    TextSection::new(
         format!(
             "{}\n{}\n{}",
             match app_settings.displayed_model {
@@ -357,7 +353,7 @@ fn adjust_app_settings(
     mut cameras: Query<Entity, With<Camera>>,
     mut cube_models: Query<&mut Visibility, (With<CubeModel>, Without<FlightHelmetModel>)>,
     mut flight_helmet_models: Query<&mut Visibility, (Without<CubeModel>, With<FlightHelmetModel>)>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextSection>,
 ) {
     // If there are no changes, we're going to bail for efficiency. Record that
     // here.

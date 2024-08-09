@@ -301,22 +301,18 @@ fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(app_status.create_text());
 }
 
 // A system that updates the help text.
-fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_text(mut text_query: Query<&mut TextSection>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }
@@ -325,7 +321,7 @@ fn update_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
 impl AppStatus {
     // Constructs the help text at the bottom of the screen based on the
     // application status.
-    fn create_text(&self) -> Text {
+    fn create_text(&self) -> TextSection {
         let irradiance_volume_help_text = if self.irradiance_volume_present {
             DISABLE_IRRADIANCE_VOLUME_HELP_TEXT
         } else {
@@ -349,7 +345,7 @@ impl AppStatus {
             ExampleModel::Fox => SWITCH_TO_SPHERE_HELP_TEXT,
         };
 
-        Text::from_section(
+        TextSection::new(
             format!(
                 "{}\n{}\n{}\n{}\n{}",
                 CLICK_TO_MOVE_HELP_TEXT,

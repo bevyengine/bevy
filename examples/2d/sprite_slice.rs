@@ -86,12 +86,14 @@ fn spawn_sprites(
             cmd.insert(scale_mode);
         }
         cmd.with_children(|builder| {
-            builder.spawn(Text2dBundle {
-                text: Text::from_section(label, text_style).with_justify(JustifyText::Center),
-                transform: Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
-                text_anchor: bevy::sprite::Anchor::TopCenter,
-                ..default()
-            });
+            builder
+                .spawn(Text2dBundle {
+                    text: Text::default().with_justify(JustifyText::Center),
+                    transform: Transform::from_xyz(0., -0.5 * size.y - 10., 0.0),
+                    text_anchor: bevy::sprite::Anchor::TopCenter,
+                    ..default()
+                })
+                .with_child(TextSection::new(label, text_style));
         });
         position.x += 0.5 * size.x + gap;
     }

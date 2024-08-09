@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
-use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource};
+use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource, world::Ref};
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
@@ -61,7 +61,7 @@ impl TextPipeline {
     pub fn update_buffer(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        sections: &[Ref<TextSection>],
         linebreak_behavior: BreakLineOn,
         bounds: TextBounds,
         scale_factor: f64,
@@ -85,7 +85,7 @@ impl TextPipeline {
 
         // Load Bevy fonts into cosmic-text's font system.
         // This is done as as separate pre-pass to avoid borrow checker issues
-        for section in sections.iter() {
+        for section in sections {
             load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
         }
 
@@ -146,7 +146,7 @@ impl TextPipeline {
     pub fn queue_text(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        sections: &[Ref<TextSection>],
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
@@ -238,10 +238,11 @@ impl TextPipeline {
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_text_measure(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[TextSection],
+        sections: &[Ref<TextSection>],
         scale_factor: f64,
         linebreak_behavior: BreakLineOn,
         buffer: &mut CosmicBuffer,

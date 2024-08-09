@@ -71,7 +71,7 @@ fn text_update_system(
     if state.timer.tick(time.delta()).finished() {
         for mut text in &mut query {
             let c = seeded_rng.gen::<u8>() as char;
-            let string = &mut text.sections[0].value;
+            let string = &mut text.section.value;
             if !string.contains(c) {
                 string.push(c);
             }

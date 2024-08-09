@@ -61,59 +61,60 @@ fn setup(
     });
 
     // labels
-    commands.spawn(
-        TextBundle::from_section(
+    commands
+        .spawn(TextBundle::default().with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(20.0),
+            left: Val::Px(100.0),
+            ..default()
+        }))
+        .with_child(TextSection::new(
             "Perceptual Roughness",
             TextStyle {
                 font_size: 36.0,
                 ..default()
             },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
-            left: Val::Px(100.0),
-            ..default()
-        }),
-    );
+        ));
 
-    commands.spawn(TextBundle {
-        text: Text::from_section(
+    commands
+        .spawn(TextBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(130.0),
+                right: Val::ZERO,
+                ..default()
+            },
+            transform: Transform {
+                rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
+                ..default()
+            },
+            ..default()
+        })
+        .with_child(TextSection::new(
             "Metallic",
             TextStyle {
                 font_size: 36.0,
                 ..default()
             },
-        ),
-        style: Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
-            right: Val::ZERO,
-            ..default()
-        },
-        transform: Transform {
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
-            ..default()
-        },
-        ..default()
-    });
+        ));
 
-    commands.spawn((
-        TextBundle::from_section(
+    commands
+        .spawn((
+            TextBundle::default().with_style(Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(20.0),
+                right: Val::Px(20.0),
+                ..default()
+            }),
+            EnvironmentMapLabel,
+        ))
+        .with_child(TextSection::new(
             "Loading Environment Map...",
             TextStyle {
                 font_size: 36.0,
                 ..default()
             },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(20.0),
-            right: Val::Px(20.0),
-            ..default()
-        }),
-        EnvironmentMapLabel,
-    ));
+        ));
 
     // camera
     commands.spawn((

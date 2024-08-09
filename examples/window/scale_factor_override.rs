@@ -89,7 +89,7 @@ fn display_override(
     window.title.clone_from(&text);
 
     let mut custom_text = custom_text.single_mut();
-    custom_text.sections[0].value = text;
+    custom_text.section.value = text;
 }
 
 /// This system toggles scale factor overrides when enter is pressed

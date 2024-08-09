@@ -156,18 +156,14 @@ fn setup(
         });
 
     // Create the text.
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(app_status.create_text());
 }
 
 // We need to add the `VisibilityRange` components manually, as glTF currently
@@ -295,7 +291,7 @@ fn update_mode(
 }
 
 // A system that updates the help text.
-fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_help_text(mut text_query: Query<&mut TextSection>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_text();
     }
@@ -303,8 +299,8 @@ fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>
 
 impl AppStatus {
     // Creates and returns help text reflecting the app status.
-    fn create_text(&self) -> Text {
-        Text::from_section(
+    fn create_text(&self) -> TextSection {
+        TextSection::new(
             format!(
                 "\
 {} (1) Switch from high-poly to low-poly based on camera distance

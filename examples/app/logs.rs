@@ -20,16 +20,17 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(TextBundle {
-        text: Text::from_section("Press P to panic", TextStyle::default()),
-        style: Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+    commands
+        .spawn(TextBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    });
+        })
+        .with_child(TextSection::new("Press P to panic", TextStyle::default()));
 }
 
 fn panic_on_p(keys: Res<ButtonInput<KeyCode>>) {

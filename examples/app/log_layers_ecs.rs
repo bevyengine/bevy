@@ -118,7 +118,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn((
-        NodeBundle {
+        TextBundle {
             style: Style {
                 width: Val::Vw(100.0),
                 height: Val::Vh(100.0),
@@ -142,10 +142,7 @@ fn print_logs(
 
     commands.entity(root_entity).with_children(|child| {
         for event in events.read() {
-            child.spawn(TextBundle::from_section(
-                &event.message,
-                TextStyle::default(),
-            ));
+            child.spawn(TextSection::new(&event.message, TextStyle::default()));
         }
     });
 }
