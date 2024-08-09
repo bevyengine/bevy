@@ -93,10 +93,10 @@ fn reset_maps(
     core::mem::swap(&mut previous_hover_map.0, &mut hover_map.0);
 
     for entity_set in hover_map.values_mut() {
-        entity_set.clear()
+        entity_set.clear();
     }
     for layer_map in over_map.values_mut() {
-        layer_map.clear()
+        layer_map.clear();
     }
 
     // Clear pointers from the maps if they have been removed.

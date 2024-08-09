@@ -7,7 +7,7 @@
 //! inputs, and allow users full accessibility to map whatever inputs they need to pointer input.
 //!
 //! If, for example, you wanted to add support for VR input, all you need to do is spawn a pointer
-//! entity with a custom [`PointerId`](bevy_picking_core::pointer::PointerId), and write a system
+//! entity with a custom [`PointerId`](crate::pointer::PointerId), and write a system
 //! that updates its position.
 //!
 //! TODO: Update docs
@@ -29,7 +29,7 @@ pub mod prelude {
 /// Adds mouse and touch inputs for picking pointers to your app. This is a default input plugin,
 /// that you can replace with your own plugin as needed.
 ///
-/// [`bevy_picking_core::PickingPluginsSettings::is_input_enabled`] can be used to toggle whether
+/// [`crate::PickingPluginsSettings::is_input_enabled`] can be used to toggle whether
 /// the core picking plugin processes the inputs sent by this, or other input plugins, in one place.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
 #[reflect(Resource, Default)]

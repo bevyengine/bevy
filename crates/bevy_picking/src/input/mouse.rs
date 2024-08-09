@@ -13,11 +13,7 @@ use crate::{
 
 /// Spawns the default mouse pointer.
 pub fn spawn_mouse_pointer(mut commands: Commands) {
-    commands.spawn((
-        PointerBundle::new(PointerId::Mouse),
-        #[cfg(feature = "selection")]
-        bevy_picking_selection::PointerMultiselect::default(),
-    ));
+    commands.spawn((PointerBundle::new(PointerId::Mouse),));
 }
 
 /// Sends mouse pointer events to be processed by the core plugin
@@ -56,9 +52,7 @@ pub fn mouse_pick_events(
             MouseButton::Left => PointerButton::Primary,
             MouseButton::Right => PointerButton::Secondary,
             MouseButton::Middle => PointerButton::Middle,
-            MouseButton::Other(_) => continue,
-            MouseButton::Back => continue,
-            MouseButton::Forward => continue,
+            MouseButton::Other(_) | MouseButton::Back | MouseButton::Forward => continue,
         };
 
         match input.state {

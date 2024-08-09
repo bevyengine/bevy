@@ -44,11 +44,7 @@ pub fn touch_pick_events(
         match touch.phase {
             TouchPhase::Started => {
                 debug!("Spawning pointer {:?}", pointer);
-                commands.spawn((
-                    PointerBundle::new(pointer).with_location(location.clone()),
-                    #[cfg(feature = "selection")]
-                    bevy_picking_selection::PointerMultiselect::default(),
-                ));
+                commands.spawn((PointerBundle::new(pointer).with_location(location.clone()),));
 
                 input_moves.send(InputMove::new(pointer, location, Vec2::ZERO));
                 input_presses.send(InputPress::new_down(pointer, PointerButton::Primary));

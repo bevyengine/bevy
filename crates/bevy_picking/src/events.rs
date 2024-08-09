@@ -201,6 +201,7 @@ pub struct Drop {
 }
 
 /// Generates pointer events from input and focus data
+#[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
     mut input_presses: EventReader<InputPress>,
@@ -361,6 +362,7 @@ pub struct DragEntry {
 }
 
 /// Uses pointer events to determine when click and drag events occur.
+#[allow(clippy::too_many_arguments)]
 pub fn send_click_and_drag_events(
     // Input
     mut pointer_down: EventReader<Pointer<Down>>,
@@ -501,6 +503,7 @@ pub fn send_click_and_drag_events(
 }
 
 /// Uses pointer events to determine when drag-over events occur
+#[allow(clippy::too_many_arguments)]
 pub fn send_drag_over_events(
     // Input
     drag_map: Res<DragMap>,
