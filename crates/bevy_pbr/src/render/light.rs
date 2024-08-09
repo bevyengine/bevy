@@ -400,19 +400,20 @@ pub fn extract_lights(
 }
 
 #[derive(Component, Default, Deref, DerefMut)]
-pub struct ViewLightEntity(Vec<Entity>);
-pub fn spawn_dir_view_light_entitiy(
+pub struct LightViewEntities(Vec<Entity>);
+
+pub fn insert_light_view_entities(
     mut commands: Commands,
     query: Query<
         Entity,
         (
             Or<(With<ExtractedDirectionalLight>, With<ExtractedPointLight>)>,
-            Without<ViewLightEntity>,
+            Without<LightViewEntities>,
         ),
     >,
 ) {
     query.iter().for_each(|e| {
-        commands.entity(e).insert(ViewLightEntity::default());
+        commands.entity(e).insert(LightViewEntities::default());
     })
 }
 
@@ -595,7 +596,7 @@ pub fn prepare_lights(
         AnyOf<(&CubemapFrusta, &Frustum)>,
     )>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
-    mut view_light_entites: Query<&mut ViewLightEntity>,
+    mut light_view_entities: Query<&mut LightViewEntities>,
     mut live_shadow_mapping_lights: Local<EntityHashSet>,
 ) {
     let views_iter = views.iter();
@@ -851,8 +852,9 @@ pub fn prepare_lights(
 
     live_shadow_mapping_lights.clear();
 
+    let mut dir_light_view_offset = 0;
     // set up light data for each view
-    for (entity, extracted_view, clusters, maybe_layers) in &views {
+    for (offset, (entity, extracted_view, clusters, maybe_layers)) in views.iter().enumerate() {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -938,14 +940,18 @@ pub fn prepare_lights(
             // and ignore rotation because we want the shadow map projections to align with the axes
             let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
-            let Ok(mut view_light_entities) = view_light_entites.get_mut(light_entity) else {
+            let Ok(mut light_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
             };
-            view_light_entities.resize_with(6, || commands.spawn_empty().id());
+
+            while light_entities.len() < 6 * (offset + 1) {
+                light_entities.push(commands.spawn_empty().id());
+            }
+
             for (face_index, ((view_rotation, frustum), view_light_entity)) in cube_face_rotations
                 .iter()
                 .zip(&point_light_frusta.unwrap().frusta)
-                .zip(view_light_entities.iter().copied())
+                .zip(light_entities.iter().skip(6 * offset).copied())
                 .enumerate()
             {
                 let depth_texture_view =
@@ -1008,7 +1014,7 @@ pub fn prepare_lights(
             let spot_world_from_view = spot_light_world_from_view(&light.transform);
             let spot_world_from_view = spot_world_from_view.into();
 
-            let Ok(mut view_light_entities) = view_light_entites.get_mut(light_entity) else {
+            let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
             };
 
@@ -1030,9 +1036,11 @@ pub fn prepare_lights(
                         array_layer_count: Some(1u32),
                     });
 
-            view_light_entities.resize_with(1, || commands.spawn_empty().id());
+            while light_view_entities.len() < offset + 1 {
+                light_view_entities.push(commands.spawn_empty().id())
+            }
 
-            let view_light_entity = view_light_entities[0];
+            let view_light_entity = light_view_entities[offset];
 
             commands.entity(view_light_entity).insert((
                 ShadowView {
@@ -1072,7 +1080,7 @@ pub fn prepare_lights(
         {
             let gpu_light = &mut gpu_lights.directional_lights[light_index];
 
-            let Ok(mut view_light_entites) = view_light_entites.get_mut(light_entity) else {
+            let Ok(mut light_view_entities) = light_view_entities.get_mut(light_entity) else {
                 continue;
             };
             // Check if the light intersects with the view.
@@ -1102,12 +1110,19 @@ pub fn prepare_lights(
             let iter = cascades
                 .zip(frusta)
                 .zip(&light.cascade_shadow_config.bounds);
-            while view_light_entites.len() < iter.len() {
-                view_light_entites.push(commands.spawn_empty().id());
+
+            while light_view_entities.len() < dir_light_view_offset + iter.len() {
+                light_view_entities.push(commands.spawn_empty().id());
             }
 
-            for (cascade_index, (((cascade, frustum), bound), view_light_entity)) in
-                iter.zip(view_light_entites.iter().copied()).enumerate()
+            for (cascade_index, (((cascade, frustum), bound), view_light_entity)) in iter
+                .zip(
+                    light_view_entities
+                        .iter()
+                        .skip(dir_light_view_offset)
+                        .copied(),
+                )
+                .enumerate()
             {
                 gpu_lights.directional_lights[light_index].cascades[cascade_index] =
                     GpuDirectionalCascade {
@@ -1166,6 +1181,7 @@ pub fn prepare_lights(
 
                 shadow_render_phases.insert_or_clear(view_light_entity);
                 live_shadow_mapping_lights.insert(view_light_entity);
+                dir_light_view_offset += 1;
             }
         }
 
