@@ -4,7 +4,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
+    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
@@ -13,7 +13,7 @@ use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque2d`] [`ViewSortedRenderPhases`]
+/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque2d`] [`ViewBinnedRenderPhases`]
 #[derive(Default)]
 pub struct MainOpaquePass2dNode;
 impl ViewNode for MainOpaquePass2dNode {
@@ -30,7 +30,7 @@ impl ViewNode for MainOpaquePass2dNode {
         (camera, target, depth): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let Some(opaque_phases) = world.get_resource::<ViewSortedRenderPhases<Opaque2d>>() else {
+        let Some(opaque_phases) = world.get_resource::<ViewBinnedRenderPhases<Opaque2d>>() else {
             return Ok(());
         };
 
@@ -69,7 +69,7 @@ impl ViewNode for MainOpaquePass2dNode {
             }
 
             // Opaque draws
-            if !opaque_phase.items.is_empty() {
+            if !opaque_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_main_pass_2d_span = info_span!("opaque_main_pass_2d").entered();
                 if let Err(err) = opaque_phase.render(&mut render_pass, world, view_entity) {
