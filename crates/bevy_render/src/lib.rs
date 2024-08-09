@@ -56,6 +56,7 @@ use batching::gpu_preprocessing::BatchingPlugin;
 use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
+pub use wgpu::DownlevelFlags;
 
 use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
