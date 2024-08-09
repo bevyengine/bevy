@@ -21,9 +21,9 @@ where
     /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
-    /// - `position` sets the center of this circle.
-    /// - `direction_angle` sets the counter-clockwise  angle in radians between `Vec2::Y` and
-    ///     the vector from `position` to the midpoint of the arc.
+    /// - `isometry` defines the translation and rotation of the arc.
+    ///              - the translation specifies the center of the arc
+    ///              - the rotation is counter-clockwise starting from `Vec2::Y`
     /// - `arc_angle` sets the length of this arc, in radians.
     /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
     /// - `color` sets the color to draw the arc.
@@ -36,12 +36,12 @@ where
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
+    ///     gizmos.arc_2d(Isometry2d::new(Vec2::ZERO, Rot2::radians(0.)), PI / 4., 1., GREEN);
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
+    ///         .arc_2d(Isometry2d::new(Vec2::ZERO, Rot2::radians(0.)), PI / 4., 5., RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
