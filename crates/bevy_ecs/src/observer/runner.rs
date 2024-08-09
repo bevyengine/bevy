@@ -257,17 +257,14 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple entities with the same [`Observer`].
 ///
 /// When first added, [`Observer`] will also create an [`ObserverState`] component, which registers the observer with the [`World`] and
-/// serves as the "source of truth" of the observer.
+/// serves as the "source of truth" of the observer. [`ObserverState`] can be used to filter for [`Observer`] [`Entity`]s, e.g.
+/// [`With<ObserverState>`].
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer<T: 'static, B: Bundle> {
     system: BoxedObserverSystem<T, B>,
     descriptor: ObserverDescriptor,
 }
-
-/// Marker [`Component`](Component) for identifying [`Observer`] [`Entity`]s.
-#[derive(Component)]
-pub struct ObserverMarker;
 
 impl<E: Event, B: Bundle> Observer<E, B> {
     /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
@@ -348,7 +345,6 @@ impl<E: Event, B: Bundle> Component for Observer<E, B> {
                             runner: observer_system_runner::<E, B>,
                             ..Default::default()
                         });
-                        entity.insert(ObserverMarker);
                     }
                 }
             });
