@@ -17,15 +17,21 @@ pub unsafe trait EventSet: 'static {
     /// The output type that will be passed to the observer.
     type Item<'trigger>;
     /// The read-only variant of the output type.
-    type ReadOnlyItem<'trigger>;
+    type ReadOnlyItem<'trigger>: Copy;
 
-    /// Safely casts the pointer to the output type, or a variant of it.
-    /// Returns `None` if the event type does not match.
-    unsafe fn checked_cast<'trigger>(
+    /// Casts a pointer to the output type.
+    ///
+    /// # Safety
+    ///
+    /// Caller must check that [`matches`] returns `true` before calling this method.
+    unsafe fn cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Item<'trigger>>;
+
+    /// Checks if the event type matches the observer trigger.
+    fn matches<'trigger>(world: &World, observer_trigger: &ObserverTrigger) -> bool;
 
     /// Initialize the components required by the event set.
     fn init_components(world: &mut World, ids: impl FnMut(ComponentId));
@@ -38,60 +44,38 @@ pub unsafe trait EventSet: 'static {
         item: &'short Self::Item<'long>,
     ) -> Self::ReadOnlyItem<'short>;
 
-    /// Shrink the item to a shorter lifetime, as a type-erased pointer.
+    /// Shrink the item to a shorter lifetime, as a read-only type-erased pointer.
+    ///
+    /// # Safety
+    ///
+    /// Implementor must give a pointer to the innermost data, not a pointer to any container.
     fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short>;
 }
 
-// SAFETY: Forwards its implementation to `(A,)`, which is itself safe.
-unsafe impl<A: Event> EventSet for A {
-    type Item<'trigger> = &'trigger mut A;
-    type ReadOnlyItem<'trigger> = &'trigger A;
+// SAFETY: The event type has a component id registered in `init_components`,
+// and `matches` checks that the component id matches the event type.
+unsafe impl<E: Event> EventSet for E {
+    type Item<'trigger> = &'trigger mut E;
+    type ReadOnlyItem<'trigger> = &'trigger E;
 
-    unsafe fn checked_cast<'trigger>(
-        world: &World,
-        observer_trigger: &ObserverTrigger,
-        ptr: PtrMut<'trigger>,
-    ) -> Option<Self::Item<'trigger>> {
-        <(A,) as EventSet>::checked_cast(world, observer_trigger, ptr)
-    }
-
-    fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {
-        <(A,) as EventSet>::init_components(world, ids);
-    }
-
-    fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
-        <(A,) as EventSet>::shrink(item)
-    }
-
-    fn shrink_readonly<'long: 'short, 'short>(
-        item: &'short Self::Item<'long>,
-    ) -> Self::ReadOnlyItem<'short> {
-        <(A,) as EventSet>::shrink_readonly(item)
-    }
-
-    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
-        <(A,) as EventSet>::shrink_ptr(item)
-    }
-}
-
-// SAFETY: All event types have a component id registered in `init_components`,
-// and `checked_cast` checks that the component id matches the event type.
-unsafe impl<A: Event> EventSet for (A,) {
-    type Item<'trigger> = &'trigger mut A;
-    type ReadOnlyItem<'trigger> = &'trigger A;
-
-    unsafe fn checked_cast<'trigger>(
+    unsafe fn cast<'trigger>(
         _world: &World,
         _observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Item<'trigger>> {
-        // SAFETY: Caller must ensure that the component id matches the event type
+        // SAFETY: Caller must ensure that `matches` returns true before calling `cast`
         Some(unsafe { ptr.deref_mut() })
     }
 
+    fn matches<'trigger>(world: &World, observer_trigger: &ObserverTrigger) -> bool {
+        world
+            .component_id::<E>()
+            .is_some_and(|id| id == observer_trigger.event_type)
+    }
+
     fn init_components(world: &mut World, mut ids: impl FnMut(ComponentId)) {
-        let a_id = world.init_component::<A>();
-        ids(a_id);
+        let id = world.init_component::<E>();
+        ids(id);
     }
 
     fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
@@ -109,146 +93,136 @@ unsafe impl<A: Event> EventSet for (A,) {
     }
 }
 
-/// The output type of an observer that observes two different event types.
-pub enum Or2<A, B> {
-    /// The first event type.
-    A(A),
-    /// The second event type.
-    B(B),
-}
+unsafe impl<A: EventSet> EventSet for (A,) {
+    type Item<'trigger> = A::Item<'trigger>;
+    type ReadOnlyItem<'trigger> = A::ReadOnlyItem<'trigger>;
 
-// SAFETY: All event types have a component id registered in `init_components`,
-// and `checked_cast` checks that the component id matches one of the event types before casting.
-unsafe impl<A: Event, B: Event> EventSet for (A, B) {
-    type Item<'trigger> = Or2<&'trigger mut A, &'trigger mut B>;
-    type ReadOnlyItem<'trigger> = Or2<&'trigger A, &'trigger B>;
-
-    unsafe fn checked_cast<'trigger>(
+    unsafe fn cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Item<'trigger>> {
-        let a_id = world.component_id::<A>()?;
-        let b_id = world.component_id::<B>()?;
-
-        if a_id == observer_trigger.event_type {
-            // SAFETY: We just checked that the component id matches the event type
-            let a = unsafe { ptr.deref_mut() };
-            Some(Or2::A(a))
-        } else if b_id == observer_trigger.event_type {
-            // SAFETY: We just checked that the component id matches the event type
-            let b = unsafe { ptr.deref_mut() };
-            Some(Or2::B(b))
-        } else {
-            None
-        }
+        // SAFETY: Caller must ensure that `matches` returns true before calling `cast`
+        unsafe { A::cast(world, observer_trigger, ptr) }
     }
 
-    fn init_components(world: &mut World, mut ids: impl FnMut(ComponentId)) {
-        let a_id = world.init_component::<A>();
-        let b_id = world.init_component::<B>();
-        ids(a_id);
-        ids(b_id);
+    fn matches<'trigger>(world: &World, observer_trigger: &ObserverTrigger) -> bool {
+        A::matches(world, observer_trigger)
+    }
+
+    fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {
+        A::init_components(world, ids);
     }
 
     fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
-        match item {
-            Or2::A(a) => Or2::A(a),
-            Or2::B(b) => Or2::B(b),
-        }
+        A::shrink(item)
     }
 
     fn shrink_readonly<'long: 'short, 'short>(
         item: &'short Self::Item<'long>,
     ) -> Self::ReadOnlyItem<'short> {
-        match item {
-            Or2::A(a) => Or2::A(a),
-            Or2::B(b) => Or2::B(b),
-        }
+        A::shrink_readonly(item)
     }
 
     fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
-        match item {
-            Or2::A(a) => Ptr::from(&**a),
-            Or2::B(b) => Ptr::from(&**b),
-        }
+        A::shrink_ptr(item)
     }
 }
 
-/// The output type of an observer that observes three different event types.
-pub enum Or3<A, B, C> {
-    /// The first event type.
-    A(A),
-    /// The second event type.
-    B(B),
-    /// The third event type.
-    C(C),
+macro_rules! impl_event_set {
+    ($Or:ident, $(($P:ident, $p:ident)),*) => {
+        /// An output type of an observer that observes multiple event types.
+        #[derive(Copy, Clone)]
+        pub enum $Or<$($P),*> {
+            $(
+                /// A possible event type.
+                $P($P),
+            )*
+        }
+
+        // SAFETY: All event types have a component id registered in `init_components`,
+        // and `cast` calls `matches` before casting the pointer to one of the event types.
+        unsafe impl<$($P: EventSet),*> EventSet for ($($P,)*) {
+            type Item<'trigger> = $Or<$($P::Item<'trigger>),*>;
+            type ReadOnlyItem<'trigger> = $Or<$($P::ReadOnlyItem<'trigger>),*>;
+
+            unsafe fn cast<'trigger>(
+                world: &World,
+                observer_trigger: &ObserverTrigger,
+                ptr: PtrMut<'trigger>,
+            ) -> Option<Self::Item<'trigger>> {
+                if false {
+                    unreachable!();
+                }
+                $(
+                    else if $P::matches(world, observer_trigger) {
+                        // SAFETY: We just checked that the component id matches the event type
+                        let $p = unsafe { $P::cast(world, observer_trigger, ptr) };
+                        if let Some($p) = $p {
+                            return Some($Or::$P($p));
+                        }
+                    }
+                )*
+
+                None
+            }
+
+            fn matches<'trigger>(world: &World, observer_trigger: &ObserverTrigger) -> bool {
+                $(
+                    $P::matches(world, observer_trigger) ||
+                )*
+                false
+            }
+
+            fn init_components(world: &mut World, mut ids: impl FnMut(ComponentId)) {
+                $(
+                    $P::init_components(world, &mut ids);
+                )*
+            }
+
+            fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
+                match item {
+                    $(
+                        $Or::$P($p) => $Or::$P($P::shrink($p)),
+                    )*
+                }
+            }
+
+            fn shrink_readonly<'long: 'short, 'short>(
+                item: &'short Self::Item<'long>,
+            ) -> Self::ReadOnlyItem<'short> {
+                match item {
+                    $(
+                        $Or::$P($p) => $Or::$P($P::shrink_readonly($p)),
+                    )*
+                }
+            }
+
+            fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
+                match item {
+                    $(
+                        $Or::$P($p) => $P::shrink_ptr($p),
+                    )*
+                }
+            }
+        }
+    };
 }
 
-// SAFETY: All event types have a component id registered in `init_components`,
-// and `checked_cast` checks that the component id matches one of the event types before casting.
-unsafe impl<A: Event, B: Event, C: Event> EventSet for (A, B, C) {
-    type Item<'trigger> = Or3<&'trigger mut A, &'trigger mut B, &'trigger mut C>;
-    type ReadOnlyItem<'trigger> = Or3<&'trigger A, &'trigger B, &'trigger C>;
-
-    unsafe fn checked_cast<'trigger>(
-        world: &World,
-        observer_trigger: &ObserverTrigger,
-        ptr: PtrMut<'trigger>,
-    ) -> Option<Self::Item<'trigger>> {
-        let a_id = world.component_id::<A>()?;
-        let b_id = world.component_id::<B>()?;
-        let c_id = world.component_id::<C>()?;
-
-        if a_id == observer_trigger.event_type {
-            // SAFETY: We just checked that the component id matches the event type
-            let a = unsafe { ptr.deref_mut() };
-            Some(Or3::A(a))
-        } else if b_id == observer_trigger.event_type {
-            // SAFETY: We just checked that the component id matches the event type
-            let b = unsafe { ptr.deref_mut() };
-            Some(Or3::B(b))
-        } else if c_id == observer_trigger.event_type {
-            // SAFETY: We just checked that the component id matches the event type
-            let c = unsafe { ptr.deref_mut() };
-            Some(Or3::C(c))
-        } else {
-            None
-        }
-    }
-
-    fn init_components(world: &mut World, mut ids: impl FnMut(ComponentId)) {
-        let a_id = world.init_component::<A>();
-        let b_id = world.init_component::<B>();
-        let c_id = world.init_component::<C>();
-        ids(a_id);
-        ids(b_id);
-        ids(c_id);
-    }
-
-    fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
-        match item {
-            Or3::A(a) => Or3::A(a),
-            Or3::B(b) => Or3::B(b),
-            Or3::C(c) => Or3::C(c),
-        }
-    }
-
-    fn shrink_readonly<'long: 'short, 'short>(
-        item: &'short Self::Item<'long>,
-    ) -> Self::ReadOnlyItem<'short> {
-        match item {
-            Or3::A(a) => Or3::A(a),
-            Or3::B(b) => Or3::B(b),
-            Or3::C(c) => Or3::C(c),
-        }
-    }
-
-    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
-        match item {
-            Or3::A(a) => Ptr::from(&**a),
-            Or3::B(b) => Ptr::from(&**b),
-            Or3::C(c) => Ptr::from(&**c),
-        }
-    }
-}
+impl_event_set!(Or2, (A, a), (B, b));
+impl_event_set!(Or3, (A, a), (B, b), (C, c));
+impl_event_set!(Or4, (A, a), (B, b), (C, c), (D, d));
+impl_event_set!(Or5, (A, a), (B, b), (C, c), (D, d), (E, e));
+impl_event_set!(Or6, (A, a), (B, b), (C, c), (D, d), (E, e), (F, f));
+impl_event_set!(Or7, (A, a), (B, b), (C, c), (D, d), (E, e), (F, f), (G, g));
+impl_event_set!(
+    Or8,
+    (A, a),
+    (B, b),
+    (C, c),
+    (D, d),
+    (E, e),
+    (F, f),
+    (G, g),
+    (H, h)
+);

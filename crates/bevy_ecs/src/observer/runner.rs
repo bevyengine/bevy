@@ -386,8 +386,9 @@ fn observer_system_runner<E: EventSet, B: Bundle>(
 
     // SAFETY: We have immutable access to the world from the passed in DeferredWorld
     let world_ref = unsafe { world.world() };
-    // SAFETY: Caller ensures `ptr` is castable to `&mut T`, or the function will check it itself. TODO: can we revert this to a safe function?
-    let Some(event) = (unsafe { E::checked_cast(world_ref, &observer_trigger, ptr) }) else {
+    // TODO: should we check E::matches here?
+    // SAFETY: Caller ensures `ptr` is castable to `&mut T`, or the function will check it itself.
+    let Some(event) = (unsafe { E::cast(world_ref, &observer_trigger, ptr) }) else {
         return;
     };
 
