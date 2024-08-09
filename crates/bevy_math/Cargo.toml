@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.68.2"
 
 [dependencies]
-glam = { version = "0.27", features = ["bytemuck"] }
+glam = { version = "0.28", features = ["bytemuck"] }
 thiserror = "1.0"
 itertools = "0.13.0"
 serde = { version = "1", features = ["derive"], optional = true }
@@ -33,8 +33,7 @@ rand = "0.8"
 rand_chacha = "0.3"
 # Enable the approx feature when testing.
 bevy_math = { path = ".", version = "0.15.0-dev", features = ["approx"] }
-glam = { version = "0.27", features = ["approx"] }
-
+glam = { version = "0.28", features = ["approx"] }
 
 [features]
 default = ["rand", "bevy_reflect"]
