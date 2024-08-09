@@ -110,11 +110,11 @@ impl NormalizedWindowRef {
 /// ```
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_window::{WindowMode, PrimaryWindow, Window};
+/// # use bevy_window::{WindowMode, PrimaryWindow, Window, MonitorSelection};
 /// fn change_window_mode(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
 ///     // Query returns one window typically.
 ///     for mut window in windows.iter_mut() {
-///         window.mode = WindowMode::Fullscreen;
+///         window.mode = WindowMode::Fullscreen(MonitorSelection::Current);
 ///     }
 /// }
 /// ```
