@@ -2,7 +2,7 @@
 
 use std::f32::consts::{PI, TAU};
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*};
 
 fn main() {
     App::new()
@@ -76,18 +76,24 @@ fn draw_example_collection(
 
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.
-    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).resolution(64);
+    my_gizmos
+        .circle_2d(Isometry2d::from_translation(Vec2::ZERO), 300., NAVY)
+        .resolution(64);
 
     my_gizmos.ellipse_2d(
-        Vec2::ZERO,
-        time.elapsed_seconds() % TAU,
+        Isometry2d::new(Vec2::ZERO, Rot2::radians(time.elapsed_seconds() % TAU)),
         Vec2::new(100., 200.),
         YELLOW_GREEN,
     );
 
     // Arcs default resolution is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
-    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 310., ORANGE_RED);
+    my_gizmos.arc_2d(
+        Isometry2d::new(Vec2::ZERO, Rot2::radians(sin / 10.)),
+        PI / 2.,
+        310.,
+        ORANGE_RED,
+    );
 
     gizmos.arrow_2d(
         Vec2::ZERO,

@@ -6,7 +6,7 @@
 use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Quat, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
 // === 2D ===
@@ -21,9 +21,9 @@ where
     /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
-    /// - `position` sets the center of this circle.
-    /// - `direction_angle` sets the counter-clockwise  angle in radians between `Vec2::Y` and
-    ///     the vector from `position` to the midpoint of the arc.
+    /// - `isometry` defines the translation and rotation of the arc.
+    ///              - the translation specifies the center of the arc
+    ///              - the rotation is counter-clockwise starting from `Vec2::Y`
     /// - `arc_angle` sets the length of this arc, in radians.
     /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
     /// - `color` sets the color to draw the arc.
@@ -36,12 +36,12 @@ where
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
+    ///     gizmos.arc_2d(Isometry2d::new(Vec2::ZERO, Rot2::radians(0.)), PI / 4., 1., GREEN);
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
+    ///         .arc_2d(Isometry2d::new(Vec2::ZERO, Rot2::radians(0.)), PI / 4., 5., RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -49,16 +49,14 @@ where
     #[inline]
     pub fn arc_2d(
         &mut self,
-        position: Vec2,
-        direction_angle: f32,
+        isometry: Isometry2d,
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
-            position,
-            direction_angle,
+            isometry,
             arc_angle,
             radius,
             color: color.into(),
@@ -74,8 +72,7 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec2,
-    direction_angle: f32,
+    isometry: Isometry2d,
     arc_angle: f32,
     radius: f32,
     color: Color,
@@ -108,25 +105,15 @@ where
             .resolution
             .unwrap_or_else(|| resolution_from_angle(self.arc_angle));
 
-        let positions = arc_2d_inner(
-            self.direction_angle,
-            self.arc_angle,
-            self.radius,
-            resolution,
-        )
-        .map(|vec2| (vec2 + self.position));
+        let positions =
+            arc_2d_inner(self.arc_angle, self.radius, resolution).map(|vec2| self.isometry * vec2);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
 
-fn arc_2d_inner(
-    direction_angle: f32,
-    arc_angle: f32,
-    radius: f32,
-    resolution: u32,
-) -> impl Iterator<Item = Vec2> {
+fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<Item = Vec2> {
     (0..resolution + 1).map(move |i| {
-        let start = direction_angle - arc_angle / 2.;
+        let start = -arc_angle / 2.;
 
         let angle =
             start + (i as f32 * (arc_angle / resolution as f32)) + std::f32::consts::FRAC_PI_2;
@@ -193,15 +180,13 @@ where
         &mut self,
         angle: f32,
         radius: f32,
-        position: Vec3,
-        rotation: Quat,
+        isometry: Isometry3d,
         color: impl Into<Color>,
     ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
-            center: position,
-            rotation,
+            isometry,
             angle,
             radius,
             color: color.into(),
@@ -336,8 +321,7 @@ where
         Arc3dBuilder {
             gizmos: self,
             start_vertex,
-            center,
-            rotation,
+            isometry: Isometry3d::new(center, rotation),
             angle,
             radius,
             color: color.into(),
@@ -363,8 +347,7 @@ where
     //
     // DO NOT expose this field to users as it is easy to mess this up
     start_vertex: Vec3,
-    center: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     angle: f32,
     radius: f32,
     color: Color,
@@ -399,8 +382,7 @@ where
 
         let positions = arc_3d_inner(
             self.start_vertex,
-            self.center,
-            self.rotation,
+            self.isometry,
             self.angle,
             self.radius,
             resolution,
@@ -411,8 +393,7 @@ where
 
 fn arc_3d_inner(
     start_vertex: Vec3,
-    center: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     angle: f32,
     radius: f32,
     resolution: u32,
@@ -425,7 +406,8 @@ fn arc_3d_inner(
         .map(move |frac| frac as f32 / resolution as f32)
         .map(move |percentage| angle * percentage)
         .map(move |frac_angle| Quat::from_axis_angle(Vec3::Y, frac_angle) * start_vertex)
-        .map(move |p| rotation * (p * radius) + center)
+        .map(move |vec3| vec3 * radius)
+        .map(move |vec3| isometry * vec3)
 }
 
 // helper function for getting a default value for the resolution parameter

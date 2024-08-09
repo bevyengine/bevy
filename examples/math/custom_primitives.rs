@@ -218,7 +218,11 @@ fn bounding_shapes_2d(
                 let bounding_circle = HEART.bounding_circle(isometry);
 
                 gizmos
-                    .circle_2d(bounding_circle.center(), bounding_circle.radius(), WHITE)
+                    .circle_2d(
+                        Isometry2d::from_translation(bounding_circle.center()),
+                        bounding_circle.radius(),
+                        WHITE,
+                    )
                     .resolution(64);
             }
         }
@@ -249,8 +253,7 @@ fn bounding_shapes_3d(
 
                 gizmos.primitive_3d(
                     &Cuboid::from_size(Vec3::from(aabb.half_size()) * 2.),
-                    aabb.center().into(),
-                    Quat::IDENTITY,
+                    Isometry3d::from_translation(aabb.center()),
                     WHITE,
                 );
             }
@@ -259,8 +262,7 @@ fn bounding_shapes_3d(
                 let bounding_sphere = EXTRUSION.bounding_sphere(transform.to_isometry());
 
                 gizmos.sphere(
-                    bounding_sphere.center().into(),
-                    Quat::IDENTITY,
+                    Isometry3d::from_translation(bounding_sphere.center()),
                     bounding_sphere.radius(),
                     WHITE,
                 );
