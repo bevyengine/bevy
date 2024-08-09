@@ -82,11 +82,12 @@ fn cull_clusters(
     let previous_world_from_local_scale = max(length(previous_world_from_local[0]), max(length(previous_world_from_local[1]), length(previous_world_from_local[2])));
     let occlusion_culling_bounding_sphere_center = previous_world_from_local * vec4(bounding_spheres.self_culling.center, 1.0);
     let occlusion_culling_bounding_sphere_radius = previous_world_from_local_scale * bounding_spheres.self_culling.radius;
+    let occlusion_culling_bounding_sphere_center_view_space = (previous_view.view_from_world * vec4(occlusion_culling_bounding_sphere_center.xyz, 1.0)).xyz;
 #else
     let occlusion_culling_bounding_sphere_center = culling_bounding_sphere_center;
     let occlusion_culling_bounding_sphere_radius = culling_bounding_sphere_radius;
-#endif
     let occlusion_culling_bounding_sphere_center_view_space = (view.view_from_world * vec4(occlusion_culling_bounding_sphere_center.xyz, 1.0)).xyz;
+#endif
 
     var aabb = project_view_space_sphere_to_screen_space_aabb(occlusion_culling_bounding_sphere_center_view_space, occlusion_culling_bounding_sphere_radius);
     let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
