@@ -55,9 +55,28 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
+    /// Returns the entity that triggered the observer.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the entity is [`Entity::PLACEHOLDER`].
+    /// Use [`Trigger::get_entity`] if you want to handle the case where the entity is a placeholder.
     pub fn entity(&self) -> Entity {
+        if self.trigger.entity == Entity::PLACEHOLDER {
+            panic!(
+                "called `Trigger::entity()` when the target entity was a `Entity::PLACEHOLDER`."
+            );
+        }
         self.trigger.entity
+    }
+
+    /// Returns the entity that triggered the observer, if it's not a placeholder entity.
+    pub fn get_entity(&self) -> Option<Entity> {
+        if self.trigger.entity == Entity::PLACEHOLDER {
+            None
+        } else {
+            Some(self.trigger.entity)
+        }
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
@@ -665,7 +684,7 @@ mod tests {
             .spawn_empty()
             .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
         world.observe(move |obs: Trigger<EventA>, mut res: ResMut<R>| {
-            assert_eq!(obs.entity(), Entity::PLACEHOLDER);
+            assert_eq!(obs.get_entity(), None);
             res.0 += 1;
         });
 
@@ -959,7 +978,11 @@ mod tests {
 
         world.observe(
             |trigger: Trigger<EventPropagating>, query: Query<&A>, mut res: ResMut<R>| {
-                if query.get(trigger.entity()).is_ok() {
+                if trigger
+                    .get_entity()
+                    .map(|entity| query.get(entity).is_ok())
+                    .unwrap_or_default()
+                {
                     res.0 += 1;
                 }
             },
