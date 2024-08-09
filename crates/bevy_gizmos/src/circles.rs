@@ -5,8 +5,8 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::Isometry2d;
-use bevy_math::{Dir3, Quat, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d};
+use bevy_math::{Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
 pub(crate) const DEFAULT_CIRCLE_RESOLUTION: u32 = 32;
@@ -47,15 +47,13 @@ where
     #[inline]
     pub fn ellipse(
         &mut self,
-        position: Vec3,
-        rotation: Quat,
+        isometry: Isometry3d,
         half_size: Vec2,
         color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
-            position,
-            rotation,
+            isometry,
             half_size,
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -121,15 +119,13 @@ where
     #[inline]
     pub fn circle(
         &mut self,
-        position: Vec3,
-        normal: Dir3,
+        isometry: Isometry3d,
         radius: f32,
         color: impl Into<Color>,
     ) -> EllipseBuilder<'_, 'w, 's, Config, Clear> {
         EllipseBuilder {
             gizmos: self,
-            position,
-            rotation: Quat::from_rotation_arc(Vec3::Z, *normal),
+            isometry,
             half_size: Vec2::splat(radius),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
@@ -195,16 +191,14 @@ where
     #[inline]
     pub fn sphere(
         &mut self,
-        position: Vec3,
-        rotation: Quat,
+        isometry: Isometry3d,
         radius: f32,
         color: impl Into<Color>,
     ) -> SphereBuilder<'_, 'w, 's, Config, Clear> {
         SphereBuilder {
             gizmos: self,
             radius,
-            position,
-            rotation: rotation.normalize(),
+            isometry,
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
@@ -218,8 +212,7 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     half_size: Vec2,
     color: Color,
     resolution: u32,
@@ -248,8 +241,7 @@ where
         }
 
         let positions = ellipse_inner(self.half_size, self.resolution)
-            .map(|vec2| self.rotation * vec2.extend(0.))
-            .map(|vec3| vec3 + self.position);
+            .map(|vec2| self.isometry * vec2.extend(0.));
         self.gizmos.linestrip(positions, self.color);
     }
 }
@@ -307,10 +299,7 @@ where
     // Radius of the sphere
     radius: f32,
 
-    // Rotation of the sphere around the origin in 3D space
-    rotation: Quat,
-    // Center position of the sphere in 3D space
-    position: Vec3,
+    isometry: Isometry3d,
     // Color of the sphere
     color: Color,
 
@@ -340,21 +329,12 @@ where
             return;
         }
 
-        let SphereBuilder {
-            radius,
-            position: center,
-            rotation,
-            color,
-            resolution,
-            ..
-        } = self;
-
         // draws one great circle around each of the local axes
         Vec3::AXES.into_iter().for_each(|axis| {
-            let normal = *rotation * axis;
+            let axis_rotation = Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, axis));
             self.gizmos
-                .circle(*center, Dir3::new_unchecked(normal), *radius, *color)
-                .resolution(*resolution);
+                .circle(self.isometry * axis_rotation, self.radius, self.color)
+                .resolution(self.resolution);
         });
     }
 }
