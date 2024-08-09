@@ -326,7 +326,7 @@ fn layout_entries(
     {
         for (entry, binding) in prepass::get_bind_group_layout_entries(layout_key)
             .iter()
-            .zip([23, 24, 25, 26])
+            .zip([23, 24, 25, 26, 27])
         {
             if let Some(entry) = entry {
                 entries = entries.extend_with_indices(((binding as u32, *entry),));
@@ -337,10 +337,10 @@ fn layout_entries(
     // View Transmission Texture
     entries = entries.extend_with_indices((
         (
-            27,
+            28,
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),
-        (28, sampler(SamplerBindingType::Filtering)),
+        (29, sampler(SamplerBindingType::Filtering)),
     ));
 
     entries.to_vec()
@@ -620,7 +620,7 @@ pub fn prepare_mesh_view_bind_groups(
                 for (binding, index) in prepass_bindings
                     .iter()
                     .map(Option::as_ref)
-                    .zip([23, 24, 25, 26])
+                    .zip([23, 24, 25, 26, 27])
                     .flat_map(|(b, i)| b.map(|b| (b, i)))
                 {
                     entries = entries.extend_with_indices(((index, binding),));
@@ -636,7 +636,7 @@ pub fn prepare_mesh_view_bind_groups(
                 .unwrap_or(&fallback_image_zero.sampler);
 
             entries =
-                entries.extend_with_indices(((27, transmission_view), (28, transmission_sampler)));
+                entries.extend_with_indices(((28, transmission_view), (29, transmission_sampler)));
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),

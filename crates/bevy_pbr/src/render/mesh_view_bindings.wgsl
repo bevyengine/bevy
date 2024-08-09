@@ -94,7 +94,8 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 
 #ifdef DEFERRED_PREPASS
 @group(0) @binding(26) var deferred_prepass_texture: texture_2d<u32>;
+@group(0) @binding(27) var deferred_extended_prepass_texture: texture_2d<u32>;
 #endif // DEFERRED_PREPASS
 
-@group(0) @binding(27) var view_transmission_texture: texture_2d<f32>;
-@group(0) @binding(28) var view_transmission_sampler: sampler;
+@group(0) @binding(28) var view_transmission_texture: texture_2d<f32>;
+@group(0) @binding(29) var view_transmission_sampler: sampler;

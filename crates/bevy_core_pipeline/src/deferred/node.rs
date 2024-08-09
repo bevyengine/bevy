@@ -106,6 +106,28 @@ impl ViewNode for DeferredGBufferPrepassNode {
                 }),
         );
 
+        color_attachments.push(view_prepass_textures.deferred_extended.as_ref().map(
+            |deferred_extended_texture| {
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                {
+                    bevy_render::render_resource::RenderPassColorAttachment {
+                        view: &deferred_extended_texture.texture.default_view,
+                        resolve_target: None,
+                        ops: bevy_render::render_resource::Operations {
+                            load: bevy_render::render_resource::LoadOp::Load,
+                            store: StoreOp::Store,
+                        },
+                    }
+                }
+                #[cfg(any(
+                    not(feature = "webgl"),
+                    not(target_arch = "wasm32"),
+                    feature = "webgpu"
+                ))]
+                deferred_extended_texture.get_attachment()
+            },
+        ));
+
         color_attachments.push(
             view_prepass_textures
                 .deferred_lighting_pass_id

@@ -62,8 +62,22 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     return deferred;
 }
 
+// Creates the extended deferred gbuffer from a PbrInput.
+fn deferred_extended_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
+    let packed_lightmap_light32 = rgb9e5::vec3_to_rgb9e5_(in.lightmap_light);
+    let packed_lightmap_light32_l = packed_lightmap_light32 & 0xFFFF;
+    let packed_lightmap_light32_h = packed_lightmap_light32 >> 16u;
+    let deferred_extended = vec4(
+        packed_lightmap_light32_l,
+        packed_lightmap_light32_h,
+        0,
+        0
+    );
+    return deferred_extended;
+}
+
 // Creates a PbrInput from the deferred gbuffer.
-fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) -> PbrInput {
+fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>, gbuffer_extended: vec4<u32>) -> PbrInput {
     var pbr = pbr_input_new();
 
     let flags = deferred_types::unpack_flags(gbuffer.a);
@@ -81,6 +95,13 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
         pbr.material.emissive = vec4(emissive, 1.0);
     }
+
+    // Lightmap decoding
+    let packed_lightmap_light32_l = gbuffer_extended.r;
+    let packed_lightmap_light32_h = gbuffer_extended.g;
+    let packed_lightmap_32 = (packed_lightmap_light32_h << 16u) | packed_lightmap_light32_l;
+    pbr.lightmap_light = rgb9e5::rgb9e5_to_vec3_(packed_lightmap_32);
+
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
@@ -114,6 +135,7 @@ fn deferred_output(in: VertexOutput, pbr_input: PbrInput) -> FragmentOutput {
 
     // gbuffer
     out.deferred = deferred_gbuffer_from_pbr_input(pbr_input);
+    out.deferred_extended = deferred_extended_gbuffer_from_pbr_input(pbr_input);
     // lighting pass id (used to determine which lighting shader to run for the fragment)
     out.deferred_lighting_pass_id = pbr_input.material.deferred_lighting_pass_id;
     // normal if required

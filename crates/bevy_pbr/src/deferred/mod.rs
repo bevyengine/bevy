@@ -1,7 +1,8 @@
 use crate::{
     graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
-    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusionSettings,
-    ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
+    MeshPipeline, MeshViewBindGroup, RenderLightmaps, RenderViewLightProbes,
+    ScreenSpaceAmbientOcclusionSettings, ScreenSpaceReflectionsUniform,
+    ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
     ViewScreenSpaceReflectionsUniformOffset,
 };
 use bevy_app::prelude::*;
@@ -20,11 +21,10 @@ use bevy_render::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
-    render_resource::binding_types::uniform_buffer,
-    render_resource::*,
+    render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
     texture::BevyDefault,
-    view::{ExtractedView, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewTarget, ViewUniformOffset, VisibleEntities, WithMesh},
     Render, RenderApp, RenderSet,
 };
 
@@ -328,6 +328,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
+        if key.contains(MeshPipelineKey::LIGHTMAPPED) {
+            shader_defs.push("LIGHTMAP".into());
+        }
+
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
 
@@ -426,9 +430,11 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
+    render_lightmaps: Res<RenderLightmaps>,
     views: Query<
         (
             Entity,
+            &VisibleEntities,
             &ExtractedView,
             Option<&Tonemapping>,
             Option<&DebandDither>,
@@ -450,6 +456,7 @@ pub fn prepare_deferred_lighting_pipelines(
 ) {
     for (
         entity,
+        visible_entities,
         view,
         tonemapping,
         dither,
@@ -527,6 +534,15 @@ pub fn prepare_deferred_lighting_pipelines(
             }
             ShadowFilteringMethod::Temporal => {
                 view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
+            }
+        }
+
+        for visible_entity in visible_entities.iter::<WithMesh>() {
+            if render_lightmaps
+                .render_lightmaps
+                .contains_key(visible_entity)
+            {
+                view_key |= MeshPipelineKey::LIGHTMAPPED;
             }
         }
 

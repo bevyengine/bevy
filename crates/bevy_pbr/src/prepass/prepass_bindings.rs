@@ -12,8 +12,8 @@ use crate::MeshPipelineViewLayoutKey;
 
 pub fn get_bind_group_layout_entries(
     layout_key: MeshPipelineViewLayoutKey,
-) -> [Option<BindGroupLayoutEntryBuilder>; 4] {
-    let mut entries: [Option<BindGroupLayoutEntryBuilder>; 4] = [None; 4];
+) -> [Option<BindGroupLayoutEntryBuilder>; 5] {
+    let mut entries: [Option<BindGroupLayoutEntryBuilder>; 5] = [None; 5];
 
     let multisampled = layout_key.contains(MeshPipelineViewLayoutKey::MULTISAMPLED);
 
@@ -51,12 +51,13 @@ pub fn get_bind_group_layout_entries(
     if layout_key.contains(MeshPipelineViewLayoutKey::DEFERRED_PREPASS) {
         // Deferred texture
         entries[3] = Some(texture_2d(TextureSampleType::Uint));
+        entries[4] = Some(texture_2d(TextureSampleType::Uint));
     }
 
     entries
 }
 
-pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<TextureView>; 4] {
+pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<TextureView>; 5] {
     let depth_desc = TextureViewDescriptor {
         label: Some("prepass_depth"),
         aspect: TextureAspect::DepthOnly,
@@ -71,5 +72,6 @@ pub fn get_bindings(prepass_textures: Option<&ViewPrepassTextures>) -> [Option<T
         prepass_textures.and_then(|pt| pt.normal_view().cloned()),
         prepass_textures.and_then(|pt| pt.motion_vectors_view().cloned()),
         prepass_textures.and_then(|pt| pt.deferred_view().cloned()),
+        prepass_textures.and_then(|pt| pt.deferred_extended_view().cloned()),
     ]
 }

@@ -99,8 +99,8 @@ use crate::{
     core_3d::main_transmissive_pass_3d_node::MainTransmissivePass3dNode,
     deferred::{
         copy_lighting_id::CopyDeferredLightingIdNode, node::DeferredGBufferPrepassNode,
-        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
-        DEFERRED_PREPASS_FORMAT,
+        AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_EXTENDED_PREPASS_FORMAT,
+        DEFERRED_LIGHTING_PASS_ID_FORMAT, DEFERRED_PREPASS_FORMAT,
     },
     dof::DepthOfFieldNode,
     prepass::{
@@ -819,6 +819,7 @@ pub fn prepare_prepass_textures(
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
     let mut deferred_textures = HashMap::default();
+    let mut deferred_extended_textures = HashMap::default();
     let mut deferred_lighting_id_textures = HashMap::default();
     let mut motion_vectors_textures = HashMap::default();
     for (
@@ -936,6 +937,28 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
+        let cached_deferred_extended_texture = deferred_prepass.then(|| {
+            deferred_extended_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_deferred_extended_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: TextureDimension::D2,
+                            format: DEFERRED_EXTENDED_PREPASS_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                            view_formats: &[],
+                        },
+                    )
+                })
+                .clone()
+        });
+
         let cached_deferred_lighting_pass_id_texture = deferred_prepass.then(|| {
             deferred_lighting_id_textures
                 .entry(camera.target.clone())
@@ -969,6 +992,8 @@ pub fn prepare_prepass_textures(
             motion_vectors: cached_motion_vectors_texture
                 .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             deferred: cached_deferred_texture
+                .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
+            deferred_extended: cached_deferred_extended_texture
                 .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             deferred_lighting_pass_id: cached_deferred_lighting_pass_id_texture
                 .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
