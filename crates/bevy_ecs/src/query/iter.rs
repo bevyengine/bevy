@@ -51,6 +51,63 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
+    /// from an storage.
+    ///
+    ///  - `range` must be in `[0, storage::entity_count)` or None.
+    #[inline]
+    pub(super) unsafe fn fold_over_storage_range<B, Func>(
+        &mut self,
+        mut accum: B,
+        func: &mut Func,
+        storage: StorageId,
+        range: Option<Range<usize>>,
+    ) -> B
+    where
+        Func: FnMut(B, D::Item<'w>) -> B,
+    {
+        if D::IS_DENSE && F::IS_DENSE {
+            // SAFETY: Matched table IDs are guaranteed to still exist.
+            let table = unsafe { self.tables.get(storage.table_id).debug_checked_unwrap() };
+
+            let range = range.unwrap_or(0..table.entity_count());
+            accum =
+                // SAFETY: 
+                // - The fetched table matches both D and F
+                // - The provided range is equivalent to [0, table.entity_count)
+                // - The if block ensures that D::IS_DENSE and F::IS_DENSE are both true
+                unsafe { self.fold_over_table_range(accum,  func, table, range) };
+        } else {
+            let archetype =
+                // SAFETY: Matched archetype IDs are guaranteed to still exist.
+                unsafe { self.archetypes.get(storage.archetype_id).debug_checked_unwrap() };
+            // SAFETY: Matched table IDs are guaranteed to still exist.
+            let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
+
+            let range = range.unwrap_or(0..archetype.len());
+
+            // When an archetype and its table have equal entity counts, dense iteration can be safely used.
+            // this leverages cache locality to optimize performance.
+            if table.entity_count() == archetype.len() {
+                accum =
+                // SAFETY:
+                // - The fetched archetype matches both D and F
+                // - The provided archetype and its' table have the same length.
+                // - The provided range is equivalent to [0, archetype.len)
+                // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
+                unsafe { self.fold_over_dense_archetype_range(accum,  func, archetype,range) };
+            } else {
+                accum =
+                // SAFETY:
+                // - The fetched archetype matches both D and F
+                // - The provided range is equivalent to [0, archetype.len)
+                // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
+                unsafe { self.fold_over_archetype_range(accum,  func, archetype,range) };
+            }
+        }
+        accum
+    }
+
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
     /// from an table.
     ///
     /// # Safety
@@ -951,41 +1008,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             accum = func(accum, item);
         }
         for id in self.cursor.storage_id_iter.clone() {
-            if D::IS_DENSE && F::IS_DENSE {
-                // SAFETY: Matched table IDs are guaranteed to still exist.
-                let table = unsafe { self.tables.get(id.table_id).debug_checked_unwrap() };
-                accum =
-                    // SAFETY: 
-                    // - The fetched table matches both D and F
-                    // - The provided range is equivalent to [0, table.entity_count)
-                    // - The if block ensures that D::IS_DENSE and F::IS_DENSE are both true
-                    unsafe { self.fold_over_table_range(accum, &mut func, table, 0..table.entity_count()) };
-            } else {
-                let archetype =
-                    // SAFETY: Matched archetype IDs are guaranteed to still exist.
-                    unsafe { self.archetypes.get(id.archetype_id).debug_checked_unwrap() };
-                // SAFETY: Matched table IDs are guaranteed to still exist.
-                let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
-
-                // When an archetype and its table have equal entity counts, dense iteration can be safely used.
-                // this leverages cache locality to optimize performance.
-                if table.entity_count() == archetype.len() {
-                    accum =
-                    // SAFETY:
-                    // - The fetched archetype matches both D and F
-                    // - The provided archetype and its' table have the same length.
-                    // - The provided range is equivalent to [0, archetype.len)
-                    // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
-                    unsafe { self.fold_over_dense_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
-                } else {
-                    accum =
-                    // SAFETY:
-                    // - The fetched archetype matches both D and F
-                    // - The provided range is equivalent to [0, archetype.len)
-                    // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
-                    unsafe { self.fold_over_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
-                }
-            }
+            // SAFETY:
+            // - The provided range(None) is equivalent to [0, storage.entity_count)
+            accum = unsafe { self.fold_over_storage_range(accum, &mut func, *id, None) };
         }
         accum
     }
