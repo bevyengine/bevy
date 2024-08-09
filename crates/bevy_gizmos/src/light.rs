@@ -106,8 +106,7 @@ fn spot_light_gizmo(
             .arc_3d(
                 2.0 * spot_light.outer_angle,
                 spot_light.range,
-                translation,
-                rotation * arc_rotation,
+                Isometry3d::new(translation, rotation * arc_rotation),
                 color,
             )
             .resolution(16);
