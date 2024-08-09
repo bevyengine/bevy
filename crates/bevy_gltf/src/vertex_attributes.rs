@@ -272,7 +272,7 @@ pub(crate) fn convert_attribute(
         }
         gltf::Semantic::Extras(name) => custom_vertex_attributes
             .get(name.as_str())
-            .map(|attr| (attr.clone(), ConversionMode::Any)),
+            .map(|attr| (*attr, ConversionMode::Any)),
         _ => None,
     } {
         let raw_iter = VertexAttributeIter::from_accessor(accessor.clone(), buffer_data);
