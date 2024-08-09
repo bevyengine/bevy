@@ -160,33 +160,31 @@ where
         // draws the normal
         self.gizmos
             .primitive_3d(&self.normal, self.isometry, self.color);
-        let normals_normal = self.normal.any_orthonormal_vector();
 
         // draws the axes
         // get rotation for each direction
+        let normals_normal = self.normal.any_orthonormal_vector();
         (0..self.axis_count)
             .map(|i| i as f32 * (1.0 / self.axis_count as f32) * TAU)
             .map(|angle| Quat::from_axis_angle(self.normal.as_vec3(), angle))
-            .for_each(|quat| {
-                let axis_direction = quat * normals_normal;
-                let direction = Dir3::new_unchecked(axis_direction);
-
+            .flat_map(|quat| {
+                let segment_length = self.segment_length;
+                let isometry = self.isometry;
                 // for each axis draw dotted line
                 (0..)
                     .filter(|i| i % 2 != 0)
-                    .map(|percent| (percent as f32 + 0.5) * self.segment_length * axis_direction)
-                    .map(|position| self.isometry * position)
                     .take(self.segment_count as usize)
-                    .for_each(|position| {
-                        self.gizmos.primitive_3d(
-                            &Segment3d {
-                                direction,
-                                half_length: self.segment_length * 0.5,
-                            },
-                            Isometry3d::from_translation(position),
-                            self.color,
-                        );
-                    });
+                    .map(|i| [i, i + 1])
+                    .map(move |percents| {
+                        percents
+                            .map(|percent| percent as f32 + 0.5)
+                            .map(|percent| percent * segment_length * normals_normal)
+                            .map(|vec3| quat * vec3)
+                            .map(|vec3| isometry * vec3)
+                    })
+            })
+            .for_each(|[start, end]| {
+                self.gizmos.line(start, end, self.color);
             });
     }
 }
@@ -533,24 +531,18 @@ where
             return;
         }
 
-        let body_height = (self.half_length - self.radius).max(0.0);
-
         let [upper_apex, lower_apex] = [-1.0, 1.0]
-            .map(|sign| Isometry3d::from_translation(Vec3::Y * sign * self.half_length))
-            .map(|translation_iso| (translation_iso * self.isometry) * Vec3::ZERO);
-        let [upper_center, lower_center] = (body_height != 0.0)
-            .then(|| {
-                [-1.0, 1.0]
-                    .map(|sign| Isometry3d::from_translation(Vec3::Y * sign * body_height))
-                    .map(|translation_iso| (translation_iso * self.isometry) * Vec3::ZERO)
-            })
-            .unwrap_or([Vec3::ZERO; 2]);
-
+            .map(|sign| Vec3::Y * sign * (self.half_length + self.radius))
+            .map(|vec3| self.isometry * vec3);
+        let [upper_center, lower_center] = [-1.0, 1.0]
+            .map(|sign| Vec3::Y * sign * self.half_length)
+            .map(|vec3| self.isometry * vec3);
         let [upper_points, lower_points] = [-1.0, 1.0]
-            .map(|sign| Isometry3d::from_translation(Vec3::Y * sign * body_height))
-            .map(|translation_iso| {
+            .map(|sign| Vec3::Y * sign * self.half_length)
+            .map(|vec3| {
                 circle_coordinates_closed(self.radius, self.resolution)
-                    .map(|vec2| (translation_iso * self.isometry) * Vec3::new(vec2.x, 0.0, vec2.y))
+                    .map(|vec2| Vec3::new(vec2.x, 0.0, vec2.y) + vec3)
+                    .map(|vec3| self.isometry * vec3)
                     .collect::<Vec<_>>()
             });
 
@@ -563,19 +555,16 @@ where
                 .short_arc_3d_between(lower_center, start, lower_apex, self.color);
         });
 
-        // don't draw a body of height 0.0
-        if body_height != 0.0 {
-            let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
-            let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
-            upper_lines.chain(lower_lines).for_each(|(start, end)| {
-                self.gizmos.line(start, end, self.color);
-            });
+        let upper_lines = upper_points.windows(2).map(|win| (win[0], win[1]));
+        let lower_lines = lower_points.windows(2).map(|win| (win[0], win[1]));
+        upper_lines.chain(lower_lines).for_each(|(start, end)| {
+            self.gizmos.line(start, end, self.color);
+        });
 
-            let connection_lines = upper_points.into_iter().zip(lower_points).skip(1);
-            connection_lines.for_each(|(start, end)| {
-                self.gizmos.line(start, end, self.color);
-            });
-        }
+        let connection_lines = upper_points.into_iter().zip(lower_points).skip(1);
+        connection_lines.for_each(|(start, end)| {
+            self.gizmos.line(start, end, self.color);
+        });
     }
 }
 
@@ -672,12 +661,14 @@ where
         }
 
         let half_height = self.height * 0.5;
-        let apex = self.isometry * Vec3::Y * half_height;
-        let circle_iso = Isometry3d::from_translation(-half_height * Vec3::Y);
+        let apex = self.isometry * (Vec3::Y * half_height);
+        let circle_center = half_height * Vec3::NEG_Y;
         let circle_coords = circle_coordinates_closed(self.radius, self.height_resolution)
-            .map(|vec2| (circle_iso * self.isometry) * vec2.extend(0.0))
+            .map(|vec2| Vec3::new(vec2.x, 0.0, vec2.y) + circle_center)
+            .map(|vec3| self.isometry * vec3)
             .collect::<Vec<_>>();
 
+        // connections to apex
         circle_coords
             .iter()
             .skip(1)
@@ -685,6 +676,8 @@ where
             .for_each(|(start, end)| {
                 self.gizmos.line(start, end, self.color);
             });
+
+        // base circle
         circle_coords
             .windows(2)
             .map(|win| (win[0], win[1]))
@@ -769,9 +762,10 @@ where
         let half_height = self.height * 0.5;
         let [upper_points, lower_points] = [(-1.0, self.radius_bottom), (1.0, self.radius_top)]
             .map(|(sign, radius)| {
-                let translation_iso = Isometry3d::from_translation(Vec3::Y * sign * half_height);
+                let translation = Vec3::Y * sign * half_height;
                 circle_coordinates_closed(radius, self.resolution)
-                    .map(|vec2| (translation_iso * self.isometry) * Vec3::new(vec2.x, 0.0, vec2.y))
+                    .map(|vec2| Vec3::new(vec2.x, 0.0, vec2.y) + translation)
+                    .map(|vec3| self.isometry * vec3)
                     .collect::<Vec<_>>()
             });
 
@@ -866,7 +860,6 @@ where
             return;
         }
 
-        let center = self.isometry * Vec3::ZERO;
         // draw 4 circles with major_radius
         let [inner, outer, top, bottom] = [
             (self.major_radius - self.minor_radius, 0.0),
@@ -875,9 +868,10 @@ where
             (self.major_radius, -self.minor_radius),
         ]
         .map(|(radius, height)| {
-            let transformation_iso = Isometry3d::from_translation(height * Vec3::Y);
+            let translation = height * Vec3::Y;
             circle_coordinates_closed(radius, self.major_resolution)
-                .map(|vec2| (transformation_iso * self.isometry) * vec2.extend(0.0))
+                .map(|vec2| Vec3::new(vec2.x, 0.0, vec2.y) + translation)
+                .map(|vec3| self.isometry * vec3)
                 .collect::<Vec<_>>()
         });
 
@@ -894,9 +888,11 @@ where
             .zip(outer)
             .zip(bottom)
             .flat_map(|(((inner, top), outer), bottom)| {
+                let center = (inner + top + outer + bottom) * 0.25;
                 [(inner, top), (top, outer), (outer, bottom), (bottom, inner)]
+                    .map(|(start, end)| (start, end, center))
             })
-            .for_each(|(from, to)| {
+            .for_each(|(from, to, center)| {
                 self.gizmos
                     .short_arc_3d_between(center, from, to, self.color)
                     .resolution(self.minor_resolution);
