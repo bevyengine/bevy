@@ -29,8 +29,6 @@ impl PickingPluginsSettings {
     pub fn input_should_run(state: Res<Self>) -> bool {
         state.is_input_enabled && state.is_enabled
     }
-    // TODO: remove this allow after focus/hover is implemented in bevy_picking
-    #[allow(rustdoc::broken_intra_doc_links)]
     /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
     /// component should be running.
     pub fn focus_should_run(state: Res<Self>) -> bool {
@@ -75,11 +73,7 @@ pub struct Pickable {
     ///
     /// Entities without the [`Pickable`] component will block by default.
     pub should_block_lower: bool,
-    // TODO: remove this allow after focus/hover is implemented in bevy_picking
-    #[allow(rustdoc::broken_intra_doc_links)]
-    /// Should this entity be added to the [`HoverMap`](focus::HoverMap) and thus emit events when
-    /// targeted?
-    ///
+
     /// If this is set to `false` and `should_block_lower` is set to true, this entity will block
     /// lower entities from being interacted and at the same time will itself not emit any events.
     ///
