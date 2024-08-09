@@ -2,9 +2,11 @@
 
 mod entity_observer;
 mod runner;
+mod set;
 mod trigger_event;
 
 pub use runner::*;
+pub use set::*;
 pub use trigger_event::*;
 
 use crate::observer::entity_observer::ObservedBy;
@@ -17,16 +19,16 @@ use std::marker::PhantomData;
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
-pub struct Trigger<'w, E, B: Bundle = ()> {
-    event: &'w mut E,
+pub struct Trigger<'w, E: EventSet, B: Bundle = ()> {
+    event: E::Item<'w>,
     propagate: &'w mut bool,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
-impl<'w, E, B: Bundle> Trigger<'w, E, B> {
+impl<'w, E: EventSet, B: Bundle> Trigger<'w, E, B> {
     /// Creates a new trigger for the given event and observer information.
-    pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
+    pub fn new(event: E::Item<'w>, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
             event,
             propagate,
@@ -41,18 +43,18 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns a reference to the triggered event.
-    pub fn event(&self) -> &E {
-        self.event
+    pub fn event(&self) -> E::ReadOnlyItem<'_> {
+        E::shrink_readonly(&self.event)
     }
 
     /// Returns a mutable reference to the triggered event.
-    pub fn event_mut(&mut self) -> &mut E {
-        self.event
+    pub fn event_mut(&mut self) -> E::Item<'_> {
+        E::shrink(&mut self.event)
     }
 
     /// Returns a pointer to the triggered event.
     pub fn event_ptr(&self) -> Ptr {
-        Ptr::from(&self.event)
+        E::shrink_ptr(&self.event)
     }
 
     /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
@@ -304,7 +306,7 @@ impl Observers {
 
 impl World {
     /// Spawns a "global" [`Observer`] and returns its [`Entity`].
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EventSet, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
@@ -433,7 +435,7 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace, Or2,
     };
     use crate::prelude::*;
     use crate::traversal::Traversal;
@@ -602,6 +604,27 @@ mod tests {
 
     #[test]
     fn observer_multiple_events() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        #[derive(Event)]
+        struct Foo(i32);
+        #[derive(Event)]
+        struct Bar(bool);
+        world.observe(|t: Trigger<(Foo, Bar)>, mut res: ResMut<R>| {
+            res.0 += 1;
+            match t.event() {
+                Or2::A(Foo(v)) => assert_eq!(5, *v),
+                Or2::B(Bar(v)) => assert_eq!(true, *v),
+            }
+        });
+        world.flush(); // TODO: should we auto-flush after observe?
+        world.trigger(Foo(5));
+        world.trigger(Bar(true));
+        assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_multiple_events_unsafe() {
         let mut world = World::new();
         world.init_resource::<R>();
         let on_remove = world.init_component::<OnRemove>();

@@ -9,7 +9,7 @@ use crate::{
     component::{ComponentId, ComponentInfo},
     entity::{Entities, Entity},
     event::Event,
-    observer::{Observer, TriggerEvent, TriggerTargets},
+    observer::{EventSet, Observer, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
     world::{
         command_queue::RawCommandQueue, Command, CommandQueue, EntityWorldMut, FromWorld,
@@ -778,7 +778,7 @@ impl<'w, 's> Commands<'w, 's> {
     }
 
     /// Spawn an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.  
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EventSet, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
@@ -1211,7 +1211,7 @@ impl EntityCommands<'_> {
     }
 
     /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EventSet, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
@@ -1443,7 +1443,7 @@ fn log_components(entity: Entity, world: &mut World) {
     info!("Entity {entity}: {debug_infos:?}");
 }
 
-fn observe<E: Event, B: Bundle, M>(
+fn observe<E: EventSet, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
     move |entity, world: &mut World| {
