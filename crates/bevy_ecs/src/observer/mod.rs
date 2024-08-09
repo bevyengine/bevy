@@ -703,6 +703,58 @@ mod tests {
     }
 
     #[test]
+    fn observer_multiple_targets() {
+        let mut world = World::new();
+        let component_a = world.init_component::<A>();
+        let component_b = world.init_component::<B>();
+        world.init_resource::<R>();
+
+        // targets (entity_1, A)
+        let entity_1 = world
+            .spawn_empty()
+            .observe(|_: Trigger<EventA, A>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+        // targets (entity_2, B)
+        let entity_2 = world
+            .spawn_empty()
+            .observe(|_: Trigger<EventA, B>, mut res: ResMut<R>| res.0 += 10)
+            .id();
+        // targets any entity or component
+        world.observe(|_: Trigger<EventA>, mut res: ResMut<R>| res.0 += 100);
+        // targets any entity, and components A or B
+        world.observe(|_: Trigger<EventA, (A, B)>, mut res: ResMut<R>| res.0 += 1000);
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+
+        // trigger for an entity and a component
+        world.trigger_targets(EventA, (entity_1, component_a));
+        world.flush();
+        assert_eq!(1101, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both entities, but no components: trigger once per entity target
+        world.trigger_targets(EventA, (entity_1, entity_2));
+        world.flush();
+        assert_eq!(200, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both components, but no entities: trigger once
+        world.trigger_targets(EventA, (component_a, component_b));
+        world.flush();
+        assert_eq!(1100, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+
+        // trigger for both entities and both components: trigger once per entity target
+        // we only get 2211 and not 4211 because a given observer can trigger only once per entity target
+        world.trigger_targets(EventA, ((component_a, component_b), (entity_1, entity_2)));
+        world.flush();
+        assert_eq!(2211, world.resource::<R>().0);
+        world.resource_mut::<R>().0 = 0;
+    }
+
+    #[test]
     fn observer_dynamic_component() {
         let mut world = World::new();
         world.init_resource::<R>();
