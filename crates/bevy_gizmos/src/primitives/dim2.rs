@@ -460,7 +460,7 @@ where
             .map(|sign| sign * INFINITE_LEN)
             // offset the line from the origin infinitely into the given direction
             .map(|length| self.direction * length)
-            // translate the line to the given position
+            // transform the line with the given isometry
             .map(|offset| self.isometry * offset);
 
         self.gizmos.line_2d(start, end, self.color);
@@ -538,8 +538,8 @@ where
     direction: Dir2,  // Direction of the line segment
     half_length: f32, // Half-length of the line segment
 
-    isometry: Isometry2d,
-    color: Color, // color of the line segment
+    isometry: Isometry2d, // isometric transformation of the line segment
+    color: Color,         // color of the line segment
 
     draw_arrow: bool, // decides whether to draw just a line or an arrow
 }
