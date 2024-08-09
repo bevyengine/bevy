@@ -1,15 +1,16 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use bevy_utils::HashMap;
-use futures_io::{AsyncRead, AsyncSeek};
+use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
-use std::io::SeekFrom;
 use std::{
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
     task::Poll,
 };
+
+use super::AsyncSeekForward;
 
 #[derive(Default, Debug)]
 struct DirInternal {
@@ -237,37 +238,20 @@ impl AsyncRead for DataReader {
     }
 }
 
-impl AsyncSeek for DataReader {
-    fn poll_seek(
+impl AsyncSeekForward for DataReader {
+    fn poll_seek_forward(
         mut self: Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
-        pos: SeekFrom,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
-        let result = match pos {
-            SeekFrom::Start(offset) => offset.try_into(),
-            SeekFrom::End(offset) => self
-                .data
-                .value()
-                .len()
-                .try_into()
-                .map(|len: i64| len - offset),
-            SeekFrom::Current(offset) => self
-                .bytes_read
-                .try_into()
-                .map(|bytes_read: i64| bytes_read + offset),
-        };
+        let result = self
+            .bytes_read
+            .try_into()
+            .map(|bytes_read: u64| bytes_read + offset);
 
         if let Ok(new_pos) = result {
-            if new_pos < 0 {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "seek position is out of range",
-                )))
-            } else {
-                self.bytes_read = new_pos as _;
-
-                Poll::Ready(Ok(new_pos as _))
-            }
+            self.bytes_read = new_pos as _;
+            Poll::Ready(Ok(new_pos as _))
         } else {
             Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
