@@ -55,6 +55,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -247,7 +248,6 @@ pub fn extract_core_2d_camera_phases(
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     cameras_2d: Extract<Query<(&RenderEntity, &Camera), With<Camera2d>>>,
     mut opaque_2d_phases: ResMut<ViewSortedRenderPhases<Opaque2d>>,
-    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
