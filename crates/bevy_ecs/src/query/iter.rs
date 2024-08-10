@@ -50,6 +50,35 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
+    /// Reborrows this iterator, creating a new iterator that will yield the same items but
+    /// won't advance the original iterator, thus later allowing to restart the iteration from
+    /// the current point. The original iterator will be unusable while the new one exists.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # #derive(Component)
+    /// # struct ComponentA;
+    ///
+    /// fn combinations(mut query: Query<&mut ComponentA>) {
+    ///     let mut iter = query.iter_mut();
+    ///     while let Some(a) = iter.next() {
+    ///         for b in iter.reborrow() {
+    ///             // Check every combination (a, b)
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn reborrow(&mut self) -> QueryIter<'_, 's, D, F> {
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            query_state: self.query_state,
+            cursor: self.cursor.reborrow(),
+        }
+    }
+
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
     /// from an table.
     ///
@@ -1653,6 +1682,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             storage_id_iter: query_state.matched_storage_ids.iter(),
             current_len: 0,
             current_row: 0,
+        }
+    }
+
+    fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
+        QueryIterationCursor {
+            fetch: D::shrink_fetch(self.fetch.clone()),
+            filter: F::shrink_fetch(self.filter.clone()),
+            table_entities: self.table_entities,
+            archetype_entities: self.archetype_entities,
+            storage_id_iter: self.storage_id_iter.clone(),
+            current_len: self.current_len,
+            current_row: self.current_row,
         }
     }
 
