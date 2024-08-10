@@ -1033,6 +1033,9 @@ mod tests {
         world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(3, world.resource::<R>().0);
+        world.trigger_targets(Foo, parent);
+        world.flush();
+        assert_eq!(4, world.resource::<R>().0);
     }
 
     #[test]
