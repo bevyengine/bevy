@@ -239,15 +239,8 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Up>>()
             .add_event::<Pointer<Move>>()
             .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Click>>()
             .add_event::<Pointer<Out>>()
-            .add_event::<Pointer<Drag>>()
-            .add_event::<Pointer<DragStart>>()
-            .add_event::<Pointer<DragEnter>>()
-            .add_event::<Pointer<DragOver>>()
-            .add_event::<Pointer<DragLeave>>()
             .add_event::<Pointer<DragEnd>>()
-            .add_event::<Pointer<Drop>>()
             .add_systems(
                 PreUpdate,
                 (

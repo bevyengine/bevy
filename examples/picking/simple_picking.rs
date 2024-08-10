@@ -6,7 +6,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, click_event)
         .run();
 }
 
@@ -86,36 +85,4 @@ fn setup(
         transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-}
-
-fn click_event(
-    mut eventreader: EventReader<Pointer<Move>>,
-    mut pointer_move: EventReader<Pointer<Move>>,
-    mut pointer_over: EventReader<Pointer<Over>>,
-    mut pointer_out: EventReader<Pointer<Out>>,
-    mut pointer_up: EventReader<Pointer<Up>>,
-    mut pointer_click: EventReader<Pointer<Click>>,
-    mut pointer_down: EventReader<Pointer<Down>>,
-) {
-    for ev in pointer_click.read() {
-        println!("click eventreader: {ev:?}");
-    }
-    // for ev in eventreader.read() {
-    //     println!("{ev:?}");
-    // }
-    // for ev in pointer_move.read() {
-    //     println!("{ev:?}");
-    // }
-    // for ev in pointer_over.read() {
-    //     println!("{ev:?}");
-    // }
-    // for ev in pointer_out.read() {
-    //     println!("{ev:?}");
-    // }
-    // for ev in pointer_up.read() {
-    //     println!("{ev:?}");
-    // }
-    // for ev in pointer_down.read() {
-    //     println!("{ev:?}");
-    // }
 }

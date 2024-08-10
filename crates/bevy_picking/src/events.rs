@@ -368,6 +368,9 @@ pub struct DragEntry {
 #[allow(clippy::too_many_arguments)]
 pub fn send_click_and_drag_events(
     // for triggering observers
+    //  - Pointer<Click>
+    //  - Pointer<Drag>
+    //  - Pointer<DragStart>
     mut commands: Commands,
     // Input
     mut pointer_down: EventReader<Pointer<Down>>,
@@ -380,12 +383,9 @@ pub fn send_click_and_drag_events(
     mut down_map: Local<
         HashMap<(PointerId, PointerButton), HashMap<Entity, (Pointer<Down>, Instant)>>,
     >,
-    // Output
+    // Outputs used for further processing
     mut drag_map: ResMut<DragMap>,
-    mut pointer_click: EventWriter<Pointer<Click>>,
-    mut pointer_drag_start: EventWriter<Pointer<DragStart>>,
     mut pointer_drag_end: EventWriter<Pointer<DragEnd>>,
-    mut pointer_drag: EventWriter<Pointer<Drag>>,
 ) {
     let pointer_location = |pointer_id: PointerId| {
         pointer_map
@@ -428,7 +428,6 @@ pub fn send_click_and_drag_events(
                     },
                 );
                 commands.trigger_targets(event.clone(), event.target);
-                pointer_drag_start.send(event);
             }
 
             for (dragged_entity, drag) in drag_list.iter_mut() {
@@ -440,7 +439,6 @@ pub fn send_click_and_drag_events(
                 drag.latest_pos = location.position;
                 let event = Pointer::new(pointer_id, location.clone(), *dragged_entity, drag_event);
                 commands.trigger_targets(event.clone(), event.target);
-                pointer_drag.send(event);
             }
         }
     }
@@ -471,7 +469,6 @@ pub fn send_click_and_drag_events(
                 },
             );
             commands.trigger_targets(event.clone(), event.target);
-            pointer_click.send(event);
         }
     }
 
@@ -515,6 +512,11 @@ pub fn send_click_and_drag_events(
 /// Uses pointer events to determine when drag-over events occur
 #[allow(clippy::too_many_arguments)]
 pub fn send_drag_over_events(
+    // uses this to trigger the following
+    //  - Pointer<DragEnter>,
+    //  - Pointer<DragOver>,
+    //  - Pointer<DragLeave>,
+    //  - Pointer<Drop>,
     mut commands: Commands,
     // Input
     drag_map: Res<DragMap>,
@@ -524,12 +526,6 @@ pub fn send_drag_over_events(
     mut pointer_drag_end: EventReader<Pointer<DragEnd>>,
     // Local
     mut drag_over_map: Local<HashMap<(PointerId, PointerButton), HashMap<Entity, HitData>>>,
-
-    // Output
-    mut pointer_drag_enter: EventWriter<Pointer<DragEnter>>,
-    mut pointer_drag_over: EventWriter<Pointer<DragOver>>,
-    mut pointer_drag_leave: EventWriter<Pointer<DragLeave>>,
-    mut pointer_drop: EventWriter<Pointer<Drop>>,
 ) {
     // Fire PointerDragEnter events.
     for Pointer {
@@ -561,7 +557,6 @@ pub fn send_drag_over_events(
                     },
                 );
                 commands.trigger_targets(event.clone(), event.target);
-                pointer_drag_enter.send(event);
             }
         }
     }
@@ -594,7 +589,6 @@ pub fn send_drag_over_events(
                     },
                 );
                 commands.trigger_targets(event.clone(), event.target);
-                pointer_drag_over.send(event);
             }
         }
     }
@@ -625,7 +619,6 @@ pub fn send_drag_over_events(
                 },
             );
             commands.trigger_targets(event.clone(), event.target);
-            pointer_drag_leave.send(event);
 
             let event = Pointer::new(
                 pointer_id,
@@ -638,7 +631,6 @@ pub fn send_drag_over_events(
                 },
             );
             commands.trigger_targets(event.clone(), event.target);
-            pointer_drop.send(event);
         }
     }
 
@@ -672,7 +664,6 @@ pub fn send_drag_over_events(
                     },
                 );
                 commands.trigger_targets(event.clone(), event.target);
-                pointer_drag_leave.send(event);
             }
         }
     }
