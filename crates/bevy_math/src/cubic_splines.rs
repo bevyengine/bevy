@@ -2,7 +2,7 @@
 
 use std::{fmt::Debug, iter::once};
 
-use crate::{Vec2, VectorSpace};
+use crate::{ops::FloatPow, Vec2, VectorSpace};
 
 use itertools::Itertools;
 use thiserror::Error;
@@ -731,12 +731,12 @@ impl<P: VectorSpace> CubicNurbs<P> {
         // t[5] := t_i+2
         // t[6] := t_i+3
 
-        let m00 = (t[4] - t[3]).powi(2) / ((t[4] - t[2]) * (t[4] - t[1]));
-        let m02 = (t[3] - t[2]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m00 = (t[4] - t[3]).squared() / ((t[4] - t[2]) * (t[4] - t[1]));
+        let m02 = (t[3] - t[2]).squared() / ((t[5] - t[2]) * (t[4] - t[2]));
         let m12 = (3.0 * (t[4] - t[3]) * (t[3] - t[2])) / ((t[5] - t[2]) * (t[4] - t[2]));
-        let m22 = 3.0 * (t[4] - t[3]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
-        let m33 = (t[4] - t[3]).powi(2) / ((t[6] - t[3]) * (t[5] - t[3]));
-        let m32 = -m22 / 3.0 - m33 - (t[4] - t[3]).powi(2) / ((t[5] - t[3]) * (t[5] - t[2]));
+        let m22 = 3.0 * (t[4] - t[3]).squared() / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m33 = (t[4] - t[3]).squared() / ((t[6] - t[3]) * (t[5] - t[3]));
+        let m32 = -m22 / 3.0 - m33 - (t[4] - t[3]).squared() / ((t[5] - t[3]) * (t[5] - t[2]));
         [
             [m00, 1.0 - m00 - m02, m02, 0.0],
             [-3.0 * m00, 3.0 * m00 - m12, m12, 0.0],
@@ -1254,7 +1254,7 @@ impl<P: VectorSpace> RationalSegment<P> {
         // Position = N/D therefore
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         numerator_derivative / denominator
-            - numerator * (denominator_derivative / denominator.powi(2))
+            - numerator * (denominator_derivative / denominator.squared())
     }
 
     /// Instantaneous acceleration of a point at parametric value `t` in `[0, knot_span)`.
@@ -1288,10 +1288,10 @@ impl<P: VectorSpace> RationalSegment<P> {
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         // Acceleration = (N/D)'' = ((N' * D - N * D')/D^2)' = N''/D + N' * (-2D'/D^2) + N * (-D''/D^2 + 2D'^2/D^3)
         numerator_second_derivative / denominator
-            + numerator_derivative * (-2.0 * denominator_derivative / denominator.powi(2))
+            + numerator_derivative * (-2.0 * denominator_derivative / denominator.squared())
             + numerator
-                * (-denominator_second_derivative / denominator.powi(2)
-                    + 2.0 * denominator_derivative.powi(2) / denominator.powi(3))
+                * (-denominator_second_derivative / denominator.squared()
+                    + 2.0 * denominator_derivative.squared() / denominator.cubed())
     }
 
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
