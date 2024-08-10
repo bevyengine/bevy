@@ -6,14 +6,9 @@ fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
 
-    // Enable ambiguity warnings for the Update schedule
-    app.edit_schedule(PreUpdate, |schedule| {
-        schedule.set_build_settings(bevy::ecs::schedule::ScheduleBuildSettings {
-            ambiguity_detection: bevy::ecs::schedule::LogLevel::Warn,
-            ..default()
-        });
-    });
-    app.add_systems(Startup, setup).run();
+    app.add_systems(Startup, setup);
+
+    app.run();
 }
 
 /// set up a simple 3D scene
