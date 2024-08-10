@@ -82,7 +82,7 @@ unsafe impl<E: Event> EventSet for E {
     }
 }
 
-// SAFETY: Inherits the safety of the inner event type.
+// SAFETY: Forwards to the inner event type, and inherits its safety properties.
 unsafe impl<A: EventSet> EventSet for (A,) {
     type Item<'trigger> = A::Item<'trigger>;
     type ReadOnlyItem<'trigger> = A::ReadOnlyItem<'trigger>;
@@ -201,6 +201,111 @@ impl_event_set!(
     (G, g),
     (H, h)
 );
+impl_event_set!(
+    Or9,
+    (A, a),
+    (B, b),
+    (C, c),
+    (D, d),
+    (E, e),
+    (F, f),
+    (G, g),
+    (H, h),
+    (I, i)
+);
+impl_event_set!(
+    Or10,
+    (A, a),
+    (B, b),
+    (C, c),
+    (D, d),
+    (E, e),
+    (F, f),
+    (G, g),
+    (H, h),
+    (I, i),
+    (J, j)
+);
+impl_event_set!(
+    Or11,
+    (A, a),
+    (B, b),
+    (C, c),
+    (D, d),
+    (E, e),
+    (F, f),
+    (G, g),
+    (H, h),
+    (I, i),
+    (J, j),
+    (K, k)
+);
+impl_event_set!(
+    Or12,
+    (A, a),
+    (B, b),
+    (C, c),
+    (D, d),
+    (E, e),
+    (F, f),
+    (G, g),
+    (H, h),
+    (I, i),
+    (J, j),
+    (K, k),
+    (L, l)
+);
+impl_event_set!(
+    Or13,
+    (A, a),
+    (B, b),
+    (C, c),
+    (D, d),
+    (E, e),
+    (F, f),
+    (G, g),
+    (H, h),
+    (I, i),
+    (J, j),
+    (K, k),
+    (L, l),
+    (M, m)
+);
+impl_event_set!(
+    Or14,
+    (A, a),
+    (B, b),
+    (C, c),
+    (D, d),
+    (E, e),
+    (F, f),
+    (G, g),
+    (H, h),
+    (I, i),
+    (J, j),
+    (K, k),
+    (L, l),
+    (M, m),
+    (N, n)
+);
+impl_event_set!(
+    Or15,
+    (A, a),
+    (B, b),
+    (C, c),
+    (D, d),
+    (E, e),
+    (F, f),
+    (G, g),
+    (H, h),
+    (I, i),
+    (J, j),
+    (K, k),
+    (L, l),
+    (M, m),
+    (N, n),
+    (O, o)
+);
 
 /// A wrapper around an [`EventSet`] that foregoes safety checks and casting, and passes the pointer as is.
 pub struct UntypedEvent<E = ()>(std::marker::PhantomData<E>);
@@ -238,7 +343,7 @@ unsafe impl<E: EventSet> EventSet for UntypedEvent<E> {
     }
 }
 
-/// An [`EventSet`] that matches any event type.
+/// An [`EventSet`] that matches any event type, but does not cast the pointer.
 // SAFETY: Performs no unsafe operations, returns the pointer as is.
 unsafe impl EventSet for UntypedEvent<()> {
     type Item<'trigger> = PtrMut<'trigger>;
