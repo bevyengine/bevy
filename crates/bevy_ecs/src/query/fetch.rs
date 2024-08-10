@@ -301,9 +301,7 @@ unsafe impl WorldQuery for Entity {
         item
     }
 
-    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-        fetch
-    }
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
     unsafe fn init_fetch<'w>(
         _world: UnsafeWorldCell<'w>,
