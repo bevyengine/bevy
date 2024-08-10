@@ -126,7 +126,7 @@ macro_rules! impl_event_set {
         }
 
         // SAFETY: All event types have a component id registered in `init_components`,
-        // and `cast` calls `matches` before casting the pointer to one of the event types.
+        // and `unchecked_cast` calls `matches` before casting to one of the inner event sets.
         unsafe impl<$($P: EventSet),*> EventSet for ($($P,)*) {
             type Item<'trigger> = $Or<$($P::Item<'trigger>),*>;
             type ReadOnlyItem<'trigger> = $Or<$($P::ReadOnlyItem<'trigger>),*>;
