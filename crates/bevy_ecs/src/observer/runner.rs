@@ -407,7 +407,14 @@ fn observer_system_runner<E: EventSet, B: Bundle>(
         // This branch is only ever hit if the user called Observer::with_event_unchecked with a component ID not matching the event set E,
         // EXCEPT when the event set is a singular event type, in which case the event will always match.
         // This is a user error and should be logged.
-        bevy_utils::tracing::error!("Observer was triggered with an event that does not match the event set. Did you call Observer::with_event_unchecked with the wrong ID? Id: {:?} Set: {:?}", observer_trigger.event_type, std::any::type_name::<E>());
+        bevy_utils::tracing::error!(
+            "Observer was triggered with an event that does not match the event set. \
+             Did you call Observer::with_event_unchecked with the wrong ID? \
+             Observer: {:?} Event: {:?} Set: {:?}",
+            observer_trigger.observer,
+            observer_trigger.event_type,
+            std::any::type_name::<E>()
+        );
         return;
     };
 
