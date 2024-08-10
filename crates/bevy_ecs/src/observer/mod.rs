@@ -1006,4 +1006,75 @@ mod tests {
         world.flush();
         assert_eq!(2, world.resource::<R>().0);
     }
+
+    #[test]
+    fn observer_propagating_multi_event_between() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        #[derive(Event)]
+        struct Foo;
+
+        let grandparent = world
+            .spawn_empty()
+            .observe(|_: Trigger<(EventPropagating,)>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+        let parent = world
+            .spawn(Parent(grandparent))
+            .observe(|_: Trigger<(EventPropagating, Foo)>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+        let child = world
+            .spawn(Parent(parent))
+            .observe(|_: Trigger<(EventPropagating,)>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger_targets(EventPropagating, child);
+        world.flush();
+        assert_eq!(3, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_propagating_multi_event_all() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        #[derive(Component)]
+        struct OtherPropagating;
+
+        impl Event for OtherPropagating {
+            type Traversal = Parent;
+
+            const AUTO_PROPAGATE: bool = true;
+        }
+
+        let grandparent = world
+            .spawn_empty()
+            .observe(
+                |_: Trigger<(EventPropagating, OtherPropagating)>, mut res: ResMut<R>| res.0 += 1,
+            )
+            .id();
+        let parent = world
+            .spawn(Parent(grandparent))
+            .observe(
+                |_: Trigger<(EventPropagating, OtherPropagating)>, mut res: ResMut<R>| res.0 += 1,
+            )
+            .id();
+        let child = world
+            .spawn(Parent(parent))
+            .observe(
+                |_: Trigger<(EventPropagating, OtherPropagating)>, mut res: ResMut<R>| res.0 += 1,
+            )
+            .id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger_targets(EventPropagating, child);
+        world.flush();
+        assert_eq!(3, world.resource::<R>().0);
+        world.trigger_targets(OtherPropagating, child);
+        world.flush();
+        assert_eq!(6, world.resource::<R>().0);
+    }
 }
