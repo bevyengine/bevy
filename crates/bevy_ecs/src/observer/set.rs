@@ -9,9 +9,9 @@ use crate::world::World;
 ///
 /// # Safety
 ///
-/// Implementor must ensure that [`checked_cast`] and [`init_components`] obey the following:
-/// - Each event type must have a component id registered in [`init_components`].
-/// - [`checked_cast`] must check that the component id matches the event type in order to safely cast a pointer to the output type.
+/// Implementor must ensure that:
+/// - [`EventSet::init_components`] must register a component id for each event type in the set.
+/// - [`EventSet::matches`] must return `true` if and only if the event type is in the set.
 ///
 pub unsafe trait EventSet: 'static {
     /// The output type that will be passed to the observer.
