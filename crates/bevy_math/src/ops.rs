@@ -280,9 +280,11 @@ pub(crate) trait FloatPow {
 }
 
 impl FloatPow for f32 {
+    #[inline]
     fn squared(self) -> Self {
         self * self
     }
+    #[inline]
     fn cubed(self) -> Self {
         self * self * self
     }

@@ -1,7 +1,10 @@
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
 use super::{Measured2d, Primitive2d, WindingOrder};
-use crate::{Dir2, Vec2};
+use crate::{
+    ops::{self, FloatPow},
+    Dir2, Vec2,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -54,7 +57,7 @@ impl Circle {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
 
-        if distance_squared <= self.radius.powi(2) {
+        if distance_squared <= self.radius.squared() {
             // The point is inside the circle.
             point
         } else {
@@ -70,7 +73,7 @@ impl Measured2d for Circle {
     /// Get the area of the circle
     #[inline(always)]
     fn area(&self) -> f32 {
-        PI * self.radius.powi(2)
+        PI * self.radius.squared()
     }
 
     /// Get the perimeter or circumference of the circle
@@ -200,7 +203,7 @@ impl Arc2d {
     /// Get half the distance between the endpoints (half the length of the chord)
     #[inline(always)]
     pub fn half_chord_length(&self) -> f32 {
-        self.radius * f32::sin(self.half_angle)
+        self.radius * ops::sin(self.half_angle)
     }
 
     /// Get the distance between the endpoints (the length of the chord)
@@ -226,7 +229,7 @@ impl Arc2d {
     // used by Wolfram MathWorld, which is the distance rather than the segment.
     pub fn apothem(&self) -> f32 {
         let sign = if self.is_minor() { 1.0 } else { -1.0 };
-        sign * f32::sqrt(self.radius.powi(2) - self.half_chord_length().powi(2))
+        sign * f32::sqrt(self.radius.squared() - self.half_chord_length().squared())
     }
 
     /// Get the length of the sagitta of this arc, that is,
@@ -388,7 +391,7 @@ impl CircularSector {
     /// Returns the area of this sector
     #[inline(always)]
     pub fn area(&self) -> f32 {
-        self.arc.radius.powi(2) * self.arc.half_angle
+        self.arc.radius.squared() * self.arc.half_angle
     }
 }
 
@@ -527,7 +530,7 @@ impl CircularSegment {
     /// Returns the area of this segment
     #[inline(always)]
     pub fn area(&self) -> f32 {
-        0.5 * self.arc.radius.powi(2) * (self.arc.angle() - self.arc.angle().sin())
+        0.5 * self.arc.radius.squared() * (self.arc.angle() - ops::sin(self.arc.angle()))
     }
 }
 
@@ -882,11 +885,11 @@ impl Measured2d for Ellipse {
         // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
         // For more information see https://www.wolframalpha.com/input/?i=gauss-kummer+series
         // We only use the terms up to `i == 20` for this approximation
-        let h = ((a - b) / (a + b)).powi(2);
+        let h = ((a - b) / (a + b)).squared();
 
         PI * (a + b)
             * (0..=20)
-                .map(|i| BINOMIAL_COEFFICIENTS[i] * h.powi(i as i32))
+                .map(|i| BINOMIAL_COEFFICIENTS[i] * ops::powf(h, i as f32))
                 .sum::<f32>()
     }
 }
@@ -953,8 +956,8 @@ impl Annulus {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
 
-        if self.inner_circle.radius.powi(2) <= distance_squared {
-            if distance_squared <= self.outer_circle.radius.powi(2) {
+        if self.inner_circle.radius.squared() <= distance_squared {
+            if distance_squared <= self.outer_circle.radius.squared() {
                 // The point is inside the annulus.
                 point
             } else {
@@ -976,7 +979,7 @@ impl Measured2d for Annulus {
     /// Get the area of the annulus
     #[inline(always)]
     fn area(&self) -> f32 {
-        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
+        PI * (self.outer_circle.radius.squared() - self.inner_circle.radius.squared())
     }
 
     /// Get the perimeter or circumference of the annulus,
@@ -1031,7 +1034,7 @@ impl Rhombus {
     #[inline(always)]
     pub fn from_side(side: f32) -> Self {
         Self {
-            half_diagonals: Vec2::splat(side.hypot(side) / 2.0),
+            half_diagonals: Vec2::splat(ops::hypot(side, side) / 2.0),
         }
     }
 
@@ -1694,13 +1697,13 @@ impl RegularPolygon {
     #[inline(always)]
     #[doc(alias = "apothem")]
     pub fn inradius(&self) -> f32 {
-        self.circumradius() * (PI / self.sides as f32).cos()
+        self.circumradius() * ops::cos(PI / self.sides as f32)
     }
 
     /// Get the length of one side of the regular polygon
     #[inline(always)]
     pub fn side_length(&self) -> f32 {
-        2.0 * self.circumradius() * (PI / self.sides as f32).sin()
+        2.0 * self.circumradius() * ops::sin(PI / self.sides as f32)
     }
 
     /// Get the internal angle of the regular polygon in degrees.
@@ -1750,7 +1753,7 @@ impl RegularPolygon {
 
         (0..self.sides).map(move |i| {
             let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             Vec2::new(cos, sin) * self.circumcircle.radius
         })
     }
@@ -1761,7 +1764,7 @@ impl Measured2d for RegularPolygon {
     #[inline(always)]
     fn area(&self) -> f32 {
         let angle: f32 = 2.0 * PI / (self.sides as f32);
-        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
+        (self.sides as f32) * self.circumradius().squared() * ops::sin(angle) / 2.0
     }
 
     /// Get the perimeter of the regular polygon.
