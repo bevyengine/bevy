@@ -642,11 +642,11 @@ mod tests {
         world.init_resource::<R>();
         let on_add = world.init_component::<OnAdd>();
         let on_remove = world.init_component::<OnRemove>();
-        world.spawn(
+        world.spawn(unsafe {
             Observer::new(|_: Trigger<Untyped<()>, A>, mut res: ResMut<R>| res.0 += 1)
                 .with_event(on_add)
-                .with_event(on_remove),
-        );
+                .with_event(on_remove)
+        });
 
         let entity = world.spawn(A).id();
         world.despawn(entity);

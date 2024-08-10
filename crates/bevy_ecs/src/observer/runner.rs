@@ -298,10 +298,24 @@ impl<E: EventSet, B: Bundle> Observer<E, B> {
 
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
+    /// # Safety
+    /// The type of the `event` [`ComponentId`] _must_ match the actual value
+    /// of the event passed into the observer system.
+    pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
+        self.descriptor.events.push(event);
+        self
+    }
+}
+
+impl<E, B: Bundle> Observer<Untyped<E>, B>
+where
+    Untyped<E>: EventSet,
+{
+    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
+    /// is triggered.
     ///
-    /// Note that for any event types that are not matched by `E`, the observer will not be triggered.
-    /// Use [`Untyped<()>`] to match all events added through this method.
-    pub fn with_event(mut self, event: ComponentId) -> Self {
+    /// As opposed to [`Observer::with_event`], this method is safe to use because it does not cast any pointers automatically.
+    pub fn with_event_safe(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
     }
@@ -386,7 +400,8 @@ fn observer_system_runner<E: EventSet, B: Bundle>(
 
     // SAFETY: We have immutable access to the world from the passed in DeferredWorld
     let world_ref = unsafe { world.world() };
-    let Some(event) = E::cast(world_ref, &observer_trigger, ptr) else {
+    // SAFETY: Observer was triggered with an event in the set of events it observes, so it must be convertible to E
+    let Some(event) = (unsafe { E::unchecked_cast(world_ref, &observer_trigger, ptr) }) else {
         return;
     };
 

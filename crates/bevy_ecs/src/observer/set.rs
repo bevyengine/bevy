@@ -23,8 +23,8 @@ pub unsafe trait EventSet: 'static {
     ///
     /// # Safety
     ///
-    /// Implementor must ensure that the component id matches the event type before casting the pointer.
-    fn cast<'trigger>(
+    /// Caller must ensure that the component id [`EventSet::matches`] this event set before calling this function.
+    unsafe fn unchecked_cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
@@ -58,17 +58,13 @@ unsafe impl<E: Event> EventSet for E {
     type Item<'trigger> = &'trigger mut E;
     type ReadOnlyItem<'trigger> = &'trigger E;
 
-    fn cast<'trigger>(
-        world: &World,
-        observer_trigger: &ObserverTrigger,
+    unsafe fn unchecked_cast<'trigger>(
+        _world: &World,
+        _observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Item<'trigger>> {
-        if Self::matches(world, observer_trigger) {
-            // SAFETY: We just checked that the component id matches the event type
-            Some(unsafe { ptr.deref_mut() })
-        } else {
-            None
-        }
+        // SAFETY: Caller must ensure that the component id matches the event type
+        Some(unsafe { ptr.deref_mut() })
     }
 
     fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool {
@@ -101,12 +97,12 @@ unsafe impl<A: EventSet> EventSet for (A,) {
     type Item<'trigger> = A::Item<'trigger>;
     type ReadOnlyItem<'trigger> = A::ReadOnlyItem<'trigger>;
 
-    fn cast<'trigger>(
+    unsafe fn unchecked_cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Option<Self::Item<'trigger>> {
-        A::cast(world, observer_trigger, ptr)
+        A::unchecked_cast(world, observer_trigger, ptr)
     }
 
     fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool {
@@ -149,7 +145,7 @@ macro_rules! impl_event_set {
             type Item<'trigger> = $Or<$($P::Item<'trigger>),*>;
             type ReadOnlyItem<'trigger> = $Or<$($P::ReadOnlyItem<'trigger>),*>;
 
-             fn cast<'trigger>(
+            unsafe fn unchecked_cast<'trigger>(
                 world: &World,
                 observer_trigger: &ObserverTrigger,
                 ptr: PtrMut<'trigger>,
@@ -159,7 +155,7 @@ macro_rules! impl_event_set {
                 }
                 $(
                     else if $P::matches(world, observer_trigger) {
-                        if let Some($p) = $P::cast(world, observer_trigger, ptr)  {
+                        if let Some($p) = $P::unchecked_cast(world, observer_trigger, ptr) {
                             return Some($Or::$P($p));
                         }
                     }
@@ -236,7 +232,7 @@ unsafe impl<E: EventSet> EventSet for Untyped<E> {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
 
-    fn cast<'trigger>(
+    unsafe fn unchecked_cast<'trigger>(
         _world: &World,
         _observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
@@ -272,7 +268,7 @@ unsafe impl EventSet for Untyped<()> {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
 
-    fn cast<'trigger>(
+    unsafe fn unchecked_cast<'trigger>(
         _world: &World,
         _observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
