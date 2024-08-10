@@ -317,9 +317,9 @@ where
     /// # Note
     /// As opposed to [`Observer::with_event_unchecked`], this method is safe to use because no pointer casting is performed automatically.
     /// That is left to the user to do manually.
-    pub fn with_event(mut self, event: ComponentId) -> Self {
-        self.descriptor.events.push(event);
-        self
+    pub fn with_event(self, event: ComponentId) -> Self {
+        // SAFETY: UntypedEvent<E> itself does not perform any unsafe operations (like casting), so this is safe.
+        unsafe { self.with_event_unchecked(event) }
     }
 }
 
