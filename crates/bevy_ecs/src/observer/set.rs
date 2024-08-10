@@ -82,6 +82,7 @@ unsafe impl<E: Event> EventSet for E {
     }
 }
 
+// SAFETY: Inherits the safety of the inner event type.
 unsafe impl<A: EventSet> EventSet for (A,) {
     type Item<'trigger> = A::Item<'trigger>;
     type ReadOnlyItem<'trigger> = A::ReadOnlyItem<'trigger>;
@@ -205,6 +206,7 @@ impl_event_set!(
 pub struct UntypedEvent<E = ()>(std::marker::PhantomData<E>);
 
 /// An [`EventSet`] that matches the specified event type(s), but does not cast the pointer.
+// SAFETY: Performs no unsafe operations, returns the pointer as is.
 unsafe impl<E: EventSet> EventSet for UntypedEvent<E> {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
@@ -237,6 +239,7 @@ unsafe impl<E: EventSet> EventSet for UntypedEvent<E> {
 }
 
 /// An [`EventSet`] that matches any event type.
+// SAFETY: Performs no unsafe operations, returns the pointer as is.
 unsafe impl EventSet for UntypedEvent<()> {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
