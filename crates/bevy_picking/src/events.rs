@@ -427,7 +427,7 @@ pub fn send_click_and_drag_events(
                         hit: down.hit.clone(),
                     },
                 );
-                commands.trigger_targets(event.clone(), event.target);
+                commands.trigger_targets(event, down.target);
             }
 
             for (dragged_entity, drag) in drag_list.iter_mut() {
@@ -437,8 +437,9 @@ pub fn send_click_and_drag_events(
                     delta: location.position - drag.latest_pos,
                 };
                 drag.latest_pos = location.position;
-                let event = Pointer::new(pointer_id, location.clone(), *dragged_entity, drag_event);
-                commands.trigger_targets(event.clone(), event.target);
+                let target = *dragged_entity;
+                let event = Pointer::new(pointer_id, location.clone(), target, drag_event);
+                commands.trigger_targets(event, target);
             }
         }
     }
@@ -468,7 +469,7 @@ pub fn send_click_and_drag_events(
                     duration,
                 },
             );
-            commands.trigger_targets(event.clone(), event.target);
+            commands.trigger_targets(event, target);
         }
     }
 
@@ -556,7 +557,7 @@ pub fn send_drag_over_events(
                         hit: hit.clone(),
                     },
                 );
-                commands.trigger_targets(event.clone(), event.target);
+                commands.trigger_targets(event, target);
             }
         }
     }
@@ -588,7 +589,7 @@ pub fn send_drag_over_events(
                         hit: hit.clone(),
                     },
                 );
-                commands.trigger_targets(event.clone(), event.target);
+                commands.trigger_targets(event, target);
             }
         }
     }
@@ -597,7 +598,7 @@ pub fn send_drag_over_events(
     for Pointer {
         pointer_id,
         pointer_location,
-        target,
+        target: drag_end_target,
         event: DragEnd {
             button,
             distance: _,
@@ -608,29 +609,30 @@ pub fn send_drag_over_events(
             continue;
         };
         for (dragged_over, hit) in drag_over_set.drain() {
+            let target = dragged_over;
             let event = Pointer::new(
                 pointer_id,
                 pointer_location.clone(),
                 dragged_over,
                 DragLeave {
                     button,
-                    dragged: target,
+                    dragged: drag_end_target,
                     hit: hit.clone(),
                 },
             );
-            commands.trigger_targets(event.clone(), event.target);
+            commands.trigger_targets(event, target);
 
             let event = Pointer::new(
                 pointer_id,
                 pointer_location.clone(),
-                dragged_over,
+                target,
                 Drop {
                     button,
                     dropped: target,
                     hit: hit.clone(),
                 },
             );
-            commands.trigger_targets(event.clone(), event.target);
+            commands.trigger_targets(event, target);
         }
     }
 
@@ -663,7 +665,7 @@ pub fn send_drag_over_events(
                         hit: hit.clone(),
                     },
                 );
-                commands.trigger_targets(event.clone(), event.target);
+                commands.trigger_targets(event, target);
             }
         }
     }
