@@ -4,7 +4,10 @@ use std::sync::Arc;
 
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{DynamicClosure, FunctionResult, IntoClosure, IntoFunction, ReturnInfo};
+use crate::func::{
+    DynamicClosure, DynamicClosureMut, FunctionResult, IntoClosure, IntoClosureMut, IntoFunction,
+    ReturnInfo,
+};
 
 /// A dynamic representation of a Rust function.
 ///
@@ -224,6 +227,13 @@ impl IntoClosure<'_, ()> for DynamicFunction {
     #[inline]
     fn into_closure(self) -> DynamicClosure<'static> {
         DynamicClosure::from(self)
+    }
+}
+
+impl IntoClosureMut<'_, ()> for DynamicFunction {
+    #[inline]
+    fn into_closure_mut(self) -> DynamicClosureMut<'static> {
+        DynamicClosureMut::from(self)
     }
 }
 

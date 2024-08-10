@@ -1,6 +1,8 @@
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{DynamicFunction, FunctionResult, IntoClosure, ReturnInfo};
+use crate::func::{
+    DynamicClosureMut, DynamicFunction, FunctionResult, IntoClosure, IntoClosureMut, ReturnInfo,
+};
 use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 use std::sync::Arc;
@@ -42,8 +44,6 @@ use std::sync::Arc;
 /// // Check the result:
 /// assert_eq!(value.try_take::<String>().unwrap(), "Hello, world!!!");
 /// ```
-///
-/// [`DynamicClosureMut`]: crate::func::closures::DynamicClosureMut
 pub struct DynamicClosure<'env> {
     pub(super) info: FunctionInfo,
     pub(super) func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>,
@@ -182,6 +182,13 @@ impl<'env> IntoClosure<'env, ()> for DynamicClosure<'env> {
     #[inline]
     fn into_closure(self) -> DynamicClosure<'env> {
         self
+    }
+}
+
+impl<'env> IntoClosureMut<'env, ()> for DynamicClosure<'env> {
+    #[inline]
+    fn into_closure_mut(self) -> DynamicClosureMut<'env> {
+        DynamicClosureMut::from(self)
     }
 }
 
