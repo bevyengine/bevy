@@ -612,14 +612,16 @@ mod tests {
                 Or2::B(Bar(v)) => assert!(*v),
             }
         });
-        world.flush(); // TODO: should we auto-flush after observe?
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
         world.trigger(Foo(5));
         world.trigger(Bar(true));
         assert_eq!(2, world.resource::<R>().0);
     }
 
     #[test]
-    fn observer_multiple_events_untyped() {
+    fn observer_multiple_events_static_untyped() {
         let mut world = World::new();
         world.init_resource::<R>();
         world.spawn(Observer::new(
@@ -632,7 +634,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events_unsafe() {
+    fn observer_multiple_events_dynamic_untyped() {
         let mut world = World::new();
         world.init_resource::<R>();
         let on_add = world.init_component::<OnAdd>();
