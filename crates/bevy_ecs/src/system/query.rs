@@ -411,7 +411,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # Example
     ///
     /// For example this allows to call other methods or other systems that require an owned `Query` without
-    /// completly giving up ownership of it.
+    /// completely giving up ownership of it.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
