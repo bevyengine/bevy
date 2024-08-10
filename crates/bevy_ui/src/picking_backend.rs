@@ -1,4 +1,4 @@
-//! A picking backend for [`bevy_ui`].
+//! A picking backend for Ui nodes.
 //!
 //! # Usage
 //!
@@ -7,9 +7,10 @@
 //!
 //! ## Important Note
 //!
-//! This backend completely ignores [`FocusPolicy`](bevy_ui::FocusPolicy). The design of bevy ui's
+//! This backend completely ignores [`FocusPolicy`](crate::FocusPolicy). The design of bevy ui's
 //! focus systems and the picking plugin are not compatible. Instead, use the [`Pickable`] component
-//! to customize how an entity responds to picking focus.
+//! to customize how an entity responds to picking focus. Nodes without the [`Pickable`] component
+//! will not trigger events.
 //!
 //! ## Implementation Notes
 //!
@@ -33,7 +34,7 @@ use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
 
-/// Adds picking support for [`bevy_ui`].
+/// Adds picking support for Ui nodes.
 #[derive(Clone)]
 pub struct UiPickingBackend;
 impl Plugin for UiPickingBackend {
