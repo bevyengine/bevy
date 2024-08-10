@@ -142,6 +142,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
+
     #[inline]
     unsafe fn init_fetch(
         _world: UnsafeWorldCell,
@@ -249,6 +251,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
     #[inline]
     unsafe fn init_fetch(
@@ -384,6 +388,16 @@ macro_rules! impl_or_query_filter {
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 item
+            }
+
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                let ($($filter,)*) = fetch;
+                ($(
+                    OrFetch {
+                        fetch: $filter::shrink_fetch($filter.fetch),
+                        matches: $filter.matches
+                    },
+                )*)
             }
 
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
@@ -608,6 +622,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         item
     }
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -817,6 +835,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item
+    }
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
     }
 
     #[inline]
