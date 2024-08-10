@@ -308,6 +308,7 @@ impl_event_set!(
 );
 
 /// A wrapper around an [`EventSet`] that foregoes safety checks and casting, and passes the pointer as is.
+/// This is useful for observers that do not need to access the event data, or need to do so dynamically.
 pub struct UntypedEvent<E = ()>(std::marker::PhantomData<E>);
 
 /// An [`EventSet`] that matches the specified event type(s), but does not cast the pointer.
@@ -325,7 +326,7 @@ unsafe impl<E: EventSet> EventSet for UntypedEvent<E> {
     }
 
     fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool {
-        E::matches(world, observer_trigger)
+        true
     }
 
     fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {
