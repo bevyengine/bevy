@@ -263,7 +263,7 @@ mod aabb3d_tests {
     use super::Aabb3d;
     use crate::{
         bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
-        Quat, Vec3, Vec3A,
+        ops, Quat, Vec3, Vec3A,
     };
 
     #[test]
@@ -389,7 +389,7 @@ mod aabb3d_tests {
             Vec3A::new(2.0, -2.0, 4.0),
             Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
         );
-        let half_length = 2_f32.hypot(2.0);
+        let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
             transformed.min,
             Vec3A::new(2.0 - half_length, -half_length - 2.0, 2.0)

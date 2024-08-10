@@ -1512,9 +1512,12 @@ impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
 mod tests {
     use glam::{vec2, Vec2};
 
-    use crate::cubic_splines::{
-        CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
-        RationalGenerator,
+    use crate::{
+        cubic_splines::{
+            CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
+            RationalGenerator,
+        },
+        ops::{self, FloatPow},
     };
 
     /// How close two floats can be and still be considered equal
@@ -1540,10 +1543,10 @@ mod tests {
     /// Manual, hardcoded function for computing the position along a cubic bezier.
     fn cubic_manual(t: f32, points: [Vec2; 4]) -> Vec2 {
         let p = points;
-        p[0] * (1.0 - t).powi(3)
-            + 3.0 * p[1] * t * (1.0 - t).powi(2)
-            + 3.0 * p[2] * t.powi(2) * (1.0 - t)
-            + p[3] * t.powi(3)
+        p[0] * (1.0 - t).cubed()
+            + 3.0 * p[1] * t * (1.0 - t).squared()
+            + 3.0 * p[2] * t.squared() * (1.0 - t)
+            + p[3] * t.cubed()
     }
 
     /// Basic cubic Bezier easing test to verify the shape of the curve.
@@ -1674,8 +1677,8 @@ mod tests {
         // subjecting ones self to a lot of tedious matrix algebra.
 
         let alpha = FRAC_PI_2;
-        let leg = 2.0 * f32::sin(alpha / 2.0) / (1.0 + 2.0 * f32::cos(alpha / 2.0));
-        let weight = (1.0 + 2.0 * f32::cos(alpha / 2.0)) / 3.0;
+        let leg = 2.0 * ops::sin(alpha / 2.0) / (1.0 + 2.0 * ops::cos(alpha / 2.0));
+        let weight = (1.0 + 2.0 * ops::cos(alpha / 2.0)) / 3.0;
         let points = [
             vec2(1.0, 0.0),
             vec2(1.0, leg),

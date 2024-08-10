@@ -346,7 +346,7 @@ impl Bounded3d for Triangle3d {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bounding::BoundingVolume, Isometry3d};
+    use crate::{bounding::BoundingVolume, ops, Isometry3d};
     use glam::{Quat, Vec3, Vec3A};
 
     use crate::{
@@ -442,7 +442,7 @@ mod tests {
 
         let bounding_sphere = segment.bounding_sphere(isometry);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 1.0_f32.hypot(0.5));
+        assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]
@@ -462,7 +462,10 @@ mod tests {
 
         let bounding_sphere = polyline.bounding_sphere(isometry);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 1.0_f32.hypot(1.0).hypot(1.0));
+        assert_eq!(
+            bounding_sphere.radius(),
+            ops::hypot(ops::hypot(1.0, 1.0), 1.0)
+        );
     }
 
     #[test]
@@ -480,7 +483,10 @@ mod tests {
 
         let bounding_sphere = cuboid.bounding_sphere(Isometry3d::from_translation(translation));
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 1.0_f32.hypot(0.5).hypot(0.5));
+        assert_eq!(
+            bounding_sphere.radius(),
+            ops::hypot(ops::hypot(1.0, 0.5), 0.5)
+        );
     }
 
     #[test]
@@ -501,7 +507,7 @@ mod tests {
 
         let bounding_sphere = cylinder.bounding_sphere(isometry);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 1.0_f32.hypot(0.5));
+        assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]

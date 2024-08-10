@@ -246,6 +246,7 @@ mod tests {
 
     use crate::{
         bounding::{Bounded3d, BoundingVolume},
+        ops,
         primitives::{
             Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
             RegularPolygon, Segment2d, Triangle2d,
@@ -265,7 +266,7 @@ mod tests {
 
         let bounding_sphere = cylinder.bounding_sphere(isometry);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 1f32.hypot(0.5));
+        assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]

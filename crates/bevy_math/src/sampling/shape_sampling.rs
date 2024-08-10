@@ -627,7 +627,7 @@ mod tests {
         for _ in 0..5000 {
             let point = circle.sample_boundary(&mut rng);
 
-            let angle = f32::atan(point.y / point.x) + PI / 2.0;
+            let angle = ops::atan(point.y / point.x) + PI / 2.0;
             let wedge = (angle * 8.0 / PI).floor() as usize;
             wedge_hits[wedge] += 1;
         }

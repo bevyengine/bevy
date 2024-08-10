@@ -262,7 +262,7 @@ mod aabb2d_tests {
     use super::Aabb2d;
     use crate::{
         bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
-        Vec2,
+        ops, Vec2,
     };
 
     #[test]
@@ -386,7 +386,7 @@ mod aabb2d_tests {
             max: Vec2::new(2.0, 2.0),
         };
         let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
-        let half_length = 2_f32.hypot(2.0);
+        let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
             transformed.min,
             Vec2::new(2.0 - half_length, -half_length - 2.0)

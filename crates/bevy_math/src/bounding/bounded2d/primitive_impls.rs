@@ -404,6 +404,7 @@ mod tests {
 
     use crate::{
         bounding::Bounded2d,
+        ops::{self, FloatPow},
         primitives::{
             Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
             Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
@@ -506,7 +507,7 @@ mod tests {
                 // The exact coordinates here are not obvious, but can be computed by constructing
                 // an altitude from the midpoint of the chord to the y-axis and using the right triangle
                 // similarity theorem.
-                bounding_circle_center: Vec2::new(-apothem / 2.0, apothem.powi(2)),
+                bounding_circle_center: Vec2::new(-apothem / 2.0, apothem.squared()),
                 bounding_circle_radius: 0.5,
             },
             // Test case: handling of axis-aligned extrema
@@ -845,7 +846,7 @@ mod tests {
 
         let bounding_circle = segment.bounding_circle(isometry);
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), 1.0_f32.hypot(0.5));
+        assert_eq!(bounding_circle.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]
@@ -921,7 +922,7 @@ mod tests {
 
         let bounding_circle = rectangle.bounding_circle(Isometry2d::from_translation(translation));
         assert_eq!(bounding_circle.center, translation);
-        assert_eq!(bounding_circle.radius(), 1.0_f32.hypot(0.5));
+        assert_eq!(bounding_circle.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]
