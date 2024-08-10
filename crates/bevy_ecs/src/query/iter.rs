@@ -57,7 +57,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Example
     ///
     /// ```
-    /// # #derive(Component)
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
     /// # struct ComponentA;
     ///
     /// fn combinations(mut query: Query<&mut ComponentA>) {
