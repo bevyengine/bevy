@@ -43,13 +43,6 @@ pub unsafe trait EventSet: 'static {
     fn shrink_readonly<'long: 'short, 'short>(
         item: &'short Self::Item<'long>,
     ) -> Self::ReadOnlyItem<'short>;
-
-    /// Shrink the item to a shorter lifetime, as a read-only type-erased pointer.
-    ///
-    /// # Safety
-    ///
-    /// Implementor must give a pointer to the innermost data, not a pointer to any container.
-    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short>;
 }
 
 // SAFETY: The event type has a component id registered in `init_components`,
@@ -87,10 +80,6 @@ unsafe impl<E: Event> EventSet for E {
     ) -> Self::ReadOnlyItem<'short> {
         item
     }
-
-    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
-        Ptr::from(&**item)
-    }
 }
 
 unsafe impl<A: EventSet> EventSet for (A,) {
@@ -121,10 +110,6 @@ unsafe impl<A: EventSet> EventSet for (A,) {
         item: &'short Self::Item<'long>,
     ) -> Self::ReadOnlyItem<'short> {
         A::shrink_readonly(item)
-    }
-
-    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
-        A::shrink_ptr(item)
     }
 }
 
@@ -194,14 +179,6 @@ macro_rules! impl_event_set {
                     )*
                 }
             }
-
-            fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
-                match item {
-                    $(
-                        $Or::$P($p) => $P::shrink_ptr($p),
-                    )*
-                }
-            }
         }
     };
 }
@@ -225,10 +202,10 @@ impl_event_set!(
 );
 
 /// A wrapper around an [`EventSet`] that foregoes safety checks and casting, and passes the pointer as is.
-pub struct Untyped<E>(std::marker::PhantomData<E>);
+pub struct UntypedEvent<E = ()>(std::marker::PhantomData<E>);
 
 /// An [`EventSet`] that matches the specified event type(s), but does not cast the pointer.
-unsafe impl<E: EventSet> EventSet for Untyped<E> {
+unsafe impl<E: EventSet> EventSet for UntypedEvent<E> {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
 
@@ -257,14 +234,10 @@ unsafe impl<E: EventSet> EventSet for Untyped<E> {
     ) -> Self::ReadOnlyItem<'short> {
         item.as_ref()
     }
-
-    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
-        item.as_ref()
-    }
 }
 
 /// An [`EventSet`] that matches any event type.
-unsafe impl EventSet for Untyped<()> {
+unsafe impl EventSet for UntypedEvent<()> {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
 
@@ -289,10 +262,6 @@ unsafe impl EventSet for Untyped<()> {
     fn shrink_readonly<'long: 'short, 'short>(
         item: &'short Self::Item<'long>,
     ) -> Self::ReadOnlyItem<'short> {
-        item.as_ref()
-    }
-
-    fn shrink_ptr<'long: 'short, 'short>(item: &'short Self::Item<'long>) -> Ptr<'short> {
         item.as_ref()
     }
 }

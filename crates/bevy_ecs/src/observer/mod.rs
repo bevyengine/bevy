@@ -52,11 +52,6 @@ impl<'w, E: EventSet, B: Bundle> Trigger<'w, E, B> {
         E::shrink(&mut self.event)
     }
 
-    /// Returns a pointer to the triggered event.
-    pub fn event_ptr(&self) -> Ptr {
-        E::shrink_ptr(&self.event)
-    }
-
     /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
     pub fn entity(&self) -> Entity {
         self.trigger.entity
@@ -435,7 +430,8 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace, Or2, Untyped,
+        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace, Or2,
+        UntypedEvent,
     };
     use crate::prelude::*;
     use crate::traversal::Traversal;
@@ -614,7 +610,7 @@ mod tests {
             res.0 += 1;
             match t.event() {
                 Or2::A(Foo(v)) => assert_eq!(5, *v),
-                Or2::B(Bar(v)) => assert_eq!(true, *v),
+                Or2::B(Bar(v)) => assert!(*v),
             }
         });
         world.flush(); // TODO: should we auto-flush after observe?
@@ -628,7 +624,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<R>();
         world.spawn(Observer::new(
-            |_: Trigger<Untyped<(OnAdd, OnRemove)>, A>, mut res: ResMut<R>| res.0 += 1,
+            |_: Trigger<UntypedEvent<(OnAdd, OnRemove)>, A>, mut res: ResMut<R>| res.0 += 1,
         ));
 
         let entity = world.spawn(A).id();
@@ -642,11 +638,11 @@ mod tests {
         world.init_resource::<R>();
         let on_add = world.init_component::<OnAdd>();
         let on_remove = world.init_component::<OnRemove>();
-        world.spawn(unsafe {
-            Observer::new(|_: Trigger<Untyped<()>, A>, mut res: ResMut<R>| res.0 += 1)
-                .with_event(on_add)
-                .with_event(on_remove)
-        });
+        world.spawn(
+            Observer::new(|_: Trigger<UntypedEvent, A>, mut res: ResMut<R>| res.0 += 1)
+                .with_event_safe(on_add)
+                .with_event_safe(on_remove),
+        );
 
         let entity = world.spawn(A).id();
         world.despawn(entity);

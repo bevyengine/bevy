@@ -1,6 +1,6 @@
 use crate::{
     component::{ComponentHooks, ComponentId, StorageType},
-    observer::{EventSet, ObserverDescriptor, ObserverTrigger, Untyped},
+    observer::{EventSet, ObserverDescriptor, ObserverTrigger, UntypedEvent},
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{IntoObserverSystem, ObserverSystem},
@@ -307,9 +307,9 @@ impl<E: EventSet, B: Bundle> Observer<E, B> {
     }
 }
 
-impl<E, B: Bundle> Observer<Untyped<E>, B>
+impl<E, B: Bundle> Observer<UntypedEvent<E>, B>
 where
-    Untyped<E>: EventSet,
+    UntypedEvent<E>: EventSet,
 {
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
