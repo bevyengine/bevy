@@ -5,9 +5,9 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
-    render_resource::RenderPassDescriptor,
+    render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::ViewTarget,
+    view::{ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -16,13 +16,17 @@ use bevy_utils::tracing::info_span;
 pub struct MainTransparentPass2dNode {}
 
 impl ViewNode for MainTransparentPass2dNode {
-    type ViewQuery = (&'static ExtractedCamera, &'static ViewTarget);
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static ViewTarget,
+        &'static ViewDepthTexture,
+    );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, target): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
+        (camera, target, depth): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(transparent_phases) =
@@ -46,7 +50,13 @@ impl ViewNode for MainTransparentPass2dNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment())],
-                depth_stencil_attachment: None,
+                // NOTE: For the transparent pass we load the depth buffer. There should be no
+                // need to write to it, but store is set to `true` as a workaround for issue #3776,
+                // https://github.com/bevyengine/bevy/issues/3776
+                // so that wgpu does not clear the depth buffer.
+                // As the opaque and alpha mask passes run first, opaque meshes can occlude
+                // transparent ones.
+                depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
