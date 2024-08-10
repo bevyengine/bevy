@@ -195,7 +195,7 @@ impl Plugin for PickingPlugin {
                     pointer::update_pointer_map,
                     pointer::InputMove::receive,
                     pointer::InputPress::receive,
-                    backend::ray::RayMap::repopulate,
+                    backend::ray::RayMap::repopulate.after(pointer::InputMove::receive),
                 )
                     .in_set(PickSet::ProcessInput),
             )

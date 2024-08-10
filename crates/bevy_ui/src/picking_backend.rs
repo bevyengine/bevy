@@ -23,7 +23,7 @@
 #![allow(clippy::too_many_arguments)]
 #![deny(missing_docs)]
 
-use crate::{prelude::*, RelativeCursorPosition, UiStack};
+use crate::{prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
@@ -50,7 +50,6 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static Node,
     global_transform: &'static GlobalTransform,
-    relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
     view_visibility: Option<&'static ViewVisibility>,

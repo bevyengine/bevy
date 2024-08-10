@@ -3,10 +3,17 @@
 use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .run();
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins);
+
+    // Enable ambiguity warnings for the Update schedule
+    app.edit_schedule(PreUpdate, |schedule| {
+        schedule.set_build_settings(bevy::ecs::schedule::ScheduleBuildSettings {
+            ambiguity_detection: bevy::ecs::schedule::LogLevel::Warn,
+            ..default()
+        });
+    });
+    app.add_systems(Startup, setup).run();
 }
 
 /// set up a simple 3D scene
