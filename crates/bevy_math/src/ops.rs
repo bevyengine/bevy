@@ -7,6 +7,7 @@
 
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(clippy::disallowed_methods)]
 
 // Note: There are some Rust methods with unspecified precision without a `libm`
 // equivalent:
@@ -18,9 +19,6 @@
 // into this, but they would be candidates once standardized:
 // - `f32::gamma`
 // - `f32::ln_gamma`
-
-#[cfg(feature = "libm")]
-use libm;
 
 #[cfg(not(feature = "libm"))]
 mod std_ops {
@@ -273,3 +271,19 @@ mod libm_ops {
 pub(crate) use libm_ops::*;
 #[cfg(not(feature = "libm"))]
 pub(crate) use std_ops::*;
+
+/// This extension trait covers shortfall in determinacy from the lack of a `libm` counterpart
+/// to `f32::powi`. Use this for the common small exponents.
+pub(crate) trait FloatPow {
+    fn squared(self) -> Self;
+    fn cubed(self) -> Self;
+}
+
+impl FloatPow for f32 {
+    fn squared(self) -> Self {
+        self * self
+    }
+    fn cubed(self) -> Self {
+        self * self * self
+    }
+}

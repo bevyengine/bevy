@@ -1,5 +1,5 @@
 disallowed-methods = [
-    { path = "f32::powi", reason = "use ops::powf instead for libm determinism" },
+    { path = "f32::powi", reason = "use FloatPow::squared, FloatPow::cubed, or ops::powf instead for libm determinism" },
     { path = "f32::log", reason = "use ops::ln, ops::log2, or ops::log10 instead for libm determinism" },
     { path = "f32::abs_sub", reason = "deprecated and deeply confusing method" },
     { path = "f32::powf", reason = "use ops::powf instead for libm determinism" },
