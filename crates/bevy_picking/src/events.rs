@@ -205,6 +205,7 @@ pub struct Drop {
 /// Generates pointer events from input and focus data
 #[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
+    mut commands: Commands,
     // Input
     mut input_presses: EventReader<InputPress>,
     mut input_moves: EventReader<InputMove>,
@@ -237,12 +238,14 @@ pub fn pointer_events(
             .iter()
             .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
         {
-            pointer_move.send(Pointer::new(
+            let event = Pointer::new(
                 pointer_id,
                 location.clone(),
                 hovered_entity,
                 Move { hit, delta },
-            ));
+            );
+            commands.trigger_targets(event.clone(), event.target);
+            pointer_move.send(event);
         }
     }
 
@@ -264,12 +267,14 @@ pub fn pointer_events(
                     );
                     continue;
                 };
-                pointer_up.send(Pointer::new(
+                let event = Pointer::new(
                     press_event.pointer_id,
                     location,
                     hovered_entity,
                     Up { button, hit },
-                ));
+                );
+                commands.trigger_targets(event.clone(), event.target);
+                pointer_up.send(event);
             }
         }
         for (hovered_entity, hit) in hover_map
@@ -285,12 +290,14 @@ pub fn pointer_events(
                     );
                     continue;
                 };
-                pointer_down.send(Pointer::new(
+                let event = Pointer::new(
                     press_event.pointer_id,
                     location,
                     hovered_entity,
                     Down { button, hit },
-                ));
+                );
+                commands.trigger_targets(event.clone(), event.target);
+                pointer_down.send(event);
             }
         }
     }
@@ -313,12 +320,9 @@ pub fn pointer_events(
                 );
                 continue;
             };
-            pointer_over.send(Pointer::new(
-                pointer_id,
-                location,
-                hovered_entity,
-                Over { hit },
-            ));
+            let event = Pointer::new(pointer_id, location, hovered_entity, Over { hit });
+            commands.trigger_targets(event.clone(), event.target);
+            pointer_over.send(event);
         }
     }
 
@@ -340,12 +344,9 @@ pub fn pointer_events(
                 );
                 continue;
             };
-            pointer_out.send(Pointer::new(
-                pointer_id,
-                location,
-                hovered_entity,
-                Out { hit },
-            ));
+            let event = Pointer::new(pointer_id, location, hovered_entity, Out { hit });
+            commands.trigger_targets(event.clone(), event.target);
+            pointer_out.send(event);
         }
     }
 }
@@ -366,6 +367,8 @@ pub struct DragEntry {
 /// Uses pointer events to determine when click and drag events occur.
 #[allow(clippy::too_many_arguments)]
 pub fn send_click_and_drag_events(
+    // for triggering observers
+    mut commands: Commands,
     // Input
     mut pointer_down: EventReader<Pointer<Down>>,
     mut pointer_up: EventReader<Pointer<Up>>,
@@ -415,7 +418,7 @@ pub fn send_click_and_drag_events(
                         latest_pos: down.pointer_location.position,
                     },
                 );
-                pointer_drag_start.send(Pointer::new(
+                let event = Pointer::new(
                     pointer_id,
                     down.pointer_location.clone(),
                     down.target,
@@ -423,7 +426,9 @@ pub fn send_click_and_drag_events(
                         button,
                         hit: down.hit.clone(),
                     },
-                ));
+                );
+                commands.trigger_targets(event.clone(), event.target);
+                pointer_drag_start.send(event);
             }
 
             for (dragged_entity, drag) in drag_list.iter_mut() {
@@ -433,12 +438,9 @@ pub fn send_click_and_drag_events(
                     delta: location.position - drag.latest_pos,
                 };
                 drag.latest_pos = location.position;
-                pointer_drag.send(Pointer::new(
-                    pointer_id,
-                    location.clone(),
-                    *dragged_entity,
-                    drag_event,
-                ));
+                let event = Pointer::new(pointer_id, location.clone(), *dragged_entity, drag_event);
+                commands.trigger_targets(event.clone(), event.target);
+                pointer_drag.send(event);
             }
         }
     }
@@ -458,7 +460,7 @@ pub fn send_click_and_drag_events(
             .and_then(|down| down.get(&target))
         {
             let duration = now - *down_instant;
-            pointer_click.send(Pointer::new(
+            let event = Pointer::new(
                 pointer_id,
                 pointer_location,
                 target,
@@ -467,7 +469,9 @@ pub fn send_click_and_drag_events(
                     hit,
                     duration,
                 },
-            ));
+            );
+            commands.trigger_targets(event.clone(), event.target);
+            pointer_click.send(event);
         }
     }
 
@@ -501,12 +505,9 @@ pub fn send_click_and_drag_events(
                 button: press.button,
                 distance: drag.latest_pos - drag.start_pos,
             };
-            pointer_drag_end.send(Pointer::new(
-                press.pointer_id,
-                location.clone(),
-                drag_target,
-                drag_end,
-            ));
+            let event = Pointer::new(press.pointer_id, location.clone(), drag_target, drag_end);
+            commands.trigger_targets(event.clone(), event.target);
+            pointer_drag_end.send(event);
         }
     }
 }
@@ -514,6 +515,7 @@ pub fn send_click_and_drag_events(
 /// Uses pointer events to determine when drag-over events occur
 #[allow(clippy::too_many_arguments)]
 pub fn send_drag_over_events(
+    mut commands: Commands,
     // Input
     drag_map: Res<DragMap>,
     mut pointer_over: EventReader<Pointer<Over>>,
@@ -548,17 +550,18 @@ pub fn send_drag_over_events(
             {
                 let drag_entry = drag_over_map.entry((pointer_id, button)).or_default();
                 drag_entry.insert(target, hit.clone());
-                let event = DragEnter {
-                    button,
-                    dragged: *drag_target,
-                    hit: hit.clone(),
-                };
-                pointer_drag_enter.send(Pointer::new(
+                let event = Pointer::new(
                     pointer_id,
                     pointer_location.clone(),
                     target,
-                    event,
-                ));
+                    DragEnter {
+                        button,
+                        dragged: *drag_target,
+                        hit: hit.clone(),
+                    },
+                );
+                commands.trigger_targets(event.clone(), event.target);
+                pointer_drag_enter.send(event);
             }
         }
     }
@@ -580,7 +583,7 @@ pub fn send_drag_over_events(
                     |&&drag_target| target != drag_target, /* can't drag over itself */
                 )
             {
-                pointer_drag_over.send(Pointer::new(
+                let event = Pointer::new(
                     pointer_id,
                     pointer_location.clone(),
                     target,
@@ -589,7 +592,9 @@ pub fn send_drag_over_events(
                         dragged: *drag_target,
                         hit: hit.clone(),
                     },
-                ));
+                );
+                commands.trigger_targets(event.clone(), event.target);
+                pointer_drag_over.send(event);
             }
         }
     }
@@ -609,7 +614,7 @@ pub fn send_drag_over_events(
             continue;
         };
         for (dragged_over, hit) in drag_over_set.drain() {
-            pointer_drag_leave.send(Pointer::new(
+            let event = Pointer::new(
                 pointer_id,
                 pointer_location.clone(),
                 dragged_over,
@@ -618,8 +623,11 @@ pub fn send_drag_over_events(
                     dragged: target,
                     hit: hit.clone(),
                 },
-            ));
-            pointer_drop.send(Pointer::new(
+            );
+            commands.trigger_targets(event.clone(), event.target);
+            pointer_drag_leave.send(event);
+
+            let event = Pointer::new(
                 pointer_id,
                 pointer_location.clone(),
                 dragged_over,
@@ -628,7 +636,9 @@ pub fn send_drag_over_events(
                     dropped: target,
                     hit: hit.clone(),
                 },
-            ));
+            );
+            commands.trigger_targets(event.clone(), event.target);
+            pointer_drop.send(event);
         }
     }
 
@@ -651,7 +661,7 @@ pub fn send_drag_over_events(
                 continue;
             };
             for drag_target in drag_list.keys() {
-                pointer_drag_leave.send(Pointer::new(
+                let event = Pointer::new(
                     pointer_id,
                     pointer_location.clone(),
                     target,
@@ -660,7 +670,9 @@ pub fn send_drag_over_events(
                         dragged: *drag_target,
                         hit: hit.clone(),
                     },
-                ));
+                );
+                commands.trigger_targets(event.clone(), event.target);
+                pointer_drag_leave.send(event);
             }
         }
     }

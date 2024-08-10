@@ -12,6 +12,15 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 
+/// common exports for picking interaction
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        events::*, input::InputPlugin, pointer::PointerButton, InteractionPlugin, Pickable,
+        PickingPlugin, PickingPluginsSettings,
+    };
+}
+
 /// Used to globally toggle picking features at runtime.
 #[derive(Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default)]
@@ -169,6 +178,7 @@ pub enum PickSet {
 
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
+#[derive(Default)]
 pub struct PickingPlugin;
 
 impl Plugin for PickingPlugin {
@@ -213,6 +223,7 @@ impl Plugin for PickingPlugin {
 }
 
 /// Generates [`Pointer`](events::Pointer) events and handles event bubbling.
+#[derive(Default)]
 pub struct InteractionPlugin;
 
 impl Plugin for InteractionPlugin {
@@ -224,6 +235,19 @@ impl Plugin for InteractionPlugin {
             .init_resource::<focus::PreviousHoverMap>()
             .init_resource::<DragMap>()
             .add_event::<PointerCancel>()
+            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<Up>>()
+            .add_event::<Pointer<Move>>()
+            .add_event::<Pointer<Over>>()
+            .add_event::<Pointer<Click>>()
+            .add_event::<Pointer<Out>>()
+            .add_event::<Pointer<Drag>>()
+            .add_event::<Pointer<DragStart>>()
+            .add_event::<Pointer<DragEnter>>()
+            .add_event::<Pointer<DragOver>>()
+            .add_event::<Pointer<DragLeave>>()
+            .add_event::<Pointer<DragEnd>>()
+            .add_event::<Pointer<Drop>>()
             .add_systems(
                 PreUpdate,
                 (
