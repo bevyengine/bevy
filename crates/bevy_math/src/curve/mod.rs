@@ -2,10 +2,13 @@
 //! contains the [`Interval`] type, along with a selection of core data structures used to back
 //! curves that are interpolated from samples.
 
+pub mod cores;
 pub mod interval;
 
 pub use interval::{interval, Interval};
 
+use crate::StableInterpolate;
+use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
@@ -212,12 +215,194 @@ pub trait Curve<T> {
         })
     }
 
+    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
+    /// spaced sample values, using the provided `interpolation` to interpolate between adjacent samples.
+    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
+    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
+    /// the midpoint is taken as well, and so on. If `segments` is zero, or if this curve has an unbounded
+    /// domain, then a [`ResamplingError`] is returned.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_math::*;
+    /// # use bevy_math::curve::*;
+    /// let quarter_rotation = function_curve(interval(0.0, 90.0).unwrap(), |t| Rot2::degrees(t));
+    /// // A curve which only stores three data points and uses `nlerp` to interpolate them:
+    /// let resampled_rotation = quarter_rotation.resample(3, |x, y, t| x.nlerp(*y, t));
+    /// ```
+    fn resample<I>(
+        &self,
+        segments: usize,
+        interpolation: I,
+    ) -> Result<SampleCurve<T, I>, ResamplingError>
+    where
+        Self: Sized,
+        I: Fn(&T, &T, f32) -> T,
+    {
+        if segments == 0 {
+            return Err(ResamplingError::NotEnoughSamples(segments));
+        }
+        if !self.domain().is_bounded() {
+            return Err(ResamplingError::UnboundedDomain);
+        }
+
+        let samples: Vec<T> = self
+            .domain()
+            .spaced_points(segments + 1)
+            .unwrap()
+            .map(|t| self.sample_unchecked(t))
+            .collect();
+        Ok(SampleCurve {
+            core: EvenCore {
+                domain: self.domain(),
+                samples,
+            },
+            interpolation,
+        })
+    }
+
+    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
+    /// spaced values. A total of `samples` samples are used, although at least two samples are
+    /// required in order to produce well-formed output. If fewer than two samples are provided,
+    /// or if this curve has an unbounded domain, then a [`ResamplingError`] is returned.
+    fn resample_auto(&self, samples: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
+    where
+        T: StableInterpolate,
+    {
+        if samples < 2 {
+            return Err(ResamplingError::NotEnoughSamples(samples));
+        }
+        if !self.domain().is_bounded() {
+            return Err(ResamplingError::UnboundedDomain);
+        }
+
+        let samples: Vec<T> = self
+            .domain()
+            .spaced_points(samples)
+            .unwrap()
+            .map(|t| self.sample_unchecked(t))
+            .collect();
+        Ok(SampleAutoCurve {
+            core: EvenCore {
+                domain: self.domain(),
+                samples,
+            },
+        })
+    }
+
+    /// Extract an iterator over evenly-spaced samples from this curve. If `samples` is less than 2
+    /// or if this curve has unbounded domain, then an error is returned instead.
+    fn samples(&self, samples: usize) -> Result<impl Iterator<Item = T>, ResamplingError>
+    where
+        Self: Sized,
+    {
+        if samples < 2 {
+            return Err(ResamplingError::NotEnoughSamples(samples));
+        }
+        if !self.domain().is_bounded() {
+            return Err(ResamplingError::UnboundedDomain);
+        }
+
+        // Unwrap on `spaced_points` always succeeds because its error conditions are handled
+        // above.
+        Ok(self
+            .domain()
+            .spaced_points(samples)
+            .unwrap()
+            .map(|t| self.sample_unchecked(t)))
+    }
+
+    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over samples
+    /// taken at a given set of times. The given `interpolation` is used to interpolate adjacent
+    /// samples, and the `sample_times` are expected to contain at least two valid times within the
+    /// curve's domain interval.
+    ///
+    /// Redundant sample times, non-finite sample times, and sample times outside of the domain
+    /// are simply filtered out. With an insufficient quantity of data, a [`ResamplingError`] is
+    /// returned.
+    ///
+    /// The domain of the produced curve stretches between the first and last sample times of the
+    /// iterator.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    fn resample_uneven<I>(
+        &self,
+        sample_times: impl IntoIterator<Item = f32>,
+        interpolation: I,
+    ) -> Result<UnevenSampleCurve<T, I>, ResamplingError>
+    where
+        Self: Sized,
+        I: Fn(&T, &T, f32) -> T,
+    {
+        let mut times: Vec<f32> = sample_times
+            .into_iter()
+            .filter(|t| t.is_finite() && self.domain().contains(*t))
+            .collect();
+        times.dedup_by(|t1, t2| (*t1).eq(t2));
+        if times.len() < 2 {
+            return Err(ResamplingError::NotEnoughSamples(times.len()));
+        }
+        times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
+        let samples = times
+            .iter()
+            .copied()
+            .map(|t| self.sample_unchecked(t))
+            .collect();
+        Ok(UnevenSampleCurve {
+            core: UnevenCore { times, samples },
+            interpolation,
+        })
+    }
+
+    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over samples
+    /// taken at the given set of times. The given `sample_times` are expected to contain at least
+    /// two valid times within the curve's domain interval.
+    ///
+    /// Redundant sample times, non-finite sample times, and sample times outside of the domain
+    /// are simply filtered out. With an insufficient quantity of data, a [`ResamplingError`] is
+    /// returned.
+    ///
+    /// The domain of the produced [`UnevenSampleAutoCurve`] stretches between the first and last
+    /// sample times of the iterator.
+    fn resample_uneven_auto(
+        &self,
+        sample_times: impl IntoIterator<Item = f32>,
+    ) -> Result<UnevenSampleAutoCurve<T>, ResamplingError>
+    where
+        Self: Sized,
+        T: StableInterpolate,
+    {
+        let mut times: Vec<f32> = sample_times
+            .into_iter()
+            .filter(|t| t.is_finite() && self.domain().contains(*t))
+            .collect();
+        times.dedup_by(|t1, t2| (*t1).eq(t2));
+        if times.len() < 2 {
+            return Err(ResamplingError::NotEnoughSamples(times.len()));
+        }
+        times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
+        let samples = times
+            .iter()
+            .copied()
+            .map(|t| self.sample_unchecked(t))
+            .collect();
+        Ok(UnevenSampleAutoCurve {
+            core: UnevenCore { times, samples },
+        })
+    }
+
     /// Borrow this curve rather than taking ownership of it. This is essentially an alias for a
     /// prefix `&`; the point is that intermediate operations can be performed while retaining
     /// access to the original curve.
     ///
     /// # Example
-    /// ```ignore
+    /// ```
     /// # use bevy_math::curve::*;
     /// let my_curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * t + 1.0);
     /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
@@ -282,6 +467,20 @@ pub enum ChainError {
     /// The left endpoint of the second curve was infinite.
     #[error("The second curve's domain has an infinite start")]
     SecondStartInfinite,
+}
+
+/// An error indicating that a resampling operation could not be performed because of
+/// malformed inputs.
+#[derive(Debug, Error)]
+#[error("Could not resample from this curve because of bad inputs")]
+pub enum ResamplingError {
+    /// This resampling operation was not provided with enough samples to have well-formed output.
+    #[error("Not enough samples to construct resampled curve")]
+    NotEnoughSamples(usize),
+
+    /// This resampling operation failed because of an unbounded interval.
+    #[error("Could not resample because this curve has unbounded domain")]
+    UnboundedDomain,
 }
 
 /// A curve with a constant value over its domain.
@@ -575,6 +774,196 @@ where
     }
 }
 
+/// A curve that is defined by explicit neighbor interpolation over a set of samples.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct SampleCurve<T, I> {
+    core: EvenCore<T>,
+    interpolation: I,
+}
+
+impl<T, I> Curve<T> for SampleCurve<T, I>
+where
+    T: Clone,
+    I: Fn(&T, &T, f32) -> T,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        self.core.domain()
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.core.sample_with(t, &self.interpolation)
+    }
+}
+
+impl<T, I> SampleCurve<T, I> {
+    /// Create a new [`SampleCurve`] using the specified `interpolation` to interpolate between
+    /// the given `samples`. An error is returned if there are not at least 2 samples or if the
+    /// given `domain` is unbounded.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    pub fn new(
+        domain: Interval,
+        samples: impl Into<Vec<T>>,
+        interpolation: I,
+    ) -> Result<Self, EvenCoreError>
+    where
+        I: Fn(&T, &T, f32) -> T,
+    {
+        Ok(Self {
+            core: EvenCore::new(domain, samples)?,
+            interpolation,
+        })
+    }
+}
+
+/// A curve that is defined by neighbor interpolation over a set of samples.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct SampleAutoCurve<T> {
+    core: EvenCore<T>,
+}
+
+impl<T> Curve<T> for SampleAutoCurve<T>
+where
+    T: StableInterpolate,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        self.core.domain()
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.core
+            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
+    }
+}
+
+impl<T> SampleAutoCurve<T> {
+    /// Create a new [`SampleCurve`] using type-inferred interpolation to interpolate between
+    /// the given `samples`. An error is returned if there are not at least 2 samples or if the
+    /// given `domain` is unbounded.
+    pub fn new(domain: Interval, samples: impl Into<Vec<T>>) -> Result<Self, EvenCoreError> {
+        Ok(Self {
+            core: EvenCore::new(domain, samples)?,
+        })
+    }
+}
+
+/// A curve that is defined by interpolation over unevenly spaced samples with explicit
+/// interpolation.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct UnevenSampleCurve<T, I> {
+    core: UnevenCore<T>,
+    interpolation: I,
+}
+
+impl<T, I> Curve<T> for UnevenSampleCurve<T, I>
+where
+    T: Clone,
+    I: Fn(&T, &T, f32) -> T,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        self.core.domain()
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.core.sample_with(t, &self.interpolation)
+    }
+}
+
+impl<T, I> UnevenSampleCurve<T, I> {
+    /// Create a new [`UnevenSampleCurve`] using the provided `interpolation` to interpolate
+    /// between adjacent `timed_samples`. The given samples are filtered to finite times and
+    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
+    /// returned.
+    ///
+    /// The interpolation takes two values by reference together with a scalar parameter and
+    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
+    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
+    pub fn new(
+        timed_samples: impl Into<Vec<(f32, T)>>,
+        interpolation: I,
+    ) -> Result<Self, UnevenCoreError> {
+        Ok(Self {
+            core: UnevenCore::new(timed_samples)?,
+            interpolation,
+        })
+    }
+
+    /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
+    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// but the function inputs to each are inverses of one another.
+    ///
+    /// The samples are re-sorted by time after mapping and deduplicated by output time, so
+    /// the function `f` should generally be injective over the sample times of the curve.
+    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T, I> {
+        Self {
+            core: self.core.map_sample_times(f),
+            interpolation: self.interpolation,
+        }
+    }
+}
+
+/// A curve that is defined by interpolation over unevenly spaced samples.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct UnevenSampleAutoCurve<T> {
+    core: UnevenCore<T>,
+}
+
+impl<T> Curve<T> for UnevenSampleAutoCurve<T>
+where
+    T: StableInterpolate,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        self.core.domain()
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.core
+            .sample_with(t, <T as StableInterpolate>::interpolate_stable)
+    }
+}
+
+impl<T> UnevenSampleAutoCurve<T> {
+    /// Create a new [`UnevenSampleAutoCurve`] from a given set of timed samples, interpolated
+    /// using the  The samples are filtered to finite times and
+    /// sorted internally; if there are not at least 2 valid timed samples, an error will be
+    /// returned.
+    pub fn new(timed_samples: impl Into<Vec<(f32, T)>>) -> Result<Self, UnevenCoreError> {
+        Ok(Self {
+            core: UnevenCore::new(timed_samples)?,
+        })
+    }
+
+    /// This [`UnevenSampleAutoCurve`], but with the sample times moved by the map `f`.
+    /// In principle, when `f` is monotone, this is equivalent to [`Curve::reparametrize`],
+    /// but the function inputs to each are inverses of one another.
+    ///
+    /// The samples are re-sorted by time after mapping and deduplicated by output time, so
+    /// the function `f` should generally be injective over the sample times of the curve.
+    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleAutoCurve<T> {
+        Self {
+            core: self.core.map_sample_times(f),
+        }
+    }
+}
+
 /// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
 pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> ConstantCurve<T> {
     ConstantCurve { domain, value }
@@ -681,5 +1070,76 @@ mod tests {
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.0), 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.5), 1.5);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(1.0), 2.0);
+    }
+
+    #[test]
+    fn resampling() {
+        let curve = function_curve(interval(1.0, 4.0).unwrap(), f32::log2);
+
+        // Need at least two points to sample.
+        let nice_try = curve.by_ref().resample_auto(1);
+        assert!(nice_try.is_err());
+
+        // The values of a resampled curve should be very close at the sample points.
+        // Because of denominators, it's not literally equal.
+        // (This is a tradeoff against O(1) sampling.)
+        let resampled_curve = curve.by_ref().resample_auto(101).unwrap();
+        let step = curve.domain().length() / 100.0;
+        for index in 0..101 {
+            let test_pt = curve.domain().start() + index as f32 * step;
+            let expected = curve.sample_unchecked(test_pt);
+            assert_abs_diff_eq!(
+                resampled_curve.sample_unchecked(test_pt),
+                expected,
+                epsilon = 1e-6
+            );
+        }
+
+        // Another example.
+        let curve = function_curve(interval(0.0, TAU).unwrap(), f32::cos);
+        let resampled_curve = curve.by_ref().resample_auto(1001).unwrap();
+        let step = curve.domain().length() / 1000.0;
+        for index in 0..1001 {
+            let test_pt = curve.domain().start() + index as f32 * step;
+            let expected = curve.sample_unchecked(test_pt);
+            assert_abs_diff_eq!(
+                resampled_curve.sample_unchecked(test_pt),
+                expected,
+                epsilon = 1e-6
+            );
+        }
+    }
+
+    #[test]
+    fn uneven_resampling() {
+        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), f32::exp);
+
+        // Need at least two points to resample.
+        let nice_try = curve.by_ref().resample_uneven_auto([1.0; 1]);
+        assert!(nice_try.is_err());
+
+        // Uneven sampling should produce literal equality at the sample points.
+        // (This is part of what you get in exchange for O(log(n)) sampling.)
+        let sample_points = (0..100).map(|idx| idx as f32 * 0.1);
+        let resampled_curve = curve.by_ref().resample_uneven_auto(sample_points).unwrap();
+        for idx in 0..100 {
+            let test_pt = idx as f32 * 0.1;
+            let expected = curve.sample_unchecked(test_pt);
+            assert_eq!(resampled_curve.sample_unchecked(test_pt), expected);
+        }
+        assert_abs_diff_eq!(resampled_curve.domain().start(), 0.0);
+        assert_abs_diff_eq!(resampled_curve.domain().end(), 9.9, epsilon = 1e-6);
+
+        // Another example.
+        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), f32::log2);
+        let sample_points = (0..10).map(|idx| (idx as f32).exp2());
+        let resampled_curve = curve.by_ref().resample_uneven_auto(sample_points).unwrap();
+        for idx in 0..10 {
+            let test_pt = (idx as f32).exp2();
+            let expected = curve.sample_unchecked(test_pt);
+            assert_eq!(resampled_curve.sample_unchecked(test_pt), expected);
+        }
+        assert_abs_diff_eq!(resampled_curve.domain().start(), 1.0);
+        assert_abs_diff_eq!(resampled_curve.domain().end(), 512.0);
     }
 }
