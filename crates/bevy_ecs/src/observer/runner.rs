@@ -301,7 +301,7 @@ impl<E: EventSet, B: Bundle> Observer<E, B> {
     /// # Safety
     /// The type of the `event` [`ComponentId`] _must_ match the actual value
     /// of the event passed into the observer system.
-    pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
+    pub unsafe fn with_event_unchecked(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
     }
@@ -314,8 +314,10 @@ where
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
     ///
-    /// As opposed to [`Observer::with_event`], this method is safe to use because it does not cast any pointers automatically.
-    pub fn with_event_safe(mut self, event: ComponentId) -> Self {
+    /// # Note
+    /// As opposed to [`Observer::with_event_unchecked`], this method is safe to use because no pointer casting is performed automatically.
+    /// That is left to the user to do manually.
+    pub fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
     }
