@@ -12,7 +12,6 @@ pub use trigger_event::*;
 use crate::observer::entity_observer::ObservedBy;
 use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
-use bevy_ptr::Ptr;
 use bevy_utils::{EntityHashMap, HashMap};
 use std::marker::PhantomData;
 
