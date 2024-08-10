@@ -1,6 +1,7 @@
 //! Contains [`Bounded2d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
+    ops,
     primitives::{
         Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
         CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon,
@@ -154,7 +155,7 @@ impl Bounded2d for Ellipse {
         let (ux, uy) = (hw * alpha_cos, hw * alpha_sin);
         let (vx, vy) = (hh * beta_cos, hh * beta_sin);
 
-        let half_size = Vec2::new(ux.hypot(vx), uy.hypot(vy));
+        let half_size = Vec2::new(ops::hypot(ux, vx), ops::hypot(uy, vy));
 
         Aabb2d::new(isometry.translation, half_size)
     }

@@ -2,6 +2,7 @@ mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
+    ops::FloatPow,
     prelude::{Mat2, Rot2, Vec2},
     Isometry2d,
 };
@@ -251,7 +252,7 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
     fn intersects(&self, circle: &BoundingCircle) -> bool {
         let closest_point = self.closest_point(circle.center);
         let distance_squared = circle.center.distance_squared(closest_point);
-        let radius_squared = circle.radius().powi(2);
+        let radius_squared = circle.radius().squared();
         distance_squared <= radius_squared
     }
 }
@@ -535,7 +536,7 @@ impl BoundingVolume for BoundingCircle {
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= diff.powi(2).copysign(diff)
+        self.center.distance_squared(other.center) <= diff.squared().copysign(diff)
     }
 
     #[inline(always)]
@@ -593,7 +594,7 @@ impl IntersectsVolume<Self> for BoundingCircle {
     #[inline(always)]
     fn intersects(&self, other: &Self) -> bool {
         let center_distance_squared = self.center.distance_squared(other.center);
-        let radius_sum_squared = (self.radius() + other.radius()).powi(2);
+        let radius_sum_squared = (self.radius() + other.radius()).squared();
         center_distance_squared <= radius_sum_squared
     }
 }

@@ -4,6 +4,7 @@ use glam::Vec3A;
 
 use crate::{
     bounding::{Bounded2d, BoundingCircle},
+    ops,
     primitives::{
         BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d,
         Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
@@ -137,7 +138,7 @@ impl Bounded3d for Cylinder {
     }
 
     fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere {
-        let radius = self.radius.hypot(self.half_height);
+        let radius = ops::hypot(self.radius, self.half_height);
         BoundingSphere::new(isometry.translation, radius)
     }
 }
