@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
+use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -1034,7 +1034,7 @@ impl Rhombus {
     #[inline(always)]
     pub fn from_side(side: f32) -> Self {
         Self {
-            half_diagonals: Vec2::splat(ops::hypot(side, side) / 2.0),
+            half_diagonals: Vec2::splat(side * FRAC_1_SQRT_2),
         }
     }
 

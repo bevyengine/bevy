@@ -6,7 +6,6 @@
 //! library.
 
 #![allow(dead_code)]
-#![allow(unused_imports)]
 #![allow(clippy::disallowed_methods)]
 
 // Note: There are some Rust methods with unspecified precision without a `libm`
