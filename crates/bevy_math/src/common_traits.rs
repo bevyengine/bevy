@@ -256,7 +256,7 @@ pub trait StableInterpolate: Clone {
     /// object_position.smooth_nudge(&target_position, decay_rate, delta_time);
     /// ```
     fn smooth_nudge(&mut self, target: &Self, decay_rate: f32, delta: f32) {
-        self.interpolate_stable_assign(target, 1.0 - ops::exp(decay_rate * delta));
+        self.interpolate_stable_assign(target, 1.0 - ops::exp(-decay_rate * delta));
     }
 }
 
