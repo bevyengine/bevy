@@ -374,3 +374,160 @@ unsafe impl EventSet for UntypedEvent<()> {
         item.as_ref()
     }
 }
+
+/// This trait is implemented on [`EventSet`]s where it is safe to call
+/// [`Observer::with_event`](crate::observer::Observer::with_event).
+pub unsafe trait DynamicEventSafe: EventSet {}
+
+unsafe impl<E: EventSet> DynamicEventSafe for UntypedEvent<E> {}
+unsafe impl DynamicEventSafe for UntypedEvent<()> {}
+unsafe impl<A: DynamicEventSafe> DynamicEventSafe for (A,) {}
+unsafe impl<A: EventSet, B: DynamicEventSafe> DynamicEventSafe for (A, B) {}
+unsafe impl<A: EventSet, B: EventSet, C: DynamicEventSafe> DynamicEventSafe for (A, B, C) {}
+unsafe impl<A: EventSet, B: EventSet, C: EventSet, D: DynamicEventSafe> DynamicEventSafe
+    for (A, B, C, D)
+{
+}
+unsafe impl<A: EventSet, B: EventSet, C: EventSet, D: EventSet, E: DynamicEventSafe>
+    DynamicEventSafe for (A, B, C, D, E)
+{
+}
+unsafe impl<A: EventSet, B: EventSet, C: EventSet, D: EventSet, E: EventSet, F: DynamicEventSafe>
+    DynamicEventSafe for (A, B, C, D, E, F)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: EventSet,
+        H: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G, H)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: EventSet,
+        H: EventSet,
+        I: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G, H, I)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: EventSet,
+        H: EventSet,
+        I: EventSet,
+        J: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G, H, I, J)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: EventSet,
+        H: EventSet,
+        I: EventSet,
+        J: EventSet,
+        K: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G, H, I, J, K)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: EventSet,
+        H: EventSet,
+        I: EventSet,
+        J: EventSet,
+        K: EventSet,
+        L: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G, H, I, J, K, L)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: EventSet,
+        H: EventSet,
+        I: EventSet,
+        J: EventSet,
+        K: EventSet,
+        L: EventSet,
+        M: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G, H, I, J, K, L, M)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: EventSet,
+        H: EventSet,
+        I: EventSet,
+        J: EventSet,
+        K: EventSet,
+        L: EventSet,
+        M: EventSet,
+        N: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G, H, I, J, K, L, M, N)
+{
+}
+unsafe impl<
+        A: EventSet,
+        B: EventSet,
+        C: EventSet,
+        D: EventSet,
+        E: EventSet,
+        F: EventSet,
+        G: EventSet,
+        H: EventSet,
+        I: EventSet,
+        J: EventSet,
+        K: EventSet,
+        L: EventSet,
+        M: EventSet,
+        N: EventSet,
+        O: DynamicEventSafe,
+    > DynamicEventSafe for (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)
+{
+}

@@ -621,7 +621,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events_static_untyped() {
+    fn observer_multiple_events_untyped_autoregister_static() {
         let mut world = World::new();
         world.init_resource::<R>();
         world.spawn(Observer::new(
@@ -634,7 +634,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events_dynamic_untyped() {
+    fn observer_multiple_events_untyped() {
         let mut world = World::new();
         world.init_resource::<R>();
         let on_add = world.init_component::<OnAdd>();
@@ -642,6 +642,21 @@ mod tests {
         world.spawn(
             Observer::new(|_: Trigger<UntypedEvent, A>, mut res: ResMut<R>| res.0 += 1)
                 .with_event(on_add)
+                .with_event(on_remove),
+        );
+
+        let entity = world.spawn(A).id();
+        world.despawn(entity);
+        assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_multiple_events_mixed() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        let on_remove = world.init_component::<OnRemove>();
+        world.spawn(
+            Observer::new(|_: Trigger<(OnAdd, UntypedEvent), A>, mut res: ResMut<R>| res.0 += 1)
                 .with_event(on_remove),
         );
 
