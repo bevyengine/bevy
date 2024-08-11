@@ -29,7 +29,7 @@ where
     /// If `isometry == Isometry3d::IDENTITY` then
     ///
     /// - the center is at `Vec3::ZERO`
-    /// - the half_sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
+    /// - the `half_sizes` are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the ellipse needs to be rendered.
     ///
@@ -70,7 +70,7 @@ where
     /// If `isometry == Isometry2d::IDENTITY` then
     ///
     /// - the center is at `Vec2::ZERO`
-    /// - the half_sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
+    /// - the `half_sizes` are aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
     /// This should be called for each frame the ellipse needs to be rendered.
     ///

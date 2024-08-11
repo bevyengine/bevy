@@ -16,7 +16,7 @@ where
     /// If `isometry == Isometry3d::IDENTITY` then
     ///
     /// - the center is at `Vec3::ZERO`
-    /// - the half_sizes are aligned with the `Vec3::X`, `Vec3::Y` and `Vec3::Z` axes.
+    /// - the `half_size`s are aligned with the `Vec3::X`, `Vec3::Y` and `Vec3::Z` axes.
     ///
     /// This should be called for each frame the cross needs to be rendered.
     ///
@@ -45,7 +45,7 @@ where
     /// If `isometry == Isometry2d::IDENTITY` then
     ///
     /// - the center is at `Vec3::ZERO`
-    /// - the half_sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
+    /// - the `half_size`s are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the cross needs to be rendered.
     ///
