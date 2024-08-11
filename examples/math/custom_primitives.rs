@@ -211,7 +211,11 @@ fn bounding_shapes_2d(
                 // Get the AABB of the primitive with the rotation and translation of the mesh.
                 let aabb = HEART.aabb_2d(isometry);
 
-                gizmos.rect_2d(aabb.center(), 0., aabb.half_size() * 2., WHITE);
+                gizmos.rect_2d(
+                    Isometry2d::from_translation(aabb.center()),
+                    aabb.half_size() * 2.,
+                    WHITE,
+                );
             }
             BoundingShape::BoundingSphere => {
                 // Get the bounding sphere of the primitive with the rotation and translation of the mesh.

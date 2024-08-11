@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Quat, Rot2, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -467,11 +467,11 @@ where
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: impl Into<Color>) {
+    pub fn rect(&mut self, isometry: Isometry3d, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
-        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
 
@@ -689,18 +689,11 @@ where
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn rect_2d(
-        &mut self,
-        position: Vec2,
-        rotation: impl Into<Rot2>,
-        size: Vec2,
-        color: impl Into<Color>,
-    ) {
+    pub fn rect_2d(&mut self, isometry: Isometry2d, size: Vec2, color: impl Into<Color>) {
         if !self.enabled {
             return;
         }
-        let rotation: Rot2 = rotation.into();
-        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
 

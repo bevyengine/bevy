@@ -186,7 +186,11 @@ fn render_volumes(mut gizmos: Gizmos, query: Query<(&CurrentVolume, &Intersects)
         let color = if **intersects { AQUA } else { ORANGE_RED };
         match volume {
             CurrentVolume::Aabb(a) => {
-                gizmos.rect_2d(a.center(), 0., a.half_size() * 2., color);
+                gizmos.rect_2d(
+                    Isometry2d::from_translation(a.center()),
+                    a.half_size() * 2.,
+                    color,
+                );
             }
             CurrentVolume::Circle(c) => {
                 gizmos.circle_2d(Isometry2d::from_translation(c.center()), c.radius(), color);
@@ -354,8 +358,9 @@ fn aabb_cast_system(
         **intersects = toi.is_some();
         if let Some(toi) = toi {
             gizmos.rect_2d(
-                aabb_cast.ray.ray.origin + *aabb_cast.ray.ray.direction * toi,
-                0.,
+                Isometry2d::from_translation(
+                    aabb_cast.ray.ray.origin + *aabb_cast.ray.ray.direction * toi,
+                ),
                 aabb_cast.aabb.half_size() * 2.,
                 LIME,
             );
@@ -406,7 +411,11 @@ fn aabb_intersection_system(
 ) {
     let center = get_intersection_position(&time);
     let aabb = Aabb2d::new(center, Vec2::splat(50.));
-    gizmos.rect_2d(center, 0., aabb.half_size() * 2., YELLOW);
+    gizmos.rect_2d(
+        Isometry2d::from_translation(center),
+        aabb.half_size() * 2.,
+        YELLOW,
+    );
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {

@@ -83,8 +83,7 @@ fn draw_example_collection(
     time: Res<Time>,
 ) {
     gizmos.grid(
-        Vec3::ZERO,
-        Quat::from_rotation_x(PI / 2.),
+        Isometry3d::from_rotation(Quat::from_rotation_x(PI / 2.)),
         UVec2::splat(20),
         Vec2::new(2., 2.),
         // Light gray
@@ -104,13 +103,19 @@ fn draw_example_collection(
         BLACK,
     );
     gizmos.rect(
-        Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
-        Quat::from_rotation_y(PI / 2.),
+        Isometry3d::new(
+            Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
+            Quat::from_rotation_y(PI / 2.),
+        ),
         Vec2::splat(2.),
         LIME,
     );
 
-    gizmos.cross(Vec3::new(-1., 1., 1.), Quat::IDENTITY, 0.5, FUCHSIA);
+    gizmos.cross(
+        Isometry3d::from_translation(Vec3::new(-1., 1., 1.)),
+        0.5,
+        FUCHSIA,
+    );
 
     my_gizmos.sphere(
         Isometry3d::from_translation(Vec3::new(1., 0.5, 0.)),
@@ -120,8 +125,7 @@ fn draw_example_collection(
 
     my_gizmos
         .rounded_cuboid(
-            Vec3::new(-2.0, 0.75, -0.75),
-            Quat::IDENTITY,
+            Isometry3d::from_translation(Vec3::new(-2.0, 0.75, -0.75)),
             Vec3::splat(0.9),
             TURQUOISE,
         )

@@ -120,7 +120,11 @@ fn draw_bounds<Shape: Bounded2d + Send + Sync + 'static>(
         let isometry = Isometry2d::new(translation, Rot2::radians(rotation));
 
         let aabb = shape.0.aabb_2d(isometry);
-        gizmos.rect_2d(aabb.center(), 0.0, aabb.half_size() * 2.0, RED);
+        gizmos.rect_2d(
+            Isometry2d::from_translation(aabb.center()),
+            aabb.half_size() * 2.0,
+            RED,
+        );
 
         let bounding_circle = shape.0.bounding_circle(isometry);
         gizmos.circle_2d(

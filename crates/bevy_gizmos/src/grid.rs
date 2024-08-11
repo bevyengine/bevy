@@ -5,7 +5,8 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::Vec3Swizzles;
+use bevy_math::{Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3};
 
 /// A builder returned by [`Gizmos::grid_3d`]
 pub struct GridBuilder3d<'a, 'w, 's, Config, Clear>
@@ -14,8 +15,7 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     spacing: Vec3,
     cell_count: UVec3,
     skew: Vec3,
@@ -29,8 +29,7 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     spacing: Vec2,
     cell_count: UVec2,
     skew: Vec2,
@@ -147,8 +146,7 @@ where
     fn drop(&mut self) {
         draw_grid(
             self.gizmos,
-            self.position,
-            self.rotation,
+            self.isometry,
             self.spacing,
             self.cell_count,
             self.skew,
@@ -166,8 +164,7 @@ where
     fn drop(&mut self) {
         draw_grid(
             self.gizmos,
-            self.position,
-            self.rotation,
+            self.isometry,
             self.spacing.extend(0.),
             self.cell_count.extend(0),
             self.skew.extend(0.),
@@ -218,16 +215,14 @@ where
     /// ```
     pub fn grid(
         &mut self,
-        position: Vec3,
-        rotation: Quat,
+        isometry: Isometry3d,
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<Color>,
     ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
-            position,
-            rotation,
+            isometry,
             spacing,
             cell_count,
             skew: Vec2::ZERO,
@@ -273,16 +268,14 @@ where
     /// ```
     pub fn grid_3d(
         &mut self,
-        position: Vec3,
-        rotation: Quat,
+        isometry: Isometry3d,
         cell_count: UVec3,
         spacing: Vec3,
         color: impl Into<Color>,
     ) -> GridBuilder3d<'_, 'w, 's, Config, Clear> {
         GridBuilder3d {
             gizmos: self,
-            position,
-            rotation,
+            isometry,
             spacing,
             cell_count,
             skew: Vec3::ZERO,
@@ -328,16 +321,17 @@ where
     /// ```
     pub fn grid_2d(
         &mut self,
-        position: Vec2,
-        rotation: f32,
+        isometry: Isometry2d,
         cell_count: UVec2,
         spacing: Vec2,
         color: impl Into<Color>,
     ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
-            position: position.extend(0.),
-            rotation: Quat::from_rotation_z(rotation),
+            isometry: Isometry3d::new(
+                isometry.translation.extend(0.0),
+                Quat::from_rotation_z(isometry.rotation.as_radians()),
+            ),
             spacing,
             cell_count,
             skew: Vec2::ZERO,
@@ -350,8 +344,7 @@ where
 #[allow(clippy::too_many_arguments)]
 fn draw_grid<Config, Clear>(
     gizmos: &mut Gizmos<'_, '_, Config, Clear>,
-    position: Vec3,
-    rotation: Quat,
+    isometry: Isometry3d,
     spacing: Vec3,
     cell_count: UVec3,
     skew: Vec3,
@@ -428,7 +421,7 @@ fn draw_grid<Config, Clear>(
     x_lines
         .chain(y_lines)
         .chain(z_lines)
-        .map(|ps| ps.map(|p| position + rotation * p))
+        .map(|vec3s| vec3s.map(|vec3| isometry * vec3))
         .for_each(|[start, end]| {
             gizmos.line(start, end, color);
         });
