@@ -140,9 +140,9 @@ where
     /// - `angle`: sets how much of a circle circumference is passed, e.g. PI is half a circle. This
     ///     value should be in the range (-2 * PI..=2 * PI)
     /// - `radius`: distance between the arc and its center point
-    /// - `position`: position of the arcs center point
-    /// - `rotation`: defines orientation of the arc, by default we assume the arc is contained in a
-    ///     plane parallel to the XZ plane and the default starting point is (`position + Vec3::X`)
+    /// - `isometry` defines the translation and rotation of the arc.
+    ///              - the translation specifies the center of the arc
+    ///              - the rotation is counter-clockwise starting from `Vec3::Y`
     /// - `color`: color of the arc
     ///
     /// # Builder methods
@@ -163,8 +163,7 @@ where
     ///        .arc_3d(
     ///          270.0_f32.to_radians(),
     ///          0.25,
-    ///          Vec3::ONE,
-    ///          rotation,
+    ///          Isometry3d::new(Vec3::ONE, rotation),
     ///          ORANGE
     ///          )
     ///          .resolution(100);

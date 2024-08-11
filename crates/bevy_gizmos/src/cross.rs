@@ -11,7 +11,12 @@ impl<Config> Gizmos<'_, '_, Config>
 where
     Config: GizmoConfigGroup,
 {
-    /// Draw a cross in 3D at `position`.
+    /// Draw a cross in 3D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the half_sizes are aligned with the `Vec3::X`, `Vec3::Y` and `Vec3::Z` axes.
     ///
     /// This should be called for each frame the cross needs to be rendered.
     ///
@@ -21,7 +26,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::WHITE;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cross(Vec3::ZERO, Quat::IDENTITY, 0.5, WHITE);
+    ///     gizmos.cross(Isometry3d::IDENTITY, 0.5, WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -35,7 +40,12 @@ where
             });
     }
 
-    /// Draw a cross in 2D (on the xy plane) at `position`.
+    /// Draw a cross in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the half_sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the cross needs to be rendered.
     ///
@@ -45,7 +55,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::WHITE;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cross_2d(Vec2::ZERO, 0.0, 0.5, WHITE);
+    ///     gizmos.cross_2d(Isometry2d::IDENTITY, 0.5, WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

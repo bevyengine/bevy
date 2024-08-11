@@ -24,7 +24,12 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draw an ellipse in 3D at `position` with the flat side facing `normal`.
+    /// Draw an ellipse in 3D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the half_sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the ellipse needs to be rendered.
     ///
@@ -34,12 +39,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(1., 2.), GREEN);
+    ///     gizmos.ellipse(Isometry3d::IDENTITY, Vec2::new(1., 2.), GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse(Vec3::ZERO, Quat::IDENTITY, Vec2::new(5., 1.), RED)
+    ///         .ellipse(Isometry3d::IDENTITY, Vec2::new(5., 1.), RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -60,7 +65,12 @@ where
         }
     }
 
-    /// Draw an ellipse in 2D.
+    /// Draw an ellipse in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the center is at `Vec2::ZERO`
+    /// - the half_sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
     /// This should be called for each frame the ellipse needs to be rendered.
     ///
@@ -70,12 +80,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.ellipse_2d(Isometry2d::new(Vec2::ZERO, Rot2::degrees(180.0)), Vec2::new(2., 1.), GREEN);
+    ///     gizmos.ellipse_2d(Isometry2d::from_rotation(Rot2::degrees(180.0)), Vec2::new(2., 1.), GREEN);
     ///
     ///     // Ellipses have 32 line-segments by default.
     ///     // You may want to increase this for larger ellipses.
     ///     gizmos
-    ///         .ellipse_2d(Isometry2d::new(Vec2::ZERO, Rot2::degrees(180.0)), Vec2::new(5., 1.), RED)
+    ///         .ellipse_2d(Isometry2d::from_rotation(Rot2::degrees(180.0)), Vec2::new(5., 1.), RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -96,9 +106,12 @@ where
         }
     }
 
-    /// Draw a circle in 3D at `position` with the flat side facing `normal`.
+    /// Draw a circle in 3D with the given `isometry` applied.
     ///
-    /// This should be called for each frame the circle needs to be rendered.
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the radius is aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// # Example
     /// ```
@@ -106,12 +119,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle(Vec3::ZERO, Dir3::Z, 1., GREEN);
+    ///     gizmos.circle(Isometry3d::IDENTITY, 1., GREEN);
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle(Vec3::ZERO, Dir3::Z, 5., RED)
+    ///         .circle(Isometry3d::IDENTITY, 5., RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -132,7 +145,12 @@ where
         }
     }
 
-    /// Draw a circle in 2D.
+    /// Draw a circle in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the center is at `Vec2::ZERO`
+    /// - the radius is aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
     /// This should be called for each frame the circle needs to be rendered.
     ///
@@ -142,12 +160,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::{RED, GREEN};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.circle_2d(Isometry2d::from_translation(Vec2::ZERO), 1., GREEN);
+    ///     gizmos.circle_2d(Isometry2d::IDENTITY, 1., GREEN);
     ///
     ///     // Circles have 32 line-segments by default.
     ///     // You may want to increase this for larger circles.
     ///     gizmos
-    ///         .circle_2d(Isometry2d::from_translation(Vec2::ZERO), 5., RED)
+    ///         .circle_2d(Isometry2d::IDENTITY, 5., RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -168,7 +186,13 @@ where
         }
     }
 
-    /// Draw a wireframe sphere in 3D made out of 3 circles around the axes.
+    /// Draw a wireframe sphere in 3D made out of 3 circles around the axes with the given
+    /// `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the 3 circles are in the XY, YZ and XZ planes.
     ///
     /// This should be called for each frame the sphere needs to be rendered.
     ///
@@ -178,12 +202,12 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::Color;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.sphere(Vec3::ZERO, Quat::IDENTITY, 1., Color::BLACK);
+    ///     gizmos.sphere(Isometry3d::IDENTITY, 1., Color::BLACK);
     ///
     ///     // Each circle has 32 line-segments by default.
     ///     // You may want to increase this for larger spheres.
     ///     gizmos
-    ///         .sphere(Vec3::ZERO, Quat::IDENTITY, 5., Color::BLACK)
+    ///         .sphere(Isometry3d::IDENTITY, 5., Color::BLACK)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);

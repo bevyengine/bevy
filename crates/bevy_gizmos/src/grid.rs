@@ -184,8 +184,11 @@ where
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the grid.
-    /// - `rotation`: defines the orientation of the grid, by default we assume the grid is contained in a plane parallel to the XY plane.
+    /// - `isometry` defines the translation and rotation of the grid.
+    ///              - the translation specifies the center of the grid
+    ///              - defines the orientation of the grid, by default
+    ///                we assume the grid is contained in a plane parallel
+    ///                to the XY plane
     /// - `cell_count`: defines the amount of cells in the x and y axes
     /// - `spacing`: defines the distance between cells along the x and y axes
     /// - `color`: color of the grid
@@ -202,8 +205,7 @@ where
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.grid(
-    ///         Vec3::ZERO,
-    ///         Quat::IDENTITY,
+    ///         Isometry3d::IDENTITY,
     ///         UVec2::new(10, 10),
     ///         Vec2::splat(2.),
     ///         GREEN
@@ -237,8 +239,10 @@ where
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the grid.
-    /// - `rotation`: defines the orientation of the grid, by default we assume the grid is contained in a plane parallel to the XY plane.
+    /// - `isometry` defines the translation and rotation of the grid.
+    ///              - the translation specifies the center of the grid
+    ///              - defines the orientation of the grid, by default
+    ///                we assume the grid is aligned with all axes
     /// - `cell_count`: defines the amount of cells in the x, y and z axes
     /// - `spacing`: defines the distance between cells along the x, y and z axes
     /// - `color`: color of the grid
@@ -255,8 +259,7 @@ where
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.grid_3d(
-    ///         Vec3::ZERO,
-    ///         Quat::IDENTITY,
+    ///         Isometry3d::IDENTITY,
     ///         UVec3::new(10, 2, 10),
     ///         Vec3::splat(2.),
     ///         GREEN
@@ -290,8 +293,10 @@ where
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the grid.
-    /// - `rotation`: defines the orientation of the grid.
+    /// - `isometry` defines the translation and rotation of the grid.
+    ///              - the translation specifies the center of the grid
+    ///              - defines the orientation of the grid, by default
+    ///                we assume the grid is aligned with all axes
     /// - `cell_count`: defines the amount of cells in the x and y axes
     /// - `spacing`: defines the distance between cells along the x and y axes
     /// - `color`: color of the grid
@@ -308,8 +313,7 @@ where
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.grid_2d(
-    ///         Vec2::ZERO,
-    ///         0.0,
+    ///         Isometry2d::IDENTITY,
     ///         UVec2::new(10, 10),
     ///         Vec2::splat(1.),
     ///         GREEN

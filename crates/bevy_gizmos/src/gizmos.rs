@@ -452,7 +452,12 @@ where
         strip_colors.push(LinearRgba::NAN);
     }
 
-    /// Draw a wireframe rectangle in 3D.
+    /// Draw a wireframe rectangle in 3D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the sizes are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
@@ -462,7 +467,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect(Vec3::ZERO, Quat::IDENTITY, Vec2::ONE, GREEN);
+    ///     gizmos.rect(Isometry3d::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
@@ -674,7 +679,12 @@ where
         self.line_gradient_2d(start, start + vector, start_color, end_color);
     }
 
-    /// Draw a wireframe rectangle in 2D.
+    /// Draw a wireframe rectangle in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the center is at `Vec2::ZERO`
+    /// - the sizes are aligned with the `Vec2::X` and `Vec2::Y` axes.
     ///
     /// This should be called for each frame the rectangle needs to be rendered.
     ///
@@ -684,7 +694,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Vec2::ZERO, 0., Vec2::ONE, GREEN);
+    ///     gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::ONE, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```

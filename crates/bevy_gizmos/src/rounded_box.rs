@@ -208,8 +208,11 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the rectangle.
-    /// - `rotation`: defines orientation of the rectangle, by default we assume the rectangle is contained in a plane parallel to the XY plane.
+    /// - `isometry` defines the translation and rotation of the rectangle.
+    ///              - the translation specifies the center of the rectangle
+    ///              - defines orientation of the rectangle, by default we
+    ///                assume the rectangle is contained in a plane parallel
+    ///                to the XY plane.
     /// - `size`: defines the size of the rectangle. This refers to the 'outer size', similar to a bounding box.
     /// - `color`: color of the rectangle
     ///
@@ -226,8 +229,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_rect(
-    ///         Vec3::ZERO,
-    ///         Quat::IDENTITY,
+    ///         Isometry3d::IDENTITY,
     ///         Vec2::ONE,
     ///         GREEN
     ///         )
@@ -261,8 +263,10 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the rectangle.
-    /// - `rotation`: defines orientation of the rectangle.
+    /// - `isometry` defines the translation and rotation of the rectangle.
+    ///              - the translation specifies the center of the rectangle
+    ///              - defines orientation of the rectangle, by default we
+    ///                assume the rectangle aligned with all axes.
     /// - `size`: defines the size of the rectangle. This refers to the 'outer size', similar to a bounding box.
     /// - `color`: color of the rectangle
     ///
@@ -279,8 +283,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_rect_2d(
-    ///         Vec2::ZERO,
-    ///         0.,
+    ///         Isometry2d::IDENTITY,
     ///         Vec2::ONE,
     ///         GREEN
     ///         )
@@ -317,8 +320,10 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     ///
     /// # Arguments
     ///
-    /// - `position`: The center point of the cuboid.
-    /// - `rotation`: defines orientation of the cuboid.
+    /// - `isometry` defines the translation and rotation of the cuboid.
+    ///              - the translation specifies the center of the cuboid
+    ///              - defines orientation of the cuboid, by default we
+    ///                assume the cuboid aligned with all axes.
     /// - `size`: defines the size of the cuboid. This refers to the 'outer size', similar to a bounding box.
     /// - `color`: color of the cuboid
     ///
@@ -335,8 +340,7 @@ impl<'w, 's, T: GizmoConfigGroup> Gizmos<'w, 's, T> {
     /// # use bevy_color::palettes::css::GREEN;
     /// fn system(mut gizmos: Gizmos) {
     ///     gizmos.rounded_cuboid(
-    ///         Vec3::ZERO,
-    ///         Quat::IDENTITY,
+    ///         Isometry3d::IDENTITY,
     ///         Vec3::ONE,
     ///         GREEN
     ///         )
