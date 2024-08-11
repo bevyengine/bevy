@@ -325,7 +325,7 @@ unsafe impl<E: EventSet> EventSet for UntypedEvent<E> {
         Some(ptr)
     }
 
-    fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool {
+    fn matches(_world: &World, _observer_trigger: &ObserverTrigger) -> bool {
         true
     }
 
