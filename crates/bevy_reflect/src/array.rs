@@ -72,6 +72,11 @@ pub trait Array: Reflect {
             values: self.iter().map(Reflect::clone_value).collect(),
         }
     }
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_array_info(&self) -> Option<&'static ArrayInfo> {
+        self.get_represented_type_info()?.as_array().ok()
+    }
 }
 
 /// A container for compile-time array info.

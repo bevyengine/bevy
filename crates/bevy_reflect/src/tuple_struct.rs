@@ -53,6 +53,11 @@ pub trait TupleStruct: Reflect {
 
     /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
+        self.get_represented_type_info()?.as_tuple_struct().ok()
+    }
 }
 
 /// A container for compile-time tuple struct info.
