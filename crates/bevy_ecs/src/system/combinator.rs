@@ -183,17 +183,15 @@ where
     }
 
     fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
-        // SAFETY: Converting `&mut T` -> `&UnsafeCell<T>`
-        // is explicitly allowed in the docs for `UnsafeCell`.
-        let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
+        let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
             // SAFETY: Since these closures are `!Send + !Sync + !'static`, they can never
             // be called in parallel. Since mutable access to `world` only exists within
             // the scope of either closure, we can be sure they will never alias one another.
-            |input| self.a.run(input, unsafe { world.deref_mut() }),
+            |input| self.a.run(input, unsafe { world.world_mut() }),
             #[allow(clippy::undocumented_unsafe_blocks)]
-            |input| self.b.run(input, unsafe { world.deref_mut() }),
+            |input| self.b.run(input, unsafe { world.world_mut() }),
         )
     }
 
