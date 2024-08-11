@@ -146,9 +146,9 @@ unsafe impl<E: Event> StaticEventSet for E {}
 /// `DynamicEvent` accepts one type parameter:
 ///
 /// - **Register**
-///  The event set that will have its types automatically registered to the observer.
-///  This reduces the boilerplate of registering the event types manually when some or all are statically known.
-///  However, these types will not be matched or casted by the observer.
+///   The event set that will have its types automatically registered to the observer.
+///   This reduces the boilerplate of registering the event types manually when some or all are statically known.
+///   However, these types will not be matched or casted by the observer.
 ///
 /// # Example
 ///
