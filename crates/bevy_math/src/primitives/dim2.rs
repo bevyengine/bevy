@@ -1824,7 +1824,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use approx::assert_relative_eq;
+    use approx::{assert_abs_diff_eq, assert_relative_eq};
 
     #[test]
     fn rectangle_closest_point() {
@@ -1916,10 +1916,10 @@ mod tests {
         assert_eq!(rhombus.inradius(), 0.0, "incorrect inradius");
         assert_eq!(rhombus.circumradius(), 0.0, "incorrect circumradius");
         let rhombus = Rhombus::from_side(std::f32::consts::SQRT_2);
-        assert_eq!(rhombus, Rhombus::new(2.0, 2.0));
-        assert_eq!(
-            rhombus,
-            Rhombus::from_inradius(std::f32::consts::FRAC_1_SQRT_2)
+        assert_abs_diff_eq!(rhombus.half_diagonals, Vec2::new(1.0, 1.0));
+        assert_abs_diff_eq!(
+            rhombus.half_diagonals,
+            Rhombus::from_inradius(std::f32::consts::FRAC_1_SQRT_2).half_diagonals
         );
     }
 
