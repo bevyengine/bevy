@@ -88,8 +88,9 @@ impl MeshletMeshManager {
             .or_insert_with_key(queue_meshlet_mesh)
             .clone();
 
-        (meshlets_slice.start as u32 / size_of::<Meshlet>() as u32)
-            ..(meshlets_slice.end as u32 / size_of::<Meshlet>() as u32)
+        let meshlets_slice_start = meshlets_slice.start as u32 / size_of::<Meshlet>() as u32;
+        let meshlets_slice_end = meshlets_slice.end as u32 / size_of::<Meshlet>() as u32;
+        meshlets_slice_start..meshlets_slice_end
     }
 
     pub fn remove(&mut self, asset_id: &AssetId<MeshletMesh>) {
