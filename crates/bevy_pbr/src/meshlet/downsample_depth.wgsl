@@ -284,10 +284,10 @@ fn remap_for_wave_reduction(a: u32) -> vec2u {
 }
 
 fn reduce_load_mip_0(tex: vec2u) -> f32 {
-    let a = load_mip_0(tex.y * constants.view_width + tex.x);
-    let b = load_mip_0((tex.y + 1u) * constants.view_width + tex.x);
-    let c = load_mip_0(tex.y * constants.view_width + (tex.x + 1u));
-    let d = load_mip_0((tex.y + 1u) * constants.view_width + (tex.x + 1u));
+    let a = load_mip_0(tex.x, tex.y);
+    let b = load_mip_0(tex.x + 1u, tex.y);
+    let c = load_mip_0(tex.x, tex.y + 1u);
+    let d = load_mip_0(tex.x + 1u, tex.y + 1u);
     return reduce_4(vec4(a, b, c, d));
 }
 
@@ -300,7 +300,8 @@ fn reduce_load_mip_6(tex: vec2u) -> f32 {
     ));
 }
 
-fn load_mip_0(i: u32) -> f32 {
+fn load_mip_0(x: u32, y: u32) -> f32 {
+    let i = y * constants.view_width + x;
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
     return bitcast<f32>(u32(mip_0[i] >> 32u));
 #else
