@@ -180,7 +180,7 @@ where
         )
     }
 
-    fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
