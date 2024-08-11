@@ -429,8 +429,8 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace, Or2,
-        UntypedEvent,
+        DynamicEvent, EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+        Or2, SemiDynamicEvent,
     };
     use crate::prelude::*;
     use crate::traversal::Traversal;
@@ -598,7 +598,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events() {
+    fn observer_multiple_events_static() {
         let mut world = World::new();
         world.init_resource::<R>();
         #[derive(Event)]
@@ -621,11 +621,11 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events_untyped_autoregister_static() {
+    fn observer_multiple_events_dynamic_autoregister() {
         let mut world = World::new();
         world.init_resource::<R>();
         world.spawn(Observer::new(
-            |_: Trigger<UntypedEvent<(OnAdd, OnRemove)>, A>, mut res: ResMut<R>| res.0 += 1,
+            |_: Trigger<DynamicEvent<(OnAdd, OnRemove)>, A>, mut res: ResMut<R>| res.0 += 1,
         ));
 
         let entity = world.spawn(A).id();
@@ -634,13 +634,13 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events_untyped() {
+    fn observer_multiple_events_dynamic() {
         let mut world = World::new();
         world.init_resource::<R>();
         let on_add = world.init_component::<OnAdd>();
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
-            Observer::new(|_: Trigger<UntypedEvent, A>, mut res: ResMut<R>| res.0 += 1)
+            Observer::new(|_: Trigger<DynamicEvent, A>, mut res: ResMut<R>| res.0 += 1)
                 .with_event(on_add)
                 .with_event(on_remove),
         );
@@ -651,14 +651,39 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events_mixed() {
+    fn observer_multiple_events_semidynamic() {
         let mut world = World::new();
         world.init_resource::<R>();
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
-            Observer::new(|_: Trigger<(OnAdd, UntypedEvent), A>, mut res: ResMut<R>| res.0 += 1)
-                .with_event(on_remove),
+            Observer::new(
+                |trigger: Trigger<SemiDynamicEvent<OnAdd>, A>, mut res: ResMut<R>| {
+                    match trigger.event() {
+                        Ok(_onadd) => res.assert_order(0),
+                        Err(_ptr) => res.assert_order(1),
+                    };
+                },
+            )
+            .with_event(on_remove),
         );
+
+        let entity = world.spawn(A).id();
+        world.despawn(entity);
+        assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_multiple_events_semidynamic_autoregister() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        world.spawn(Observer::new(
+            |trigger: Trigger<SemiDynamicEvent<OnAdd, OnRemove>, A>, mut res: ResMut<R>| {
+                match trigger.event() {
+                    Ok(_onadd) => res.assert_order(0),
+                    Err(_ptr) => res.assert_order(1),
+                };
+            },
+        ));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);

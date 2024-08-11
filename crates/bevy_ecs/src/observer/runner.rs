@@ -1,6 +1,9 @@
 use crate::{
     component::{ComponentHooks, ComponentId, StorageType},
-    observer::{DynamicEventSafe, EventSet, ObserverDescriptor, ObserverTrigger},
+    observer::{
+        DynamicEvent, EventSet, ObserverDescriptor, ObserverTrigger, SemiDynamicEvent,
+        StaticEventSet,
+    },
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{IntoObserverSystem, ObserverSystem},
@@ -307,7 +310,26 @@ impl<E: EventSet, B: Bundle> Observer<E, B> {
     }
 }
 
-impl<E: DynamicEventSafe, B: Bundle> Observer<E, B> {
+impl<Register, B: Bundle> Observer<DynamicEvent<Register>, B>
+where
+    DynamicEvent<Register>: EventSet,
+{
+    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
+    /// is triggered.
+    ///
+    /// # Note
+    /// As opposed to [`Observer::with_event_unchecked`], this method is safe to use because no pointer casting is performed automatically.
+    /// That is left to the user to do manually.
+    pub fn with_event(self, event: ComponentId) -> Self {
+        // SAFETY: UntypedEvent<E> itself does not perform any unsafe operations (like casting), so this is safe.
+        unsafe { self.with_event_unchecked(event) }
+    }
+}
+
+impl<Static: StaticEventSet, Register, B: Bundle> Observer<SemiDynamicEvent<Static, Register>, B>
+where
+    SemiDynamicEvent<Static, Register>: EventSet,
+{
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
     ///
@@ -400,7 +422,8 @@ fn observer_system_runner<E: EventSet, B: Bundle>(
     // SAFETY: We have immutable access to the world from the passed in DeferredWorld
     let world_ref = unsafe { world.world() };
     // SAFETY: Observer was triggered with an event in the set of events it observes, so it must be convertible to E
-    let Some(event) = (unsafe { E::unchecked_cast(world_ref, &observer_trigger, ptr) }) else {
+    // We choose to use unchecked_cast over the safe cast method to avoid the overhead of matching in the single event type case (which is the common case).
+    let Ok(event) = (unsafe { E::unchecked_cast(world_ref, &observer_trigger, ptr) }) else {
         // This branch is only ever hit if the user called Observer::with_event_unchecked with a component ID not matching the event set E,
         // EXCEPT when the event set is a singular event type, in which case the event will always match.
         // This is a user error and should be logged.
