@@ -11,43 +11,19 @@ pub fn observe_multievent(criterion: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
+    group.bench_function("trigger_single", |bencher| {
+        let mut world = World::new();
+        world.observe(empty_listener_set::<TestEvent<1>>);
+        bencher.iter(|| {
+            for _ in 0..10000 {
+                world.trigger(TestEvent::<1>);
+            }
+        });
+    });
+
     bench_in_set::<1, (TestEvent<1>,)>(&mut group);
     bench_in_set::<2, (TestEvent<1>, TestEvent<2>)>(&mut group);
-    bench_in_set::<3, (TestEvent<1>, TestEvent<2>, TestEvent<3>)>(&mut group);
     bench_in_set::<4, (TestEvent<1>, TestEvent<2>, TestEvent<3>, TestEvent<4>)>(&mut group);
-    bench_in_set::<
-        5,
-        (
-            TestEvent<1>,
-            TestEvent<2>,
-            TestEvent<3>,
-            TestEvent<4>,
-            TestEvent<5>,
-        ),
-    >(&mut group);
-    bench_in_set::<
-        6,
-        (
-            TestEvent<1>,
-            TestEvent<2>,
-            TestEvent<3>,
-            TestEvent<4>,
-            TestEvent<5>,
-            TestEvent<6>,
-        ),
-    >(&mut group);
-    bench_in_set::<
-        7,
-        (
-            TestEvent<1>,
-            TestEvent<2>,
-            TestEvent<3>,
-            TestEvent<4>,
-            TestEvent<5>,
-            TestEvent<6>,
-            TestEvent<7>,
-        ),
-    >(&mut group);
     bench_in_set::<
         8,
         (
@@ -59,51 +35,6 @@ pub fn observe_multievent(criterion: &mut Criterion) {
             TestEvent<6>,
             TestEvent<7>,
             TestEvent<8>,
-        ),
-    >(&mut group);
-    bench_in_set::<
-        9,
-        (
-            TestEvent<1>,
-            TestEvent<2>,
-            TestEvent<3>,
-            TestEvent<4>,
-            TestEvent<5>,
-            TestEvent<6>,
-            TestEvent<7>,
-            TestEvent<8>,
-            TestEvent<9>,
-        ),
-    >(&mut group);
-    bench_in_set::<
-        10,
-        (
-            TestEvent<1>,
-            TestEvent<2>,
-            TestEvent<3>,
-            TestEvent<4>,
-            TestEvent<5>,
-            TestEvent<6>,
-            TestEvent<7>,
-            TestEvent<8>,
-            TestEvent<9>,
-            TestEvent<10>,
-        ),
-    >(&mut group);
-    bench_in_set::<
-        11,
-        (
-            TestEvent<1>,
-            TestEvent<2>,
-            TestEvent<3>,
-            TestEvent<4>,
-            TestEvent<5>,
-            TestEvent<6>,
-            TestEvent<7>,
-            TestEvent<8>,
-            TestEvent<9>,
-            TestEvent<10>,
-            TestEvent<11>,
         ),
     >(&mut group);
     bench_in_set::<
@@ -121,43 +52,6 @@ pub fn observe_multievent(criterion: &mut Criterion) {
             TestEvent<10>,
             TestEvent<11>,
             TestEvent<12>,
-        ),
-    >(&mut group);
-    bench_in_set::<
-        13,
-        (
-            TestEvent<1>,
-            TestEvent<2>,
-            TestEvent<3>,
-            TestEvent<4>,
-            TestEvent<5>,
-            TestEvent<6>,
-            TestEvent<7>,
-            TestEvent<8>,
-            TestEvent<9>,
-            TestEvent<10>,
-            TestEvent<11>,
-            TestEvent<12>,
-            TestEvent<13>,
-        ),
-    >(&mut group);
-    bench_in_set::<
-        14,
-        (
-            TestEvent<1>,
-            TestEvent<2>,
-            TestEvent<3>,
-            TestEvent<4>,
-            TestEvent<5>,
-            TestEvent<6>,
-            TestEvent<7>,
-            TestEvent<8>,
-            TestEvent<9>,
-            TestEvent<10>,
-            TestEvent<11>,
-            TestEvent<12>,
-            TestEvent<13>,
-            TestEvent<14>,
         ),
     >(&mut group);
     bench_in_set::<
