@@ -113,6 +113,9 @@ pub struct BloomSettings {
 }
 
 impl BloomSettings {
+    const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
+    const DEFAULT_UV_OFFSET: f32 = 0.004;
+
     /// The default bloom preset.
     ///
     /// This uses the [`EnergyConserving`](BloomCompositeMode::EnergyConserving) composite mode.
@@ -126,8 +129,8 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
-        max_mip_dimension: 512,
-        uv_offset: 0.004,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 
     /// A preset that's similar to how older games did bloom.
@@ -141,8 +144,8 @@ impl BloomSettings {
             threshold_softness: 0.2,
         },
         composite_mode: BloomCompositeMode::Additive,
-        max_mip_dimension: 512,
-        uv_offset: 0.004,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -156,8 +159,8 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
-        max_mip_dimension: 512,
-        uv_offset: 0.004,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 }
 
