@@ -321,7 +321,7 @@ where
     /// As opposed to [`Observer::with_event_unchecked`], this method is safe to use because no pointer casting is performed automatically.
     /// That is left to the user to do manually.
     pub fn with_event(self, event: ComponentId) -> Self {
-        // SAFETY: UntypedEvent<E> itself does not perform any unsafe operations (like casting), so this is safe.
+        // SAFETY: DynamicEvent itself does not perform any unsafe operations (like casting), so this is safe.
         unsafe { self.with_event_unchecked(event) }
     }
 }
@@ -334,10 +334,11 @@ where
     /// is triggered.
     ///
     /// # Note
-    /// As opposed to [`Observer::with_event_unchecked`], this method is safe to use because no pointer casting is performed automatically.
-    /// That is left to the user to do manually.
+    /// As opposed to [`Observer::with_event_unchecked`], this method is safe to use because no pointer casting is performed automatically
+    /// on event types outside its statically-known set of. That is left to the user to do manually.
     pub fn with_event(self, event: ComponentId) -> Self {
-        // SAFETY: UntypedEvent<E> itself does not perform any unsafe operations (like casting), so this is safe.
+        // SAFETY: SemiDynamicEvent itself does not perform any unsafe operations (like casting)
+        // for event types outside its statically-known set, so this is safe.
         unsafe { self.with_event_unchecked(event) }
     }
 }

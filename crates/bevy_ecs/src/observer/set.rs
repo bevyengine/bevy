@@ -5,21 +5,37 @@ use crate::event::Event;
 use crate::observer::ObserverTrigger;
 use crate::world::World;
 
-/// A set of events that can trigger an observer.
+/// A set of [`Event`]s that can trigger an observer.
+///
+/// The provided implementations of this trait are:
+///
+/// - All [`Event`]s.
+/// - Any tuple of [`Event`]s, up to 15 types. These can be nested.
+/// - [`DynamicEvent`], which matches any [`Event`]s dynamically added to the observer with [`Observer::with_event`] and does not reify the event data.
+/// - [`SemiDynamicEvent`], which will first try to match a statically-known set of [`Event`]s and reify the event data,
+///   and if no match is found, it will fall back to functioning as a [`DynamicEvent`].
+///
+/// # Example
+///
+/// TODO
 ///
 /// # Safety
 ///
 /// Implementor must ensure that:
-/// - [`EventSet::init_components`] must register a component id for each event type in the set.
-/// - [`EventSet::matches`] must return `true` if the event type is in the set, or if the set matches any event type.
+/// - [`EventSet::init_components`] must register a [`ComponentId`] for each [`Event`] type in the set.
+/// - [`EventSet::matches`] must return `true` if the triggered [`Event`]'s [`ComponentId`] matches a type in the set,
+///   or unambiguously always returns `true` or `false`.
 ///
+/// [`Observer::with_event`]: crate::observer::Observer::with_event
 pub unsafe trait EventSet: 'static {
-    /// The output type that will be passed to the observer.
+    /// The item returned by this [`EventSet`] that will be passed to the observer system function.
+    /// Most of the time this will be a mutable reference to an [`Event`] type, a tuple of mutable references, or a [`PtrMut`].
     type Item<'trigger>;
-    /// The read-only variant of the output type.
+    /// The read-only variant of the [`Item`](EventSet::Item).
     type ReadOnlyItem<'trigger>: Copy;
 
-    /// Safely casts a pointer to the output type, checking if the event type matches this event set.
+    /// Safely casts a pointer to the [`Item`](EventSet::Item) type by checking prior
+    /// whether the triggered [`Event`]'s [`ComponentId`] [`matches`](EventSet::matches) a type in this event set.
     fn cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
@@ -33,27 +49,35 @@ pub unsafe trait EventSet: 'static {
         }
     }
 
-    /// Casts a pointer to the output type.
+    /// Casts a pointer to the [`Item`](EventSet::Item) type
+    /// without checking if the [`Event`] type matches this event set.
     ///
     /// # Safety
     ///
-    /// Caller must ensure that the event component id [`matches`](EventSet::matches) this event set before calling this function.
+    /// Caller must ensure that the [`Event`]'s [`ComponentId`] [`matches`](EventSet::matches)
+    /// this event set before calling this function.
     unsafe fn unchecked_cast<'trigger>(
         world: &World,
         observer_trigger: &ObserverTrigger,
         ptr: PtrMut<'trigger>,
     ) -> Result<Self::Item<'trigger>, PtrMut<'trigger>>;
 
-    /// Checks if the event type matches the observer trigger.
+    /// Checks if the [`Event`] type matches the observer trigger.
+    ///
+    /// # Safety
+    ///
+    /// Implementors must ensure that this function returns `true`
+    /// if the triggered [`Event`]'s [`ComponentId`] matches a type in the set,
+    /// or unambiguously always returns `true` or `false`.
     fn matches(world: &World, observer_trigger: &ObserverTrigger) -> bool;
 
-    /// Initialize the components required by the event set.
+    /// Initialize the components required by this event set.
     fn init_components(world: &mut World, ids: impl FnMut(ComponentId));
 
-    /// Shrink the item to a shorter lifetime.
+    /// Shrink the [`Item`](EventSet::Item) to a shorter lifetime.
     fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short>;
 
-    /// Shrink the item to a shorter lifetime, read-only variant.
+    /// Shrink the [`Item`](EventSet::Item) to a shorter lifetime [`ReadOnlyItem`](EventSet::ReadOnlyItem).
     fn shrink_readonly<'long: 'short, 'short>(
         item: &'short Self::Item<'long>,
     ) -> Self::ReadOnlyItem<'short>;
@@ -61,11 +85,19 @@ pub unsafe trait EventSet: 'static {
 
 /// An [`EventSet`] that matches a statically pre-defined set of event types.
 ///
+/// This trait is required in order to prevent a footgun where a user might accidentally specify an `EventSet` similar to
+/// `(DynamicEvent, EventA, EventB)`, which would always match `DynamicEvent` and never `EventA` or `EventB`.
+/// Therefore, we prevent the introduction of `DynamicEvent` in a static `EventSet`,
+/// most notably any `EventSet` tuple made up of normal [`Event`] types.
+///
+/// If you need to support both dynamic and static event types in a single observer,
+/// you can use [`SemiDynamicEvent`] instead.
+///
 /// # Safety
 ///
 /// Implementors must ensure that [`matches`](EventSet::matches)
 /// returns `true` if and only if the event component id matches the event type,
-/// AND does not match any other event type.
+/// and DOES NOT match any other event type.
 pub unsafe trait StaticEventSet: EventSet {}
 
 // SAFETY: The event type has a component id registered in `init_components`,
@@ -108,8 +140,19 @@ unsafe impl<E: Event> EventSet for E {
 // SAFETY: The event type is a statically known type.
 unsafe impl<E: Event> StaticEventSet for E {}
 
-/// An [`EventSet`] that matches any event type, but does not cast the pointer. Instead, it returns the pointer as is.
+/// An [`EventSet`] that matches any event type and performs no casting. Instead, it returns the pointer as is.
 /// This is useful for observers that do not need to access the event data, or need to do so dynamically.
+///
+/// `DynamicEvent` accepts one type parameter:
+///
+/// - **Register**
+///  The event set that will have its types automatically registered to the observer.
+///  This reduces the boilerplate of registering the event types manually when some or all are statically known.
+///  However, these types will not be matched or casted by the observer.
+///
+/// # Example
+///
+/// TODO
 pub struct DynamicEvent<Register = ()>(std::marker::PhantomData<Register>);
 
 // SAFETY: Performs no unsafe operations, returns the pointer as is.
@@ -134,10 +177,12 @@ unsafe impl<Register: StaticEventSet> EventSet for DynamicEvent<Register> {
     }
 
     fn matches(_world: &World, _observer_trigger: &ObserverTrigger) -> bool {
+        // We're treating this as a catch-all event set, so it always matches.
         true
     }
 
     fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {
+        // We'll register the component ids of the `Register` event set, but won't use them for matching.
         Register::init_components(world, ids);
     }
 
@@ -174,6 +219,7 @@ unsafe impl EventSet for DynamicEvent<()> {
     }
 
     fn matches(_world: &World, _observer_trigger: &ObserverTrigger) -> bool {
+        // We're treating this as a catch-all event set, so it always matches.
         true
     }
 
@@ -190,8 +236,24 @@ unsafe impl EventSet for DynamicEvent<()> {
     }
 }
 
-/// An [`EventSet`] that matches a statically pre-defined set of event types and casts the pointer to the event type,
-/// or returns the pointer as is if the event type does not match.
+/// An [`EventSet`] that either matches a statically pre-defined set of event types and casts the pointer to the event type,
+/// or returns the pointer as-is if the event type was not matched.
+/// Basically, it allows you to mix static and dynamic event types in a single observer.
+///
+/// `SemiDynamicEvent` accepts two type parameters:
+///
+/// - **Static**
+///   The static event set that will be matched and casted.
+///   Generally, this should be a tuple of static event types, like `(FooEvent, BarEvent)`.
+///   Must implement [`StaticEventSet`] trait, which means no [`DynamicEvent`] or [`SemiDynamicEvent`] nesting.
+/// - **Register**
+///   The event set that will have its types automatically registered to the observer.
+///   This reduces the boilerplate of registering the event types manually when some or all are statically known.
+///   However, these types will not be matched or casted by the observer.
+///
+/// # Example
+///
+/// TODO
 pub struct SemiDynamicEvent<Static: StaticEventSet, Register = ()>(
     std::marker::PhantomData<(Static, Register)>,
 );
@@ -367,6 +429,7 @@ macro_rules! impl_event_set {
     };
 }
 
+// We can't use `all_tuples` here because it doesn't support the extra `OrX` parameter required for each tuple impl.
 #[rustfmt::skip] impl_event_set!(Or2, (A, a), (B, b));
 #[rustfmt::skip] impl_event_set!(Or3, (A, a), (B, b), (C, c));
 #[rustfmt::skip] impl_event_set!(Or4, (A, a), (B, b), (C, c), (D, d));
