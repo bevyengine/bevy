@@ -281,6 +281,7 @@ unsafe impl<A: StaticEventSet> EventSet for (A,) {
     }
 }
 
+// SAFETY: The inner event set is a static event set.
 unsafe impl<A: StaticEventSet> StaticEventSet for (A,) {}
 
 macro_rules! impl_event_set {
