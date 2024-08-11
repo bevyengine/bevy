@@ -1,6 +1,4 @@
-use std::{borrow::Cow, cell::UnsafeCell, marker::PhantomData};
-
-use bevy_ptr::UnsafeCellDeref;
+use std::{borrow::Cow, marker::PhantomData};
 
 use crate::{
     archetype::ArchetypeComponentId,
