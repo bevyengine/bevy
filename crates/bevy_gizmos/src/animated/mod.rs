@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use bevy_color::Color;
 use bevy_ecs::system::{Res, SystemParam};
-use bevy_math::Vec3;
+use bevy_math::{Vec2, Vec3};
 use bevy_time::Time;
 
 use crate::prelude::{DefaultGizmoConfigGroup, GizmoConfigGroup, Gizmos};
@@ -175,6 +175,11 @@ where
             return;
         }
 
+        // prevent division by zero, we always want to have at least one segment
+        if self.segments == 0 {
+            return;
+        }
+
         let delta_t = self.gizmos.time.elapsed_seconds();
         let n_f32 = self.segments as f32;
         // * 2.0 here since otherwise there would be no gaps
@@ -199,6 +204,137 @@ where
             })
             .for_each(|[start, end]| {
                 self.gizmos.line(start, end, color);
+            });
+    }
+}
+
+/// A builder returned by [`AnimatedGizmos::animated_line_2d`].
+pub struct AnimatedLine2dBuilder<'a, 'w, 's, Config, Clear, TimeKind>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+    TimeKind: Default + 'static + Send + Sync,
+{
+    gizmos: &'a mut AnimatedGizmos<'w, 's, Config, Clear, TimeKind>,
+    // start position of the animated line
+    start: Vec2,
+    // end position of the animated line
+    end: Vec2,
+    // color of the animated line
+    color: Color,
+
+    // number of segments of the animated line
+    segments: usize,
+    // speed factor for the animation
+    speed: f32,
+}
+
+impl<Config, Clear, TimeKind> AnimatedLine2dBuilder<'_, '_, '_, Config, Clear, TimeKind>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+    TimeKind: Default + 'static + Send + Sync,
+{
+    /// Sets the number of animated segments that make up the line.
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
+    }
+
+    /// Sets the animation speed factor for the line.
+    ///
+    /// This determines the velocity at which the line segments move from the starting point to the endpoint.
+    pub fn speed(mut self, factor: f32) -> Self {
+        self.speed = factor;
+        self
+    }
+}
+
+impl<'w, 's, Config, Clear, TimeKind> AnimatedGizmos<'w, 's, Config, Clear, TimeKind>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+    TimeKind: Default + 'static + Send + Sync,
+{
+    /// Draw an animated line in 2D from `start` to `end`.
+    ///
+    /// The line is split into segments that move from `start` to `end` over time. This emphasizes
+    /// the direction of the line and provides a clearer sense of its length.
+    ///
+    /// This should be called for each frame the line needs to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_render::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: AnimatedGizmos) {
+    ///     gizmos.animated_line_2d(Vec2::ZERO, Vec2::X, GREEN)
+    ///           .segments(10)
+    ///           .speed(0.5);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn animated_line_2d(
+        &mut self,
+        start: Vec2,
+        end: Vec2,
+        color: impl Into<Color>,
+    ) -> AnimatedLine2dBuilder<'_, 'w, 's, Config, Clear, TimeKind> {
+        AnimatedLine2dBuilder {
+            gizmos: self,
+            start,
+            end,
+            color: color.into(),
+
+            segments: 5,
+            speed: 0.1,
+        }
+    }
+}
+
+impl<Config, Clear, TimeKind> Drop for AnimatedLine2dBuilder<'_, '_, '_, Config, Clear, TimeKind>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+    TimeKind: Default + 'static + Send + Sync,
+{
+    fn drop(&mut self) {
+        if !self.gizmos.gizmos.enabled {
+            return;
+        }
+
+        // prevent division by zero, we always want to have at least one segment
+        if self.segments == 0 {
+            return;
+        }
+
+        let delta_t = self.gizmos.time.elapsed_seconds();
+        let n_f32 = self.segments as f32;
+        // * 2.0 here since otherwise there would be no gaps
+        let seg_length = (n_f32 * 2.0).recip();
+        let diff = self.end - self.start;
+        let color = self.color;
+        (0..=self.segments)
+            .map(|n| n as f32 / n_f32)
+            .map(|percent| {
+                let percent_offset = percent + delta_t * self.speed;
+                // range 0.0..=(N+1)/N
+                // -> line transitions out of visible range smoothly
+                let modulo = 1.0 + n_f32.recip();
+                let percent_final = percent_offset % modulo;
+                // range (-1/N)..=(N+1)/N
+                // -> line transitions into visible range smoothly
+                [(percent_final - seg_length), percent_final]
+                    // clamp scalars to be inside the line range
+                    .map(|scalar| scalar.clamp(0.0, 1.0))
+                    // scalar -> real 3D position
+                    .map(|scalar| self.start + scalar * diff)
+            })
+            .for_each(|[start, end]| {
+                self.gizmos.line_2d(start, end, color);
             });
     }
 }
