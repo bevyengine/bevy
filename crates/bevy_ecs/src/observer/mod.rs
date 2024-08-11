@@ -621,19 +621,6 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events_dynamic_autoregister() {
-        let mut world = World::new();
-        world.init_resource::<R>();
-        world.spawn(Observer::new(
-            |_: Trigger<DynamicEvent<(OnAdd, OnRemove)>, A>, mut res: ResMut<R>| res.0 += 1,
-        ));
-
-        let entity = world.spawn(A).id();
-        world.despawn(entity);
-        assert_eq!(2, world.resource::<R>().0);
-    }
-
-    #[test]
     fn observer_multiple_events_dynamic() {
         let mut world = World::new();
         world.init_resource::<R>();
@@ -644,6 +631,19 @@ mod tests {
                 .with_event(on_add)
                 .with_event(on_remove),
         );
+
+        let entity = world.spawn(A).id();
+        world.despawn(entity);
+        assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_multiple_events_dynamic_autoregister() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        world.spawn(Observer::new(
+            |_: Trigger<DynamicEvent<(OnAdd, OnRemove)>, A>, mut res: ResMut<R>| res.0 += 1,
+        ));
 
         let entity = world.spawn(A).id();
         world.despawn(entity);
