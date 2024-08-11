@@ -121,7 +121,7 @@ fn get_meshlet_index(index_id: u32) -> u32 {
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
-@group(1) @binding(0) var<storage, read> meshlet_visibility_buffer: array<u64>; // 1 per pixel
+@group(1) @binding(0) var<storage, read> meshlet_visibility_buffer: array<u64>; // Per pixel
 @group(1) @binding(1) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
 @group(1) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
 @group(1) @binding(3) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet
