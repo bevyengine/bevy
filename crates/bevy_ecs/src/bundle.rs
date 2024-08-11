@@ -225,13 +225,14 @@ impl<C: Component> DynamicBundle for C {
 }
 
 macro_rules! tuple_impl {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `DynamicBundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
+        $(#[$meta])*
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
@@ -270,7 +271,13 @@ macro_rules! tuple_impl {
     }
 }
 
-all_tuples!(tuple_impl, 0, 15, B);
+all_tuples!(
+    #[doc(fake_variadic)]
+    tuple_impl,
+    0,
+    15,
+    B
+);
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
 ///

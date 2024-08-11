@@ -493,11 +493,11 @@ macro_rules! impl_or_query_filter {
 }
 
 macro_rules! impl_tuple_query_filter {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
-
+        $(#[$meta])*
         impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
@@ -516,7 +516,13 @@ macro_rules! impl_tuple_query_filter {
     };
 }
 
-all_tuples!(impl_tuple_query_filter, 0, 15, F);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_query_filter,
+    0,
+    15,
+    F
+);
 all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
 /// A filter on a component that only retains results the first time after they have been added.
@@ -958,11 +964,24 @@ impl<T: Component> ArchetypeFilter for With<T> {}
 impl<T: Component> ArchetypeFilter for Without<T> {}
 
 macro_rules! impl_archetype_filter_tuple {
-    ($($filter: ident),*) => {
+    ($(#[$meta:meta])* $($filter: ident),*) => {
+        $(#[$meta])*
         impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for ($($filter,)*) {}
+    };
+}
 
+macro_rules! impl_archetype_or_filter_tuple {
+    ($($filter: ident),*) => {
         impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> {}
     };
 }
 
-all_tuples!(impl_archetype_filter_tuple, 0, 15, F);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_archetype_filter_tuple,
+    0,
+    15,
+    F
+);
+
+all_tuples!(impl_archetype_or_filter_tuple, 0, 15, F);

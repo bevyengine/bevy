@@ -144,7 +144,7 @@ pub unsafe trait WorldQuery {
 }
 
 macro_rules! impl_tuple_world_query {
-    ($(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
@@ -153,6 +153,7 @@ macro_rules! impl_tuple_world_query {
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` adds all `With` and `Without` filters from the subqueries.
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
+        $(#[$meta])*
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type Fetch<'w> = ($($name::Fetch<'w>,)*);
             type Item<'w> = ($($name::Item<'w>,)*);
@@ -229,4 +230,11 @@ macro_rules! impl_tuple_world_query {
     };
 }
 
-all_tuples!(impl_tuple_world_query, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_world_query,
+    0,
+    15,
+    F,
+    S
+);
