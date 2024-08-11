@@ -1,4 +1,12 @@
 //! A module for the [`AnimatedGizmos`] [`SystemParam`].
+//!
+//! These are gizmos which render non-static line segments. Instead the segments are moving along
+//! the line in a primitive based direction. The rules for the direction of the animation are
+//! listed below
+//!
+//! - lines: from `start` to `end`
+//  when implemented:
+//  - primitices: counter clockwise when the primitive's normal is pointing towards the camera
 
 use std::ops::{Deref, DerefMut};
 
@@ -9,7 +17,10 @@ use bevy_time::Time;
 
 use crate::prelude::{DefaultGizmoConfigGroup, GizmoConfigGroup, Gizmos};
 
-/// A [`SystemParam`] for drawing animated gizmos.
+/// A [`SystemParam`] for drawing animated gizmos, whose segments cycle along the line in a
+/// primitive based direction. The rules for the direction of the animation are listed below
+///
+/// - lines: from `start` to `end`
 ///
 /// This is essentially a utility wrapper for [`Gizmos`]. For additional information about the
 /// [`Gizmos`] themselves, please refer to the linked documentation.
