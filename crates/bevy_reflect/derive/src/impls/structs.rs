@@ -1,12 +1,13 @@
 use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
 use crate::struct_utility::FieldAccessors;
 use crate::ReflectStruct;
-use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQBox, FQCow, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenStream {
     let fqoption = FQOption.into_token_stream();
+    let fqresult = FQResult.into_token_stream();
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
     let struct_path = reflect_struct.meta().type_path();
@@ -74,31 +75,43 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         #function_impls
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_path #ty_generics #where_reflect_clause {
-            fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field(&self, name: &str) -> #FQResult<&dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match name {
-                    #(#field_names => #fqoption::Some(#fields_ref),)*
-                    _ => #FQOption::None,
+                    #(#field_names => #fqresult::Ok(#fields_ref),)*
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                        field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(name.to_string())),
+                        container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }),
                 }
             }
 
-            fn field_mut(&mut self, name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_mut(&mut self, name: &str) -> #FQResult<&mut dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match name {
-                    #(#field_names => #fqoption::Some(#fields_mut),)*
-                    _ => #FQOption::None,
+                    #(#field_names => #fqresult::Ok(#fields_mut),)*
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                        field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(name.to_string())),
+                        container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }),
                 }
             }
 
-            fn field_at(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at(&self, index: usize) -> #FQResult<&dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match index {
-                    #(#field_indices => #fqoption::Some(#fields_ref),)*
-                    _ => #FQOption::None,
+                    #(#field_indices => #fqresult::Ok(#fields_ref),)*
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                        field: #bevy_reflect_path::FieldId::Unnamed(index),
+                        container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }),
                 }
             }
 
-            fn field_at_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at_mut(&mut self, index: usize) -> #FQResult<&mut dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match index {
-                    #(#field_indices => #fqoption::Some(#fields_mut),)*
-                    _ => #FQOption::None,
+                    #(#field_indices => #fqresult::Ok(#fields_mut),)*
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                        field: #bevy_reflect_path::FieldId::Unnamed(index),
+                        container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }),
                 }
             }
 
@@ -145,7 +158,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                     = #bevy_reflect_path::PartialReflect::reflect_ref(value) {
                     for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
                         let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
-                        if let #FQOption::Some(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
+                        if let #FQResult::Ok(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
                            #bevy_reflect_path::PartialReflect::try_apply(v, value)?;
                         }
                     }

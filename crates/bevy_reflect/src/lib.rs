@@ -560,6 +560,7 @@ mod impls {
 
 pub mod attributes;
 mod enums;
+pub mod error;
 pub mod serde;
 pub mod std_traits;
 pub mod utility;
@@ -579,6 +580,7 @@ pub mod prelude {
 
 pub use array::*;
 pub use enums::*;
+pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use list::*;

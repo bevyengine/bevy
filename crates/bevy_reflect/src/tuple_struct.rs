@@ -1,9 +1,11 @@
+use alloc::borrow::Cow;
 use bevy_reflect_derive::impl_type_path;
 
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{
-    self as bevy_reflect, ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
+    self as bevy_reflect, ApplyError, DynamicTuple, FieldId, PartialReflect, Reflect,
+    ReflectFieldError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Tuple, TypeInfo,
+    TypePath, TypePathTable, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -39,11 +41,11 @@ use std::sync::Arc;
 pub trait TupleStruct: PartialReflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn field(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field with index `index`
     /// as a `&mut dyn Reflect`.
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn field_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns the number of fields in the tuple struct.
     fn field_len(&self) -> usize;
@@ -168,7 +170,7 @@ impl<'a> Iterator for TupleStructFieldIter<'a> {
     type Item = &'a dyn PartialReflect;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let value = self.tuple_struct.field(self.index);
+        let value = self.tuple_struct.field(self.index).ok();
         self.index += value.is_some() as usize;
         value
     }
@@ -212,11 +214,13 @@ pub trait GetTupleStructField {
 impl<S: TupleStruct> GetTupleStructField for S {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
         self.field(index)
+            .ok()
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
+            .ok()
             .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
@@ -224,11 +228,13 @@ impl<S: TupleStruct> GetTupleStructField for S {
 impl GetTupleStructField for dyn TupleStruct {
     fn get_field<T: Reflect>(&self, index: usize) -> Option<&T> {
         self.field(index)
+            .ok()
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, index: usize) -> Option<&mut T> {
         self.field_mut(index)
+            .ok()
             .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
@@ -273,13 +279,24 @@ impl DynamicTupleStruct {
 
 impl TupleStruct for DynamicTupleStruct {
     #[inline]
-    fn field(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(|field| &**field)
+    fn field(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
+        self.fields.get(index).map(|field| &**field).ok_or_else(|| {
+            ReflectFieldError::DoesNotExist {
+                field: FieldId::Unnamed(index),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            }
+        })
     }
 
     #[inline]
-    fn field_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields.get_mut(index).map(|field| &mut **field)
+    fn field_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError> {
+        self.fields
+            .get_mut(index)
+            .map(|field| &mut **field)
+            .ok_or_else(|| ReflectFieldError::DoesNotExist {
+                field: FieldId::Unnamed(index),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            })
     }
 
     #[inline]
@@ -343,7 +360,7 @@ impl PartialReflect for DynamicTupleStruct {
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
             for (i, value) in tuple_struct.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
+                if let Ok(v) = self.field_mut(i) {
                     v.try_apply(value)?;
                 }
             }
@@ -464,7 +481,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct + ?Sized>(
     }
 
     for (i, value) in tuple_struct.iter_fields().enumerate() {
-        if let Some(field_value) = a.field(i) {
+        if let Ok(field_value) = a.field(i) {
             let eq_result = field_value.reflect_partial_eq(value);
             if let failed @ (Some(false) | None) = eq_result {
                 return failed;

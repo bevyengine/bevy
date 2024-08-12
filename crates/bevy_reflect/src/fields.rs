@@ -1,7 +1,31 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{MaybeTyped, PartialReflect, TypeInfo, TypePath, TypePathTable};
+use alloc::borrow::Cow;
+use core::fmt::{Display, Formatter};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
+
+/// A general-purpose field identifier.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum FieldId {
+    /// A named field.
+    ///
+    /// This includes fields of structs and enum struct variants.
+    Named(Cow<'static, str>),
+    /// An unnamed field.
+    ///
+    /// This includes fields of tuples and tuple struct variants.
+    Unnamed(usize),
+}
+
+impl Display for FieldId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            FieldId::Named(name) => write!(f, "{}", name),
+            FieldId::Unnamed(index) => write!(f, "{}", index),
+        }
+    }
+}
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]

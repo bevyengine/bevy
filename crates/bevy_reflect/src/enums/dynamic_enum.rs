@@ -203,7 +203,7 @@ impl DynamicEnum {
 impl Enum for DynamicEnum {
     fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
         if let DynamicVariant::Struct(data) = &self.variant {
-            data.field(name)
+            data.field(name).ok()
         } else {
             None
         }
@@ -219,7 +219,7 @@ impl Enum for DynamicEnum {
 
     fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
         if let DynamicVariant::Struct(data) = &mut self.variant {
-            data.field_mut(name)
+            data.field_mut(name).ok()
         } else {
             None
         }

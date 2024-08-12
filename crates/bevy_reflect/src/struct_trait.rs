@@ -1,7 +1,8 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{
-    self as bevy_reflect, ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, ApplyError, FieldId, NamedField, PartialReflect, Reflect,
+    ReflectFieldError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
+    TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
@@ -48,19 +49,19 @@ use std::{
 pub trait Struct: PartialReflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
     /// PartialReflect`.
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect>;
+    fn field(&self, name: &str) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field named `name` as a
     /// `&mut dyn PartialReflect`.
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect>;
+    fn field_mut(&mut self, name: &str) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn PartialReflect`.
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field with index `index`
     /// as a `&mut dyn PartialReflect`.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn field_at_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns the name of the field with index `index`.
     fn name_at(&self, index: usize) -> Option<&str>;
@@ -217,7 +218,7 @@ impl<'a> Iterator for FieldIter<'a> {
     type Item = &'a dyn PartialReflect;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let value = self.struct_val.field_at(self.index);
+        let value = self.struct_val.field_at(self.index).ok();
         self.index += value.is_some() as usize;
         value
     }
@@ -263,11 +264,13 @@ pub trait GetField {
 impl<S: Struct> GetField for S {
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T> {
         self.field(name)
+            .ok()
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, name: &str) -> Option<&mut T> {
         self.field_mut(name)
+            .ok()
             .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
@@ -275,11 +278,13 @@ impl<S: Struct> GetField for S {
 impl GetField for dyn Struct {
     fn get_field<T: Reflect>(&self, name: &str) -> Option<&T> {
         self.field(name)
+            .ok()
             .and_then(|value| value.try_downcast_ref::<T>())
     }
 
     fn get_field_mut<T: Reflect>(&mut self, name: &str) -> Option<&mut T> {
         self.field_mut(name)
+            .ok()
             .and_then(|value| value.try_downcast_mut::<T>())
     }
 }
@@ -347,29 +352,47 @@ impl DynamicStruct {
 
 impl Struct for DynamicStruct {
     #[inline]
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
+    fn field(&self, name: &str) -> Result<&dyn PartialReflect, ReflectFieldError> {
         self.field_indices
             .get(name)
             .map(|index| &*self.fields[*index])
+            .ok_or_else(|| ReflectFieldError::DoesNotExist {
+                field: FieldId::Named(name.to_string().into()),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            })
     }
 
     #[inline]
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
+    fn field_mut(&mut self, name: &str) -> Result<&mut dyn PartialReflect, ReflectFieldError> {
         if let Some(index) = self.field_indices.get(name) {
-            Some(&mut *self.fields[*index])
+            Ok(&mut *self.fields[*index])
         } else {
-            None
+            Err(ReflectFieldError::DoesNotExist {
+                field: FieldId::Named(name.to_string().into()),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            })
         }
     }
 
     #[inline]
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
-        self.fields.get(index).map(|value| &**value)
+    fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
+        self.fields.get(index).map(|value| &**value).ok_or_else(|| {
+            ReflectFieldError::DoesNotExist {
+                field: FieldId::Unnamed(index),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            }
+        })
     }
 
     #[inline]
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        self.fields.get_mut(index).map(|value| &mut **value)
+    fn field_at_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError> {
+        self.fields
+            .get_mut(index)
+            .map(|value| &mut **value)
+            .ok_or_else(|| ReflectFieldError::DoesNotExist {
+                field: FieldId::Unnamed(index),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            })
     }
 
     #[inline]
@@ -439,7 +462,7 @@ impl PartialReflect for DynamicStruct {
         if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
             for (i, value) in struct_value.iter_fields().enumerate() {
                 let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
+                if let Ok(v) = self.field_mut(name) {
                     v.try_apply(value)?;
                 }
             }
@@ -555,7 +578,7 @@ pub fn struct_partial_eq<S: Struct + ?Sized>(a: &S, b: &dyn PartialReflect) -> O
 
     for (i, value) in struct_value.iter_fields().enumerate() {
         let name = struct_value.name_at(i).unwrap();
-        if let Some(field_value) = a.field(name) {
+        if let Ok(field_value) = a.field(name) {
             let eq_result = field_value.reflect_partial_eq(value);
             if let failed @ (Some(false) | None) = eq_result {
                 return failed;
