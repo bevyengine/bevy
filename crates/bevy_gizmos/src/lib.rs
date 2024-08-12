@@ -669,7 +669,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
 
             // color
             let item_size = VertexFormat::Float32x4.size();
-            let buffer_size = dbg!(line_gizmo.color_buffer.size()) - item_size;
+            let buffer_size = line_gizmo.color_buffer.size() - item_size;
             // This corresponds to the color of position_b, hence starts from `item_size`
             pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..buffer_size));
 
