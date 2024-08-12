@@ -105,7 +105,7 @@ offset-allocator = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.14", default-features = false, features = [
+naga_oil = { version = "0.15", default-features = false, features = [
   "test_shader",
 ] }
 
