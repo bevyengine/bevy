@@ -2845,6 +2845,26 @@ bevy_reflect::tests::Test {
         );
     }
 
+    #[test]
+    fn should_reflect_external_crate_type() {
+        // This test relies on the external type not implementing `Reflect`,
+        // so let's just double-check that it does not
+        assert_not_impl_all!(std::collections::Bound<i32>: Reflect);
+
+        #[reflect_remote(std::collections::Bound<T>)]
+        enum MyBound<T> {
+            Included(T),
+            Excluded(T),
+            Unbounded,
+        }
+
+        #[derive(Reflect)]
+        struct MyType {
+            #[reflect(remote = MyBound<String>)]
+            bound: std::collections::Bound<String>,
+        }
+    }
+
     #[cfg(feature = "glam")]
     mod glam {
         use super::*;
