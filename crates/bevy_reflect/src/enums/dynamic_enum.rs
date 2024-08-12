@@ -1,9 +1,11 @@
+use alloc::borrow::Cow;
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
     self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct,
-    DynamicTuple, Enum, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
+    DynamicTuple, Enum, FieldId, PartialReflect, Reflect, ReflectFieldError, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, TypePath, VariantFieldIter,
+    VariantType,
 };
 
 use std::fmt::Formatter;
@@ -201,35 +203,55 @@ impl DynamicEnum {
 }
 
 impl Enum for DynamicEnum {
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect> {
+    fn field(&self, name: &str) -> Result<&dyn PartialReflect, ReflectFieldError> {
         if let DynamicVariant::Struct(data) = &self.variant {
-            data.field(name).ok()
+            data.field(name)
         } else {
-            None
+            Err(ReflectFieldError::DoesNotExist {
+                field: FieldId::Named(name.to_string().into()),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            })
         }
     }
 
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
+    fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
         if let DynamicVariant::Tuple(data) = &self.variant {
             data.field(index)
+                .ok_or_else(|| ReflectFieldError::DoesNotExist {
+                    field: FieldId::Unnamed(index),
+                    container_type_path: Cow::Borrowed(Self::type_path()),
+                })
         } else {
-            None
+            Err(ReflectFieldError::DoesNotExist {
+                field: FieldId::Unnamed(index),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            })
         }
     }
 
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect> {
+    fn field_mut(&mut self, name: &str) -> Result<&mut dyn PartialReflect, ReflectFieldError> {
         if let DynamicVariant::Struct(data) = &mut self.variant {
-            data.field_mut(name).ok()
+            data.field_mut(name)
         } else {
-            None
+            Err(ReflectFieldError::DoesNotExist {
+                field: FieldId::Named(name.to_string().into()),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            })
         }
     }
 
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+    fn field_at_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError> {
         if let DynamicVariant::Tuple(data) = &mut self.variant {
             data.field_mut(index)
+                .ok_or_else(|| ReflectFieldError::DoesNotExist {
+                    field: FieldId::Unnamed(index),
+                    container_type_path: Cow::Borrowed(Self::type_path()),
+                })
         } else {
-            None
+            Err(ReflectFieldError::DoesNotExist {
+                field: FieldId::Unnamed(index),
+                container_type_path: Cow::Borrowed(Self::type_path()),
+            })
         }
     }
 
@@ -329,14 +351,14 @@ impl PartialReflect for DynamicEnum {
                     VariantType::Struct => {
                         for field in value.iter_fields() {
                             let name = field.name().unwrap();
-                            if let Some(v) = Enum::field_mut(self, name) {
+                            if let Ok(v) = Enum::field_mut(self, name) {
                                 v.try_apply(field.value())?;
                             }
                         }
                     }
                     VariantType::Tuple => {
                         for (index, field) in value.iter_fields().enumerate() {
-                            if let Some(v) = Enum::field_at_mut(self, index) {
+                            if let Ok(v) = Enum::field_at_mut(self, index) {
                                 v.try_apply(field.value())?;
                             }
                         }

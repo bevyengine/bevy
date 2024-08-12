@@ -2347,6 +2347,7 @@ mod tests {
         if value.is_variant(VariantType::Tuple) {
             if let Some(field) = value
                 .field_at_mut(0)
+                .ok()
                 .and_then(|field| field.try_downcast_mut::<usize>())
             {
                 *field = 321;

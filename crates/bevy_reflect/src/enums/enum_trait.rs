@@ -1,5 +1,8 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::{DynamicEnum, PartialReflect, TypePath, TypePathTable, VariantInfo, VariantType};
+use crate::{
+    DynamicEnum, PartialReflect, ReflectFieldError, TypePath, TypePathTable, VariantInfo,
+    VariantType,
+};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::slice::Iter;
@@ -93,15 +96,15 @@ pub trait Enum: PartialReflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field(&self, name: &str) -> Option<&dyn PartialReflect>;
+    fn field(&self, name: &str) -> Result<&dyn PartialReflect, ReflectFieldError>;
     /// Returns a reference to the value of the field (in the current variant) at the given index.
-    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect>;
+    fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError>;
     /// Returns a mutable reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect>;
+    fn field_mut(&mut self, name: &str) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
     /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
+    fn field_at_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
     /// Returns the index of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
@@ -288,10 +291,12 @@ impl<'a> Iterator for VariantFieldIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let value = match self.container.variant_type() {
             VariantType::Unit => None,
-            VariantType::Tuple => Some(VariantField::Tuple(self.container.field_at(self.index)?)),
+            VariantType::Tuple => Some(VariantField::Tuple(
+                self.container.field_at(self.index).ok()?,
+            )),
             VariantType::Struct => {
                 let name = self.container.name_at(self.index)?;
-                Some(VariantField::Struct(name, self.container.field(name)?))
+                Some(VariantField::Struct(name, self.container.field(name).ok()?))
             }
         };
         self.index += value.is_some() as usize;

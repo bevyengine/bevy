@@ -1,7 +1,7 @@
 use crate::derive_data::{EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{EnumVariantOutputData, TryApplyVariantBuilder, VariantBuilder};
 use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
-use bevy_macro_utils::fq_std::{FQBox, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQBox, FQCow, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{Fields, Path};
@@ -94,31 +94,43 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         #function_impls
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_path #ty_generics #where_reflect_clause {
-            fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field(&self, #ref_name: &str) -> #FQResult<&dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                  match #match_this {
                     #(#enum_field,)*
-                    _ => #FQOption::None,
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                        field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(#ref_name.to_string())),
+                        container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }),
                 }
             }
 
-            fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at(&self, #ref_index: usize) -> #FQResult<&dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match #match_this {
                     #(#enum_field_at,)*
-                    _ => #FQOption::None,
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                        field: #bevy_reflect_path::FieldId::Unnamed(#ref_index),
+                        container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }),
                 }
             }
 
-            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_mut(&mut self, #ref_name: &str) -> #FQResult<&mut dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                  match #match_this_mut {
                     #(#enum_field_mut,)*
-                    _ => #FQOption::None,
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                        field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(#ref_name.to_string())),
+                        container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }),
                 }
             }
 
-            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
+            fn field_at_mut(&mut self, #ref_index: usize) -> #FQResult<&mut dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match #match_this_mut {
                     #(#enum_field_at_mut,)*
-                    _ => #FQOption::None,
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                        field: #bevy_reflect_path::FieldId::Unnamed(#ref_index),
+                        container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }),
                 }
             }
 
@@ -201,14 +213,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                             #bevy_reflect_path::VariantType::Struct => {
                                 for field in #bevy_reflect_path::Enum::iter_fields(#ref_value) {
                                     let name = field.name().unwrap();
-                                    if let #FQOption::Some(v) = #bevy_reflect_path::Enum::field_mut(self, name) {
+                                    if let #FQResult::Ok(v) = #bevy_reflect_path::Enum::field_mut(self, name) {
                                        #bevy_reflect_path::PartialReflect::try_apply(v, field.value())?;
                                     }
                                 }
                             }
                             #bevy_reflect_path::VariantType::Tuple => {
                                 for (index, field) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Enum::iter_fields(#ref_value)) {
-                                    if let #FQOption::Some(v) = #bevy_reflect_path::Enum::field_at_mut(self, index) {
+                                    if let #FQResult::Ok(v) = #bevy_reflect_path::Enum::field_at_mut(self, index) {
                                         #bevy_reflect_path::PartialReflect::try_apply(v, field.value())?;
                                     }
                                 }
@@ -374,10 +386,10 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     let value_mut = process_field_value(&__value, field, true, bevy_reflect_path);
 
                     enum_field_at.push(quote! {
-                        #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_ref)
+                        #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQResult::Ok(#value_ref)
                     });
                     enum_field_at_mut.push(quote! {
-                        #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_mut)
+                        #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQResult::Ok(#value_mut)
                     });
                 });
 
@@ -398,16 +410,16 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     let value_mut = process_field_value(&__value, field, true, bevy_reflect_path);
 
                     enum_field.push(quote! {
-                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQOption::Some(#value_ref)
+                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQResult::Ok(#value_ref)
                     });
                     enum_field_mut.push(quote! {
-                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQOption::Some(#value_mut)
+                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQResult::Ok(#value_mut)
                     });
                     enum_field_at.push(quote! {
-                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_ref)
+                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #FQResult::Ok(#value_ref)
                     });
                     enum_field_at_mut.push(quote! {
-                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #FQOption::Some(#value_mut)
+                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #FQResult::Ok(#value_mut)
                     });
                     enum_index_of.push(quote! {
                         #unit{ .. } if #ref_name == #field_name => #FQOption::Some(#reflection_index)
