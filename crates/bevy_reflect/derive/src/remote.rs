@@ -303,6 +303,7 @@ pub(crate) fn generate_remote_assertions(
 
             quote_spanned! {span=>
                 #[allow(non_snake_case)]
+                #[allow(clippy::multiple_bound_locations)]
                 fn #assertion_ident #impl_generics () #where_reflect_clause {
                     let _: <#remote_ty as #bevy_reflect_path::ReflectRemote>::Remote = (|| -> #FQOption<#ty> {
                         None
@@ -415,6 +416,7 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
             #[allow(unused_variables)]
             #[allow(unused_assignments)]
             #[allow(unreachable_patterns)]
+            #[allow(clippy::multiple_bound_locations)]
             fn assert_wrapper_definition_matches_remote_type #impl_generics (mut #self_ident: #self_ty) #where_reflect_clause {
                 #assertions
             }
