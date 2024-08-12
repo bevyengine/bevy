@@ -7,7 +7,7 @@ use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Isometry3d, Mat3, V
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use glam::{Affine3A, Quat};
+use glam::Quat;
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -217,10 +217,11 @@ impl InfinitePlane3d {
     }
 
     /// Computes the shortest distance between a plane transformed with the given `isometry` and a
-    /// `point`.
+    /// `point`. The result is a signed value; it's positive if the point lies in the half-space
+    /// that the plane's normal vector points towards.
     #[inline]
     pub fn signed_distance(&self, isometry: Isometry3d, point: Vec3) -> f32 {
-        (isometry * self.normal).dot(isometry * Vec3::ZERO - point)
+        self.normal.dot(isometry.inverse() * point)
     }
 
     /// Injects the `point` into the plane transformed with the given `isometry`.
@@ -228,10 +229,12 @@ impl InfinitePlane3d {
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
     pub fn project_point(&self, isometry: Isometry3d, point: Vec3) -> Vec3 {
-        point + self.normal * self.signed_distance(isometry, point)
+        point - self.normal * self.signed_distance(isometry, point)
     }
 
     /// Computes the shortest distance between a plane going through `Vec3::ZERO` and a `point`.
+    /// The result is a signed value; it's positive if the point lies in the half-space
+    /// that the plane's normal vector points towards.
     #[inline]
     pub fn local_signed_distance(&self, point: Vec3) -> f32 {
         self.normal.dot(point)
@@ -242,36 +245,36 @@ impl InfinitePlane3d {
     /// This projects the point orthogonally along the shortest path onto the plane.
     #[inline]
     pub fn local_project_point(&self, point: Vec3) -> Vec3 {
-        point + self.normal * self.local_signed_distance(point)
+        point - self.normal * self.local_signed_distance(point)
     }
 
-    /// Computes an [`Affine3A`] which transforms points from the plane in 3D space with the given
+    /// Computes an [`Isometry3d`] which transforms points from the plane in 3D space with the given
     /// `origin` to the XY-plane.
     ///
     /// The transformation is [congruent](https://en.wikipedia.org/wiki/Congruence_(geometry))
     /// meaning it will preserve shapes. This is **not** the case with normal projections.
     ///
-    /// See [`InfinitePlane3d::congruent_transformations_xy`] for more information.
+    /// See [`InfinitePlane3d::isometries_xy`] for more information.
     #[inline]
-    pub fn congruent_projection_xy(&self, origin: Vec3) -> Affine3A {
+    pub fn isometry_into_xy(&self, origin: Vec3) -> Isometry3d {
         let rotation = Quat::from_rotation_arc(self.normal.as_vec3(), Vec3::Z);
         let transformed_origin = rotation * origin;
-        Affine3A::from_translation(-Vec3::Z * transformed_origin.z) * Affine3A::from_quat(rotation)
+        Isometry3d::new(-Vec3::Z * transformed_origin.z, rotation)
     }
 
-    /// Computes an [`Affine3A`] which transforms points from the XY-plane to this plane with the
+    /// Computes an [`Isometry3d`] which transforms points from the XY-plane to this plane with the
     /// given `origin`.
     ///
     /// The transformation is [congruent](https://en.wikipedia.org/wiki/Congruence_(geometry))
     /// meaning it will preserve shapes. This is **not** the case with normal injections.
     ///
-    /// See [`InfinitePlane3d::congruent_transformations_xy`] for more information.
+    /// See [`InfinitePlane3d::isometries_xy`] for more information.
     #[inline]
-    pub fn congruent_injection_xy(&self, origin: Vec3) -> Affine3A {
-        self.congruent_projection_xy(origin).inverse()
+    pub fn isometry_from_xy(&self, origin: Vec3) -> Isometry3d {
+        self.isometry_into_xy(origin).inverse()
     }
 
-    /// Computes both [`Affine3A`]s which transforms points from the plane in 3D space with the
+    /// Computes both [`Isometry3d`]s which transforms points from the plane in 3D space with the
     /// given `origin` to the XY-plane and back.
     ///
     /// # Example
@@ -285,8 +288,8 @@ impl InfinitePlane3d {
     /// - `extend(0.0)` all points (`Vec2` -> `Vec3`)
     /// - inject the shape from the XY-plane to its original plane
     #[inline]
-    pub fn congruent_transformations_xy(&self, origin: Vec3) -> (Affine3A, Affine3A) {
-        let projection = self.congruent_projection_xy(origin);
+    pub fn isometries_xy(&self, origin: Vec3) -> (Isometry3d, Isometry3d) {
+        let projection = self.isometry_into_xy(origin);
         (projection, projection.inverse())
     }
 }
@@ -1352,7 +1355,7 @@ mod tests {
         let point_outside = Vec3::Y;
         assert_eq!(
             plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
-            1.0,
+            -1.0,
             "incorrect distance"
         );
         assert_eq!(
@@ -1364,7 +1367,7 @@ mod tests {
         let point_outside = Vec3::NEG_Y;
         assert_eq!(
             plane.signed_distance(Isometry3d::from_translation(origin), point_outside),
-            -1.0,
+            1.0,
             "incorrect distance"
         );
         assert_eq!(
@@ -1374,15 +1377,15 @@ mod tests {
         );
 
         let area_f = |[a, b, c]: [Vec3; 3]| (a - b).cross(a - c).length() * 0.5;
-        let (proj, inj) = plane.congruent_transformations_xy(origin);
+        let (proj, inj) = plane.isometries_xy(origin);
 
         let triangle = [Vec3::X, Vec3::Y, Vec3::ZERO];
         assert_eq!(area_f(triangle), 0.5, "incorrect area");
 
-        let triangle_proj = triangle.map(|p| proj.transform_point3(p));
+        let triangle_proj = triangle.map(|vec3| proj * vec3);
         assert_relative_eq!(area_f(triangle_proj), 0.5);
 
-        let triangle_proj_inj = triangle_proj.map(|p| inj.transform_point3(p));
+        let triangle_proj_inj = triangle_proj.map(|vec3| inj * vec3);
         assert_relative_eq!(area_f(triangle_proj_inj), 0.5);
     }
 
