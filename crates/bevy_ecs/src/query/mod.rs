@@ -7,6 +7,7 @@ mod fetch;
 mod filter;
 mod iter;
 mod par_iter;
+mod predicate;
 mod state;
 mod world_query;
 
@@ -18,6 +19,7 @@ pub use fetch::*;
 pub use filter::*;
 pub use iter::*;
 pub use par_iter::*;
+pub use predicate::*;
 pub use state::*;
 pub use world_query::*;
 
@@ -71,7 +73,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use bevy_ecs_macros::{QueryData, QueryFilter};
 
-    use crate::prelude::{AnyOf, Changed, Entity, Or, QueryState, With, Without};
+    use crate::prelude::{AnyOf, Changed, Entity, Or, Predicate, QueryState, With, Without};
     use crate::query::{ArchetypeFilter, Has, QueryCombinationIter, ReadOnlyQueryData};
     use crate::schedule::{IntoSystemConfigs, Schedule};
     use crate::system::{IntoSystem, Query, System, SystemState};
@@ -80,6 +82,8 @@ mod tests {
     use std::collections::HashSet;
     use std::fmt::Debug;
     use std::hash::Hash;
+
+    use super::PredicateFilter;
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);
@@ -756,5 +760,32 @@ mod tests {
 
         let values = world.query::<&B>().iter(&world).collect::<Vec<&B>>();
         assert_eq!(values, vec![&B(2)]);
+    }
+
+    #[derive(Component, Debug, Clone, Copy)]
+    pub struct E(usize);
+
+    #[derive(Debug, Clone, Component, Default)]
+    pub struct NonZeroE;
+
+    impl PredicateFilter for NonZeroE {
+        type Data = &'static E;
+        fn filter_predicate(item: crate::query::QueryItem<Self::Data>) -> bool {
+            item.0 != 0
+        }
+    }
+
+    #[test]
+    fn query_predicate() {
+        let mut world = World::new();
+        world.spawn((A(1), E(0)));
+        world.spawn((A(2), E(1)));
+        world.spawn((A(3), E(2)));
+
+        let values = world
+            .query_filtered::<&A, Predicate<NonZeroE>>()
+            .iter(&mut world)
+            .collect::<Vec<_>>();
+        assert_eq!(values, vec![&A(2), &A(3)]);
     }
 }

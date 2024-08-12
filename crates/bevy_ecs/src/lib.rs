@@ -52,7 +52,10 @@ pub mod prelude {
         entity::{Entity, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         observer::{Observer, Trigger},
-        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{
+            Added, AnyOf, Changed, Has, Or, Predicate, PredicateFilter, QueryBuilder, QueryState,
+            With, Without,
+        },
         removal_detection::RemovedComponents,
         schedule::{
             apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
