@@ -702,7 +702,7 @@ impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J,
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
 
 macro_rules! impl_type_path_tuple {
-    () => {
+    ($(#[$meta:meta])*) => {
         impl TypePath for () {
             fn type_path() -> &'static str {
                 "()"
@@ -714,7 +714,8 @@ macro_rules! impl_type_path_tuple {
         }
     };
 
-    ($param:ident) => {
+    ($(#[$meta:meta])* $param:ident) => {
+        $(#[$meta])*
         impl <$param: TypePath> TypePath for ($param,) {
             fn type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
@@ -732,8 +733,8 @@ macro_rules! impl_type_path_tuple {
         }
     };
 
-    ($last:ident $(,$param:ident)*) => {
-
+    ($(#[$meta:meta])* $last:ident $(,$param:ident)*) => {
+        $(#[$meta])*
         impl <$($param: TypePath,)* $last: TypePath> TypePath for ($($param,)* $last) {
             fn type_path() -> &'static str {
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
@@ -752,7 +753,13 @@ macro_rules! impl_type_path_tuple {
     };
 }
 
-all_tuples!(impl_type_path_tuple, 0, 12, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_type_path_tuple,
+    0,
+    12,
+    P
+);
 
 #[cfg(feature = "functions")]
 const _: () = {

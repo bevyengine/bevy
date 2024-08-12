@@ -383,7 +383,7 @@ fn assert_component_access_compatibility(
 ///         # let _event = event;
 ///     }
 ///     set.p1().send(MyEvent::new());
-///     
+///
 ///     let entities = set.p2().entities();
 ///     // ...
 ///     # let _entities = entities;
@@ -1422,13 +1422,15 @@ unsafe impl SystemParam for SystemChangeTick {
 }
 
 macro_rules! impl_system_param_tuple {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
+        $(#[$meta])*
         // SAFETY: tuple consists only of ReadOnlySystemParams
         unsafe impl<$($param: ReadOnlySystemParam),*> ReadOnlySystemParam for ($($param,)*) {}
 
         // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
         #[allow(clippy::undocumented_unsafe_blocks)] // false positive by clippy
         #[allow(non_snake_case)]
+        $(#[$meta])*
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
@@ -1471,7 +1473,13 @@ macro_rules! impl_system_param_tuple {
     };
 }
 
-all_tuples!(impl_system_param_tuple, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_param_tuple,
+    0,
+    16,
+    P
+);
 
 /// Contains type aliases for built-in [`SystemParam`]s with `'static` lifetimes.
 /// This makes it more convenient to refer to these types in contexts where
