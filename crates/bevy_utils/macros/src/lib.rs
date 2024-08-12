@@ -134,7 +134,7 @@ impl Parse for AllTuples {
 /// ```
 /// // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
 /// #![allow(internal_features)]
-/// #![cfg_attr(docsrs, feature(doc_auto_cfg, rustdoc_internals))]
+/// #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
 /// ```
 ///
 /// ```
@@ -280,6 +280,7 @@ fn choose_ident_tuples<'a>(
 }
 
 fn fake_variadic_attrs(len: usize, i: usize) -> TokenStream2 {
+    let cfg = quote! { any(docsrs, docsrs_dep) };
     match i {
         // An empty tuple (i.e. the unit type) is still documented separately,
         // so no `#[doc(hidden)]` here.
@@ -291,10 +292,10 @@ fn fake_variadic_attrs(len: usize, i: usize) -> TokenStream2 {
                 Span2::call_site(),
             );
             quote! {
-                #[cfg_attr(docsrs, doc(fake_variadic))]
-                #[cfg_attr(docsrs, doc = #doc)]
+                #[cfg_attr(#cfg, doc(fake_variadic))]
+                #[cfg_attr(#cfg, doc = #doc)]
             }
         }
-        _ => quote! { #[cfg_attr(docsrs, doc(hidden))] },
+        _ => quote! { #[cfg_attr(#cfg, doc(hidden))] },
     }
 }

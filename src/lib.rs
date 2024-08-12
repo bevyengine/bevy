@@ -1,7 +1,5 @@
 #![allow(clippy::single_component_path_imports)]
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 //! [![Bevy Logo](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
 //!
