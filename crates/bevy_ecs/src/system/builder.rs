@@ -413,31 +413,29 @@ mod tests {
     }
 
     #[test]
-    fn dyn_vec_builder() {
+    fn dyn_builder() {
         let mut world = World::new();
 
         world.spawn(A);
         world.spawn_empty();
 
-        let system = (vec![
+        let system = (
             DynParamBuilder::new(LocalBuilder(3_usize)),
             DynParamBuilder::new::<Query<()>>(QueryParamBuilder::new(|builder| {
                 builder.with::<A>();
             })),
             DynParamBuilder::new::<&Entities>(ParamBuilder),
-        ],)
+        )
             .build_state(&mut world)
-            .build_system(|mut params: Vec<DynSystemParam>| {
-                let local = *params[0].downcast_mut::<Local<usize>>().unwrap();
-                let query_count = params[1]
-                    .downcast_mut::<Query<()>>()
-                    .unwrap()
-                    .iter()
-                    .count();
-                let _entities = params[2].downcast_mut::<&Entities>().unwrap();
-                assert!(params[0].downcast_mut::<Query<()>>().is_none());
-                local + query_count
-            });
+            .build_system(
+                |mut p0: DynSystemParam, mut p1: DynSystemParam, mut p2: DynSystemParam| {
+                    let local = *p0.downcast_mut::<Local<usize>>().unwrap();
+                    let query_count = p1.downcast_mut::<Query<()>>().unwrap().iter().count();
+                    let _entities = p2.downcast_mut::<&Entities>().unwrap();
+                    assert!(p0.downcast_mut::<Query<()>>().is_none());
+                    local + query_count
+                },
+            );
 
         let result = world.run_system_once(system);
         assert_eq!(result, 4);
