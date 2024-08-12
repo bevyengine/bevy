@@ -7,7 +7,6 @@ use crate::{derive_data::ReflectMeta, utility::WhereClauseOptions};
 pub fn impl_full_reflect(
     meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,
-    is_remote_wrapper: bool,
 ) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
@@ -15,7 +14,7 @@ pub fn impl_full_reflect(
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
-    let any_impls = if is_remote_wrapper {
+    let any_impls = if meta.is_remote_wrapper() {
         quote! {
             #[inline]
             fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {

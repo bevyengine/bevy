@@ -52,7 +52,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         ..
     } = FromReflectVariantBuilder::new(reflect_enum).build(&ref_value);
 
-    let match_branches = if reflect_enum.is_remote_wrapper() {
+    let match_branches = if reflect_enum.meta().is_remote_wrapper() {
         quote! {
             #(#variant_names => #fqoption::Some(Self(#variant_constructors)),)*
         }
@@ -104,6 +104,7 @@ fn impl_struct_internal(
     let fqoption = FQOption.into_token_stream();
 
     let struct_path = reflect_struct.meta().type_path();
+    let remote_ty = reflect_struct.meta().remote_ty();
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
     let ref_struct = Ident::new("__ref_struct", Span::call_site());
@@ -122,7 +123,7 @@ fn impl_struct_internal(
     let __this = Ident::new("__this", Span::call_site());
 
     // The reflected type: either `Self` or a remote type
-    let (reflect_ty, constructor, retval) = if let Some(remote_ty) = reflect_struct.remote_ty() {
+    let (reflect_ty, constructor, retval) = if let Some(remote_ty) = remote_ty {
         let constructor = match remote_ty.as_expr_path() {
             Ok(path) => path,
             Err(err) => return err.into_compile_error(),

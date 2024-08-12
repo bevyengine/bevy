@@ -2555,6 +2555,81 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_reflect_remote_value_type() {
+        mod external_crate {
+            #[derive(Clone, Debug, Default)]
+            pub struct TheirType {
+                pub value: String,
+            }
+        }
+
+        // === Remote Wrapper === //
+        #[reflect_remote(external_crate::TheirType)]
+        #[derive(Clone, Debug, Default)]
+        #[reflect_value(Debug, Default)]
+        struct MyType {
+            pub value: String,
+        }
+
+        let mut data = MyType(external_crate::TheirType {
+            value: "Hello".to_string(),
+        });
+
+        let patch = MyType(external_crate::TheirType {
+            value: "Goodbye".to_string(),
+        });
+
+        assert_eq!("Hello", data.0.value);
+        data.apply(&patch);
+        assert_eq!("Goodbye", data.0.value);
+
+        // === Struct Container === //
+        #[derive(Reflect, Debug)]
+        #[reflect(from_reflect = false)]
+        struct ContainerStruct {
+            #[reflect(remote = MyType)]
+            their_type: external_crate::TheirType,
+        }
+
+        let mut patch = DynamicStruct::default();
+        patch.set_represented_type(Some(ContainerStruct::type_info()));
+        patch.insert(
+            "their_type",
+            MyType(external_crate::TheirType {
+                value: "Goodbye".to_string(),
+            }),
+        );
+
+        let mut data = ContainerStruct {
+            their_type: external_crate::TheirType {
+                value: "Hello".to_string(),
+            },
+        };
+
+        assert_eq!("Hello", data.their_type.value);
+        data.apply(&patch);
+        assert_eq!("Goodbye", data.their_type.value);
+
+        // === Tuple Struct Container === //
+        #[derive(Reflect, Debug)]
+        struct ContainerTupleStruct(#[reflect(remote = MyType)] external_crate::TheirType);
+
+        let mut patch = DynamicTupleStruct::default();
+        patch.set_represented_type(Some(ContainerTupleStruct::type_info()));
+        patch.insert(MyType(external_crate::TheirType {
+            value: "Goodbye".to_string(),
+        }));
+
+        let mut data = ContainerTupleStruct(external_crate::TheirType {
+            value: "Hello".to_string(),
+        });
+
+        assert_eq!("Hello", data.0.value);
+        data.apply(&patch);
+        assert_eq!("Goodbye", data.0.value);
+    }
+
+    #[test]
     fn should_reflect_remote_type_from_module() {
         mod wrapper {
             use super::*;

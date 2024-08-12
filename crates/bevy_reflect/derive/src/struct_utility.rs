@@ -61,7 +61,7 @@ impl FieldAccessors {
     where
         F: FnMut(&StructField, proc_macro2::TokenStream) -> proc_macro2::TokenStream,
     {
-        let is_remote = reflect_struct.is_remote_wrapper();
+        let is_remote = reflect_struct.meta().is_remote_wrapper();
         reflect_struct
             .active_fields()
             .map(|field| {

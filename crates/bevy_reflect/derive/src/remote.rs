@@ -1,7 +1,9 @@
 use crate::derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl};
 use crate::impls::impl_assertions;
 use crate::utility::ident_or_index;
-use crate::{from_reflect, impls, ReflectDerive, REFLECT_ATTRIBUTE_NAME};
+use crate::{
+    from_reflect, impls, ReflectDerive, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME,
+};
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -68,11 +70,14 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
                 None
             },
         ),
-        _ => {
-            return syn::Error::new(ast.span(), "cannot reflect a remote value type")
-                .into_compile_error()
-                .into()
-        }
+        ReflectDerive::Value(meta) => (
+            impls::impl_value(&meta),
+            if meta.from_reflect().should_auto_derive() {
+                Some(from_reflect::impl_value(&meta))
+            } else {
+                None
+            },
+        ),
     };
 
     TokenStream::from(quote! {
@@ -109,10 +114,10 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
     let vis = &input.vis;
     let ty_generics = &input.generics;
     let where_clause = &input.generics.where_clause;
-    let attrs = input
-        .attrs
-        .iter()
-        .filter(|attr| !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME));
+    let attrs = input.attrs.iter().filter(|attr| {
+        !attr.path().is_ident(REFLECT_ATTRIBUTE_NAME)
+            && !attr.path().is_ident(REFLECT_VALUE_ATTRIBUTE_NAME)
+    });
 
     quote! {
         #(#attrs)*
@@ -402,12 +407,9 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
                 }
             }
         }
-        ReflectDerive::Value(meta) => {
-            return syn::Error::new(
-                meta.type_path().span(),
-                "cannot reflect a remote value type",
-            )
-            .into_compile_error()
+        ReflectDerive::Value(_) => {
+            // No assertions needed since there are no fields to check
+            proc_macro2::TokenStream::new()
         }
     };
 

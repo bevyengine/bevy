@@ -39,11 +39,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
     );
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
-    let full_reflect_impl = impl_full_reflect(
-        reflect_struct.meta(),
-        &where_clause_options,
-        reflect_struct.is_remote_wrapper(),
-    );
+    let full_reflect_impl = impl_full_reflect(reflect_struct.meta(), &where_clause_options);
     let common_methods = common_partial_reflect_methods(
         reflect_struct.meta(),
         || Some(quote!(#bevy_reflect_path::struct_partial_eq)),

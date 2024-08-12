@@ -28,8 +28,25 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     );
 
     let type_path_impl = impl_type_path(meta);
-    let full_reflect_impl = impl_full_reflect(meta, &where_clause_options, false);
+    let full_reflect_impl = impl_full_reflect(meta, &where_clause_options);
     let common_methods = common_partial_reflect_methods(meta, || None, || None);
+
+    let apply_impl = if let Some(remote_ty) = meta.remote_ty() {
+        let ty = remote_ty.type_path();
+        quote! {
+            if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#ty>(value) {
+                *self = Self(#FQClone::clone(value));
+                return #FQResult::Ok(());
+            }
+        }
+    } else {
+        quote! {
+            if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value) {
+                *self = #FQClone::clone(value);
+                return #FQResult::Ok(());
+            }
+        }
+    };
 
     #[cfg(not(feature = "functions"))]
     let function_impls = None::<proc_macro2::TokenStream>;
@@ -67,17 +84,14 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
                 &mut self,
                 value: &dyn #bevy_reflect_path::PartialReflect
             ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
-                if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value) {
-                    *self = #FQClone::clone(value);
-                } else {
-                    return #FQResult::Err(
-                        #bevy_reflect_path::ApplyError::MismatchedTypes {
-                            from_type: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(value)),
-                            to_type: ::core::convert::Into::into(<Self as #bevy_reflect_path::TypePath>::type_path()),
-                        }
-                    );
-                }
-                #FQResult::Ok(())
+                #apply_impl
+
+                #FQResult::Err(
+                    #bevy_reflect_path::ApplyError::MismatchedTypes {
+                        from_type: ::core::convert::Into::into(#bevy_reflect_path::DynamicTypePath::reflect_type_path(value)),
+                        to_type: ::core::convert::Into::into(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                    }
+                )
             }
 
             #[inline]

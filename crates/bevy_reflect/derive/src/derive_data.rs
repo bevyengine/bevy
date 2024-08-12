@@ -47,6 +47,8 @@ pub(crate) struct ReflectMeta<'a> {
     attrs: ContainerAttributes,
     /// The path to this type.
     type_path: ReflectTypePath<'a>,
+    /// The optional remote type to use instead of the actual type.
+    remote_ty: Option<RemoteType<'a>>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
     /// The documentation for this type, if any
@@ -71,7 +73,6 @@ pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
     serialization_data: Option<SerializationDataDef>,
     fields: Vec<StructField<'a>>,
-    remote_ty: Option<RemoteType<'a>>,
 }
 
 /// Enum data used by derive macros for `Reflect` and `FromReflect`.
@@ -90,7 +91,6 @@ pub(crate) struct ReflectStruct<'a> {
 pub(crate) struct ReflectEnum<'a> {
     meta: ReflectMeta<'a>,
     variants: Vec<EnumVariant<'a>>,
-    remote_ty: Option<RemoteType<'a>>,
 }
 
 /// Represents a field on a struct or tuple struct.
@@ -331,7 +331,6 @@ impl<'a> ReflectDerive<'a> {
                     meta,
                     serialization_data: SerializationDataDef::new(&fields)?,
                     fields,
-                    remote_ty: None,
                 };
 
                 match data.fields {
@@ -343,11 +342,7 @@ impl<'a> ReflectDerive<'a> {
             Data::Enum(data) => {
                 let variants = Self::collect_enum_variants(&data.variants)?;
 
-                let reflect_enum = ReflectEnum {
-                    meta,
-                    variants,
-                    remote_ty: None,
-                };
+                let reflect_enum = ReflectEnum { meta, variants };
                 Ok(Self::Enum(reflect_enum))
             }
             Data::Union(..) => Err(syn::Error::new(
@@ -365,12 +360,14 @@ impl<'a> ReflectDerive<'a> {
     pub fn set_remote(&mut self, remote_ty: Option<RemoteType<'a>>) {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
-                data.remote_ty = remote_ty;
+                data.meta.remote_ty = remote_ty;
             }
             Self::Enum(data) => {
-                data.remote_ty = remote_ty;
+                data.meta.remote_ty = remote_ty;
             }
-            _ => panic!("cannot create a reflected value type for a remote type"),
+            Self::Value(meta) => {
+                meta.remote_ty = remote_ty;
+            }
         }
     }
 
@@ -378,10 +375,10 @@ impl<'a> ReflectDerive<'a> {
     pub fn remote_ty(&self) -> Option<RemoteType> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
-                data.remote_ty()
+                data.meta.remote_ty()
             }
-            Self::Enum(data) => data.remote_ty(),
-            Self::Value(_) => None,
+            Self::Enum(data) => data.meta.remote_ty(),
+            Self::Value(meta) => meta.remote_ty(),
         }
     }
 
@@ -475,6 +472,7 @@ impl<'a> ReflectMeta<'a> {
         Self {
             attrs,
             type_path,
+            remote_ty: None,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
             docs: Default::default(),
@@ -506,6 +504,16 @@ impl<'a> ReflectMeta<'a> {
     /// The path to this type.
     pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
+    }
+
+    /// Get the remote type path, if any.
+    pub fn remote_ty(&self) -> Option<RemoteType> {
+        self.remote_ty
+    }
+
+    /// Whether this reflected type represents a remote type or not.
+    pub fn is_remote_wrapper(&self) -> bool {
+        self.remote_ty.is_some()
     }
 
     /// The cached `bevy_reflect` path.
@@ -593,17 +601,6 @@ impl<'a> ReflectStruct<'a> {
     /// Returns the [`SerializationDataDef`] for this struct.
     pub fn serialization_data(&self) -> Option<&SerializationDataDef> {
         self.serialization_data.as_ref()
-    }
-
-    /// Whether this reflected struct represents a remote type or not.
-    pub fn is_remote_wrapper(&self) -> bool {
-        self.remote_ty.is_some()
-    }
-
-    #[allow(dead_code)]
-    /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<RemoteType<'a>> {
-        self.remote_ty
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
@@ -705,22 +702,12 @@ impl<'a> ReflectEnum<'a> {
         &self.meta
     }
 
-    /// Whether this reflected enum represents a remote type or not.
-    pub fn is_remote_wrapper(&self) -> bool {
-        self.remote_ty.is_some()
-    }
-
-    #[allow(dead_code)]
-    /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<RemoteType<'a>> {
-        self.remote_ty
-    }
-
     /// Returns the given ident as a qualified unit variant of this enum.
     ///
     /// This takes into account the remote type, if any.
     pub fn get_unit(&self, variant: &Ident) -> proc_macro2::TokenStream {
         let name = self
+            .meta
             .remote_ty
             .map(|path| match path.as_expr_path() {
                 Ok(path) => path.to_token_stream(),

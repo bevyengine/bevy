@@ -9,7 +9,7 @@ use syn::{Fields, Path};
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_path = reflect_enum.meta().type_path();
-    let is_remote = reflect_enum.is_remote_wrapper();
+    let is_remote = reflect_enum.meta().is_remote_wrapper();
 
     // For `match self` expressions where self is a reference
     let match_this = if is_remote {
@@ -62,11 +62,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     );
 
     let type_path_impl = impl_type_path(reflect_enum.meta());
-    let full_reflect_impl = impl_full_reflect(
-        reflect_enum.meta(),
-        &where_clause_options,
-        reflect_enum.is_remote_wrapper(),
-    );
+    let full_reflect_impl = impl_full_reflect(reflect_enum.meta(), &where_clause_options);
     let common_methods = common_partial_reflect_methods(
         reflect_enum.meta(),
         || Some(quote!(#bevy_reflect_path::enum_partial_eq)),
