@@ -457,7 +457,7 @@ impl dyn PartialReflect {
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns `Err(self)`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn try_downcast<T: Any>(
         self: Box<dyn PartialReflect>,
     ) -> Result<Box<T>, Box<dyn PartialReflect>> {
@@ -471,7 +471,7 @@ impl dyn PartialReflect {
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns `Err(self)`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn try_take<T: Any>(self: Box<dyn PartialReflect>) -> Result<T, Box<dyn PartialReflect>> {
         self.try_downcast().map(|value| *value)
     }
@@ -481,7 +481,7 @@ impl dyn PartialReflect {
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns [`None`].
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn try_downcast_ref<T: Any>(&self) -> Option<&T> {
         self.try_as_reflect()?.downcast_ref()
     }
@@ -491,7 +491,7 @@ impl dyn PartialReflect {
     /// If the underlying value does not implement [`Reflect`]
     /// or is not of type `T`, returns [`None`].
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn try_downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         self.try_as_reflect_mut()?.downcast_mut()
     }
@@ -521,7 +521,7 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn downcast<T: Any>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
         if self.is::<T>() {
             Ok(self.into_any().downcast().unwrap())
@@ -534,7 +534,7 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn take<T: Any>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
         self.downcast::<T>().map(|value| *value)
     }
@@ -548,7 +548,7 @@ impl dyn Reflect {
     /// to determine what type they represent. Represented types cannot be downcasted
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     ///
     /// [`FromReflect`]: crate::FromReflect
     #[inline]
@@ -560,7 +560,7 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `None`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     #[inline]
     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
         self.as_any().downcast_ref::<T>()
@@ -570,7 +570,7 @@ impl dyn Reflect {
     ///
     /// If the underlying value is not of type `T`, returns `None`.
     ///
-    /// For remote types, `T` should be the type itself rather than the wraper type.
+    /// For remote types, `T` should be the type itself rather than the wrapper type.
     #[inline]
     pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
         self.as_any_mut().downcast_mut::<T>()

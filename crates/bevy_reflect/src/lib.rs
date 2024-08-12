@@ -2882,7 +2882,7 @@ bevy_reflect::tests::Test {
                 value: "Hello".to_string(),
             },
             output,
-        )
+        );
     }
 
     #[test]

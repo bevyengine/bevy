@@ -22,9 +22,9 @@ mod incorrect_inner_type {
     use bevy_reflect::{FromReflect, GetTypeRegistration, reflect_remote};
 
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-    //~^ ERROR: `TheirInner<T>` can not be reflected
-    //~| ERROR: `TheirInner<T>` can not be reflected
-    //~| ERROR: `TheirInner<T>` can not be reflected
+    //~^ ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
+    //~| ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
+    //~| ERROR: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
     //~| ERROR: `TheirInner<T>` can not be used as a dynamic type path
     //~| ERROR: `?` operator has incompatible types
     struct MyOuter<T: FromReflect + GetTypeRegistration> {
