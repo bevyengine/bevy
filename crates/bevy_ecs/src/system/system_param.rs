@@ -418,7 +418,7 @@ fn assert_component_access_compatibility(
 ///         # let _event = event;
 ///     }
 ///     set.p1().send(MyEvent::new());
-///     
+///
 ///     let entities = set.p2().entities();
 ///     // ...
 ///     # let _entities = entities;
@@ -1472,8 +1472,8 @@ unsafe impl SystemParam for SystemChangeTick {
 
 macro_rules! impl_system_param_tuple {
     ($(#[$meta:meta])* $($param: ident),*) => {
-        // SAFETY: tuple consists only of ReadOnlySystemParams
         $(#[$meta])*
+        // SAFETY: tuple consists only of ReadOnlySystemParams
         unsafe impl<$($param: ReadOnlySystemParam),*> ReadOnlySystemParam for ($($param,)*) {}
 
         // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
