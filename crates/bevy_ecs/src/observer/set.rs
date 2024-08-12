@@ -143,62 +143,13 @@ unsafe impl<E: Event> StaticEventSet for E {}
 /// An [`EventSet`] that matches any event type and performs no casting. Instead, it returns the pointer as is.
 /// This is useful for observers that do not need to access the event data, or need to do so dynamically.
 ///
-/// `DynamicEvent` accepts one type parameter:
-///
-/// - **Register**
-///   The event set that will have its types automatically registered to the observer.
-///   This reduces the boilerplate of registering the event types manually when some or all are statically known.
-///   However, these types will not be matched or casted by the observer.
-///
 /// # Example
 ///
 /// TODO
-pub struct DynamicEvent<Register = ()>(std::marker::PhantomData<Register>);
+pub struct DynamicEvent;
 
 // SAFETY: Performs no unsafe operations, returns the pointer as is.
-unsafe impl<Register: StaticEventSet> EventSet for DynamicEvent<Register> {
-    type Item<'trigger> = PtrMut<'trigger>;
-    type ReadOnlyItem<'trigger> = Ptr<'trigger>;
-
-    fn cast<'trigger>(
-        _world: &World,
-        _observer_trigger: &ObserverTrigger,
-        ptr: PtrMut<'trigger>,
-    ) -> Result<Self::Item<'trigger>, PtrMut<'trigger>> {
-        Ok(ptr)
-    }
-
-    unsafe fn unchecked_cast<'trigger>(
-        _world: &World,
-        _observer_trigger: &ObserverTrigger,
-        ptr: PtrMut<'trigger>,
-    ) -> Result<Self::Item<'trigger>, PtrMut<'trigger>> {
-        Ok(ptr)
-    }
-
-    fn matches(_world: &World, _observer_trigger: &ObserverTrigger) -> bool {
-        // We're treating this as a catch-all event set, so it always matches.
-        true
-    }
-
-    fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {
-        // We'll register the component ids of the `Register` event set, but won't use them for matching.
-        Register::init_components(world, ids);
-    }
-
-    fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
-        item.reborrow()
-    }
-
-    fn shrink_readonly<'long: 'short, 'short>(
-        item: &'short Self::Item<'long>,
-    ) -> Self::ReadOnlyItem<'short> {
-        item.as_ref()
-    }
-}
-
-// SAFETY: Performs no unsafe operations, returns the pointer as is.
-unsafe impl EventSet for DynamicEvent<()> {
+unsafe impl EventSet for DynamicEvent {
     type Item<'trigger> = PtrMut<'trigger>;
     type ReadOnlyItem<'trigger> = Ptr<'trigger>;
 
@@ -246,23 +197,14 @@ unsafe impl EventSet for DynamicEvent<()> {
 ///   The static event set that will be matched and casted.
 ///   Generally, this should be a tuple of static event types, like `(FooEvent, BarEvent)`.
 ///   Must implement [`StaticEventSet`] trait, which means no [`DynamicEvent`] or [`SemiDynamicEvent`] nesting.
-/// - **Register**
-///   The event set that will have its types automatically registered to the observer.
-///   This reduces the boilerplate of registering the event types manually when some or all are statically known.
-///   However, these types will not be matched or casted by the observer.
 ///
 /// # Example
 ///
 /// TODO
-pub struct SemiDynamicEvent<Static: StaticEventSet, Register = ()>(
-    std::marker::PhantomData<(Static, Register)>,
-);
+pub struct SemiDynamicEvent<Static: StaticEventSet>(std::marker::PhantomData<Static>);
 
 // SAFETY: No unsafe operations are performed. The checked cast variant is used for the static event type.
-unsafe impl<Static: StaticEventSet, Register> EventSet for SemiDynamicEvent<Static, Register>
-where
-    DynamicEvent<Register>: EventSet,
-{
+unsafe impl<Static: StaticEventSet> EventSet for SemiDynamicEvent<Static> {
     type Item<'trigger> = Result<Static::Item<'trigger>, PtrMut<'trigger>>;
     type ReadOnlyItem<'trigger> = Result<Static::ReadOnlyItem<'trigger>, Ptr<'trigger>>;
 
@@ -283,7 +225,6 @@ where
 
     fn init_components(world: &mut World, mut ids: impl FnMut(ComponentId)) {
         Static::init_components(world, &mut ids);
-        DynamicEvent::<Register>::init_components(world, ids);
     }
 
     fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {

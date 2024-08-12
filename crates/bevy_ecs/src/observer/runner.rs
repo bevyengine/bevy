@@ -310,10 +310,7 @@ impl<E: EventSet, B: Bundle> Observer<E, B> {
     }
 }
 
-impl<Register, B: Bundle> Observer<DynamicEvent<Register>, B>
-where
-    DynamicEvent<Register>: EventSet,
-{
+impl<B: Bundle> Observer<DynamicEvent, B> {
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
     ///
@@ -326,10 +323,7 @@ where
     }
 }
 
-impl<Static: StaticEventSet, Register, B: Bundle> Observer<SemiDynamicEvent<Static, Register>, B>
-where
-    SemiDynamicEvent<Static, Register>: EventSet,
-{
+impl<Static: StaticEventSet, B: Bundle> Observer<SemiDynamicEvent<Static>, B> {
     /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
     /// is triggered.
     ///
