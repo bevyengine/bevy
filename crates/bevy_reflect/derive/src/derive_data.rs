@@ -8,6 +8,7 @@ use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
+use crate::remote::RemoteType;
 use crate::serialization::SerializationDataDef;
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
@@ -46,6 +47,8 @@ pub(crate) struct ReflectMeta<'a> {
     attrs: ContainerAttributes,
     /// The path to this type.
     type_path: ReflectTypePath<'a>,
+    /// The optional remote type to use instead of the actual type.
+    remote_ty: Option<RemoteType<'a>>,
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
     /// The documentation for this type, if any
@@ -146,8 +149,12 @@ enum ReflectMode {
 /// How the macro was invoked.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ReflectImplSource {
+    /// Using `impl_reflect!`.
     ImplRemoteType,
+    /// Using `#[derive(...)]`.
     DeriveLocalType,
+    /// Using `#[reflect_remote]`.
+    RemoteReflect,
 }
 
 /// Which trait the macro explicitly implements.
@@ -173,7 +180,9 @@ impl fmt::Display for ReflectProvenance {
             (S::DeriveLocalType, T::Reflect) => "`#[derive(Reflect)]`",
             (S::DeriveLocalType, T::FromReflect) => "`#[derive(FromReflect)]`",
             (S::DeriveLocalType, T::TypePath) => "`#[derive(TypePath)]`",
-            (S::ImplRemoteType, T::FromReflect | T::TypePath) => unreachable!(),
+            (S::RemoteReflect, T::Reflect) => "`#[reflect_remote]`",
+            (S::RemoteReflect, T::FromReflect | T::TypePath)
+            | (S::ImplRemoteType, T::FromReflect | T::TypePath) => unreachable!(),
         };
         f.write_str(str)
     }
@@ -343,13 +352,52 @@ impl<'a> ReflectDerive<'a> {
         };
     }
 
-    pub fn meta(&self) -> &ReflectMeta<'a> {
+    /// Set the remote type for this derived type.
+    ///
+    /// # Panics
+    ///
+    /// Panics when called on [`ReflectDerive::Value`].
+    pub fn set_remote(&mut self, remote_ty: Option<RemoteType<'a>>) {
         match self {
-            ReflectDerive::Struct(data)
-            | ReflectDerive::TupleStruct(data)
-            | ReflectDerive::UnitStruct(data) => data.meta(),
-            ReflectDerive::Enum(data) => data.meta(),
-            ReflectDerive::Value(meta) => meta,
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
+                data.meta.remote_ty = remote_ty;
+            }
+            Self::Enum(data) => {
+                data.meta.remote_ty = remote_ty;
+            }
+            Self::Value(meta) => {
+                meta.remote_ty = remote_ty;
+            }
+        }
+    }
+
+    /// Get the remote type path, if any.
+    pub fn remote_ty(&self) -> Option<RemoteType> {
+        match self {
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
+                data.meta.remote_ty()
+            }
+            Self::Enum(data) => data.meta.remote_ty(),
+            Self::Value(meta) => meta.remote_ty(),
+        }
+    }
+
+    /// Get the [`ReflectMeta`] for this derived type.
+    pub fn meta(&self) -> &ReflectMeta {
+        match self {
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => data.meta(),
+            Self::Enum(data) => data.meta(),
+            Self::Value(meta) => meta,
+        }
+    }
+
+    pub fn where_clause_options(&self) -> WhereClauseOptions {
+        match self {
+            Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
+                data.where_clause_options()
+            }
+            Self::Enum(data) => data.where_clause_options(),
+            Self::Value(meta) => WhereClauseOptions::new(meta),
         }
     }
 
@@ -424,6 +472,7 @@ impl<'a> ReflectMeta<'a> {
         Self {
             attrs,
             type_path,
+            remote_ty: None,
             bevy_reflect_path: utility::get_bevy_reflect_path(),
             #[cfg(feature = "documentation")]
             docs: Default::default(),
@@ -455,6 +504,16 @@ impl<'a> ReflectMeta<'a> {
     /// The path to this type.
     pub fn type_path(&self) -> &ReflectTypePath<'a> {
         &self.type_path
+    }
+
+    /// Get the remote type path, if any.
+    pub fn remote_ty(&self) -> Option<RemoteType> {
+        self.remote_ty
+    }
+
+    /// Whether this reflected type represents a remote type or not.
+    pub fn is_remote_wrapper(&self) -> bool {
+        self.remote_ty.is_some()
     }
 
     /// The cached `bevy_reflect` path.
@@ -500,7 +559,7 @@ impl<'a> StructField<'a> {
             }
         };
 
-        let ty = &self.data.ty;
+        let ty = self.reflected_type();
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
         #[allow(unused_mut)] // Needs mutability for the feature gate
@@ -517,6 +576,19 @@ impl<'a> StructField<'a> {
         }
 
         info
+    }
+
+    /// Returns the reflected type of this field.
+    ///
+    /// Normally this is just the field's defined type.
+    /// However, this can be adjusted to use a different type, like for representing remote types.
+    /// In those cases, the returned value is the remote wrapper type.
+    pub fn reflected_type(&self) -> &Type {
+        self.attrs.remote.as_ref().unwrap_or(&self.data.ty)
+    }
+
+    pub fn attrs(&self) -> &FieldAttributes {
+        &self.attrs
     }
 }
 
@@ -549,7 +621,7 @@ impl<'a> ReflectStruct<'a> {
     /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<Type> {
         self.active_fields()
-            .map(|field| field.data.ty.clone())
+            .map(|field| field.reflected_type().clone())
             .collect()
     }
 
@@ -631,8 +703,18 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// Returns the given ident as a qualified unit variant of this enum.
+    ///
+    /// This takes into account the remote type, if any.
     pub fn get_unit(&self, variant: &Ident) -> proc_macro2::TokenStream {
-        let name = self.meta.type_path();
+        let name = self
+            .meta
+            .remote_ty
+            .map(|path| match path.as_expr_path() {
+                Ok(path) => path.to_token_stream(),
+                Err(err) => err.into_compile_error(),
+            })
+            .unwrap_or_else(|| self.meta.type_path().to_token_stream());
+
         quote! {
             #name::#variant
         }
@@ -646,7 +728,7 @@ impl<'a> ReflectEnum<'a> {
     /// Get a collection of types which are exposed to the reflection API
     pub fn active_types(&self) -> Vec<Type> {
         self.active_fields()
-            .map(|field| field.data.ty.clone())
+            .map(|field| field.reflected_type().clone())
             .collect()
     }
 
@@ -670,7 +752,7 @@ impl<'a> ReflectEnum<'a> {
             self.meta(),
             where_clause_options,
             None,
-            Some(self.active_fields().map(|field| &field.data.ty)),
+            Some(self.active_fields().map(StructField::reflected_type)),
         )
     }
 
@@ -1120,6 +1202,28 @@ impl<'a> ReflectTypePath<'a> {
     /// [anonymous]: ReflectTypePath::Anonymous
     pub fn type_ident(&self) -> Option<StringExpr> {
         self.get_ident().map(StringExpr::from)
+    }
+
+    /// Returns the true type regardless of whether a custom path is specified.
+    ///
+    /// To get the custom path if there is one, use [`Self::get_path`].
+    ///
+    /// For example, the type `Foo<T: Debug>` would return `Foo<T>`.
+    pub fn true_type(&self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Primitive(ident) => quote!(#ident),
+            Self::Internal {
+                ident, generics, ..
+            } => {
+                let (_, ty_generics, _) = generics.split_for_impl();
+                quote!(#ident #ty_generics)
+            }
+            Self::External { path, generics, .. } => {
+                let (_, ty_generics, _) = generics.split_for_impl();
+                quote!(#path #ty_generics)
+            }
+            Self::Anonymous { qualified_type, .. } => qualified_type.to_token_stream(),
+        }
     }
 }
 

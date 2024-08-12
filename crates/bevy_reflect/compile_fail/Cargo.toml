@@ -20,3 +20,7 @@ harness = false
 [[test]]
 name = "func"
 harness = false
+
+[[test]]
+name = "remote"
+harness = false
