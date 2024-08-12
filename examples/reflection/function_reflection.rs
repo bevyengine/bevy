@@ -10,7 +10,7 @@ use bevy::reflect::func::{
     ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionError, FunctionInfo,
     IntoClosure, IntoClosureMut, IntoFunction, Return,
 };
-use bevy::reflect::Reflect;
+use bevy::reflect::{PartialReflect, Reflect};
 
 // Note that the `dbg!` invocations are used purely for demonstration purposes
 // and are not strictly necessary for the example to work.
@@ -52,8 +52,8 @@ fn main() {
 
     // The `Return` value can be pattern matched or unwrapped to get the underlying reflection data.
     // For the sake of brevity, we'll just unwrap it here and downcast it to the expected type of `i32`.
-    let value: Box<dyn Reflect> = return_value.unwrap_owned();
-    assert_eq!(value.take::<i32>().unwrap(), 4);
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<i32>().unwrap(), 4);
 
     // The same can also be done for closures that capture references to their environment.
     // Closures that capture their environment immutably can be converted into a `DynamicClosure`
@@ -64,8 +64,8 @@ fn main() {
     let function: DynamicClosure = dbg!(clamp.into_closure());
     let args = dbg!(ArgList::new().push_owned(2_i32));
     let return_value = dbg!(function.call(args).unwrap());
-    let value: Box<dyn Reflect> = return_value.unwrap_owned();
-    assert_eq!(value.take::<i32>().unwrap(), 5);
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<i32>().unwrap(), 5);
 
     // We can also handle closures that capture their environment mutably
     // using the `IntoClosureMut` trait.
@@ -112,8 +112,8 @@ fn main() {
     let get_value = dbg!(Data::get_value.into_function());
     let args = dbg!(ArgList::new().push_ref(&data));
     let return_value = dbg!(get_value.call(args).unwrap());
-    let value: &dyn Reflect = return_value.unwrap_ref();
-    assert_eq!(value.downcast_ref::<String>().unwrap(), "Hello, world!");
+    let value: &dyn PartialReflect = return_value.unwrap_ref();
+    assert_eq!(value.try_downcast_ref::<String>().unwrap(), "Hello, world!");
 
     // Lastly, for more complex use cases, you can always create a custom `DynamicFunction` manually.
     // This is useful for functions that can't be converted via the `IntoFunction` trait.
@@ -148,9 +148,16 @@ fn main() {
 
             Ok(Return::Ref(get_or_insert(value, container)))
         },
-        FunctionInfo::new()
-            // We can optionally provide a name for the function.
-            .with_name("get_or_insert")
+        // Functions can be either anonymous or named.
+        // It's good practice, though, to try and name your functions whenever possible.
+        // This makes it easier to debug and is also required for function registration.
+        // We can either give it a custom name or use the function's type name as
+        // derived from `std::any::type_name_of_val`.
+        FunctionInfo::named(std::any::type_name_of_val(&get_or_insert))
+            // We can always change the name if needed.
+            // It's a good idea to also ensure that the name is unique,
+            // such as by using its type name or by prefixing it with your crate name.
+            .with_name("my_crate::get_or_insert")
             // Since our function takes arguments, we should provide that argument information.
             // This helps ensure that consumers of the function can validate the arguments they
             // pass into the function and helps for debugging.
@@ -165,9 +172,9 @@ fn main() {
 
     let args = dbg!(ArgList::new().push_owned(5_i32).push_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
+    assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
 
     let args = dbg!(ArgList::new().push_owned(500_i32).push_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
+    assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
 }

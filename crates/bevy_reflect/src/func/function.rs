@@ -41,7 +41,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(value.downcast_ref::<i32>(), Some(&100));
+/// assert_eq!(value.try_downcast_ref::<i32>(), Some(&100));
 /// ```
 ///
 /// However, in some cases, these functions may need to be created manually:
@@ -60,8 +60,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 ///
 /// // Instead, we need to define the function manually.
 /// // We start by defining the shape of the function:
-/// let info = FunctionInfo::new()
-///   .with_name("append")
+/// let info = FunctionInfo::named("append")
 ///   .with_arg::<String>("value")
 ///   .with_arg::<&mut Vec<String>>("list")
 ///   .with_return::<&mut String>();
@@ -83,7 +82,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// let value = func.call(args).unwrap().unwrap_mut();
 ///
 /// // Mutate the return value:
-/// value.downcast_mut::<String>().unwrap().push_str("!!!");
+/// value.try_downcast_mut::<String>().unwrap().push_str("!!!");
 ///
 /// // Check the result:
 /// assert_eq!(list, vec!["Hello, World!!!"]);
@@ -93,7 +92,7 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// [module-level documentation]: crate::func
 pub struct DynamicFunction {
     info: FunctionInfo,
-    func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>,
+    func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'static>,
 }
 
 impl DynamicFunction {
@@ -103,7 +102,7 @@ impl DynamicFunction {
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// This info may be used by consumers of the function for validation and debugging.
-    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'static>(
+    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'static>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
@@ -152,7 +151,7 @@ impl DynamicFunction {
     /// let func = add.into_function();
     /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.take::<i32>().unwrap(), 100);
+    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     /// ```
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
         (self.func)(args)
@@ -162,16 +161,33 @@ impl DynamicFunction {
     pub fn info(&self) -> &FunctionInfo {
         &self.info
     }
+
+    /// The [name] of the function.
+    ///
+    /// If this [`DynamicFunction`] was created using [`IntoFunction`],
+    /// then the name will default to one of the following:
+    /// - If the function was anonymous (e.g. `|a: i32, b: i32| { a + b }`),
+    ///   then the name will be `None`
+    /// - If the function was named (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`),
+    ///   then the name will be the full path to the function as returned by [`std::any::type_name`].
+    ///
+    /// This can be overridden using [`with_name`].
+    ///
+    /// [name]: FunctionInfo::name
+    /// [`with_name`]: Self::with_name
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.info.name()
+    }
 }
 
 /// Outputs the function signature.
 ///
 /// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
-/// Names for arguments and the function itself are optional and will default to `_` if not provided.
+/// Names for arguments are optional and will default to `_` if not provided.
 impl Debug for DynamicFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.info.name().unwrap_or("_");
+        let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
         write!(f, "DynamicFunction(fn {name}(")?;
 
         for (index, arg) in self.info.args().iter().enumerate() {
@@ -215,7 +231,7 @@ mod tests {
         fn foo() {}
 
         let func = foo.into_function().with_name("my_function");
-        assert_eq!(func.info().name(), Some("my_function"));
+        assert_eq!(func.info().name().unwrap(), "my_function");
     }
 
     #[test]
@@ -241,7 +257,7 @@ mod tests {
                 let index = args.pop::<usize>()?;
                 Ok(Return::Ref(get(index, list)))
             },
-            FunctionInfo::new()
+            FunctionInfo::anonymous()
                 .with_name("get")
                 .with_arg::<usize>("index")
                 .with_arg::<&Vec<String>>("list")
@@ -253,7 +269,7 @@ mod tests {
             .call(ArgList::new().push_owned(0_usize).push_ref(&list))
             .unwrap()
             .unwrap_ref()
-            .downcast_ref::<String>()
+            .try_downcast_ref::<String>()
             .unwrap();
         assert_eq!(value, "foo");
     }

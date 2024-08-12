@@ -42,7 +42,7 @@ use crate::func::{FunctionResult, IntoClosureMut, ReturnInfo};
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(value.take::<i32>().unwrap(), 2);
+/// assert_eq!(value.try_take::<i32>().unwrap(), 2);
 ///
 /// // Note that `func` still has a reference to `list`,
 /// // so we need to drop it before we can access `list` again.
@@ -125,7 +125,7 @@ impl<'env> DynamicClosureMut<'env> {
     /// let mut func = add.into_closure_mut().with_name("add");
     /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.take::<i32>().unwrap(), 100);
+    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     /// ```
     ///
     /// [`call_once`]: DynamicClosureMut::call_once
@@ -162,6 +162,19 @@ impl<'env> DynamicClosureMut<'env> {
     pub fn info(&self) -> &FunctionInfo {
         &self.info
     }
+
+    /// The [name] of the closure.
+    ///
+    /// If this [`DynamicClosureMut`] was created using [`IntoClosureMut`],
+    /// then the default name will always be `None`.
+    ///
+    /// This can be overridden using [`with_name`].
+    ///
+    /// [name]: FunctionInfo::name
+    /// [`with_name`]: Self::with_name
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.info.name()
+    }
 }
 
 /// Outputs the closure's signature.
@@ -171,7 +184,7 @@ impl<'env> DynamicClosureMut<'env> {
 /// Names for arguments and the closure itself are optional and will default to `_` if not provided.
 impl<'env> Debug for DynamicClosureMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.info.name().unwrap_or("_");
+        let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
         write!(f, "DynamicClosureMut(fn {name}(")?;
 
         for (index, arg) in self.info.args().iter().enumerate() {
@@ -206,7 +219,7 @@ mod tests {
         let func = (|a: i32, b: i32| total = a + b)
             .into_closure_mut()
             .with_name("my_closure");
-        assert_eq!(func.info().name(), Some("my_closure"));
+        assert_eq!(func.info().name().unwrap(), "my_closure");
     }
 
     #[test]
