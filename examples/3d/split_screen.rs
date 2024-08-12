@@ -41,7 +41,16 @@ fn setup(
             ..default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
-            num_cascades: 2,
+            num_cascades: if cfg!(all(
+                feature = "webgl2",
+                target_arch = "wasm32",
+                not(feature = "webgpu")
+            )) {
+                // Limited to 1 cascade in WebGL
+                1
+            } else {
+                2
+            },
             first_cascade_far_bound: 200.0,
             maximum_distance: 280.0,
             ..default()

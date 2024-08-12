@@ -339,7 +339,18 @@ pub trait BuildChildren {
     type Builder<'a>: ChildBuild;
 
     /// Takes a closure which builds children for this entity using [`ChildBuild`].
+    ///
+    /// For convenient spawning of a single child, you can use [`with_child`].
+    ///
+    /// [`with_child`]: BuildChildren::with_child
     fn with_children(&mut self, f: impl FnOnce(&mut Self::Builder<'_>)) -> &mut Self;
+
+    /// Spawns the passed bundle and adds it to this entity as a child.
+    ///
+    /// For efficient spawning of multiple children, use [`with_children`].
+    ///
+    /// [`with_children`]: BuildChildren::with_children
+    fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self;
 
     /// Pushes children to the back of the builder's children. For any entities that are
     /// already a child of this one, this method does nothing.
@@ -429,6 +440,13 @@ impl BuildChildren for EntityCommands<'_> {
             panic!("Entity cannot be a child of itself.");
         }
         self.commands().add(children);
+        self
+    }
+
+    fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
+        let parent = self.id();
+        let child = self.commands().spawn(bundle).id();
+        self.commands().add(PushChild { parent, child });
         self
     }
 
@@ -566,6 +584,17 @@ impl BuildChildren for EntityWorldMut<'_> {
         self
     }
 
+    fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
+        let child = self.world_scope(|world| world.spawn(bundle).id());
+        if let Some(mut children_component) = self.get_mut::<Children>() {
+            children_component.0.retain(|value| child != *value);
+            children_component.0.push(child);
+        } else {
+            self.insert(Children::from_entities(&[child]));
+        }
+        self
+    }
+
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
         if child == parent {
@@ -690,6 +719,14 @@ mod tests {
     /// Assert the (non)existence and state of the parent's [`Children`] component.
     fn assert_children(world: &World, parent: Entity, children: Option<&[Entity]>) {
         assert_eq!(world.get::<Children>(parent).map(|c| &**c), children);
+    }
+
+    /// Assert the number of children in the parent's [`Children`] component if it exists.
+    fn assert_num_children(world: &World, parent: Entity, num_children: usize) {
+        assert_eq!(
+            world.get::<Children>(parent).map(|c| c.len()).unwrap_or(0),
+            num_children
+        );
     }
 
     /// Used to omit a number of events that are not relevant to a particular test.
@@ -857,6 +894,19 @@ mod tests {
 
         assert_eq!(*world.get::<Parent>(children[0]).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(children[1]).unwrap(), Parent(parent));
+    }
+
+    #[test]
+    fn build_child() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+
+        let parent = commands.spawn(C(1)).id();
+        commands.entity(parent).with_child(C(2));
+
+        queue.apply(&mut world);
+        assert_eq!(world.get::<Children>(parent).unwrap().0.len(), 1);
     }
 
     #[test]
@@ -1227,5 +1277,24 @@ mod tests {
         let mut query = world.query::<&Children>();
         let children = query.get(&world, parent);
         assert!(children.is_err());
+    }
+
+    #[test]
+    fn with_child() {
+        let world = &mut World::new();
+        world.insert_resource(Events::<HierarchyEvent>::default());
+
+        let a = world.spawn_empty().id();
+        let b = ();
+        let c = ();
+        let d = ();
+
+        world.entity_mut(a).with_child(b);
+
+        assert_num_children(world, a, 1);
+
+        world.entity_mut(a).with_child(c).with_child(d);
+
+        assert_num_children(world, a, 3);
     }
 }

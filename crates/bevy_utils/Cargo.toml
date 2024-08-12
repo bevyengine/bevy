@@ -15,7 +15,7 @@ detailed_trace = []
 ahash = "0.8.7"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 web-time = { version = "1.1" }
-hashbrown = { version = "0.14", features = ["serde"] }
+hashbrown = { version = "0.14.2", features = ["serde"] }
 bevy_utils_proc_macros = { version = "0.15.0-dev", path = "macros" }
 thread_local = "1.0"
 

@@ -1,4 +1,6 @@
 pub use crate::change_detection::{NonSendMut, Res, ResMut};
+use crate::query::AccessConflicts;
+use crate::storage::SparseSetIndex;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -296,12 +298,22 @@ fn assert_component_access_compatibility(
     if conflicts.is_empty() {
         return;
     }
-    let conflicting_components = conflicts
-        .into_iter()
-        .map(|component_id| world.components.get_info(component_id).unwrap().name())
-        .collect::<Vec<&str>>();
-    let accesses = conflicting_components.join(", ");
-    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
+    let accesses = match conflicts {
+        AccessConflicts::All => "",
+        AccessConflicts::Individual(indices) => &format!(
+            " {}",
+            indices
+                .ones()
+                .map(|index| world
+                    .components
+                    .get_info(ComponentId::get_sparse_set_index(index))
+                    .unwrap()
+                    .name())
+                .collect::<Vec<&str>>()
+                .join(", ")
+        ),
+    };
+    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s){accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001");
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
@@ -504,21 +516,21 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
-            !combined_access.has_write(component_id),
+            !combined_access.has_resource_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
         system_meta
             .component_access_set
-            .add_unfiltered_read(component_id);
+            .add_unfiltered_resource_read(component_id);
 
         let archetype_component_id = world
             .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
-            .add_read(archetype_component_id);
+            .add_resource_read(archetype_component_id);
 
         component_id
     }
@@ -600,25 +612,25 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         world.initialize_resource_internal(component_id);
 
         let combined_access = system_meta.component_access_set.combined_access();
-        if combined_access.has_write(component_id) {
+        if combined_access.has_resource_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_read(component_id) {
+        } else if combined_access.has_resource_read(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
             .component_access_set
-            .add_unfiltered_write(component_id);
+            .add_unfiltered_resource_write(component_id);
 
         let archetype_component_id = world
             .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
-            .add_write(archetype_component_id);
+            .add_resource_write(archetype_component_id);
 
         component_id
     }
@@ -1153,21 +1165,21 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
-            !combined_access.has_write(component_id),
+            !combined_access.has_resource_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
             std::any::type_name::<T>(),
             system_meta.name,
         );
         system_meta
             .component_access_set
-            .add_unfiltered_read(component_id);
+            .add_unfiltered_resource_read(component_id);
 
         let archetype_component_id = world
             .get_non_send_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
-            .add_read(archetype_component_id);
+            .add_resource_read(archetype_component_id);
 
         component_id
     }
@@ -1246,25 +1258,25 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world.initialize_non_send_internal(component_id);
 
         let combined_access = system_meta.component_access_set.combined_access();
-        if combined_access.has_write(component_id) {
+        if combined_access.has_component_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_read(component_id) {
+        } else if combined_access.has_component_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
                 std::any::type_name::<T>(), system_meta.name);
         }
         system_meta
             .component_access_set
-            .add_unfiltered_write(component_id);
+            .add_unfiltered_resource_write(component_id);
 
         let archetype_component_id = world
             .get_non_send_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
-            .add_write(archetype_component_id);
+            .add_resource_write(archetype_component_id);
 
         component_id
     }

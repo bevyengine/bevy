@@ -142,14 +142,14 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     /// Adds `&T` to the [`FilteredAccess`] of self.
     pub fn ref_id(&mut self, id: ComponentId) -> &mut Self {
         self.with_id(id);
-        self.access.add_read(id);
+        self.access.add_component_read(id);
         self
     }
 
     /// Adds `&mut T` to the [`FilteredAccess`] of self.
     pub fn mut_id(&mut self, id: ComponentId) -> &mut Self {
         self.with_id(id);
-        self.access.add_write(id);
+        self.access.add_component_write(id);
         self
     }
 

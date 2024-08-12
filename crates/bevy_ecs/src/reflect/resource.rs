@@ -176,7 +176,7 @@ impl ReflectResource {
     }
 }
 
-impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
+impl<R: Resource + Reflect> FromType<R> for ReflectResource {
     fn from_type() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {

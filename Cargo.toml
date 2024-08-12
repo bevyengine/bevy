@@ -597,6 +597,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "mesh2d_alpha_mode"
+path = "examples/2d/mesh2d_alpha_mode.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_alpha_mode]
+name = "Mesh2d Alpha Mode"
+description = "Used to test alpha modes with mesh2d"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
 doc-scrape-examples = true
@@ -3355,3 +3366,14 @@ panic = "abort"
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+
+[[example]]
+name = "monitor_info"
+path = "examples/window/monitor_info.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.monitor_info]
+name = "Monitor info"
+description = "Displays information about available monitors (displays)."
+category = "Window"
+wasm = false
