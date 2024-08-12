@@ -103,12 +103,12 @@ pub struct BloomSettings {
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
 
-    // Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
-    // Only tweak if you are seeing visual artifacts.
+    /// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
+    /// Only tweak if you are seeing visual artifacts.
     pub max_mip_dimension: u32,
 
-    // UV offset for bloom shader. Ideally close to 2.0 / max_mip_dimension.
-    // Only tweak if you are seeing visual artifacts.
+    /// UV offset for bloom shader. Ideally close to 2.0 / max_mip_dimension.
+    /// Only tweak if you are seeing visual artifacts.
     pub uv_offset: f32,
 }
 
