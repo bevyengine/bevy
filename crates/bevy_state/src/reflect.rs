@@ -2,7 +2,7 @@ use crate::state::{FreelyMutableState, NextState, State, States};
 
 use bevy_ecs::reflect::from_reflect_with_fallback;
 use bevy_ecs::world::World;
-use bevy_reflect::{FromType, Reflect, TypeRegistry};
+use bevy_reflect::{FromType, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on the reflected [`States`] trait of a type.
 ///
@@ -68,7 +68,7 @@ impl ReflectFreelyMutableStateFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: FreelyMutableState + Reflect>() -> Self {
+    pub fn new<T: FreelyMutableState + Reflect + TypePath>() -> Self {
         <ReflectFreelyMutableState as FromType<T>>::from_type().0
     }
 }
@@ -80,11 +80,15 @@ impl ReflectFreelyMutableState {
     }
 }
 
-impl<S: FreelyMutableState + Reflect> FromType<S> for ReflectFreelyMutableState {
+impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMutableState {
     fn from_type() -> Self {
         ReflectFreelyMutableState(ReflectFreelyMutableStateFns {
             set_next_state: |world, reflected_state, registry| {
-                let new_state: S = from_reflect_with_fallback(reflected_state, world, registry);
+                let new_state: S = from_reflect_with_fallback(
+                    reflected_state.as_partial_reflect(),
+                    world,
+                    registry,
+                );
                 if let Some(mut next_state) = world.get_resource_mut::<NextState<S>>() {
                     next_state.set(new_state);
                 }

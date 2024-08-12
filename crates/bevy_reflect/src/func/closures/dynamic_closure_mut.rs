@@ -42,7 +42,7 @@ use crate::func::{FunctionResult, IntoClosureMut, ReturnInfo};
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(value.take::<i32>().unwrap(), 2);
+/// assert_eq!(value.try_take::<i32>().unwrap(), 2);
 ///
 /// // Note that `func` still has a reference to `list`,
 /// // so we need to drop it before we can access `list` again.
@@ -125,7 +125,7 @@ impl<'env> DynamicClosureMut<'env> {
     /// let mut func = add.into_closure_mut().with_name("add");
     /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.take::<i32>().unwrap(), 100);
+    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     /// ```
     ///
     /// [`call_once`]: DynamicClosureMut::call_once
