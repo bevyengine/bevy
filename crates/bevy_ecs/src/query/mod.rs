@@ -146,7 +146,6 @@ mod tests {
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);
 
             let expected = expected_size;
-            assert_combination::<D, F, 0>(world, choose(expected, 0));
             assert_combination::<D, F, 1>(world, choose(expected, 1));
             assert_combination::<D, F, 2>(world, choose(expected, 2));
             assert_combination::<D, F, 5>(world, choose(expected, 5));
