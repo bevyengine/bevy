@@ -1,5 +1,5 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::{DynamicEnum, Reflect, TypePath, TypePathTable, VariantInfo, VariantType};
+use crate::{DynamicEnum, PartialReflect, TypePath, TypePathTable, VariantInfo, VariantType};
 use bevy_utils::HashMap;
 use std::any::{Any, TypeId};
 use std::slice::Iter;
@@ -89,19 +89,19 @@ use std::sync::Arc;
 /// [`None`]: Option<T>::None
 /// [`Some`]: Option<T>::Some
 /// [`Reflect`]: bevy_reflect_derive::Reflect
-pub trait Enum: Reflect {
+pub trait Enum: PartialReflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field(&self, name: &str) -> Option<&dyn Reflect>;
+    fn field(&self, name: &str) -> Option<&dyn PartialReflect>;
     /// Returns a reference to the value of the field (in the current variant) at the given index.
-    fn field_at(&self, index: usize) -> Option<&dyn Reflect>;
+    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
-    fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect>;
+    fn field_mut(&mut self, name: &str) -> Option<&mut dyn PartialReflect>;
     /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect>;
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect>;
     /// Returns the index of the field (in the current variant) with the given name.
     ///
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
@@ -307,8 +307,8 @@ impl<'a> Iterator for VariantFieldIter<'a> {
 impl<'a> ExactSizeIterator for VariantFieldIter<'a> {}
 
 pub enum VariantField<'a> {
-    Struct(&'a str, &'a dyn Reflect),
-    Tuple(&'a dyn Reflect),
+    Struct(&'a str, &'a dyn PartialReflect),
+    Tuple(&'a dyn PartialReflect),
 }
 
 impl<'a> VariantField<'a> {
@@ -320,7 +320,7 @@ impl<'a> VariantField<'a> {
         }
     }
 
-    pub fn value(&self) -> &'a dyn Reflect {
+    pub fn value(&self) -> &'a dyn PartialReflect {
         match *self {
             Self::Struct(_, value) | Self::Tuple(value) => value,
         }
