@@ -88,7 +88,7 @@ fn dummy_vertex() -> VertexOutput {
         0u,
 #endif
 #ifdef DEPTH_CLAMP_ORTHO
-        0u,
+        0.0,
 #endif
     );
 }
