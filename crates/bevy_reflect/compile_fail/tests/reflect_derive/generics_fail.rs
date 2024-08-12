@@ -17,5 +17,5 @@ fn main() {
 
     // foo doesn't implement Reflect because NoReflect doesn't implement Reflect
     foo.get_field::<NoReflect>("a").unwrap();
-    //~^ ERROR: `NoReflect` can not be reflected
+    //~^ ERROR: `NoReflect` does not implement `Reflect` so cannot be fully reflected
 }

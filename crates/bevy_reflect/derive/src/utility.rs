@@ -94,7 +94,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// The default bounds added are as follows:
     /// - `Self` has the bounds `Any + Send + Sync`
     /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is present
-    /// - Active fields have the bounds `TypePath` and either `Reflect` if `#[reflect(from_reflect = false)]` is present
+    /// - Active fields have the bounds `TypePath` and either `PartialReflect` if `#[reflect(from_reflect = false)]` is present
     ///   or `FromReflect` otherwise (or no bounds at all if `#[reflect(no_field_bounds)]` is present)
     ///
     /// When the derive is used with `#[reflect(where)]`, the bounds specified in the attribute are added as well.
@@ -154,17 +154,18 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         &self,
         where_clause: Option<&WhereClause>,
     ) -> proc_macro2::TokenStream {
-        let type_path = self.meta.type_path();
-        let (_, ty_generics, _) = self.meta.type_path().generics().split_for_impl();
+        // We would normally just use `Self`, but that won't work for generating things like assertion functions
+        // and trait impls for a type's reference (e.g. `impl FromArg for &MyType`)
+        let this = self.meta.type_path().true_type();
 
         let required_bounds = self.required_bounds();
 
         // Maintain existing where clause, if any.
         let mut generic_where_clause = if let Some(where_clause) = where_clause {
             let predicates = where_clause.predicates.iter();
-            quote! {where #type_path #ty_generics: #required_bounds, #(#predicates,)*}
+            quote! {where #this: #required_bounds, #(#predicates,)*}
         } else {
-            quote!(where #type_path #ty_generics: #required_bounds,)
+            quote!(where #this: #required_bounds,)
         };
 
         // Add additional reflection trait bounds
@@ -236,14 +237,14 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
         }
     }
 
-    /// The `Reflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
+    /// The `PartialReflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
     fn reflect_bound(&self) -> TokenStream {
         let bevy_reflect_path = self.meta.bevy_reflect_path();
 
         if self.meta.from_reflect().should_auto_derive() {
             quote!(#bevy_reflect_path::FromReflect)
         } else {
-            quote!(#bevy_reflect_path::Reflect)
+            quote!(#bevy_reflect_path::PartialReflect)
         }
     }
 

@@ -14,10 +14,13 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::batching::gpu_preprocessing::IndirectParameters;
+use bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase;
 use bevy_render::batching::no_gpu_preprocessing::{
     self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
     BatchedInstanceBuffer,
 };
+use bevy_render::batching::GetFullBatchData;
 use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
 use bevy_render::texture::FallbackImage;
@@ -38,6 +41,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
+use bevy_utils::tracing::error;
+use nonmax::NonMaxU32;
 
 use crate::Material2dBindGroupId;
 
@@ -107,7 +112,7 @@ impl Plugin for Mesh2dRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        batch_and_prepare_sorted_render_phase::<Opaque2d, Mesh2dPipeline>
+                        batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
                         batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
@@ -163,7 +168,7 @@ pub struct Mesh2dTransforms {
     pub flags: u32,
 }
 
-#[derive(ShaderType, Clone)]
+#[derive(ShaderType, Clone, Copy)]
 pub struct Mesh2dUniform {
     // Affine 4x3 matrix transposed to 3x4
     pub world_from_local: [Vec4; 3],
@@ -352,12 +357,16 @@ impl Mesh2dPipeline {
 }
 
 impl GetBatchData for Mesh2dPipeline {
-    type Param = SRes<RenderMesh2dInstances>;
+    type Param = (
+        SRes<RenderMesh2dInstances>,
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<MeshAllocator>,
+    );
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
-        mesh_instances: &SystemParamItem<Self::Param>,
+        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let mesh_instance = mesh_instances.get(&entity)?;
@@ -368,6 +377,81 @@ impl GetBatchData for Mesh2dPipeline {
                 mesh_instance.mesh_asset_id,
             )),
         ))
+    }
+}
+
+impl GetFullBatchData for Mesh2dPipeline {
+    type BufferInputData = ();
+
+    fn get_binned_batch_data(
+        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        entity: Entity,
+    ) -> Option<Self::BufferData> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        Some((&mesh_instance.transforms).into())
+    }
+
+    fn get_index_and_compare_data(
+        _: &SystemParamItem<Self::Param>,
+        _query_item: Entity,
+    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+        error!(
+            "`get_index_and_compare_data` is only intended for GPU mesh uniform building, \
+            but this is not yet implemented for 2d meshes"
+        );
+        None
+    }
+
+    fn get_binned_index(
+        _: &SystemParamItem<Self::Param>,
+        _query_item: Entity,
+    ) -> Option<NonMaxU32> {
+        error!(
+            "`get_binned_index` is only intended for GPU mesh uniform building, \
+            but this is not yet implemented for 2d meshes"
+        );
+        None
+    }
+
+    fn get_batch_indirect_parameters_index(
+        (mesh_instances, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
+        indirect_parameters_buffer: &mut bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer,
+        entity: Entity,
+        instance_index: u32,
+    ) -> Option<NonMaxU32> {
+        let mesh_instance = mesh_instances.get(&entity)?;
+        let mesh = meshes.get(mesh_instance.mesh_asset_id)?;
+        let vertex_buffer_slice = mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)?;
+
+        // Note that `IndirectParameters` covers both of these structures, even
+        // though they actually have distinct layouts. See the comment above that
+        // type for more information.
+        let indirect_parameters = match mesh.buffer_info {
+            RenderMeshBufferInfo::Indexed {
+                count: index_count, ..
+            } => {
+                let index_buffer_slice =
+                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)?;
+                IndirectParameters {
+                    vertex_or_index_count: index_count,
+                    instance_count: 0,
+                    first_vertex_or_first_index: index_buffer_slice.range.start,
+                    base_vertex_or_first_instance: vertex_buffer_slice.range.start,
+                    first_instance: instance_index,
+                }
+            }
+            RenderMeshBufferInfo::NonIndexed => IndirectParameters {
+                vertex_or_index_count: mesh.vertex_count,
+                instance_count: 0,
+                first_vertex_or_first_index: vertex_buffer_slice.range.start,
+                base_vertex_or_first_instance: instance_index,
+                first_instance: instance_index,
+            },
+        };
+
+        (indirect_parameters_buffer.push(indirect_parameters) as u32)
+            .try_into()
+            .ok()
     }
 }
 

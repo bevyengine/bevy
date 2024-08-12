@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_2d::{Opaque2d, Transparent2d},
+    core_2d::{Opaque2d, Opaque2dBinKey, Transparent2d},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -18,8 +18,9 @@ use bevy_render::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
-        RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
+        AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+        RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+        ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
@@ -404,7 +405,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut opaque_render_phases: ResMut<ViewSortedRenderPhases<Opaque2d>>,
+    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut views: Query<(
         Entity,
         &ExtractedView,
@@ -484,16 +485,17 @@ pub fn queue_material2d_meshes<M: Material2d>(
 
             match material_2d.properties.alpha_mode {
                 AlphaMode2d::Opaque => {
-                    opaque_phase.add(Opaque2d {
-                        entity: *visible_entity,
-                        draw_function: draw_opaque_2d,
+                    let bin_key = Opaque2dBinKey {
                         pipeline: pipeline_id,
-                        // Front-to-back ordering
-                        sort_key: -FloatOrd(mesh_z + material_2d.properties.depth_bias),
-                        // Batching is done in batch_and_prepare_render_phase
-                        batch_range: 0..1,
-                        extra_index: PhaseItemExtraIndex::NONE,
-                    });
+                        draw_function: draw_opaque_2d,
+                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                    };
+                    opaque_phase.add(
+                        bin_key,
+                        *visible_entity,
+                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                    );
                 }
                 AlphaMode2d::Blend => {
                     transparent_phase.add(Transparent2d {

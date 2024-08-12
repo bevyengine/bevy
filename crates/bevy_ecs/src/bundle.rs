@@ -225,7 +225,8 @@ impl<C: Component> DynamicBundle for C {
 }
 
 macro_rules! tuple_impl {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
+        $(#[$meta])*
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `DynamicBundle::get_components` is called.
@@ -270,7 +271,13 @@ macro_rules! tuple_impl {
     }
 }
 
-all_tuples!(tuple_impl, 0, 15, B);
+all_tuples!(
+    #[doc(fake_variadic)]
+    tuple_impl,
+    0,
+    15,
+    B
+);
 
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
 ///

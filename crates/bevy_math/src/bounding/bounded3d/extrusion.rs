@@ -7,7 +7,7 @@ use crate::primitives::{
     BoxedPolygon, BoxedPolyline2d, Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d,
     Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Segment2d, Triangle2d,
 };
-use crate::{Isometry2d, Isometry3d, Quat, Rot2};
+use crate::{ops, Isometry2d, Isometry3d, Quat, Rot2};
 
 use crate::{bounding::Bounded2d, primitives::Circle};
 
@@ -231,8 +231,8 @@ pub trait BoundedExtrusion: Primitive2d + Bounded2d {
             center,
             circle: Circle { radius },
         } = self.bounding_circle(Isometry2d::IDENTITY);
-        let radius = radius.hypot(half_depth);
-        let center = isometry.translation + isometry.rotation * Vec3A::from(center.extend(0.));
+        let radius = ops::hypot(radius, half_depth);
+        let center = isometry * Vec3A::from(center.extend(0.));
 
         BoundingSphere::new(center, radius)
     }
@@ -246,6 +246,7 @@ mod tests {
 
     use crate::{
         bounding::{Bounded3d, BoundingVolume},
+        ops,
         primitives::{
             Capsule2d, Circle, Ellipse, Extrusion, Line2d, Polygon, Polyline2d, Rectangle,
             RegularPolygon, Segment2d, Triangle2d,
@@ -265,7 +266,7 @@ mod tests {
 
         let bounding_sphere = cylinder.bounding_sphere(isometry);
         assert_eq!(bounding_sphere.center, translation.into());
-        assert_eq!(bounding_sphere.radius(), 1f32.hypot(0.5));
+        assert_eq!(bounding_sphere.radius(), ops::hypot(1.0, 0.5));
     }
 
     #[test]

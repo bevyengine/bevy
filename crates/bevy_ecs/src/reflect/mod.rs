@@ -6,7 +6,9 @@ use std::ops::{Deref, DerefMut};
 use crate as bevy_ecs;
 use crate::{system::Resource, world::World};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, ReflectFromReflect, TypeRegistry, TypeRegistryArc};
+use bevy_reflect::{
+    PartialReflect, Reflect, ReflectFromReflect, TypePath, TypeRegistry, TypeRegistryArc,
+};
 
 mod bundle;
 mod component;
@@ -69,7 +71,7 @@ impl DerefMut for AppFunctionRegistry {
     }
 }
 
-/// Creates a `T` from a `&dyn Reflect`.
+/// Creates a `T` from a `&dyn PartialReflect`.
 ///
 /// This will try the following strategies, in this order:
 ///
@@ -85,18 +87,17 @@ impl DerefMut for AppFunctionRegistry {
 /// this method will panic.
 ///
 /// If none of the strategies succeed, this method will panic.
-pub fn from_reflect_with_fallback<T: Reflect>(
-    reflected: &dyn Reflect,
+pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
+    reflected: &dyn PartialReflect,
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {
-    fn different_type_error<T>(reflected: &str) -> ! {
+    fn different_type_error<T: TypePath>(reflected: &str) -> ! {
         panic!(
             "The registration for the reflected `{}` trait for the type `{}` produced \
             a value of a different type",
             reflected,
-            // FIXME: once we have unique reflect, use `TypePath`.
-            std::any::type_name::<T>(),
+            T::type_path(),
         );
     }
 

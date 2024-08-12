@@ -351,7 +351,7 @@ mod tests {
 
         let function = registry.get(std::any::type_name_of_val(&foo)).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
-        assert_eq!(value.downcast_ref::<i32>(), Some(&123));
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&123));
     }
 
     #[test]
@@ -361,7 +361,7 @@ mod tests {
 
         let function = registry.get("foo").unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
-        assert_eq!(value.downcast_ref::<i32>(), Some(&123));
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&123));
     }
 
     #[test]
@@ -377,7 +377,7 @@ mod tests {
 
         let function = registry.get("custom_name").unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
-        assert_eq!(value.downcast_ref::<i32>(), Some(&123));
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&123));
     }
 
     #[test]
@@ -404,7 +404,7 @@ mod tests {
 
         let function = registry.get(name).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
-        assert_eq!(value.downcast_ref::<i32>(), Some(&123));
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&123));
     }
 
     #[test]
@@ -429,7 +429,7 @@ mod tests {
 
         let function = registry.get(name).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
-        assert_eq!(value.downcast_ref::<i32>(), Some(&321));
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&321));
     }
 
     #[test]

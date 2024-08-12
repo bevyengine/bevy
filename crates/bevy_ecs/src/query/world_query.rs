@@ -144,10 +144,11 @@ pub unsafe trait WorldQuery {
 }
 
 macro_rules! impl_tuple_world_query {
-    ($(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
+        $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -229,4 +230,11 @@ macro_rules! impl_tuple_world_query {
     };
 }
 
-all_tuples!(impl_tuple_world_query, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_world_query,
+    0,
+    15,
+    F,
+    S
+);
