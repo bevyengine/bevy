@@ -10,7 +10,7 @@ mod external_crate {
 
 #[reflect_remote(external_crate::TheirOuter<T>)]
 struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
-    #[reflect(remote = "MyInner<T>")]
+    #[reflect(remote = MyInner<T>)]
     pub inner: external_crate::TheirInner<T>,
 }
 

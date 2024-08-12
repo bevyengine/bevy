@@ -192,7 +192,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
 ///
 /// # Example
 ///
-/// The following would fail to compile due to an incorrect `#[reflect(remote = "...")]` value.
+/// The following would fail to compile due to an incorrect `#[reflect(remote = ...)]` value.
 ///
 /// ```ignore
 /// mod external_crate {
@@ -207,7 +207,7 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
 ///
 /// #[derive(Reflect)]
 /// struct MyStruct {
-///   #[reflect(remote = "MyBar")] // ERROR: expected type `TheirFoo` but found struct `TheirBar`
+///   #[reflect(remote = MyBar)] // ERROR: expected type `TheirFoo` but found struct `TheirBar`
 ///   foo: external_crate::TheirFoo
 /// }
 /// ```

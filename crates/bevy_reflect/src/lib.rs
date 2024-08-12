@@ -2512,7 +2512,7 @@ bevy_reflect::tests::Test {
         #[derive(Reflect, Debug)]
         #[reflect(from_reflect = false)]
         struct ContainerStruct {
-            #[reflect(remote = "MyType")]
+            #[reflect(remote = MyType)]
             their_type: external_crate::TheirType,
         }
 
@@ -2537,7 +2537,7 @@ bevy_reflect::tests::Test {
 
         // === Tuple Struct Container === //
         #[derive(Reflect, Debug)]
-        struct ContainerTupleStruct(#[reflect(remote = "MyType")] external_crate::TheirType);
+        struct ContainerTupleStruct(#[reflect(remote = MyType)] external_crate::TheirType);
 
         let mut patch = DynamicTupleStruct::default();
         patch.set_represented_type(Some(ContainerTupleStruct::type_info()));
@@ -2600,7 +2600,7 @@ bevy_reflect::tests::Test {
         enum ContainerEnum {
             Foo,
             Bar {
-                #[reflect(remote = "MyType")]
+                #[reflect(remote = MyType)]
                 their_type: external_crate::TheirType,
             },
         }
@@ -2634,9 +2634,9 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
         struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
-            #[reflect(remote = "MyInner<T>")]
+            #[reflect(remote = MyInner<T>)]
             pub a: external_crate::TheirInner<T>,
-            #[reflect(remote = "MyInner<bool>")]
+            #[reflect(remote = MyInner<bool>)]
             pub b: external_crate::TheirInner<bool>,
         }
 
@@ -2683,9 +2683,9 @@ bevy_reflect::tests::Test {
         #[derive(Debug)]
         enum MyOuter<T: FromReflect + Typed + Debug + GetTypeRegistration> {
             Unit,
-            Tuple(#[reflect(remote = "MyInner<T>")] external_crate::TheirInner<T>),
+            Tuple(#[reflect(remote = MyInner<T>)] external_crate::TheirInner<T>),
             Struct {
-                #[reflect(remote = "MyInner<T>")]
+                #[reflect(remote = MyInner<T>)]
                 value: external_crate::TheirInner<T>,
             },
         }
@@ -2795,7 +2795,7 @@ bevy_reflect::tests::Test {
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
         struct MyOuter<T: FromReflect + Typed + GetTypeRegistration> {
-            #[reflect(remote = "MyInner<T>")]
+            #[reflect(remote = MyInner<T>)]
             pub inner: external_crate::TheirInner<T>,
         }
 

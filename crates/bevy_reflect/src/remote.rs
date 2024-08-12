@@ -35,7 +35,7 @@ use crate::Reflect;
 ///
 /// #[derive(Reflect)]
 /// struct MyStruct {
-///   #[reflect(remote = "MyType")]
+///   #[reflect(remote = MyType)]
 ///   data: some_lib::TheirType,
 /// }
 /// ```

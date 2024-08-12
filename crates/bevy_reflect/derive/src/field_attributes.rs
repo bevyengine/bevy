@@ -200,7 +200,7 @@ impl FieldAttributes {
     /// Parse `remote` attribute.
     ///
     /// Examples:
-    /// - `#[reflect(remote = "path::to::RemoteType")]`
+    /// - `#[reflect(remote = path::to::RemoteType)]`
     fn parse_remote(&mut self, input: ParseStream) -> syn::Result<()> {
         if let Some(remote) = self.remote.as_ref() {
             return Err(input.error(format!(
@@ -212,8 +212,7 @@ impl FieldAttributes {
         input.parse::<kw::remote>()?;
         input.parse::<Token![=]>()?;
 
-        let lit = input.parse::<LitStr>()?;
-        self.remote = Some(lit.parse()?);
+        self.remote = Some(input.parse()?);
 
         Ok(())
     }

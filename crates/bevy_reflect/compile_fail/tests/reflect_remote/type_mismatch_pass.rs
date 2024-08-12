@@ -23,7 +23,7 @@ mod structs {
 
     #[derive(Reflect)]
     struct MyStruct {
-        #[reflect(remote = "MyFoo")]
+        #[reflect(remote = MyFoo)]
         foo: external_crate::TheirFoo,
     }
 }
@@ -44,7 +44,7 @@ mod tuple_structs {
     struct MyBar(pub i32);
 
     #[derive(Reflect)]
-    struct MyStruct(#[reflect(remote = "MyFoo")] external_crate::TheirFoo);
+    struct MyStruct(#[reflect(remote = MyFoo)] external_crate::TheirFoo);
 }
 
 mod enums {
@@ -72,7 +72,7 @@ mod enums {
 
     #[derive(Reflect)]
     enum MyStruct {
-        Value(#[reflect(remote = "MyFoo")] external_crate::TheirFoo),
+        Value(#[reflect(remote = MyFoo)] external_crate::TheirFoo),
     }
 }
 

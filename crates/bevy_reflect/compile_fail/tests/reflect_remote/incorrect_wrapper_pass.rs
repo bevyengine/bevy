@@ -14,7 +14,7 @@ struct MyFoo {
 
 #[derive(Reflect)]
 struct MyStruct {
-    #[reflect(remote = "MyFoo")]
+    #[reflect(remote = MyFoo)]
     foo: external_crate::TheirFoo,
 }
 

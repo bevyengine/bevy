@@ -581,19 +581,19 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// You can tell `Reflect` to use a remote type's wrapper internally on fields of a struct or enum.
 /// This allows the real type to be used as usual while `Reflect` handles everything internally.
-/// To do this, add the `#[reflect(remote = "...")]` attribute to your field:
+/// To do this, add the `#[reflect(remote = path::to::MyType)]` attribute to your field:
 ///
 /// ```ignore
 /// #[derive(Reflect)]
 /// struct SomeStruct {
-///   #[reflect(remote = "RemoteTypeWrapper")]
+///   #[reflect(remote = RemoteTypeWrapper)]
 ///   data: RemoteType
 /// }
 /// ```
 ///
 /// ## Safety
 ///
-/// When using the `#[reflect(remote = "...")]` field attribute, be sure you are defining the correct wrapper type.
+/// When using the `#[reflect(remote = path::to::MyType)]` field attribute, be sure you are defining the correct wrapper type.
 /// Internally, this field will be unsafely [transmuted], and is only sound if using a wrapper generated for the remote type.
 /// This also means keeping your wrapper definitions up-to-date with the remote types.
 ///

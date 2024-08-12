@@ -16,7 +16,7 @@ struct MyFoo(#[reflect(ignore)] pub external_crate::TheirFoo);
 #[reflect(from_reflect = false)]
 struct MyStruct {
     // Reason: `MyFoo` does not implement `ReflectRemote` (from `#[reflect_remote]` attribute)
-    #[reflect(remote = "MyFoo")]
+    #[reflect(remote = MyFoo)]
     //~^ ERROR: the trait bound `MyFoo: ReflectRemote` is not satisfied
     foo: external_crate::TheirFoo,
 }

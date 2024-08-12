@@ -10,7 +10,7 @@ mod missing_attribute {
 
     #[reflect_remote(super::external_crate::TheirOuter<T>)]
     struct MyOuter<T: FromReflect + GetTypeRegistration> {
-        // Reason: Missing `#[reflect(remote = "...")]` attribute
+        // Reason: Missing `#[reflect(remote = ...)]` attribute
         pub inner: super::external_crate::TheirInner<T>,
     }
 
@@ -45,7 +45,7 @@ mod mismatched_remote_type {
     //~| ERROR: mismatched types
     struct MyOuter<T: FromReflect + GetTypeRegistration> {
         // Reason: Should be `MyInner<T>`
-        #[reflect(remote = "MyOuter<T>")]
+        #[reflect(remote = MyOuter<T>)]
         //~^ ERROR: mismatched types
         pub inner: super::external_crate::TheirInner<T>,
     }
@@ -63,7 +63,7 @@ mod mismatched_remote_generic {
     //~| ERROR: mismatched types
     struct MyOuter<T: FromReflect + GetTypeRegistration> {
         // Reason: `TheirOuter::inner` is not defined as `TheirInner<bool>`
-        #[reflect(remote = "MyInner<bool>")]
+        #[reflect(remote = MyInner<bool>)]
         pub inner: super::external_crate::TheirInner<bool>,
         //~^ ERROR: mismatched types
     }
