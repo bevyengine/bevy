@@ -274,7 +274,7 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 pub fn extract_core_2d_camera_phases(
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
-    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    cameras_2d: Extract<Query<(&RenderEntity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
     live_entities.clear();
