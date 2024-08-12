@@ -12,13 +12,12 @@ use bevy::{
     },
     prelude::*,
     render::render_resource::AsBindGroup,
-    window::PresentMode,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
 
 const ASSET_URL: &str =
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh";
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/489af89970116a67ecdcc4de02405788271ef2de/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
     if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
@@ -29,15 +28,9 @@ fn main() -> ExitCode {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::AutoNoVsync,
-                    ..default()
-                }),
-                ..default()
-            }),
+            DefaultPlugins,
             MeshletPlugin {
-                cluster_buffer_slots: 700_000,
+                cluster_buffer_slots: todo!(),
             },
             MaterialPlugin::<MeshletDebugMaterial>::default(),
             CameraControllerPlugin,
@@ -57,13 +50,8 @@ fn setup(
 ) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(9.662523, 2.1472275, -0.5368076))
-                .with_rotation(Quat::from_xyzw(
-                    -0.07487535,
-                    0.7221289,
-                    0.07915055,
-                    0.6831241,
-                )),
+            transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
+                .looking_at(Vec3::ZERO, Vec3::Y),
             msaa: Msaa::Off,
             ..default()
         },
@@ -79,7 +67,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: false,
+            shadows_enabled: true,
             ..default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
@@ -104,26 +92,48 @@ fn setup(
     let meshlet_mesh_handle = asset_server.load("models/bunny.meshlet_mesh");
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
-    for x in -10..=10 {
-        for z in -10..=10 {
-            for y in -3..=3 {
-                commands.spawn(MaterialMeshletMeshBundle {
-                    meshlet_mesh: meshlet_mesh_handle.clone(),
-                    material: debug_material.clone(),
-                    transform: Transform::default()
-                        .with_scale(Vec3::splat(0.2))
-                        .with_rotation(Quat::from_rotation_z(PI))
-                        .with_rotation(Quat::from_rotation_y(PI))
-                        .with_translation(Vec3::new(
-                            x as f32 / 2.0,
-                            y as f32 / 2.0,
-                            z as f32 / 2.0,
-                        )),
-                    ..default()
-                });
-            }
-        }
+    for x in -2..=2 {
+        commands.spawn(MaterialMeshletMeshBundle {
+            meshlet_mesh: meshlet_mesh_handle.clone(),
+            material: standard_materials.add(StandardMaterial {
+                base_color: match x {
+                    -2 => Srgba::hex("#dc2626").unwrap().into(),
+                    -1 => Srgba::hex("#ea580c").unwrap().into(),
+                    0 => Srgba::hex("#facc15").unwrap().into(),
+                    1 => Srgba::hex("#16a34a").unwrap().into(),
+                    2 => Srgba::hex("#0284c7").unwrap().into(),
+                    _ => unreachable!(),
+                },
+                perceptual_roughness: (x + 2) as f32 / 4.0,
+                ..default()
+            }),
+            transform: Transform::default()
+                .with_scale(Vec3::splat(0.2))
+                .with_translation(Vec3::new(x as f32 / 2.0, 0.0, -0.3)),
+            ..default()
+        });
     }
+    for x in -2..=2 {
+        commands.spawn(MaterialMeshletMeshBundle {
+            meshlet_mesh: meshlet_mesh_handle.clone(),
+            material: debug_material.clone(),
+            transform: Transform::default()
+                .with_scale(Vec3::splat(0.2))
+                .with_rotation(Quat::from_rotation_y(PI))
+                .with_translation(Vec3::new(x as f32 / 2.0, 0.0, 0.3)),
+            ..default()
+        });
+    }
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
+        material: standard_materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            perceptual_roughness: 1.0,
+            ..default()
+        }),
+        ..default()
+    });
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]
