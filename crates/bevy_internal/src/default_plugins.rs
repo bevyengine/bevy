@@ -57,11 +57,7 @@ plugin_group! {
         #[cfg(feature = "bevy_state")]
         bevy_state::app:::StatesPlugin,
         #[cfg(feature = "bevy_picking")]
-        bevy_picking::input:::InputPlugin,
-        #[cfg(feature = "bevy_picking")]
-        bevy_picking:::PickingPlugin,
-        #[cfg(feature = "bevy_picking")]
-        bevy_picking:::InteractionPlugin,
+        bevy_picking:::DefaultPickingPlugins,
         #[cfg(feature = "bevy_dev_tools")]
         bevy_dev_tools:::DevToolsPlugin,
         #[cfg(feature = "bevy_ci_testing")]

@@ -16,8 +16,8 @@ use bevy_reflect::prelude::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        events::*, input::InputPlugin, pointer::PointerButton, InteractionPlugin, Pickable,
-        PickingPlugin, PickingPluginsSettings,
+        events::*, input::InputPlugin, pointer::PointerButton, DefaultPickingPlugins,
+        InteractionPlugin, Pickable, PickingPlugin, PickingPluginsSettings,
     };
 }
 
@@ -174,6 +174,24 @@ pub enum PickSet {
     PostFocus,
     /// Runs after all other picking sets. In the [`PreUpdate`] schedule.
     Last,
+}
+
+/// One plugin that contains the [`input::InputPlugin`], [`PickingPlugin`] and the [`InteractionPlugin`],
+/// this is probable the plugin that will be most used.
+/// Note: for any of these plugins to work, they require a picking backend to be active,
+/// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
+/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into Triggers
+#[derive(Default)]
+pub struct DefaultPickingPlugins;
+
+impl Plugin for DefaultPickingPlugins {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            input::InputPlugin::default(),
+            PickingPlugin,
+            InteractionPlugin,
+        ));
+    }
 }
 
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
