@@ -2,7 +2,7 @@
 
 use std::{fmt::Debug, iter::once};
 
-use crate::{Vec2, VectorSpace};
+use crate::{ops::FloatPow, Vec2, VectorSpace};
 
 use itertools::Itertools;
 use thiserror::Error;
@@ -731,12 +731,12 @@ impl<P: VectorSpace> CubicNurbs<P> {
         // t[5] := t_i+2
         // t[6] := t_i+3
 
-        let m00 = (t[4] - t[3]).powi(2) / ((t[4] - t[2]) * (t[4] - t[1]));
-        let m02 = (t[3] - t[2]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m00 = (t[4] - t[3]).squared() / ((t[4] - t[2]) * (t[4] - t[1]));
+        let m02 = (t[3] - t[2]).squared() / ((t[5] - t[2]) * (t[4] - t[2]));
         let m12 = (3.0 * (t[4] - t[3]) * (t[3] - t[2])) / ((t[5] - t[2]) * (t[4] - t[2]));
-        let m22 = 3.0 * (t[4] - t[3]).powi(2) / ((t[5] - t[2]) * (t[4] - t[2]));
-        let m33 = (t[4] - t[3]).powi(2) / ((t[6] - t[3]) * (t[5] - t[3]));
-        let m32 = -m22 / 3.0 - m33 - (t[4] - t[3]).powi(2) / ((t[5] - t[3]) * (t[5] - t[2]));
+        let m22 = 3.0 * (t[4] - t[3]).squared() / ((t[5] - t[2]) * (t[4] - t[2]));
+        let m33 = (t[4] - t[3]).squared() / ((t[6] - t[3]) * (t[5] - t[3]));
+        let m32 = -m22 / 3.0 - m33 - (t[4] - t[3]).squared() / ((t[5] - t[3]) * (t[5] - t[2]));
         [
             [m00, 1.0 - m00 - m02, m02, 0.0],
             [-3.0 * m00, 3.0 * m00 - m12, m12, 0.0],
@@ -1254,7 +1254,7 @@ impl<P: VectorSpace> RationalSegment<P> {
         // Position = N/D therefore
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         numerator_derivative / denominator
-            - numerator * (denominator_derivative / denominator.powi(2))
+            - numerator * (denominator_derivative / denominator.squared())
     }
 
     /// Instantaneous acceleration of a point at parametric value `t` in `[0, knot_span)`.
@@ -1288,10 +1288,10 @@ impl<P: VectorSpace> RationalSegment<P> {
         // Velocity = (N/D)' = N'/D - N * D'/D^2 = (N' * D - N * D')/D^2
         // Acceleration = (N/D)'' = ((N' * D - N * D')/D^2)' = N''/D + N' * (-2D'/D^2) + N * (-D''/D^2 + 2D'^2/D^3)
         numerator_second_derivative / denominator
-            + numerator_derivative * (-2.0 * denominator_derivative / denominator.powi(2))
+            + numerator_derivative * (-2.0 * denominator_derivative / denominator.squared())
             + numerator
-                * (-denominator_second_derivative / denominator.powi(2)
-                    + 2.0 * denominator_derivative.powi(2) / denominator.powi(3))
+                * (-denominator_second_derivative / denominator.squared()
+                    + 2.0 * denominator_derivative.squared() / denominator.cubed())
     }
 
     /// Calculate polynomial coefficients for the cubic polynomials using a characteristic matrix.
@@ -1512,9 +1512,12 @@ impl<P: VectorSpace> From<CubicCurve<P>> for RationalCurve<P> {
 mod tests {
     use glam::{vec2, Vec2};
 
-    use crate::cubic_splines::{
-        CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
-        RationalGenerator,
+    use crate::{
+        cubic_splines::{
+            CubicBSpline, CubicBezier, CubicGenerator, CubicNurbs, CubicSegment, RationalCurve,
+            RationalGenerator,
+        },
+        ops::{self, FloatPow},
     };
 
     /// How close two floats can be and still be considered equal
@@ -1540,10 +1543,10 @@ mod tests {
     /// Manual, hardcoded function for computing the position along a cubic bezier.
     fn cubic_manual(t: f32, points: [Vec2; 4]) -> Vec2 {
         let p = points;
-        p[0] * (1.0 - t).powi(3)
-            + 3.0 * p[1] * t * (1.0 - t).powi(2)
-            + 3.0 * p[2] * t.powi(2) * (1.0 - t)
-            + p[3] * t.powi(3)
+        p[0] * (1.0 - t).cubed()
+            + 3.0 * p[1] * t * (1.0 - t).squared()
+            + 3.0 * p[2] * t.squared() * (1.0 - t)
+            + p[3] * t.cubed()
     }
 
     /// Basic cubic Bezier easing test to verify the shape of the curve.
@@ -1674,8 +1677,8 @@ mod tests {
         // subjecting ones self to a lot of tedious matrix algebra.
 
         let alpha = FRAC_PI_2;
-        let leg = 2.0 * f32::sin(alpha / 2.0) / (1.0 + 2.0 * f32::cos(alpha / 2.0));
-        let weight = (1.0 + 2.0 * f32::cos(alpha / 2.0)) / 3.0;
+        let leg = 2.0 * ops::sin(alpha / 2.0) / (1.0 + 2.0 * ops::cos(alpha / 2.0));
+        let weight = (1.0 + 2.0 * ops::cos(alpha / 2.0)) / 3.0;
         let points = [
             vec2(1.0, 0.0),
             vec2(1.0, leg),
