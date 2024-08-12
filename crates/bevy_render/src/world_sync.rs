@@ -21,6 +21,7 @@ use bevy_reflect::Reflect;
 pub struct ToRenderWorld;
 
 #[derive(Component, Deref, Clone, Debug, Copy)]
+/// Marker component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
 pub struct RenderEntity(Entity);
 impl RenderEntity {
     #[inline]
@@ -30,6 +31,7 @@ impl RenderEntity {
 }
 
 #[derive(Component, Deref, Clone, Debug)]
+/// Marker component added on the render world entities to keep track of the corresponding main world entity
 pub struct MainEntity(Entity);
 impl MainEntity {
     #[inline]
@@ -43,9 +45,9 @@ impl MainEntity {
 pub struct RenderFlyEntity;
 
 pub(crate) enum EntityRecord {
-    // main
+    // When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding entity. This contains the main world entity
     Added(Entity),
-    // render
+    // When an entity is despawned on the main world, notify the render world so that the corresponding entity can be despawned. This contains the render world entity.
     Removed(Entity),
 }
 
