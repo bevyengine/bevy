@@ -98,9 +98,9 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ColorMaterialFlags: u32 {
         const TEXTURE                    = 1 << 0;
-        // Bitmask reserving bits for the [`AlphaMode2d`]
-        // Values are just sequential values bitshifted into
-        // the bitmask, and can range from 0 to 3.
+        /// Bitmask reserving bits for the [`AlphaMode2d`]
+        /// Values are just sequential values bitshifted into
+        /// the bitmask, and can range from 0 to 3.
         const ALPHA_MODE_RESERVED_BITS   = Self::ALPHA_MODE_MASK_BITS << Self::ALPHA_MODE_SHIFT_BITS;
         const ALPHA_MODE_OPAQUE          = 0 << Self::ALPHA_MODE_SHIFT_BITS;
         const ALPHA_MODE_MASK            = 1 << Self::ALPHA_MODE_SHIFT_BITS;
