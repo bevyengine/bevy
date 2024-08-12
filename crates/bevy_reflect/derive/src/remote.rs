@@ -154,6 +154,16 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
             {
                 // SAFE: The wrapper type should be repr(transparent) over the remote type
                 unsafe {
+                    // Unfortunately, we have to use `transmute_copy` to avoid a compiler error:
+                    // ```
+                    // error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
+                    // |
+                    // |                 std::mem::transmute::<A, B>(a)
+                    // |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    // |
+                    // = note: source type: `A` (this type does not have a fixed size)
+                    // = note: target type: `B` (this type does not have a fixed size)
+                    // ```
                     ::core::mem::transmute_copy::<Self, Self::Remote>(
                         // `ManuallyDrop` is used to prevent double-dropping `self`
                         &::core::mem::ManuallyDrop::new(self)
@@ -173,6 +183,16 @@ fn impl_reflect_remote(input: &ReflectDerive, remote_ty: &TypePath) -> proc_macr
             {
                 // SAFE: The wrapper type should be repr(transparent) over the remote type
                 unsafe {
+                    // Unfortunately, we have to use `transmute_copy` to avoid a compiler error:
+                    // ```
+                    // error[E0512]: cannot transmute between types of different sizes, or dependently-sized types
+                    // |
+                    // |                 std::mem::transmute::<A, B>(a)
+                    // |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    // |
+                    // = note: source type: `A` (this type does not have a fixed size)
+                    // = note: target type: `B` (this type does not have a fixed size)
+                    // ```
                     ::core::mem::transmute_copy::<Self::Remote, Self>(
                         // `ManuallyDrop` is used to prevent double-dropping `self`
                         &::core::mem::ManuallyDrop::new(remote)
