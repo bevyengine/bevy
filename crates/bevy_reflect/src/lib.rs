@@ -2555,6 +2555,34 @@ bevy_reflect::tests::Test {
     }
 
     #[test]
+    fn should_reflect_remote_type_from_module() {
+        mod wrapper {
+            use super::*;
+
+            // We have to place this module internally to this one to get around the following error:
+            // ```
+            // error[E0433]: failed to resolve: use of undeclared crate or module `external_crate`
+            // ```
+            pub mod external_crate {
+                pub struct TheirType {
+                    pub value: String,
+                }
+            }
+
+            #[reflect_remote(external_crate::TheirType)]
+            pub struct MyType {
+                pub value: String,
+            }
+        }
+
+        #[derive(Reflect)]
+        struct ContainerStruct {
+            #[reflect(remote = wrapper::MyType)]
+            their_type: wrapper::external_crate::TheirType,
+        }
+    }
+
+    #[test]
     fn should_reflect_remote_enum() {
         mod external_crate {
             #[derive(Debug, PartialEq, Eq)]

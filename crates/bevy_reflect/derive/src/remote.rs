@@ -106,6 +106,7 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
 /// ```
 fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_macro2::TokenStream {
     let ident = &input.ident;
+    let vis = &input.vis;
     let ty_generics = &input.generics;
     let where_clause = &input.generics.where_clause;
     let attrs = input
@@ -117,7 +118,7 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
         #(#attrs)*
         #[repr(transparent)]
         #[doc(hidden)]
-        struct #ident #ty_generics (pub #remote_ty) #where_clause;
+        #vis struct #ident #ty_generics (pub #remote_ty) #where_clause;
     }
 }
 
