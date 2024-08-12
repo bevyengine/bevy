@@ -163,15 +163,7 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
             .idents
             .iter()
             .map(|ident| format_ident!("{}{}", ident, i));
-        if input.idents.len() < 2 {
-            ident_tuples.push(quote! {
-                #(#idents)*
-            });
-        } else {
-            ident_tuples.push(quote! {
-                (#(#idents),*)
-            });
-        }
+        ident_tuples.push(to_ident_tuple(idents, input.idents.len()));
     }
 
     let macro_ident = &input.macro_ident;
@@ -203,15 +195,7 @@ pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
             .idents
             .iter()
             .map(|ident| format_ident!("{}{}", ident, i));
-        if input.idents.len() < 2 {
-            ident_tuples.push(quote! {
-                #(#idents)*
-            });
-        } else {
-            ident_tuples.push(quote! {
-                (#(#idents),*)
-            });
-        }
+        ident_tuples.push(to_ident_tuple(idents, input.idents.len()));
     }
     let macro_ident = &input.macro_ident;
     let invocations = (input.start..=input.end).map(|i| {
@@ -253,14 +237,6 @@ fn parse_fake_variadic_attr(input: ParseStream) -> Result<bool> {
     ))
 }
 
-fn to_ident_tuple(idents: impl Iterator<Item = Ident>, len: usize) -> TokenStream2 {
-    if len < 2 {
-        quote! { #(#idents)* }
-    } else {
-        quote! { (#(#idents),*) }
-    }
-}
-
 fn choose_ident_tuples(input: &AllTuples, ident_tuples: &[TokenStream2], i: usize) -> TokenStream2 {
     // `rustdoc` uses the first ident to generate nice
     // idents with subscript numbers e.g. (F₁, F₂, …, Fₙ).
@@ -272,6 +248,14 @@ fn choose_ident_tuples(input: &AllTuples, ident_tuples: &[TokenStream2], i: usiz
     } else {
         let ident_tuples = &ident_tuples[..i];
         quote! { #(#ident_tuples),* }
+    }
+}
+
+fn to_ident_tuple(idents: impl Iterator<Item = Ident>, len: usize) -> TokenStream2 {
+    if len < 2 {
+        quote! { #(#idents)* }
+    } else {
+        quote! { (#(#idents),*) }
     }
 }
 
