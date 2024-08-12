@@ -860,6 +860,8 @@ impl approx::UlpsEq for Dir3A {
 
 #[cfg(test)]
 mod tests {
+    use crate::ops;
+
     use super::*;
     use approx::assert_relative_eq;
 
@@ -916,7 +918,7 @@ mod tests {
     #[test]
     fn dir2_renorm() {
         // Evil denormalized Rot2
-        let (sin, cos) = 1.0_f32.sin_cos();
+        let (sin, cos) = ops::sin_cos(1.0_f32);
         let rot2 = Rot2::from_sin_cos(sin * (1.0 + 1e-5), cos * (1.0 + 1e-5));
         let mut dir_a = Dir2::X;
         let mut dir_b = Dir2::X;

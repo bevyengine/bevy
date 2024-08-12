@@ -21,6 +21,7 @@ pub mod curve;
 mod direction;
 mod float_ord;
 mod isometry;
+mod ops;
 pub mod primitives;
 mod ray;
 mod rects;
