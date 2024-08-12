@@ -36,7 +36,7 @@ fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) v
     let meshlet = meshlets[meshlet_id];
 
     let triangle_id = vertex_index / 3u;
-    if triangle_id >= meshlet.triangle_count { return; }
+    if triangle_id >= meshlet.triangle_count { return dummy_vertex(); }
     let index_id = (triangle_id * 3u) + (vertex_index % 3u);
     let index = get_meshlet_index(meshlet.start_index_id + index_id);
     let vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + index];
@@ -79,4 +79,16 @@ fn fragment(vertex_output: VertexOutput) {
     let depth = bitcast<u32>(vertex_output.position.z);
     atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
 #endif
+}
+
+fn dummy_vertex() -> VertexOutput {
+    return VertexOutput(
+        vec4(0.0),
+#ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
+        0u,
+#endif
+#ifdef DEPTH_CLAMP_ORTHO
+        0u,
+#endif
+    );
 }
