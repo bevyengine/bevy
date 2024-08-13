@@ -2,7 +2,7 @@
 
 use std::f32::consts::{PI, TAU};
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*};
 
 fn main() {
     App::new()
@@ -87,7 +87,13 @@ fn draw_example_collection(
 
     // Arcs default resolution is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
-    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 310., ORANGE_RED);
+    my_gizmos.arc_2d(
+        Isometry2d::from_rotation(Rot2::radians(sin / 10.)),
+        PI / 2.,
+        310.,
+        ORANGE_RED,
+    );
+    my_gizmos.arc_2d(Isometry2d::IDENTITY, PI / 2., 75.0, ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,
