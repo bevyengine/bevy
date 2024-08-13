@@ -1,21 +1,23 @@
-use crate::func::args::{ArgInfo, ArgList};
-use crate::func::error::FunctionError;
-use crate::func::info::FunctionInfo;
-use crate::func::return_type::Return;
-use crate::func::{IntoFunction, ReturnInfo};
 use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
-use std::ops::DerefMut;
+use std::sync::Arc;
 
-/// The result of calling a dynamic [`DynamicFunction`].
-///
-/// Returns `Ok(value)` if the function was called successfully,
-/// where `value` is the [`Return`] value of the function.
-pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
+use crate::func::args::{ArgInfo, ArgList};
+use crate::func::info::FunctionInfo;
+use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 
 /// A dynamic representation of a Rust function.
 ///
-/// Internally this stores a function pointer and associated info.
+/// For our purposes, a "function" is just a callable that may not reference its environment.
+///
+/// This includes:
+/// - Functions and methods defined with the `fn` keyword
+/// - Closures that do not capture their environment
+/// - Closures that take ownership of captured variables
+///
+/// To handle closures that capture references to their environment, see [`DynamicClosure`].
+///
+/// See the [module-level documentation] for more information.
 ///
 /// You will generally not need to construct this manually.
 /// Instead, many functions and closures can be automatically converted using the [`IntoFunction`] trait.
@@ -39,7 +41,7 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(value.downcast_ref::<i32>(), Some(&100));
+/// assert_eq!(value.try_downcast_ref::<i32>(), Some(&100));
 /// ```
 ///
 /// However, in some cases, these functions may need to be created manually:
@@ -58,21 +60,16 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 ///
 /// // Instead, we need to define the function manually.
 /// // We start by defining the shape of the function:
-/// let info = FunctionInfo::new()
-///   .with_name("append")
-///   .with_args(vec![
-///     ArgInfo::new::<String>(0).with_name("value"),
-///     ArgInfo::new::<&mut Vec<String>>(1).with_name("list"),
-///   ])
-///   .with_return_info(
-///     ReturnInfo::new::<&mut String>()
-///   );
+/// let info = FunctionInfo::named("append")
+///   .with_arg::<String>("value")
+///   .with_arg::<&mut Vec<String>>("list")
+///   .with_return::<&mut String>();
 ///
 /// // Then we define the dynamic function, which will be used to call our `append` function:
-/// let mut func = DynamicFunction::new(|mut args, info| {
-///   // Arguments are popped from the list in reverse order:
-///   let arg1 = args.pop().unwrap().take_mut::<Vec<String>>(&info.args()[1]).unwrap();
-///   let arg0 = args.pop().unwrap().take_owned::<String>(&info.args()[0]).unwrap();
+/// let mut func = DynamicFunction::new(|mut args| {
+///   // Arguments are removed from the list in order:
+///   let arg0 = args.take::<String>()?;
+///   let arg1 = args.take::<&mut Vec<String>>()?;
 ///
 ///   // Then we can call our function and return the result:
 ///   Ok(Return::Mut(append(arg0, arg1)))
@@ -85,30 +82,33 @@ pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 /// let value = func.call(args).unwrap().unwrap_mut();
 ///
 /// // Mutate the return value:
-/// value.downcast_mut::<String>().unwrap().push_str("!!!");
+/// value.try_downcast_mut::<String>().unwrap().push_str("!!!");
 ///
 /// // Check the result:
 /// assert_eq!(list, vec!["Hello, World!!!"]);
 /// ```
-pub struct DynamicFunction<'env> {
+///
+/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [module-level documentation]: crate::func
+pub struct DynamicFunction {
     info: FunctionInfo,
-    func: Box<dyn for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>,
+    func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'static>,
 }
 
-impl<'env> DynamicFunction<'env> {
+impl DynamicFunction {
     /// Create a new dynamic [`DynamicFunction`].
     ///
     /// The given function can be used to call out to a regular function, closure, or method.
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
-    /// This info is used to validate the arguments and return value.
-    pub fn new<F: for<'a> FnMut(ArgList<'a>, &FunctionInfo) -> FunctionResult<'a> + 'env>(
+    /// This info may be used by consumers of the function for validation and debugging.
+    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'static>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
         Self {
             info,
-            func: Box::new(func),
+            func: Arc::new(func),
         }
     }
 
@@ -125,8 +125,8 @@ impl<'env> DynamicFunction<'env> {
 
     /// Set the arguments of the function.
     ///
-    /// It is very important that the arguments match the intended function signature,
-    /// as this is used to validate arguments passed to the function.
+    /// It's important that the arguments match the intended function signature,
+    /// as this can be used by consumers of the function for validation and debugging.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.info = self.info.with_args(args);
         self
@@ -144,46 +144,39 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// ```
     /// # use bevy_reflect::func::{IntoFunction, ArgList};
-    /// fn add(left: i32, right: i32) -> i32 {
-    ///   left + right
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///   a + b
     /// }
     ///
-    /// let mut func = add.into_function();
+    /// let func = add.into_function();
     /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.take::<i32>().unwrap(), 100);
+    /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     /// ```
-    pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
-        (self.func.deref_mut())(args, &self.info)
-    }
-
-    /// Call the function with the given arguments and consume the function.
-    ///
-    /// This is useful for closures that capture their environment because otherwise
-    /// any captured variables would still be borrowed by this function.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_reflect::func::{IntoFunction, ArgList};
-    /// let mut count = 0;
-    /// let increment = |amount: i32| {
-    ///   count += amount;
-    /// };
-    /// let increment_function = increment.into_function();
-    /// let args = ArgList::new().push_owned(5_i32);
-    /// // We need to drop `increment_function` here so that we
-    /// // can regain access to `count`.
-    /// increment_function.call_once(args).unwrap();
-    /// assert_eq!(count, 5);
-    /// ```
-    pub fn call_once(mut self, args: ArgList) -> FunctionResult {
-        (self.func.deref_mut())(args, &self.info)
+    pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
+        (self.func)(args)
     }
 
     /// Returns the function info.
     pub fn info(&self) -> &FunctionInfo {
         &self.info
+    }
+
+    /// The [name] of the function.
+    ///
+    /// If this [`DynamicFunction`] was created using [`IntoFunction`],
+    /// then the name will default to one of the following:
+    /// - If the function was anonymous (e.g. `|a: i32, b: i32| { a + b }`),
+    ///   then the name will be `None`
+    /// - If the function was named (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`),
+    ///   then the name will be the full path to the function as returned by [`std::any::type_name`].
+    ///
+    /// This can be overridden using [`with_name`].
+    ///
+    /// [name]: FunctionInfo::name
+    /// [`with_name`]: Self::with_name
+    pub fn name(&self) -> Option<&Cow<'static, str>> {
+        self.info.name()
     }
 }
 
@@ -191,10 +184,10 @@ impl<'env> DynamicFunction<'env> {
 ///
 /// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
-/// Names for arguments and the function itself are optional and will default to `_` if not provided.
-impl<'env> Debug for DynamicFunction<'env> {
+/// Names for arguments are optional and will default to `_` if not provided.
+impl Debug for DynamicFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.info.name().unwrap_or("_");
+        let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
         write!(f, "DynamicFunction(fn {name}(")?;
 
         for (index, arg) in self.info.args().iter().enumerate() {
@@ -212,9 +205,72 @@ impl<'env> Debug for DynamicFunction<'env> {
     }
 }
 
-impl<'env> IntoFunction<'env, ()> for DynamicFunction<'env> {
+impl Clone for DynamicFunction {
+    fn clone(&self) -> Self {
+        Self {
+            info: self.info.clone(),
+            func: Arc::clone(&self.func),
+        }
+    }
+}
+
+impl IntoFunction<()> for DynamicFunction {
     #[inline]
-    fn into_function(self) -> DynamicFunction<'env> {
+    fn into_function(self) -> DynamicFunction {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::func::Return;
+
+    #[test]
+    fn should_overwrite_function_name() {
+        fn foo() {}
+
+        let func = foo.into_function().with_name("my_function");
+        assert_eq!(func.info().name().unwrap(), "my_function");
+    }
+
+    #[test]
+    fn should_convert_dynamic_function_with_into_function() {
+        fn make_function<F: IntoFunction<M>, M>(f: F) -> DynamicFunction {
+            f.into_function()
+        }
+
+        let function: DynamicFunction = make_function(|| {});
+        let _: DynamicFunction = make_function(function);
+    }
+
+    #[test]
+    fn should_allow_manual_function_construction() {
+        #[allow(clippy::ptr_arg)]
+        fn get(index: usize, list: &Vec<String>) -> &String {
+            &list[index]
+        }
+
+        let func = DynamicFunction::new(
+            |mut args| {
+                let list = args.pop::<&Vec<String>>()?;
+                let index = args.pop::<usize>()?;
+                Ok(Return::Ref(get(index, list)))
+            },
+            FunctionInfo::anonymous()
+                .with_name("get")
+                .with_arg::<usize>("index")
+                .with_arg::<&Vec<String>>("list")
+                .with_return::<&String>(),
+        );
+
+        let list = vec![String::from("foo")];
+        let value = func
+            .call(ArgList::new().push_owned(0_usize).push_ref(&list))
+            .unwrap()
+            .unwrap_ref()
+            .try_downcast_ref::<String>()
+            .unwrap();
+        assert_eq!(value, "foo");
     }
 }

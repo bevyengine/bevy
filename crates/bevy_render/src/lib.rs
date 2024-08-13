@@ -1,7 +1,9 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![allow(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -64,7 +66,7 @@ use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
 
-use crate::mesh::GpuMesh;
+use crate::mesh::RenderMesh;
 use crate::renderer::WgpuWrapper;
 use crate::{
     camera::CameraPlugin,
@@ -115,7 +117,7 @@ pub enum RenderSet {
     /// Queue drawable entities as phase items in render phases ready for
     /// sorting (if necessary)
     Queue,
-    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<GpuMesh>` is completed.
+    /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
     QueueMeshes,
     // TODO: This could probably be moved in favor of a system ordering
     // abstraction in `Render` or `Queue`
@@ -165,7 +167,11 @@ impl Render {
         );
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
-        schedule.configure_sets(QueueMeshes.in_set(Queue).after(prepare_assets::<GpuMesh>));
+        schedule.configure_sets(
+            QueueMeshes
+                .in_set(Queue)
+                .after(prepare_assets::<RenderMesh>),
+        );
         schedule.configure_sets(
             (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
                 .chain()

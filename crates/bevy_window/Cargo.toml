@@ -9,8 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = []
-serialize = ["serde", "smol_str/serde"]
+serialize = ["serde", "smol_str/serde", "bevy_ecs/serialize"]
 
 [dependencies]
 # bevy
@@ -33,5 +32,5 @@ smol_str = "0.2"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

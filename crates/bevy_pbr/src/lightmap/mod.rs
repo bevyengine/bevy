@@ -40,7 +40,7 @@ use bevy_ecs::{
 };
 use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::GpuMesh;
+use bevy_render::mesh::RenderMesh;
 use bevy_render::texture::GpuImage;
 use bevy_render::{
     mesh::Mesh, render_asset::RenderAssets, render_resource::Shader, texture::Image,
@@ -145,7 +145,7 @@ fn extract_lightmaps(
     lightmaps: Extract<Query<(Entity, &ViewVisibility, &Lightmap)>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     images: Res<RenderAssets<GpuImage>>,
-    meshes: Res<RenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<RenderMesh>>,
 ) {
     // Clear out the old frame's data.
     render_lightmaps.render_lightmaps.clear();

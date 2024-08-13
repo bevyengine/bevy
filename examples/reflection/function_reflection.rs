@@ -6,11 +6,11 @@
 //! This can be used for things like adding scripting support to your application,
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
-use bevy::reflect::func::args::ArgInfo;
 use bevy::reflect::func::{
-    ArgList, DynamicFunction, FunctionInfo, IntoFunction, Return, ReturnInfo,
+    ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionError, FunctionInfo,
+    IntoClosure, IntoClosureMut, IntoFunction, Return,
 };
-use bevy::reflect::Reflect;
+use bevy::reflect::{PartialReflect, Reflect};
 
 // Note that the `dbg!` invocations are used purely for demonstration purposes
 // and are not strictly necessary for the example to work.
@@ -37,7 +37,7 @@ fn main() {
     // Luckily, Bevy's reflection crate comes with a set of tools for doing just that!
     // We do this by first converting our function into the reflection-based `DynamicFunction` type
     // using the `IntoFunction` trait.
-    let mut function: DynamicFunction = dbg!(add.into_function());
+    let function: DynamicFunction = dbg!(add.into_function());
 
     // This time, you'll notice that `DynamicFunction` doesn't take any information about the function's arguments or return value.
     // This is because `DynamicFunction` checks the types of the arguments and return value at runtime.
@@ -52,25 +52,37 @@ fn main() {
 
     // The `Return` value can be pattern matched or unwrapped to get the underlying reflection data.
     // For the sake of brevity, we'll just unwrap it here and downcast it to the expected type of `i32`.
-    let value: Box<dyn Reflect> = return_value.unwrap_owned();
-    assert_eq!(value.take::<i32>().unwrap(), 4);
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<i32>().unwrap(), 4);
 
-    // The same can also be done for closures.
+    // The same can also be done for closures that capture references to their environment.
+    // Closures that capture their environment immutably can be converted into a `DynamicClosure`
+    // using the `IntoClosure` trait.
+    let minimum = 5;
+    let clamp = |value: i32| value.max(minimum);
+
+    let function: DynamicClosure = dbg!(clamp.into_closure());
+    let args = dbg!(ArgList::new().push_owned(2_i32));
+    let return_value = dbg!(function.call(args).unwrap());
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<i32>().unwrap(), 5);
+
+    // We can also handle closures that capture their environment mutably
+    // using the `IntoClosureMut` trait.
     let mut count = 0;
-    let increment = |amount: i32| {
-        count += amount;
-    };
-    let increment_function: DynamicFunction = dbg!(increment.into_function());
+    let increment = |amount: i32| count += amount;
+
+    let closure: DynamicClosureMut = dbg!(increment.into_closure_mut());
     let args = dbg!(ArgList::new().push_owned(5_i32));
-    // `DynamicFunction`s containing closures that capture their environment like this one
-    // may need to be dropped before those captured variables may be used again.
-    // This can be done manually with `drop` or by using the `Function::call_once` method.
-    dbg!(increment_function.call_once(args).unwrap());
+    // Because `DynamicClosureMut` mutably borrows `total`,
+    // it will need to be dropped before `total` can be accessed again.
+    // This can be done manually with `drop(closure)` or by using the `DynamicClosureMut::call_once` method.
+    dbg!(closure.call_once(args).unwrap());
     assert_eq!(count, 5);
 
     // As stated before, this works for many kinds of simple functions.
     // Functions with non-reflectable arguments or return values may not be able to be converted.
-    // Generic functions are also not supported.
+    // Generic functions are also not supported (unless manually monomorphized like `foo::<i32>.into_function()`).
     // Additionally, the lifetime of the return value is tied to the lifetime of the first argument.
     // However, this means that many methods (i.e. functions with a `self` parameter) are also supported:
     #[derive(Reflect, Default)]
@@ -92,16 +104,16 @@ fn main() {
 
     let mut data = Data::default();
 
-    let mut set_value = dbg!(Data::set_value.into_function());
+    let set_value = dbg!(Data::set_value.into_function());
     let args = dbg!(ArgList::new().push_mut(&mut data)).push_owned(String::from("Hello, world!"));
     dbg!(set_value.call(args).unwrap());
     assert_eq!(data.value, "Hello, world!");
 
-    let mut get_value = dbg!(Data::get_value.into_function());
+    let get_value = dbg!(Data::get_value.into_function());
     let args = dbg!(ArgList::new().push_ref(&data));
     let return_value = dbg!(get_value.call(args).unwrap());
-    let value: &dyn Reflect = return_value.unwrap_ref();
-    assert_eq!(value.downcast_ref::<String>().unwrap(), "Hello, world!");
+    let value: &dyn PartialReflect = return_value.unwrap_ref();
+    assert_eq!(value.try_downcast_ref::<String>().unwrap(), "Hello, world!");
 
     // Lastly, for more complex use cases, you can always create a custom `DynamicFunction` manually.
     // This is useful for functions that can't be converted via the `IntoFunction` trait.
@@ -115,43 +127,54 @@ fn main() {
         container.as_ref().unwrap()
     }
 
-    let mut get_or_insert_function = dbg!(DynamicFunction::new(
-        |mut args, info| {
-            let container_info = &info.args()[1];
-            let value_info = &info.args()[0];
+    let get_or_insert_function = dbg!(DynamicFunction::new(
+        |mut args| {
+            // We can optionally add a check to ensure we were given the correct number of arguments.
+            if args.len() != 2 {
+                return Err(FunctionError::ArgCountMismatch {
+                    expected: 2,
+                    received: args.len(),
+                });
+            }
 
             // The `ArgList` contains the arguments in the order they were pushed.
-            // Therefore, we need to pop them in reverse order.
-            let container = args
-                .pop()
-                .unwrap()
-                .take_mut::<Option<i32>>(container_info)
-                .unwrap();
-            let value = args.pop().unwrap().take_owned::<i32>(value_info).unwrap();
+            // We can retrieve them out in order (note that this modifies the `ArgList`):
+            let value = args.take::<i32>()?;
+            let container = args.take::<&mut Option<i32>>()?;
+
+            // We could have also done the following to make use of type inference:
+            // let value = args.take_owned()?;
+            // let container = args.take_mut()?;
 
             Ok(Return::Ref(get_or_insert(value, container)))
         },
-        FunctionInfo::new()
-            // We can optionally provide a name for the function
-            .with_name("get_or_insert")
-            // Since our function takes arguments, we MUST provide that argument information.
-            // The arguments should be provided in the order they are defined in the function.
-            // This is used to validate any arguments given at runtime.
-            .with_args(vec![
-                ArgInfo::new::<i32>(0).with_name("value"),
-                ArgInfo::new::<&mut Option<i32>>(1).with_name("container"),
-            ])
-            // We can optionally provide return information as well.
-            .with_return_info(ReturnInfo::new::<&i32>()),
+        // Functions can be either anonymous or named.
+        // It's good practice, though, to try and name your functions whenever possible.
+        // This makes it easier to debug and is also required for function registration.
+        // We can either give it a custom name or use the function's type name as
+        // derived from `std::any::type_name_of_val`.
+        FunctionInfo::named(std::any::type_name_of_val(&get_or_insert))
+            // We can always change the name if needed.
+            // It's a good idea to also ensure that the name is unique,
+            // such as by using its type name or by prefixing it with your crate name.
+            .with_name("my_crate::get_or_insert")
+            // Since our function takes arguments, we should provide that argument information.
+            // This helps ensure that consumers of the function can validate the arguments they
+            // pass into the function and helps for debugging.
+            // Arguments should be provided in the order they are defined in the function.
+            .with_arg::<i32>("value")
+            .with_arg::<&mut Option<i32>>("container")
+            // We can provide return information as well.
+            .with_return::<&i32>(),
     ));
 
     let mut container: Option<i32> = None;
 
     let args = dbg!(ArgList::new().push_owned(5_i32).push_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
+    assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
 
     let args = dbg!(ArgList::new().push_owned(500_i32).push_mut(&mut container));
     let value = dbg!(get_or_insert_function.call(args).unwrap()).unwrap_ref();
-    assert_eq!(value.downcast_ref::<i32>(), Some(&5));
+    assert_eq!(value.try_downcast_ref::<i32>(), Some(&5));
 }

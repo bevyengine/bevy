@@ -25,7 +25,7 @@ use bevy_render::{
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},
     extract_resource::ExtractResource,
-    mesh::{GpuMesh, MeshVertexBufferLayoutRef},
+    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::*,
@@ -456,10 +456,10 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
         let material_instances = material_instances.into_inner();
 
         let Some(material_asset_id) = material_instances.get(&item.entity()) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(material) = materials.get(*material_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
@@ -536,8 +536,7 @@ pub fn queue_material_meshes<M: Material>(
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
@@ -551,6 +550,7 @@ pub fn queue_material_meshes<M: Material>(
         Entity,
         &ExtractedView,
         &VisibleEntities,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
         Option<&ShadowFilteringMethod>,
@@ -576,6 +576,7 @@ pub fn queue_material_meshes<M: Material>(
         view_entity,
         view,
         visible_entities,
+        msaa,
         tonemapping,
         dither,
         shadow_filter_method,
@@ -691,9 +692,14 @@ pub fn queue_material_meshes<M: Material>(
                 continue;
             };
 
+            let mut mesh_pipeline_key_bits = material.properties.mesh_pipeline_key_bits;
+            mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(
+                material.properties.alpha_mode,
+                msaa,
+            ));
             let mut mesh_key = view_key
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
-                | material.properties.mesh_pipeline_key_bits;
+                | mesh_pipeline_key_bits;
 
             let lightmap_image = render_lightmaps
                 .render_lightmaps
@@ -906,12 +912,11 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         SRes<FallbackImage>,
         SRes<MaterialPipeline<M>>,
         SRes<DefaultOpaqueRendererMethod>,
-        SRes<Msaa>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline, default_opaque_render_method, msaa): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image, pipeline, default_opaque_render_method): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(
             &pipeline.material_layout,
@@ -930,7 +935,6 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
                     material.reads_view_transmission_texture(),
                 );
-                mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode(), msaa));
 
                 Ok(PreparedMaterial {
                     bindings: prepared.bindings,

@@ -60,7 +60,7 @@ jobs:
         run: cargo run -p ci -- lints
 
   miri:
-    # Explicity use MacOS 14 to take advantage of M1 chip.
+    # Explicity use macOS 14 to take advantage of M1 chip.
     runs-on: macos-14
     timeout-minutes: 60
     steps:
@@ -183,7 +183,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.23.2
+        uses: crate-ci/typos@v1.23.6
       - name: Typos info
         if: failure()
         run: |
@@ -195,7 +195,7 @@ jobs:
 
 
   run-examples-macos-metal:
-    # Explicity use MacOS 14 to take advantage of M1 chip.
+    # Explicity use macOS 14 to take advantage of M1 chip.
     runs-on: macos-14
     timeout-minutes: 30
     steps:
@@ -396,23 +396,3 @@ jobs:
               echo " Example: 'use bevy::sprite::MaterialMesh2dBundle;' instead of 'bevy_internal::sprite::MaterialMesh2dBundle;'"
               exit 1
           fi
-  check-cfg:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
-      - uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          # Only save if we're running on the main branch, so that other branches can also use this cache.
-          save-if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-      - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
-        with:
-          wayland: true
-          xkb: true
-      - name: Build and check cfg typos
-        # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- cfg-check

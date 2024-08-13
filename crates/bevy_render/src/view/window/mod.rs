@@ -6,7 +6,7 @@ use crate::{
     texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Last, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 #[cfg(target_os = "linux")]
 use bevy_utils::warn_once;
@@ -14,6 +14,7 @@ use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
+use bevy_winit::CustomCursorCache;
 use std::{
     num::NonZeroU32,
     ops::{Deref, DerefMut},
@@ -24,19 +25,22 @@ use wgpu::{
     TextureViewDescriptor,
 };
 
+pub mod cursor;
 pub mod screenshot;
 
 use screenshot::{
     ScreenshotManager, ScreenshotPlugin, ScreenshotPreparedState, ScreenshotToScreenPipeline,
 };
 
-use super::Msaa;
+use self::cursor::update_cursors;
 
 pub struct WindowRenderPlugin;
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ScreenshotPlugin);
+        app.add_plugins(ScreenshotPlugin)
+            .init_resource::<CustomCursorCache>()
+            .add_systems(Last, update_cursors);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -250,11 +254,9 @@ pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
-    render_adapter: Res<RenderAdapter>,
     screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
-    mut msaa: ResMut<Msaa>,
     #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
@@ -262,35 +264,6 @@ pub fn prepare_windows(
         let Some(surface_data) = window_surfaces.surfaces.get(&window.entity) else {
             continue;
         };
-
-        // This is an ugly hack to work around drivers that don't support MSAA.
-        // This should be removed once https://github.com/bevyengine/bevy/issues/7194 lands and we're doing proper
-        // feature detection for MSAA.
-        // When removed, we can also remove the `.after(prepare_windows)` of `prepare_core_3d_depth_textures` and `prepare_prepass_textures`
-        let sample_flags = render_adapter
-            .get_texture_format_features(surface_data.configuration.format)
-            .flags;
-
-        if !sample_flags.sample_count_supported(msaa.samples()) {
-            let fallback = if sample_flags.sample_count_supported(Msaa::default().samples()) {
-                Msaa::default()
-            } else {
-                Msaa::Off
-            };
-
-            let fallback_str = if fallback == Msaa::Off {
-                "disabling MSAA".to_owned()
-            } else {
-                format!("MSAA {}x", fallback.samples())
-            };
-
-            bevy_utils::tracing::warn!(
-                "MSAA {}x is not supported on this device. Falling back to {}.",
-                msaa.samples(),
-                fallback_str,
-            );
-            *msaa = fallback;
-        }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
         // mesa driver implementations. This seems to be a quirk of some drivers.

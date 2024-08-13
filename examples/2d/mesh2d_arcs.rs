@@ -5,7 +5,10 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     color::palettes::css::{BLUE, DARK_SLATE_GREY, RED},
-    math::bounding::{Bounded2d, BoundingVolume},
+    math::{
+        bounding::{Bounded2d, BoundingVolume},
+        Isometry2d,
+    },
     prelude::*,
     render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
     sprite::MaterialMesh2dBundle,
@@ -114,11 +117,12 @@ fn draw_bounds<Shape: Bounded2d + Send + Sync + 'static>(
         let (_, rotation, translation) = transform.to_scale_rotation_translation();
         let translation = translation.truncate();
         let rotation = rotation.to_euler(EulerRot::XYZ).2;
+        let isometry = Isometry2d::new(translation, Rot2::radians(rotation));
 
-        let aabb = shape.0.aabb_2d(translation, rotation);
+        let aabb = shape.0.aabb_2d(isometry);
         gizmos.rect_2d(aabb.center(), 0.0, aabb.half_size() * 2.0, RED);
 
-        let bounding_circle = shape.0.bounding_circle(translation, rotation);
+        let bounding_circle = shape.0.bounding_circle(isometry);
         gizmos.circle_2d(bounding_circle.center, bounding_circle.radius(), BLUE);
     }
 }

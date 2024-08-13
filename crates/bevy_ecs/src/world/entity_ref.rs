@@ -768,12 +768,31 @@ impl<'w> EntityWorldMut<'w> {
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
+    #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        self.insert_with_caller(
+            bundle,
+            #[cfg(feature = "track_change_detection")]
+            core::panic::Location::caller(),
+        )
+    }
+
+    /// Split into a new function so we can pass the calling location into the function when using
+    /// as a command.
+    #[inline]
+    pub(crate) fn insert_with_caller<T: Bundle>(
+        &mut self,
+        bundle: T,
+        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+    ) -> &mut Self {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
-        // SAFETY: location matches current entity. `T` matches `bundle_info`
-        self.location = unsafe { bundle_inserter.insert(self.entity, self.location, bundle) };
+        self.location =
+            // SAFETY: location matches current entity. `T` matches `bundle_info`
+            unsafe {
+                bundle_inserter.insert(self.entity, self.location, bundle,  #[cfg(feature = "track_change_detection")] caller)
+            };
         self
     }
 
@@ -787,6 +806,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    #[track_caller]
     pub unsafe fn insert_by_id(
         &mut self,
         component_id: ComponentId,
@@ -828,6 +848,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// - Each [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - Each [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
+    #[track_caller]
     pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
         component_ids: &[ComponentId],
@@ -1224,11 +1245,19 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
-                deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    ON_REPLACE,
+                    self.entity,
+                    &archetype.components().collect::<Vec<ComponentId>>(),
+                );
             }
             deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
-                deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    self.entity,
+                    &archetype.components().collect::<Vec<ComponentId>>(),
+                );
             }
         }
 
@@ -1435,11 +1464,11 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
 ) {
     deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_components());
     if archetype.has_replace_observer() {
-        deferred_world.trigger_observers(ON_REPLACE, entity, bundle_info.iter_components());
+        deferred_world.trigger_observers(ON_REPLACE, entity, bundle_info.components());
     }
     deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_components());
     if archetype.has_remove_observer() {
-        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_components());
+        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.components());
     }
 }
 
@@ -1831,7 +1860,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
     pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.access.reads_and_writes()
+        self.access.component_reads_and_writes()
     }
 
     /// Returns a reference to the underlying [`Access`].
@@ -1883,7 +1912,7 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_read(id)
+            .has_component_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get() })
             .flatten()
@@ -1897,7 +1926,7 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_read(id)
+            .has_component_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_ref() })
             .flatten()
@@ -1909,7 +1938,7 @@ impl<'w> FilteredEntityRef<'w> {
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_read(id)
+            .has_component_read(id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_change_ticks::<T>() })
             .flatten()
@@ -1924,7 +1953,7 @@ impl<'w> FilteredEntityRef<'w> {
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         self.access
-            .has_read(component_id)
+            .has_component_read(component_id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_change_ticks_by_id(component_id) })
             .flatten()
@@ -1941,7 +1970,7 @@ impl<'w> FilteredEntityRef<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.access
-            .has_read(component_id)
+            .has_component_read(component_id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
@@ -2088,7 +2117,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Returns an iterator over the component ids that are accessed by self.
     #[inline]
     pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.access.reads_and_writes()
+        self.access.component_reads_and_writes()
     }
 
     /// Returns a reference to the underlying [`Access`].
@@ -2156,7 +2185,7 @@ impl<'w> FilteredEntityMut<'w> {
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_write(id)
+            .has_component_write(id)
             // SAFETY: We have write access
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
@@ -2169,7 +2198,7 @@ impl<'w> FilteredEntityMut<'w> {
     pub fn into_mut<T: Component>(self) -> Option<Mut<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
-            .has_write(id)
+            .has_component_write(id)
             // SAFETY: We have write access
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
@@ -2217,7 +2246,7 @@ impl<'w> FilteredEntityMut<'w> {
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         self.access
-            .has_write(component_id)
+            .has_component_write(component_id)
             // SAFETY: We have write access
             .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
             .flatten()
@@ -2292,6 +2321,7 @@ pub enum TryFromFilteredError {
 /// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
 ///     [`BundleInfo`] used to construct [`BundleInserter`]
 /// - [`Entity`] must correspond to [`EntityLocation`]
+#[track_caller]
 unsafe fn insert_dynamic_bundle<
     'a,
     I: Iterator<Item = OwningPtr<'a>>,
@@ -2320,7 +2350,15 @@ unsafe fn insert_dynamic_bundle<
     };
 
     // SAFETY: location matches current entity.
-    unsafe { bundle_inserter.insert(entity, location, bundle) }
+    unsafe {
+        bundle_inserter.insert(
+            entity,
+            location,
+            bundle,
+            #[cfg(feature = "track_change_detection")]
+            core::panic::Location::caller(),
+        )
+    }
 }
 
 /// Removes a bundle from the given archetype and returns the resulting archetype (or None if the

@@ -50,12 +50,14 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
                 .looking_at(Vec3::ZERO, Vec3::Y),
+            msaa: Msaa::Off,
             ..default()
         },
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
+            ..default()
         },
         CameraController::default(),
     ));

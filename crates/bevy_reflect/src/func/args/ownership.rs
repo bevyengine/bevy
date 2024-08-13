@@ -2,8 +2,14 @@ use core::fmt::{Display, Formatter};
 
 /// A trait for getting the ownership of a type.
 ///
+/// This trait exists so that [`IntoFunction`] can automatically generate
+/// [`FunctionInfo`] containing the proper [`Ownership`] for its [argument] types.
+///
 /// This trait is automatically implemented when using the `Reflect` [derive macro].
 ///
+/// [`IntoFunction`]: crate::func::IntoFunction
+/// [`FunctionInfo`]: crate::func::FunctionInfo
+/// [argument]: crate::func::args::Arg
 /// [derive macro]: derive@crate::Reflect
 pub trait GetOwnership {
     /// Returns the ownership of [`Self`].

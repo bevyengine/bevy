@@ -370,13 +370,13 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         entity: Entity,
-        components: impl Iterator<Item = ComponentId>,
+        components: &[ComponentId],
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
             event,
             entity,
-            components,
+            components.iter().copied(),
             &mut (),
             &mut false,
         );
@@ -423,7 +423,11 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
-    pub fn trigger_targets(&mut self, trigger: impl Event, targets: impl TriggerTargets) {
+    pub fn trigger_targets(
+        &mut self,
+        trigger: impl Event,
+        targets: impl TriggerTargets + Send + Sync + 'static,
+    ) {
         self.commands().trigger_targets(trigger, targets);
     }
 

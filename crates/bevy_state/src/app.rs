@@ -8,6 +8,9 @@ use crate::state::{
 };
 use crate::state_scoped::clear_state_scoped_entities;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{FromReflect, GetTypeRegistration, Typed};
+
 /// State installation methods for [`App`] and [`SubApp`].
 pub trait AppExtStates {
     /// Initializes a [`State`] with standard starting values.
@@ -23,6 +26,8 @@ pub trait AppExtStates {
     ///
     /// Note that you can also apply state transitions at other points in the schedule
     /// by triggering the [`StateTransition`](struct@StateTransition) schedule manually.
+    ///
+    /// The use of any states requires the presence of [`StatesPlugin`] (which is included in `DefaultPlugins`).
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self;
 
     /// Inserts a specific [`State`] to the current [`App`] and overrides any [`State`] previously
@@ -53,6 +58,25 @@ pub trait AppExtStates {
     ///
     /// For more information refer to [`StateScoped`](crate::state_scoped::StateScoped).
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
+
+    #[cfg(feature = "bevy_reflect")]
+    /// Registers the state type `T` using [`App::register_type`],
+    /// and adds [`ReflectState`](crate::reflect::ReflectState) type data to `T` in the type registry.
+    ///
+    /// This enables reflection code to access the state. For detailed information, see the docs on [`crate::reflect::ReflectState`] .
+    fn register_type_state<S>(&mut self) -> &mut Self
+    where
+        S: States + FromReflect + GetTypeRegistration + Typed;
+
+    #[cfg(feature = "bevy_reflect")]
+    /// Registers the state type `T` using [`App::register_type`],
+    /// and adds [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`] type data to `T` in the type registry.
+    ///
+    /// This enables reflection code to access and modify the state.
+    /// For detailed information, see the docs on [`crate::reflect::ReflectState`] and [`crate::reflect::ReflectFreelyMutableState`].
+    fn register_type_mutable_state<S>(&mut self) -> &mut Self
+    where
+        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed;
 }
 
 /// Separate function to only warn once for all state installation methods.
@@ -181,6 +205,30 @@ impl AppExtStates for SubApp {
             clear_state_scoped_entities::<S>.in_set(StateTransitionSteps::ExitSchedules),
         )
     }
+
+    #[cfg(feature = "bevy_reflect")]
+    fn register_type_state<S>(&mut self) -> &mut Self
+    where
+        S: States + FromReflect + GetTypeRegistration + Typed,
+    {
+        self.register_type::<S>();
+        self.register_type::<State<S>>();
+        self.register_type_data::<S, crate::reflect::ReflectState>();
+        self
+    }
+
+    #[cfg(feature = "bevy_reflect")]
+    fn register_type_mutable_state<S>(&mut self) -> &mut Self
+    where
+        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed,
+    {
+        self.register_type::<S>();
+        self.register_type::<State<S>>();
+        self.register_type::<NextState<S>>();
+        self.register_type_data::<S, crate::reflect::ReflectState>();
+        self.register_type_data::<S, crate::reflect::ReflectFreelyMutableState>();
+        self
+    }
 }
 
 impl AppExtStates for App {
@@ -208,9 +256,28 @@ impl AppExtStates for App {
         self.main_mut().enable_state_scoped_entities::<S>();
         self
     }
+
+    #[cfg(feature = "bevy_reflect")]
+    fn register_type_state<S>(&mut self) -> &mut Self
+    where
+        S: States + FromReflect + GetTypeRegistration + Typed,
+    {
+        self.main_mut().register_type_state::<S>();
+        self
+    }
+
+    #[cfg(feature = "bevy_reflect")]
+    fn register_type_mutable_state<S>(&mut self) -> &mut Self
+    where
+        S: FreelyMutableState + FromReflect + GetTypeRegistration + Typed,
+    {
+        self.main_mut().register_type_mutable_state::<S>();
+        self
+    }
 }
 
 /// Registers the [`StateTransition`] schedule in the [`MainScheduleOrder`] to enable state processing.
+#[derive(Default)]
 pub struct StatesPlugin;
 
 impl Plugin for StatesPlugin {
