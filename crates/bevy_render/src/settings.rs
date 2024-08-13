@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
-    Limits as WgpuLimits, PowerPreference,
+    Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
@@ -50,6 +50,8 @@ pub struct WgpuSettings {
     pub gles3_minor_version: Gles3MinorVersion,
     /// These are for controlling WGPU's debug information to eg. enable validation and shader debug info in release builds.
     pub instance_flags: InstanceFlags,
+    /// This hints to the WGPU device about the preferred memory allocation strategy.
+    pub memory_hints: MemoryHints,
 }
 
 impl Default for WgpuSettings {
@@ -113,6 +115,7 @@ impl Default for WgpuSettings {
             dx12_shader_compiler: dx12_compiler,
             gles3_minor_version,
             instance_flags,
+            memory_hints: MemoryHints::default(),
         }
     }
 }

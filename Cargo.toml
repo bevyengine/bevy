@@ -49,6 +49,7 @@ ref_as_ptr = "warn"
 unsafe_op_in_unsafe_fn = "warn"
 missing_docs = "warn"
 unsafe_code = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 
 [lints]
 workspace = true
@@ -593,6 +594,17 @@ doc-scrape-examples = true
 [package.metadata.example.transparency_2d]
 name = "Transparency in 2D"
 description = "Demonstrates transparency in 2d"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "mesh2d_alpha_mode"
+path = "examples/2d/mesh2d_alpha_mode.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_alpha_mode]
+name = "Mesh2d Alpha Mode"
+description = "Used to test alpha modes with mesh2d"
 category = "2D Rendering"
 wasm = true
 
@@ -3352,6 +3364,22 @@ lto = "fat"
 panic = "abort"
 
 [package.metadata.docs.rs]
+# This cfg is needed so that #[doc(fake_variadic)] is correctly propagated for
+# impls for re-exported traits. See https://github.com/rust-lang/cargo/issues/8811
+# for details on why this is needed. Since dependencies don't expect to be built
+# with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
+rustc-args = ["--cfg docsrs_dep"]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+
+[[example]]
+name = "monitor_info"
+path = "examples/window/monitor_info.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.monitor_info]
+name = "Monitor info"
+description = "Displays information about available monitors (displays)."
+category = "Window"
+wasm = false

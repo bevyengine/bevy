@@ -10,12 +10,12 @@
 //! via an [`ArgList`].
 //!
 //! This returns a [`FunctionResult`] containing the [`Return`] value,
-//! which can be used to extract a [`Reflect`] trait object.
+//! which can be used to extract a [`PartialReflect`] trait object.
 //!
 //! # Example
 //!
 //! ```
-//! # use bevy_reflect::Reflect;
+//! # use bevy_reflect::PartialReflect;
 //! # use bevy_reflect::func::args::ArgList;
 //! # use bevy_reflect::func::{DynamicFunction, FunctionResult, IntoFunction, Return};
 //! fn add(a: i32, b: i32) -> i32 {
@@ -27,10 +27,10 @@
 //!   // Pushing a known type with owned ownership
 //!   .push_owned(25_i32)
 //!   // Pushing a reflected type with owned ownership
-//!   .push_boxed(Box::new(75_i32) as Box<dyn Reflect>);
+//!   .push_boxed(Box::new(75_i32) as Box<dyn PartialReflect>);
 //! let result: FunctionResult = func.call(args);
 //! let value: Return = result.unwrap();
-//! assert_eq!(value.unwrap_owned().downcast_ref::<i32>(), Some(&100));
+//! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
 //! ```
 //!
 //! # Functions vs Closures
@@ -95,6 +95,7 @@
 //! For other functions that don't conform to one of the above signatures,
 //! [`DynamicFunction`] and [`DynamicClosure`] can instead be created manually.
 //!
+//! [`PartialReflect`]: crate::PartialReflect
 //! [`Reflect`]: crate::Reflect
 //! [lack of variadic generics]: https://poignardazur.github.io/2024/05/25/report-on-rustnl-variadics/
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
@@ -107,6 +108,7 @@ pub use info::*;
 pub use into_function::*;
 pub use reflect_fn::*;
 pub use reflect_fn_mut::*;
+pub use registry::*;
 pub use return_type::*;
 
 pub mod args;
@@ -118,6 +120,7 @@ mod into_function;
 pub(crate) mod macros;
 mod reflect_fn;
 mod reflect_fn_mut;
+mod registry;
 mod return_type;
 
 #[cfg(test)]

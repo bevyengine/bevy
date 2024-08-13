@@ -36,7 +36,7 @@ mod tests {
         let func = (|a: i32, b: i32| a + b + c).into_closure();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.downcast_ref::<i32>(), Some(&123));
+        assert_eq!(result.try_downcast_ref::<i32>(), Some(&123));
     }
 
     #[test]
@@ -48,16 +48,13 @@ mod tests {
         let func = add.into_closure();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
-        assert_eq!(result.downcast_ref::<i32>(), Some(&100));
+        assert_eq!(result.try_downcast_ref::<i32>(), Some(&100));
     }
 
     #[test]
-    fn should_default_with_closure_type_name() {
+    fn should_default_closure_name_to_none() {
         let c = 23;
         let func = (|a: i32, b: i32| a + b + c).into_closure();
-        assert_eq!(
-            func.info().name(),
-            Some("bevy_reflect::func::closures::into_closure::tests::should_default_with_closure_type_name::{{closure}}")
-        );
+        assert_eq!(func.info().name(), None);
     }
 }

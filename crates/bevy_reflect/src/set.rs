@@ -6,8 +6,8 @@ use bevy_utils::hashbrown::hash_table::OccupiedEntry as HashTableOccupiedEntry;
 use bevy_utils::hashbrown::HashTable;
 
 use crate::{
-    self as bevy_reflect, hash_error, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, TypePath, TypePathTable,
+    self as bevy_reflect, hash_error, ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -17,7 +17,7 @@ use crate::{
 ///
 /// # Hashing
 ///
-/// All values are expected to return a valid hash value from [`Reflect::reflect_hash`].
+/// All values are expected to return a valid hash value from [`PartialReflect::reflect_hash`].
 /// If using the [`#[derive(Reflect)]`](derive@crate::Reflect) macro, this can be done by adding `#[reflect(Hash)]`
 /// to the entire struct or enum.
 /// This is true even for manual implementors who do not use the hashed value,
@@ -26,7 +26,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Set};
+/// use bevy_reflect::{PartialReflect, Set};
 /// use bevy_utils::HashSet;
 ///
 ///
@@ -34,17 +34,17 @@ use crate::{
 /// foo.insert_boxed(Box::new(123_u32));
 /// assert_eq!(foo.len(), 1);
 ///
-/// let field: &dyn Reflect = foo.get(&123_u32).unwrap();
-/// assert_eq!(field.downcast_ref::<u32>(), Some(&123_u32));
+/// let field: &dyn PartialReflect = foo.get(&123_u32).unwrap();
+/// assert_eq!(field.try_downcast_ref::<u32>(), Some(&123_u32));
 /// ```
 ///
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
-pub trait Set: Reflect {
+pub trait Set: PartialReflect {
     /// Returns a reference to the value.
     ///
     /// If no value is contained, returns `None`.
-    fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect>;
+    fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect>;
 
     /// Returns the number of elements in the set.
     fn len(&self) -> usize;
@@ -55,10 +55,10 @@ pub trait Set: Reflect {
     }
 
     /// Returns an iterator over the values of the set.
-    fn iter(&self) -> Box<dyn Iterator<Item = &dyn Reflect> + '_>;
+    fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_>;
 
     /// Drain the values of this set to get a vector of owned values.
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
+    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
 
     /// Clones the set, producing a [`DynamicSet`].
     fn clone_dynamic(&self) -> DynamicSet;
@@ -67,16 +67,16 @@ pub trait Set: Reflect {
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool;
+    fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool;
 
     /// Removes a value from the set.
     ///
     /// If the set did not have this value present, `true` is returned.
     /// If the set did have this value present, `false` is returned.
-    fn remove(&mut self, value: &dyn Reflect) -> bool;
+    fn remove(&mut self, value: &dyn PartialReflect) -> bool;
 
     /// Checks if the given value is contained in the set
-    fn contains(&self, value: &dyn Reflect) -> bool;
+    fn contains(&self, value: &dyn PartialReflect) -> bool;
 }
 
 /// A container for compile-time set info.
@@ -164,7 +164,7 @@ impl SetInfo {
 #[derive(Default)]
 pub struct DynamicSet {
     represented_type: Option<&'static TypeInfo>,
-    hash_table: HashTable<Box<dyn Reflect>>,
+    hash_table: HashTable<Box<dyn PartialReflect>>,
 }
 
 impl DynamicSet {
@@ -192,13 +192,13 @@ impl DynamicSet {
         self.insert_boxed(Box::new(value));
     }
 
-    #[allow(clippy::borrowed_box)]
-    fn internal_hash(value: &Box<dyn Reflect>) -> u64 {
+    fn internal_hash(value: &dyn PartialReflect) -> u64 {
         value.reflect_hash().expect(hash_error!(value))
     }
 
-    #[allow(clippy::borrowed_box)]
-    fn internal_eq(value: &Box<dyn Reflect>) -> impl FnMut(&Box<dyn Reflect>) -> bool + '_ {
+    fn internal_eq(
+        value: &dyn PartialReflect,
+    ) -> impl FnMut(&Box<dyn PartialReflect>) -> bool + '_ {
         |other| {
             value
                 .reflect_partial_eq(&**other)
@@ -207,18 +207,10 @@ impl DynamicSet {
     }
 }
 
-// I just created this function to have only one point where we ignore the rust warning about the
-// unused allocation
-fn box_and_clone(val: &dyn Reflect) -> Box<dyn Reflect> {
-    #[allow(unused_allocation)]
-    Box::new(val).clone_value()
-}
-
 impl Set for DynamicSet {
-    fn get(&self, value: &dyn Reflect) -> Option<&dyn Reflect> {
-        let boxed = box_and_clone(value);
+    fn get(&self, value: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         self.hash_table
-            .find(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
+            .find(Self::internal_hash(value), Self::internal_eq(value))
             .map(|value| &**value)
     }
 
@@ -226,12 +218,12 @@ impl Set for DynamicSet {
         self.hash_table.len()
     }
 
-    fn iter(&self) -> Box<dyn Iterator<Item = &dyn Reflect> + '_> {
+    fn iter(&self) -> Box<dyn Iterator<Item = &dyn PartialReflect> + '_> {
         let iter = self.hash_table.iter().map(|v| &**v);
         Box::new(iter)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
         self.hash_table.into_iter().collect::<Vec<_>>()
     }
 
@@ -241,7 +233,9 @@ impl Set for DynamicSet {
             .iter()
             .map(|value| value.clone_value())
             .for_each(|value| {
-                hash_table.insert_unique(Self::internal_hash(&value), value, Self::internal_hash);
+                hash_table.insert_unique(Self::internal_hash(value.as_ref()), value, |boxed| {
+                    Self::internal_hash(boxed.as_ref())
+                });
             });
 
         DynamicSet {
@@ -250,7 +244,7 @@ impl Set for DynamicSet {
         }
     }
 
-    fn insert_boxed(&mut self, value: Box<dyn Reflect>) -> bool {
+    fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
         assert_eq!(
             value.reflect_partial_eq(&*value),
             Some(true),
@@ -258,7 +252,7 @@ impl Set for DynamicSet {
         );
         match self
             .hash_table
-            .find_mut(Self::internal_hash(&value), Self::internal_eq(&value))
+            .find_mut(Self::internal_hash(&*value), Self::internal_eq(&*value))
         {
             Some(old) => {
                 *old = value;
@@ -266,75 +260,71 @@ impl Set for DynamicSet {
             }
             None => {
                 self.hash_table.insert_unique(
-                    Self::internal_hash(&value),
+                    Self::internal_hash(value.as_ref()),
                     value,
-                    Self::internal_hash,
+                    |boxed| Self::internal_hash(boxed.as_ref()),
                 );
                 true
             }
         }
     }
 
-    fn remove(&mut self, value: &dyn Reflect) -> bool {
-        let boxed = box_and_clone(value);
+    fn remove(&mut self, value: &dyn PartialReflect) -> bool {
         self.hash_table
-            .find_entry(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
+            .find_entry(Self::internal_hash(value), Self::internal_eq(value))
             .map(HashTableOccupiedEntry::remove)
             .is_ok()
     }
 
-    fn contains(&self, value: &dyn Reflect) -> bool {
-        let boxed = box_and_clone(value);
+    fn contains(&self, value: &dyn PartialReflect) -> bool {
         self.hash_table
-            .find(Self::internal_hash(&boxed), Self::internal_eq(&boxed))
+            .find(Self::internal_hash(value), Self::internal_eq(value))
             .is_some()
     }
 }
 
-impl Reflect for DynamicSet {
+impl PartialReflect for DynamicSet {
     #[inline]
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         self.represented_type
     }
 
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
+    #[inline]
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
     #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Err(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    #[inline]
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+        None
+    }
+
+    #[inline]
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+        None
+    }
+
+    fn apply(&mut self, value: &dyn PartialReflect) {
         set_apply(self, value);
     }
 
-    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
         set_try_apply(self, value)
-    }
-
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
-        *self = value.take()?;
-        Ok(())
     }
 
     fn reflect_kind(&self) -> ReflectKind {
@@ -353,11 +343,11 @@ impl Reflect for DynamicSet {
         ReflectOwned::Set(self)
     }
 
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone_dynamic())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         set_partial_eq(self, value)
     }
 
@@ -381,8 +371,38 @@ impl Debug for DynamicSet {
     }
 }
 
+impl FromIterator<Box<dyn PartialReflect>> for DynamicSet {
+    fn from_iter<I: IntoIterator<Item = Box<dyn PartialReflect>>>(values: I) -> Self {
+        let mut this = Self {
+            represented_type: None,
+            hash_table: HashTable::new(),
+        };
+
+        for value in values {
+            this.insert_boxed(value);
+        }
+
+        this
+    }
+}
+
+impl<T: Reflect> FromIterator<T> for DynamicSet {
+    fn from_iter<I: IntoIterator<Item = T>>(values: I) -> Self {
+        let mut this = Self {
+            represented_type: None,
+            hash_table: HashTable::new(),
+        };
+
+        for value in values {
+            this.insert(value);
+        }
+
+        this
+    }
+}
+
 impl IntoIterator for DynamicSet {
-    type Item = Box<dyn Reflect>;
+    type Item = Box<dyn PartialReflect>;
     type IntoIter = bevy_utils::hashbrown::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -390,17 +410,29 @@ impl IntoIterator for DynamicSet {
     }
 }
 
-/// Compares a [`Set`] with a [`Reflect`] value.
+impl<'a> IntoIterator for &'a DynamicSet {
+    type Item = &'a dyn PartialReflect;
+    type IntoIter = std::iter::Map<
+        bevy_utils::hashbrown::hash_table::Iter<'a, Box<dyn PartialReflect>>,
+        fn(&'a Box<dyn PartialReflect>) -> Self::Item,
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.hash_table.iter().map(|v| v.as_ref())
+    }
+}
+
+/// Compares a [`Set`] with a [`PartialReflect`] value.
 ///
 /// Returns true if and only if all of the following are true:
 /// - `b` is a set;
 /// - `b` is the same length as `a`;
 /// - For each value pair in `a`, `b` contains the value too,
-///   and [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two values.
+///   and [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn set_partial_eq<M: Set>(a: &M, b: &dyn Reflect) -> Option<bool> {
+pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::Set(set) = b.reflect_ref() else {
         return Some(false);
     };
@@ -457,7 +489,7 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> std::fmt::Result {
 ///
 /// This function panics if `b` is not a reflected set.
 #[inline]
-pub fn set_apply<M: Set>(a: &mut M, b: &dyn Reflect) {
+pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
     if let ReflectRef::Set(set_value) = b.reflect_ref() {
         for b_value in set_value.iter() {
             if a.get(b_value).is_none() {
@@ -479,7 +511,7 @@ pub fn set_apply<M: Set>(a: &mut M, b: &dyn Reflect) {
 /// This function returns an [`ApplyError::MismatchedKinds`] if `b` is not a reflected set or if
 /// applying elements to each other fails.
 #[inline]
-pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn Reflect) -> Result<(), ApplyError> {
+pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), ApplyError> {
     if let ReflectRef::Set(set_value) = b.reflect_ref() {
         for b_value in set_value.iter() {
             if a.get(b_value).is_none() {
@@ -509,7 +541,9 @@ mod tests {
         set.insert(expected[2].to_string());
 
         for item in set.into_iter() {
-            let value = item.take::<String>().expect("couldn't downcast to String");
+            let value = item
+                .try_take::<String>()
+                .expect("couldn't downcast to String");
             let index = expected
                 .iter()
                 .position(|i| *i == value.as_str())
