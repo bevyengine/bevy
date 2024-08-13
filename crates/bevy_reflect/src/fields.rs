@@ -34,6 +34,7 @@ pub struct NamedField {
     type_info: fn() -> Option<&'static TypeInfo>,
     type_path: TypePathTable,
     type_id: TypeId,
+    readonly: bool,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -47,6 +48,7 @@ impl NamedField {
             type_info: T::maybe_type_info,
             type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
+            readonly: false,
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -57,6 +59,11 @@ impl NamedField {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Set the readonly status of this field.
+    pub fn with_readonly(self, readonly: bool) -> Self {
+        Self { readonly, ..self }
     }
 
     /// Sets the custom attributes for this field.
@@ -114,6 +121,11 @@ impl NamedField {
         self.docs
     }
 
+    /// Returns `true` if the field is readonly.
+    pub fn readonly(&self) -> bool {
+        self.readonly
+    }
+
     impl_custom_attribute_methods!(self.custom_attributes, "field");
 }
 
@@ -124,6 +136,7 @@ pub struct UnnamedField {
     type_info: fn() -> Option<&'static TypeInfo>,
     type_path: TypePathTable,
     type_id: TypeId,
+    readonly: bool,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -136,6 +149,7 @@ impl UnnamedField {
             type_info: T::maybe_type_info,
             type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
+            readonly: false,
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -146,6 +160,11 @@ impl UnnamedField {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Set the readonly status of this field.
+    pub fn with_readonly(self, readonly: bool) -> Self {
+        Self { readonly, ..self }
     }
 
     /// Sets the custom attributes for this field.
@@ -201,6 +220,11 @@ impl UnnamedField {
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
+    }
+
+    /// Returns `true` if the field is readonly.
+    pub fn readonly(&self) -> bool {
+        self.readonly
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "field");

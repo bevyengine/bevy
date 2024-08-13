@@ -561,10 +561,13 @@ impl<'a> StructField<'a> {
 
         let ty = self.reflected_type();
         let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
+        let readonly = self.attrs.readonly;
 
         #[allow(unused_mut)] // Needs mutability for the feature gate
         let mut info = quote! {
-            #field_info::new::<#ty>(#name).with_custom_attributes(#custom_attributes)
+            #field_info::new::<#ty>(#name)
+                .with_custom_attributes(#custom_attributes)
+                .with_readonly(#readonly)
         };
 
         #[cfg(feature = "documentation")]

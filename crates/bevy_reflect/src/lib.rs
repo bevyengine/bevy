@@ -908,6 +908,29 @@ mod tests {
     }
 
     #[test]
+    fn should_mark_fields_readonly() {
+        #[derive(Reflect)]
+        struct MyStruct {
+            is_not_readonly: u32,
+            #[reflect(readonly)]
+            is_readonly: u32,
+        }
+
+        let TypeInfo::Struct(info) = MyStruct::type_info() else {
+            panic!("Expected a struct.");
+        };
+
+        assert!(
+            !info.field("is_not_readonly").unwrap().readonly(),
+            "field should not be readonly"
+        );
+        assert!(
+            info.field("is_readonly").unwrap().readonly(),
+            "field should be readonly"
+        );
+    }
+
+    #[test]
     fn should_respect_readonly_struct_fields() {
         #[derive(Reflect)]
         struct MyStruct {
