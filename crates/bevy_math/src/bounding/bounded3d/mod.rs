@@ -4,7 +4,7 @@ mod primitive_impls;
 use glam::Mat3;
 
 use super::{BoundingVolume, IntersectsVolume};
-use crate::{Isometry3d, Quat, Vec3A};
+use crate::{ops::FloatPow, Isometry3d, Quat, Vec3A};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -253,7 +253,7 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
     fn intersects(&self, sphere: &BoundingSphere) -> bool {
         let closest_point = self.closest_point(sphere.center);
         let distance_squared = sphere.center.distance_squared(closest_point);
-        let radius_squared = sphere.radius().powi(2);
+        let radius_squared = sphere.radius().squared();
         distance_squared <= radius_squared
     }
 }
@@ -263,7 +263,7 @@ mod aabb3d_tests {
     use super::Aabb3d;
     use crate::{
         bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
-        Quat, Vec3, Vec3A,
+        ops, Quat, Vec3, Vec3A,
     };
 
     #[test]
@@ -389,7 +389,7 @@ mod aabb3d_tests {
             Vec3A::new(2.0, -2.0, 4.0),
             Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
         );
-        let half_length = 2_f32.hypot(2.0);
+        let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
             transformed.min,
             Vec3A::new(2.0 - half_length, -half_length - 2.0, 2.0)
@@ -518,7 +518,7 @@ impl BoundingSphere {
         let radius = self.radius();
         let distance_squared = (point - self.center).length_squared();
 
-        if distance_squared <= radius.powi(2) {
+        if distance_squared <= radius.squared() {
             // The point is inside the sphere.
             point
         } else {
@@ -553,7 +553,7 @@ impl BoundingVolume for BoundingSphere {
     #[inline(always)]
     fn contains(&self, other: &Self) -> bool {
         let diff = self.radius() - other.radius();
-        self.center.distance_squared(other.center) <= diff.powi(2).copysign(diff)
+        self.center.distance_squared(other.center) <= diff.squared().copysign(diff)
     }
 
     #[inline(always)]
@@ -621,7 +621,7 @@ impl IntersectsVolume<Self> for BoundingSphere {
     #[inline(always)]
     fn intersects(&self, other: &Self) -> bool {
         let center_distance_squared = self.center.distance_squared(other.center);
-        let radius_sum_squared = (self.radius() + other.radius()).powi(2);
+        let radius_sum_squared = (self.radius() + other.radius()).squared();
         center_distance_squared <= radius_sum_squared
     }
 }

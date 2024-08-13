@@ -160,7 +160,7 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
         return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
     }
 
-    if mesh.attributes().map(|(id, _)| id).ne([
+    if mesh.attributes().map(|(attribute, _)| attribute.id).ne([
         Mesh::ATTRIBUTE_POSITION.id,
         Mesh::ATTRIBUTE_NORMAL.id,
         Mesh::ATTRIBUTE_UV_0.id,
