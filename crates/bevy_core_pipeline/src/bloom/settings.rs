@@ -107,7 +107,7 @@ pub struct BloomSettings {
     /// Only tweak if you are seeing visual artifacts.
     pub max_mip_dimension: u32,
 
-    /// UV offset for bloom shader. Ideally close to 2.0 / `max_mip_dimension``.
+    /// UV offset for bloom shader. Ideally close to 2.0 / `max_mip_dimension`.
     /// Only tweak if you are seeing visual artifacts.
     pub uv_offset: f32,
 }
