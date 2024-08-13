@@ -472,6 +472,7 @@ macro_rules! impl_or_query_filter {
             }
         }
 
+        #[allow(non_snake_case)]
         impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
