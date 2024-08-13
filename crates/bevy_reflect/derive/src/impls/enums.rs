@@ -385,11 +385,26 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     let value_ref = process_field_value(&__value, field, false, bevy_reflect_path);
                     let value_mut = process_field_value(&__value, field, true, bevy_reflect_path);
 
+                    let field_at_mut = if field.attrs().readonly {
+                        quote! {
+                            #FQResult::Err(
+                                #bevy_reflect_path::error::ReflectFieldError::Readonly {
+                                    field: #bevy_reflect_path::FieldId::Unnamed(#reflection_index),
+                                    container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                                },
+                            )
+                        }
+                    } else {
+                        quote! {
+                            #FQResult::Ok(#value_mut)
+                        }
+                    };
+
                     enum_field_at.push(quote! {
                         #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQResult::Ok(#value_ref)
                     });
                     enum_field_at_mut.push(quote! {
-                        #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #FQResult::Ok(#value_mut)
+                        #unit { #declare_field : #__value, .. } if #ref_index == #reflection_index => #field_at_mut
                     });
                 });
 
@@ -409,17 +424,47 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     let value_ref = process_field_value(&__value, field, false, bevy_reflect_path);
                     let value_mut = process_field_value(&__value, field, true, bevy_reflect_path);
 
+                    let field_mut = if field.attrs().readonly {
+                        quote! {
+                            #FQResult::Err(
+                                #bevy_reflect_path::error::ReflectFieldError::Readonly {
+                                    field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(#field_name.to_string())),
+                                    container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                                },
+                            )
+                        }
+                    } else {
+                        quote! {
+                            #FQResult::Ok(#value_mut)
+                        }
+                    };
+
+                    let field_at_mut = if field.attrs().readonly {
+                        quote! {
+                            #FQResult::Err(
+                                #bevy_reflect_path::error::ReflectFieldError::Readonly {
+                                    field: #bevy_reflect_path::FieldId::Unnamed(#reflection_index),
+                                    container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                                },
+                            )
+                        }
+                    } else {
+                        quote! {
+                            #FQResult::Ok(#value_mut)
+                        }
+                    };
+
                     enum_field.push(quote! {
                         #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQResult::Ok(#value_ref)
                     });
                     enum_field_mut.push(quote! {
-                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #FQResult::Ok(#value_mut)
+                        #unit{ #field_ident: #__value, .. } if #ref_name == #field_name => #field_mut
                     });
                     enum_field_at.push(quote! {
                         #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #FQResult::Ok(#value_ref)
                     });
                     enum_field_at_mut.push(quote! {
-                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #FQResult::Ok(#value_mut)
+                        #unit{ #field_ident: #__value, .. } if #ref_index == #reflection_index => #field_at_mut
                     });
                     enum_index_of.push(quote! {
                         #unit{ .. } if #ref_name == #field_name => #FQOption::Some(#reflection_index)

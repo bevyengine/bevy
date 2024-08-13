@@ -16,6 +16,7 @@ mod kw {
     syn::custom_keyword!(skip_serializing);
     syn::custom_keyword!(default);
     syn::custom_keyword!(remote);
+    syn::custom_keyword!(readonly);
 }
 
 pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
@@ -80,6 +81,8 @@ pub(crate) struct FieldAttributes {
     pub custom_attributes: CustomAttributes,
     /// For defining the remote wrapper type that should be used in place of the field for reflection logic.
     pub remote: Option<Type>,
+    /// Whether this field is read-only.
+    pub readonly: bool,
 }
 
 impl FieldAttributes {
@@ -125,6 +128,8 @@ impl FieldAttributes {
             self.parse_default(input)
         } else if lookahead.peek(kw::remote) {
             self.parse_remote(input)
+        } else if lookahead.peek(kw::readonly) {
+            self.parse_readonly(input)
         } else {
             Err(lookahead.error())
         }
@@ -214,6 +219,16 @@ impl FieldAttributes {
 
         self.remote = Some(input.parse()?);
 
+        Ok(())
+    }
+
+    /// Parse `readonly` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(readonly)]`
+    fn parse_readonly(&mut self, input: ParseStream) -> syn::Result<()> {
+        input.parse::<kw::readonly>()?;
+        self.readonly = true;
         Ok(())
     }
 

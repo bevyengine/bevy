@@ -908,6 +908,83 @@ mod tests {
     }
 
     #[test]
+    fn should_respect_readonly_struct_fields() {
+        #[derive(Reflect)]
+        struct MyStruct {
+            #[reflect(readonly)]
+            value: u32,
+        }
+
+        let mut my_struct: Box<dyn Struct> = Box::new(MyStruct { value: 123 });
+        assert!(
+            my_struct.field("value").is_ok(),
+            "immutable access should satisfy readonly fields"
+        );
+
+        let result = my_struct.field_mut("value");
+        assert!(
+            matches!(result, Err(ReflectFieldError::Readonly { .. })),
+            "mutable access should not satisfy readonly fields"
+        );
+    }
+
+    #[test]
+    fn should_respect_readonly_tuple_struct_fields() {
+        #[derive(Reflect)]
+        struct MyStruct(#[reflect(readonly)] u32);
+
+        let mut my_struct: Box<dyn TupleStruct> = Box::new(MyStruct(123));
+        assert!(
+            my_struct.field(0).is_ok(),
+            "immutable access should satisfy readonly fields"
+        );
+
+        let result = my_struct.field_mut(0);
+        assert!(
+            matches!(result, Err(ReflectFieldError::Readonly { .. })),
+            "mutable access should not satisfy readonly fields"
+        );
+    }
+
+    #[test]
+    fn should_respect_readonly_enum_variant_fields() {
+        #[derive(Reflect)]
+        enum MyEnum {
+            Tuple(#[reflect(readonly)] u32),
+            Struct {
+                #[reflect(readonly)]
+                value: u32,
+            },
+        }
+
+        let mut my_enum: Box<dyn Enum> = Box::new(MyEnum::Tuple(123));
+
+        assert!(
+            my_enum.field_at(0).is_ok(),
+            "immutable access should satisfy readonly fields"
+        );
+
+        let result = my_enum.field_at_mut(0);
+        assert!(
+            matches!(result, Err(ReflectFieldError::Readonly { .. })),
+            "mutable access should not satisfy readonly fields"
+        );
+
+        let mut my_enum: Box<dyn Enum> = Box::new(MyEnum::Struct { value: 123 });
+
+        assert!(
+            my_enum.field("value").is_ok(),
+            "immutable access should satisfy readonly fields"
+        );
+
+        let result = my_enum.field_mut("value");
+        assert!(
+            matches!(result, Err(ReflectFieldError::Readonly { .. })),
+            "mutable access should not satisfy readonly fields"
+        );
+    }
+
+    #[test]
     fn should_call_from_reflect_dynamically() {
         #[derive(Reflect)]
         struct MyStruct {

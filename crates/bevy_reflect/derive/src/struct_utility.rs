@@ -1,5 +1,6 @@
 use crate::derive_data::StructField;
 use crate::{utility, ReflectStruct};
+use bevy_macro_utils::fq_std::{FQCow, FQResult};
 use quote::quote;
 
 /// A helper struct for creating remote-aware field accessors.
@@ -12,6 +13,8 @@ pub(crate) struct FieldAccessors {
     /// The referenced field accessors, such as `&self.foo`.
     pub fields_ref: Vec<proc_macro2::TokenStream>,
     /// The mutably referenced field accessors, such as `&mut self.foo`.
+    ///
+    /// Each field accessor is wrapped in a `Result` that returns an error if the field is marked as readonly.
     pub fields_mut: Vec<proc_macro2::TokenStream>,
     /// The ordered set of field indices (basically just the range of [0, `field_count`).
     pub field_indices: Vec<usize>,
@@ -33,13 +36,32 @@ impl FieldAccessors {
             }
         });
         let fields_mut = Self::get_fields(reflect_struct, |field, accessor| {
+            if field.attrs.readonly {
+                let field_id = field.data.ident.as_ref().map(|ident| {
+                    let name = ident.to_string();
+                    quote!(#bevy_reflect_path::FieldId::Named(::std::convert::Into::into(#name.to_string())))
+                }).unwrap_or_else(|| {
+                    let index = field.reflection_index;
+                    quote!(#bevy_reflect_path::FieldId::Unnamed(#index))
+                });
+
+                return quote! {
+                    #FQResult::Err(
+                        #bevy_reflect_path::error::ReflectFieldError::Readonly {
+                            field: #field_id,
+                            container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
+                        },
+                    )
+                };
+            }
+
             match &field.attrs.remote {
                 Some(wrapper_ty) => {
                     quote! {
-                        <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper_mut(&mut #accessor)
+                        #FQResult::Ok(<#wrapper_ty as #bevy_reflect_path::ReflectRemote>::as_wrapper_mut(&mut #accessor))
                     }
                 }
-                None => quote!(&mut #accessor),
+                None => quote!(#FQResult::Ok(&mut #accessor)),
             }
         });
 
