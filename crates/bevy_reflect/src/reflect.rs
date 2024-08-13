@@ -54,7 +54,7 @@ macro_rules! impl_reflect_enum {
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectRef`] is obtained via [`Reflect::reflect_ref`].
+/// A [`ReflectRef`] is obtained via [`PartialReflect::reflect_ref`].
 pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
     TupleStruct(&'a dyn TupleStruct),
@@ -64,7 +64,7 @@ pub enum ReflectRef<'a> {
     Map(&'a dyn Map),
     Set(&'a dyn Set),
     Enum(&'a dyn Enum),
-    Value(&'a dyn Reflect),
+    Value(&'a dyn PartialReflect),
 }
 impl_reflect_enum!(ReflectRef<'_>);
 
@@ -73,7 +73,7 @@ impl_reflect_enum!(ReflectRef<'_>);
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectMut`] is obtained via [`Reflect::reflect_mut`].
+/// A [`ReflectMut`] is obtained via [`PartialReflect::reflect_mut`].
 pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
@@ -83,7 +83,7 @@ pub enum ReflectMut<'a> {
     Map(&'a mut dyn Map),
     Set(&'a mut dyn Set),
     Enum(&'a mut dyn Enum),
-    Value(&'a mut dyn Reflect),
+    Value(&'a mut dyn PartialReflect),
 }
 impl_reflect_enum!(ReflectMut<'_>);
 
@@ -92,7 +92,7 @@ impl_reflect_enum!(ReflectMut<'_>);
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A [`ReflectOwned`] is obtained via [`Reflect::reflect_owned`].
+/// A [`ReflectOwned`] is obtained via [`PartialReflect::reflect_owned`].
 pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
@@ -102,11 +102,11 @@ pub enum ReflectOwned {
     Map(Box<dyn Map>),
     Set(Box<dyn Set>),
     Enum(Box<dyn Enum>),
-    Value(Box<dyn Reflect>),
+    Value(Box<dyn PartialReflect>),
 }
 impl_reflect_enum!(ReflectOwned);
 
-/// A enumeration of all error outcomes that might happen when running [`try_apply`](Reflect::try_apply).
+/// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
 #[derive(Error, Debug)]
 pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
@@ -144,7 +144,7 @@ pub enum ApplyError {
 
 /// A zero-sized enumuration of the "kinds" of a reflected type.
 ///
-/// A [`ReflectKind`] is obtained via [`Reflect::reflect_kind`],
+/// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
 /// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ReflectKind {
@@ -175,22 +175,29 @@ impl std::fmt::Display for ReflectKind {
     }
 }
 
-/// The core trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
+/// The foundational trait of [`bevy_reflect`], used for accessing and modifying data dynamically.
 ///
-/// It's recommended to use the [derive macro] rather than manually implementing this trait.
-/// Doing so will automatically implement many other useful traits for reflection,
+/// This is a supertrait of [`Reflect`],
+/// meaning any type which implements `Reflect` implements `PartialReflect` by definition.
+///
+/// It's recommended to use [the derive macro for `Reflect`] rather than manually implementing this trait.
+/// Doing so will automatically implement this trait as well as many other useful traits for reflection,
 /// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
 /// See the [crate-level documentation] to see how this trait and its subtraits can be used.
 ///
 /// [`bevy_reflect`]: crate
-/// [derive macro]: bevy_reflect_derive::Reflect
+/// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be reflected",
+    message = "`{Self}` does not implement `PartialReflect` so cannot be introspected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Reflect: DynamicTypePath + Any + Send + Sync {
+pub trait PartialReflect: DynamicTypePath + Send + Sync
+where
+    // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
+    Self: 'static,
+{
     /// Returns the [`TypeInfo`] of the type _represented_ by this value.
     ///
     /// For most types, this will simply return their own `TypeInfo`.
@@ -208,27 +215,39 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo>;
 
-    /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
-    fn into_any(self: Box<Self>) -> Box<dyn Any>;
-
-    /// Returns the value as a [`&dyn Any`][std::any::Any].
-    fn as_any(&self) -> &dyn Any;
-
-    /// Returns the value as a [`&mut dyn Any`][std::any::Any].
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-
-    /// Casts this type to a boxed reflected value.
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
+    /// Casts this type to a boxed, reflected value.
+    ///
+    /// This is useful for coercing trait objects.
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect>;
 
     /// Casts this type to a reflected value.
-    fn as_reflect(&self) -> &dyn Reflect;
+    ///
+    /// This is useful for coercing trait objects.
+    fn as_partial_reflect(&self) -> &dyn PartialReflect;
 
-    /// Casts this type to a mutable reflected value.
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
+    /// Casts this type to a mutable, reflected value.
+    ///
+    /// This is useful for coercing trait objects.
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect;
+
+    /// Attempts to cast this type to a boxed, [fully-reflected] value.
+    ///
+    /// [fully-reflected]: Reflect
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>>;
+
+    /// Attempts to cast this type to a [fully-reflected] value.
+    ///
+    /// [fully-reflected]: Reflect
+    fn try_as_reflect(&self) -> Option<&dyn Reflect>;
+
+    /// Attempts to cast this type to a mutable, [fully-reflected] value.
+    ///
+    /// [fully-reflected]: Reflect
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect>;
 
     /// Applies a reflected value to this value.
     ///
-    /// If a type implements a subtrait of `Reflect`, then the semantics of this
+    /// If a type implements an [introspection subtrait], then the semantics of this
     /// method are as follows:
     /// - If `T` is a [`Struct`], then the value of each named field of `value` is
     ///   applied to the corresponding named field of `self`. Fields which are
@@ -255,6 +274,7 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// or none of the above depending on the kind of type. For lists and maps, use the
     /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
     ///
+    /// [introspection subtrait]: crate#the-introspection-subtraits
     /// [`list_apply`]: crate::list_apply
     /// [`map_apply`]: crate::map_apply
     ///
@@ -266,26 +286,20 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
-    fn apply(&mut self, value: &dyn Reflect) {
-        Reflect::try_apply(self, value).unwrap();
+    fn apply(&mut self, value: &dyn PartialReflect) {
+        PartialReflect::try_apply(self, value).unwrap();
     }
 
-    /// Tries to [`apply`](Reflect::apply) a reflected value to this value.
+    /// Tries to [`apply`](PartialReflect::apply) a reflected value to this value.
     ///
-    /// Functions the same as the [`apply`](Reflect::apply) function but returns an error instead of
+    /// Functions the same as the [`apply`](PartialReflect::apply) function but returns an error instead of
     /// panicking.
     ///
     /// # Handling Errors
     ///
     /// This function may leave `self` in a partially mutated state if a error was encountered on the way.
     /// consider maintaining a cloned instance of this data you can switch to if a error is encountered.
-    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError>;
-
-    /// Performs a type-checked assignment of a reflected value to this value.
-    ///
-    /// If `value` does not contain a value of type `T`, returns an `Err`
-    /// containing the trait object.
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError>;
 
     /// Returns a zero-sized enumeration of "kinds" of type.
     ///
@@ -316,7 +330,7 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// or [`Enum::clone_dynamic`], respectively.
     /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
     /// use those subtraits' respective `clone_dynamic` methods.
-    fn clone_value(&self) -> Box<dyn Reflect>;
+    fn clone_value(&self) -> Box<dyn PartialReflect>;
 
     /// Returns a hash of the value (which includes the type).
     ///
@@ -328,7 +342,7 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     /// Returns a "partial equality" comparison result.
     ///
     /// If the underlying type does not support equality testing, returns `None`.
-    fn reflect_partial_eq(&self, _value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, _value: &dyn PartialReflect) -> Option<bool> {
         None
     }
 
@@ -376,29 +390,116 @@ pub trait Reflect: DynamicTypePath + Any + Send + Sync {
     }
 }
 
-impl Debug for dyn Reflect {
+/// A core trait of [`bevy_reflect`], used for downcasting to concrete types.
+///
+/// This is a subtrait of [`PartialReflect`],
+/// meaning any type which implements `Reflect` implements `PartialReflect` by definition.
+///
+/// It's recommended to use [the derive macro] rather than manually implementing this trait.
+/// Doing so will automatically implement this trait, [`PartialReflect`], and many other useful traits for reflection,
+/// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
+///
+/// See the [crate-level documentation] to see how this trait can be used.
+///
+/// [`bevy_reflect`]: crate
+/// [the derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `Reflect` so cannot be fully reflected",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
+pub trait Reflect: PartialReflect + Any {
+    /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
+
+    /// Returns the value as a [`&dyn Any`][std::any::Any].
+    fn as_any(&self) -> &dyn Any;
+
+    /// Returns the value as a [`&mut dyn Any`][std::any::Any].
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    /// Casts this type to a boxed, fully-reflected value.
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
+
+    /// Casts this type to a fully-reflected value.
+    fn as_reflect(&self) -> &dyn Reflect;
+
+    /// Casts this type to a mutable, fully-reflected value.
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
+
+    /// Performs a type-checked assignment of a reflected value to this value.
+    ///
+    /// If `value` does not contain a value of type `T`, returns an `Err`
+    /// containing the trait object.
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
+}
+
+impl dyn PartialReflect {
+    /// Returns `true` if the underlying value represents a value of type `T`, or `false`
+    /// otherwise.
+    ///
+    /// Read `is` for more information on underlying values and represented types.
+    #[inline]
+    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
+        self.get_represented_type_info()
+            .map(|t| t.type_path() == T::type_path())
+            .unwrap_or(false)
+    }
+
+    /// Downcasts the value to type `T`, consuming the trait object.
+    ///
+    /// If the underlying value does not implement [`Reflect`]
+    /// or is not of type `T`, returns `Err(self)`.
+    pub fn try_downcast<T: Reflect>(
+        self: Box<dyn PartialReflect>,
+    ) -> Result<Box<T>, Box<dyn PartialReflect>> {
+        self.try_into_reflect()?
+            .downcast()
+            .map_err(PartialReflect::into_partial_reflect)
+    }
+
+    /// Downcasts the value to type `T`, unboxing and consuming the trait object.
+    ///
+    /// If the underlying value does not implement [`Reflect`]
+    /// or is not of type `T`, returns `Err(self)`.
+    pub fn try_take<T: Reflect>(
+        self: Box<dyn PartialReflect>,
+    ) -> Result<T, Box<dyn PartialReflect>> {
+        self.try_downcast().map(|value| *value)
+    }
+
+    /// Downcasts the value to type `T` by reference.
+    ///
+    /// If the underlying value does not implement [`Reflect`]
+    /// or is not of type `T`, returns [`None`].
+    pub fn try_downcast_ref<T: Reflect>(&self) -> Option<&T> {
+        self.try_as_reflect()?.downcast_ref()
+    }
+
+    /// Downcasts the value to type `T` by mutable reference.
+    ///
+    /// If the underlying value does not implement [`Reflect`]
+    /// or is not of type `T`, returns [`None`].
+    pub fn try_downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
+        self.try_as_reflect_mut()?.downcast_mut()
+    }
+}
+
+impl Debug for dyn PartialReflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
     }
 }
 
-impl Typed for dyn Reflect {
-    fn type_info() -> &'static TypeInfo {
-        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
-    }
-}
-
 // The following implementation never actually shadows the concrete TypePath implementation.
-
-// See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
-impl TypePath for dyn Reflect {
+// See the comment on `dyn Reflect`'s `TypePath` implementation.
+impl TypePath for dyn PartialReflect {
     fn type_path() -> &'static str {
-        "dyn bevy_reflect::Reflect"
+        "dyn bevy_reflect::PartialReflect"
     }
 
     fn short_type_path() -> &'static str {
-        "dyn Reflect"
+        "dyn PartialReflect"
     }
 }
 
@@ -420,17 +521,6 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     pub fn take<T: Reflect>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
         self.downcast::<T>().map(|value| *value)
-    }
-
-    /// Returns `true` if the underlying value represents a value of type `T`, or `false`
-    /// otherwise.
-    ///
-    /// Read `is` for more information on underlying values and represented types.
-    #[inline]
-    pub fn represents<T: Reflect + TypePath>(&self) -> bool {
-        self.get_represented_type_info()
-            .map(|t| t.type_path() == T::type_path())
-            .unwrap_or(false)
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`
@@ -464,3 +554,68 @@ impl dyn Reflect {
         self.as_any_mut().downcast_mut::<T>()
     }
 }
+
+impl Debug for dyn Reflect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.debug(f)
+    }
+}
+
+impl Typed for dyn Reflect {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
+// The following implementation never actually shadows the concrete `TypePath` implementation.
+// See this playground (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=589064053f27bc100d90da89c6a860aa).
+impl TypePath for dyn Reflect {
+    fn type_path() -> &'static str {
+        "dyn bevy_reflect::Reflect"
+    }
+
+    fn short_type_path() -> &'static str {
+        "dyn Reflect"
+    }
+}
+
+macro_rules! impl_full_reflect {
+    ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
+        impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
+            fn into_any(self: Box<Self>) -> Box<dyn ::std::any::Any> {
+                self
+            }
+
+            fn as_any(&self) -> &dyn ::std::any::Any {
+                self
+            }
+
+            fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any {
+                self
+            }
+
+            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
+                self
+            }
+
+            fn as_reflect(&self) -> &dyn $crate::Reflect {
+                self
+            }
+
+            fn as_reflect_mut(&mut self) -> &mut dyn $crate::Reflect {
+                self
+            }
+
+            fn set(
+                &mut self,
+                value: Box<dyn $crate::Reflect>,
+            ) -> Result<(), Box<dyn $crate::Reflect>> {
+                *self = <dyn $crate::Reflect>::take(value)?;
+                Ok(())
+            }
+        }
+    };
+}
+
+pub(crate) use impl_full_reflect;

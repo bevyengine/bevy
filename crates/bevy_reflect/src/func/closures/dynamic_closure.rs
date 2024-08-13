@@ -40,7 +40,7 @@ use crate::func::{FunctionResult, IntoClosure, ReturnInfo};
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
-/// assert_eq!(value.take::<String>().unwrap(), "Hello, world!!!");
+/// assert_eq!(value.try_take::<String>().unwrap(), "Hello, world!!!");
 /// ```
 ///
 /// [`DynamicClosureMut`]: crate::func::closures::DynamicClosureMut
@@ -110,7 +110,7 @@ impl<'env> DynamicClosure<'env> {
     /// let mut func = add.into_closure().with_name("add");
     /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
-    /// assert_eq!(result.take::<i32>().unwrap(), 123);
+    /// assert_eq!(result.try_take::<i32>().unwrap(), 123);
     /// ```
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
         (self.func)(args)

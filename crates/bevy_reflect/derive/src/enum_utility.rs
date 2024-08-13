@@ -209,7 +209,7 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
     }
 }
 
-/// Generates the enum variant output data needed to build the `Reflect::try_apply` implementation.
+/// Generates the enum variant output data needed to build the `PartialReflect::try_apply` implementation.
 pub(crate) struct TryApplyVariantBuilder<'a> {
     reflect_enum: &'a ReflectEnum<'a>,
 }
