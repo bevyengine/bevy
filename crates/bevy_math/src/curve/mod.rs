@@ -1074,7 +1074,7 @@ mod tests {
 
     #[test]
     fn resampling() {
-        let curve = function_curve(interval(1.0, 4.0).unwrap(), f32::log2);
+        let curve = function_curve(interval(1.0, 4.0).unwrap(), ops::log2);
 
         // Need at least two points to sample.
         let nice_try = curve.by_ref().resample_auto(1);
@@ -1096,7 +1096,7 @@ mod tests {
         }
 
         // Another example.
-        let curve = function_curve(interval(0.0, TAU).unwrap(), f32::cos);
+        let curve = function_curve(interval(0.0, TAU).unwrap(), ops::cos);
         let resampled_curve = curve.by_ref().resample_auto(1001).unwrap();
         let step = curve.domain().length() / 1000.0;
         for index in 0..1001 {
@@ -1112,7 +1112,7 @@ mod tests {
 
     #[test]
     fn uneven_resampling() {
-        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), f32::exp);
+        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), ops::exp);
 
         // Need at least two points to resample.
         let nice_try = curve.by_ref().resample_uneven_auto([1.0; 1]);
@@ -1131,11 +1131,11 @@ mod tests {
         assert_abs_diff_eq!(resampled_curve.domain().end(), 9.9, epsilon = 1e-6);
 
         // Another example.
-        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), f32::log2);
-        let sample_points = (0..10).map(|idx| (idx as f32).exp2());
+        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), ops::log2);
+        let sample_points = (0..10).map(|idx| ops::exp2(idx as f32));
         let resampled_curve = curve.by_ref().resample_uneven_auto(sample_points).unwrap();
         for idx in 0..10 {
-            let test_pt = (idx as f32).exp2();
+            let test_pt = ops::exp2(idx as f32);
             let expected = curve.sample_unchecked(test_pt);
             assert_eq!(resampled_curve.sample_unchecked(test_pt), expected);
         }
