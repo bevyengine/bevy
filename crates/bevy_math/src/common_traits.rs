@@ -1,6 +1,6 @@
 //! This module contains abstract mathematical traits shared by types used in `bevy_math`.
 
-use crate::{Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
+use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -256,7 +256,7 @@ pub trait StableInterpolate: Clone {
     /// object_position.smooth_nudge(&target_position, decay_rate, delta_time);
     /// ```
     fn smooth_nudge(&mut self, target: &Self, decay_rate: f32, delta: f32) {
-        self.interpolate_stable_assign(target, 1.0 - f32::exp(-decay_rate * delta));
+        self.interpolate_stable_assign(target, 1.0 - ops::exp(-decay_rate * delta));
     }
 }
 

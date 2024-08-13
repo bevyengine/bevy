@@ -32,6 +32,7 @@ pub mod graph {
 
 use std::ops::Range;
 
+use bevy_asset::UntypedAssetId;
 use bevy_utils::HashMap;
 pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
@@ -45,12 +46,13 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        PhaseItemExtraIndex, SortedPhaseItem, ViewSortedRenderPhases,
+        sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
+        DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
+        ViewSortedRenderPhases,
     },
     render_resource::{
-        CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
+        BindGroupId, CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
     texture::TextureCache,
@@ -78,12 +80,11 @@ impl Plugin for Core2dPlugin {
             .init_resource::<DrawFunctions<Opaque2d>>()
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<ViewSortedRenderPhases<Transparent2d>>()
-            .init_resource::<ViewSortedRenderPhases<Opaque2d>>()
+            .init_resource::<ViewBinnedRenderPhases<Opaque2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<Opaque2d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort),
                     prepare_core_2d_depth_textures.in_set(RenderSet::PrepareResources),
                 ),
@@ -119,24 +120,47 @@ impl Plugin for Core2dPlugin {
     }
 }
 
-/// Opaque 2D [`SortedPhaseItem`]s.
+/// Opaque 2D [`BinnedPhaseItem`]s.
 pub struct Opaque2d {
-    pub sort_key: FloatOrd,
-    pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    /// The key, which determines which can be batched.
+    pub key: Opaque2dBinKey,
+    /// An entity from which data will be fetched, including the mesh if
+    /// applicable.
+    pub representative_entity: Entity,
+    /// The ranges of instances.
     pub batch_range: Range<u32>,
+    /// An extra index, which is either a dynamic offset or an index in the
+    /// indirect parameters list.
     pub extra_index: PhaseItemExtraIndex,
 }
+
+/// Data that must be identical in order to batch phase items together.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Opaque2dBinKey {
+    /// The identifier of the render pipeline.
+    pub pipeline: CachedRenderPipelineId,
+    /// The function used to draw.
+    pub draw_function: DrawFunctionId,
+    /// The asset that this phase item is associated with.
+    ///
+    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
+    /// the ID of another type of asset.
+    pub asset_id: UntypedAssetId,
+    /// The ID of a bind group specific to the material.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupId`.
+    pub material_bind_group_id: Option<BindGroupId>,
+}
+
 impl PhaseItem for Opaque2d {
     #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.representative_entity
     }
 
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+        self.key.draw_function
     }
 
     #[inline]
@@ -158,25 +182,28 @@ impl PhaseItem for Opaque2d {
     }
 }
 
-impl SortedPhaseItem for Opaque2d {
-    type SortKey = FloatOrd;
+impl BinnedPhaseItem for Opaque2d {
+    type BinKey = Opaque2dBinKey;
 
-    #[inline]
-    fn sort_key(&self) -> Self::SortKey {
-        self.sort_key
-    }
-
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
-        radsort::sort_by_key(items, |item| item.sort_key().0);
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        extra_index: PhaseItemExtraIndex,
+    ) -> Self {
+        Opaque2d {
+            key,
+            representative_entity,
+            batch_range,
+            extra_index,
+        }
     }
 }
 
 impl CachedRenderPipelinePhaseItem for Opaque2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+        self.key.pipeline
     }
 }
 
@@ -246,7 +273,7 @@ impl CachedRenderPipelinePhaseItem for Transparent2d {
 pub fn extract_core_2d_camera_phases(
     mut commands: Commands,
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut opaque_2d_phases: ResMut<ViewSortedRenderPhases<Opaque2d>>,
+    mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
@@ -273,13 +300,13 @@ pub fn prepare_core_2d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    opaque_2d_phases: ResMut<ViewSortedRenderPhases<Opaque2d>>,
+    transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
+    opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, msaa) in &views_2d {
-        if !opaque_2d_phases.contains_key(&entity) || !transparent_2d_phases.contains_key(&entity) {
+    for (view, camera, msaa) in &views_2d {
+        if !opaque_2d_phases.contains_key(&view) || !transparent_2d_phases.contains_key(&view) {
             continue;
         };
 
@@ -313,7 +340,7 @@ pub fn prepare_core_2d_depth_textures(
             .clone();
 
         commands
-            .entity(entity)
+            .entity(view)
             .insert(ViewDepthTexture::new(cached_texture, Some(0.0)));
     }
 }
