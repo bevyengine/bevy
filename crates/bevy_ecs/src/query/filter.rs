@@ -94,11 +94,7 @@ pub trait QueryFilter: WorldQuery {
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
     #[allow(unused_variables)]
-    unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool;
+    unsafe fn filter_fetch(fetch: &Self::Fetch<'_>, entity: Entity, table_row: TableRow) -> bool;
 }
 
 /// Filter that selects entities with a component `T`.
@@ -204,7 +200,7 @@ impl<T: Component> QueryFilter for With<T> {
 
     #[inline(always)]
     unsafe fn filter_fetch(
-        _fetch: &mut Self::Fetch<'_>,
+        _fetch: &Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -312,7 +308,7 @@ impl<T: Component> QueryFilter for Without<T> {
 
     #[inline(always)]
     unsafe fn filter_fetch(
-        _fetch: &mut Self::Fetch<'_>,
+        _fetch: &Self::Fetch<'_>,
         _entity: Entity,
         _table_row: TableRow,
     ) -> bool {
@@ -481,12 +477,13 @@ macro_rules! impl_or_query_filter {
 
             #[inline(always)]
             unsafe fn filter_fetch(
-                fetch: &mut Self::Fetch<'_>,
-                entity: Entity,
-                table_row: TableRow
+                fetch: &Self::Fetch<'_>,
+                _entity: Entity,
+                _table_row: TableRow
             ) -> bool {
+                let ($($filter,)*) = fetch;
                 // SAFETY: The invariants are uphold by the caller.
-                unsafe { Self::fetch(fetch, entity, table_row) }
+                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&$filter.fetch, _entity, _table_row) }))*
             }
         }
     };
@@ -503,7 +500,7 @@ macro_rules! impl_tuple_query_filter {
 
             #[inline(always)]
             unsafe fn filter_fetch(
-                fetch: &mut Self::Fetch<'_>,
+                fetch: &Self::Fetch<'_>,
                 _entity: Entity,
                 _table_row: TableRow
             ) -> bool {
@@ -606,7 +603,7 @@ pub struct AddedFetch<'w> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
-    type Item<'w> = bool;
+    type Item<'w> = ();
     type Fetch<'w> = AddedFetch<'w>;
     type State = ComponentId;
 
@@ -666,30 +663,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     #[inline(always)]
     unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
-        table_row: TableRow,
+        _fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: STORAGE_TYPE = Table
-                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-            StorageType::SparseSet => {
-                // SAFETY: STORAGE_TYPE = SparseSet
-                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-        }
     }
 
     #[inline]
@@ -719,13 +696,27 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
     #[inline(always)]
-    unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool {
-        // SAFETY: The invariants are uphold by the caller.
-        unsafe { Self::fetch(fetch, entity, table_row) }
+    unsafe fn filter_fetch(fetch: &Self::Fetch<'_>, entity: Entity, table_row: TableRow) -> bool {
+        match T::STORAGE_TYPE {
+            StorageType::Table => {
+                // SAFETY: STORAGE_TYPE = Table
+                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get(table_row.as_usize()) };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            }
+            StorageType::SparseSet => {
+                // SAFETY: STORAGE_TYPE = SparseSet
+                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `entity` is in range.
+                let tick = unsafe {
+                    ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
+                };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            }
+        }
     }
 }
 
@@ -817,7 +808,7 @@ pub struct ChangedFetch<'w> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
-    type Item<'w> = bool;
+    type Item<'w> = ();
     type Fetch<'w> = ChangedFetch<'w>;
     type State = ComponentId;
 
@@ -877,30 +868,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     #[inline(always)]
     unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
-        table_row: TableRow,
+        _fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
-        match T::STORAGE_TYPE {
-            StorageType::Table => {
-                // SAFETY: STORAGE_TYPE = Table
-                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-            StorageType::SparseSet => {
-                // SAFETY: STORAGE_TYPE = SparseSet
-                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            }
-        }
     }
 
     #[inline]
@@ -931,13 +902,28 @@ impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
 
     #[inline(always)]
-    unsafe fn filter_fetch(
-        fetch: &mut Self::Fetch<'_>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> bool {
+    unsafe fn filter_fetch(fetch: &Self::Fetch<'_>, entity: Entity, table_row: TableRow) -> bool {
         // SAFETY: The invariants are uphold by the caller.
-        unsafe { Self::fetch(fetch, entity, table_row) }
+        match T::STORAGE_TYPE {
+            StorageType::Table => {
+                // SAFETY: STORAGE_TYPE = Table
+                let table = unsafe { fetch.table_ticks.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get(table_row.as_usize()) };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            }
+            StorageType::SparseSet => {
+                // SAFETY: STORAGE_TYPE = SparseSet
+                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `entity` is in range.
+                let tick = unsafe {
+                    ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
+                };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            }
+        }
     }
 }
 

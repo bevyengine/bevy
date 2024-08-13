@@ -127,11 +127,11 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[inline(always)]
             unsafe fn filter_fetch<'__w>(
-                _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                _fetch: &<Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _entity: #path::entity::Entity,
                 _table_row: #path::storage::TableRow,
             ) -> bool {
-                true #(&& <#field_types>::filter_fetch(&mut _fetch.#named_field_idents, _entity, _table_row))*
+                true #(&& <#field_types>::filter_fetch(&_fetch.#named_field_idents, _entity, _table_row))*
             }
         }
     };
