@@ -41,6 +41,7 @@ pub struct BloomUniforms {
     pub threshold_precomputations: Vec4,
     pub viewport: Vec4,
     pub aspect: f32,
+    pub uv_offset: f32,
 }
 
 impl FromWorld for BloomDownsamplingPipeline {
