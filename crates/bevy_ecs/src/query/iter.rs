@@ -88,7 +88,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
-            let fetched = unsafe { !F::filter_fetch(&mut self.cursor.filter, *entity, row) };
+            let fetched = unsafe { !F::filter_fetch(&self.cursor.filter, *entity, row) };
             if fetched {
                 continue;
             }
@@ -143,7 +143,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // Caller assures `index` in range of the current archetype.
             let fetched = unsafe {
                 !F::filter_fetch(
-                    &mut self.cursor.filter,
+                    &self.cursor.filter,
                     archetype_entity.id(),
                     archetype_entity.table_row(),
                 )
@@ -217,7 +217,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
             // SAFETY: set_table was called prior.
             // Caller assures `row` in range of the current archetype.
-            let filter_matched = unsafe { F::filter_fetch(&mut self.cursor.filter, entity, row) };
+            let filter_matched = unsafe { F::filter_fetch(&self.cursor.filter, entity, row) };
             if !filter_matched {
                 continue;
             }
@@ -1732,7 +1732,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
                 let entity = unsafe { self.table_entities.get_unchecked(self.current_row) };
                 let row = TableRow::from_usize(self.current_row);
-                if !F::filter_fetch(&mut self.filter, *entity, row) {
+                if !F::filter_fetch(&self.filter, *entity, row) {
                     self.current_row += 1;
                     continue;
                 }
@@ -1780,7 +1780,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let archetype_entity =
                     unsafe { self.archetype_entities.get_unchecked(self.current_row) };
                 if !F::filter_fetch(
-                    &mut self.filter,
+                    &self.filter,
                     archetype_entity.id(),
                     archetype_entity.table_row(),
                 ) {

@@ -944,7 +944,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         D::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
         F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
-        if F::filter_fetch(&mut filter, entity, location.table_row) {
+        if F::filter_fetch(&filter, entity, location.table_row) {
             Ok(D::fetch(&mut fetch, entity, location.table_row))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))

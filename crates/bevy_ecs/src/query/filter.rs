@@ -608,9 +608,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     type Fetch<'w> = AddedFetch<'w>;
     type State = ComponentId;
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
-    }
+    fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     #[inline]
     unsafe fn init_fetch<'w>(
@@ -813,9 +811,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     type Fetch<'w> = ChangedFetch<'w>;
     type State = ComponentId;
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
-    }
+    fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     #[inline]
     unsafe fn init_fetch<'w>(
