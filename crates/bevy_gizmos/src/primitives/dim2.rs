@@ -1,6 +1,6 @@
 //! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
 
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::f32::consts::FRAC_PI_2;
 
 use super::helpers::*;
 
@@ -87,7 +87,7 @@ where
 
         self.arc_2d(
             Isometry2d::new(position, Rot2::radians(angle - primitive.half_angle)),
-            primitive.half_angle * 2.0,
+            Rot2::radians(primitive.half_angle * 2.0),
             primitive.radius,
             color,
         );
@@ -139,7 +139,7 @@ where
         // we need to draw the arc part of the sector, and the two lines connecting the arc and the center
         self.arc_2d(
             Isometry2d::new(position, Rot2::radians(angle - primitive.arc.half_angle)),
-            primitive.arc.half_angle * 2.0,
+            Rot2::radians(primitive.arc.half_angle * 2.0),
             primitive.arc.radius,
             color,
         );
@@ -178,7 +178,7 @@ where
         // we need to draw the arc part of the segment, and the line connecting the two ends
         self.arc_2d(
             Isometry2d::new(position, Rot2::radians(angle - primitive.arc.half_angle)),
-            primitive.arc.half_angle * 2.0,
+            Rot2::radians(primitive.arc.half_angle * 2.0),
             primitive.arc.radius,
             color,
         );
@@ -389,13 +389,13 @@ where
         // draw arcs
         self.arc_2d(
             Isometry2d::new(top_center, Rot2::radians(start_angle_top)),
-            PI,
+            Rot2::PI,
             primitive.radius,
             polymorphic_color,
         );
         self.arc_2d(
             Isometry2d::new(bottom_center, Rot2::radians(start_angle_bottom)),
-            PI,
+            Rot2::PI,
             primitive.radius,
             polymorphic_color,
         );
