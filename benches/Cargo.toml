@@ -20,6 +20,10 @@ bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
 
+# make bevy_render compile on linux. x11 vs wayland does not matter here as the benches do not actually use a window
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+bevy_internal = { path = "../crates/bevy_internal", features = ["x11"] }
+
 [profile.release]
 opt-level = 3
 lto = true
