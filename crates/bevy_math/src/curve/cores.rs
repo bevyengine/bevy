@@ -1,7 +1,7 @@
 //! Core data structures to be used internally in Curve implementations, encapsulating storage
 //! and access patterns for reuse.
 //!
-//! The `Core` types here expose their fields publically so that it is easier to manipulate and
+//! The `Core` types here expose their fields publicly so that it is easier to manipulate and
 //! extend them, but in doing so, you must maintain the invariants of those fields yourself. The
 //! provided methods all maintain the invariants, so this is only a concern if you manually mutate
 //! the fields.
