@@ -8,7 +8,7 @@ pub enum ReflectFieldError {
     /// The field is readonly but was attempted to be accessed mutably.
     #[error("field `{field}` in `{container_type_path}` is readonly")]
     Readonly {
-        field: FieldId,
+        field: FieldId<'static>,
         container_type_path: Cow<'static, str>,
     },
     /// The field could not be found.
@@ -17,7 +17,7 @@ pub enum ReflectFieldError {
     /// or it has been ignored with the `#[reflect(ignore)]` attribute.
     #[error("field `{field}` in `{container_type_path}` not found")]
     NotFound {
-        field: FieldId,
+        field: FieldId<'static>,
         container_type_path: Cow<'static, str>,
     },
 }

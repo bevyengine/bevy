@@ -7,18 +7,18 @@ use std::sync::Arc;
 
 /// A general-purpose field identifier.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum FieldId {
+pub enum FieldId<'a> {
     /// A named field.
     ///
     /// This includes fields of structs and enum struct variants.
-    Named(Cow<'static, str>),
+    Named(Cow<'a, str>),
     /// An unnamed field.
     ///
     /// This includes fields of tuples and tuple struct variants.
     Unnamed(usize),
 }
 
-impl Display for FieldId {
+impl Display for FieldId<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
             FieldId::Named(name) => write!(f, "{}", name),
@@ -27,26 +27,26 @@ impl Display for FieldId {
     }
 }
 
-impl From<usize> for FieldId {
+impl From<usize> for FieldId<'static> {
     fn from(value: usize) -> Self {
         Self::Unnamed(value)
     }
 }
 
-impl From<&str> for FieldId {
-    fn from(value: &str) -> Self {
-        Self::Named(Cow::Owned(value.to_string()))
+impl<'a> From<&'a str> for FieldId<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Named(Cow::Borrowed(value))
     }
 }
 
-impl From<String> for FieldId {
+impl From<String> for FieldId<'static> {
     fn from(value: String) -> Self {
         Self::Named(Cow::Owned(value))
     }
 }
 
-impl From<Cow<'static, str>> for FieldId {
-    fn from(value: Cow<'static, str>) -> Self {
+impl<'a> From<Cow<'a, str>> for FieldId<'a> {
+    fn from(value: Cow<'a, str>) -> Self {
         Self::Named(value)
     }
 }

@@ -43,7 +43,7 @@ impl FieldAccessors {
                     .as_ref()
                     .map(|ident| {
                         let name = ident.to_string();
-                        quote!(#name)
+                        quote!(#name.to_string())
                     })
                     .unwrap_or_else(|| {
                         let index = field.reflection_index.unwrap_or(field.declaration_index);

@@ -79,7 +79,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 match name {
                     #(#field_names => #fqresult::Ok(#fields_ref),)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
-                        field: ::std::convert::Into::into(name),
+                        field: ::std::convert::Into::into(name.to_string()),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -89,7 +89,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 match name {
                     #(#field_names => #fields_mut,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
-                        field: ::std::convert::Into::into(name),
+                        field: ::std::convert::Into::into(name.to_string()),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }

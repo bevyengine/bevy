@@ -207,7 +207,7 @@ impl Enum for DynamicEnum {
             data.field(name)
         } else {
             Err(ReflectFieldError::NotFound {
-                field: name.into(),
+                field: name.to_string().into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
         }
@@ -233,7 +233,7 @@ impl Enum for DynamicEnum {
             data.field_mut(name)
         } else {
             Err(ReflectFieldError::NotFound {
-                field: name.into(),
+                field: name.to_string().into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
         }

@@ -98,7 +98,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                  match #match_this {
                     #(#enum_field,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
-                        field: ::std::convert::Into::into(#ref_name),
+                        field: ::std::convert::Into::into(#ref_name.to_string()),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -118,7 +118,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                  match #match_this_mut {
                     #(#enum_field_mut,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
-                        field: ::std::convert::Into::into(#ref_name),
+                        field: ::std::convert::Into::into(#ref_name.to_string()),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }

@@ -374,7 +374,7 @@ impl Struct for DynamicStruct {
             .get(name)
             .map(|index| &*self.fields[*index])
             .ok_or_else(|| ReflectFieldError::NotFound {
-                field: name.into(),
+                field: name.to_string().into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
     }
@@ -385,7 +385,7 @@ impl Struct for DynamicStruct {
             Ok(&mut *self.fields[*index])
         } else {
             Err(ReflectFieldError::NotFound {
-                field: name.into(),
+                field: name.to_string().into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
         }
