@@ -95,15 +95,33 @@ use std::sync::Arc;
 pub trait Enum: PartialReflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///
-    /// For non-[`VariantType::Struct`] variants, this should return `None`.
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] non-[`VariantType::Struct`] variants.
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field(&self, name: &str) -> Result<&dyn PartialReflect, ReflectFieldError>;
     /// Returns a reference to the value of the field (in the current variant) at the given index.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError>;
     /// Returns a mutable reference to the value of the field (in the current variant) with the given name.
     ///
-    /// For non-[`VariantType::Struct`] variants, this should return `None`.
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] non-[`VariantType::Struct`] variants.
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_mut(&mut self, name: &str) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
     /// Returns a mutable reference to the value of the field (in the current variant) at the given index.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_at_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
     /// Returns the index of the field (in the current variant) with the given name.
     ///

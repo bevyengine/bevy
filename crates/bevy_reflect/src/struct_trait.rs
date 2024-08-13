@@ -48,18 +48,36 @@ use std::{
 pub trait Struct: PartialReflect {
     /// Returns a reference to the value of the field named `name` as a `&dyn
     /// PartialReflect`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
     fn field(&self, name: &str) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field named `name` as a
     /// `&mut dyn PartialReflect`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_mut(&mut self, name: &str) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn PartialReflect`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
     fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field with index `index`
     /// as a `&mut dyn PartialReflect`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_at_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns the name of the field with index `index`.
@@ -375,12 +393,13 @@ impl Struct for DynamicStruct {
 
     #[inline]
     fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
-        self.fields.get(index).map(|value| &**value).ok_or_else(|| {
-            ReflectFieldError::NotFound {
+        self.fields
+            .get(index)
+            .map(|value| &**value)
+            .ok_or_else(|| ReflectFieldError::NotFound {
                 field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
-            }
-        })
+            })
     }
 
     #[inline]

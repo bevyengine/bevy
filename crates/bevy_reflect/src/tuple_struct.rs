@@ -41,10 +41,19 @@ use std::sync::Arc;
 pub trait TupleStruct: PartialReflect {
     /// Returns a reference to the value of the field with index `index` as a
     /// `&dyn Reflect`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
     fn field(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field with index `index`
     /// as a `&mut dyn Reflect`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns the number of fields in the tuple struct.
@@ -280,12 +289,13 @@ impl DynamicTupleStruct {
 impl TupleStruct for DynamicTupleStruct {
     #[inline]
     fn field(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
-        self.fields.get(index).map(|field| &**field).ok_or_else(|| {
-            ReflectFieldError::NotFound {
+        self.fields
+            .get(index)
+            .map(|field| &**field)
+            .ok_or_else(|| ReflectFieldError::NotFound {
                 field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
-            }
-        })
+            })
     }
 
     #[inline]
