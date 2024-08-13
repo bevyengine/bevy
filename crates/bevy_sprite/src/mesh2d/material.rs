@@ -384,6 +384,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode2d) -> Mesh2dPipelineKey {
     match alpha_mode {
         AlphaMode2d::Blend => Mesh2dPipelineKey::BLEND_ALPHA,
+        AlphaMode2d::Mask(_) => Mesh2dPipelineKey::MAY_DISCARD,
         _ => Mesh2dPipelineKey::NONE,
     }
 }
