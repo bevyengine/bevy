@@ -3,9 +3,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::{
     self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct,
-    DynamicTuple, Enum, FieldId, PartialReflect, Reflect, ReflectFieldError, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, TypePath, VariantFieldIter,
-    VariantType,
+    DynamicTuple, Enum, PartialReflect, Reflect, ReflectFieldError, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, TypePath, VariantFieldIter, VariantType,
 };
 
 use std::fmt::Formatter;
@@ -208,7 +207,7 @@ impl Enum for DynamicEnum {
             data.field(name)
         } else {
             Err(ReflectFieldError::DoesNotExist {
-                field: FieldId::Named(name.to_string().into()),
+                field: name.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
         }
@@ -218,12 +217,12 @@ impl Enum for DynamicEnum {
         if let DynamicVariant::Tuple(data) = &self.variant {
             data.field(index)
                 .ok_or_else(|| ReflectFieldError::DoesNotExist {
-                    field: FieldId::Unnamed(index),
+                    field: index.into(),
                     container_type_path: Cow::Borrowed(Self::type_path()),
                 })
         } else {
             Err(ReflectFieldError::DoesNotExist {
-                field: FieldId::Unnamed(index),
+                field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
         }
@@ -234,7 +233,7 @@ impl Enum for DynamicEnum {
             data.field_mut(name)
         } else {
             Err(ReflectFieldError::DoesNotExist {
-                field: FieldId::Named(name.to_string().into()),
+                field: name.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
         }
@@ -244,12 +243,12 @@ impl Enum for DynamicEnum {
         if let DynamicVariant::Tuple(data) = &mut self.variant {
             data.field_mut(index)
                 .ok_or_else(|| ReflectFieldError::DoesNotExist {
-                    field: FieldId::Unnamed(index),
+                    field: index.into(),
                     container_type_path: Cow::Borrowed(Self::type_path()),
                 })
         } else {
             Err(ReflectFieldError::DoesNotExist {
-                field: FieldId::Unnamed(index),
+                field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
         }

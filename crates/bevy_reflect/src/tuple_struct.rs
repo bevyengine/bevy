@@ -3,9 +3,9 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{
-    self as bevy_reflect, ApplyError, DynamicTuple, FieldId, PartialReflect, Reflect,
-    ReflectFieldError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Tuple, TypeInfo,
-    TypePath, TypePathTable, UnnamedField,
+    self as bevy_reflect, ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectFieldError,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable,
+    UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -282,7 +282,7 @@ impl TupleStruct for DynamicTupleStruct {
     fn field(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
         self.fields.get(index).map(|field| &**field).ok_or_else(|| {
             ReflectFieldError::DoesNotExist {
-                field: FieldId::Unnamed(index),
+                field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             }
         })
@@ -294,7 +294,7 @@ impl TupleStruct for DynamicTupleStruct {
             .get_mut(index)
             .map(|field| &mut **field)
             .ok_or_else(|| ReflectFieldError::DoesNotExist {
-                field: FieldId::Unnamed(index),
+                field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
     }

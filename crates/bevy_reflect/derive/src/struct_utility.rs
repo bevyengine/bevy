@@ -37,18 +37,23 @@ impl FieldAccessors {
         });
         let fields_mut = Self::get_fields(reflect_struct, |field, accessor| {
             if field.attrs.readonly {
-                let field_id = field.data.ident.as_ref().map(|ident| {
-                    let name = ident.to_string();
-                    quote!(#bevy_reflect_path::FieldId::Named(::std::convert::Into::into(#name.to_string())))
-                }).unwrap_or_else(|| {
-                    let index = field.reflection_index;
-                    quote!(#bevy_reflect_path::FieldId::Unnamed(#index))
-                });
+                let field_id = field
+                    .data
+                    .ident
+                    .as_ref()
+                    .map(|ident| {
+                        let name = ident.to_string();
+                        quote!(#name)
+                    })
+                    .unwrap_or_else(|| {
+                        let index = field.reflection_index.unwrap_or(field.declaration_index);
+                        quote!(#index)
+                    });
 
                 return quote! {
                     #FQResult::Err(
                         #bevy_reflect_path::error::ReflectFieldError::Readonly {
-                            field: #field_id,
+                            field: ::std::convert::Into::into(#field_id),
                             container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                         },
                     )

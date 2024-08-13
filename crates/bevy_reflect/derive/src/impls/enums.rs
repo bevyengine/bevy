@@ -98,7 +98,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                  match #match_this {
                     #(#enum_field,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(#ref_name.to_string())),
+                        field: ::std::convert::Into::into(#ref_name),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -108,7 +108,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 match #match_this {
                     #(#enum_field_at,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Unnamed(#ref_index),
+                        field: ::std::convert::Into::into(#ref_index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -118,7 +118,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                  match #match_this_mut {
                     #(#enum_field_mut,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(#ref_name.to_string())),
+                        field: ::std::convert::Into::into(#ref_name),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -128,7 +128,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
                 match #match_this_mut {
                     #(#enum_field_at_mut,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Unnamed(#ref_index),
+                        field: ::std::convert::Into::into(#ref_index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -389,7 +389,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         quote! {
                             #FQResult::Err(
                                 #bevy_reflect_path::error::ReflectFieldError::Readonly {
-                                    field: #bevy_reflect_path::FieldId::Unnamed(#reflection_index),
+                                    field: ::std::convert::Into::into(#reflection_index),
                                     container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                                 },
                             )
@@ -428,7 +428,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         quote! {
                             #FQResult::Err(
                                 #bevy_reflect_path::error::ReflectFieldError::Readonly {
-                                    field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(#field_name.to_string())),
+                                    field: ::std::convert::Into::into(#field_name),
                                     container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                                 },
                             )
@@ -443,7 +443,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                         quote! {
                             #FQResult::Err(
                                 #bevy_reflect_path::error::ReflectFieldError::Readonly {
-                                    field: #bevy_reflect_path::FieldId::Unnamed(#reflection_index),
+                                    field: ::std::convert::Into::into(#reflection_index),
                                     container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                                 },
                             )

@@ -27,6 +27,30 @@ impl Display for FieldId {
     }
 }
 
+impl From<usize> for FieldId {
+    fn from(value: usize) -> Self {
+        Self::Unnamed(value)
+    }
+}
+
+impl From<&str> for FieldId {
+    fn from(value: &str) -> Self {
+        Self::Named(Cow::Owned(value.to_string()))
+    }
+}
+
+impl From<String> for FieldId {
+    fn from(value: String) -> Self {
+        Self::Named(Cow::Owned(value))
+    }
+}
+
+impl From<Cow<'static, str>> for FieldId {
+    fn from(value: Cow<'static, str>) -> Self {
+        Self::Named(value)
+    }
+}
+
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
 pub struct NamedField {

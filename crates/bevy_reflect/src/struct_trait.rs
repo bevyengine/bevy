@@ -1,8 +1,7 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{
-    self as bevy_reflect, ApplyError, FieldId, NamedField, PartialReflect, Reflect,
-    ReflectFieldError, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath,
-    TypePathTable,
+    self as bevy_reflect, ApplyError, NamedField, PartialReflect, Reflect, ReflectFieldError,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
@@ -357,7 +356,7 @@ impl Struct for DynamicStruct {
             .get(name)
             .map(|index| &*self.fields[*index])
             .ok_or_else(|| ReflectFieldError::DoesNotExist {
-                field: FieldId::Named(name.to_string().into()),
+                field: name.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
     }
@@ -368,7 +367,7 @@ impl Struct for DynamicStruct {
             Ok(&mut *self.fields[*index])
         } else {
             Err(ReflectFieldError::DoesNotExist {
-                field: FieldId::Named(name.to_string().into()),
+                field: name.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
         }
@@ -378,7 +377,7 @@ impl Struct for DynamicStruct {
     fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
         self.fields.get(index).map(|value| &**value).ok_or_else(|| {
             ReflectFieldError::DoesNotExist {
-                field: FieldId::Unnamed(index),
+                field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             }
         })
@@ -390,7 +389,7 @@ impl Struct for DynamicStruct {
             .get_mut(index)
             .map(|value| &mut **value)
             .ok_or_else(|| ReflectFieldError::DoesNotExist {
-                field: FieldId::Unnamed(index),
+                field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
     }

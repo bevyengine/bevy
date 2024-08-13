@@ -66,7 +66,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 match index {
                     #(#field_indices => #fqresult::Ok(#fields_ref),)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Unnamed(index),
+                        field: ::std::convert::Into::into(index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     })
                 }
@@ -76,7 +76,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 match index {
                     #(#field_indices => #fields_mut,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Unnamed(index),
+                        field: ::std::convert::Into::into(index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     })
                 }

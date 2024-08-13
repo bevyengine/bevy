@@ -79,7 +79,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 match name {
                     #(#field_names => #fqresult::Ok(#fields_ref),)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(name.to_string())),
+                        field: ::std::convert::Into::into(name),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -89,7 +89,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 match name {
                     #(#field_names => #fields_mut,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Named(::std::convert::Into::into(name.to_string())),
+                        field: ::std::convert::Into::into(name),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -99,7 +99,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 match index {
                     #(#field_indices => #fqresult::Ok(#fields_ref),)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Unnamed(index),
+                        field: ::std::convert::Into::into(index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
@@ -109,7 +109,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 match index {
                     #(#field_indices => #fields_mut,)*
                     _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
-                        field: #bevy_reflect_path::FieldId::Unnamed(index),
+                        field: ::std::convert::Into::into(index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
                 }
