@@ -36,12 +36,12 @@ where
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
+    ///     gizmos.arc_2d(Isometry2d::IDENTITY, Rot2::FRAC_PI_4, 1., GREEN);
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
+    ///         .arc_2d(Isometry2d::IDENTITY, Rot2::FRAC_PI_4, 5., RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
