@@ -65,7 +65,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             fn field(&self, index: usize) -> #FQResult<&dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match index {
                     #(#field_indices => #fqresult::Ok(#fields_ref),)*
-                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
                         field: ::std::convert::Into::into(index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     })
@@ -75,7 +75,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
             fn field_mut(&mut self, index: usize) -> #FQResult<&mut dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match index {
                     #(#field_indices => #fields_mut,)*
-                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
                         field: ::std::convert::Into::into(index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     })

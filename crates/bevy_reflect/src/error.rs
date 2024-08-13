@@ -11,12 +11,12 @@ pub enum ReflectFieldError {
         field: FieldId,
         container_type_path: Cow<'static, str>,
     },
-    /// The field does not exist.
+    /// The field could not be found.
     ///
     /// This can either mean the field does not exist on the type
     /// or it has been ignored with the `#[reflect(ignore)]` attribute.
-    #[error("field `{field}` in `{container_type_path}` does not exist")]
-    DoesNotExist {
+    #[error("field `{field}` in `{container_type_path}` not found")]
+    NotFound {
         field: FieldId,
         container_type_path: Cow<'static, str>,
     },

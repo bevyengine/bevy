@@ -355,7 +355,7 @@ impl Struct for DynamicStruct {
         self.field_indices
             .get(name)
             .map(|index| &*self.fields[*index])
-            .ok_or_else(|| ReflectFieldError::DoesNotExist {
+            .ok_or_else(|| ReflectFieldError::NotFound {
                 field: name.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
@@ -366,7 +366,7 @@ impl Struct for DynamicStruct {
         if let Some(index) = self.field_indices.get(name) {
             Ok(&mut *self.fields[*index])
         } else {
-            Err(ReflectFieldError::DoesNotExist {
+            Err(ReflectFieldError::NotFound {
                 field: name.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
@@ -376,7 +376,7 @@ impl Struct for DynamicStruct {
     #[inline]
     fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
         self.fields.get(index).map(|value| &**value).ok_or_else(|| {
-            ReflectFieldError::DoesNotExist {
+            ReflectFieldError::NotFound {
                 field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             }
@@ -388,7 +388,7 @@ impl Struct for DynamicStruct {
         self.fields
             .get_mut(index)
             .map(|value| &mut **value)
-            .ok_or_else(|| ReflectFieldError::DoesNotExist {
+            .ok_or_else(|| ReflectFieldError::NotFound {
                 field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })

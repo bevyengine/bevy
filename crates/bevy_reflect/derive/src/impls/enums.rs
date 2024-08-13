@@ -97,7 +97,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn field(&self, #ref_name: &str) -> #FQResult<&dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                  match #match_this {
                     #(#enum_field,)*
-                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
                         field: ::std::convert::Into::into(#ref_name),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
@@ -107,7 +107,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn field_at(&self, #ref_index: usize) -> #FQResult<&dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match #match_this {
                     #(#enum_field_at,)*
-                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
                         field: ::std::convert::Into::into(#ref_index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
@@ -117,7 +117,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn field_mut(&mut self, #ref_name: &str) -> #FQResult<&mut dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                  match #match_this_mut {
                     #(#enum_field_mut,)*
-                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
                         field: ::std::convert::Into::into(#ref_name),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),
@@ -127,7 +127,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
             fn field_at_mut(&mut self, #ref_index: usize) -> #FQResult<&mut dyn #bevy_reflect_path::PartialReflect, #bevy_reflect_path::error::ReflectFieldError> {
                 match #match_this_mut {
                     #(#enum_field_at_mut,)*
-                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::DoesNotExist {
+                    _ => #FQResult::Err(#bevy_reflect_path::error::ReflectFieldError::NotFound {
                         field: ::std::convert::Into::into(#ref_index),
                         container_type_path: #FQCow::Borrowed(<Self as #bevy_reflect_path::TypePath>::type_path()),
                     }),

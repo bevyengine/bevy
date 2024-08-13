@@ -206,7 +206,7 @@ impl Enum for DynamicEnum {
         if let DynamicVariant::Struct(data) = &self.variant {
             data.field(name)
         } else {
-            Err(ReflectFieldError::DoesNotExist {
+            Err(ReflectFieldError::NotFound {
                 field: name.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
@@ -216,12 +216,12 @@ impl Enum for DynamicEnum {
     fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
         if let DynamicVariant::Tuple(data) = &self.variant {
             data.field(index)
-                .ok_or_else(|| ReflectFieldError::DoesNotExist {
+                .ok_or_else(|| ReflectFieldError::NotFound {
                     field: index.into(),
                     container_type_path: Cow::Borrowed(Self::type_path()),
                 })
         } else {
-            Err(ReflectFieldError::DoesNotExist {
+            Err(ReflectFieldError::NotFound {
                 field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
@@ -232,7 +232,7 @@ impl Enum for DynamicEnum {
         if let DynamicVariant::Struct(data) = &mut self.variant {
             data.field_mut(name)
         } else {
-            Err(ReflectFieldError::DoesNotExist {
+            Err(ReflectFieldError::NotFound {
                 field: name.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
@@ -242,12 +242,12 @@ impl Enum for DynamicEnum {
     fn field_at_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError> {
         if let DynamicVariant::Tuple(data) = &mut self.variant {
             data.field_mut(index)
-                .ok_or_else(|| ReflectFieldError::DoesNotExist {
+                .ok_or_else(|| ReflectFieldError::NotFound {
                     field: index.into(),
                     container_type_path: Cow::Borrowed(Self::type_path()),
                 })
         } else {
-            Err(ReflectFieldError::DoesNotExist {
+            Err(ReflectFieldError::NotFound {
                 field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })

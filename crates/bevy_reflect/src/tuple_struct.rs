@@ -281,7 +281,7 @@ impl TupleStruct for DynamicTupleStruct {
     #[inline]
     fn field(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError> {
         self.fields.get(index).map(|field| &**field).ok_or_else(|| {
-            ReflectFieldError::DoesNotExist {
+            ReflectFieldError::NotFound {
                 field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             }
@@ -293,7 +293,7 @@ impl TupleStruct for DynamicTupleStruct {
         self.fields
             .get_mut(index)
             .map(|field| &mut **field)
-            .ok_or_else(|| ReflectFieldError::DoesNotExist {
+            .ok_or_else(|| ReflectFieldError::NotFound {
                 field: index.into(),
                 container_type_path: Cow::Borrowed(Self::type_path()),
             })
