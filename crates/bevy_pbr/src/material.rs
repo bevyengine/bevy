@@ -319,6 +319,7 @@ where
 pub struct MaterialPipelineKey<M: Material> {
     pub mesh_key: MeshPipelineKey,
     pub bind_group_data: M::Data,
+    pub bind_group_layout: BindGroupLayout,
 }
 
 impl<M: Material> Eq for MaterialPipelineKey<M> where M::Data: PartialEq {}
@@ -328,7 +329,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data
+        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data && self.bind_group_layout.id() == other.bind_group_layout.id()
     }
 }
 
@@ -340,6 +341,7 @@ where
         Self {
             mesh_key: self.mesh_key,
             bind_group_data: self.bind_group_data.clone(),
+            bind_group_layout: self.bind_group_layout.clone(),
         }
     }
 }
@@ -351,6 +353,7 @@ where
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
+        self.bind_group_layout.id().hash(state);
     }
 }
 
@@ -358,7 +361,6 @@ where
 #[derive(Resource)]
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
-    pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
     pub marker: PhantomData<M>,
@@ -368,7 +370,6 @@ impl<M: Material> Clone for MaterialPipeline<M> {
     fn clone(&self) -> Self {
         Self {
             mesh_pipeline: self.mesh_pipeline.clone(),
-            material_layout: self.material_layout.clone(),
             vertex_shader: self.vertex_shader.clone(),
             fragment_shader: self.fragment_shader.clone(),
             marker: PhantomData,
@@ -396,7 +397,7 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        descriptor.layout.insert(2, self.material_layout.clone());
+        descriptor.layout.insert(2, key.bind_group_layout.clone());
 
         M::specialize(self, &mut descriptor, layout, key)?;
         Ok(descriptor)
@@ -406,11 +407,9 @@ where
 impl<M: Material> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
 
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-            material_layout: M::bind_group_layout(render_device),
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -735,6 +734,7 @@ pub fn queue_material_meshes<M: Material>(
                 MaterialPipelineKey {
                     mesh_key,
                     bind_group_data: material.key.clone(),
+                    bind_group_layout: material.bind_group_layout.clone(),
                 },
                 &mesh.layout,
             );
@@ -899,6 +899,7 @@ pub struct MaterialProperties {
 pub struct PreparedMaterial<T: Material> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
+    pub bind_group_layout: BindGroupLayout,
     pub key: T::Data,
     pub properties: MaterialProperties,
 }
@@ -910,16 +911,16 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         SRes<RenderDevice>,
         SRes<RenderAssets<GpuImage>>,
         SRes<FallbackImage>,
-        SRes<MaterialPipeline<M>>,
         SRes<DefaultOpaqueRendererMethod>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline, default_opaque_render_method): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image, default_opaque_render_method): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let layout = material.bind_group_layout(render_device);
         match material.as_bind_group(
-            &pipeline.material_layout,
+            &layout,
             render_device,
             images,
             fallback_image,
@@ -939,6 +940,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                 Ok(PreparedMaterial {
                     bindings: prepared.bindings,
                     bind_group: prepared.bind_group,
+                    bind_group_layout: layout,
                     key: prepared.data,
                     properties: MaterialProperties {
                         alpha_mode: material.alpha_mode(),

@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use bevy_asset::Asset;
-use bevy_render::render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef};
+use bevy_render::render_resource::{AsBindGroup, BindGroupLayout, RenderPipelineDescriptor, ShaderRef};
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
 /// to spawn entities that are rendered with a specific [`UiMaterial`] type. They serve as an easy to use high level
@@ -111,6 +111,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 pub struct UiMaterialKey<M: UiMaterial> {
     pub hdr: bool,
     pub bind_group_data: M::Data,
+    pub layout: BindGroupLayout,
 }
 
 impl<M: UiMaterial> Eq for UiMaterialKey<M> where M::Data: PartialEq {}
@@ -132,6 +133,7 @@ where
         Self {
             hdr: self.hdr,
             bind_group_data: self.bind_group_data.clone(),
+            layout: self.layout.clone(),
         }
     }
 }

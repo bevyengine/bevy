@@ -15,7 +15,6 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshP
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
-    pub material_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
 }
@@ -177,14 +176,15 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     }
 
     fn bind_group_layout_entries(
+        &self,
         render_device: &RenderDevice,
     ) -> Vec<bevy_render::render_resource::BindGroupLayoutEntry>
     where
         Self: Sized,
     {
         // add together the bindings of the standard material and the user material
-        let mut entries = B::bind_group_layout_entries(render_device);
-        entries.extend(E::bind_group_layout_entries(render_device));
+        let mut entries = self.base.bind_group_layout_entries(render_device);
+        entries.extend(self.extension.bind_group_layout_entries(render_device));
         entries
     }
 }
@@ -281,14 +281,12 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         // Call the base material's specialize function
         let MaterialPipeline::<Self> {
             mesh_pipeline,
-            material_layout,
             vertex_shader,
             fragment_shader,
             ..
         } = pipeline.clone();
         let base_pipeline = MaterialPipeline::<B> {
             mesh_pipeline,
-            material_layout,
             vertex_shader,
             fragment_shader,
             marker: Default::default(),
@@ -296,13 +294,13 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
             bind_group_data: key.bind_group_data.0,
+            bind_group_layout: key.bind_group_layout,
         };
         B::specialize(&base_pipeline, descriptor, layout, base_key)?;
 
         // Call the extended material's specialize function afterwards
         let MaterialPipeline::<Self> {
             mesh_pipeline,
-            material_layout,
             vertex_shader,
             fragment_shader,
             ..
@@ -311,7 +309,6 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         E::specialize(
             &MaterialExtensionPipeline {
                 mesh_pipeline,
-                material_layout,
                 vertex_shader,
                 fragment_shader,
             },

@@ -241,7 +241,6 @@ pub struct PrepassPipeline<M: Material> {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
-    pub material_layout: BindGroupLayout,
     pub prepass_material_vertex_shader: Option<Handle<Shader>>,
     pub prepass_material_fragment_shader: Option<Handle<Shader>>,
     pub deferred_material_vertex_shader: Option<Handle<Shader>>,
@@ -309,7 +308,6 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
-            material_layout: M::bind_group_layout(render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
             _marker: PhantomData,
         }
@@ -345,7 +343,7 @@ where
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
-        bind_group_layouts.push(self.material_layout.clone());
+        bind_group_layouts.push(key.bind_group_layout.clone());
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
@@ -841,6 +839,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 MaterialPipelineKey {
                     mesh_key,
                     bind_group_data: material.key.clone(),
+                    bind_group_layout: material.bind_group_layout.clone(),
                 },
                 &mesh.layout,
             );

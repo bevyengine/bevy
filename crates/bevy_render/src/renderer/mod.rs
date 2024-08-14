@@ -180,6 +180,8 @@ pub async fn initialize_renderer(
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_, '_>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
+    info!("Initializing renderer {:?}", request_adapter_options);
+
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await

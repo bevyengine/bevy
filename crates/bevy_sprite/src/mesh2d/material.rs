@@ -231,7 +231,6 @@ fn extract_material_meshes_2d<M: Material2d>(
 #[derive(Resource)]
 pub struct Material2dPipeline<M: Material2d> {
     pub mesh2d_pipeline: Mesh2dPipeline,
-    pub material2d_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
     marker: PhantomData<M>,
@@ -240,6 +239,7 @@ pub struct Material2dPipeline<M: Material2d> {
 pub struct Material2dKey<M: Material2d> {
     pub mesh_key: Mesh2dPipelineKey,
     pub bind_group_data: M::Data,
+    pub layout: BindGroupLayout,
 }
 
 impl<M: Material2d> Eq for Material2dKey<M> where M::Data: PartialEq {}
@@ -261,6 +261,7 @@ where
         Self {
             mesh_key: self.mesh_key,
             bind_group_data: self.bind_group_data.clone(),
+            layout: self.layout.clone(),
         }
     }
 }
@@ -279,7 +280,6 @@ impl<M: Material2d> Clone for Material2dPipeline<M> {
     fn clone(&self) -> Self {
         Self {
             mesh2d_pipeline: self.mesh2d_pipeline.clone(),
-            material2d_layout: self.material2d_layout.clone(),
             vertex_shader: self.vertex_shader.clone(),
             fragment_shader: self.fragment_shader.clone(),
             marker: PhantomData,
@@ -309,7 +309,7 @@ where
         descriptor.layout = vec![
             self.mesh2d_pipeline.view_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
-            self.material2d_layout.clone(),
+            key.layout.clone(),
         ];
 
         M::specialize(&mut descriptor, layout, key)?;
@@ -320,12 +320,9 @@ where
 impl<M: Material2d> FromWorld for Material2dPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
-        let material2d_layout = M::bind_group_layout(render_device);
 
         Material2dPipeline {
             mesh2d_pipeline: world.resource::<Mesh2dPipeline>().clone(),
-            material2d_layout,
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -484,6 +481,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 Material2dKey {
                     mesh_key,
                     bind_group_data: material_2d.key.clone(),
+                    layout: material_2d.bind_group_layout.clone(),
                 },
                 &mesh.layout,
             );
@@ -568,6 +566,7 @@ pub struct Material2dProperties {
 pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
+    pub bind_group_layout: BindGroupLayout,
     pub key: T::Data,
     pub properties: Material2dProperties,
 }
@@ -585,15 +584,15 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         SRes<RenderDevice>,
         SRes<RenderAssets<GpuImage>>,
         SRes<FallbackImage>,
-        SRes<Material2dPipeline<M>>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let layout = material.bind_group_layout(render_device);
         match material.as_bind_group(
-            &pipeline.material2d_layout,
+            &layout,
             render_device,
             images,
             fallback_image,
@@ -604,6 +603,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
                 Ok(PreparedMaterial2d {
                     bindings: prepared.bindings,
                     bind_group: prepared.bind_group,
+                    bind_group_layout: layout,
                     key: prepared.data,
                     properties: Material2dProperties {
                         depth_bias: material.depth_bias(),

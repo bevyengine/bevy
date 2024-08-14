@@ -127,7 +127,6 @@ pub struct UiMaterialBatch<M: UiMaterial> {
 /// Render pipeline data for a given [`UiMaterial`]
 #[derive(Resource)]
 pub struct UiMaterialPipeline<M: UiMaterial> {
-    pub ui_layout: BindGroupLayout,
     pub view_layout: BindGroupLayout,
     pub vertex_shader: Option<Handle<Shader>>,
     pub fragment_shader: Option<Handle<Shader>>,
@@ -204,7 +203,7 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
-        descriptor.layout = vec![self.view_layout.clone(), self.ui_layout.clone()];
+        descriptor.layout = vec![self.view_layout.clone(), key.layout.clone()];
 
         M::specialize(&mut descriptor, key);
 
@@ -216,7 +215,6 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
-        let ui_layout = M::bind_group_layout(render_device);
 
         let view_layout = render_device.create_bind_group_layout(
             "ui_view_layout",
@@ -230,7 +228,6 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
         );
 
         UiMaterialPipeline {
-            ui_layout,
             view_layout,
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
@@ -598,6 +595,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 pub struct PreparedUiMaterial<T: UiMaterial> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
+    pub bind_group_layout: BindGroupLayout,
     pub key: T::Data,
 }
 
@@ -608,17 +606,18 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
         SRes<RenderDevice>,
         SRes<RenderAssets<GpuImage>>,
         SRes<FallbackImage>,
-        SRes<UiMaterialPipeline<M>>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(&pipeline.ui_layout, render_device, images, fallback_image) {
+        let layout = material.bind_group_layout(render_device);
+        match material.as_bind_group(&layout ,render_device, images, fallback_image) {
             Ok(prepared) => Ok(PreparedUiMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
+                bind_group_layout: layout,
                 key: prepared.data,
             }),
             Err(AsBindGroupError::RetryNextUpdate) => {
@@ -663,6 +662,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             UiMaterialKey {
                 hdr: view.hdr,
                 bind_group_data: material.key.clone(),
+                layout: material.bind_group_layout.clone(),
             },
         );
         transparent_phase

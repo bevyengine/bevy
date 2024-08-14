@@ -80,7 +80,7 @@ use crate::{
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::{info, debug};
 use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex},
@@ -281,6 +281,8 @@ impl Plugin for RenderPlugin {
                         Query<&RawHandleWrapperHolder, With<PrimaryWindow>>,
                     > = SystemState::new(app.world_mut());
                     let primary_window = system_state.get(app.world()).get_single().ok().cloned();
+
+                    info!("Primary window: {:?}", primary_window);
                     let settings = render_creation.clone();
                     let async_renderer = async move {
                         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {

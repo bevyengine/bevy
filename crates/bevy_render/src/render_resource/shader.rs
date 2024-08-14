@@ -4,6 +4,7 @@ use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext}
 use bevy_reflect::TypePath;
 use bevy_utils::tracing::error;
 use std::{borrow::Cow, marker::Copy};
+use naga::Module;
 use thiserror::Error;
 
 define_atomic_id!(ShaderId);
@@ -124,6 +125,19 @@ impl Shader {
         }
     }
 
+    pub fn from_naga_module(module: Module, path: impl Into<String>) -> Shader {
+        let path = path.into();
+        Shader {
+            path: path.clone(),
+            imports: Vec::new(),
+            import_path: ShaderImport::AssetPath(path),
+            source: Source::NagaModule(module),
+            additional_imports: Default::default(),
+            shader_defs: Default::default(),
+            file_dependencies: Default::default(),
+        }
+    }
+
     pub fn set_import_path<P: Into<String>>(&mut self, import_path: P) {
         self.import_path = ShaderImport::Custom(import_path.into());
     }
@@ -196,7 +210,7 @@ pub enum Source {
     SpirV(Cow<'static, [u8]>),
     // TODO: consider the following
     // PrecompiledSpirVMacros(HashMap<HashSet<String>, Vec<u32>>)
-    // NagaModule(Module) ... Module impls Serialize/Deserialize
+    NagaModule(Module) // ... Module impls Serialize/Deserialize
 }
 
 impl Source {
@@ -204,6 +218,7 @@ impl Source {
         match self {
             Source::Wgsl(s) | Source::Glsl(s, _) => s,
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::NagaModule(_) => panic!("naga module not yet implemented"),
         }
     }
 }
@@ -219,6 +234,7 @@ impl From<&Source> for naga_oil::compose::ShaderLanguage {
                 "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
             ),
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::NagaModule(_) => panic!("naga module not yet implemented"),
         }
     }
 }
@@ -238,6 +254,7 @@ impl From<&Source> for naga_oil::compose::ShaderType {
                 "GLSL is not supported in this configuration; use the feature `shader_format_glsl`"
             ),
             Source::SpirV(_) => panic!("spirv not yet implemented"),
+            Source::NagaModule(_) => panic!("naga module not yet implemented"),
         }
     }
 }
