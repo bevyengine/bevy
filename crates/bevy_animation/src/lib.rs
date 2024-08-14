@@ -160,6 +160,7 @@ impl VariableCurve {
     ///
     /// Returns the first keyframe if the `seek_time` is before the first keyframe, and
     /// the second-to-last keyframe if the `seek_time` is after the last keyframe.
+    /// Panics if there are less than 2 keyframes.
     pub fn find_interpolation_start_keyframe(&self, seek_time: f32) -> usize {
         // An Ok(keyframe_index) result means an exact result was found by binary search
         // An Err result means the keyframe was not found, and the index is the keyframe
@@ -174,7 +175,7 @@ impl VariableCurve {
             // An exact match was found
             Ok(i) => i.clamp(0, self.keyframe_timestamps.len() - 2),
             // No exact match was found, so return the previous keyframe to interpolate from.
-            Err(i) => (i - 1).clamp(0, self.keyframe_timestamps.len() - 2),
+            Err(i) => (i.saturating_sub(1)).clamp(0, self.keyframe_timestamps.len() - 2),
         }
     }
 }
