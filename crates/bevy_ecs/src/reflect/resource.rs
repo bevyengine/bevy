@@ -203,8 +203,8 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
             reflect_unchecked_mut: |world| {
                 // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
                 // reference or multiple immutable ones alive at any given point
-                unsafe { world.get_resource_mut::<R>() }
-                    .map(|res| res.map_unchanged(|value| value as &mut dyn Reflect))
+                let res = unsafe { world.get_resource_mut::<R>() };
+                res.map(|res| res.map_unchanged(|value| value as &mut dyn Reflect))
             },
             copy: |source_world, destination_world, registry| {
                 let source_resource = source_world.resource::<R>();
