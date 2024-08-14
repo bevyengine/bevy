@@ -1,6 +1,6 @@
 # How to enable/disable diagnostics gathering during runtime using [`DiagnosticsStore`]
 
-```rust
+```ignore
 use std::time::Duration;
 
 use bevy::{
