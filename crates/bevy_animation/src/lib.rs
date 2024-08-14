@@ -155,6 +155,28 @@ impl VariableCurve {
 
         Some(step_start)
     }
+
+    /// Find the index of the keyframe at or before the current time.
+    ///
+    /// Returns the first keyframe if the `seek_time` is before the first keyframe, and
+    /// the second-to-last keyframe if the `seek_time` is after the last keyframe.
+    pub fn find_interpolation_start_keyframe(&self, seek_time: f32) -> usize {
+        // An Ok(keyframe_index) result means an exact result was found by binary search
+        // An Err result means the keyframe was not found, and the index is the keyframe
+        // PERF: finding the current keyframe can be optimised
+        let search_result = self
+            .keyframe_timestamps
+            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
+
+        // We want to find the index of the keyframe before the current time
+        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
+        match search_result {
+            // An exact match was found
+            Ok(i) => i.clamp(0, self.keyframe_timestamps.len() - 2),
+            // No exact match was found, so return the previous keyframe to interpolate from.
+            Err(i) => (i - 1).clamp(0, self.keyframe_timestamps.len() - 2),
+        }
+    }
 }
 
 /// Interpolation method to use between keyframes.
@@ -878,15 +900,13 @@ impl AnimationTargetContext<'_> {
                 continue;
             }
 
-            // Find the current keyframe
-            let Some(step_start) = curve.find_current_keyframe(seek_time) else {
-                continue;
-            };
+            // Find the best keyframe to interpolate from
+            let step_start = curve.find_interpolation_start_keyframe(seek_time);
 
             let timestamp_start = curve.keyframe_timestamps[step_start];
             let timestamp_end = curve.keyframe_timestamps[step_start + 1];
             // Compute how far we are through the keyframe, normalized to [0, 1]
-            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, seek_time);
+            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, seek_time).clamp(0.0, 1.0);
 
             self.apply_tweened_keyframe(
                 curve,
