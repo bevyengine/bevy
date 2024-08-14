@@ -2,27 +2,11 @@
 //! This is run in CI.
 
 use bevy::{
-    ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings, ScheduleLabel},
+    ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
     prelude::*,
     utils::HashMap,
 };
-use bevy_render::{pipelined_rendering::RenderExtractApp, Render, RenderApp};
-
-/// FIXME: bevy should not have any ambiguities, but it takes time to clean these up,
-/// so we're just ignoring those for now.
-///
-/// See [#7386](https://github.com/bevyengine/bevy/issues/7386) for relevant issue.
-pub fn get_ignored_ambiguous_system_schedules() -> Vec<Box<dyn ScheduleLabel>> {
-    vec![
-        Box::new(First),
-        Box::new(PreUpdate),
-        Box::new(Update),
-        Box::new(PostUpdate),
-        Box::new(Last),
-        Box::new(ExtractSchedule),
-        Box::new(Render),
-    ]
-}
+use bevy_render::{pipelined_rendering::RenderExtractApp, RenderApp};
 
 /// A test to confirm that `bevy` doesn't regress its system ambiguities count when using [`DefaultPlugins`].
 /// This is run in CI.
@@ -43,17 +27,9 @@ pub fn main() {
 
     let sub_app = app.main();
 
-    let ignored_schedules = get_ignored_ambiguous_system_schedules();
-
     let ambiguities = count_ambiguities(sub_app);
     let mut unexpected_ambiguities = vec![];
     for (&label, &count) in ambiguities.0.iter() {
-        if ignored_schedules
-            .iter()
-            .any(|label_to_ignore| **label_to_ignore == *label)
-        {
-            continue;
-        }
         if count != 0 {
             unexpected_ambiguities.push(label);
         }
@@ -69,9 +45,8 @@ pub fn main() {
 
     let total_ambiguities = ambiguities.total();
     assert_eq!(
-        total_ambiguities, 72,
-        "Main app does not have an expected conflicting systems count, \
-        you might consider verifying if it's normal, or change the expected number.\n\
+        total_ambiguities, 0,
+        "No system order ambiguities should be present between systems added in `DefaultPlugins`.\n
         Details:\n{:#?}",
         ambiguities
     );
@@ -98,16 +73,8 @@ impl AmbiguitiesCount {
 }
 
 fn configure_ambiguity_detection(sub_app: &mut SubApp) {
-    let ignored_ambiguous_systems = get_ignored_ambiguous_system_schedules();
     let mut schedules = sub_app.world_mut().resource_mut::<Schedules>();
     for (_, schedule) in schedules.iter_mut() {
-        if ignored_ambiguous_systems
-            .iter()
-            .any(|label| **label == *schedule.label())
-        {
-            // Note: you can remove this bypass to get full details about ambiguities.
-            continue;
-        }
         schedule.set_build_settings(ScheduleBuildSettings {
             ambiguity_detection: LogLevel::Warn,
             use_shortnames: false,
