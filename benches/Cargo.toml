@@ -13,7 +13,6 @@ criterion = { version = "0.3", features = ["html_reports"] }
 bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
 bevy_hierarchy = { path = "../crates/bevy_hierarchy" }
-bevy_internal = { path = "../crates/bevy_internal" }
 bevy_math = { path = "../crates/bevy_math" }
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
 bevy_render = { path = "../crates/bevy_render" }
@@ -22,7 +21,7 @@ bevy_utils = { path = "../crates/bevy_utils" }
 
 # make bevy_render compile on linux. x11 vs wayland does not matter here as the benches do not actually use a window
 [target.'cfg(target_os = "linux")'.dev-dependencies]
-bevy_internal = { path = "../crates/bevy_internal", features = ["x11"] }
+bevy_winit = { path = "../crates/bevy_winit", features = ["x11"] }
 
 [profile.release]
 opt-level = 3
