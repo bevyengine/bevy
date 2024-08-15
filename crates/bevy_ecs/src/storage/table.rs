@@ -7,6 +7,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
+use nonmax::NonMaxU32;
 use std::alloc::Layout;
 #[cfg(feature = "track_change_detection")]
 use std::panic::Location;
@@ -101,15 +102,19 @@ impl TableId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 // SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
-pub struct TableRow(u32);
+pub struct TableRow(NonMaxU32);
 
 impl TableRow {
-    pub(crate) const INVALID: TableRow = TableRow(u32::MAX);
+    pub(crate) const INVALID: TableRow = TableRow(NonMaxU32::MAX);
 
     /// Creates a `TableRow`.
+    ///
+    /// Will panic if the provided value does not fit within a [`NonMaxU32`].
     #[inline]
     pub const fn from_u32(index: u32) -> Self {
-        Self(index)
+        debug_assert!(index <= NonMaxU32::MAX.get());
+        // SAFETY: Caller guarantees that `index` is valid
+        Self(unsafe { NonMaxU32::new_unchecked(index) })
     }
 
     /// Creates a `TableRow` from a [`usize`] index.
@@ -120,20 +125,20 @@ impl TableRow {
     #[inline]
     pub const fn from_usize(index: usize) -> Self {
         debug_assert!(index as u32 as usize == index);
-        Self(index as u32)
+        Self::from_u32(index as u32)
     }
 
     /// Gets the index of the row as a [`usize`].
     #[inline]
     pub const fn as_usize(self) -> usize {
         // usize is at least u32 in Bevy
-        self.0 as usize
+        self.0.get() as usize
     }
 
     /// Gets the index of the row as a [`usize`].
     #[inline]
     pub const fn as_u32(self) -> u32 {
-        self.0
+        self.0.get()
     }
 }
 

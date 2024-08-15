@@ -999,9 +999,7 @@ unsafe fn get_component(
     // SAFETY: component_id exists and is therefore valid
     match storage_type {
         StorageType::Table => {
-            let components = world
-                .fetch_table(location, component_id)
-                .debug_checked_unwrap();
+            let components = world.fetch_table(location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(components.get_data_unchecked(location.table_row))
         }
@@ -1030,9 +1028,7 @@ unsafe fn get_component_and_ticks(
 ) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
     match storage_type {
         StorageType::Table => {
-            let components = world
-                .fetch_table(location, component_id)
-                .debug_checked_unwrap();
+            let components = world.fetch_table(location, component_id)?;
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some((
@@ -1073,9 +1069,7 @@ unsafe fn get_ticks(
 ) -> Option<ComponentTicks> {
     match storage_type {
         StorageType::Table => {
-            let components = world
-                .fetch_table(location, component_id)
-                .debug_checked_unwrap();
+            let components = world.fetch_table(location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(components.get_ticks_unchecked(location.table_row))
         }
