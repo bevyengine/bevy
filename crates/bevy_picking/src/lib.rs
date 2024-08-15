@@ -177,10 +177,10 @@ pub enum PickSet {
 }
 
 /// One plugin that contains the [`input::InputPlugin`], [`PickingPlugin`] and the [`InteractionPlugin`],
-/// this is probable the plugin that will be most used.
+/// this is probably the plugin that will be most used.
 /// Note: for any of these plugins to work, they require a picking backend to be active,
 /// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
-/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into Triggers
+/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::Trigger`]s.
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
 
