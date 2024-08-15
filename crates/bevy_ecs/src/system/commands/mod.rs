@@ -777,7 +777,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.add(TriggerEvent { event, targets });
     }
 
-    /// Spawn an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.  
+    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1208,6 +1208,15 @@ impl EntityCommands<'_> {
     /// Returns the underlying [`Commands`].
     pub fn commands(&mut self) -> Commands {
         self.commands.reborrow()
+    }
+
+    /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that
+    /// watches this entity.
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
+    pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+        self.commands.trigger_targets(event, self.entity);
+        self
     }
 
     /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
