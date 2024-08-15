@@ -61,6 +61,7 @@ fn configure_ambiguity_detection(sub_app: &mut SubApp) {
     let mut schedules = sub_app.world_mut().resource_mut::<Schedules>();
     for (_, schedule) in schedules.iter_mut() {
         schedule.set_build_settings(ScheduleBuildSettings {
+            // NOTE: you can change this to `LogLevel::Ignore` to easily see the current number of ambiguities.
             ambiguity_detection: LogLevel::Warn,
             use_shortnames: false,
             ..default()
