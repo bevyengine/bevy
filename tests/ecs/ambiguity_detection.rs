@@ -1,5 +1,8 @@
 //! A test to confirm that `bevy` doesn't regress its system ambiguities count when using [`DefaultPlugins`].
 //! This is run in CI.
+//!
+//! Note that because this test requires rendering, it isn't actually an integration test!
+//! Instead, it's secretly an example: you can run this test manually using `cargo run --example ambiguity_detection`.
 
 use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
@@ -8,9 +11,7 @@ use bevy::{
 };
 use bevy_render::{pipelined_rendering::RenderExtractApp, RenderApp};
 
-/// A test to confirm that `bevy` doesn't regress its system ambiguities count when using [`DefaultPlugins`].
-/// This is run in CI.
-pub fn main() {
+fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
 
