@@ -26,7 +26,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
+    archetype::{ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
