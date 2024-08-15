@@ -78,9 +78,11 @@ impl Plugin for Core2dPlugin {
         };
         render_app
             .init_resource::<DrawFunctions<Opaque2d>>()
+            .init_resource::<DrawFunctions<AlphaMask2d>>()
             .init_resource::<DrawFunctions<Transparent2d>>()
             .init_resource::<ViewSortedRenderPhases<Transparent2d>>()
             .init_resource::<ViewBinnedRenderPhases<Opaque2d>>()
+            .init_resource::<ViewBinnedRenderPhases<AlphaMask2d>>()
             .add_systems(ExtractSchedule, extract_core_2d_camera_phases)
             .add_systems(
                 Render,
@@ -147,8 +149,6 @@ pub struct Opaque2dBinKey {
     /// the ID of another type of asset.
     pub asset_id: UntypedAssetId,
     /// The ID of a bind group specific to the material.
-    ///
-    /// In the case of PBR, this is the `MaterialBindGroupId`.
     pub material_bind_group_id: Option<BindGroupId>,
 }
 
@@ -207,6 +207,92 @@ impl CachedRenderPipelinePhaseItem for Opaque2d {
     }
 }
 
+/// Alpha mask 2D [`BinnedPhaseItem`]s.
+pub struct AlphaMask2d {
+    /// The key, which determines which can be batched.
+    pub key: AlphaMask2dBinKey,
+    /// An entity from which data will be fetched, including the mesh if
+    /// applicable.
+    pub representative_entity: Entity,
+    /// The ranges of instances.
+    pub batch_range: Range<u32>,
+    /// An extra index, which is either a dynamic offset or an index in the
+    /// indirect parameters list.
+    pub extra_index: PhaseItemExtraIndex,
+}
+
+/// Data that must be identical in order to batch phase items together.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AlphaMask2dBinKey {
+    /// The identifier of the render pipeline.
+    pub pipeline: CachedRenderPipelineId,
+    /// The function used to draw.
+    pub draw_function: DrawFunctionId,
+    /// The asset that this phase item is associated with.
+    ///
+    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
+    /// the ID of another type of asset.
+    pub asset_id: UntypedAssetId,
+    /// The ID of a bind group specific to the material.
+    pub material_bind_group_id: Option<BindGroupId>,
+}
+
+impl PhaseItem for AlphaMask2d {
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.representative_entity
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.key.draw_function
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
+    }
+
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
+    }
+}
+
+impl BinnedPhaseItem for AlphaMask2d {
+    type BinKey = AlphaMask2dBinKey;
+
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        extra_index: PhaseItemExtraIndex,
+    ) -> Self {
+        AlphaMask2d {
+            key,
+            representative_entity,
+            batch_range,
+            extra_index,
+        }
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for AlphaMask2d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.key.pipeline
+    }
+}
+
+/// Transparent 2D [`SortedPhaseItem`]s.
 pub struct Transparent2d {
     pub sort_key: FloatOrd,
     pub entity: Entity,
@@ -274,6 +360,7 @@ pub fn extract_core_2d_camera_phases(
     mut commands: Commands,
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
+    mut alpha_mask_2d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
     cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
     mut live_entities: Local<EntityHashSet>,
 ) {
@@ -287,6 +374,7 @@ pub fn extract_core_2d_camera_phases(
         commands.get_or_spawn(entity);
         transparent_2d_phases.insert_or_clear(entity);
         opaque_2d_phases.insert_or_clear(entity);
+        alpha_mask_2d_phases.insert_or_clear(entity);
 
         live_entities.insert(entity);
     }
@@ -294,6 +382,7 @@ pub fn extract_core_2d_camera_phases(
     // Clear out all dead views.
     transparent_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
     opaque_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
+    alpha_mask_2d_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
 pub fn prepare_core_2d_depth_textures(
