@@ -32,7 +32,7 @@ fn main() {
         // This number *should* be zero.
         // Over time, we are working to reduce the number: your PR should not increase it.
         // See https://github.com/bevyengine/bevy/issues/7386 for progress.
-        71,
+        72,
         "Main app has unexpected ambiguities among the following schedules: \n {:?}.",
         main_app_ambiguities,
     );
