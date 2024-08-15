@@ -27,37 +27,20 @@ fn main() {
     app.update();
 
     let main_app_ambiguities = count_ambiguities(app.main());
-    let mut summarized_ambiguities = vec![];
-    for (&label, &count) in main_app_ambiguities.0.iter() {
-        if count != 0 {
-            summarized_ambiguities.push(label);
-        }
-    }
     assert_eq!(
         main_app_ambiguities.total(),
         0,
-        "Main app has unexpected ambiguities among these schedules: {:?}.\n\
-    More Details:\n{:#?}",
+        "Main app has unexpected ambiguities among the following schedules: \n {:?}.",
         main_app_ambiguities,
-        summarized_ambiguities
     );
 
     // RenderApp is not checked here, because it is not within the App at this point.
     let render_extract_ambiguities = count_ambiguities(app.sub_app(RenderExtractApp));
-    let mut summarized_ambiguities = vec![];
-    for (&label, &count) in main_app_ambiguities.0.iter() {
-        if count != 0 {
-            summarized_ambiguities.push(label);
-        }
-    }
-
     assert_eq!(
         render_extract_ambiguities.total(),
         0,
-        "RenderExtract app has unexpected ambiguities among these schedules: {:?}.\n\
-        More Details:\n{:#?}",
+        "RenderExtract app has unexpected ambiguities among the following schedules: \n {:?}",
         render_extract_ambiguities,
-        summarized_ambiguities
     );
 }
 
