@@ -20,7 +20,7 @@ fn iter_frag_empty(c: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
-    group.bench_function("table", |b| {
+    group.bench_function("foreach_table", |b| {
         let mut world = World::new();
         spawn_empty_frag_archetype::<Table>(&mut world);
         let mut q: SystemState<Query<(Entity, &Table)>> =
@@ -34,7 +34,7 @@ fn iter_frag_empty(c: &mut Criterion) {
             });
         });
     });
-    group.bench_function("sparse", |b| {
+    group.bench_function("foreach_sparse", |b| {
         let mut world = World::new();
         spawn_empty_frag_archetype::<Sparse>(&mut world);
         let mut q: SystemState<Query<(Entity, &Sparse)>> =
