@@ -1033,6 +1033,13 @@ mod tests {
 
     #[derive(Component)]
     struct W<T>(T);
+    #[test]
+    fn table_row_niche_opt() {
+        assert_eq!(
+            std::mem::size_of::<TableRow>(),
+            std::mem::size_of::<Option<TableRow>>()
+        );
+    }
 
     #[test]
     fn table() {
