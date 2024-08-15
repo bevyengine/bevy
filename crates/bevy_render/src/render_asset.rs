@@ -3,7 +3,7 @@ use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
-    schedule::{SystemConfigs, SystemSet},
+    schedule::SystemConfigs,
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
@@ -119,14 +119,6 @@ pub struct RenderAssetPlugin<A: RenderAsset, AFTER: RenderAssetDependency + 'sta
     phantom: PhantomData<fn() -> (A, AFTER)>,
 }
 
-/// A system set for all instances of [`extract_render_asset`],
-/// added by [`RenderAssetPlugin`].
-///
-/// This system set is added to the [`ExtractSchedule`],
-/// and [`RenderAssetPlugin`] will allow all systems in this set to be ambiguous with each other.
-#[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ExtractRenderAssetSet;
-
 impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Default
     for RenderAssetPlugin<A, AFTER>
 {
@@ -147,13 +139,7 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_systems(
-                    ExtractSchedule,
-                    extract_render_asset::<A>
-                        .in_set(ExtractRenderAssetSet)
-                        // These systems can safely be ambiguous with each other as they only mutably access cached system state
-                        .ambiguous_with(ExtractRenderAssetSet),
-                );
+                .add_systems(ExtractSchedule, extract_render_asset::<A>);
             AFTER::register_system(
                 render_app,
                 prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
