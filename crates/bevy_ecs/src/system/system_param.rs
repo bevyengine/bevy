@@ -7,7 +7,6 @@ use crate::{
     change_detection::{Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
-    prelude::QueryBuilder,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QueryState,
         ReadOnlyQueryData,
@@ -185,19 +184,6 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 }
 
-/// A parameter that can be built with [`SystemBuilder`](crate::system::builder::SystemBuilder)
-pub trait BuildableSystemParam: SystemParam {
-    /// A mutable reference to this type will be passed to the builder function
-    type Builder<'b>;
-
-    /// Constructs [`SystemParam::State`] for `Self` using a given builder function
-    fn build(
-        world: &mut World,
-        meta: &mut SystemMeta,
-        func: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State;
-}
-
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
@@ -221,17 +207,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
-        assert_component_access_compatibility(
-            &system_meta.name,
-            std::any::type_name::<D>(),
-            std::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &state.component_access,
-            world,
-        );
-        system_meta
-            .component_access_set
-            .add(state.component_access.clone());
+        init_query_param(world, system_meta, &state);
         state
     }
 
@@ -257,33 +233,22 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     }
 }
 
-impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static> BuildableSystemParam
-    for Query<'w, 's, D, F>
-{
-    type Builder<'b> = QueryBuilder<'b, D, F>;
-
-    #[inline]
-    fn build(
-        world: &mut World,
-        system_meta: &mut SystemMeta,
-        build: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        let mut builder = QueryBuilder::new(world);
-        build(&mut builder);
-        let state = builder.build();
-        assert_component_access_compatibility(
-            &system_meta.name,
-            std::any::type_name::<D>(),
-            std::any::type_name::<F>(),
-            &system_meta.component_access_set,
-            &state.component_access,
-            world,
-        );
-        system_meta
-            .component_access_set
-            .add(state.component_access.clone());
-        state
-    }
+pub(crate) fn init_query_param<D: QueryData + 'static, F: QueryFilter + 'static>(
+    world: &mut World,
+    system_meta: &mut SystemMeta,
+    state: &QueryState<D, F>,
+) {
+    assert_component_access_compatibility(
+        &system_meta.name,
+        std::any::type_name::<D>(),
+        std::any::type_name::<F>(),
+        &system_meta.component_access_set,
+        &state.component_access,
+        world,
+    );
+    system_meta
+        .component_access_set
+        .add(state.component_access.clone());
 }
 
 fn assert_component_access_compatibility(
@@ -418,7 +383,7 @@ fn assert_component_access_compatibility(
 ///         # let _event = event;
 ///     }
 ///     set.p1().send(MyEvent::new());
-///     
+///
 ///     let entities = set.p2().entities();
 ///     // ...
 ///     # let _entities = entities;
@@ -512,7 +477,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.components.init_resource::<T>();
-        world.initialize_resource_internal(component_id);
+        let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
@@ -525,9 +490,6 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             .component_access_set
             .add_unfiltered_resource_read(component_id);
 
-        let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
-            .unwrap();
         system_meta
             .archetype_component_access
             .add_resource_read(archetype_component_id);
@@ -609,7 +571,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.components.init_resource::<T>();
-        world.initialize_resource_internal(component_id);
+        let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_resource_write(component_id) {
@@ -625,9 +587,6 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             .component_access_set
             .add_unfiltered_resource_write(component_id);
 
-        let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
-            .unwrap();
         system_meta
             .archetype_component_access
             .add_resource_write(archetype_component_id);
@@ -871,20 +830,6 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
-    }
-}
-
-impl<'w, T: FromWorld + Send + 'static> BuildableSystemParam for Local<'w, T> {
-    type Builder<'b> = T;
-
-    fn build(
-        world: &mut World,
-        _meta: &mut SystemMeta,
-        func: impl FnOnce(&mut Self::Builder<'_>),
-    ) -> Self::State {
-        let mut value = T::from_world(world);
-        func(&mut value);
-        SyncCell::new(value)
     }
 }
 
@@ -1161,7 +1106,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         system_meta.set_non_send();
 
         let component_id = world.components.init_non_send::<T>();
-        world.initialize_non_send_internal(component_id);
+        let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
@@ -1174,9 +1119,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             .component_access_set
             .add_unfiltered_resource_read(component_id);
 
-        let archetype_component_id = world
-            .get_non_send_archetype_component_id(component_id)
-            .unwrap();
         system_meta
             .archetype_component_access
             .add_resource_read(archetype_component_id);
@@ -1255,7 +1197,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta.set_non_send();
 
         let component_id = world.components.init_non_send::<T>();
-        world.initialize_non_send_internal(component_id);
+        let archetype_component_id = world.initialize_non_send_internal(component_id).id();
 
         let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_component_write(component_id) {
@@ -1271,9 +1213,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             .component_access_set
             .add_unfiltered_resource_write(component_id);
 
-        let archetype_component_id = world
-            .get_non_send_archetype_component_id(component_id)
-            .unwrap();
         system_meta
             .archetype_component_access
             .add_resource_write(archetype_component_id);
@@ -1471,13 +1410,15 @@ unsafe impl SystemParam for SystemChangeTick {
 }
 
 macro_rules! impl_system_param_tuple {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
+        $(#[$meta])*
         // SAFETY: tuple consists only of ReadOnlySystemParams
         unsafe impl<$($param: ReadOnlySystemParam),*> ReadOnlySystemParam for ($($param,)*) {}
 
         // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
         #[allow(clippy::undocumented_unsafe_blocks)] // false positive by clippy
         #[allow(non_snake_case)]
+        $(#[$meta])*
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
@@ -1520,7 +1461,13 @@ macro_rules! impl_system_param_tuple {
     };
 }
 
-all_tuples!(impl_system_param_tuple, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_param_tuple,
+    0,
+    16,
+    P
+);
 
 /// Contains type aliases for built-in [`SystemParam`]s with `'static` lifetimes.
 /// This makes it more convenient to refer to these types in contexts where

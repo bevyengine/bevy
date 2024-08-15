@@ -2,8 +2,9 @@ use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
     DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField,
-    Reflect, ReflectDeserialize, Set, SetInfo, StructInfo, StructVariantInfo, TupleInfo,
-    TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    PartialReflect, Reflect, ReflectDeserialize, Set, SetInfo, StructInfo, StructVariantInfo,
+    TupleInfo, TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry,
+    VariantInfo,
 };
 use erased_serde::Deserializer;
 use serde::de::{
@@ -339,21 +340,21 @@ impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
 /// let mut deserializer = ron::Deserializer::from_str(input).unwrap();
 /// let reflect_deserializer = ReflectDeserializer::new(&registry);
 ///
-/// let output: Box<dyn Reflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+/// let output: Box<dyn PartialReflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 ///
 /// // Since `MyStruct` is not a value type and does not register `ReflectDeserialize`,
-/// // we know that its deserialized representation will be a `DynamicStruct`.
-/// assert!(output.is::<DynamicStruct>());
-/// assert!(output.represents::<MyStruct>());
+/// // we know that its deserialized value will be a `DynamicStruct`,
+/// // although it will represent `MyStruct`.
+/// assert!(output.as_partial_reflect().represents::<MyStruct>());
 ///
 /// // We can convert back to `MyStruct` using `FromReflect`.
-/// let value: MyStruct = <MyStruct as FromReflect>::from_reflect(&*output).unwrap();
+/// let value: MyStruct = <MyStruct as FromReflect>::from_reflect(output.as_partial_reflect()).unwrap();
 /// assert_eq!(value, MyStruct { value: 123 });
 ///
 /// // We can also do this dynamically with `ReflectFromReflect`.
 /// let type_id = output.get_represented_type_info().unwrap().type_id();
 /// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
-/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(&*output).unwrap();
+/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(output.as_partial_reflect()).unwrap();
 /// assert!(value.is::<MyStruct>());
 /// assert_eq!(value.take::<MyStruct>().unwrap(), MyStruct { value: 123 });
 /// ```
@@ -378,7 +379,7 @@ impl<'a> ReflectDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
-    type Value = Box<dyn Reflect>;
+    type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -389,7 +390,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
         }
 
         impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
-            type Value = Box<dyn Reflect>;
+            type Value = Box<dyn PartialReflect>;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
                 formatter
@@ -472,21 +473,21 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 /// let mut deserializer = ron::Deserializer::from_str(input).unwrap();
 /// let reflect_deserializer = TypedReflectDeserializer::new(registration, &registry);
 ///
-/// let output: Box<dyn Reflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+/// let output: Box<dyn PartialReflect> = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 ///
 /// // Since `MyStruct` is not a value type and does not register `ReflectDeserialize`,
-/// // we know that its deserialized representation will be a `DynamicStruct`.
-/// assert!(output.is::<DynamicStruct>());
-/// assert!(output.represents::<MyStruct>());
+/// // we know that its deserialized value will be a `DynamicStruct`,
+/// // although it will represent `MyStruct`.
+/// assert!(output.as_partial_reflect().represents::<MyStruct>());
 ///
 /// // We can convert back to `MyStruct` using `FromReflect`.
-/// let value: MyStruct = <MyStruct as FromReflect>::from_reflect(&*output).unwrap();
+/// let value: MyStruct = <MyStruct as FromReflect>::from_reflect(output.as_partial_reflect()).unwrap();
 /// assert_eq!(value, MyStruct { value: 123 });
 ///
 /// // We can also do this dynamically with `ReflectFromReflect`.
 /// let type_id = output.get_represented_type_info().unwrap().type_id();
 /// let reflect_from_reflect = registry.get_type_data::<ReflectFromReflect>(type_id).unwrap();
-/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(&*output).unwrap();
+/// let value: Box<dyn Reflect> = reflect_from_reflect.from_reflect(output.as_partial_reflect()).unwrap();
 /// assert!(value.is::<MyStruct>());
 /// assert_eq!(value.take::<MyStruct>().unwrap(), MyStruct { value: 123 });
 /// ```
@@ -514,7 +515,7 @@ impl<'a> TypedReflectDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
-    type Value = Box<dyn Reflect>;
+    type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -525,7 +526,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
         // Handle both Value case and types that have a custom `ReflectDeserialize`
         if let Some(deserialize_reflect) = self.registration.data::<ReflectDeserialize>() {
             let value = deserialize_reflect.deserialize(deserializer)?;
-            return Ok(value);
+            return Ok(value.into_partial_reflect());
         }
 
         match self.registration.type_info() {
@@ -1107,7 +1108,10 @@ where
             let Some(field) = info.field_at(*skipped_index) else {
                 continue;
             };
-            dynamic_struct.insert_boxed(field.name(), skipped_field.generate_default());
+            dynamic_struct.insert_boxed(
+                field.name(),
+                skipped_field.generate_default().into_partial_reflect(),
+            );
         }
     }
 
@@ -1137,7 +1141,7 @@ where
 
     for index in 0..len {
         if let Some(value) = serialization_data.and_then(|data| data.generate_default(index)) {
-            tuple.insert_boxed(value);
+            tuple.insert_boxed(value.into_partial_reflect());
             continue;
         }
 
@@ -1182,7 +1186,7 @@ where
             .unwrap_or_default()
         {
             if let Some(value) = serialization_data.unwrap().generate_default(index) {
-                dynamic_struct.insert_boxed(name, value);
+                dynamic_struct.insert_boxed(name, value.into_partial_reflect());
             }
             continue;
         }
@@ -1224,7 +1228,9 @@ mod tests {
 
     use crate as bevy_reflect;
     use crate::serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer};
-    use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
+    use crate::{
+        DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistry,
+    };
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {
@@ -1445,7 +1451,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
         let output = dynamic_output
-            .take::<f32>()
+            .try_take::<f32>()
             .expect("underlying type should be f32");
         assert_eq!(1.23, output);
     }
@@ -1472,7 +1478,9 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        let output = <Foo as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
+        let output =
+            <Foo as FromReflect>::from_reflect(dynamic_output.as_ref().as_partial_reflect())
+                .unwrap();
         assert_eq!(expected, output);
     }
 
@@ -1585,7 +1593,9 @@ mod tests {
         let output = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         let expected = DynamicEnum::from(MyEnum::Tuple(1.23, 3.21));
-        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+        assert!(expected
+            .reflect_partial_eq(output.as_partial_reflect())
+            .unwrap());
 
         // === Struct Variant === //
         let input = r#"{
@@ -1600,7 +1610,9 @@ mod tests {
         let expected = DynamicEnum::from(MyEnum::Struct {
             value: String::from("I <3 Enums"),
         });
-        assert!(expected.reflect_partial_eq(output.as_ref()).unwrap());
+        assert!(expected
+            .reflect_partial_eq(output.as_partial_reflect())
+            .unwrap());
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/12462
@@ -1616,7 +1628,7 @@ mod tests {
         let reflect_deserializer = ReflectDeserializer::new(&registry);
         let input2 = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-        let serializer2 = ReflectSerializer::new(&*input2, &registry);
+        let serializer2 = ReflectSerializer::new(input2.as_partial_reflect(), &registry);
         let serialized2 = ron::ser::to_string(&serializer2).unwrap();
 
         assert_eq!(serialized1, serialized2);

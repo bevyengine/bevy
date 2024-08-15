@@ -58,6 +58,7 @@ jobs:
       - name: Build docs
         env:
           # needs to be in sync with [package.metadata.docs.rs]
+          RUSTFLAGS: --cfg docsrs_dep
           RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition
         run: |
           cargo doc \

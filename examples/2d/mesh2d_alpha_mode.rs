@@ -59,16 +59,16 @@ fn setup(
         ..default()
     });
 
-    // Test the interaction between opaque and transparent meshes
+    // Test the interaction between opaque/mask and transparent meshes
     // The white sprite should be:
-    // - fully opaque
+    // - only the icon is opaque but background is transparent
     // - on top of the green sprite
     // - behind the blue sprite
     commands.spawn(MaterialMesh2dBundle {
         mesh: mesh_handle.clone().into(),
         material: materials.add(ColorMaterial {
             color: WHITE.into(),
-            alpha_mode: AlphaMode2d::Opaque,
+            alpha_mode: AlphaMode2d::Mask(0.5),
             texture: Some(texture_handle.clone()),
         }),
         transform: Transform::from_xyz(200.0, 0.0, 0.0),
