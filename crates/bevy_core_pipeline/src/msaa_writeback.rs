@@ -2,7 +2,6 @@ use crate::{
     blit::{BlitPipeline, BlitPipelineKey},
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
-    upscaling::PrepareViewUpscalingPipelines,
 };
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
@@ -29,9 +28,7 @@ impl Plugin for MsaaWritebackPlugin {
         };
         render_app.add_systems(
             Render,
-            prepare_msaa_writeback_pipelines
-                .in_set(RenderSet::Prepare)
-                .before(PrepareViewUpscalingPipelines),
+            prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
         );
         {
             render_app

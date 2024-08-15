@@ -17,9 +17,7 @@ impl Plugin for UpscalingPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                prepare_view_upscaling_pipelines
-                    .in_set(RenderSet::Prepare)
-                    .in_set(PrepareViewUpscalingPipelines),
+                prepare_view_upscaling_pipelines.in_set(RenderSet::Prepare),
             );
         }
     }
@@ -27,13 +25,6 @@ impl Plugin for UpscalingPlugin {
 
 #[derive(Component)]
 pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
-
-/// A system that prepares the view upscaling pipelines for the frame.
-///
-/// This will block the frame until all pipelines are loaded:
-/// any other use of [`PipelineCache`] should occur before this system.
-#[derive(SystemSet, Default, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct PrepareViewUpscalingPipelines;
 
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,

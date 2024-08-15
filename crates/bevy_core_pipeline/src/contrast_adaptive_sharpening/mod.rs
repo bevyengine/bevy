@@ -2,7 +2,6 @@ use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    upscaling::PrepareViewUpscalingPipelines,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
@@ -122,12 +121,7 @@ impl Plugin for CasPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
-            .add_systems(
-                Render,
-                prepare_cas_pipelines
-                    .in_set(RenderSet::Prepare)
-                    .before(PrepareViewUpscalingPipelines),
-            );
+            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
         {
             render_app
