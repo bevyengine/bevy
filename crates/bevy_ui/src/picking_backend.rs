@@ -1,4 +1,4 @@
-//! A picking backend for Ui nodes.
+//! A picking backend for UI nodes.
 //!
 //! # Usage
 //!
@@ -7,17 +7,17 @@
 //!
 //! ## Important Note
 //!
-//! This backend completely ignores [`FocusPolicy`](crate::FocusPolicy). The design of bevy ui's
+//! This backend completely ignores [`FocusPolicy`](crate::FocusPolicy). The design of `bevy_ui`'s
 //! focus systems and the picking plugin are not compatible. Instead, use the [`Pickable`] component
 //! to customize how an entity responds to picking focus. Nodes without the [`Pickable`] component
 //! will not trigger events.
 //!
 //! ## Implementation Notes
 //!
-//! - Bevy ui can only render to the primary window
-//! - Bevy ui can render on any camera with a flag, it is special, and is not tied to a particular
+//! - `bevy_ui` can only render to the primary window
+//! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
-//! - To correctly sort picks, the order of bevy UI is set to be the camera order plus 0.5.
+//! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
 
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
@@ -34,7 +34,7 @@ use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
 
-/// Adds picking support for Ui nodes.
+/// A plugin that adds picking support for UI nodes.
 #[derive(Clone)]
 pub struct UiPickingBackend;
 impl Plugin for UiPickingBackend {
