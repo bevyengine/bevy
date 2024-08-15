@@ -1445,7 +1445,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Triggers the given `event` for this entity, which will run any observers watching for it.
     pub fn trigger(&mut self, event: impl Event) -> &mut Self {
-        self.world().trigger_targets(event, self.entity);
+        self.world.trigger_targets(event, self.entity);
         self
     }
 
