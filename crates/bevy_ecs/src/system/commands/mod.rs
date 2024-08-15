@@ -777,7 +777,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.add(TriggerEvent { event, targets });
     }
 
-    /// Spawn an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
+    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
