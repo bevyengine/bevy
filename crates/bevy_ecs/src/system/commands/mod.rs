@@ -1210,7 +1210,7 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
-    /// Sends a [`Trigger`] targetting this entity. This will run any [`Observer`] of the `event` that
+    /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that
     /// watches this entity.
     ///
     /// [`Trigger`]: crate::observer::Trigger
