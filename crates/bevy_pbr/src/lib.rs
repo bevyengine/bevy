@@ -115,7 +115,7 @@ use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     render_asset::prepare_assets,
     render_graph::RenderGraph,
-    render_resource::Shader,
+    render_resource::{PipelineCache, Shader},
     texture::{GpuImage, Image},
     view::{check_visibility, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
@@ -418,7 +418,13 @@ impl Plugin for PbrPlugin {
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .init_resource::<LightMeta>();
+            .init_resource::<LightMeta>()
+            // The order in which systems write to these resources doesn't matter;
+            // they contain unordered data.
+            // Note that we must configure this setting on the RenderApp, not the main App,
+            // as the settings are not shared.
+            .allow_ambiguous_resource::<PreprocessPipelines>()
+            .allow_ambiguous_resource::<PipelineCache>();
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
