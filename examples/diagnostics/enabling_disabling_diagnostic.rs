@@ -1,5 +1,5 @@
 //! Shows how to disable/re-enable a Diagnostic during runtime
- 
+
 use std::time::Duration;
 
 use bevy::{
