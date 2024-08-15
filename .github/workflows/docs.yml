@@ -67,6 +67,7 @@ jobs:
             --all-features \
             --workspace \
             --no-deps \
+            --document-private-items \
             --exclude ci \
             --exclude errors \
             --exclude bevy_mobile_example \
