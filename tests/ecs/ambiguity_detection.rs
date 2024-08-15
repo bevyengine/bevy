@@ -26,40 +26,38 @@ fn main() {
     app.cleanup();
     app.update();
 
-    let sub_app = app.main();
-
-    let ambiguities = count_ambiguities(sub_app);
-    let mut unexpected_ambiguities = vec![];
-    for (&label, &count) in ambiguities.0.iter() {
+    let main_app_ambiguities = count_ambiguities(app.main());
+    let mut summarized_ambiguities = vec![];
+    for (&label, &count) in main_app_ambiguities.0.iter() {
         if count != 0 {
-            unexpected_ambiguities.push(label);
+            summarized_ambiguities.push(label);
         }
     }
     assert_eq!(
-        unexpected_ambiguities.len(),
+        main_app_ambiguities.total(),
         0,
         "Main app has unexpected ambiguities among these schedules: {:?}.\n\
     More Details:\n{:#?}",
-        unexpected_ambiguities,
-        ambiguities
-    );
-
-    let total_ambiguities = ambiguities.total();
-    assert_eq!(
-        total_ambiguities, 0,
-        "No system order ambiguities should be present between systems added in `DefaultPlugins`.\n
-        Details:\n{:#?}",
-        ambiguities
+        main_app_ambiguities,
+        summarized_ambiguities
     );
 
     // RenderApp is not checked here, because it is not within the App at this point.
-    let sub_app = app.sub_app(RenderExtractApp);
+    let render_extract_ambiguities = count_ambiguities(app.sub_app(RenderExtractApp));
+    let mut summarized_ambiguities = vec![];
+    for (&label, &count) in main_app_ambiguities.0.iter() {
+        if count != 0 {
+            summarized_ambiguities.push(label);
+        }
+    }
 
-    let ambiguities = count_ambiguities(sub_app);
-    let total_ambiguities = ambiguities.total();
     assert_eq!(
-        total_ambiguities, 0,
-        "RenderExtractApp contains conflicting systems.",
+        render_extract_ambiguities.total(),
+        0,
+        "RenderExtract app has unexpected ambiguities among these schedules: {:?}.\n\
+        More Details:\n{:#?}",
+        render_extract_ambiguities,
+        summarized_ambiguities
     );
 }
 
