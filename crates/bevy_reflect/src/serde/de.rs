@@ -1210,10 +1210,26 @@ fn get_deserializer<'a, E: Error>(
     type_path: &str,
     registry: &'a TypeRegistry,
 ) -> Result<ReflectionDeserializer<'a>, E> {
-    if type_path.starts_with("bevy_reflect::boxed::ReflectBox<") {
+    if type_path.starts_with("bevy_reflect::boxed::ReflectBox<dyn") {
         Ok(ReflectionDeserializer::Untyped(ReflectDeserializer::new(
             registry,
         )))
+    } else if type_path.starts_with("bevy_reflect::boxed::ReflectBox<") {
+        let real_type_path = type_path
+            .strip_prefix("bevy_reflect::boxed::ReflectBox<")
+            .ok_or_else(|| E::custom(format_args!("invalid type path `{type_path}`")))?
+            .strip_suffix(">")
+            .ok_or_else(|| E::custom(format_args!("invalid type path `{type_path}`")))?;
+
+        let registration = registry.get_with_type_path(real_type_path).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no registration found for type `{real_type_path}`"
+            ))
+        })?;
+        Ok(ReflectionDeserializer::Typed(TypedReflectDeserializer {
+            registration,
+            registry,
+        }))
     } else {
         Ok(ReflectionDeserializer::Typed(TypedReflectDeserializer {
             registration: get_registration::<E>(type_id, type_path, registry).unwrap(),

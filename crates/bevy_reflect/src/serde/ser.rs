@@ -55,7 +55,7 @@ fn get_serializer<'a>(
     type_registry: &'a TypeRegistry,
 ) -> Box<dyn erased_serde::Serialize + 'a> {
     let path = reflect_value.reflect_type_path();
-    if path.starts_with("bevy_reflect::boxed::ReflectBox<") {
+    if path.starts_with("bevy_reflect::boxed::ReflectBox<dyn") {
         Box::new(ReflectSerializer::new(reflect_value, type_registry))
     } else {
         Box::new(TypedReflectSerializer::new_reflect_box(
@@ -70,7 +70,7 @@ fn get_serializable<'a, E: Error>(
     type_registry: &'a TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
     let path = reflect_value.reflect_type_path();
-    if !IS_BOXED.get() && path.starts_with("bevy_reflect::boxed::ReflectBox<") {
+    if !IS_BOXED.get() && path.starts_with("bevy_reflect::boxed::ReflectBox<dyn") {
         // The value is a `ReflectBox` but it has not been flagged yet.
         // Flag it and serialize the full type map.
         IS_BOXED.set(true);
@@ -235,7 +235,7 @@ impl<'a> TypedReflectSerializer<'a> {
         IS_BOXED.set(
             value
                 .reflect_type_path()
-                .starts_with("bevy_reflect::boxed::ReflectBox<"),
+                .starts_with("bevy_reflect::boxed::ReflectBox<dyn"),
         );
         TypedReflectSerializer { value, registry }
     }

@@ -684,7 +684,7 @@ mod tests {
         let serialized = ron::to_string(&reflect_serializer).unwrap();
         assert_eq!(
             serialized,
-            r#"{"bevy_reflect::boxed::tests::MyStruct":(partial_reflect:{"i32":123},full_reflect:{"i32":456},concrete:{"i32":789})}"#
+            r#"{"bevy_reflect::boxed::tests::MyStruct":(partial_reflect:{"i32":123},full_reflect:{"i32":456},concrete:789)}"#
         );
 
         let reflect_deserializer = ReflectDeserializer::new(&registry);
@@ -719,7 +719,7 @@ mod tests {
         let serialized = ron::to_string(&reflect_serializer).unwrap();
         assert_eq!(
             serialized,
-            r#"{"bevy_reflect::boxed::tests::MyTupleStruct":({"i32":123},{"i32":456},{"i32":789})}"#
+            r#"{"bevy_reflect::boxed::tests::MyTupleStruct":({"i32":123},{"i32":456},789)}"#
         );
 
         let reflect_deserializer = ReflectDeserializer::new(&registry);
@@ -751,8 +751,8 @@ mod tests {
         #[derive(Reflect)]
         #[reflect(from_reflect = false)]
         struct MyNestedStruct {
-            #[reflect(remote = ReflectBox<MyStruct>)]
-            inner: Box<MyStruct>,
+            #[reflect(remote = ReflectBox<dyn PartialReflect>)]
+            inner: Box<dyn PartialReflect>,
         }
 
         let input = MyNestedStruct {
@@ -771,7 +771,7 @@ mod tests {
         let serialized = ron::to_string(&reflect_serializer).unwrap();
         assert_eq!(
             serialized,
-            r#"{"bevy_reflect::boxed::tests::MyNestedStruct":(inner:{"bevy_reflect::boxed::tests::MyStruct":(partial_reflect:{"i32":123},full_reflect:{"i32":456},concrete:{"i32":789})})}"#
+            r#"{"bevy_reflect::boxed::tests::MyNestedStruct":(inner:{"bevy_reflect::boxed::tests::MyStruct":(partial_reflect:{"i32":123},full_reflect:{"i32":456},concrete:789)})}"#
         );
 
         let reflect_deserializer = ReflectDeserializer::new(&registry);
