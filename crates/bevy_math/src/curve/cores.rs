@@ -360,13 +360,17 @@ impl<T> UnevenCore<T> {
     /// data will be deleted.
     ///
     /// [`Curve::reparametrize`]: crate::curve::Curve::reparametrize
+    #[must_use]
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenCore<T> {
-        let mut timed_samples: Vec<(f32, T)> =
-            self.times.into_iter().map(f).zip(self.samples).collect();
-        timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
-        timed_samples.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
-        self.times = timed_samples.iter().map(|(t, _)| t).copied().collect();
-        self.samples = timed_samples.into_iter().map(|(_, x)| x).collect();
+        let mut timed_samples = self
+            .times
+            .into_iter()
+            .map(f)
+            .zip(self.samples)
+            .collect_vec();
+        timed_samples.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
+        timed_samples.dedup_by_key(|(t, _)| *t);
+        (self.times, self.samples) = timed_samples.into_iter().unzip();
         self
     }
 }
@@ -515,8 +519,8 @@ impl<T> ChunkedUnevenCore<T> {
 /// Sort the given times, deduplicate them, and filter them to only finite times.
 fn filter_sort_dedup_times(times: impl IntoIterator<Item=f32>) -> Vec<f32> {
     // Filter before sorting/deduplication so that NAN doesn't interfere with them.
-    let mut times: Vec<f32> = times.into_iter().filter(|t| t.is_finite()).collect();
-    times.sort_by(|t0, t1| t0.partial_cmp(t1).unwrap());
+    let mut times = times.into_iter().filter(|t| t.is_finite()).collect_vec();
+    times.sort_by(|t0, t1| t0.total_cmp(t1));
     times.dedup();
     times
 }
