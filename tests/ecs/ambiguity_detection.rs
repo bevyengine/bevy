@@ -29,7 +29,10 @@ fn main() {
     let main_app_ambiguities = count_ambiguities(app.main());
     assert_eq!(
         main_app_ambiguities.total(),
-        0,
+        // This number *should* be zero.
+        // Over time, we are working to reduce the number: your PR should not increase it.
+        // See https://github.com/bevyengine/bevy/issues/7386 for progress.
+        71,
         "Main app has unexpected ambiguities among the following schedules: \n {:?}.",
         main_app_ambiguities,
     );
