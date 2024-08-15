@@ -9,6 +9,7 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewTarget},
 };
+use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -68,7 +69,12 @@ impl ViewNode for MainTransparentPass2dNode {
             }
 
             if !transparent_phase.items.is_empty() {
-                transparent_phase.render(&mut render_pass, world, view_entity)?;
+                #[cfg(feature = "trace")]
+                let _transparent_main_pass_2d_span =
+                    info_span!("transparent_main_pass_2d").entered();
+                if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the transparent 2D phase {err:?}");
+                }
             }
 
             pass_span.end(&mut render_pass);
