@@ -141,8 +141,11 @@ impl<T> EvenCore<T> {
     /// Create a new [`EvenCore`] from the specified `domain` and `samples`. An error is returned
     /// if there are not at least 2 samples or if the given domain is unbounded.
     #[inline]
-    pub fn new(domain: Interval, samples: impl Into<Vec<T>>) -> Result<Self, EvenCoreError> {
-        let samples: Vec<T> = samples.into();
+    pub fn new(
+        domain: Interval,
+        samples: impl IntoIterator<Item = T>,
+    ) -> Result<Self, EvenCoreError> {
+        let samples: Vec<T> = samples.into_iter().collect();
         if samples.len() < 2 {
             return Err(EvenCoreError::NotEnoughSamples {
                 samples: samples.len(),
@@ -267,7 +270,9 @@ pub struct UnevenCore<T> {
 #[error("Could not construct an UnevenCore")]
 pub enum UnevenCoreError {
     /// Not enough samples were provided.
-    #[error("Need at least two unique samples to create an UnevenCore, but {samples} were provided")]
+    #[error(
+        "Need at least two unique samples to create an UnevenCore, but {samples} were provided"
+    )]
     NotEnoughSamples {
         /// The number of samples that were provided.
         samples: usize,
@@ -517,10 +522,10 @@ impl<T> ChunkedUnevenCore<T> {
 }
 
 /// Sort the given times, deduplicate them, and filter them to only finite times.
-fn filter_sort_dedup_times(times: impl IntoIterator<Item=f32>) -> Vec<f32> {
+fn filter_sort_dedup_times(times: impl IntoIterator<Item = f32>) -> Vec<f32> {
     // Filter before sorting/deduplication so that NAN doesn't interfere with them.
     let mut times = times.into_iter().filter(|t| t.is_finite()).collect_vec();
-    times.sort_by(|t0, t1| t0.total_cmp(t1));
+    times.sort_by(f32::total_cmp);
     times.dedup();
     times
 }

@@ -809,7 +809,7 @@ impl<T, I> SampleCurve<T, I> {
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
     pub fn new(
         domain: Interval,
-        samples: impl IntoIterator<Item=T>,
+        samples: impl IntoIterator<Item = T>,
         interpolation: I,
     ) -> Result<Self, EvenCoreError>
     where
@@ -850,7 +850,10 @@ impl<T> SampleAutoCurve<T> {
     /// Create a new [`SampleCurve`] using type-inferred interpolation to interpolate between
     /// the given `samples`. An error is returned if there are not at least 2 samples or if the
     /// given `domain` is unbounded.
-    pub fn new(domain: Interval, samples: impl IntoIterator<Item=T>) -> Result<Self, EvenCoreError> {
+    pub fn new(
+        domain: Interval,
+        samples: impl IntoIterator<Item = T>,
+    ) -> Result<Self, EvenCoreError> {
         Ok(Self {
             core: EvenCore::new(domain, samples)?,
         })
@@ -893,7 +896,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
     pub fn new(
-        timed_samples: impl IntoIterator<(f32, T)>,
+        timed_samples: impl IntoIterator<Item = (f32, T)>,
         interpolation: I,
     ) -> Result<Self, UnevenCoreError> {
         Ok(Self {
@@ -945,7 +948,7 @@ impl<T> UnevenSampleAutoCurve<T> {
     /// using the  The samples are filtered to finite times and
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
     /// returned.
-    pub fn new(timed_samples: impl IntoIterator<Item=(f32, T)>) -> Result<Self, UnevenCoreError> {
+    pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
         Ok(Self {
             core: UnevenCore::new(timed_samples)?,
         })
