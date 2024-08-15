@@ -526,6 +526,7 @@
 //! [derive `Reflect`]: derive@crate::Reflect
 
 mod array;
+pub mod boxed;
 mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]

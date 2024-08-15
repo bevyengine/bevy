@@ -1,4 +1,4 @@
-use crate::Reflect;
+use crate::PartialReflect;
 
 /// Marks a type as a [reflectable] wrapper for a remote type.
 ///
@@ -40,11 +40,12 @@ use crate::Reflect;
 /// }
 /// ```
 ///
-/// [reflectable]: Reflect
+/// [reflectable]: PartialReflect
 /// [`transmute`]: core::mem::transmute
 /// [very unsafe]: https://doc.rust-lang.org/1.71.0/nomicon/transmutes.html
+/// [`Reflect`]: crate::Reflect
 /// [`FromReflect`]: crate::FromReflect
-pub trait ReflectRemote: Reflect {
+pub trait ReflectRemote: PartialReflect {
     /// The remote type this type represents via reflection.
     type Remote;
 
