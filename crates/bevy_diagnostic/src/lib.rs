@@ -12,7 +12,10 @@
 //!their ability to monitor and optimize their game's.
 //!
 //!
-#![doc = include_str!("../docs/enabling_disabling_diagnostics.md")]
+//! # How to enable/disable diagnostics gathering during runtime using [`DiagnosticsStore`]
+//! ```ignore
+#![doc = include_str!("../../../examples/diagnostics/enabling_disabling_diagnostic.rs")]
+//! ```
 
 mod diagnostic;
 mod entity_count_diagnostics_plugin;

@@ -1,6 +1,5 @@
-# How to enable/disable diagnostics gathering during runtime using [`DiagnosticsStore`]
-
-```ignore
+//! Shows how to disable/re-enable a Diagnostic during runtime
+ 
 use std::time::Duration;
 
 use bevy::{
@@ -29,4 +28,3 @@ fn toggle(mut store: ResMut<DiagnosticsStore>) {
         diag.is_enabled = !diag.is_enabled;
     }
 }
-```
