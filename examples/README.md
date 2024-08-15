@@ -264,6 +264,7 @@ Example | Description
 Example | Description
 --- | ---
 [Custom Diagnostic](../examples/diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
+[Enabling/disabling diagnostic](../examples/diagnostics/enabling_disabling_diagnostic.rs) | Shows how to disable/re-enable a Diagnostic during runtime
 [Log Diagnostics](../examples/diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics, like frames per second (FPS), to the console
 
 ## ECS (Entity Component System)
