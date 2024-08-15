@@ -2,31 +2,32 @@
 
 mod entity_observer;
 mod runner;
+mod set;
 mod trigger_event;
 
 pub use runner::*;
+pub use set::*;
 pub use trigger_event::*;
 
 use crate::observer::entity_observer::ObservedBy;
 use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
-use bevy_ptr::Ptr;
 use bevy_utils::{EntityHashMap, HashMap};
 use std::marker::PhantomData;
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
-pub struct Trigger<'w, E, B: Bundle = ()> {
-    event: &'w mut E,
+pub struct Trigger<'w, E: EventSet, B: Bundle = ()> {
+    event: E::Item<'w>,
     propagate: &'w mut bool,
     trigger: ObserverTrigger,
     _marker: PhantomData<B>,
 }
 
-impl<'w, E, B: Bundle> Trigger<'w, E, B> {
+impl<'w, E: EventSet, B: Bundle> Trigger<'w, E, B> {
     /// Creates a new trigger for the given event and observer information.
-    pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
+    pub fn new(event: E::Item<'w>, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
         Self {
             event,
             propagate,
@@ -41,18 +42,13 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns a reference to the triggered event.
-    pub fn event(&self) -> &E {
-        self.event
+    pub fn event(&self) -> E::ReadOnlyItem<'_> {
+        E::shrink_readonly(&self.event)
     }
 
     /// Returns a mutable reference to the triggered event.
-    pub fn event_mut(&mut self) -> &mut E {
-        self.event
-    }
-
-    /// Returns a pointer to the triggered event.
-    pub fn event_ptr(&self) -> Ptr {
-        Ptr::from(&self.event)
+    pub fn event_mut(&mut self) -> E::Item<'_> {
+        E::shrink(&mut self.event)
     }
 
     /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
@@ -304,7 +300,7 @@ impl Observers {
 
 impl World {
     /// Spawns a "global" [`Observer`] and returns its [`Entity`].
-    pub fn observe<E: Event, B: Bundle, M>(
+    pub fn observe<E: EventSet, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut {
@@ -433,7 +429,8 @@ mod tests {
 
     use crate as bevy_ecs;
     use crate::observer::{
-        EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+        DynamicEvent, EmitDynamicTrigger, Observer, ObserverDescriptor, ObserverState, OnReplace,
+        Or2, SemiDynamicEvent,
     };
     use crate::prelude::*;
     use crate::traversal::Traversal;
@@ -601,16 +598,60 @@ mod tests {
     }
 
     #[test]
-    fn observer_multiple_events() {
+    fn observer_multiple_events_static() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        #[derive(Event)]
+        struct Foo(i32);
+        #[derive(Event)]
+        struct Bar(bool);
+        world.observe(|t: Trigger<(Foo, Bar)>, mut res: ResMut<R>| {
+            res.0 += 1;
+            match t.event() {
+                Or2::A(Foo(v)) => assert_eq!(5, *v),
+                Or2::B(Bar(v)) => assert!(*v),
+            }
+        });
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger(Foo(5));
+        world.trigger(Bar(true));
+        assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_multiple_events_dynamic() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        let on_add = world.init_component::<OnAdd>();
+        let on_remove = world.init_component::<OnRemove>();
+        world.spawn(
+            Observer::new(|_: Trigger<DynamicEvent, A>, mut res: ResMut<R>| res.0 += 1)
+                .with_event(on_add)
+                .with_event(on_remove),
+        );
+
+        let entity = world.spawn(A).id();
+        world.despawn(entity);
+        assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_multiple_events_semidynamic() {
         let mut world = World::new();
         world.init_resource::<R>();
         let on_remove = world.init_component::<OnRemove>();
         world.spawn(
-            // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
-            unsafe {
-                Observer::new(|_: Trigger<OnAdd, A>, mut res: ResMut<R>| res.0 += 1)
-                    .with_event(on_remove)
-            },
+            Observer::new(
+                |trigger: Trigger<SemiDynamicEvent<OnAdd>, A>, mut res: ResMut<R>| {
+                    match trigger.event() {
+                        Ok(_onadd) => res.assert_order(0),
+                        Err(_ptr) => res.assert_order(1),
+                    };
+                },
+            )
+            .with_event(on_remove),
         );
 
         let entity = world.spawn(A).id();
@@ -975,5 +1016,79 @@ mod tests {
         world.trigger_targets(EventPropagating, child);
         world.flush();
         assert_eq!(2, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_propagating_multi_event_between() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        #[derive(Event)]
+        struct Foo;
+
+        let grandparent = world
+            .spawn_empty()
+            .observe(|_: Trigger<(EventPropagating,)>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+        let parent = world
+            .spawn(Parent(grandparent))
+            .observe(|_: Trigger<(EventPropagating, Foo)>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+        let child = world
+            .spawn(Parent(parent))
+            .observe(|_: Trigger<(EventPropagating,)>, mut res: ResMut<R>| res.0 += 1)
+            .id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger_targets(EventPropagating, child);
+        world.flush();
+        assert_eq!(3, world.resource::<R>().0);
+        world.trigger_targets(Foo, parent);
+        world.flush();
+        assert_eq!(4, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_propagating_multi_event_all() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+        #[derive(Component)]
+        struct OtherPropagating;
+
+        impl Event for OtherPropagating {
+            type Traversal = Parent;
+
+            const AUTO_PROPAGATE: bool = true;
+        }
+
+        let grandparent = world
+            .spawn_empty()
+            .observe(
+                |_: Trigger<(EventPropagating, OtherPropagating)>, mut res: ResMut<R>| res.0 += 1,
+            )
+            .id();
+        let parent = world
+            .spawn(Parent(grandparent))
+            .observe(
+                |_: Trigger<(EventPropagating, OtherPropagating)>, mut res: ResMut<R>| res.0 += 1,
+            )
+            .id();
+        let child = world
+            .spawn(Parent(parent))
+            .observe(
+                |_: Trigger<(EventPropagating, OtherPropagating)>, mut res: ResMut<R>| res.0 += 1,
+            )
+            .id();
+
+        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
+        // and therefore does not automatically flush.
+        world.flush();
+        world.trigger_targets(EventPropagating, child);
+        world.flush();
+        assert_eq!(3, world.resource::<R>().0);
+        world.trigger_targets(OtherPropagating, child);
+        world.flush();
+        assert_eq!(6, world.resource::<R>().0);
     }
 }
