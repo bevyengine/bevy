@@ -30,6 +30,7 @@ pub use settings::AutoExposureSettings;
 
 use crate::auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve;
 use crate::core_3d::graph::{Core3d, Node3d};
+use crate::upscaling::PrepareViewUpscalingPipelines;
 
 /// Plugin for the auto exposure feature.
 ///
@@ -73,7 +74,9 @@ impl Plugin for AutoExposurePlugin {
                 Render,
                 (
                     prepare_buffers.in_set(RenderSet::Prepare),
-                    queue_view_auto_exposure_pipelines.in_set(RenderSet::Queue),
+                    queue_view_auto_exposure_pipelines
+                        .in_set(RenderSet::Queue)
+                        .before(PrepareViewUpscalingPipelines),
                 ),
             )
             .add_render_graph_node::<AutoExposureNode>(Core3d, node::AutoExposure)

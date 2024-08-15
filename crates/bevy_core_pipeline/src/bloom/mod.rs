@@ -8,6 +8,7 @@ pub use settings::{BloomCompositeMode, BloomPrefilterSettings, BloomSettings};
 use crate::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
+    upscaling::PrepareViewUpscalingPipelines,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -61,8 +62,9 @@ impl Plugin for BloomPlugin {
             .add_systems(
                 Render,
                 (
-                    prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
+                    (prepare_downsampling_pipeline, prepare_upsampling_pipeline)
+                        .in_set(RenderSet::Prepare)
+                        .before(PrepareViewUpscalingPipelines),
                     prepare_bloom_textures.in_set(RenderSet::PrepareResources),
                     prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindGroups),
                 ),
