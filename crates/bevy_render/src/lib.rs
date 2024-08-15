@@ -139,6 +139,8 @@ pub enum RenderSet {
     /// Cleanup render resources here.
     Cleanup,
     /// Final cleanup occurs: all entities will be despawned.
+    ///
+    /// Runs after [`Cleanup`](RenderSet::Cleanup).
     FinalCleanup,
 }
 
@@ -164,6 +166,7 @@ impl Render {
                 Prepare,
                 Render,
                 Cleanup,
+                FinalCleanup,
             )
                 .chain(),
         );
@@ -473,8 +476,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     .in_set(RenderSet::Render),
                 World::clear_entities.in_set(RenderSet::FinalCleanup),
             ),
-        )
-        .configure_sets(Render, RenderSet::FinalCleanup.after(RenderSet::Cleanup));
+        );
 
     render_app.set_extract(|main_world, render_world| {
         #[cfg(feature = "trace")]
