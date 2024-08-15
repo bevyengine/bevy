@@ -44,7 +44,7 @@ pub trait TupleStruct: PartialReflect {
     ///
     /// # Errors
     ///
-    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// - [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
     fn field(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field with index `index`
@@ -52,8 +52,8 @@ pub trait TupleStruct: PartialReflect {
     ///
     /// # Errors
     ///
-    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
-    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
+    /// - [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// - [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns the number of fields in the tuple struct.

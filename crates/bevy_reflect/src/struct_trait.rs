@@ -51,7 +51,7 @@ pub trait Struct: PartialReflect {
     ///
     /// # Errors
     ///
-    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// - [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
     fn field(&self, name: &str) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field named `name` as a
@@ -59,8 +59,8 @@ pub trait Struct: PartialReflect {
     ///
     /// # Errors
     ///
-    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
-    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
+    /// - [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// - [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_mut(&mut self, name: &str) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a reference to the value of the field with index `index` as a
@@ -68,7 +68,7 @@ pub trait Struct: PartialReflect {
     ///
     /// # Errors
     ///
-    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// - [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
     fn field_at(&self, index: usize) -> Result<&dyn PartialReflect, ReflectFieldError>;
 
     /// Returns a mutable reference to the value of the field with index `index`
@@ -76,8 +76,8 @@ pub trait Struct: PartialReflect {
     ///
     /// # Errors
     ///
-    /// Returns [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
-    /// Returns [`ReflectFieldError::Readonly`] if the field is marked as readonly.
+    /// - [`ReflectFieldError::NotFound`] if the field does not exist or is ignored.
+    /// - [`ReflectFieldError::Readonly`] if the field is marked as readonly.
     fn field_at_mut(&mut self, index: usize) -> Result<&mut dyn PartialReflect, ReflectFieldError>;
 
     /// Returns the name of the field with index `index`.
