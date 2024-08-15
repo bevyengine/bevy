@@ -33,7 +33,7 @@ fn main() {
         // Over time, we are working to reduce the number: your PR should not increase it.
         // If you decrease this by fixing an ambiguity, reduce the number to prevent regressions.
         // See https://github.com/bevyengine/bevy/issues/7386 for progress.
-        72,
+        48,
         "Main app has unexpected ambiguities among the following schedules: \n{:#?}.",
         main_app_ambiguities,
     );
