@@ -8,6 +8,7 @@
 
 use super::interval::Interval;
 use core::fmt::Debug;
+use itertools::Itertools;
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
@@ -277,29 +278,25 @@ impl<T> UnevenCore<T> {
     /// Create a new [`UnevenCore`]. The given samples are filtered to finite times and
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
     /// returned.
-    ///
-    /// The interpolation takes two values by reference together with a scalar parameter and
-    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
-    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
-    pub fn new(timed_samples: impl Into<Vec<(f32, T)>>) -> Result<Self, UnevenCoreError> {
-        let timed_samples: Vec<(f32, T)> = timed_samples.into();
-
+    pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
         // Filter out non-finite sample times first so they don't interfere with sorting/deduplication.
-        let mut timed_samples: Vec<(f32, T)> = timed_samples
+        let mut timed_samples = timed_samples
             .into_iter()
             .filter(|(t, _)| t.is_finite())
-            .collect();
+            .collect_vec();
         timed_samples
-            .sort_by(|(t0, _), (t1, _)| t0.partial_cmp(t1).unwrap_or(std::cmp::Ordering::Equal));
+            // Using `total_cmp` is fine because no NANs remain and because deduplication uses
+            // `PartialEq` anyway (so -0.0 and 0.0 will be considered equal later regardless).
+            .sort_by(|(t0, _), (t1, _)| t0.total_cmp(t1));
         timed_samples.dedup_by_key(|(t, _)| *t);
 
-        let (times, samples): (Vec<f32>, Vec<T>) = timed_samples.into_iter().unzip();
-
-        if times.len() < 2 {
+        if timed_samples.len() < 2 {
             return Err(UnevenCoreError::NotEnoughSamples {
-                samples: times.len(),
+                samples: timed_samples.len(),
             });
         }
+
+        let (times, samples): (Vec<f32>, Vec<T>) = timed_samples.into_iter().unzip();
         Ok(UnevenCore { times, samples })
     }
 
