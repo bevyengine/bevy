@@ -415,6 +415,11 @@ impl PartialReflect for DynamicEnum {
         enum_debug(self, f)?;
         write!(f, ")")
     }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
+    }
 }
 
 impl_type_path!((in bevy_reflect) DynamicEnum);

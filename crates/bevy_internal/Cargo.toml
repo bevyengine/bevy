@@ -191,7 +191,7 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
 # Provides a picking functionality
-bevy_picking = ["dep:bevy_picking"]
+bevy_picking = ["dep:bevy_picking", "bevy_ui?/bevy_picking"]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]

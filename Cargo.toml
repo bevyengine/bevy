@@ -1604,6 +1604,17 @@ description = "Shows how to create a custom diagnostic"
 category = "Diagnostics"
 wasm = true
 
+[[example]]
+name = "enabling_disabling_diagnostic"
+path = "examples/diagnostics/enabling_disabling_diagnostic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.enabling_disabling_diagnostic]
+name = "Enabling/disabling diagnostic"
+description = "Shows how to disable/re-enable a Diagnostic during runtime"
+category = "Diagnostics"
+wasm = true
+
 # ECS (Entity Component System)
 [[example]]
 name = "ecs_guide"
@@ -3352,6 +3363,18 @@ description = "Demonstrates how to rotate the skybox and the environment map sim
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "simple_picking"
+path = "examples/picking/simple_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_picking"]
+
+[package.metadata.example.simple_picking]
+name = "Showcases simple picking events and usage"
+description = "Demonstrates how to use picking events to spawn simple objects"
+category = "Picking"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -3368,7 +3391,7 @@ panic = "abort"
 # impls for re-exported traits. See https://github.com/rust-lang/cargo/issues/8811
 # for details on why this is needed. Since dependencies don't expect to be built
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
-rustc-args = ["--cfg docsrs_dep"]
+rustc-args = ["--cfg", "docsrs_dep"]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
