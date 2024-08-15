@@ -54,6 +54,7 @@ pub trait Curve<T> {
     /// Create a new curve by mapping the values of this curve via a function `f`; i.e., if the
     /// sample at time `t` for this curve is `x`, the value at time `t` on the new curve will be
     /// `f(x)`.
+    #[must_use]
     fn map<S, F>(self, f: F) -> MapCurve<T, S, Self, F>
     where
         Self: Sized,
@@ -102,6 +103,7 @@ pub trait Curve<T> {
     /// let domain = my_curve.domain();
     /// let eased_curve = my_curve.reparametrize(domain, |t| easing_curve.sample_unchecked(t).y);
     /// ```
+    #[must_use]
     fn reparametrize<F>(self, domain: Interval, f: F) -> ReparamCurve<T, Self, F>
     where
         Self: Sized,
@@ -146,6 +148,7 @@ pub trait Curve<T> {
     /// The resulting curve samples at time `t` by first sampling `other` at time `t`, which produces
     /// another sample time `s` which is then used to sample this curve. The domain of the resulting
     /// curve is the domain of `other`.
+    #[must_use]
     fn reparametrize_by_curve<C>(self, other: C) -> CurveReparamCurve<T, Self, C>
     where
         Self: Sized,
@@ -164,6 +167,7 @@ pub trait Curve<T> {
     /// For example, if this curve outputs `x` at time `t`, then the produced curve will produce
     /// `(t, x)` at time `t`. In particular, if this curve is a `Curve<T>`, the output of this method
     /// is a `Curve<(f32, T)>`.
+    #[must_use]
     fn graph(self) -> GraphCurve<T, Self>
     where
         Self: Sized,
@@ -397,6 +401,7 @@ pub trait Curve<T> {
     }
 
     /// Flip this curve so that its tuple output is arranged the other way.
+    #[must_use]
     fn flip<U, V>(self) -> impl Curve<(V, U)>
     where
         Self: Sized + Curve<(U, V)>,
