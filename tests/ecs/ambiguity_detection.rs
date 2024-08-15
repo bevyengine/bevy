@@ -31,9 +31,10 @@ fn main() {
         main_app_ambiguities.total(),
         // This number *should* be zero.
         // Over time, we are working to reduce the number: your PR should not increase it.
+        // If you decrease this by fixing an ambiguity, reduce the number to prevent regressions.
         // See https://github.com/bevyengine/bevy/issues/7386 for progress.
         72,
-        "Main app has unexpected ambiguities among the following schedules: \n {:?}.",
+        "Main app has unexpected ambiguities among the following schedules: \n{:#?}.",
         main_app_ambiguities,
     );
 
@@ -42,7 +43,7 @@ fn main() {
     assert_eq!(
         render_extract_ambiguities.total(),
         0,
-        "RenderExtract app has unexpected ambiguities among the following schedules: \n {:?}",
+        "RenderExtract app has unexpected ambiguities among the following schedules: \n{:#?}",
         render_extract_ambiguities,
     );
 }
