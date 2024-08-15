@@ -54,6 +54,7 @@ git checkout v0.4.0
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
+  - [Picking](#picking)
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
@@ -350,6 +351,12 @@ Example | Description
 Example | Description
 --- | ---
 [Run physics in a fixed timestep](../examples/movement/physics_in_fixed_timestep.rs) | Handles input, physics, and rendering in an industry-standard way by using a fixed timestep
+
+## Picking
+
+Example | Description
+--- | ---
+[Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
 
 ## Reflection
 

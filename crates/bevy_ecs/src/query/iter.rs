@@ -68,6 +68,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if table.is_empty() {
+            return accum;
+        }
         assert!(
             rows.end <= u32::MAX as usize,
             "TableRow is only valid up to u32::MAX"
@@ -120,6 +123,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if archetype.is_empty() {
+            return accum;
+        }
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         D::set_archetype(
             &mut self.cursor.fetch,
@@ -186,6 +192,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if archetype.is_empty() {
+            return accum;
+        }
         assert!(
             rows.end <= u32::MAX as usize,
             "TableRow is only valid up to u32::MAX"
@@ -1716,6 +1725,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 if self.current_row == self.current_len {
                     let table_id = self.storage_id_iter.next()?.table_id;
                     let table = tables.get(table_id).debug_checked_unwrap();
+                    if table.is_empty() {
+                        continue;
+                    }
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
@@ -1725,7 +1737,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
-                    continue;
                 }
 
                 // SAFETY: set_table was called prior.
@@ -1752,6 +1763,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 if self.current_row == self.current_len {
                     let archetype_id = self.storage_id_iter.next()?.archetype_id;
                     let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
+                    if archetype.is_empty() {
+                        continue;
+                    }
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -1772,7 +1786,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
-                    continue;
                 }
 
                 // SAFETY: set_archetype was called prior.

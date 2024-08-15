@@ -596,7 +596,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Quat;
+    use crate::{ops, Quat};
     use approx::{assert_abs_diff_eq, AbsDiffEq};
     use std::f32::consts::TAU;
 
@@ -616,8 +616,8 @@ mod tests {
         assert!(curve.sample_unchecked(2.0).abs_diff_eq(&4.0, f32::EPSILON));
         assert!(curve.sample_unchecked(-3.0).abs_diff_eq(&9.0, f32::EPSILON));
 
-        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), f32::log2);
-        assert_eq!(curve.sample_unchecked(3.5), f32::log2(3.5));
+        let curve = function_curve(interval(0.0, f32::INFINITY).unwrap(), ops::log2);
+        assert_eq!(curve.sample_unchecked(3.5), ops::log2(3.5));
         assert!(curve.sample_unchecked(-1.0).is_nan());
         assert!(curve.sample(-1.0).is_none());
     }
@@ -642,10 +642,10 @@ mod tests {
 
     #[test]
     fn reparametrization() {
-        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), f32::log2);
+        let curve = function_curve(interval(1.0, f32::INFINITY).unwrap(), ops::log2);
         let reparametrized_curve = curve
             .by_ref()
-            .reparametrize(interval(0.0, f32::INFINITY).unwrap(), f32::exp2);
+            .reparametrize(interval(0.0, f32::INFINITY).unwrap(), ops::exp2);
         assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(3.5), 3.5);
         assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(100.0), 100.0);
         assert_eq!(
@@ -664,8 +664,8 @@ mod tests {
     #[test]
     fn multiple_maps() {
         // Make sure these actually happen in the right order.
-        let curve = function_curve(interval(0.0, 1.0).unwrap(), f32::exp2);
-        let first_mapped = curve.map(f32::log2);
+        let curve = function_curve(interval(0.0, 1.0).unwrap(), ops::exp2);
+        let first_mapped = curve.map(ops::log2);
         let second_mapped = first_mapped.map(|x| x * -2.0);
         assert_abs_diff_eq!(second_mapped.sample_unchecked(0.0), 0.0);
         assert_abs_diff_eq!(second_mapped.sample_unchecked(0.5), -1.0);
@@ -675,8 +675,8 @@ mod tests {
     #[test]
     fn multiple_reparams() {
         // Make sure these happen in the right order too.
-        let curve = function_curve(interval(0.0, 1.0).unwrap(), f32::exp2);
-        let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), f32::log2);
+        let curve = function_curve(interval(0.0, 1.0).unwrap(), ops::exp2);
+        let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), ops::log2);
         let second_reparam = first_reparam.reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.0), 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.5), 1.5);
