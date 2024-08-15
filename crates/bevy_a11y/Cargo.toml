@@ -13,6 +13,7 @@ keywords = ["bevy", "accessibility", "a11y"]
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev" }
 
 accesskit = "0.16"
 
