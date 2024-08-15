@@ -165,7 +165,7 @@ impl Render {
                 Prepare,
                 Render,
                 Cleanup,
-                FinalCleanup,
+                PostCleanup,
             )
                 .chain(),
         );
