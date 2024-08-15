@@ -1,3 +1,5 @@
+use nonmax::NonMaxU32;
+
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
@@ -69,8 +71,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         Func: FnMut(B, D::Item<'w>) -> B,
     {
         assert!(
-            rows.end <= u32::MAX as usize,
-            "TableRow is only valid up to u32::MAX"
+            rows.end <= NonMaxU32::MAX.get() as usize,
+            "TableRow is only valid up to NonMaxU32::MAX"
         );
 
         D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
@@ -187,8 +189,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         Func: FnMut(B, D::Item<'w>) -> B,
     {
         assert!(
-            rows.end <= u32::MAX as usize,
-            "TableRow is only valid up to u32::MAX"
+            rows.end <= NonMaxU32::MAX.get() as usize,
+            "TableRow is only valid up to NonMaxU32::MAX"
         );
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
 
