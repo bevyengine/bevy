@@ -35,11 +35,11 @@ trait TupleLikeInfo {
 }
 
 trait Container {
-    fn get_field_registration<'a, E: Error>(
+    fn get_field_deserializer<'a, E: Error>(
         &self,
         index: usize,
         registry: &'a TypeRegistry,
-    ) -> Result<&'a TypeRegistration, E>;
+    ) -> Result<ReflectionDeserializer<'a>, E>;
 }
 
 impl StructLikeInfo for StructInfo {
@@ -61,11 +61,11 @@ impl StructLikeInfo for StructInfo {
 }
 
 impl Container for StructInfo {
-    fn get_field_registration<'a, E: Error>(
+    fn get_field_deserializer<'a, E: Error>(
         &self,
         index: usize,
         registry: &'a TypeRegistry,
-    ) -> Result<&'a TypeRegistration, E> {
+    ) -> Result<ReflectionDeserializer<'a>, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
                 "no field at index {} on struct {}",
@@ -73,7 +73,7 @@ impl Container for StructInfo {
                 self.type_path(),
             ))
         })?;
-        get_registration(field.type_id(), field.type_path(), registry)
+        get_deserializer(field.type_id(), field.type_path(), registry)
     }
 }
 
@@ -96,11 +96,11 @@ impl StructLikeInfo for StructVariantInfo {
 }
 
 impl Container for StructVariantInfo {
-    fn get_field_registration<'a, E: Error>(
+    fn get_field_deserializer<'a, E: Error>(
         &self,
         index: usize,
         registry: &'a TypeRegistry,
-    ) -> Result<&'a TypeRegistration, E> {
+    ) -> Result<ReflectionDeserializer<'a>, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
                 "no field at index {} on variant {}",
@@ -108,7 +108,7 @@ impl Container for StructVariantInfo {
                 self.name(),
             ))
         })?;
-        get_registration(field.type_id(), field.type_path(), registry)
+        get_deserializer(field.type_id(), field.type_path(), registry)
     }
 }
 
@@ -119,11 +119,11 @@ impl TupleLikeInfo for TupleInfo {
 }
 
 impl Container for TupleInfo {
-    fn get_field_registration<'a, E: Error>(
+    fn get_field_deserializer<'a, E: Error>(
         &self,
         index: usize,
         registry: &'a TypeRegistry,
-    ) -> Result<&'a TypeRegistration, E> {
+    ) -> Result<ReflectionDeserializer<'a>, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
                 "no field at index {} on tuple {}",
@@ -131,7 +131,10 @@ impl Container for TupleInfo {
                 self.type_path(),
             ))
         })?;
-        get_registration(field.type_id(), field.type_path(), registry)
+        let registration = get_registration(field.type_id(), field.type_path(), registry)?;
+        Ok(ReflectionDeserializer::Typed(
+            TypedReflectDeserializer::new(registration, registry),
+        ))
     }
 }
 
@@ -142,11 +145,11 @@ impl TupleLikeInfo for TupleStructInfo {
 }
 
 impl Container for TupleStructInfo {
-    fn get_field_registration<'a, E: Error>(
+    fn get_field_deserializer<'a, E: Error>(
         &self,
         index: usize,
         registry: &'a TypeRegistry,
-    ) -> Result<&'a TypeRegistration, E> {
+    ) -> Result<ReflectionDeserializer<'a>, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
                 "no field at index {} on tuple struct {}",
@@ -154,7 +157,7 @@ impl Container for TupleStructInfo {
                 self.type_path(),
             ))
         })?;
-        get_registration(field.type_id(), field.type_path(), registry)
+        get_deserializer(field.type_id(), field.type_path(), registry)
     }
 }
 
@@ -165,11 +168,11 @@ impl TupleLikeInfo for TupleVariantInfo {
 }
 
 impl Container for TupleVariantInfo {
-    fn get_field_registration<'a, E: Error>(
+    fn get_field_deserializer<'a, E: Error>(
         &self,
         index: usize,
         registry: &'a TypeRegistry,
-    ) -> Result<&'a TypeRegistration, E> {
+    ) -> Result<ReflectionDeserializer<'a>, E> {
         let field = self.field_at(index).ok_or_else(|| {
             Error::custom(format_args!(
                 "no field at index {} on tuple variant {}",
@@ -177,7 +180,7 @@ impl Container for TupleVariantInfo {
                 self.name(),
             ))
         })?;
-        get_registration(field.type_id(), field.type_path(), registry)
+        get_deserializer(field.type_id(), field.type_path(), registry)
     }
 }
 
@@ -894,11 +897,8 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 )?
                 .into(),
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
-                let registration = tuple_info.get_field_registration(0, self.registry)?;
-                let value = variant.newtype_variant_seed(TypedReflectDeserializer {
-                    registration,
-                    registry: self.registry,
-                })?;
+                let value = variant
+                    .newtype_variant_seed(tuple_info.get_field_deserializer(0, self.registry)?)?;
                 let mut dynamic_tuple = DynamicTuple::default();
                 dynamic_tuple.insert_boxed(value);
                 dynamic_tuple.into()
@@ -1095,11 +1095,8 @@ where
                 ExpectedValues(fields.collect())
             ))
         })?;
-        let registration = get_registration(field.type_id(), field.type_path(), registry)?;
-        let value = map.next_value_seed(TypedReflectDeserializer {
-            registration,
-            registry,
-        })?;
+        let deserializer = get_deserializer(field.type_id(), field.type_path(), registry)?;
+        let value = map.next_value_seed(deserializer)?;
         dynamic_struct.insert_boxed(&key, value);
     }
 
@@ -1146,10 +1143,7 @@ where
         }
 
         let value = seq
-            .next_element_seed(TypedReflectDeserializer {
-                registration: info.get_field_registration(index, registry)?,
-                registry,
-            })?
+            .next_element_seed(info.get_field_deserializer(index, registry)?)?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         tuple.insert_boxed(value);
     }
@@ -1192,10 +1186,7 @@ where
         }
 
         let value = seq
-            .next_element_seed(TypedReflectDeserializer {
-                registration: info.get_field_registration(index, registry)?,
-                registry,
-            })?
+            .next_element_seed(info.get_field_deserializer(index, registry)?)?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         dynamic_struct.insert_boxed(name, value);
     }
@@ -1212,6 +1203,42 @@ fn get_registration<'a, E: Error>(
         Error::custom(format_args!("no registration found for type `{type_path}`"))
     })?;
     Ok(registration)
+}
+
+fn get_deserializer<'a, E: Error>(
+    type_id: TypeId,
+    type_path: &str,
+    registry: &'a TypeRegistry,
+) -> Result<ReflectionDeserializer<'a>, E> {
+    if type_path.starts_with("bevy_reflect::boxed::ReflectBox<") {
+        Ok(ReflectionDeserializer::Untyped(ReflectDeserializer::new(
+            registry,
+        )))
+    } else {
+        Ok(ReflectionDeserializer::Typed(TypedReflectDeserializer {
+            registration: get_registration::<E>(type_id, type_path, registry).unwrap(),
+            registry,
+        }))
+    }
+}
+
+enum ReflectionDeserializer<'a> {
+    Typed(TypedReflectDeserializer<'a>),
+    Untyped(ReflectDeserializer<'a>),
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for ReflectionDeserializer<'a> {
+    type Value = Box<dyn PartialReflect>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        match self {
+            Self::Typed(typed) => typed.deserialize(deserializer),
+            Self::Untyped(untyped) => untyped.deserialize(deserializer),
+        }
+    }
 }
 
 #[cfg(test)]

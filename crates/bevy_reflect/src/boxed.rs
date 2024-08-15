@@ -455,11 +455,12 @@ mod func {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
-    use crate::{DynamicStruct, FromReflect, GetTypeRegistration, Struct, Typed};
-    use static_assertions::assert_not_impl_any;
-
     use super::*;
+    use crate as bevy_reflect;
+    use crate::serde::{ReflectDeserializer, ReflectSerializer};
+    use crate::{DynamicStruct, FromReflect, GetTypeRegistration, Struct, TypeRegistry, Typed};
+    use serde::de::DeserializeSeed;
+    use static_assertions::assert_not_impl_any;
 
     #[test]
     fn box_should_not_be_reflect() {
@@ -632,5 +633,157 @@ mod tests {
             #[reflect(remote = ReflectBox<dyn Equippable>)]
             weapon: Box<dyn Equippable>,
         }
+    }
+
+    #[test]
+    fn should_serialize_reflect_box() {
+        let input = ReflectBox(Box::new(123));
+
+        let registry = TypeRegistry::new();
+
+        let reflect_serializer = ReflectSerializer::new(&input, &registry);
+        let serialized = ron::to_string(&reflect_serializer).unwrap();
+        assert_eq!(serialized, r#"{"i32":123}"#);
+
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let output = reflect_deserializer
+            .deserialize(&mut ron::Deserializer::from_str(&serialized).unwrap())
+            .unwrap();
+        assert!(
+            output
+                .as_partial_reflect()
+                .reflect_partial_eq(&input)
+                .unwrap_or_default(),
+            "serialization roundtrip should be lossless"
+        );
+    }
+
+    #[test]
+    fn should_serialize_reflect_box_struct() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyStruct {
+            #[reflect(remote = ReflectBox<dyn PartialReflect>)]
+            partial_reflect: Box<dyn PartialReflect>,
+            #[reflect(remote = ReflectBox<dyn Reflect>)]
+            full_reflect: Box<dyn Reflect>,
+            #[reflect(remote = ReflectBox<i32>)]
+            concrete: Box<i32>,
+        }
+
+        let input = MyStruct {
+            partial_reflect: Box::new(123),
+            full_reflect: Box::new(456),
+            concrete: Box::new(789),
+        };
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<MyStruct>();
+
+        let reflect_serializer = ReflectSerializer::new(&input, &registry);
+        let serialized = ron::to_string(&reflect_serializer).unwrap();
+        assert_eq!(
+            serialized,
+            r#"{"bevy_reflect::boxed::tests::MyStruct":(partial_reflect:{"i32":123},full_reflect:{"i32":456},concrete:{"i32":789})}"#
+        );
+
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let output = reflect_deserializer
+            .deserialize(&mut ron::Deserializer::from_str(&serialized).unwrap())
+            .unwrap();
+        assert!(
+            output
+                .as_partial_reflect()
+                .reflect_partial_eq(&input)
+                .unwrap_or_default(),
+            "serialization roundtrip should be lossless"
+        );
+    }
+
+    #[test]
+    fn should_serialize_reflect_box_tuple_struct() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyTupleStruct(
+            #[reflect(remote = ReflectBox <dyn PartialReflect>)] Box<dyn PartialReflect>,
+            #[reflect(remote = ReflectBox <dyn Reflect>)] Box<dyn Reflect>,
+            #[reflect(remote = ReflectBox <i32>)] Box<i32>,
+        );
+
+        let input = MyTupleStruct(Box::new(123), Box::new(456), Box::new(789));
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<MyTupleStruct>();
+
+        let reflect_serializer = ReflectSerializer::new(&input, &registry);
+        let serialized = ron::to_string(&reflect_serializer).unwrap();
+        assert_eq!(
+            serialized,
+            r#"{"bevy_reflect::boxed::tests::MyTupleStruct":({"i32":123},{"i32":456},{"i32":789})}"#
+        );
+
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let output = reflect_deserializer
+            .deserialize(&mut ron::Deserializer::from_str(&serialized).unwrap())
+            .unwrap();
+        assert!(
+            output
+                .as_partial_reflect()
+                .reflect_partial_eq(&input)
+                .unwrap_or_default(),
+            "serialization roundtrip should be lossless"
+        );
+    }
+
+    #[test]
+    fn should_serialize_nested_reflect_box() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyStruct {
+            #[reflect(remote = ReflectBox<dyn PartialReflect>)]
+            partial_reflect: Box<dyn PartialReflect>,
+            #[reflect(remote = ReflectBox<dyn Reflect>)]
+            full_reflect: Box<dyn Reflect>,
+            #[reflect(remote = ReflectBox<i32>)]
+            concrete: Box<i32>,
+        }
+
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct MyNestedStruct {
+            #[reflect(remote = ReflectBox<MyStruct>)]
+            inner: Box<MyStruct>,
+        }
+
+        let input = MyNestedStruct {
+            inner: Box::new(MyStruct {
+                partial_reflect: Box::new(123),
+                full_reflect: Box::new(456),
+                concrete: Box::new(789),
+            }),
+        };
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<MyStruct>();
+        registry.register::<MyNestedStruct>();
+
+        let reflect_serializer = ReflectSerializer::new(&input, &registry);
+        let serialized = ron::to_string(&reflect_serializer).unwrap();
+        assert_eq!(
+            serialized,
+            r#"{"bevy_reflect::boxed::tests::MyNestedStruct":(inner:{"bevy_reflect::boxed::tests::MyStruct":(partial_reflect:{"i32":123},full_reflect:{"i32":456},concrete:{"i32":789})})}"#
+        );
+
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let output = reflect_deserializer
+            .deserialize(&mut ron::Deserializer::from_str(&serialized).unwrap())
+            .unwrap();
+        assert!(
+            output
+                .as_partial_reflect()
+                .reflect_partial_eq(&input)
+                .unwrap_or_default(),
+            "serialization roundtrip should be lossless"
+        );
     }
 }
