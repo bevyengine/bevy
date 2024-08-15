@@ -475,7 +475,7 @@ pub enum ChainError {
 #[error("Could not resample from this curve because of bad inputs")]
 pub enum ResamplingError {
     /// This resampling operation was not provided with enough samples to have well-formed output.
-    #[error("Not enough samples to construct resampled curve")]
+    #[error("Not enough unique samples to construct resampled curve")]
     NotEnoughSamples(usize),
 
     /// This resampling operation failed because of an unbounded interval.
@@ -809,7 +809,7 @@ impl<T, I> SampleCurve<T, I> {
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
     pub fn new(
         domain: Interval,
-        samples: impl Into<Vec<T>>,
+        samples: impl IntoIterator<Item=T>,
         interpolation: I,
     ) -> Result<Self, EvenCoreError>
     where
@@ -850,7 +850,7 @@ impl<T> SampleAutoCurve<T> {
     /// Create a new [`SampleCurve`] using type-inferred interpolation to interpolate between
     /// the given `samples`. An error is returned if there are not at least 2 samples or if the
     /// given `domain` is unbounded.
-    pub fn new(domain: Interval, samples: impl Into<Vec<T>>) -> Result<Self, EvenCoreError> {
+    pub fn new(domain: Interval, samples: impl IntoIterator<Item=T>) -> Result<Self, EvenCoreError> {
         Ok(Self {
             core: EvenCore::new(domain, samples)?,
         })
@@ -893,7 +893,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
     /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
     /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
     pub fn new(
-        timed_samples: impl Into<Vec<(f32, T)>>,
+        timed_samples: impl IntoIterator<(f32, T)>,
         interpolation: I,
     ) -> Result<Self, UnevenCoreError> {
         Ok(Self {
@@ -945,7 +945,7 @@ impl<T> UnevenSampleAutoCurve<T> {
     /// using the  The samples are filtered to finite times and
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
     /// returned.
-    pub fn new(timed_samples: impl Into<Vec<(f32, T)>>) -> Result<Self, UnevenCoreError> {
+    pub fn new(timed_samples: impl IntoIterator<Item=(f32, T)>) -> Result<Self, UnevenCoreError> {
         Ok(Self {
             core: UnevenCore::new(timed_samples)?,
         })
@@ -1084,9 +1084,7 @@ mod tests {
         // Because of denominators, it's not literally equal.
         // (This is a tradeoff against O(1) sampling.)
         let resampled_curve = curve.by_ref().resample_auto(101).unwrap();
-        let step = curve.domain().length() / 100.0;
-        for index in 0..101 {
-            let test_pt = curve.domain().start() + index as f32 * step;
+        for test_pt in curve.domain().spaced_points(101).unwrap() {
             let expected = curve.sample_unchecked(test_pt);
             assert_abs_diff_eq!(
                 resampled_curve.sample_unchecked(test_pt),
@@ -1098,9 +1096,7 @@ mod tests {
         // Another example.
         let curve = function_curve(interval(0.0, TAU).unwrap(), ops::cos);
         let resampled_curve = curve.by_ref().resample_auto(1001).unwrap();
-        let step = curve.domain().length() / 1000.0;
-        for index in 0..1001 {
-            let test_pt = curve.domain().start() + index as f32 * step;
+        for test_pt in curve.domain().spaced_points(1001).unwrap() {
             let expected = curve.sample_unchecked(test_pt);
             assert_abs_diff_eq!(
                 resampled_curve.sample_unchecked(test_pt),

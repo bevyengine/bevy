@@ -267,7 +267,7 @@ pub struct UnevenCore<T> {
 #[error("Could not construct an UnevenCore")]
 pub enum UnevenCoreError {
     /// Not enough samples were provided.
-    #[error("Need at least two samples to create an UnevenCore, but {samples} were provided")]
+    #[error("Need at least two unique samples to create an UnevenCore, but {samples} were provided")]
     NotEnoughSamples {
         /// The number of samples that were provided.
         samples: usize,
@@ -405,7 +405,7 @@ pub enum ChunkedUnevenCoreError {
 
     /// At least two sample times are necessary to interpolate in `ChunkedUnevenCore`.
     #[error(
-        "Need at least two samples to create a ChunkedUnevenCore, but {samples} were provided"
+        "Need at least two unique samples to create a ChunkedUnevenCore, but {samples} were provided"
     )]
     NotEnoughSamples {
         /// The number of samples that were provided.
@@ -513,7 +513,7 @@ impl<T> ChunkedUnevenCore<T> {
 }
 
 /// Sort the given times, deduplicate them, and filter them to only finite times.
-fn filter_sort_dedup_times(times: Vec<f32>) -> Vec<f32> {
+fn filter_sort_dedup_times(times: impl IntoIterator<Item=f32>) -> Vec<f32> {
     // Filter before sorting/deduplication so that NAN doesn't interfere with them.
     let mut times: Vec<f32> = times.into_iter().filter(|t| t.is_finite()).collect();
     times.sort_by(|t0, t1| t0.partial_cmp(t1).unwrap());
