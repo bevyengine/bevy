@@ -437,7 +437,7 @@ impl<T> ChunkedUnevenCore<T> {
     ///
     /// Produces an error in any of the following circumstances:
     /// - `width` is zero.
-    /// - `times` has less than `2` valid entries.
+    /// - `times` has less than `2` valid unique entries.
     /// - `values` has the incorrect length relative to `times`.
     ///
     /// [type-level documentation]: ChunkedUnevenCore

@@ -6,6 +6,7 @@ pub mod cores;
 pub mod interval;
 
 pub use interval::{interval, Interval};
+use itertools::Itertools;
 
 use crate::StableInterpolate;
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
@@ -243,19 +244,7 @@ pub trait Curve<T> {
         Self: Sized,
         I: Fn(&T, &T, f32) -> T,
     {
-        if segments == 0 {
-            return Err(ResamplingError::NotEnoughSamples(segments));
-        }
-        if !self.domain().is_bounded() {
-            return Err(ResamplingError::UnboundedDomain);
-        }
-
-        let samples: Vec<T> = self
-            .domain()
-            .spaced_points(segments + 1)
-            .unwrap()
-            .map(|t| self.sample_unchecked(t))
-            .collect();
+        let samples = self.samples(segments + 1)?.collect_vec();
         Ok(SampleCurve {
             core: EvenCore {
                 domain: self.domain(),
@@ -266,26 +255,19 @@ pub trait Curve<T> {
     }
 
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
-    /// spaced values. A total of `samples` samples are used, although at least two samples are
-    /// required in order to produce well-formed output. If fewer than two samples are provided,
-    /// or if this curve has an unbounded domain, then a [`ResamplingError`] is returned.
-    fn resample_auto(&self, samples: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
+    /// spaced sample values, using [automatic interpolation] to interpolate between adjacent samples.
+    /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
+    /// only the start and end points of the curve are used as samples; if `segments` is 2, a sample at
+    /// the midpoint is taken as well, and so on. If `segments` is zero, or if this curve has an unbounded
+    /// domain, then a [`ResamplingError`] is returned.
+    ///
+    /// [automatic interpolation]: crate::common_traits::StableInterpolate
+    fn resample_auto(&self, segments: usize) -> Result<SampleAutoCurve<T>, ResamplingError>
     where
+        Self: Sized,
         T: StableInterpolate,
     {
-        if samples < 2 {
-            return Err(ResamplingError::NotEnoughSamples(samples));
-        }
-        if !self.domain().is_bounded() {
-            return Err(ResamplingError::UnboundedDomain);
-        }
-
-        let samples: Vec<T> = self
-            .domain()
-            .spaced_points(samples)
-            .unwrap()
-            .map(|t| self.sample_unchecked(t))
-            .collect();
+        let samples = self.samples(segments + 1)?.collect_vec();
         Ok(SampleAutoCurve {
             core: EvenCore {
                 domain: self.domain(),
@@ -340,28 +322,25 @@ pub trait Curve<T> {
         Self: Sized,
         I: Fn(&T, &T, f32) -> T,
     {
-        let mut times: Vec<f32> = sample_times
+        let domain = self.domain();
+        let mut times = sample_times
             .into_iter()
-            .filter(|t| t.is_finite() && self.domain().contains(*t))
-            .collect();
-        times.dedup_by(|t1, t2| (*t1).eq(t2));
+            .filter(|t| t.is_finite() && domain.contains(*t))
+            .collect_vec();
+        times.sort_by(f32::total_cmp);
+        times.dedup();
         if times.len() < 2 {
             return Err(ResamplingError::NotEnoughSamples(times.len()));
         }
-        times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
-        let samples = times
-            .iter()
-            .copied()
-            .map(|t| self.sample_unchecked(t))
-            .collect();
+        let samples = times.iter().map(|t| self.sample_unchecked(*t)).collect();
         Ok(UnevenSampleCurve {
             core: UnevenCore { times, samples },
             interpolation,
         })
     }
 
-    /// Resample this [`Curve`] to produce a new one that is defined by interpolation over samples
-    /// taken at the given set of times. The given `sample_times` are expected to contain at least
+    /// Resample this [`Curve`] to produce a new one that is defined by [automatic interpolation] over
+    /// samples taken at the given set of times. The given `sample_times` are expected to contain at least
     /// two valid times within the curve's domain interval.
     ///
     /// Redundant sample times, non-finite sample times, and sample times outside of the domain
@@ -370,6 +349,8 @@ pub trait Curve<T> {
     ///
     /// The domain of the produced [`UnevenSampleAutoCurve`] stretches between the first and last
     /// sample times of the iterator.
+    ///
+    /// [automatic interpolation]: crate::common_traits::StableInterpolate
     fn resample_uneven_auto(
         &self,
         sample_times: impl IntoIterator<Item = f32>,
@@ -378,20 +359,17 @@ pub trait Curve<T> {
         Self: Sized,
         T: StableInterpolate,
     {
-        let mut times: Vec<f32> = sample_times
+        let domain = self.domain();
+        let mut times = sample_times
             .into_iter()
-            .filter(|t| t.is_finite() && self.domain().contains(*t))
-            .collect();
-        times.dedup_by(|t1, t2| (*t1).eq(t2));
+            .filter(|t| t.is_finite() && domain.contains(*t))
+            .collect_vec();
+        times.sort_by(f32::total_cmp);
+        times.dedup();
         if times.len() < 2 {
             return Err(ResamplingError::NotEnoughSamples(times.len()));
         }
-        times.sort_by(|t1, t2| t1.partial_cmp(t2).unwrap());
-        let samples = times
-            .iter()
-            .copied()
-            .map(|t| self.sample_unchecked(t))
-            .collect();
+        let samples = times.iter().map(|t| self.sample_unchecked(*t)).collect();
         Ok(UnevenSampleAutoCurve {
             core: UnevenCore { times, samples },
         })
@@ -1079,14 +1057,14 @@ mod tests {
     fn resampling() {
         let curve = function_curve(interval(1.0, 4.0).unwrap(), ops::log2);
 
-        // Need at least two points to sample.
-        let nice_try = curve.by_ref().resample_auto(1);
+        // Need at least one segment to sample.
+        let nice_try = curve.by_ref().resample_auto(0);
         assert!(nice_try.is_err());
 
         // The values of a resampled curve should be very close at the sample points.
         // Because of denominators, it's not literally equal.
         // (This is a tradeoff against O(1) sampling.)
-        let resampled_curve = curve.by_ref().resample_auto(101).unwrap();
+        let resampled_curve = curve.by_ref().resample_auto(100).unwrap();
         for test_pt in curve.domain().spaced_points(101).unwrap() {
             let expected = curve.sample_unchecked(test_pt);
             assert_abs_diff_eq!(
@@ -1098,7 +1076,7 @@ mod tests {
 
         // Another example.
         let curve = function_curve(interval(0.0, TAU).unwrap(), ops::cos);
-        let resampled_curve = curve.by_ref().resample_auto(1001).unwrap();
+        let resampled_curve = curve.by_ref().resample_auto(1000).unwrap();
         for test_pt in curve.domain().spaced_points(1001).unwrap() {
             let expected = curve.sample_unchecked(test_pt);
             assert_abs_diff_eq!(
