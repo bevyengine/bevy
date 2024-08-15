@@ -11,6 +11,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::Component,
+    query::DebugCheckedUnwrap,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
@@ -998,11 +999,16 @@ unsafe fn get_component(
     // SAFETY: component_id exists and is therefore valid
     match storage_type {
         StorageType::Table => {
-            let components = world.fetch_table(location, component_id)?;
+            let components = world
+                .fetch_table(location, component_id)
+                .debug_checked_unwrap();
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(components.get_data_unchecked(location.table_row))
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
+        StorageType::SparseSet => world
+            .fetch_sparse_set(component_id)
+            .debug_checked_unwrap()
+            .get(entity),
     }
 }
 
@@ -1024,7 +1030,9 @@ unsafe fn get_component_and_ticks(
 ) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
     match storage_type {
         StorageType::Table => {
-            let components = world.fetch_table(location, component_id)?;
+            let components = world
+                .fetch_table(location, component_id)
+                .debug_checked_unwrap();
 
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some((
@@ -1039,7 +1047,10 @@ unsafe fn get_component_and_ticks(
                 (),
             ))
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),
+        StorageType::SparseSet => world
+            .fetch_sparse_set(component_id)
+            .debug_checked_unwrap()
+            .get_with_ticks(entity),
     }
 }
 
@@ -1062,10 +1073,15 @@ unsafe fn get_ticks(
 ) -> Option<ComponentTicks> {
     match storage_type {
         StorageType::Table => {
-            let components = world.fetch_table(location, component_id)?;
+            let components = world
+                .fetch_table(location, component_id)
+                .debug_checked_unwrap();
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(components.get_ticks_unchecked(location.table_row))
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
+        StorageType::SparseSet => world
+            .fetch_sparse_set(component_id)
+            .debug_checked_unwrap()
+            .get_ticks(entity),
     }
 }
