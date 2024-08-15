@@ -65,15 +65,19 @@ impl<T> InterpolationDatum<T> {
 /// ```rust
 /// # use bevy_math::curve::*;
 /// # use bevy_math::curve::cores::*;
+/// // Let's make a curve that interpolates evenly spaced samples using either linear interpolation
+/// // or step "interpolation" — i.e. just using the most recent sample as the source of truth.
 /// enum InterpolationMode {
 ///     Linear,
 ///     Step,
 /// }
 ///
+/// // Linear interpolation mode is driven by a trait.
 /// trait LinearInterpolate {
 ///     fn lerp(&self, other: &Self, t: f32) -> Self;
 /// }
 ///
+/// // Step interpolation just uses an explicit function.
 /// fn step<T: Clone>(first: &T, second: &T, t: f32) -> T {
 ///     if t >= 1.0 {
 ///         second.clone()
@@ -82,6 +86,10 @@ impl<T> InterpolationDatum<T> {
 ///     }
 /// }
 ///
+/// // Omitted: Implementing `LinearInterpolate` on relevant types; e.g. `f32`, `Vec3`, and so on.
+///
+/// // The curve itself uses `EvenCore` to hold the evenly-spaced samples, and the `sample_with`
+/// // function will do all the work of interpolating once given a function to do it with.
 /// struct MyCurve<T> {
 ///     core: EvenCore<T>,
 ///     interpolation_mode: InterpolationMode,
@@ -96,6 +104,7 @@ impl<T> InterpolationDatum<T> {
 ///     }
 ///     
 ///     fn sample_unchecked(&self, t: f32) -> T {
+///         // To sample this curve, check the interpolation mode and dispatch accordingly.
 ///         match self.interpolation_mode {
 ///             InterpolationMode::Linear => self.core.sample_with(t, <T as LinearInterpolate>::lerp),
 ///             InterpolationMode::Step => self.core.sample_with(t, step),
@@ -138,8 +147,10 @@ pub enum EvenCoreError {
 }
 
 impl<T> EvenCore<T> {
-    /// Create a new [`EvenCore`] from the specified `domain` and `samples`. An error is returned
-    /// if there are not at least 2 samples or if the given domain is unbounded.
+    /// Create a new [`EvenCore`] from the specified `domain` and `samples`. The samples are
+    /// regarded to be evenly spaced within the given domain interval, so that the outermost
+    /// samples form the boundary of that interval. An error is returned if there are not at
+    /// least 2 samples or if the given domain is unbounded.
     #[inline]
     pub fn new(
         domain: Interval,
@@ -245,8 +256,64 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
 /// use this in concert with implicitly or explicitly-defined interpolation in user-space in
 /// order to implement the curve interface using [`domain`] and [`sample_with`].
 ///
+/// The internals are made transparent to give curve authors freedom, but [the provided constructor]
+/// enforces the required invariants, and the methods maintain those invariants.
+///
+/// # Example
+/// ```rust
+/// # use bevy_math::curve::*;
+/// # use bevy_math::curve::cores::*;
+/// // Let's make a curve formed by interpolating rotations.
+/// // We'll support two common modes of interpolation:
+/// // - Normalized linear: First do linear interpolation, then normalize to get a valid rotation.
+/// // - Spherical linear: Interpolate through valid rotations with constant angular velocity.
+/// enum InterpolationMode {
+///     NormalizedLinear,
+///     SphericalLinear,
+/// }
+///
+/// // Our interpolation modes will be driven by traits.
+/// trait NormalizedLinearInterpolate {
+///     fn nlerp(&self, other: &Self, t: f32) -> Self;
+/// }
+///
+/// trait SphericalLinearInterpolate {
+///     fn slerp(&self, other: &Self, t: f32) -> Self;
+/// }
+///
+/// // Omitted: These traits would be implemented for `Rot2`, `Quat`, and other rotation representations.
+///
+/// // The curve itself just needs to use the curve core for keyframes, `UnevenCore`, which handles
+/// // everything except for the explicit interpolation used.
+/// struct RotationCurve<T> {
+///     core: UnevenCore<T>,
+///     interpolation_mode: InterpolationMode,
+/// }
+///
+/// impl<T> Curve<T> for RotationCurve<T>
+/// where
+///     T: NormalizedLinearInterpolate + SphericalLinearInterpolate + Clone,
+/// {
+///     fn domain(&self) -> Interval {
+///         self.core.domain()
+///     }
+///     
+///     fn sample_unchecked(&self, t: f32) -> T {
+///         // To sample the curve, we just look at the interpolation mode and
+///         // dispatch accordingly.
+///         match self.interpolation_mode {
+///             InterpolationMode::NormalizedLinear =>
+///                 self.core.sample_with(t, <T as NormalizedLinearInterpolate>::nlerp),
+///             InterpolationMode::SphericalLinear =>
+///                 self.core.sample_with(t, <T as SphericalLinearInterpolate>::slerp),
+///         }
+///     }
+/// }
+/// ```
+///
 /// [`domain`]: UnevenCore::domain
 /// [`sample_with`]: UnevenCore::sample_with
+/// [the provided constructor]: UnevenCore::new
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
