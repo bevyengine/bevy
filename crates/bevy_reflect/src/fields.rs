@@ -5,7 +5,7 @@ use core::fmt::{Display, Formatter};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
-/// A general-purpose identifier for name or unnamed fields in structs or enum variants.
+/// A general-purpose identifier for named or unnamed fields in structs or enum variants.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum FieldId<'a> {
     /// A named field.
