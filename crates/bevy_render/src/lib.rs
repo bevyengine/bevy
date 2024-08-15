@@ -140,7 +140,7 @@ pub enum RenderSet {
     /// Final cleanup occurs: all entities will be despawned.
     ///
     /// Runs after [`Cleanup`](RenderSet::Cleanup).
-    FinalCleanup,
+    PostCleanup,
 }
 
 /// The main render schedule.
@@ -473,7 +473,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-                World::clear_entities.in_set(RenderSet::FinalCleanup),
+                World::clear_entities.in_set(RenderSet::PostCleanup),
             ),
         );
 
