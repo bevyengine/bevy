@@ -1725,6 +1725,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 if self.current_row == self.current_len {
                     let table_id = self.storage_id_iter.next()?.table_id;
                     let table = tables.get(table_id).debug_checked_unwrap();
+                    if table.is_empty() {
+                        continue;
+                    }
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
@@ -1761,6 +1764,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 if self.current_row == self.current_len {
                     let archetype_id = self.storage_id_iter.next()?.archetype_id;
                     let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
+                    if archetype.is_empty() {
+                        continue;
+                    }
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
