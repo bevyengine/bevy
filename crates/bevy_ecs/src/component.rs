@@ -1265,6 +1265,8 @@ impl RequiredComponents {
 
     /// Removes components that are explicitly provided in a given [`Bundle`]. These components should
     /// be logically treated as normal components, not "required components".
+    ///
+    /// [`Bundle`]: crate::bundle::Bundle
     pub fn remove_bundle_components(&mut self, components: &[ComponentId]) {
         for component in components {
             self.0.remove(component);
