@@ -7,9 +7,11 @@ use bevy::{
     window::{AppLifecycle, WindowMode},
 };
 
-// the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
+// the `bevy_main` proc_macro generates the required boilerplate for Android
 #[bevy_main]
-fn main() {
+/// The entry point for the application. Is `pub` so that it can be used from
+/// `main.rs`.
+pub fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
