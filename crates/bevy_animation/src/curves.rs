@@ -1,6 +1,9 @@
 //! Curve structures used by the animation system.
 
-use bevy_math::{curve::cores::*, curve::*, Quat, Vec3, Vec4, VectorSpace};
+use bevy_math::{
+    curve::{cores::*, iterable::IterableCurve, *},
+    Quat, Vec3, Vec4, VectorSpace,
+};
 use bevy_reflect::Reflect;
 
 /// A keyframe-defined curve that "interpolates" by stepping at `t = 1.0` to the next keyframe.
@@ -84,7 +87,6 @@ impl<T> CubicKeyframeCurve<T> {
     }
 }
 
-// Pie in the sky: `TranslationCurve` is basically the same thing as a `Box<dyn Curve<Vec3>>` etc.
 // The first couple variants can be taken "off the shelf" from the Curve library, while the others
 // are built on top of the core abstractions.
 

@@ -13,7 +13,7 @@ mod graph;
 mod transition;
 mod util;
 
-use bevy_math::curve::{Curve, IterableCurve};
+use bevy_math::curve::{iterable::IterableCurve, Curve};
 use curves::VariableCurve;
 
 use std::cell::RefCell;
