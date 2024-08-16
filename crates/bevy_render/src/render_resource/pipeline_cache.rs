@@ -25,7 +25,10 @@ use std::{
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
-use wgpu::{DownlevelFlags, Features, VertexBufferLayout as RawVertexBufferLayout};
+use wgpu::{
+    DownlevelFlags, Features, PipelineCompilationOptions,
+    VertexBufferLayout as RawVertexBufferLayout,
+};
 
 use crate::render_resource::resource_macros::*;
 
@@ -170,66 +173,10 @@ impl ShaderDefVal {
 
 impl ShaderCache {
     fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
-        const CAPABILITIES: &[(Features, Capabilities)] = &[
-            (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
-            (Features::SHADER_F64, Capabilities::FLOAT64),
-            (
-                Features::SHADER_PRIMITIVE_INDEX,
-                Capabilities::PRIMITIVE_INDEX,
-            ),
-            (
-                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::TEXTURE_FORMAT_16BIT_NORM,
-                Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
-            ),
-            (Features::MULTIVIEW, Capabilities::MULTIVIEW),
-            (
-                Features::SHADER_EARLY_DEPTH_TEST,
-                Capabilities::EARLY_DEPTH_TEST,
-            ),
-        ];
-        let features = render_device.features();
-        let mut capabilities = Capabilities::empty();
-        for (feature, capability) in CAPABILITIES {
-            if features.contains(*feature) {
-                capabilities |= *capability;
-            }
-        }
-
-        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[
-            (
-                DownlevelFlags::CUBE_ARRAY_TEXTURES,
-                Capabilities::CUBE_ARRAY_TEXTURES,
-            ),
-            (
-                DownlevelFlags::MULTISAMPLED_SHADING,
-                Capabilities::MULTISAMPLED_SHADING,
-            ),
-            (
-                DownlevelFlags::CUBE_ARRAY_TEXTURES,
-                Capabilities::CUBE_ARRAY_TEXTURES,
-            ),
-        ];
-        for (downlevel_flag, capability) in DOWNLEVEL_FLAGS_CAPABILITIES {
-            if render_adapter
-                .get_downlevel_capabilities()
-                .flags
-                .contains(*downlevel_flag)
-            {
-                capabilities |= *capability;
-            }
-        }
+        let capabilities = get_capabilities(
+            render_device.features(),
+            render_adapter.get_downlevel_capabilities().flags,
+        );
 
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
@@ -476,13 +423,13 @@ impl LayoutCache {
         bind_group_layouts: &[BindGroupLayout],
         push_constant_ranges: Vec<PushConstantRange>,
     ) -> ErasedPipelineLayout {
-        let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
+        let bind_group_ids = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts
             .entry((bind_group_ids, push_constant_ranges))
             .or_insert_with_key(|(_, push_constant_ranges)| {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
-                    .map(|l| l.value())
+                    .map(BindGroupLayout::value)
                     .collect::<Vec<_>>();
                 ErasedPipelineLayout::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {
@@ -517,7 +464,7 @@ pub struct PipelineCache {
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on MacOS, wasm, or without the `multi_threaded` feature.
+    /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
     synchronous_pipeline_compilation: bool,
 }
 
@@ -791,6 +738,13 @@ impl PipelineCache {
                     )
                 });
 
+                // TODO: Expose this somehow
+                let compilation_options = PipelineCompilationOptions {
+                    constants: &std::collections::HashMap::new(),
+                    zero_initialize_workgroup_memory: false,
+                    vertex_pulling_transform: Default::default(),
+                };
+
                 let descriptor = RawRenderPipelineDescriptor {
                     multiview: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
@@ -802,6 +756,8 @@ impl PipelineCache {
                         buffers: &vertex_buffer_layouts,
                         entry_point: descriptor.vertex.entry_point.deref(),
                         module: &vertex_module,
+                        // TODO: Should this be the same as the fragment compilation options?
+                        compilation_options: compilation_options.clone(),
                     },
                     fragment: fragment_data
                         .as_ref()
@@ -809,7 +765,10 @@ impl PipelineCache {
                             entry_point,
                             module,
                             targets,
+                            // TODO: Should this be the same as the vertex compilation options?
+                            compilation_options,
                         }),
+                    cache: None,
                 };
 
                 Ok(Pipeline::RenderPipeline(
@@ -861,6 +820,13 @@ impl PipelineCache {
                     layout: layout.as_deref(),
                     module: &compute_module,
                     entry_point: &descriptor.entry_point,
+                    // TODO: Expose this somehow
+                    compilation_options: PipelineCompilationOptions {
+                        constants: &std::collections::HashMap::new(),
+                        zero_initialize_workgroup_memory: false,
+                        vertex_pulling_transform: Default::default(),
+                    },
+                    cache: None,
                 };
 
                 Ok(Pipeline::ComputePipeline(
@@ -1026,4 +992,89 @@ pub enum PipelineCacheError {
     ShaderImportNotYetAvailable,
     #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
+}
+
+// TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
+// https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
+// We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core` isn't included in WebGPU builds.
+/// Get the device's capabilities for use in `naga_oil`.
+fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
+    let mut capabilities = Capabilities::empty();
+    capabilities.set(
+        Capabilities::PUSH_CONSTANT,
+        features.contains(Features::PUSH_CONSTANTS),
+    );
+    capabilities.set(
+        Capabilities::FLOAT64,
+        features.contains(Features::SHADER_F64),
+    );
+    capabilities.set(
+        Capabilities::PRIMITIVE_INDEX,
+        features.contains(Features::SHADER_PRIMITIVE_INDEX),
+    );
+    capabilities.set(
+        Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    // TODO: This needs a proper wgpu feature
+    capabilities.set(
+        Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
+        features.contains(Features::TEXTURE_FORMAT_16BIT_NORM),
+    );
+    capabilities.set(
+        Capabilities::MULTIVIEW,
+        features.contains(Features::MULTIVIEW),
+    );
+    capabilities.set(
+        Capabilities::EARLY_DEPTH_TEST,
+        features.contains(Features::SHADER_EARLY_DEPTH_TEST),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64,
+        features.contains(Features::SHADER_INT64),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_MIN_MAX,
+        features.intersects(
+            Features::SHADER_INT64_ATOMIC_MIN_MAX | Features::SHADER_INT64_ATOMIC_ALL_OPS,
+        ),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_ALL_OPS,
+        features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
+    );
+    capabilities.set(
+        Capabilities::MULTISAMPLED_SHADING,
+        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
+    );
+    capabilities.set(
+        Capabilities::DUAL_SOURCE_BLENDING,
+        features.contains(Features::DUAL_SOURCE_BLENDING),
+    );
+    capabilities.set(
+        Capabilities::CUBE_ARRAY_TEXTURES,
+        downlevel.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP,
+        features.intersects(Features::SUBGROUP | Features::SUBGROUP_VERTEX),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP_BARRIER,
+        features.intersects(Features::SUBGROUP_BARRIER),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP_VERTEX_STAGE,
+        features.contains(Features::SUBGROUP_VERTEX),
+    );
+
+    capabilities
 }

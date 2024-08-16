@@ -9,9 +9,9 @@ use bevy_math::Mat2;
 use bevy_math::{Dir3, Quat, Vec2, Vec3};
 use std::f32::consts::TAU;
 
-pub(crate) const DEFAULT_CIRCLE_RESOLUTION: usize = 32;
+pub(crate) const DEFAULT_CIRCLE_RESOLUTION: u32 = 32;
 
-fn ellipse_inner(half_size: Vec2, resolution: usize) -> impl Iterator<Item = Vec2> {
+fn ellipse_inner(half_size: Vec2, resolution: u32) -> impl Iterator<Item = Vec2> {
     (0..resolution + 1).map(move |i| {
         let angle = i as f32 * TAU / resolution as f32;
         let (x, y) = angle.sin_cos();
@@ -212,7 +212,7 @@ where
             gizmos: self,
             radius,
             position,
-            rotation,
+            rotation: rotation.normalize(),
             color: color.into(),
             resolution: DEFAULT_CIRCLE_RESOLUTION,
         }
@@ -230,7 +230,7 @@ where
     rotation: Quat,
     half_size: Vec2,
     color: Color,
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> EllipseBuilder<'_, '_, '_, Config, Clear>
@@ -239,7 +239,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the geometry of this ellipse.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -273,7 +273,7 @@ where
     rotation: Mat2,
     half_size: Vec2,
     color: Color,
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> Ellipse2dBuilder<'_, '_, '_, Config, Clear>
@@ -282,7 +282,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of line-segments used to approximate the geometry of this ellipse.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }
@@ -306,7 +306,7 @@ where
     }
 }
 
-/// Builder for configuring the drawing options of [`Sphere`].
+/// A builder returned by [`Gizmos::sphere`].
 pub struct SphereBuilder<'a, 'w, 's, Config, Clear>
 where
     Config: GizmoConfigGroup,
@@ -325,7 +325,7 @@ where
     color: Color,
 
     // Number of line-segments used to approximate the sphere geometry
-    resolution: usize,
+    resolution: u32,
 }
 
 impl<Config, Clear> SphereBuilder<'_, '_, '_, Config, Clear>
@@ -334,7 +334,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of line-segments used to approximate the sphere geometry.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution = resolution;
         self
     }

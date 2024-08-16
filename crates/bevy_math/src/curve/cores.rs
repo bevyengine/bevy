@@ -1,19 +1,25 @@
 //! Core data structures to be used internally in Curve implementations, encapsulating storage
 //! and access patterns for reuse.
+//!
+//! The `Core` types here expose their fields publicly so that it is easier to manipulate and
+//! extend them, but in doing so, you must maintain the invariants of those fields yourself. The
+//! provided methods all maintain the invariants, so this is only a concern if you manually mutate
+//! the fields.
 
 use super::interval::Interval;
 use core::fmt::Debug;
+use itertools::Itertools;
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
-/// This type expresses the relationship of a value to a linear collection of values. It is a kind
+/// This type expresses the relationship of a value to a fixed collection of values. It is a kind
 /// of summary used intermediately by sampling operations.
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub enum Betweenness<T> {
+pub enum InterpolationDatum<T> {
     /// This value lies exactly on a value in the family.
     Exact(T),
 
@@ -28,28 +34,28 @@ pub enum Betweenness<T> {
     Between(T, T, f32),
 }
 
-impl<T> Betweenness<T> {
+impl<T> InterpolationDatum<T> {
     /// Map all values using a given function `f`, leaving the interpolation parameters in any
     /// [`Between`] variants unchanged.
     ///
-    /// [`Between`]: `Betweenness::Between`
+    /// [`Between`]: `InterpolationDatum::Between`
     #[must_use]
-    pub fn map<S>(self, f: impl Fn(T) -> S) -> Betweenness<S> {
+    pub fn map<S>(self, f: impl Fn(T) -> S) -> InterpolationDatum<S> {
         match self {
-            Betweenness::Exact(v) => Betweenness::Exact(f(v)),
-            Betweenness::LeftTail(v) => Betweenness::LeftTail(f(v)),
-            Betweenness::RightTail(v) => Betweenness::RightTail(f(v)),
-            Betweenness::Between(u, v, s) => Betweenness::Between(f(u), f(v), s),
+            InterpolationDatum::Exact(v) => InterpolationDatum::Exact(f(v)),
+            InterpolationDatum::LeftTail(v) => InterpolationDatum::LeftTail(f(v)),
+            InterpolationDatum::RightTail(v) => InterpolationDatum::RightTail(f(v)),
+            InterpolationDatum::Between(u, v, s) => InterpolationDatum::Between(f(u), f(v), s),
         }
     }
 }
 
 /// The data core of a curve derived from evenly-spaced samples. The intention is to use this
 /// in addition to explicit or inferred interpolation information in user-space in order to
-/// implement curves using [`domain`] and [`sample_with`]
+/// implement curves using [`domain`] and [`sample_with`].
 ///
 /// The internals are made transparent to give curve authors freedom, but [the provided constructor]
-/// enforces the required invariants.
+/// enforces the required invariants, and the methods maintain those invariants.
 ///
 /// [the provided constructor]: EvenCore::new
 /// [`domain`]: EvenCore::domain
@@ -59,15 +65,19 @@ impl<T> Betweenness<T> {
 /// ```rust
 /// # use bevy_math::curve::*;
 /// # use bevy_math::curve::cores::*;
+/// // Let's make a curve that interpolates evenly spaced samples using either linear interpolation
+/// // or step "interpolation" — i.e. just using the most recent sample as the source of truth.
 /// enum InterpolationMode {
 ///     Linear,
 ///     Step,
 /// }
 ///
+/// // Linear interpolation mode is driven by a trait.
 /// trait LinearInterpolate {
 ///     fn lerp(&self, other: &Self, t: f32) -> Self;
 /// }
 ///
+/// // Step interpolation just uses an explicit function.
 /// fn step<T: Clone>(first: &T, second: &T, t: f32) -> T {
 ///     if t >= 1.0 {
 ///         second.clone()
@@ -76,6 +86,10 @@ impl<T> Betweenness<T> {
 ///     }
 /// }
 ///
+/// // Omitted: Implementing `LinearInterpolate` on relevant types; e.g. `f32`, `Vec3`, and so on.
+///
+/// // The curve itself uses `EvenCore` to hold the evenly-spaced samples, and the `sample_with`
+/// // function will do all the work of interpolating once given a function to do it with.
 /// struct MyCurve<T> {
 ///     core: EvenCore<T>,
 ///     interpolation_mode: InterpolationMode,
@@ -89,7 +103,8 @@ impl<T> Betweenness<T> {
 ///         self.core.domain()
 ///     }
 ///     
-///     fn sample(&self, t: f32) -> T {
+///     fn sample_unchecked(&self, t: f32) -> T {
+///         // To sample this curve, check the interpolation mode and dispatch accordingly.
 ///         match self.interpolation_mode {
 ///             InterpolationMode::Linear => self.core.sample_with(t, <T as LinearInterpolate>::lerp),
 ///             InterpolationMode::Step => self.core.sample_with(t, step),
@@ -115,36 +130,40 @@ pub struct EvenCore<T> {
     pub samples: Vec<T>,
 }
 
-/// An error indicating that a [`EvenCore`] could not be constructed.
-#[derive(Debug, Error, PartialEq, Eq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+/// An error indicating that an [`EvenCore`] could not be constructed.
+#[derive(Debug, Error)]
+#[error("Could not construct an EvenCore")]
 pub enum EvenCoreError {
     /// Not enough samples were provided.
-    #[error("Need at least two samples to create a EvenCore, but {samples} were provided")]
+    #[error("Need at least two samples to create an EvenCore, but {samples} were provided")]
     NotEnoughSamples {
         /// The number of samples that were provided.
         samples: usize,
     },
 
     /// Unbounded domains are not compatible with `EvenCore`.
-    #[error("Cannot create a EvenCore over a domain with an infinite endpoint")]
-    InfiniteDomain,
+    #[error("Cannot create a EvenCore over an unbounded domain")]
+    UnboundedDomain,
 }
 
 impl<T> EvenCore<T> {
-    /// Create a new [`EvenCore`] from the specified `domain` and `samples`. An error is returned
-    /// if there are not at least 2 samples or if the given domain is unbounded.
+    /// Create a new [`EvenCore`] from the specified `domain` and `samples`. The samples are
+    /// regarded to be evenly spaced within the given domain interval, so that the outermost
+    /// samples form the boundary of that interval. An error is returned if there are not at
+    /// least 2 samples or if the given domain is unbounded.
     #[inline]
-    pub fn new(domain: Interval, samples: impl Into<Vec<T>>) -> Result<Self, EvenCoreError> {
-        let samples: Vec<T> = samples.into();
+    pub fn new(
+        domain: Interval,
+        samples: impl IntoIterator<Item = T>,
+    ) -> Result<Self, EvenCoreError> {
+        let samples: Vec<T> = samples.into_iter().collect();
         if samples.len() < 2 {
             return Err(EvenCoreError::NotEnoughSamples {
                 samples: samples.len(),
             });
         }
-        if !domain.is_finite() {
-            return Err(EvenCoreError::InfiniteDomain);
+        if !domain.is_bounded() {
+            return Err(EvenCoreError::UnboundedDomain);
         }
 
         Ok(EvenCore { domain, samples })
@@ -168,33 +187,33 @@ impl<T> EvenCore<T> {
         T: Clone,
         I: Fn(&T, &T, f32) -> T,
     {
-        match even_betweenness(self.domain, self.samples.len(), t) {
-            Betweenness::Exact(idx) | Betweenness::LeftTail(idx) | Betweenness::RightTail(idx) => {
-                self.samples[idx].clone()
-            }
-            Betweenness::Between(lower_idx, upper_idx, s) => {
+        match even_interp(self.domain, self.samples.len(), t) {
+            InterpolationDatum::Exact(idx)
+            | InterpolationDatum::LeftTail(idx)
+            | InterpolationDatum::RightTail(idx) => self.samples[idx].clone(),
+            InterpolationDatum::Between(lower_idx, upper_idx, s) => {
                 interpolation(&self.samples[lower_idx], &self.samples[upper_idx], s)
             }
         }
     }
 
-    /// Given a time `t`, obtain a [`Betweenness`] which governs how interpolation might recover
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
     /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
     /// be used to interpolate between the two contained values with the given parameter. The other
     /// variants give additional context about where the value is relative to the family of samples.
     ///
-    /// [`Between`]: `Betweenness::Between`
-    pub fn sample_betweenness(&self, t: f32) -> Betweenness<&T> {
-        even_betweenness(self.domain, self.samples.len(), t).map(|idx| &self.samples[idx])
+    /// [`Between`]: `InterpolationDatum::Between`
+    pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&T> {
+        even_interp(self.domain, self.samples.len(), t).map(|idx| &self.samples[idx])
     }
 
-    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
-    /// useful when sampling is not scale-invariant.
+    /// Like [`sample_interp`], but the returned values include the sample times. This can be
+    /// useful when sample interpolation is not scale-invariant.
     ///
-    /// [`sample_betweenness`]: EvenCore::sample_betweenness
-    pub fn sample_betweenness_timed(&self, t: f32) -> Betweenness<(f32, &T)> {
+    /// [`sample_interp`]: EvenCore::sample_interp
+    pub fn sample_interp_timed(&self, t: f32) -> InterpolationDatum<(f32, &T)> {
         let segment_len = self.domain.length() / (self.samples.len() - 1) as f32;
-        even_betweenness(self.domain, self.samples.len(), t).map(|idx| {
+        even_interp(self.domain, self.samples.len(), t).map(|idx| {
             (
                 self.domain.start() + segment_len * idx as f32,
                 &self.samples[idx],
@@ -203,15 +222,15 @@ impl<T> EvenCore<T> {
     }
 }
 
-/// Given a domain and a number of samples taken over that interval, return a [`Betweenness`]
+/// Given a domain and a number of samples taken over that interval, return an [`InterpolationDatum`]
 /// that governs how samples are extracted relative to the stored data.
 ///
-/// `domain` must be a bounded interval (i.e. `domain.is_finite() == true`).
+/// `domain` must be a bounded interval (i.e. `domain.is_bounded() == true`).
 ///
 /// `samples` must be at least 2.
 ///
 /// This function will never panic, but it may return invalid indices if its assumptions are violated.
-pub fn even_betweenness(domain: Interval, samples: usize, t: f32) -> Betweenness<usize> {
+pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDatum<usize> {
     let subdivs = samples - 1;
     let step = domain.length() / subdivs as f32;
     let t_shifted = t - domain.start();
@@ -219,17 +238,17 @@ pub fn even_betweenness(domain: Interval, samples: usize, t: f32) -> Betweenness
 
     if steps_taken <= 0.0 {
         // To the left side of all the samples.
-        Betweenness::LeftTail(0)
+        InterpolationDatum::LeftTail(0)
     } else if steps_taken >= subdivs as f32 {
         // To the right side of all the samples
-        Betweenness::RightTail(samples - 1)
+        InterpolationDatum::RightTail(samples - 1)
     } else {
         let lower_index = steps_taken.floor() as usize;
         // This upper index is always valid because `steps_taken` is a finite value
         // strictly less than `samples - 1`, so its floor is at most `samples - 2`
         let upper_index = lower_index + 1;
         let s = steps_taken.fract();
-        Betweenness::Between(lower_index, upper_index, s)
+        InterpolationDatum::Between(lower_index, upper_index, s)
     }
 }
 
@@ -237,8 +256,64 @@ pub fn even_betweenness(domain: Interval, samples: usize, t: f32) -> Betweenness
 /// use this in concert with implicitly or explicitly-defined interpolation in user-space in
 /// order to implement the curve interface using [`domain`] and [`sample_with`].
 ///
+/// The internals are made transparent to give curve authors freedom, but [the provided constructor]
+/// enforces the required invariants, and the methods maintain those invariants.
+///
+/// # Example
+/// ```rust
+/// # use bevy_math::curve::*;
+/// # use bevy_math::curve::cores::*;
+/// // Let's make a curve formed by interpolating rotations.
+/// // We'll support two common modes of interpolation:
+/// // - Normalized linear: First do linear interpolation, then normalize to get a valid rotation.
+/// // - Spherical linear: Interpolate through valid rotations with constant angular velocity.
+/// enum InterpolationMode {
+///     NormalizedLinear,
+///     SphericalLinear,
+/// }
+///
+/// // Our interpolation modes will be driven by traits.
+/// trait NormalizedLinearInterpolate {
+///     fn nlerp(&self, other: &Self, t: f32) -> Self;
+/// }
+///
+/// trait SphericalLinearInterpolate {
+///     fn slerp(&self, other: &Self, t: f32) -> Self;
+/// }
+///
+/// // Omitted: These traits would be implemented for `Rot2`, `Quat`, and other rotation representations.
+///
+/// // The curve itself just needs to use the curve core for keyframes, `UnevenCore`, which handles
+/// // everything except for the explicit interpolation used.
+/// struct RotationCurve<T> {
+///     core: UnevenCore<T>,
+///     interpolation_mode: InterpolationMode,
+/// }
+///
+/// impl<T> Curve<T> for RotationCurve<T>
+/// where
+///     T: NormalizedLinearInterpolate + SphericalLinearInterpolate + Clone,
+/// {
+///     fn domain(&self) -> Interval {
+///         self.core.domain()
+///     }
+///     
+///     fn sample_unchecked(&self, t: f32) -> T {
+///         // To sample the curve, we just look at the interpolation mode and
+///         // dispatch accordingly.
+///         match self.interpolation_mode {
+///             InterpolationMode::NormalizedLinear =>
+///                 self.core.sample_with(t, <T as NormalizedLinearInterpolate>::nlerp),
+///             InterpolationMode::SphericalLinear =>
+///                 self.core.sample_with(t, <T as SphericalLinearInterpolate>::slerp),
+///         }
+///     }
+/// }
+/// ```
+///
 /// [`domain`]: UnevenCore::domain
 /// [`sample_with`]: UnevenCore::sample_with
+/// [the provided constructor]: UnevenCore::new
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -259,11 +334,12 @@ pub struct UnevenCore<T> {
 
 /// An error indicating that an [`UnevenCore`] could not be constructed.
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[error("Could not construct an UnevenCore")]
 pub enum UnevenCoreError {
     /// Not enough samples were provided.
-    #[error("Need at least two samples to create an UnevenCore, but {samples} were provided")]
+    #[error(
+        "Need at least two unique samples to create an UnevenCore, but {samples} were provided"
+    )]
     NotEnoughSamples {
         /// The number of samples that were provided.
         samples: usize,
@@ -274,29 +350,25 @@ impl<T> UnevenCore<T> {
     /// Create a new [`UnevenCore`]. The given samples are filtered to finite times and
     /// sorted internally; if there are not at least 2 valid timed samples, an error will be
     /// returned.
-    ///
-    /// The interpolation takes two values by reference together with a scalar parameter and
-    /// produces an owned value. The expectation is that `interpolation(&x, &y, 0.0)` and
-    /// `interpolation(&x, &y, 1.0)` are equivalent to `x` and `y` respectively.
-    pub fn new(timed_samples: impl Into<Vec<(f32, T)>>) -> Result<Self, UnevenCoreError> {
-        let timed_samples: Vec<(f32, T)> = timed_samples.into();
-
+    pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
         // Filter out non-finite sample times first so they don't interfere with sorting/deduplication.
-        let mut timed_samples: Vec<(f32, T)> = timed_samples
+        let mut timed_samples = timed_samples
             .into_iter()
             .filter(|(t, _)| t.is_finite())
-            .collect();
+            .collect_vec();
         timed_samples
-            .sort_by(|(t0, _), (t1, _)| t0.partial_cmp(t1).unwrap_or(std::cmp::Ordering::Equal));
+            // Using `total_cmp` is fine because no NANs remain and because deduplication uses
+            // `PartialEq` anyway (so -0.0 and 0.0 will be considered equal later regardless).
+            .sort_by(|(t0, _), (t1, _)| t0.total_cmp(t1));
         timed_samples.dedup_by_key(|(t, _)| *t);
 
-        let (times, samples): (Vec<f32>, Vec<T>) = timed_samples.into_iter().unzip();
-
-        if times.len() < 2 {
+        if timed_samples.len() < 2 {
             return Err(UnevenCoreError::NotEnoughSamples {
-                samples: times.len(),
+                samples: timed_samples.len(),
             });
         }
+
+        let (times, samples): (Vec<f32>, Vec<T>) = timed_samples.into_iter().unzip();
         Ok(UnevenCore { times, samples })
     }
 
@@ -323,32 +395,32 @@ impl<T> UnevenCore<T> {
         T: Clone,
         I: Fn(&T, &T, f32) -> T,
     {
-        match uneven_betweenness(&self.times, t) {
-            Betweenness::Exact(idx) | Betweenness::LeftTail(idx) | Betweenness::RightTail(idx) => {
-                self.samples[idx].clone()
-            }
-            Betweenness::Between(lower_idx, upper_idx, s) => {
+        match uneven_interp(&self.times, t) {
+            InterpolationDatum::Exact(idx)
+            | InterpolationDatum::LeftTail(idx)
+            | InterpolationDatum::RightTail(idx) => self.samples[idx].clone(),
+            InterpolationDatum::Between(lower_idx, upper_idx, s) => {
                 interpolation(&self.samples[lower_idx], &self.samples[upper_idx], s)
             }
         }
     }
 
-    /// Given a time `t`, obtain a [`Betweenness`] which governs how interpolation might recover
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
     /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
     /// be used to interpolate between the two contained values with the given parameter. The other
     /// variants give additional context about where the value is relative to the family of samples.
     ///
-    /// [`Between`]: `Betweenness::Between`
-    pub fn sample_betweenness(&self, t: f32) -> Betweenness<&T> {
-        uneven_betweenness(&self.times, t).map(|idx| &self.samples[idx])
+    /// [`Between`]: `InterpolationDatum::Between`
+    pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&T> {
+        uneven_interp(&self.times, t).map(|idx| &self.samples[idx])
     }
 
-    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
-    /// useful when sampling is not scale-invariant.
+    /// Like [`sample_interp`], but the returned values include the sample times. This can be
+    /// useful when sample interpolation is not scale-invariant.
     ///
-    /// [`sample_betweenness`]: UnevenCore::sample_betweenness
-    pub fn sample_betweenness_timed(&self, t: f32) -> Betweenness<(f32, &T)> {
-        uneven_betweenness(&self.times, t).map(|idx| (self.times[idx], &self.samples[idx]))
+    /// [`sample_interp`]: UnevenCore::sample_interp
+    pub fn sample_interp_timed(&self, t: f32) -> InterpolationDatum<(f32, &T)> {
+        uneven_interp(&self.times, t).map(|idx| (self.times[idx], &self.samples[idx]))
     }
 
     /// This core, but with the sample times moved by the map `f`.
@@ -356,16 +428,21 @@ impl<T> UnevenCore<T> {
     /// but the function inputs to each are inverses of one another.
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
-    /// the function `f` should generally be injective over the sample times of the curve.
+    /// the function `f` should generally be injective over the set of sample times, otherwise
+    /// data will be deleted.
     ///
     /// [`Curve::reparametrize`]: crate::curve::Curve::reparametrize
+    #[must_use]
     pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenCore<T> {
-        let mut timed_samples: Vec<(f32, T)> =
-            self.times.into_iter().map(f).zip(self.samples).collect();
-        timed_samples.dedup_by(|(t1, _), (t2, _)| (*t1).eq(t2));
-        timed_samples.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
-        self.times = timed_samples.iter().map(|(t, _)| t).copied().collect();
-        self.samples = timed_samples.into_iter().map(|(_, x)| x).collect();
+        let mut timed_samples = self
+            .times
+            .into_iter()
+            .map(f)
+            .zip(self.samples)
+            .collect_vec();
+        timed_samples.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
+        timed_samples.dedup_by_key(|(t, _)| *t);
+        (self.times, self.samples) = timed_samples.into_iter().unzip();
         self
     }
 }
@@ -396,15 +473,16 @@ pub struct ChunkedUnevenCore<T> {
 
 /// An error that indicates that a [`ChunkedUnevenCore`] could not be formed.
 #[derive(Debug, Error)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub enum ChunkedUnevenSampleCoreError {
+#[error("Could not create a ChunkedUnevenCore")]
+pub enum ChunkedUnevenCoreError {
     /// The width of a `ChunkedUnevenCore` cannot be zero.
     #[error("Chunk width must be at least 1")]
     ZeroWidth,
 
     /// At least two sample times are necessary to interpolate in `ChunkedUnevenCore`.
-    #[error("Need at least two samples to create an UnevenCore, but {samples} were provided")]
+    #[error(
+        "Need at least two unique samples to create a ChunkedUnevenCore, but {samples} were provided"
+    )]
     NotEnoughSamples {
         /// The number of samples that were provided.
         samples: usize,
@@ -426,7 +504,7 @@ impl<T> ChunkedUnevenCore<T> {
     ///
     /// Produces an error in any of the following circumstances:
     /// - `width` is zero.
-    /// - `times` has less than `2` valid entries.
+    /// - `times` has less than `2` valid unique entries.
     /// - `values` has the incorrect length relative to `times`.
     ///
     /// [type-level documentation]: ChunkedUnevenCore
@@ -434,24 +512,24 @@ impl<T> ChunkedUnevenCore<T> {
         times: impl Into<Vec<f32>>,
         values: impl Into<Vec<T>>,
         width: usize,
-    ) -> Result<Self, ChunkedUnevenSampleCoreError> {
+    ) -> Result<Self, ChunkedUnevenCoreError> {
         let times: Vec<f32> = times.into();
         let values: Vec<T> = values.into();
 
         if width == 0 {
-            return Err(ChunkedUnevenSampleCoreError::ZeroWidth);
+            return Err(ChunkedUnevenCoreError::ZeroWidth);
         }
 
         let times = filter_sort_dedup_times(times);
 
         if times.len() < 2 {
-            return Err(ChunkedUnevenSampleCoreError::NotEnoughSamples {
+            return Err(ChunkedUnevenCoreError::NotEnoughSamples {
                 samples: times.len(),
             });
         }
 
         if values.len() != times.len() * width {
-            return Err(ChunkedUnevenSampleCoreError::MismatchedLengths {
+            return Err(ChunkedUnevenCoreError::MismatchedLengths {
                 expected: times.len() * width,
                 actual: values.len(),
             });
@@ -477,24 +555,23 @@ impl<T> ChunkedUnevenCore<T> {
         self.values.len() / self.times.len()
     }
 
-    /// Given a time `t`, obtain a [`Betweenness`] which governs how interpolation might recover
+    /// Given a time `t`, obtain a [`InterpolationDatum`] which governs how interpolation might recover
     /// a sample at time `t`. For example, when a [`Between`] value is returned, its contents can
     /// be used to interpolate between the two contained values with the given parameter. The other
     /// variants give additional context about where the value is relative to the family of samples.
     ///
-    /// [`Between`]: `Betweenness::Between`
+    /// [`Between`]: `InterpolationDatum::Between`
     #[inline]
-    pub fn sample_betweenness(&self, t: f32) -> Betweenness<&[T]> {
-        uneven_betweenness(&self.times, t).map(|idx| self.time_index_to_slice(idx))
+    pub fn sample_interp(&self, t: f32) -> InterpolationDatum<&[T]> {
+        uneven_interp(&self.times, t).map(|idx| self.time_index_to_slice(idx))
     }
 
-    /// Like [`sample_betweenness`], but the returned values include the sample times. This can be
-    /// useful when sampling is not scale-invariant.
+    /// Like [`sample_interp`], but the returned values include the sample times. This can be
+    /// useful when sample interpolation is not scale-invariant.
     ///
-    /// [`sample_betweenness`]: ChunkedUnevenCore::sample_betweenness
-    pub fn sample_betweenness_timed(&self, t: f32) -> Betweenness<(f32, &[T])> {
-        uneven_betweenness(&self.times, t)
-            .map(|idx| (self.times[idx], self.time_index_to_slice(idx)))
+    /// [`sample_interp`]: ChunkedUnevenCore::sample_interp
+    pub fn sample_interp_timed(&self, t: f32) -> InterpolationDatum<(f32, &[T])> {
+        uneven_interp(&self.times, t).map(|idx| (self.times[idx], self.time_index_to_slice(idx)))
     }
 
     /// Given an index in [times], returns the slice of [values] that correspond to the sample at
@@ -512,15 +589,15 @@ impl<T> ChunkedUnevenCore<T> {
 }
 
 /// Sort the given times, deduplicate them, and filter them to only finite times.
-fn filter_sort_dedup_times(times: Vec<f32>) -> Vec<f32> {
+fn filter_sort_dedup_times(times: impl IntoIterator<Item = f32>) -> Vec<f32> {
     // Filter before sorting/deduplication so that NAN doesn't interfere with them.
-    let mut times: Vec<f32> = times.into_iter().filter(|t| t.is_finite()).collect();
-    times.sort_by(|t0, t1| t0.partial_cmp(t1).unwrap());
+    let mut times = times.into_iter().filter(|t| t.is_finite()).collect_vec();
+    times.sort_by(f32::total_cmp);
     times.dedup();
     times
 }
 
-/// Given a list of `times` and a target value, get the betweenness relationship for the
+/// Given a list of `times` and a target value, get the interpolation relationship for the
 /// target value in terms of the indices of the starting list. In a sense, this encapsulates the
 /// heart of uneven/keyframe sampling.
 ///
@@ -529,22 +606,22 @@ fn filter_sort_dedup_times(times: Vec<f32>) -> Vec<f32> {
 ///
 /// # Panics
 /// This function will panic if `times` contains NAN.
-pub fn uneven_betweenness(times: &[f32], t: f32) -> Betweenness<usize> {
+pub fn uneven_interp(times: &[f32], t: f32) -> InterpolationDatum<usize> {
     match times.binary_search_by(|pt| pt.partial_cmp(&t).unwrap()) {
-        Ok(index) => Betweenness::Exact(index),
+        Ok(index) => InterpolationDatum::Exact(index),
         Err(index) => {
             if index == 0 {
                 // This is before the first keyframe.
-                Betweenness::LeftTail(0)
+                InterpolationDatum::LeftTail(0)
             } else if index >= times.len() {
                 // This is after the last keyframe.
-                Betweenness::RightTail(times.len() - 1)
+                InterpolationDatum::RightTail(times.len() - 1)
             } else {
                 // This is actually in the middle somewhere.
                 let t_lower = times[index - 1];
                 let t_upper = times[index];
                 let s = (t - t_lower) / (t_upper - t_lower);
-                Betweenness::Between(index - 1, index, s)
+                InterpolationDatum::Between(index - 1, index, s)
             }
         }
     }

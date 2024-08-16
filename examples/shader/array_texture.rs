@@ -8,6 +8,9 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/array_texture.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -89,6 +92,6 @@ struct ArrayTextureMaterial {
 
 impl Material for ArrayTextureMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/array_texture.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

@@ -21,7 +21,7 @@ fn main() {
         .add_systems(Update, example_control_system);
 
     // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
-    // Since this example uses HDR, we must disable MSAA for WASM builds, at least
+    // Since this example uses HDR, we must disable MSAA for Wasm builds, at least
     // until WebGPU is ready and no longer behind a feature flag in Web browsers.
     #[cfg(target_arch = "wasm32")]
     app.insert_resource(Msaa::Off);
@@ -179,15 +179,19 @@ fn setup(
     });
 
     // Controls Text
+
+    // We need the full version of this font so we can use box drawing characters.
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+
     let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font: font.clone(),
         ..default()
     };
 
     let label_text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 25.0,
+        font,
         color: ORANGE.into(),
+        ..default()
     };
 
     commands.spawn(

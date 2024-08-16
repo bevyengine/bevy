@@ -15,6 +15,7 @@ use bevy_render::{
     renderer::*,
     view::*,
 };
+use bevy_utils::tracing::error;
 
 pub struct UiPassNode {
     ui_view_query: QueryState<(&'static ViewTarget, &'static ExtractedCamera), With<ExtractedView>>,
@@ -80,7 +81,9 @@ impl Node for UiPassNode {
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
         }
-        transparent_phase.render(&mut render_pass, world, view_entity);
+        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the ui phase {err:?}");
+        }
 
         Ok(())
     }
@@ -137,7 +140,7 @@ impl SortedPhaseItem for TransparentUi {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        items.sort_by_key(|item| item.sort_key());
+        items.sort_by_key(SortedPhaseItem::sort_key);
     }
 }
 
@@ -168,11 +171,10 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            ui_meta.into_inner().view_bind_group.as_ref().unwrap(),
-            &[view_uniform.offset],
-        );
+        let Some(view_bind_group) = ui_meta.into_inner().view_bind_group.as_ref() else {
+            return RenderCommandResult::Failure("view_bind_group not available");
+        };
+        pass.set_bind_group(I, view_bind_group, &[view_uniform.offset]);
         RenderCommandResult::Success
     }
 }
@@ -192,7 +194,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I>
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
@@ -214,15 +216,21 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
+        };
+        let ui_meta = ui_meta.into_inner();
+        let Some(vertices) = ui_meta.vertices.buffer() else {
+            return RenderCommandResult::Failure("missing vertices to draw ui");
+        };
+        let Some(indices) = ui_meta.indices.buffer() else {
+            return RenderCommandResult::Failure("missing indices to draw ui");
         };
 
-        let ui_meta = ui_meta.into_inner();
         // Store the vertices
-        pass.set_vertex_buffer(0, ui_meta.vertices.buffer().unwrap().slice(..));
+        pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
         pass.set_index_buffer(
-            ui_meta.indices.buffer().unwrap().slice(..),
+            indices.slice(..),
             0,
             bevy_render::render_resource::IndexFormat::Uint32,
         );

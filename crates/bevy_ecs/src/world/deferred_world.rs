@@ -1,13 +1,16 @@
 use std::ops::Deref;
 
 use crate::{
+    archetype::Archetype,
     change_detection::MutUntyped,
     component::ComponentId,
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
+    observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     system::{Commands, Query, Resource},
+    traversal::Traversal,
 };
 
 use super::{
@@ -52,6 +55,12 @@ impl<'w> From<&'w mut World> for DeferredWorld<'w> {
 }
 
 impl<'w> DeferredWorld<'w> {
+    /// Reborrow self as a new instance of [`DeferredWorld`]
+    #[inline]
+    pub fn reborrow(&mut self) -> DeferredWorld {
+        DeferredWorld { world: self.world }
+    }
+
     /// Creates a [`Commands`] instance that pushes to the world's command queue
     #[inline]
     pub fn commands(&mut self) -> Commands {
@@ -65,19 +74,34 @@ impl<'w> DeferredWorld<'w> {
     /// Returns `None` if the `entity` does not have a [`Component`] of the given type.
     #[inline]
     pub fn get_mut<T: Component>(&mut self, entity: Entity) -> Option<Mut<T>> {
-        // SAFETY: &mut self ensure that there are no outstanding accesses to the component
+        // SAFETY:
+        // - `as_unsafe_world_cell` is the only thing that is borrowing world
+        // - `as_unsafe_world_cell` provides mutable permission to everything
+        // - `&mut self` ensures no other borrows on world data
         unsafe { self.world.get_entity(entity)?.get_mut() }
+    }
+
+    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
+    /// Returns [`None`] if the `entity` does not exist.
+    /// Instead of unwrapping the value returned from this function, prefer [`Self::entity_mut`].
+    #[inline]
+    pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
+        let location = self.entities.get(entity)?;
+        // SAFETY: if the Entity is invalid, the function returns early.
+        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
+        let entity_cell = UnsafeEntityCell::new(self.as_unsafe_world_cell(), entity, location);
+        // SAFETY: The UnsafeEntityCell has read access to the entire world.
+        let entity_ref = unsafe { EntityMut::new(entity_cell) };
+        Some(entity_ref)
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
     /// This will panic if the `entity` does not exist. Use [`Self::get_entity_mut`] if you want
     /// to check for entity existence instead of implicitly panic-ing.
     #[inline]
-    #[track_caller]
     pub fn entity_mut(&mut self, entity: Entity) -> EntityMut {
         #[inline(never)]
         #[cold]
-        #[track_caller]
         fn panic_no_entity(entity: Entity) -> ! {
             panic!("Entity {entity:?} does not exist");
         }
@@ -88,16 +112,6 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
-    /// Returns [`None`] if the `entity` does not exist.
-    /// Instead of unwrapping the value returned from this function, prefer [`Self::entity_mut`].
-    #[inline]
-    pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
-        let location = self.entities.get(entity)?;
-        // SAFETY: `entity` exists and `location` is that entity's location
-        Some(unsafe { EntityMut::new(UnsafeEntityCell::new(self.world, entity, location)) })
-    }
-
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     ///
@@ -105,9 +119,9 @@ impl<'w> DeferredWorld<'w> {
     /// If state is from a different world then self
     #[inline]
     pub fn query<'s, D: QueryData, F: QueryFilter>(
-        &'w mut self,
+        &mut self,
         state: &'s mut QueryState<D, F>,
-    ) -> Query<'w, 's, D, F> {
+    ) -> Query<'_, 's, D, F> {
         state.validate_world(self.world.id());
         state.update_archetypes(self);
         // SAFETY: We ran validate_world to ensure our state matches
@@ -266,14 +280,17 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_on_add(
         &mut self,
+        archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
     ) {
-        for component_id in targets {
-            // SAFETY: Caller ensures that these components exist
-            let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_add {
-                hook(DeferredWorld { world: self.world }, entity, component_id);
+        if archetype.has_add_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_add {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
             }
         }
     }
@@ -285,14 +302,39 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_on_insert(
         &mut self,
+        archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
     ) {
-        for component_id in targets {
-            // SAFETY: Caller ensures that these components exist
-            let hooks = unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_insert {
-                hook(DeferredWorld { world: self.world }, entity, component_id);
+        if archetype.has_insert_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_insert {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
+            }
+        }
+    }
+
+    /// Triggers all `on_replace` hooks for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_on_replace(
+        &mut self,
+        archetype: &Archetype,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        if archetype.has_replace_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_replace {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
             }
         }
     }
@@ -304,15 +346,97 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub(crate) unsafe fn trigger_on_remove(
         &mut self,
+        archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
     ) {
-        for component_id in targets {
-            // SAFETY: Caller ensures that these components exist
-            let hooks = unsafe { self.world.components().get_info_unchecked(component_id) }.hooks();
-            if let Some(hook) = hooks.on_remove {
-                hook(DeferredWorld { world: self.world }, entity, component_id);
+        if archetype.has_remove_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_remove {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
             }
         }
+    }
+
+    /// Triggers all event observers for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure observers listening for `event` can accept ZST pointers
+    #[inline]
+    pub(crate) unsafe fn trigger_observers(
+        &mut self,
+        event: ComponentId,
+        entity: Entity,
+        components: &[ComponentId],
+    ) {
+        Observers::invoke::<_>(
+            self.reborrow(),
+            event,
+            entity,
+            components.iter().copied(),
+            &mut (),
+            &mut false,
+        );
+    }
+
+    /// Triggers all event observers for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure `E` is accessible as the type represented by `event`
+    #[inline]
+    pub(crate) unsafe fn trigger_observers_with_data<E, C>(
+        &mut self,
+        event: ComponentId,
+        mut entity: Entity,
+        components: &[ComponentId],
+        data: &mut E,
+        mut propagate: bool,
+    ) where
+        C: Traversal,
+    {
+        loop {
+            Observers::invoke::<_>(
+                self.reborrow(),
+                event,
+                entity,
+                components.iter().copied(),
+                data,
+                &mut propagate,
+            );
+            if !propagate {
+                break;
+            }
+            if let Some(traverse_to) = self.get::<C>(entity).and_then(C::traverse) {
+                entity = traverse_to;
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Sends a "global" [`Trigger`](crate::observer::Trigger) without any targets.
+    pub fn trigger<T: Event>(&mut self, trigger: impl Event) {
+        self.commands().trigger(trigger);
+    }
+
+    /// Sends a [`Trigger`](crate::observer::Trigger) with the given `targets`.
+    pub fn trigger_targets(
+        &mut self,
+        trigger: impl Event,
+        targets: impl TriggerTargets + Send + Sync + 'static,
+    ) {
+        self.commands().trigger_targets(trigger, targets);
+    }
+
+    /// Gets an [`UnsafeWorldCell`] containing the underlying world.
+    ///
+    /// # Safety
+    /// - must only be used to make non-structural ECS changes
+    #[inline]
+    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
+        self.world
     }
 }

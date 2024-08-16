@@ -1,10 +1,10 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, ComponentInitializer, Components, Tick},
+    component::{ComponentId, Components, Tick},
     entity::Entity,
     query::FilteredAccess,
     storage::{Table, TableRow},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_utils::all_tuples;
 
@@ -53,6 +53,9 @@ pub unsafe trait WorldQuery {
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
 
+    /// This function manually implements subtyping for the query fetches.
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
+
     /// Creates a new instance of this fetch.
     ///
     /// # Safety
@@ -79,7 +82,7 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// - `archetype` and `tables` must be from the same [`World`](crate::world::World) that [`WorldQuery::init_state`] was called on.
+    /// - `archetype` and `tables` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `table` must correspond to `archetype`.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_archetype<'w>(
@@ -94,7 +97,7 @@ pub unsafe trait WorldQuery {
     ///
     /// # Safety
     ///
-    /// - `table` must be from the same [`World`](crate::world::World) that [`WorldQuery::init_state`] was called on.
+    /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
 
@@ -127,7 +130,7 @@ pub unsafe trait WorldQuery {
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
 
     /// Creates and initializes a [`State`](WorldQuery::State) for this [`WorldQuery`] type.
-    fn init_state(initializer: &mut ComponentInitializer) -> Self::State;
+    fn init_state(world: &mut World) -> Self::State;
 
     /// Attempts to initialize a [`State`](WorldQuery::State) for this [`WorldQuery`] type using read-only
     /// access to [`Components`].
@@ -144,10 +147,11 @@ pub unsafe trait WorldQuery {
 }
 
 macro_rules! impl_tuple_world_query {
-    ($(($name: ident, $state: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
 
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
+        $(#[$meta])*
         /// SAFETY:
         /// `fetch` accesses are the conjunction of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -162,6 +166,13 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = item;
                 ($(
                     $name::shrink($name),
+                )*)
+            }
+
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                let ($($name,)*) = fetch;
+                ($(
+                    $name::shrink_fetch($name),
                 )*)
             }
 
@@ -213,8 +224,8 @@ macro_rules! impl_tuple_world_query {
                 $($name::update_component_access($name, _access);)*
             }
             #[allow(unused_variables)]
-            fn init_state(initializer: &mut ComponentInitializer) -> Self::State {
-                ($($name::init_state(initializer),)*)
+            fn init_state(world: &mut World) -> Self::State {
+                ($($name::init_state(world),)*)
             }
             #[allow(unused_variables)]
             fn get_state(components: &Components) -> Option<Self::State> {
@@ -229,4 +240,11 @@ macro_rules! impl_tuple_world_query {
     };
 }
 
-all_tuples!(impl_tuple_world_query, 0, 15, F, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_world_query,
+    0,
+    15,
+    F,
+    S
+);

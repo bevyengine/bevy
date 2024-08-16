@@ -1,9 +1,11 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
-    TypePath, TypePathTable,
+    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+    DynamicTupleStruct, EnumInfo, ListInfo, MapInfo, PartialReflect, Reflect, ReflectKind, SetInfo,
+    StructInfo, TupleInfo, TupleStructInfo, TypePath, TypePathTable,
 };
 use std::any::{Any, TypeId};
 use std::fmt::Debug;
+use thiserror::Error;
 
 /// A static accessor to compile-time type information.
 ///
@@ -25,7 +27,7 @@ use std::fmt::Debug;
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{DynamicTypePath, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
+/// # use bevy_reflect::{DynamicTypePath, NamedField, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, TypePath, ValueInfo, ApplyError};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -52,20 +54,28 @@ use std::fmt::Debug;
 /// #     fn type_path() -> &'static str { todo!() }
 /// #     fn short_type_path() -> &'static str { todo!() }
 /// # }
+/// # impl PartialReflect for MyStruct {
+/// #     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
+/// #     fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
+/// #     fn as_partial_reflect(&self) -> &dyn PartialReflect { todo!() }
+/// #     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
+/// #     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> { todo!() }
+/// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
+/// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
+/// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
+/// #     fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
+/// # }
 /// # impl Reflect for MyStruct {
-/// #   fn get_represented_type_info(&self) -> Option<&'static TypeInfo> { todo!() }
-/// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
-/// #   fn as_any(&self) -> &dyn Any { todo!() }
-/// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #   fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> { todo!() }
-/// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
-/// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
-/// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// #     fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
+/// #     fn as_any(&self) -> &dyn Any { todo!() }
+/// #     fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
+/// #     fn as_reflect(&self) -> &dyn Reflect { todo!() }
+/// #     fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
+/// #     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// # }
 /// ```
 ///
@@ -81,17 +91,69 @@ pub trait Typed: Reflect + TypePath {
     fn type_info() -> &'static TypeInfo;
 }
 
+/// A wrapper trait around [`Typed`].
+///
+/// This trait is used to provide a way to get compile-time type information for types that
+/// do implement `Typed` while also allowing for types that do not implement `Typed` to be used.
+/// It's used instead of `Typed` directly to avoid making dynamic types also
+/// implement `Typed` in order to be used as active fields.
+///
+/// This trait has a blanket implementation for all types that implement `Typed`
+/// and manual implementations for all dynamic types (which simply return `None`).
+#[doc(hidden)]
+pub trait MaybeTyped: PartialReflect {
+    /// Returns the compile-time [info] for the underlying type, if it exists.
+    ///
+    /// [info]: TypeInfo
+    fn maybe_type_info() -> Option<&'static TypeInfo> {
+        None
+    }
+}
+
+impl<T: Typed> MaybeTyped for T {
+    fn maybe_type_info() -> Option<&'static TypeInfo> {
+        Some(T::type_info())
+    }
+}
+
+impl MaybeTyped for DynamicEnum {}
+
+impl MaybeTyped for DynamicTupleStruct {}
+
+impl MaybeTyped for DynamicStruct {}
+
+impl MaybeTyped for DynamicMap {}
+
+impl MaybeTyped for DynamicList {}
+
+impl MaybeTyped for DynamicArray {}
+
+impl MaybeTyped for DynamicTuple {}
+
+/// A [`TypeInfo`]-specific error.
+#[derive(Debug, Error)]
+pub enum TypeInfoError {
+    /// Caused when a type was expected to be of a certain [kind], but was not.
+    ///
+    /// [kind]: ReflectKind
+    #[error("kind mismatch: expected {expected:?}, received {received:?}")]
+    KindMismatch {
+        expected: ReflectKind,
+        received: ReflectKind,
+    },
+}
+
 /// Compile-time type information for various reflected types.
 ///
 /// Generally, for any given type, this value can be retrieved one of three ways:
 ///
 /// 1. [`Typed::type_info`]
-/// 2. [`Reflect::get_represented_type_info`]
+/// 2. [`PartialReflect::get_represented_type_info`]
 /// 3. [`TypeRegistry::get_type_info`]
 ///
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
-/// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_represented_type_info`].
+/// the simplest. If all you have is a `dyn PartialReflect`, you'll probably want [`PartialReflect::get_represented_type_info`].
 /// Lastly, if all you have is a [`TypeId`] or [type path], you will need to go through
 /// [`TypeRegistry::get_type_info`].
 ///
@@ -99,8 +161,8 @@ pub trait Typed: Reflect + TypePath {
 /// it can be more performant. This is because those other methods may require attaining a lock on
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
-/// [`Reflect::get_represented_type_info`]: Reflect::get_represented_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
+/// [`PartialReflect::get_represented_type_info`]: crate::PartialReflect::get_represented_type_info
 /// [type path]: TypePath::type_path
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
@@ -110,6 +172,7 @@ pub enum TypeInfo {
     List(ListInfo),
     Array(ArrayInfo),
     Map(MapInfo),
+    Set(SetInfo),
     Enum(EnumInfo),
     Value(ValueInfo),
 }
@@ -124,6 +187,7 @@ impl TypeInfo {
             Self::List(info) => info.type_id(),
             Self::Array(info) => info.type_id(),
             Self::Map(info) => info.type_id(),
+            Self::Set(info) => info.type_id(),
             Self::Enum(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
         }
@@ -140,6 +204,7 @@ impl TypeInfo {
             Self::List(info) => info.type_path_table(),
             Self::Array(info) => info.type_path_table(),
             Self::Map(info) => info.type_path_table(),
+            Self::Set(info) => info.type_path_table(),
             Self::Enum(info) => info.type_path_table(),
             Self::Value(info) => info.type_path_table(),
         }
@@ -170,10 +235,56 @@ impl TypeInfo {
             Self::List(info) => info.docs(),
             Self::Array(info) => info.docs(),
             Self::Map(info) => info.docs(),
+            Self::Set(info) => info.docs(),
             Self::Enum(info) => info.docs(),
             Self::Value(info) => info.docs(),
         }
     }
+
+    /// Returns the [kind] of this `TypeInfo`.
+    ///
+    /// [kind]: ReflectKind
+    pub fn kind(&self) -> ReflectKind {
+        match self {
+            Self::Struct(_) => ReflectKind::Struct,
+            Self::TupleStruct(_) => ReflectKind::TupleStruct,
+            Self::Tuple(_) => ReflectKind::Tuple,
+            Self::List(_) => ReflectKind::List,
+            Self::Array(_) => ReflectKind::Array,
+            Self::Map(_) => ReflectKind::Map,
+            Self::Set(_) => ReflectKind::Set,
+            Self::Enum(_) => ReflectKind::Enum,
+            Self::Value(_) => ReflectKind::Value,
+        }
+    }
+}
+
+macro_rules! impl_cast_method {
+    ($name:ident : $kind:ident => $info:ident) => {
+        #[doc = concat!("Attempts a cast to [`", stringify!($info), "`].")]
+        #[doc = concat!("\n\nReturns an error if `self` is not [`TypeInfo::", stringify!($kind), "`].")]
+        pub fn $name(&self) -> Result<&$info, TypeInfoError> {
+            match self {
+                Self::$kind(info) => Ok(info),
+                _ => Err(TypeInfoError::KindMismatch {
+                    expected: ReflectKind::$kind,
+                    received: self.kind(),
+                }),
+            }
+        }
+    };
+}
+
+/// Conversion convenience methods for [`TypeInfo`].
+impl TypeInfo {
+    impl_cast_method!(as_struct: Struct => StructInfo);
+    impl_cast_method!(as_tuple_struct: TupleStruct => TupleStructInfo);
+    impl_cast_method!(as_tuple: Tuple => TupleInfo);
+    impl_cast_method!(as_list: List => ListInfo);
+    impl_cast_method!(as_array: Array => ArrayInfo);
+    impl_cast_method!(as_map: Map => MapInfo);
+    impl_cast_method!(as_enum: Enum => EnumInfo);
+    impl_cast_method!(as_value: Value => ValueInfo);
 }
 
 /// A container for compile-time info related to general value types, including primitives.
@@ -239,5 +350,22 @@ impl ValueInfo {
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_return_error_on_invalid_cast() {
+        let info = <Vec<i32> as Typed>::type_info();
+        assert!(matches!(
+            info.as_struct(),
+            Err(TypeInfoError::KindMismatch {
+                expected: ReflectKind::Struct,
+                received: ReflectKind::List
+            })
+        ));
     }
 }

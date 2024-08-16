@@ -1,5 +1,5 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
-use crate::{Reflect, TypePath, TypePathTable};
+use crate::{MaybeTyped, PartialReflect, TypeInfo, TypePath, TypePathTable};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
@@ -7,6 +7,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub struct NamedField {
     name: &'static str,
+    type_info: fn() -> Option<&'static TypeInfo>,
     type_path: TypePathTable,
     type_id: TypeId,
     custom_attributes: Arc<CustomAttributes>,
@@ -16,9 +17,10 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect + TypePath>(name: &'static str) -> Self {
+    pub fn new<T: PartialReflect + MaybeTyped + TypePath>(name: &'static str) -> Self {
         Self {
             name,
+            type_info: T::maybe_type_info,
             type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             custom_attributes: Arc::new(CustomAttributes::default()),
@@ -44,6 +46,15 @@ impl NamedField {
     /// The name of the field.
     pub fn name(&self) -> &'static str {
         self.name
+    }
+
+    /// The [`TypeInfo`] of the field.
+    ///
+    ///
+    /// Returns `None` if the field does not contain static type information,
+    /// such as for dynamic types.
+    pub fn type_info(&self) -> Option<&'static TypeInfo> {
+        (self.type_info)()
     }
 
     /// A representation of the type path of the field.
@@ -86,6 +97,7 @@ impl NamedField {
 #[derive(Clone, Debug)]
 pub struct UnnamedField {
     index: usize,
+    type_info: fn() -> Option<&'static TypeInfo>,
     type_path: TypePathTable,
     type_id: TypeId,
     custom_attributes: Arc<CustomAttributes>,
@@ -94,9 +106,10 @@ pub struct UnnamedField {
 }
 
 impl UnnamedField {
-    pub fn new<T: Reflect + TypePath>(index: usize) -> Self {
+    pub fn new<T: PartialReflect + MaybeTyped + TypePath>(index: usize) -> Self {
         Self {
             index,
+            type_info: T::maybe_type_info,
             type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
             custom_attributes: Arc::new(CustomAttributes::default()),
@@ -122,6 +135,15 @@ impl UnnamedField {
     /// Returns the index of the field.
     pub fn index(&self) -> usize {
         self.index
+    }
+
+    /// The [`TypeInfo`] of the field.
+    ///
+    ///
+    /// Returns `None` if the field does not contain static type information,
+    /// such as for dynamic types.
+    pub fn type_info(&self) -> Option<&'static TypeInfo> {
+        (self.type_info)()
     }
 
     /// A representation of the type path of the field.

@@ -19,7 +19,6 @@ pub use transitions::*;
 mod tests {
     use bevy_ecs::event::EventRegistry;
     use bevy_ecs::prelude::*;
-    use bevy_ecs::schedule::ScheduleLabel;
     use bevy_state_macros::States;
     use bevy_state_macros::SubStates;
 
@@ -64,7 +63,7 @@ mod tests {
 
         world.insert_resource(schedules);
 
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -120,7 +119,7 @@ mod tests {
 
         world.insert_resource(schedules);
 
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -180,7 +179,7 @@ mod tests {
 
         world.insert_resource(schedules);
 
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -275,7 +274,7 @@ mod tests {
 
         world.insert_resource(schedules);
 
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
 
         world.run_schedule(StateTransition);
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
@@ -354,9 +353,6 @@ mod tests {
         }
     }
 
-    #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
-    struct Startup;
-
     #[test]
     fn computed_state_transitions_are_produced_correctly() {
         let mut world = World::new();
@@ -367,7 +363,7 @@ mod tests {
         world.init_resource::<State<SimpleState2>>();
         world.init_resource::<Schedules>();
 
-        setup_state_transitions_in_world(&mut world, Some(Startup.intern()));
+        setup_state_transitions_in_world(&mut world);
 
         let mut schedules = world
             .get_resource_mut::<Schedules>()
@@ -431,7 +427,7 @@ mod tests {
 
         world.init_resource::<ComputedStateTransitionCounter>();
 
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
 
         assert_eq!(world.resource::<State<SimpleState>>().0, SimpleState::A);
         assert_eq!(world.resource::<State<SimpleState2>>().0, SimpleState2::A1);
@@ -508,7 +504,7 @@ mod tests {
     #[test]
     fn same_state_transition_should_emit_event_and_not_run_schedules() {
         let mut world = World::new();
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
         world.init_resource::<State<SimpleState>>();
         let mut schedules = world.resource_mut::<Schedules>();
@@ -568,7 +564,7 @@ mod tests {
         SubState::register_sub_state_systems(&mut apply_changes);
         schedules.insert(apply_changes);
         world.insert_resource(schedules);
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
 
         world.insert_resource(NextState::Pending(SimpleState::B(true)));
         world.run_schedule(StateTransition);
@@ -599,7 +595,7 @@ mod tests {
         TestComputedState::register_computed_state_systems(&mut apply_changes);
         schedules.insert(apply_changes);
         world.insert_resource(schedules);
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
 
         world.insert_resource(NextState::Pending(SimpleState::B(true)));
         world.run_schedule(StateTransition);
@@ -651,7 +647,7 @@ mod tests {
     #[test]
     fn check_transition_orders() {
         let mut world = World::new();
-        setup_state_transitions_in_world(&mut world, None);
+        setup_state_transitions_in_world(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<SimpleState>>(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<SubState>>(&mut world);
         EventRegistry::register_event::<StateTransitionEvent<TransitionTestingComputedState>>(

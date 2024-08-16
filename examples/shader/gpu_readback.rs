@@ -18,6 +18,9 @@ use bevy::{
 };
 use crossbeam_channel::{Receiver, Sender};
 
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
+
 // The length of the buffer sent to the gpu
 const BUFFER_LEN: usize = 16;
 
@@ -177,7 +180,7 @@ impl FromWorld for ComputePipeline {
                 storage_buffer::<Vec<u32>>(false),
             ),
         );
-        let shader = world.load_asset("shaders/gpu_readback.wgsl");
+        let shader = world.load_asset(SHADER_ASSET_PATH);
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("GPU readback compute shader".into()),
@@ -221,8 +224,8 @@ fn map_and_read_buffer(
     // buffered and receiving will just pick that up.
     //
     // It may also be worth noting that although on native, the usage of asynchronous
-    // channels is wholly unnecessary, for the sake of portability to WASM
-    // we'll use async channels that work on both native and WASM.
+    // channels is wholly unnecessary, for the sake of portability to Wasm
+    // we'll use async channels that work on both native and Wasm.
 
     let (s, r) = crossbeam_channel::unbounded::<()>();
 

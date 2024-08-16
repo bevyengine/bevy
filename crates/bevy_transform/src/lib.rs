@@ -21,6 +21,7 @@ pub mod traits;
 #[cfg(feature = "bevy-support")]
 pub mod plugins;
 
+/// [`GlobalTransform`]: components::GlobalTransform
 /// Helpers related to computing global transforms
 #[cfg(feature = "bevy-support")]
 pub mod helper;

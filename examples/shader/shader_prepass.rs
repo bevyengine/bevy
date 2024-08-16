@@ -10,6 +10,10 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
 };
 
+/// This example uses a shader source file from the assets subdirectory
+const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
+const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
+
 fn main() {
     App::new()
         .add_plugins((
@@ -30,8 +34,6 @@ fn main() {
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, toggle_prepass_view))
-        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
-        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -48,6 +50,8 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
+            msaa: Msaa::Off,
             ..default()
         },
         // To enable the prepass you need to add the components associated with the ones you need
@@ -166,7 +170,7 @@ struct CustomMaterial {
 /// function will also be used by the prepass
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material.wgsl".into()
+        MATERIAL_SHADER_ASSET_PATH.into()
     }
 
     fn alpha_mode(&self) -> AlphaMode {
@@ -208,7 +212,7 @@ struct PrepassOutputMaterial {
 
 impl Material for PrepassOutputMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/show_prepass.wgsl".into()
+        PREPASS_SHADER_ASSET_PATH.into()
     }
 
     // This needs to be transparent in order to show the scene behind the mesh

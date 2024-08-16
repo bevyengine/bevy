@@ -22,7 +22,7 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> T {
+    fn sample_unchecked(&self, t: f32) -> T {
         self.core
             .sample_with(t, |x, y, t| if t >= 1.0 { y.clone() } else { x.clone() })
     }
@@ -59,14 +59,14 @@ where
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> V {
-        match self.core.sample_betweenness_timed(t) {
+    fn sample_unchecked(&self, t: f32) -> V {
+        match self.core.sample_interp_timed(t) {
             // In all the cases where only one frame matters, defer to the position within it.
-            Betweenness::Exact((_, v))
-            | Betweenness::LeftTail((_, v))
-            | Betweenness::RightTail((_, v)) => v[1],
+            InterpolationDatum::Exact((_, v))
+            | InterpolationDatum::LeftTail((_, v))
+            | InterpolationDatum::RightTail((_, v)) => v[1],
 
-            Betweenness::Between((t0, u), (t1, v), s) => {
+            InterpolationDatum::Between((t0, u), (t1, v), s) => {
                 cubic_spline_interpolation(u[1], u[2], v[0], v[1], s, t1 - t0)
             }
         }
@@ -124,12 +124,12 @@ impl Curve<Vec3> for TranslationCurve {
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> Vec3 {
+    fn sample_unchecked(&self, t: f32) -> Vec3 {
         match self {
-            TranslationCurve::Constant(c) => c.sample(t),
-            TranslationCurve::Linear(c) => c.sample(t),
-            TranslationCurve::Step(c) => c.sample(t),
-            TranslationCurve::CubicSpline(c) => c.sample(t),
+            TranslationCurve::Constant(c) => c.sample_unchecked(t),
+            TranslationCurve::Linear(c) => c.sample_unchecked(t),
+            TranslationCurve::Step(c) => c.sample_unchecked(t),
+            TranslationCurve::CubicSpline(c) => c.sample_unchecked(t),
         }
     }
 }
@@ -182,12 +182,12 @@ impl Curve<Vec3> for ScaleCurve {
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> Vec3 {
+    fn sample_unchecked(&self, t: f32) -> Vec3 {
         match self {
-            ScaleCurve::Constant(c) => c.sample(t),
-            ScaleCurve::Linear(c) => c.sample(t),
-            ScaleCurve::Step(c) => c.sample(t),
-            ScaleCurve::CubicSpline(c) => c.sample(t),
+            ScaleCurve::Constant(c) => c.sample_unchecked(t),
+            ScaleCurve::Linear(c) => c.sample_unchecked(t),
+            ScaleCurve::Step(c) => c.sample_unchecked(t),
+            ScaleCurve::CubicSpline(c) => c.sample_unchecked(t),
         }
     }
 }
@@ -241,12 +241,14 @@ impl Curve<Quat> for RotationCurve {
     }
 
     #[inline]
-    fn sample(&self, t: f32) -> Quat {
+    fn sample_unchecked(&self, t: f32) -> Quat {
         match self {
-            RotationCurve::Constant(c) => c.sample(t),
-            RotationCurve::SphericalLinear(c) => c.sample(t),
-            RotationCurve::Step(c) => c.sample(t),
-            RotationCurve::CubicSpline(c) => c.map(|x| Quat::from_vec4(x).normalize()).sample(t),
+            RotationCurve::Constant(c) => c.sample_unchecked(t),
+            RotationCurve::SphericalLinear(c) => c.sample_unchecked(t),
+            RotationCurve::Step(c) => c.sample_unchecked(t),
+            RotationCurve::CubicSpline(c) => c
+                .map(|x| Quat::from_vec4(x).normalize())
+                .sample_unchecked(t),
         }
     }
 }
@@ -287,12 +289,12 @@ where
     where
         Self: 'a,
     {
-        match self.core.sample_betweenness(t) {
-            Betweenness::Exact(v) | Betweenness::LeftTail(v) | Betweenness::RightTail(v) => {
-                TwoIterators::Left(v.iter().copied())
-            }
+        match self.core.sample_interp(t) {
+            InterpolationDatum::Exact(v)
+            | InterpolationDatum::LeftTail(v)
+            | InterpolationDatum::RightTail(v) => TwoIterators::Left(v.iter().copied()),
 
-            Betweenness::Between(u, v, s) => {
+            InterpolationDatum::Between(u, v, s) => {
                 let interpolated = u.iter().zip(v.iter()).map(move |(x, y)| x.lerp(*y, s));
                 TwoIterators::Right(interpolated)
             }
@@ -336,12 +338,12 @@ where
     where
         Self: 'a,
     {
-        match self.core.sample_betweenness(t) {
-            Betweenness::Exact(v) | Betweenness::LeftTail(v) | Betweenness::RightTail(v) => {
-                TwoIterators::Left(v.iter().cloned())
-            }
+        match self.core.sample_interp(t) {
+            InterpolationDatum::Exact(v)
+            | InterpolationDatum::LeftTail(v)
+            | InterpolationDatum::RightTail(v) => TwoIterators::Left(v.iter().cloned()),
 
-            Betweenness::Between(u, v, s) => {
+            InterpolationDatum::Between(u, v, s) => {
                 let interpolated =
                     u.iter()
                         .zip(v.iter())
@@ -387,17 +389,17 @@ where
     where
         Self: 'a,
     {
-        match self.core.sample_betweenness_timed(t) {
-            Betweenness::Exact((_, v))
-            | Betweenness::LeftTail((_, v))
-            | Betweenness::RightTail((_, v)) => {
+        match self.core.sample_interp_timed(t) {
+            InterpolationDatum::Exact((_, v))
+            | InterpolationDatum::LeftTail((_, v))
+            | InterpolationDatum::RightTail((_, v)) => {
                 // Pick out the part of this that actually represents the position (instead of tangents),
                 // which is the middle third.
                 let width = self.core.width();
                 TwoIterators::Left(v[width..(width * 2)].iter().copied())
             }
 
-            Betweenness::Between((t0, u), (t1, v), s) => TwoIterators::Right(
+            InterpolationDatum::Between((t0, u), (t1, v), s) => TwoIterators::Right(
                 cubic_spline_interpolate_slices(self.core.width() / 3, u, v, s, t1 - t0),
             ),
         }

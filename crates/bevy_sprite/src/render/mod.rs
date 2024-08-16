@@ -7,7 +7,7 @@ use crate::{
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
-    core_2d::Transparent2d,
+    core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
         TonemappingLuts,
@@ -294,7 +294,25 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 topology: PrimitiveTopology::TriangleList,
                 strip_index_format: None,
             },
-            depth_stencil: None,
+            // Sprites are always alpha blended so they never need to write to depth.
+            // They just need to read it in case an opaque mesh2d
+            // that wrote to depth is present.
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_2D_DEPTH_FORMAT,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
@@ -375,14 +393,15 @@ pub fn extract_sprites(
                     .map(|e| (commands.spawn_empty().id(), e)),
             );
         } else {
-            let atlas_rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
+            let atlas_rect =
+                sheet.and_then(|s| s.texture_rect(&texture_atlases).map(|r| r.as_rect()));
             let rect = match (atlas_rect, sprite.rect) {
                 (None, None) => None,
                 (None, Some(sprite_rect)) => Some(sprite_rect),
-                (Some(atlas_rect), None) => Some(atlas_rect.as_rect()),
+                (Some(atlas_rect), None) => Some(atlas_rect),
                 (Some(atlas_rect), Some(mut sprite_rect)) => {
-                    sprite_rect.min += atlas_rect.min.as_vec2();
-                    sprite_rect.max += atlas_rect.min.as_vec2();
+                    sprite_rect.min += atlas_rect.min;
+                    sprite_rect.max += atlas_rect.min;
 
                     Some(sprite_rect)
                 }
@@ -471,26 +490,25 @@ pub fn queue_sprites(
     sprite_pipeline: Res<SpritePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(
         Entity,
         &VisibleEntities,
         &ExtractedView,
+        &Msaa,
         Option<&Tonemapping>,
         Option<&DebandDither>,
     )>,
 ) {
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (view_entity, visible_entities, view, tonemapping, dither) in &mut views {
+    for (view_entity, visible_entities, view, msaa, tonemapping, dither) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
 
+        let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
         let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
 
         if !view.hdr {
@@ -804,7 +822,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_bind_group(
@@ -834,7 +852,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_index_buffer(

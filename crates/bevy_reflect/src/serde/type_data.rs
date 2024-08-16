@@ -90,7 +90,7 @@ impl SerializationData {
     pub fn generate_default(&self, index: usize) -> Option<Box<dyn Reflect>> {
         self.skipped_fields
             .get(&index)
-            .map(|field| field.generate_default())
+            .map(SkippedField::generate_default)
     }
 
     /// Returns the number of skipped fields.

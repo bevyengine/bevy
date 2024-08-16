@@ -1,6 +1,6 @@
 use crate as bevy_ecs;
 use bevy_ecs::{
-    event::{Event, EventId, EventInstance, ManualEventReader},
+    event::{Event, EventCursor, EventId, EventInstance},
     system::Resource,
 };
 #[cfg(feature = "bevy_reflect")]
@@ -68,7 +68,7 @@ use std::ops::{Deref, DerefMut};
 /// - [`EventReader`]s that read at least once per update will never drop events.
 /// - [`EventReader`]s that read once within two updates might still receive some events
 /// - [`EventReader`]s that read after two updates are guaranteed to drop all events that occurred
-/// before those updates.
+///     before those updates.
 ///
 /// The buffers in [`Events`] will grow indefinitely if [`update`](Events::update) is never called.
 ///
@@ -81,6 +81,9 @@ use std::ops::{Deref, DerefMut};
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
+/// [`EventReader`]: super::EventReader
+/// [`EventWriter`]: super::EventWriter
+/// [`event_update_system`]: super::event_update_system
 #[derive(Debug, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Events<E: Event> {
@@ -111,8 +114,8 @@ impl<E: Event> Events<E> {
             .min(self.events_b.start_event_count)
     }
 
-    /// "Sends" an `event` by writing it to the current event buffer. [`EventReader`]s can then read
-    /// the event.
+    /// "Sends" an `event` by writing it to the current event buffer.
+    /// [`EventReader`](super::EventReader)s can then read the event.
     /// This method returns the [ID](`EventId`) of the sent `event`.
     pub fn send(&mut self, event: E) -> EventId<E> {
         let event_id = EventId {
@@ -129,7 +132,7 @@ impl<E: Event> Events<E> {
         event_id
     }
 
-    /// Sends a list of `events` all at once, which can later be read by [`EventReader`]s.
+    /// Sends a list of `events` all at once, which can later be read by [`EventReader`](super::EventReader)s.
     /// This is more efficient than sending each event individually.
     /// This method returns the [IDs](`EventId`) of the sent `events`.
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
@@ -153,15 +156,37 @@ impl<E: Event> Events<E> {
         self.send(Default::default())
     }
 
-    /// Gets a new [`ManualEventReader`]. This will include all events already in the event buffers.
-    pub fn get_reader(&self) -> ManualEventReader<E> {
-        ManualEventReader::default()
+    /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
+    pub fn get_cursor(&self) -> EventCursor<E> {
+        EventCursor::default()
     }
 
-    /// Gets a new [`ManualEventReader`]. This will ignore all events already in the event buffers.
+    /// Gets a new [`EventCursor`]. This will ignore all events already in the event buffers.
     /// It will read all future events.
-    pub fn get_reader_current(&self) -> ManualEventReader<E> {
-        ManualEventReader {
+    pub fn get_cursor_current(&self) -> EventCursor<E> {
+        EventCursor {
+            last_event_count: self.event_count,
+            ..Default::default()
+        }
+    }
+
+    #[deprecated(
+        since = "0.14.0",
+        note = "`get_reader` has been deprecated. Please use `get_cursor` instead."
+    )]
+    /// Gets a new [`EventCursor`]. This will include all events already in the event buffers.
+    pub fn get_reader(&self) -> EventCursor<E> {
+        EventCursor::default()
+    }
+
+    #[deprecated(
+        since = "0.14.0",
+        note = "`get_reader_current` has been replaced. Please use `get_cursor_current` instead."
+    )]
+    /// Gets a new [`EventCursor`]. This will ignore all events already in the event buffers.
+    /// It will read all future events.
+    pub fn get_reader_current(&self) -> EventCursor<E> {
+        EventCursor {
             last_event_count: self.event_count,
             ..Default::default()
         }
@@ -241,6 +266,8 @@ impl<E: Event> Events<E> {
     /// between the last `update()` call and your call to `iter_current_update_events`.
     /// If events happen outside that window, they will not be handled. For example, any events that
     /// happen after this call and before the next `update()` call will be dropped.
+    ///
+    /// [`EventReader`]: super::EventReader
     pub fn iter_current_update_events(&self) -> impl ExactSizeIterator<Item = &E> {
         self.events_b.iter().map(|i| &i.event)
     }
@@ -364,5 +391,43 @@ impl<E: Event> Iterator for SendBatchIds<E> {
 impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
     fn len(&self) -> usize {
         self.event_count.saturating_sub(self.last_count)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as bevy_ecs, event::Events};
+    use bevy_ecs_macros::Event;
+
+    #[test]
+    fn iter_current_update_events_iterates_over_current_events() {
+        #[derive(Event, Clone)]
+        struct TestEvent;
+
+        let mut test_events = Events::<TestEvent>::default();
+
+        // Starting empty
+        assert_eq!(test_events.len(), 0);
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        test_events.update();
+
+        // Sending one event
+        test_events.send(TestEvent);
+
+        assert_eq!(test_events.len(), 1);
+        assert_eq!(test_events.iter_current_update_events().count(), 1);
+        test_events.update();
+
+        // Sending two events on the next frame
+        test_events.send(TestEvent);
+        test_events.send(TestEvent);
+
+        assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
+        assert_eq!(test_events.iter_current_update_events().count(), 2);
+        test_events.update();
+
+        // Sending zero events
+        assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
+        assert_eq!(test_events.iter_current_update_events().count(), 0);
     }
 }

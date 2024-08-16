@@ -454,14 +454,14 @@ thread_local! {
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
     pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        self.active_animations.entry(animation).or_default()
+        let playing_animation = self.active_animations.entry(animation).or_default();
+        playing_animation.replay();
+        playing_animation
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
     pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        let playing_animation = self.active_animations.entry(animation).or_default();
-        playing_animation.weight = 1.0;
-        playing_animation
+        self.active_animations.entry(animation).or_default()
     }
 
     /// Stops playing the given animation, removing it from the list of playing
@@ -493,6 +493,7 @@ impl AnimationPlayer {
         self.active_animations.iter_mut()
     }
 
+    #[deprecated = "Use `animation_is_playing` instead"]
     /// Check if the given animation node is being played.
     pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
         self.active_animations.contains_key(&animation)
@@ -502,7 +503,7 @@ impl AnimationPlayer {
     pub fn all_finished(&self) -> bool {
         self.active_animations
             .values()
-            .all(|playing_animation| playing_animation.is_finished())
+            .all(ActiveAnimation::is_finished)
     }
 
     /// Check if all playing animations are paused.
@@ -510,7 +511,7 @@ impl AnimationPlayer {
     pub fn all_paused(&self) -> bool {
         self.active_animations
             .values()
-            .all(|playing_animation| playing_animation.is_paused())
+            .all(ActiveAnimation::is_paused)
     }
 
     /// Resume all playing animations.
@@ -766,20 +767,21 @@ impl AnimationTargetContext<'_> {
                     if let Some(ref mut transform) = self.transform {
                         transform.translation = transform
                             .translation
-                            .lerp(translation_curve.sample(seek_time), weight);
+                            .lerp(translation_curve.sample_unchecked(seek_time), weight);
                     }
                 }
                 VariableCurve::Rotation(rotation_curve) => {
                     if let Some(ref mut transform) = self.transform {
                         transform.rotation = transform
                             .rotation
-                            .slerp(rotation_curve.sample(seek_time), weight);
+                            .slerp(rotation_curve.sample_unchecked(seek_time), weight);
                     }
                 }
                 VariableCurve::Scale(scale_curve) => {
                     if let Some(ref mut transform) = self.transform {
-                        transform.scale =
-                            transform.scale.lerp(scale_curve.sample(seek_time), weight);
+                        transform.scale = transform
+                            .scale
+                            .lerp(scale_curve.sample_unchecked(seek_time), weight);
                     }
                 }
                 VariableCurve::Weights(weights_curve) => {

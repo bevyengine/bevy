@@ -1,14 +1,14 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
-use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
+use crate::{ops, ops::FloatPow, Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A sphere primitive
+/// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -54,7 +54,7 @@ impl Sphere {
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         let distance_squared = point.length_squared();
 
-        if distance_squared <= self.radius.powi(2) {
+        if distance_squared <= self.radius.squared() {
             // The point is inside the sphere.
             point
         } else {
@@ -70,13 +70,13 @@ impl Measured3d for Sphere {
     /// Get the surface area of the sphere
     #[inline(always)]
     fn area(&self) -> f32 {
-        4.0 * PI * self.radius.powi(2)
+        4.0 * PI * self.radius.squared()
     }
 
     /// Get the volume of the sphere
     #[inline(always)]
     fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius.powi(3)
+        4.0 * FRAC_PI_3 * self.radius.cubed()
     }
 }
 
@@ -216,7 +216,7 @@ impl InfinitePlane3d {
     }
 }
 
-/// An infinite line along a direction in 3D space.
+/// An infinite line going through the origin along a direction in 3D space.
 ///
 /// For a finite line: [`Segment3d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -232,7 +232,7 @@ pub struct Line3d {
 }
 impl Primitive3d for Line3d {}
 
-/// A segment of a line along a direction in 3D space.
+/// A segment of a line going through the origin along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -353,7 +353,8 @@ impl BoxedPolyline3d {
     }
 }
 
-/// A cuboid primitive, more commonly known as a box.
+/// A cuboid primitive, which is like a cube, except that the x, y, and z dimensions are not
+/// required to be the same.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -445,7 +446,7 @@ impl Measured3d for Cuboid {
     }
 }
 
-/// A cylinder primitive
+/// A cylinder primitive centered on the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -504,7 +505,7 @@ impl Cylinder {
     /// Get the surface area of one base of the cylinder
     #[inline(always)]
     pub fn base_area(&self) -> f32 {
-        PI * self.radius.powi(2)
+        PI * self.radius.squared()
     }
 }
 
@@ -522,7 +523,7 @@ impl Measured3d for Cylinder {
     }
 }
 
-/// A 3D capsule primitive.
+/// A 3D capsule primitive centered on the origin
 /// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -624,6 +625,10 @@ impl Default for Cone {
 }
 
 impl Cone {
+    /// Create a new [`Cone`] from a radius and height.
+    pub fn new(radius: f32, height: f32) -> Self {
+        Self { radius, height }
+    }
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]
     pub fn base(&self) -> Circle {
@@ -637,7 +642,7 @@ impl Cone {
     #[inline(always)]
     #[doc(alias = "side_length")]
     pub fn slant_height(&self) -> f32 {
-        self.radius.hypot(self.height)
+        ops::hypot(self.radius, self.height)
     }
 
     /// Get the surface area of the side of the cone,
@@ -651,7 +656,7 @@ impl Cone {
     /// Get the surface area of the base of the cone
     #[inline(always)]
     pub fn base_area(&self) -> f32 {
-        PI * self.radius.powi(2)
+        PI * self.radius.squared()
     }
 }
 
@@ -723,6 +728,7 @@ pub enum TorusKind {
 }
 
 /// A torus primitive, often representing a ring or donut shape
+/// The set of points some distance from a circle centered at the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -822,14 +828,14 @@ impl Measured3d for Torus {
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
     fn area(&self) -> f32 {
-        4.0 * PI.powi(2) * self.major_radius * self.minor_radius
+        4.0 * PI.squared() * self.major_radius * self.minor_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
     fn volume(&self) -> f32 {
-        2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
+        2.0 * PI.squared() * self.major_radius * self.minor_radius.squared()
     }
 }
 

@@ -1,6 +1,4 @@
-use std::{borrow::Cow, cell::UnsafeCell, marker::PhantomData};
-
-use bevy_ptr::UnsafeCellDeref;
+use std::{borrow::Cow, marker::PhantomData};
 
 use crate::{
     archetype::ArchetypeComponentId,
@@ -182,24 +180,28 @@ where
         )
     }
 
-    fn run<'w>(&mut self, input: Self::In, world: &'w mut World) -> Self::Out {
-        // SAFETY: Converting `&mut T` -> `&UnsafeCell<T>`
-        // is explicitly allowed in the docs for `UnsafeCell`.
-        let world: &'w UnsafeCell<World> = unsafe { std::mem::transmute(world) };
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        let world = world.as_unsafe_world_cell();
         Func::combine(
             input,
             // SAFETY: Since these closures are `!Send + !Sync + !'static`, they can never
             // be called in parallel. Since mutable access to `world` only exists within
             // the scope of either closure, we can be sure they will never alias one another.
-            |input| self.a.run(input, unsafe { world.deref_mut() }),
+            |input| self.a.run(input, unsafe { world.world_mut() }),
             #[allow(clippy::undocumented_unsafe_blocks)]
-            |input| self.b.run(input, unsafe { world.deref_mut() }),
+            |input| self.b.run(input, unsafe { world.world_mut() }),
         )
     }
 
     fn apply_deferred(&mut self, world: &mut World) {
         self.a.apply_deferred(world);
         self.b.apply_deferred(world);
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, mut world: crate::world::DeferredWorld) {
+        self.a.queue_deferred(world.reborrow());
+        self.b.queue_deferred(world);
     }
 
     fn initialize(&mut self, world: &mut World) {

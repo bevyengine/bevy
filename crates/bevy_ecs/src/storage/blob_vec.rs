@@ -186,7 +186,7 @@ impl BlobVec {
     /// # Safety
     /// - index must be in bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
-    /// `item_layout`, must have been previously allocated.
+    ///     `item_layout`, must have been previously allocated.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
@@ -199,10 +199,10 @@ impl BlobVec {
     /// # Safety
     /// - index must be in-bounds
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this
-    /// [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
-    /// this [`BlobVec`]'s `item_layout`
+    ///     [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
+    ///     this [`BlobVec`]'s `item_layout`
     /// - the memory at `*value` must also be previously initialized with an item matching this
-    /// [`BlobVec`]'s `item_layout`
+    ///     [`BlobVec`]'s `item_layout`
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
 
@@ -436,6 +436,14 @@ impl BlobVec {
                 unsafe { drop(item) };
             }
         }
+    }
+
+    /// Get the `drop` argument that was passed to `BlobVec::new`.
+    ///
+    /// Callers can use this if they have a type-erased pointer of the correct
+    /// type to add to this [`BlobVec`], which they just want to drop instead.
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.drop
     }
 }
 
