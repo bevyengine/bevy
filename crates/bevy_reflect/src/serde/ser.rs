@@ -117,8 +117,8 @@ fn get_serializable<'a, E: Error>(
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [type path]: crate::TypePath::type_path
 pub struct ReflectSerializer<'a> {
-    value: &'a dyn PartialReflect,
-    registry: &'a TypeRegistry,
+    pub value: &'a dyn PartialReflect,
+    pub registry: &'a TypeRegistry,
 }
 
 impl<'a> ReflectSerializer<'a> {
@@ -195,8 +195,8 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [type path]: crate::TypePath::type_path
 pub struct TypedReflectSerializer<'a> {
-    value: &'a dyn PartialReflect,
-    registry: &'a TypeRegistry,
+    pub value: &'a dyn PartialReflect,
+    pub registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectSerializer<'a> {
