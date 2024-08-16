@@ -1087,6 +1087,7 @@ mod tests {
     use super::*;
     use crate::{ops, Quat};
     use approx::{assert_abs_diff_eq, AbsDiffEq};
+    use glam::*;
     use std::f32::consts::TAU;
 
     #[test]
@@ -1118,6 +1119,61 @@ mod tests {
         assert_eq!(curve.sample_unchecked(3.5), ops::log2(3.5));
         assert!(curve.sample_unchecked(-1.0).is_nan());
         assert!(curve.sample(-1.0).is_none());
+    }
+
+    #[test]
+    fn easing_curves() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+        let curve = line_curve(Interval::new(2.0, 5.0).unwrap(), start, end);
+
+        let mid = (start + end) / 2.0;
+
+        [(2.0, start), (3.5, mid), (5.0, end)]
+            .into_iter()
+            .for_each(|(t, x)| {
+                assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+            });
+
+        let curve = easing_curve(
+            Interval::new(0.0, 1.0).unwrap(),
+            start,
+            end,
+            easing_functions::step_ease(4),
+        );
+        [
+            (0.0, start),
+            (0.124, start),
+            (0.125, Vec2::new(0.25, 0.5)),
+            (0.374, Vec2::new(0.25, 0.5)),
+            (0.375, Vec2::new(0.5, 1.0)),
+            (0.624, Vec2::new(0.5, 1.0)),
+            (0.625, Vec2::new(0.75, 1.5)),
+            (0.874, Vec2::new(0.75, 1.5)),
+            (0.875, end),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+        });
+
+        let curve = easing_curve(
+            Interval::new(0.0, 1.0).unwrap(),
+            start,
+            end,
+            easing_functions::quadratice_ease_in,
+        );
+        [
+            (0.0, start),
+            (0.25, Vec2::new(0.0625, 0.125)),
+            (0.5, Vec2::new(0.25, 0.5)),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON),);
+        });
     }
 
     #[test]
