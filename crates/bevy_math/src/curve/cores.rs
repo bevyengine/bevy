@@ -171,7 +171,7 @@ impl<T> EvenCore<T> {
 
     /// The domain of the curve derived from this core.
     #[inline]
-    pub fn domain(&self) -> Interval {
+    pub const fn domain(&self) -> Interval {
         self.domain
     }
 

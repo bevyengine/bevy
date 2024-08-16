@@ -73,13 +73,13 @@ impl Interval {
 
     /// Get the start of this interval.
     #[inline]
-    pub fn start(self) -> f32 {
+    pub const fn start(self) -> f32 {
         self.start
     }
 
     /// Get the end of this interval.
     #[inline]
-    pub fn end(self) -> f32 {
+    pub const fn end(self) -> f32 {
         self.end
     }
 
