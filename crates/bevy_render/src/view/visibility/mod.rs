@@ -47,6 +47,32 @@ pub enum Visibility {
     Visible,
 }
 
+impl Visibility{
+    /// function converting [Visibility] enum to Result<bool, String>
+    /// 
+    /// - returns `Ok(true)` if `Visibility::Visible`
+    /// 
+    /// - returns `Ok(false)` if `Visibility::Hidden`
+    /// 
+    /// - returns `Err()` if `Visbility::Inherited`
+    pub fn is_visible(self) -> Result<bool, String>{
+        match self{
+            Visibility::Hidden => Ok(false),
+            Visibility::Visible => Ok(true),
+            Visibility::Inherited => Err(String::from("isVisible is not supported for Visibility::Inherited"))
+        }
+    }
+
+    pub fn visibility_from_bool(visible:bool) -> Visibility{
+        if visible{
+            Visibility::Visible
+        }else{
+            Visibility::Hidden
+        }
+    }
+}
+
+
 // Allows `&Visibility == Visibility`
 impl PartialEq<Visibility> for &Visibility {
     #[inline]
