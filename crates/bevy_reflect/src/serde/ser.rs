@@ -147,8 +147,8 @@ fn get_serializable<'a, E: Error>(
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [type path]: crate::TypePath::type_path
 pub struct ReflectSerializer<'a> {
-    pub value: &'a dyn PartialReflect,
-    pub registry: &'a TypeRegistry,
+    value: &'a dyn PartialReflect,
+    registry: &'a TypeRegistry,
 }
 
 impl<'a> ReflectSerializer<'a> {
@@ -225,8 +225,8 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [type path]: crate::TypePath::type_path
 pub struct TypedReflectSerializer<'a> {
-    pub value: &'a dyn PartialReflect,
-    pub registry: &'a TypeRegistry,
+    value: &'a dyn PartialReflect,
+    registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectSerializer<'a> {
@@ -237,7 +237,7 @@ impl<'a> TypedReflectSerializer<'a> {
                 .reflect_type_path()
                 .starts_with("bevy_reflect::boxed::ReflectBox<dyn"),
         );
-        TypedReflectSerializer { value, registry }
+        Self { value, registry }
     }
 
     fn new_reflect_box(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
