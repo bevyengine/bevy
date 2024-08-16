@@ -254,11 +254,11 @@ impl InfinitePlane3d {
     /// ## Guarantees
     ///
     /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
-    /// the transformed geometry 
+    /// the transformed geometry
     /// * uses the least rotation possible to transform the geometry
     /// * if two geometries are transformed with the same isometry, then the relations between
     /// them, like distances, are also preserved
-    /// * compared to projections, the transformation is lossless (up to floating point errors) reversible 
+    /// * compared to projections, the transformation is lossless (up to floating point errors) reversible
     ///
     /// ## Non-Guarantees
     ///
@@ -284,11 +284,11 @@ impl InfinitePlane3d {
     /// ## Guarantees
     ///
     /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
-    /// the transformed geometry 
+    /// the transformed geometry
     /// * uses the least rotation possible to transform the geometry
     /// * if two geometries are transformed with the same isometry, then the relations between
     /// them, like distances, are also preserved
-    /// * compared to projections, the transformation is lossless (up to floating point errors) reversible 
+    /// * compared to projections, the transformation is lossless (up to floating point errors) reversible
     ///
     /// ## Non-Guarantees
     ///
