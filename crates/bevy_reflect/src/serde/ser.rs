@@ -10,7 +10,6 @@ use serde::{
     ser::{SerializeMap, SerializeSeq},
     Serialize,
 };
-use std::cell::Cell;
 
 use super::SerializationData;
 
@@ -29,21 +28,6 @@ impl<'a> Serializable<'a> {
     }
 }
 
-thread_local! {
-    /// Thread-local flag indicating whether we are currently
-    /// serializing a [`ReflectBox`] value.
-    ///
-    /// When a [`ReflectBox`] value is detected and this flag is `false`,
-    /// the serializer should attempt to serialize the full type map of the value.
-    /// It should then set the flag to `true` to indicate that the map has been
-    /// created and the inner value should be serialized as normal.
-    ///
-    /// This is necessary to prevent infinite recursion when serializing a [`ReflectBox`].
-    ///
-    /// [`ReflectBox`]: crate::boxed::ReflectBox
-    static IS_BOXED: Cell<bool> = const { Cell::new(false) };
-}
-
 /// Get the serializer for the given reflected value.
 ///
 /// This function should be used in place of constructing the serializer directly,
@@ -58,10 +42,7 @@ fn get_serializer<'a>(
     if path.starts_with("bevy_reflect::boxed::ReflectBox<dyn") {
         Box::new(ReflectSerializer::new(reflect_value, type_registry))
     } else {
-        Box::new(TypedReflectSerializer::new_reflect_box(
-            reflect_value,
-            type_registry,
-        ))
+        Box::new(TypedReflectSerializer::new(reflect_value, type_registry))
     }
 }
 
@@ -69,17 +50,6 @@ fn get_serializable<'a, E: Error>(
     reflect_value: &'a dyn PartialReflect,
     type_registry: &'a TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
-    let path = reflect_value.reflect_type_path();
-    if !IS_BOXED.get() && path.starts_with("bevy_reflect::boxed::ReflectBox<dyn") {
-        // The value is a `ReflectBox` but it has not been flagged yet.
-        // Flag it and serialize the full type map.
-        IS_BOXED.set(true);
-        return Ok(Serializable::Owned(Box::new(ReflectSerializer::new(
-            reflect_value,
-            type_registry,
-        ))));
-    }
-
     let Some(reflect_value) = reflect_value.try_as_reflect() else {
         return Err(Error::custom(format_args!(
             "Type '{}' does not implement `Reflect`",
@@ -231,17 +201,6 @@ pub struct TypedReflectSerializer<'a> {
 
 impl<'a> TypedReflectSerializer<'a> {
     pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
-        // Check if `value` is a `ReflectBox` type.
-        IS_BOXED.set(
-            value
-                .reflect_type_path()
-                .starts_with("bevy_reflect::boxed::ReflectBox<dyn"),
-        );
-        Self { value, registry }
-    }
-
-    fn new_reflect_box(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
-        IS_BOXED.set(false);
         Self { value, registry }
     }
 }
