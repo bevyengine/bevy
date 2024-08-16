@@ -257,33 +257,34 @@ pub fn ui_layout_system(
         node_transform_query: &mut Query<(&mut Node, &mut Transform)>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
-        parent_size: Vec2,
+        parent_physical_size: Vec2,
         mut absolute_location: Vec2,
     ) {
         if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
             let Ok(layout) = ui_surface.get_layout(entity) else {
                 return;
             };
-            let layout_size =
-                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let layout_location =
-                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            let layout_size = Vec2::new(layout.size.width, layout.size.height);
+            let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
             absolute_location += layout_location;
 
-            let rounded_size = approx_round_layout_coords(absolute_location + layout_size)
+            let physical_size = approx_round_layout_coords(absolute_location + layout_size)
                 - approx_round_layout_coords(absolute_location);
 
-            let rounded_location =
-                approx_round_layout_coords(layout_location) + 0.5 * (rounded_size - parent_size);
+            let physical_location = approx_round_layout_coords(layout_location)
+                + 0.5 * (physical_size - parent_physical_size);
+
+            let logical_size = inverse_target_scale_factor * physical_size;
+            let logical_location = inverse_target_scale_factor * physical_location;
 
             // only trigger change detection when the new values are different
-            if node.calculated_size != rounded_size || node.unrounded_size != layout_size {
-                node.calculated_size = rounded_size;
+            if node.calculated_size != logical_size || node.unrounded_size != layout_size {
+                node.calculated_size = logical_size;
                 node.unrounded_size = layout_size;
             }
-            if transform.translation.truncate() != rounded_location {
-                transform.translation = rounded_location.extend(0.);
+            if transform.translation.truncate() != logical_location {
+                transform.translation = logical_location.extend(0.);
             }
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
@@ -293,7 +294,7 @@ pub fn ui_layout_system(
                         node_transform_query,
                         children_query,
                         inverse_target_scale_factor,
-                        rounded_size,
+                        physical_size,
                         absolute_location,
                     );
                 }
