@@ -66,7 +66,7 @@ impl UiRect {
 pub fn from_style(
     context: &LayoutContext,
     style: &Style,
-    ignore_padding_and_border: bool,
+    ignore_border: bool,
 ) -> taffy::style::Style {
     taffy::style::Style {
         display: style.display.into(),
@@ -93,18 +93,12 @@ pub fn from_style(
         margin: style
             .margin
             .map_to_taffy_rect(|m| m.into_length_percentage_auto(context)),
-        // Ignore padding for leaf nodes as it isn't implemented in the rendering engine.
-        // TODO: Implement rendering of padding for leaf nodes
-        padding: if ignore_padding_and_border {
-            taffy::Rect::zero()
-        } else {
-            style
-                .padding
-                .map_to_taffy_rect(|m| m.into_length_percentage(context))
-        },
+        padding: style
+            .padding
+            .map_to_taffy_rect(|m| m.into_length_percentage(context)),
         // Ignore border for leaf nodes as it isn't implemented in the rendering engine.
         // TODO: Implement rendering of border for leaf nodes
-        border: if ignore_padding_and_border {
+        border: if ignore_border {
             taffy::Rect::zero()
         } else {
             style
