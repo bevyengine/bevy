@@ -8,7 +8,10 @@ pub mod interval;
 pub use interval::{interval, Interval};
 use itertools::Itertools;
 
-use crate::{StableInterpolate, VectorSpace};
+use crate::{
+    ops::{self, FloatPow},
+    StableInterpolate, VectorSpace,
+};
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
 use std::{marker::PhantomData, ops::Deref};
@@ -1035,7 +1038,7 @@ pub fn line_curve<T: VectorSpace>(start: T, end: T) -> impl Curve<T> {
 pub fn quadratic_ease_in() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: |t| t * t,
+        f: |t| t.squared(),
         _phantom: PhantomData,
     }
 }
@@ -1048,7 +1051,7 @@ pub fn quadratic_ease_in() -> impl Curve<f32> {
 pub fn quadratic_ease_out() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: |t: f32| 1.0 - (1.0 - t).powi(2),
+        f: |t: f32| 1.0 - (1.0 - t).squared(),
         _phantom: PhantomData,
     }
 }
@@ -1061,7 +1064,7 @@ pub fn quadratic_ease_out() -> impl Curve<f32> {
 pub fn cubic_ease() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: |t| (t * t) * (3.0 - 2.0 * t),
+        f: |t| t.squared() * (3.0 - 2.0 * t),
         _phantom: PhantomData,
     }
 }
@@ -1088,7 +1091,7 @@ pub fn elastic_ease(omega: f32) -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
         f: move |t: f32| {
-            (1.0 - (1.0 - t).powi(2)) * (2.0 * (omega * t).sin() / omega + (omega * t).cos())
+            (1.0 - (1.0 - t).squared()) * (2.0 * ops::sin(omega * t) / omega + ops::cos(omega * t))
         },
         _phantom: PhantomData,
     }
