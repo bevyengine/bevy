@@ -28,7 +28,10 @@ use bevy_app::{Plugin, PluginGroup, PluginGroupBuilder};
 /// * [`AudioPlugin`](crate::audio::AudioPlugin) - with feature `bevy_audio`
 /// * [`GilrsPlugin`](crate::gilrs::GilrsPlugin) - with feature `bevy_gilrs`
 /// * [`AnimationPlugin`](crate::animation::AnimationPlugin) - with feature `bevy_animation`
+/// * [`GizmoPlugin`](crate::gizmos::GizmoPlugin) - with feature `bevy_gizmos`
+/// * [`StatesPlugin`](crate::app::StatesPlugin) - with feature `bevy_state`
 /// * [`DevToolsPlugin`](crate::dev_tools::DevToolsPlugin) - with feature `bevy_dev_tools`
+/// * [`CiTestingPlugin`](crate::dev_tools::ci_testing::CiTestingPlugin) - with feature `bevy_ci_testing`
 ///
 /// [`DefaultPlugins`] obeys *Cargo* *feature* flags. Users may exert control over this plugin group
 /// by disabling `default-features` in their `Cargo.toml` and enabling only those features
@@ -68,7 +71,7 @@ impl PluginGroup for DefaultPlugins {
 
         #[cfg(feature = "bevy_winit")]
         {
-            group = group.add(bevy_winit::WinitPlugin::default());
+            group = group.add::<bevy_winit::WinitPlugin>(bevy_winit::WinitPlugin::default());
         }
 
         #[cfg(feature = "bevy_render")]
@@ -137,9 +140,19 @@ impl PluginGroup for DefaultPlugins {
             group = group.add(bevy_gizmos::GizmoPlugin);
         }
 
+        #[cfg(feature = "bevy_state")]
+        {
+            group = group.add(bevy_state::app::StatesPlugin);
+        }
+
         #[cfg(feature = "bevy_dev_tools")]
         {
             group = group.add(bevy_dev_tools::DevToolsPlugin);
+        }
+
+        #[cfg(feature = "bevy_ci_testing")]
+        {
+            group = group.add(bevy_dev_tools::ci_testing::CiTestingPlugin);
         }
 
         group = group.add(IgnoreAmbiguitiesPlugin);
@@ -173,7 +186,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
 /// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
 /// * [`TimePlugin`](crate::time::TimePlugin)
 /// * [`ScheduleRunnerPlugin`](crate::app::ScheduleRunnerPlugin)
-/// * [`DevToolsPlugin`](crate::dev_tools::DevToolsPlugin) - with feature `bevy_dev_tools`
+/// * [`CiTestingPlugin`](crate::dev_tools::ci_testing::CiTestingPlugin) - with feature `bevy_ci_testing`
 ///
 /// This group of plugins is intended for use for minimal, *headless* programs –
 /// see the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)
@@ -194,10 +207,12 @@ impl PluginGroup for MinimalPlugins {
             .add(bevy_core::FrameCountPlugin)
             .add(bevy_time::TimePlugin)
             .add(bevy_app::ScheduleRunnerPlugin::default());
-        #[cfg(feature = "bevy_dev_tools")]
+
+        #[cfg(feature = "bevy_ci_testing")]
         {
-            group = group.add(bevy_dev_tools::DevToolsPlugin);
+            group = group.add(bevy_dev_tools::ci_testing::CiTestingPlugin);
         }
+
         group
     }
 }

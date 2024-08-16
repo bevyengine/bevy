@@ -100,22 +100,25 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ## Common points of confusion
 ///
 /// - UV maps in Bevy start at the top-left, see [`ATTRIBUTE_UV_0`](Mesh::ATTRIBUTE_UV_0),
-/// other APIs can have other conventions, `OpenGL` starts at bottom-left.
+///     other APIs can have other conventions, `OpenGL` starts at bottom-left.
 /// - It is possible and sometimes useful for multiple vertices to have the same
-/// [position attribute](Mesh::ATTRIBUTE_POSITION) value,
-/// it's a common technique in 3D modelling for complex UV mapping or other calculations.
+///     [position attribute](Mesh::ATTRIBUTE_POSITION) value,
+///     it's a common technique in 3D modelling for complex UV mapping or other calculations.
+/// - Bevy performs frustum culling based on the [`Aabb`] of meshes, which is calculated
+///     and added automatically for new meshes only. If a mesh is modified, the entity's [`Aabb`]
+///     needs to be updated manually or deleted so that it is re-calculated.
 ///
 /// ## Use with `StandardMaterial`
 ///
 /// To render correctly with `StandardMaterial`, a mesh needs to have properly defined:
 /// - [`UVs`](Mesh::ATTRIBUTE_UV_0): Bevy needs to know how to map a texture onto the mesh
-/// (also true for `ColorMaterial`).
+///     (also true for `ColorMaterial`).
 /// - [`Normals`](Mesh::ATTRIBUTE_NORMAL): Bevy needs to know how light interacts with your mesh.
-/// [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
-/// because simple meshes are smooth and they don't require complex light calculations.
+///     [0.0, 0.0, 1.0] is very common for simple flat meshes on the XY plane,
+///     because simple meshes are smooth and they don't require complex light calculations.
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is [`Some(Face::Back)`](crate::render_resource::Face),
-/// which means that Bevy would *only* render the "front" of each triangle, which
-/// is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///     which means that Bevy would *only* render the "front" of each triangle, which
+///     is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 #[derive(Asset, Debug, Clone, Reflect)]
 pub struct Mesh {
     #[reflect(ignore)]
@@ -225,6 +228,8 @@ impl Mesh {
     /// Sets the data for a vertex attribute (position, normal, etc.). The name will
     /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
+    ///
     /// # Panics
     /// Panics when the format of the values does not match the attribute's format.
     #[inline]
@@ -250,6 +255,8 @@ impl Mesh {
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
     /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     ///
     /// # Panics
     /// Panics when the format of the values does not match the attribute's format.
@@ -544,15 +551,44 @@ impl Mesh {
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
+    /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
+    /// normals.
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     ///
-    /// FIXME: The should handle more cases since this is called as a part of gltf
+    /// FIXME: This should handle more cases since this is called as a part of gltf
+    /// mesh loading where we can't really blame users for loading meshes that might
+    /// not conform to the limitations here!
+    pub fn compute_normals(&mut self) {
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "`compute_normals` can only work on `TriangleList`s"
+        );
+        if self.indices().is_none() {
+            self.compute_flat_normals();
+        } else {
+            self.compute_smooth_normals();
+        }
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
+    ///
+    /// # Panics
+    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Consider calling [`Mesh::duplicate_vertices`] or exporting your mesh with normal
+    /// attributes.
+    ///
+    /// FIXME: This should handle more cases since this is called as a part of gltf
     /// mesh loading where we can't really blame users for loading meshes that might
     /// not conform to the limitations here!
     pub fn compute_flat_normals(&mut self) {
+        assert!(
+            self.indices().is_none(),
+            "`compute_flat_normals` can't work on indexed geometry. Consider calling either `Mesh::compute_smooth_normals` or `Mesh::duplicate_vertices` followed by `Mesh::compute_flat_normals`."
+        );
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
             "`compute_flat_normals` can only work on `TriangleList`s"
@@ -564,64 +600,111 @@ impl Mesh {
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
-        match self.indices() {
-            Some(indices) => {
-                let mut count: usize = 0;
-                let mut corners = [0_usize; 3];
-                let mut normals = vec![[0.0f32; 3]; positions.len()];
-                let mut adjacency_counts = vec![0_usize; positions.len()];
+        let normals: Vec<_> = positions
+            .chunks_exact(3)
+            .map(|p| face_normal(p[0], p[1], p[2]))
+            .flat_map(|normal| [normal; 3])
+            .collect();
 
-                for i in indices.iter() {
-                    corners[count % 3] = i;
-                    count += 1;
-                    if count % 3 == 0 {
-                        let normal = face_normal(
-                            positions[corners[0]],
-                            positions[corners[1]],
-                            positions[corners[2]],
-                        );
-                        for corner in corners {
-                            normals[corner] =
-                                (Vec3::from(normal) + Vec3::from(normals[corner])).into();
-                            adjacency_counts[corner] += 1;
-                        }
-                    }
-                }
+        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
 
-                // average (smooth) normals for shared vertices...
-                // TODO: support different methods of weighting the average
-                for i in 0..normals.len() {
-                    let count = adjacency_counts[i];
-                    if count > 0 {
-                        normals[i] = (Vec3::from(normals[i]) / (count as f32)).normalize().into();
-                    }
-                }
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
+    /// vertices.
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    ///
+    /// FIXME: This should handle more cases since this is called as a part of gltf
+    /// mesh loading where we can't really blame users for loading meshes that might
+    /// not conform to the limitations here!
+    pub fn compute_smooth_normals(&mut self) {
+        assert!(
+            matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
+            "`compute_smooth_normals` can only work on `TriangleList`s"
+        );
+        assert!(
+            self.indices().is_some(),
+            "`compute_smooth_normals` can only work on indexed meshes"
+        );
 
-                self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-            }
-            None => {
-                let normals: Vec<_> = positions
-                    .chunks_exact(3)
-                    .map(|p| face_normal(p[0], p[1], p[2]))
-                    .flat_map(|normal| [normal; 3])
-                    .collect();
+        let positions = self
+            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .unwrap()
+            .as_float3()
+            .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
-                self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        let mut normals = vec![Vec3::ZERO; positions.len()];
+        let mut adjacency_counts = vec![0_usize; positions.len()];
+
+        self.indices()
+            .unwrap()
+            .iter()
+            .collect::<Vec<usize>>()
+            .chunks_exact(3)
+            .for_each(|face| {
+                let [a, b, c] = [face[0], face[1], face[2]];
+                let normal = Vec3::from(face_normal(positions[a], positions[b], positions[c]));
+                [a, b, c].iter().for_each(|pos| {
+                    normals[*pos] += normal;
+                    adjacency_counts[*pos] += 1;
+                });
+            });
+
+        // average (smooth) normals for shared vertices...
+        // TODO: support different methods of weighting the average
+        for i in 0..normals.len() {
+            let count = adjacency_counts[i];
+            if count > 0 {
+                normals[i] = (normals[i] / (count as f32)).normalize();
             }
         }
+
+        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
+    /// normals.
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    #[must_use]
+    pub fn with_computed_normals(mut self) -> Self {
+        self.compute_normals();
+        self
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
     ///
-    /// (Alternatively, you can use [`Mesh::with_computed_flat_normals`] to mutate an existing mesh in-place)
+    /// (Alternatively, you can use [`Mesh::compute_flat_normals`] to mutate an existing mesh in-place)
     ///
     /// # Panics
-    /// Panics if [`Indices`] are set or [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3` or
-    /// if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    /// Consider calling [`Mesh::with_duplicated_vertices`] or export your mesh with normal attributes.
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh has indices defined
     #[must_use]
     pub fn with_computed_flat_normals(mut self) -> Self {
         self.compute_flat_normals();
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_smooth_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    #[must_use]
+    pub fn with_computed_smooth_normals(mut self) -> Self {
+        self.compute_smooth_normals();
         self
     }
 
@@ -651,12 +734,14 @@ impl Mesh {
     ///
     /// Note that attributes of `other` that don't exist on `self` will be ignored.
     ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
+    ///
     /// # Panics
     ///
     /// Panics if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
     #[allow(clippy::match_same_arms)]
-    pub fn merge(&mut self, other: Mesh) {
+    pub fn merge(&mut self, other: &Mesh) {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
@@ -727,18 +812,21 @@ impl Mesh {
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn transformed_by(mut self, transform: Transform) -> Self {
         self.transform_by(transform);
         self
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn transform_by(&mut self, transform: Transform) {
         // Needed when transforming normals and tangents
-        let covector_scale = transform.scale.yzx() * transform.scale.zxy();
-
+        let scale_recip = 1. / transform.scale;
         debug_assert!(
-            covector_scale != Vec3::ZERO,
+            transform.scale.yzx() * transform.scale.zxy() != Vec3::ZERO,
             "mesh transform scale cannot be zero on more than one axis"
         );
 
@@ -764,8 +852,9 @@ impl Mesh {
         {
             // Transform normals, taking into account non-uniform scaling and rotation
             normals.iter_mut().for_each(|normal| {
-                let scaled_normal = Vec3::from_slice(normal) * covector_scale;
-                *normal = (transform.rotation * scaled_normal.normalize_or_zero()).to_array();
+                *normal = (transform.rotation
+                    * scale_normal(Vec3::from_array(*normal), scale_recip))
+                .to_array();
             });
         }
 
@@ -774,19 +863,23 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
-                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                let scaled_tangent = Vec3::from_slice(tangent) * transform.scale;
                 *tangent = (transform.rotation * scaled_tangent.normalize_or_zero()).to_array();
             });
         }
     }
 
     /// Translates the vertex positions of the mesh by the given [`Vec3`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn translated_by(mut self, translation: Vec3) -> Self {
         self.translate_by(translation);
         self
     }
 
     /// Translates the vertex positions of the mesh in place by the given [`Vec3`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn translate_by(&mut self, translation: Vec3) {
         if translation == Vec3::ZERO {
             return;
@@ -803,12 +896,16 @@ impl Mesh {
     }
 
     /// Rotates the vertex positions, normals, and tangents of the mesh by the given [`Quat`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn rotated_by(mut self, rotation: Quat) -> Self {
         self.rotate_by(rotation);
         self
     }
 
     /// Rotates the vertex positions, normals, and tangents of the mesh in place by the given [`Quat`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
@@ -844,18 +941,21 @@ impl Mesh {
     }
 
     /// Scales the vertex positions, normals, and tangents of the mesh by the given [`Vec3`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn scaled_by(mut self, scale: Vec3) -> Self {
         self.scale_by(scale);
         self
     }
 
     /// Scales the vertex positions, normals, and tangents of the mesh in place by the given [`Vec3`].
+    ///
+    /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn scale_by(&mut self, scale: Vec3) {
         // Needed when transforming normals and tangents
-        let covector_scale = scale.yzx() * scale.zxy();
-
+        let scale_recip = 1. / scale;
         debug_assert!(
-            covector_scale != Vec3::ZERO,
+            scale.yzx() * scale.zxy() != Vec3::ZERO,
             "mesh transform scale cannot be zero on more than one axis"
         );
 
@@ -878,8 +978,7 @@ impl Mesh {
         {
             // Transform normals, taking into account non-uniform scaling
             normals.iter_mut().for_each(|normal| {
-                let scaled_normal = Vec3::from_slice(normal) * covector_scale;
-                *normal = scaled_normal.normalize_or_zero().to_array();
+                *normal = scale_normal(Vec3::from_array(*normal), scale_recip).to_array();
             });
         }
 
@@ -888,7 +987,7 @@ impl Mesh {
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
-                let scaled_tangent = Vec3::from_slice(tangent) * covector_scale;
+                let scaled_tangent = Vec3::from_slice(tangent) * scale;
                 *tangent = scaled_tangent.normalize_or_zero().to_array();
             });
         }
@@ -1138,6 +1237,7 @@ impl VertexFormatSize for VertexFormat {
             VertexFormat::Unorm8x4 => 4,
             VertexFormat::Snorm8x2 => 2,
             VertexFormat::Snorm8x4 => 4,
+            VertexFormat::Unorm10_10_10_2 => 4,
             VertexFormat::Uint16x2 => 2 * 2,
             VertexFormat::Uint16x4 => 2 * 4,
             VertexFormat::Sint16x2 => 2 * 2,
@@ -1668,10 +1768,27 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
     Ok(mikktspace_mesh.tangents)
 }
 
+/// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
+fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
+    // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
+    // This is necessary because components of `scale_recip` may be infinities, which do not multiply to zero
+    let n = Vec3::select(normal.cmpeq(Vec3::ZERO), Vec3::ZERO, normal * scale_recip);
+
+    // If n is finite, no component of `scale_recip` was infinite or the normal was perpendicular to the scale
+    // else the scale had at least one zero-component and the normal needs to point along the direction of that component
+    if n.is_finite() {
+        n.normalize_or_zero()
+    } else {
+        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use crate::render_asset::RenderAssetUsages;
+    use crate::{mesh::VertexAttributeValues, render_asset::RenderAssetUsages};
+    use bevy_math::Vec3;
+    use bevy_transform::components::Transform;
     use wgpu::PrimitiveTopology;
 
     #[test]
@@ -1682,5 +1799,57 @@ mod tests {
             RenderAssetUsages::default(),
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0, 0.0]]);
+    }
+
+    #[test]
+    fn transform_mesh() {
+        let mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[-1., -1., 2.], [1., -1., 2.], [0., 1., 2.]],
+        )
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            vec![
+                Vec3::new(-1., -1., 1.).normalize().to_array(),
+                Vec3::new(1., -1., 1.).normalize().to_array(),
+                [0., 0., 1.],
+            ],
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0., 0.], [1., 0.], [0.5, 1.]]);
+
+        let mesh = mesh.transformed_by(
+            Transform::from_translation(Vec3::splat(-2.)).with_scale(Vec3::new(2., 0., -1.)),
+        );
+
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
+            mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+        {
+            // All positions are first scaled resulting in `vec![[-2, 0., -2.], [2., 0., -2.], [0., 0., -2.]]`
+            // and then shifted by `-2.` along each axis
+            assert_eq!(
+                positions,
+                &vec![[-4.0, -2.0, -4.0], [0.0, -2.0, -4.0], [-2.0, -2.0, -4.0]]
+            );
+        } else {
+            panic!("Mesh does not have a position attribute");
+        }
+
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
+            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+        {
+            assert_eq!(normals, &vec![[0., -1., 0.], [0., -1., 0.], [0., 0., -1.]]);
+        } else {
+            panic!("Mesh does not have a normal attribute");
+        }
+
+        if let Some(VertexAttributeValues::Float32x2(uvs)) = mesh.attribute(Mesh::ATTRIBUTE_UV_0) {
+            assert_eq!(uvs, &vec![[0., 0.], [1., 0.], [0.5, 1.]]);
+        } else {
+            panic!("Mesh does not have a uv attribute");
+        }
     }
 }

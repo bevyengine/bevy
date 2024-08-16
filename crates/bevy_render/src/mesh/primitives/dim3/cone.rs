@@ -2,9 +2,21 @@ use bevy_math::{primitives::Cone, Vec3};
 use wgpu::PrimitiveTopology;
 
 use crate::{
-    mesh::{Indices, Mesh, Meshable},
+    mesh::{Indices, Mesh, MeshBuilder, Meshable},
     render_asset::RenderAssetUsages,
 };
+
+/// Anchoring options for [`ConeMeshBuilder`]
+#[derive(Debug, Copy, Clone, Default)]
+pub enum ConeAnchor {
+    #[default]
+    /// Midpoint between the tip of the cone and the center of its base.
+    MidPoint,
+    /// The Tip of the triangle
+    Tip,
+    /// The center of the base circle
+    Base,
+}
 
 /// A builder used for creating a [`Mesh`] with a [`Cone`] shape.
 #[derive(Clone, Copy, Debug)]
@@ -15,6 +27,9 @@ pub struct ConeMeshBuilder {
     ///
     /// The default is `32`.
     pub resolution: u32,
+    /// The anchor point for the cone mesh, defaults to the midpoint between
+    /// the tip of the cone and the center of its base
+    pub anchor: ConeAnchor,
 }
 
 impl Default for ConeMeshBuilder {
@@ -22,6 +37,7 @@ impl Default for ConeMeshBuilder {
         Self {
             cone: Cone::default(),
             resolution: 32,
+            anchor: ConeAnchor::default(),
         }
     }
 }
@@ -34,6 +50,7 @@ impl ConeMeshBuilder {
         Self {
             cone: Cone { radius, height },
             resolution,
+            anchor: ConeAnchor::MidPoint,
         }
     }
 
@@ -44,8 +61,16 @@ impl ConeMeshBuilder {
         self
     }
 
-    /// Builds a [`Mesh`] based on the configuration in `self`.
-    pub fn build(&self) -> Mesh {
+    /// Sets a custom anchor point for the mesh
+    #[inline]
+    pub const fn anchor(mut self, anchor: ConeAnchor) -> Self {
+        self.anchor = anchor;
+        self
+    }
+}
+
+impl MeshBuilder for ConeMeshBuilder {
+    fn build(&self) -> Mesh {
         let half_height = self.cone.height / 2.0;
 
         // `resolution` vertices for the base, `resolution` vertices for the bottom of the lateral surface,
@@ -129,6 +154,13 @@ impl ConeMeshBuilder {
             indices.extend_from_slice(&[index_offset, index_offset + i, index_offset + i + 1]);
         }
 
+        // Offset the vertex positions Y axis to match the anchor
+        match self.anchor {
+            ConeAnchor::Tip => positions.iter_mut().for_each(|p| p[1] -= half_height),
+            ConeAnchor::Base => positions.iter_mut().for_each(|p| p[1] += half_height),
+            ConeAnchor::MidPoint => (),
+        };
+
         Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -157,17 +189,11 @@ impl From<Cone> for Mesh {
     }
 }
 
-impl From<ConeMeshBuilder> for Mesh {
-    fn from(cone: ConeMeshBuilder) -> Self {
-        cone.build()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bevy_math::{primitives::Cone, Vec2};
 
-    use crate::mesh::{Mesh, Meshable, VertexAttributeValues};
+    use crate::mesh::{primitives::MeshBuilder, Mesh, Meshable, VertexAttributeValues};
 
     /// Rounds floats to handle floating point error in tests.
     fn round_floats<const N: usize>(points: &mut [[f32; N]]) {

@@ -155,8 +155,8 @@ pub struct VisibilityBundle {
 /// It can be used for example:
 /// - when a [`Mesh`] is updated but its [`Aabb`] is not, which might happen with animations,
 /// - when using some light effects, like wanting a [`Mesh`] out of the [`Frustum`]
-/// to appear in the reflection of a [`Mesh`] within.
-#[derive(Component, Default, Reflect)]
+///     to appear in the reflection of a [`Mesh`] within.
+#[derive(Debug, Component, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct NoFrustumCulling;
 
@@ -429,7 +429,7 @@ pub fn check_visibility<QF>(
             continue;
         }
 
-        let view_mask = maybe_view_mask.copied().unwrap_or_default();
+        let view_mask = maybe_view_mask.unwrap_or_default();
 
         visible_aabb_query.par_iter_mut().for_each_init(
             || thread_queues.borrow_local_mut(),
@@ -451,8 +451,8 @@ pub fn check_visibility<QF>(
                     return;
                 }
 
-                let entity_mask = maybe_entity_mask.copied().unwrap_or_default();
-                if !view_mask.intersects(&entity_mask) {
+                let entity_mask = maybe_entity_mask.unwrap_or_default();
+                if !view_mask.intersects(entity_mask) {
                     return;
                 }
 
@@ -468,9 +468,9 @@ pub fn check_visibility<QF>(
                 // If we have an aabb, do frustum culling
                 if !no_frustum_culling && !no_cpu_culling {
                     if let Some(model_aabb) = maybe_model_aabb {
-                        let model = transform.affine();
+                        let world_from_local = transform.affine();
                         let model_sphere = Sphere {
-                            center: model.transform_point3a(model_aabb.center),
+                            center: world_from_local.transform_point3a(model_aabb.center),
                             radius: transform.radius_vec3a(model_aabb.half_extents),
                         };
                         // Do quick sphere-based frustum culling
@@ -478,7 +478,7 @@ pub fn check_visibility<QF>(
                             return;
                         }
                         // Do aabb-based frustum culling
-                        if !frustum.intersects_obb(model_aabb, &model, true, false) {
+                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
                             return;
                         }
                     }

@@ -8,7 +8,7 @@ use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
     Color,
 };
-use bevy_math::{Quat, Vec2, Vec3};
+use bevy_math::{Quat, Vec2, Vec3, Vec3Swizzles};
 use bevy_transform::TransformPoint;
 
 /// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
@@ -200,5 +200,36 @@ where
         self.arrow(start, end_x, RED);
         self.arrow(start, end_y, GREEN);
         self.arrow(start, end_z, BLUE);
+    }
+
+    /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
+    /// of `base_length`.
+    ///
+    /// This should be called for each frame the axes need to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_transform::components::Transform;
+    /// # #[derive(Component)]
+    /// # struct AxesComponent;
+    /// fn draw_axes_2d(
+    ///     mut gizmos: Gizmos,
+    ///     query: Query<&Transform, With<AxesComponent>>,
+    /// ) {
+    ///     for &transform in &query {
+    ///         gizmos.axes_2d(transform, 1.);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(draw_axes_2d);
+    /// ```
+    pub fn axes_2d(&mut self, transform: impl TransformPoint, base_length: f32) {
+        let start = transform.transform_point(Vec3::ZERO);
+        let end_x = transform.transform_point(base_length * Vec3::X);
+        let end_y = transform.transform_point(base_length * Vec3::Y);
+
+        self.arrow_2d(start.xy(), end_x.xy(), RED);
+        self.arrow_2d(start.xy(), end_y.xy(), GREEN);
     }
 }
