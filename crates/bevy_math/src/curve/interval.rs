@@ -77,6 +77,12 @@ impl Interval {
         end: f32::INFINITY,
     };
 
+    /// An interval of length 1.0, starting at 0.0 and ending at 1.0.
+    pub const UNIT: Self = Self {
+        start: 0.0,
+        end: 1.0,
+    };
+
     /// Get the start of this interval.
     #[inline]
     pub const fn start(self) -> f32 {

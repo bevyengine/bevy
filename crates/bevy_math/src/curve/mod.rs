@@ -8,7 +8,7 @@ pub mod interval;
 pub use interval::{interval, Interval};
 use itertools::Itertools;
 
-use crate::StableInterpolate;
+use crate::{StableInterpolate, VectorSpace};
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
 use std::{marker::PhantomData, ops::Deref};
@@ -1015,71 +1015,93 @@ where
     }
 }
 
-/// Convert a `start` and `end` point of some type into a [`Curve`], sampled by interpolating
-/// between the two boundary values and under the application of an easing function.
-pub fn easing_curve<T: Clone>(
-    domain: Interval,
-    start: T,
-    end: T,
-    easing_fn: impl Fn(f32) -> f32,
-) -> impl Curve<T>
-where
-    T: std::ops::Mul<f32, Output = T>
-        + std::ops::Add<T, Output = T>
-        + std::ops::Div<f32, Output = T>,
-{
-    let interpolate_with_ease = move |t: f32| {
-        let len = domain.length();
-        let start_factor = (domain.end() - t) / len;
-        let end_factor = (t - domain.start()) / len;
-        start.clone() * easing_fn(start_factor) + end.clone() * easing_fn(end_factor)
-    };
+/// Convert a `start` and `end` point of some [`VectorSpace`] type into a [`Curve`] over the
+/// [unit interval], sampled by linearly interpolating between the two boundary values.
+///
+/// [unit interval]: `Interval::UNIT`
+pub fn line_curve<T: VectorSpace>(start: T, end: T) -> impl Curve<T> {
     FunctionCurve {
-        domain,
-        f: interpolate_with_ease,
+        domain: Interval::UNIT,
+        f: move |t| start * (1.0 - t) + end * t,
         _phantom: PhantomData,
     }
 }
 
-/// Convert a `start` and `end` point of some type into a [`Curve`], sampled by linearly
-/// interpolating between the two boundary values.
-pub fn line_curve<T: Clone>(domain: Interval, start: T, end: T) -> impl Curve<T>
-where
-    T: std::ops::Mul<f32, Output = T>
-        + std::ops::Add<T, Output = T>
-        + std::ops::Div<f32, Output = T>,
-{
-    easing_curve(domain, start, end, easing_functions::linear_ease)
+/// A [`Curve`] mapping the [unit interval] to itself.
+///
+/// It uses the function `f(x) = x²`
+///
+/// [unit domain]: `Interval::UNIT`
+pub fn quadratic_ease_in() -> impl Curve<f32> {
+    FunctionCurve {
+        domain: Interval::UNIT,
+        f: |t| t * t,
+        _phantom: PhantomData,
+    }
 }
 
-/// A simple collection of easing functions. Inspiration taken from [this website]
+/// A [`Curve`] mapping the [unit interval] to itself.
 ///
-/// [this website]: https://notes.yvt.jp/Graphics/Easing-Functions/
-pub mod easing_functions {
-    /// `f(x) = x`
-    pub fn linear_ease(x: f32) -> f32 {
-        x
+/// It uses the function `f(x) = 1.0 - ( 1.0 - x )²`
+///
+/// [unit domain]: `Interval::UNIT`
+pub fn quadratic_ease_out() -> impl Curve<f32> {
+    FunctionCurve {
+        domain: Interval::UNIT,
+        f: |t: f32| 1.0 - (1.0 - t).powi(2),
+        _phantom: PhantomData,
     }
-    /// `f(x) = x²`
-    pub fn quadratice_ease_in(x: f32) -> f32 {
-        x * x
+}
+
+/// A [`Curve`] mapping the [unit interval] to itself.
+///
+/// It uses the function `f(x) = x² * (3.0 - 2.0 * x)`
+///
+/// [unit domain]: `Interval::UNIT`
+pub fn cubic_ease() -> impl Curve<f32> {
+    FunctionCurve {
+        domain: Interval::UNIT,
+        f: |t| (t * t) * (3.0 - 2.0 * t),
+        _phantom: PhantomData,
     }
-    /// `f(x) = 1.0 - ( 1.0 - x )²`
-    pub fn quadratice_ease_out(x: f32) -> f32 {
-        1.0 - (1.0 - x).powi(2)
+}
+
+/// A [`Curve`] mapping the [unit interval] to itself.
+///
+/// It uses the function `f(n,x) = round(x * n) / n`
+///
+/// [unit domain]: `Interval::UNIT`
+pub fn step_ease(num_steps: usize) -> impl Curve<f32> {
+    FunctionCurve {
+        domain: Interval::UNIT,
+        f: move |t: f32| (t * num_steps as f32).round() / num_steps as f32,
+        _phantom: PhantomData,
     }
-    /// `f(x) = x² * (3.0 - 2.0 * x)`
-    pub fn cubic_ease(x: f32) -> f32 {
-        (x * x) * (3.0 - 2.0 * x)
+}
+
+/// A [`Curve`] mapping the [unit interval] to itself.
+///
+/// It uses the function `f(omega,x) = (1.0 - ( 1.0 - x )²) * (2.0 * sin(omega * x) / omega + cos(omega * x))`
+///
+/// [unit domain]: `Interval::UNIT`
+pub fn elastic_ease(omega: f32) -> impl Curve<f32> {
+    FunctionCurve {
+        domain: Interval::UNIT,
+        f: move |t: f32| {
+            (1.0 - (1.0 - t).powi(2)) * (2.0 * (omega * t).sin() / omega + (omega * t).cos())
+        },
+        _phantom: PhantomData,
     }
-    /// `f(n,x) = round(x * n) / n`
-    pub fn step_ease(n_steps: usize) -> impl Fn(f32) -> f32 {
-        move |x| (x * n_steps as f32).round() / n_steps as f32
-    }
-    /// `f(omega,x) = (1.0 - ( 1.0 - x )²) * (2.0 * sin(omega * x) / omega + cos(omega * x))`
-    pub fn elastic_ease(omega: f32) -> impl Fn(f32) -> f32 {
-        move |x| quadratice_ease_out(x) * (2.0 * (omega * x).sin() / omega + (omega * x).cos())
-    }
+}
+
+/// Convert a `start` and `end` point of some type into a [`Curve`], sampled by interpolating
+/// between the two boundary values and under the application of an easing function.
+pub fn easing_curve<T: VectorSpace>(
+    start: T,
+    end: T,
+    easing_curve: impl Curve<f32>,
+) -> impl Curve<T> {
+    line_curve(start, end).reparametrize_by_curve(easing_curve)
 }
 
 #[cfg(test)]
@@ -1125,22 +1147,17 @@ mod tests {
     fn easing_curves() {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
-        let curve = line_curve(Interval::new(2.0, 5.0).unwrap(), start, end);
+        let curve = line_curve(start, end);
 
         let mid = (start + end) / 2.0;
 
-        [(2.0, start), (3.5, mid), (5.0, end)]
+        [(0.0, start), (0.5, mid), (1.0, end)]
             .into_iter()
             .for_each(|(t, x)| {
                 assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
             });
 
-        let curve = easing_curve(
-            Interval::new(0.0, 1.0).unwrap(),
-            start,
-            end,
-            easing_functions::step_ease(4),
-        );
+        let curve = easing_curve(start, end, step_ease(4));
         [
             (0.0, start),
             (0.124, start),
@@ -1158,12 +1175,7 @@ mod tests {
             assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
         });
 
-        let curve = easing_curve(
-            Interval::new(0.0, 1.0).unwrap(),
-            start,
-            end,
-            easing_functions::quadratice_ease_in,
-        );
+        let curve = easing_curve(start, end, quadratic_ease_in());
         [
             (0.0, start),
             (0.25, Vec2::new(0.0625, 0.125)),
