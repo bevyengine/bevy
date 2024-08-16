@@ -527,6 +527,7 @@
 
 mod array;
 pub mod boxed;
+pub mod cast;
 mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]

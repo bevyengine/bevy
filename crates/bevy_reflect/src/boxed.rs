@@ -2,120 +2,13 @@ use core::fmt::Formatter;
 use std::any::Any;
 
 use crate::__macro_exports::RegisterForReflection;
+use crate::cast::{ToPartialReflect, ToReflect};
 use crate::serde::Serializable;
 use crate::utility::GenericTypePathCell;
 use crate::{
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, ReflectRemote, TypeInfo, TypePath,
 };
-
-/// A trait used to access `Self` as a [`dyn PartialReflect`].
-///
-/// This is used to provide by [`ReflectBox<T>`] in order to remotely reflect
-/// the inner type, `T`.
-///
-/// This trait can be implemented on custom trait objects to allow them to be remotely reflected
-/// by [`ReflectBox`].
-///
-/// [`dyn PartialReflect`]: PartialReflect
-#[doc(hidden)]
-pub trait ToPartialReflect: Send + Sync + 'static {
-    /// Get a reference to `Self` as a [`&dyn PartialReflect`](PartialReflect).
-    fn to_partial_reflect_ref(&self) -> &dyn PartialReflect;
-    /// Get a mutable reference to `Self` as a [`&mut dyn PartialReflect`](PartialReflect).
-    fn to_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect;
-    /// Take `Self` as a [`Box<dyn PartialReflect>`](PartialReflect).
-    fn to_partial_reflect_box(self: Box<Self>) -> Box<dyn PartialReflect>;
-}
-
-impl<T: PartialReflect> ToPartialReflect for T {
-    fn to_partial_reflect_ref(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn to_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn to_partial_reflect_box(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-}
-
-impl ToPartialReflect for dyn PartialReflect {
-    fn to_partial_reflect_ref(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn to_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn to_partial_reflect_box(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-}
-
-/// A trait used to access `Self` as a [`dyn Reflect`].
-///
-/// This is used to provide by [`ReflectBox<T>`] in order to remotely reflect
-/// the inner type, `T`.
-///
-/// This trait can be implemented on custom trait objects to allow them to be remotely reflected
-/// by [`ReflectBox`].
-///
-/// [`dyn Reflect`]: Reflect
-#[doc(hidden)]
-pub trait ToReflect: ToPartialReflect {
-    /// Get a reference to `Self` as a [`&dyn Reflect`](Reflect).
-    fn to_reflect_ref(&self) -> &dyn Reflect;
-    /// Get a mutable reference to `Self` as a [`&mut dyn Reflect`](Reflect).
-    fn to_reflect_mut(&mut self) -> &mut dyn Reflect;
-    /// Take `Self` as a [`Box<dyn Reflect>`](Reflect).
-    fn to_reflect_box(self: Box<Self>) -> Box<dyn Reflect>;
-}
-
-impl<T: Reflect> ToReflect for T {
-    fn to_reflect_ref(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn to_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn to_reflect_box(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-}
-
-impl ToPartialReflect for dyn Reflect {
-    fn to_partial_reflect_ref(&self) -> &dyn PartialReflect {
-        self.as_partial_reflect()
-    }
-
-    fn to_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self.as_partial_reflect_mut()
-    }
-
-    fn to_partial_reflect_box(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self.into_partial_reflect()
-    }
-}
-
-impl ToReflect for dyn Reflect {
-    fn to_reflect_ref(&self) -> &dyn Reflect {
-        self
-    }
-
-    fn to_reflect_mut(&mut self) -> &mut dyn Reflect {
-        self
-    }
-
-    fn to_reflect_box(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-}
 
 /// A [remote wrapper] type around [`Box<T>`] where `T` is either a type that implements [`PartialReflect`]/[`Reflect`]
 /// or a [`dyn PartialReflect`]/[`dyn Reflect`] trait object.
@@ -125,6 +18,10 @@ impl ToReflect for dyn Reflect {
 ///
 /// [`ReflectBox`] should never be created or used directly outside remote reflection,
 /// in order to avoid double-boxing.
+///
+/// Along with supporting reflection for `Box<dyn Reflect>`, `Box<dyn PartialReflect>`, and `Box<T: PartialReflect>`,
+/// [`ReflectBox`] can also be used to reflect any boxed trait object that is compatible with reflection.
+/// This can be achieved by implementing [`ToPartialReflect`] and [`ToReflect`] for the custom trait object type.
 ///
 /// # Examples
 ///
@@ -164,6 +61,7 @@ impl ToReflect for dyn Reflect {
 /// [remote wrapper]: ReflectRemote
 /// [`dyn PartialReflect`]: PartialReflect
 /// [`dyn Reflect`]: Reflect
+/// [`cast`]: crate::cast
 #[repr(transparent)]
 pub struct ReflectBox<T: ?Sized + ToPartialReflect + TypePath>(Box<T>);
 
