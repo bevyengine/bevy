@@ -1045,7 +1045,7 @@ pub fn quadratic_ease_in() -> impl Curve<f32> {
 
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
-/// It uses the function `f(x) = 1.0 - ( 1.0 - x )²`
+/// It uses the function `f(x) = 1 - (1 - x)²`
 ///
 /// [unit domain]: `Interval::UNIT`
 pub fn quadratic_ease_out() -> impl Curve<f32> {
@@ -1058,10 +1058,10 @@ pub fn quadratic_ease_out() -> impl Curve<f32> {
 
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
-/// It uses the function `f(x) = x² * (3.0 - 2.0 * x)`
+/// It uses the function `f(x) = x² * (3 - 2x)`
 ///
 /// [unit domain]: `Interval::UNIT`
-pub fn cubic_ease() -> impl Curve<f32> {
+pub fn cubic_curve() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
         f: |t: f32| t.squared() * (3.0 - 2.0 * t),
@@ -1073,8 +1073,10 @@ pub fn cubic_ease() -> impl Curve<f32> {
 ///
 /// It uses the function `f(n,x) = round(x * n) / n`
 ///
+/// parametrized by `n`, the number of steps
+///
 /// [unit domain]: `Interval::UNIT`
-pub fn step_ease(num_steps: usize) -> impl Curve<f32> {
+pub fn step_curve(num_steps: usize) -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
         f: move |t: f32| (t * num_steps as f32).round() / num_steps as f32,
@@ -1084,14 +1086,38 @@ pub fn step_ease(num_steps: usize) -> impl Curve<f32> {
 
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
-/// It uses the function `f(omega,x) = (1.0 - ( 1.0 - x )²) * (2.0 * sin(omega * x) / omega + cos(omega * x))`
+/// It uses the function `f(omega,x) = (1 - (1 - x)²)(2sin(omega * x) / omega + cos(omega * x))`
+///
+/// parametrized by `omega`
 ///
 /// [unit domain]: `Interval::UNIT`
-pub fn elastic_ease(omega: f32) -> impl Curve<f32> {
+pub fn elastic_curve(omega: f32) -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
         f: move |t: f32| {
             (1.0 - (1.0 - t).squared()) * (2.0 * ops::sin(omega * t) / omega + ops::cos(omega * t))
+        },
+        _phantom: PhantomData,
+    }
+}
+
+/// A [`Curve`] mapping the [unit interval] to itself.
+///
+/// It uses the function
+/// `f(p0,p1,p2,p3,x) = (1 - x)³ * p0 + 3(1 - x)² * x * p1 + 3(1 - x) * x² * p2 + t³ * p3`
+///
+/// parametrized by `p0`, `p1`, `p2`, `p3`, called "control points"
+///
+/// [unit domain]: `Interval::UNIT`
+pub fn cubic_bezier_curve(control_points: [f32; 4]) -> impl Curve<f32> {
+    let [p0, p1, p2, p3] = control_points;
+    FunctionCurve {
+        domain: Interval::UNIT,
+        f: move |t: f32| {
+            (1.0 - t).cubed() * p0
+                + 3.0 * (1.0 - t).squared() * t * p1
+                + 3.0 * (1.0 - t) * t.squared() * p2
+                + t.cubed() * p3
         },
         _phantom: PhantomData,
     }
@@ -1160,7 +1186,7 @@ mod tests {
                 assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
             });
 
-        let curve = easing_curve(start, end, step_ease(4));
+        let curve = easing_curve(start, end, step_curve(4));
         [
             (0.0, start),
             (0.124, start),
