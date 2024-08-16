@@ -1033,7 +1033,9 @@ mod tests {
                     .sum();
                 let parent_width = world.get::<Node>(parent).unwrap().calculated_size.x;
                 assert!((width_sum - parent_width).abs() < 0.001);
-                assert!((width_sum - 320.).abs() <= 1.);
+                let width_sum_pixels = width_sum * s;
+                let expected_width_pixels = 320. * s;
+                assert!((width_sum_pixels - expected_width_pixels).abs() <= 1.);
                 s += r;
             }
         }
