@@ -1025,7 +1025,7 @@ where
 pub fn line_curve<T: VectorSpace>(start: T, end: T) -> impl Curve<T> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: move |t| start * (1.0 - t) + end * t,
+        f: move |t: f32| start * (1.0 - t) + end * t,
         _phantom: PhantomData,
     }
 }
@@ -1038,7 +1038,7 @@ pub fn line_curve<T: VectorSpace>(start: T, end: T) -> impl Curve<T> {
 pub fn quadratic_ease_in() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: |t| t.squared(),
+        f: |t: f32| t.squared(),
         _phantom: PhantomData,
     }
 }
@@ -1064,7 +1064,7 @@ pub fn quadratic_ease_out() -> impl Curve<f32> {
 pub fn cubic_ease() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: |t| t.squared() * (3.0 - 2.0 * t),
+        f: |t: f32| t.squared() * (3.0 - 2.0 * t),
         _phantom: PhantomData,
     }
 }
