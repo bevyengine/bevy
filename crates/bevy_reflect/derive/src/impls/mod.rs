@@ -1,3 +1,4 @@
+mod assertions;
 mod common;
 mod enums;
 #[cfg(feature = "functions")]
@@ -7,6 +8,7 @@ mod tuple_structs;
 mod typed;
 mod values;
 
+pub(crate) use assertions::impl_assertions;
 pub(crate) use common::{common_partial_reflect_methods, impl_full_reflect};
 pub(crate) use enums::impl_enum;
 #[cfg(feature = "functions")]

@@ -212,6 +212,12 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_enum_should_return_is_dynamic() {
+        let dyn_enum = DynamicEnum::from(MyEnum::B(123, 321));
+        assert!(dyn_enum.is_dynamic());
+    }
+
+    #[test]
     fn enum_should_iterate_fields() {
         // === Unit === //
         let value: &dyn Enum = &MyEnum::A;
