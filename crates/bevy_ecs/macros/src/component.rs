@@ -1,7 +1,14 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, DeriveInput, ExprPath, Ident, LitStr, Path, Result};
+use syn::{
+    parenthesized,
+    parse::Parse,
+    parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+    token::{Comma, Paren},
+    DeriveInput, ExprPath, Ident, LitStr, Path, Result,
+};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -66,12 +73,40 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
 
+    let requires = &attrs.requires;
+    let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
+    let mut register_recursive_requires = Vec::with_capacity(attrs.requires.iter().len());
+    if let Some(requires) = requires {
+        for require in requires {
+            let ident = &require.ident;
+            register_recursive_requires.push(quote! {
+                <#ident as Component>::register_required_components(components, storages, required_components);
+            });
+            if let Some(func) = &require.func {
+                register_required.push(quote! {
+                    required_components.register(components, storages, || { let x: #ident = #func().into(); x });
+                });
+            } else {
+                register_required.push(quote! {
+                    required_components.register(components, storages, <#ident as Default>::default);
+                });
+            }
+        }
+    }
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            fn register_required_components(
+                components: &mut #bevy_ecs_path::component::Components,
+                storages: &mut #bevy_ecs_path::storage::Storages,
+                required_components: &mut #bevy_ecs_path::component::RequiredComponents
+            ) {
+                #(#register_required)*
+                #(#register_recursive_requires)*
+            }
 
             #[allow(unused_variables)]
             fn register_component_hooks(hooks: &mut #bevy_ecs_path::component::ComponentHooks) {
@@ -86,6 +121,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
+pub const REQUIRE: &str = "require";
+
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
 pub const ON_REPLACE: &str = "on_replace";
@@ -93,6 +130,7 @@ pub const ON_REMOVE: &str = "on_remove";
 
 struct Attrs {
     storage: StorageTy,
+    requires: Option<Punctuated<Require, Comma>>,
     on_add: Option<ExprPath>,
     on_insert: Option<ExprPath>,
     on_replace: Option<ExprPath>,
@@ -103,6 +141,11 @@ struct Attrs {
 enum StorageTy {
     Table,
     SparseSet,
+}
+
+struct Require {
+    ident: Ident,
+    func: Option<Path>,
 }
 
 // values for `storage` attribute
@@ -116,40 +159,62 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         on_insert: None,
         on_replace: None,
         on_remove: None,
+        requires: None,
     };
 
-    for meta in ast.attrs.iter().filter(|a| a.path().is_ident(COMPONENT)) {
-        meta.parse_nested_meta(|nested| {
-            if nested.path.is_ident(STORAGE) {
-                attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
-                    s if s == TABLE => StorageTy::Table,
-                    s if s == SPARSE_SET => StorageTy::SparseSet,
-                    s => {
-                        return Err(nested.error(format!(
-                            "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
-                        )));
-                    }
-                };
-                Ok(())
-            } else if nested.path.is_ident(ON_ADD) {
-                attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
-                Ok(())
-            } else if nested.path.is_ident(ON_INSERT) {
-                attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
-                Ok(())
-            } else if nested.path.is_ident(ON_REPLACE) {
-                attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
-                Ok(())
-            } else if nested.path.is_ident(ON_REMOVE) {
-                attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
-                Ok(())
-            } else {
-                Err(nested.error("Unsupported attribute"))
-            }
-        })?;
+    for attr in ast.attrs.iter() {
+        if attr.path().is_ident(COMPONENT) {
+            attr.parse_nested_meta(|nested| {
+                if nested.path.is_ident(STORAGE) {
+                    attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
+                        s if s == TABLE => StorageTy::Table,
+                        s if s == SPARSE_SET => StorageTy::SparseSet,
+                        s => {
+                            return Err(nested.error(format!(
+                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
+                            )));
+                        }
+                    };
+                    Ok(())
+                } else if nested.path.is_ident(ON_ADD) {
+                    attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
+                    Ok(())
+                } else if nested.path.is_ident(ON_INSERT) {
+                    attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
+                    Ok(())
+                } else if nested.path.is_ident(ON_REPLACE) {
+                    attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
+                    Ok(())
+                } else if nested.path.is_ident(ON_REMOVE) {
+                    attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Unsupported attribute"))
+                }
+            })?;
+        } else if attr.path().is_ident(REQUIRE) {
+            let punctuated =
+                attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
+            attrs.requires = Some(punctuated);
+        }
     }
 
     Ok(attrs)
+}
+
+impl Parse for Require {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        let ident = input.parse::<Ident>()?;
+        let func = if input.peek(Paren) {
+            let content;
+            parenthesized!(content in input);
+            let func = content.parse::<Path>()?;
+            Some(func)
+        } else {
+            None
+        };
+        Ok(Require { ident, func })
+    }
 }
 
 fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {

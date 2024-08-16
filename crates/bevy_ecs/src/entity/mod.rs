@@ -144,7 +144,7 @@ type IdCursor = isize;
 /// [SemVer]: https://semver.org/
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq))]
+#[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq, Debug))]
 #[cfg_attr(
     all(feature = "bevy_reflect", feature = "serialize"),
     reflect_value(Serialize, Deserialize)

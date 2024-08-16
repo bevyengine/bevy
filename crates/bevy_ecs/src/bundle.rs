@@ -11,7 +11,10 @@ use crate::{
         AddBundle, Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{
+        Component, ComponentId, Components, RequiredComponent, RequiredComponents, StorageType,
+        Tick,
+    },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::World,
@@ -174,6 +177,13 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         // Ensure that the `OwningPtr` is used correctly
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
+
+    /// Registers components that are required by the components in this [`Bundle`].
+    fn register_required_components(
+        _components: &mut Components,
+        _storages: &mut Storages,
+        _required_components: &mut RequiredComponents,
+    );
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
@@ -210,6 +220,14 @@ unsafe impl<C: Component> Bundle for C {
         let ptr = func(ctx);
         // Safety: The id given in `component_ids` is for `Self`
         unsafe { ptr.read() }
+    }
+
+    fn register_required_components(
+        components: &mut Components,
+        storages: &mut Storages,
+        required_components: &mut RequiredComponents,
+    ) {
+        <C as Component>::register_required_components(components, storages, required_components);
     }
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
@@ -254,6 +272,14 @@ macro_rules! tuple_impl {
                 // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
+            }
+
+            fn register_required_components(
+                _components: &mut Components,
+                _storages: &mut Storages,
+                _required_components: &mut RequiredComponents,
+            ) {
+                $(<$name as Bundle>::register_required_components(_components, _storages, _required_components);)*
             }
         }
 
@@ -325,6 +351,7 @@ pub struct BundleInfo {
     // must have its storage initialized (i.e. columns created in tables, sparse set created),
     // and must be in the same order as the source bundle type writes its components in.
     component_ids: Vec<ComponentId>,
+    required_components: Vec<RequiredComponent>,
 }
 
 impl BundleInfo {
@@ -339,6 +366,7 @@ impl BundleInfo {
         bundle_type_name: &'static str,
         components: &Components,
         component_ids: Vec<ComponentId>,
+        required_components: Vec<RequiredComponent>,
         id: BundleId,
     ) -> BundleInfo {
         let mut deduped = component_ids.clone();
@@ -371,7 +399,11 @@ impl BundleInfo {
         // - is valid for the associated world
         // - has had its storage initialized
         // - is in the same order as the source bundle type
-        BundleInfo { id, component_ids }
+        BundleInfo {
+            id,
+            component_ids,
+            required_components,
+        }
     }
 
     /// Returns a value identifying the associated [`Bundle`] type.
@@ -415,6 +447,7 @@ impl BundleInfo {
         table: &mut Table,
         sparse_sets: &mut SparseSets,
         bundle_component_status: &S,
+        required_components: &[RequiredComponent],
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
@@ -475,6 +508,74 @@ impl BundleInfo {
             }
             bundle_component += 1;
         });
+
+        for required_component in required_components {
+            required_component.initialize(
+                table,
+                sparse_sets,
+                change_tick,
+                table_row,
+                entity,
+                #[cfg(feature = "track_change_detection")]
+                caller,
+            );
+        }
+    }
+
+    /// Internal method to initialize a required component from an [`OwningPtr`]. This should ultimately be called
+    /// in the context of [`BundleInfo::write_components`], via [`RequiredComponent::initialize`].
+    ///
+    /// # Safety
+    ///
+    /// `component_ptr` must point to a required component value that matches the given `component_id`. The `storage_type` must match
+    /// the type associated with `component_id`. The `entity` and `table_row` must correspond to an entity with an uninitialized
+    /// component matching `component_id`.
+    ///
+    /// This _should not_ be used outside of [`BundleInfo::write_components`].
+    /// For more information, read the [`BundleInfo::write_components`] safety docs.
+    /// This function inherits the safety requirements defined there.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) unsafe fn initialize_required_component(
+        table: &mut Table,
+        sparse_sets: &mut SparseSets,
+        change_tick: Tick,
+        table_row: TableRow,
+        entity: Entity,
+        component_id: ComponentId,
+        storage_type: StorageType,
+        component_ptr: OwningPtr,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+    ) {
+        {
+            match storage_type {
+                StorageType::Table => {
+                    let column =
+                        // SAFETY: If component_id is in required_components, BundleInfo::new requires that
+                        // the target table contains the component.
+                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
+                    column.initialize(
+                        table_row,
+                        component_ptr,
+                        change_tick,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
+                }
+                StorageType::SparseSet => {
+                    let sparse_set =
+                        // SAFETY: If component_id is in required_components, BundleInfo::new requires that
+                        // a sparse set exists for the component.
+                        unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
+                    sparse_set.insert(
+                        entity,
+                        component_ptr,
+                        change_tick,
+                        #[cfg(feature = "track_change_detection")]
+                        caller,
+                    );
+                }
+            }
+        }
     }
 
     /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the
@@ -496,6 +597,7 @@ impl BundleInfo {
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
         let mut bundle_status = Vec::with_capacity(self.component_ids.len());
+        let mut added_required_components = Vec::new();
         let mut added = Vec::new();
         let mut mutated = Vec::new();
 
@@ -516,10 +618,34 @@ impl BundleInfo {
             }
         }
 
+        for required_component in self.required_components.iter() {
+            if !current_archetype.contains(required_component.component_id) {
+                added_required_components.push(required_component.clone());
+                // SAFETY: component_id exists
+                let component_info =
+                    unsafe { components.get_info_unchecked(required_component.component_id) };
+                match component_info.storage_type() {
+                    StorageType::Table => {
+                        new_table_components.push(required_component.component_id);
+                    }
+                    StorageType::SparseSet => {
+                        new_sparse_set_components.push(required_component.component_id);
+                    }
+                }
+            }
+        }
+
         if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
             let edges = current_archetype.edges_mut();
             // the archetype does not change when we add this bundle
-            edges.insert_add_bundle(self.id, archetype_id, bundle_status, added, mutated);
+            edges.insert_add_bundle(
+                self.id,
+                archetype_id,
+                bundle_status,
+                added_required_components,
+                added,
+                mutated,
+            );
             archetype_id
         } else {
             let table_id;
@@ -568,6 +694,7 @@ impl BundleInfo {
                 self.id,
                 new_archetype_id,
                 bundle_status,
+                added_required_components,
                 added,
                 mutated,
             );
@@ -706,7 +833,7 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location<'static>,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();
@@ -747,6 +874,7 @@ impl<'w> BundleInserter<'w> {
                     table,
                     sparse_sets,
                     add_bundle,
+                    &add_bundle.required_components,
                     entity,
                     location.table_row,
                     self.change_tick,
@@ -788,6 +916,7 @@ impl<'w> BundleInserter<'w> {
                     table,
                     sparse_sets,
                     add_bundle,
+                    &add_bundle.required_components,
                     entity,
                     result.table_row,
                     self.change_tick,
@@ -870,6 +999,7 @@ impl<'w> BundleInserter<'w> {
                     new_table,
                     sparse_sets,
                     add_bundle,
+                    &add_bundle.required_components,
                     entity,
                     move_result.new_row,
                     self.change_tick,
@@ -1017,6 +1147,7 @@ impl<'w> BundleSpawner<'w> {
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
+                &bundle_info.required_components,
                 entity,
                 table_row,
                 self.change_tick,
@@ -1128,12 +1259,16 @@ impl Bundles {
             let mut component_ids = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
+            let mut required_components = RequiredComponents::default();
+            T::register_required_components(components, storages, &mut required_components);
+            required_components.remove_bundle_components(&component_ids);
+            let required_components = required_components.0.drain().map(|(_, v)| v).collect();
             let bundle_info =
                 // SAFETY: T::component_id ensures:
                 // - its info was created
                 // - appropriate storage for it has been initialized.
                 // - it was created in the same order as the components in T
-                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
+                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, required_components, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -1230,7 +1365,7 @@ fn initialize_dynamic_bundle(
     let id = BundleId(bundle_infos.len());
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
-        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, id) };
+        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, Vec::new(), id) };
     bundle_infos.push(bundle_info);
 
     (id, storage_types)

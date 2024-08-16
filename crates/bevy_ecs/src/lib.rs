@@ -1793,6 +1793,78 @@ mod tests {
         );
     }
 
+    #[test]
+    fn required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component)]
+        #[require(Z(new_z))]
+        struct Y {
+            value: String,
+        }
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        impl Default for Y {
+            fn default() -> Self {
+                Self {
+                    value: "hello".to_string(),
+                }
+            }
+        }
+
+        fn new_z() -> Z {
+            Z(7)
+        }
+
+        let mut world = World::new();
+        let id = world.spawn(X).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world
+            .spawn((
+                X,
+                Y {
+                    value: "foo".to_string(),
+                },
+            ))
+            .id();
+        assert_eq!(
+            "foo",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the manually provided value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world.spawn((X, Z(8))).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            8,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the manually provided value"
+        );
+    }
+
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]

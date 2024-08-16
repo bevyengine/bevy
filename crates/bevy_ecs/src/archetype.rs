@@ -21,7 +21,7 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, Components, StorageType},
+    component::{ComponentId, Components, RequiredComponent, StorageType},
     entity::{Entity, EntityLocation},
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
@@ -123,6 +123,8 @@ pub(crate) struct AddBundle {
     /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
     /// indicate if the component is newly added to the target archetype or if it already existed
     pub bundle_status: Vec<ComponentStatus>,
+    /// Required components that must be initialized immediately when adding this Bundle.
+    pub required_components: Vec<RequiredComponent>,
     pub added: Vec<ComponentId>,
     pub existing: Vec<ComponentId>,
 }
@@ -208,6 +210,7 @@ impl Edges {
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
         bundle_status: Vec<ComponentStatus>,
+        required_components: Vec<RequiredComponent>,
         added: Vec<ComponentId>,
         existing: Vec<ComponentId>,
     ) {
@@ -216,6 +219,7 @@ impl Edges {
             AddBundle {
                 archetype_id,
                 bundle_status,
+                required_components,
                 added,
                 existing,
             },

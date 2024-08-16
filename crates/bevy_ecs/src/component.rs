@@ -3,9 +3,10 @@
 use crate::{
     self as bevy_ecs,
     archetype::ArchetypeFlags,
+    bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
     entity::Entity,
-    storage::{SparseSetIndex, Storages},
+    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     system::{Local, Resource, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
@@ -13,14 +14,17 @@ pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{HashMap, TypeIdMap};
 use std::cell::UnsafeCell;
+#[cfg(feature = "track_change_detection")]
+use std::panic::Location;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
     marker::PhantomData,
     mem::needs_drop,
+    sync::Arc,
 };
 
 /// A data type that can be used to store data for an [entity].
@@ -198,6 +202,14 @@ pub trait Component: Send + Sync + 'static {
 
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
     fn register_component_hooks(_hooks: &mut ComponentHooks) {}
+
+    /// Registers required components.
+    fn register_required_components(
+        _components: &mut Components,
+        _storages: &mut Storages,
+        _required_components: &mut RequiredComponents,
+    ) {
+    }
 }
 
 /// The storage used for a specific component type.
@@ -1130,6 +1142,132 @@ impl<T: Component> FromWorld for InitComponentId<T> {
         Self {
             component_id: world.init_component::<T>(),
             marker: PhantomData,
+        }
+    }
+}
+#[cfg(feature = "track_change_detection")]
+type RequiredComponentConstructor =
+    dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, &'static Location<'static>);
+#[cfg(not(feature = "track_change_detection"))]
+type RequiredComponentConstructor = dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity);
+
+/// A context-less constructor that can be called to construct a new instance of a component.
+#[derive(Clone)]
+pub(crate) struct RequiredComponent {
+    pub(crate) component_id: ComponentId,
+    /// # Safety
+    /// Calling this constructor is unsafe. It should only be called in the context of [`BundleInfo::write_components`], where the
+    /// inputs are already validated. This _should not_ have its module visibility increased.
+    constructor: Arc<RequiredComponentConstructor>,
+}
+
+impl RequiredComponent {
+    /// # Safety
+    /// This is intended to only be called in the context of [`BundleInfo::write_components`] to initialized required components.
+    /// Calling it _anywhere else_ should be considered unsafe.
+    ///
+    /// `table_row` and `entity` must correspond to a valid entity that currently needs a component initialized via the constructor stored
+    /// on this [`RequiredComponent`]. The stored [`RequiredComponent::constructor`] must correspond to a component on `entity` that needs initialization.
+    /// `table` and `sparse_sets` must correspond to storages on a world where `entity` needs this required component initialized.
+    ///
+    /// Again, don't call this anywhere but [`BundleInfo::write_components`].
+    pub(crate) unsafe fn initialize(
+        &self,
+        table: &mut Table,
+        sparse_sets: &mut SparseSets,
+        change_tick: Tick,
+        table_row: TableRow,
+        entity: Entity,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+    ) {
+        (self.constructor)(
+            table,
+            sparse_sets,
+            change_tick,
+            table_row,
+            entity,
+            #[cfg(feature = "track_change_detection")]
+            caller,
+        );
+    }
+}
+
+/// The collection of metadata for components that are required for a given component.
+#[derive(Default)]
+pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponent>);
+
+impl RequiredComponents {
+    /// Registers a required component. If the component is already registered, the new registration
+    /// passed in the arguments will be ignored.
+    ///
+    /// # Safety
+    ///
+    /// `component_id` must match the type initialized by `constructor`.
+    /// `constructor` _must_ initialize a component for `component_id` in such a way that
+    /// matches the storage type of the component. It must only use the given `table_row` or `Entity` to
+    /// initialize the storage for `component_id` corresponding to the given entity.
+    pub unsafe fn register_dynamic(
+        &mut self,
+        component_id: ComponentId,
+        constructor: Arc<RequiredComponentConstructor>,
+    ) {
+        self.0.entry(component_id).or_insert(RequiredComponent {
+            component_id,
+            constructor,
+        });
+    }
+
+    /// Registers a required component. If the component is already registered, the new registration
+    /// passed in the arguments will be ignored.
+    pub fn register<C: Component>(
+        &mut self,
+        components: &mut Components,
+        storages: &mut Storages,
+        constructor: fn() -> C,
+    ) {
+        let component_id = components.init_component::<C>(storages);
+        let erased: Arc<RequiredComponentConstructor> = Arc::new(
+            move |table,
+                  sparse_sets,
+                  change_tick,
+                  table_row,
+                  entity,
+                  #[cfg(feature = "track_change_detection")] caller| {
+                OwningPtr::make(constructor(), |ptr| {
+                    // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
+                    // pass in a valid table_row and entity requiring a C constructor
+                    // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
+                    // `ptr` points to valid `C` data, which matches the type associated with `component_id`
+                    unsafe {
+                        BundleInfo::initialize_required_component(
+                            table,
+                            sparse_sets,
+                            change_tick,
+                            table_row,
+                            entity,
+                            component_id,
+                            C::STORAGE_TYPE,
+                            ptr,
+                            #[cfg(feature = "track_change_detection")]
+                            caller,
+                        );
+                    }
+                });
+            },
+        );
+        // SAFETY:
+        // `component_id` matches the type initialized by the `erased` constructor above.
+        // `erased` initializes a component for `component_id` in such a way that
+        // matches the storage type of the component. It only uses the given `table_row` or `Entity` to
+        // initialize the storage corresponding to the given entity.
+        unsafe { self.register_dynamic(component_id, erased) };
+    }
+
+    /// Removes components that are explicitly provided in a given [`Bundle`]. These components should
+    /// be logically treated as normal components, not "required components".
+    pub fn remove_bundle_components(&mut self, components: &[ComponentId]) {
+        for component in components {
+            self.0.remove(component);
         }
     }
 }
