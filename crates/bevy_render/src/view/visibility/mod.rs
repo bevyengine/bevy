@@ -21,6 +21,8 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
+use thiserror::Error;
+
 use super::NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
@@ -47,26 +49,33 @@ pub enum Visibility {
     Visible,
 }
 
-impl Visibility {
-    /// function converting [Visibility] enum to Result<bool, String>
-    /// - returns `Ok(true)` if `Visibility::Visible`
-    /// - returns `Ok(false)` if `Visibility::Hidden`
-    /// - returns `Err()` if `Visbility::Inherited`
-    pub fn is_visible(self) -> Result<bool, String> {
-        match self {
-            Visibility::Hidden => Ok(false),
-            Visibility::Visible => Ok(true),
-            Visibility::Inherited => Err(String::from(
-                "isVisible is not supported for Visibility::Inherited",
-            )),
-        }
-    }
+#[derive(Error, Debug)]
+#[error("could not convert Visibility::Inherited to bool")]
+pub struct InheritedToBoolConversionError;
 
-    pub fn visibility_from_bool(visible: bool) -> Visibility {
+/// implements conversion from bool to Visibility
+impl From<bool> for Visibility {
+    fn from(visible: bool) -> Visibility {
         if visible {
             Visibility::Visible
         } else {
             Visibility::Hidden
+        }
+    }
+}
+
+/// implements conversion from Visibility to bool
+/// - returns `Ok(true)` if `Visibility::Visible`
+/// - returns `Ok(false)` if `Visibility::Hidden`
+/// - returns `Err()` if `Visibility::Inherited`
+impl TryFrom<Visibility> for bool {
+    type Error = InheritedToBoolConversionError;
+
+    fn try_from(visible: Visibility) -> Result<Self, Self::Error> {
+        match visible {
+            Visibility::Hidden => Ok(false),
+            Visibility::Visible => Ok(true),
+            Visibility::Inherited => Err(InheritedToBoolConversionError),
         }
     }
 }
