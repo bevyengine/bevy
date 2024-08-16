@@ -232,22 +232,6 @@ impl InfinitePlane3d {
         point - self.normal * self.signed_distance(isometry, point)
     }
 
-    /// Computes the shortest distance between a plane going through `Vec3::ZERO` and a `point`.
-    /// The result is a signed value; it's positive if the point lies in the half-space
-    /// that the plane's normal vector points towards.
-    #[inline]
-    pub fn local_signed_distance(&self, point: Vec3) -> f32 {
-        self.normal.dot(point)
-    }
-
-    /// Injects the `point` into this plane going through `Vec3::ZERO`.
-    ///
-    /// This projects the point orthogonally along the shortest path onto the plane.
-    #[inline]
-    pub fn local_project_point(&self, point: Vec3) -> Vec3 {
-        point - self.normal * self.local_signed_distance(point)
-    }
-
     /// Computes an [`Isometry3d`] which transforms points from the plane in 3D space with the given
     /// `origin` to the XY-plane.
     ///
