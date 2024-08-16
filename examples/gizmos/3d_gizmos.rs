@@ -90,6 +90,14 @@ fn draw_example_collection(
         // Light gray
         LinearRgba::gray(0.65),
     );
+    gizmos.grid(
+        Vec3::ONE * 10.0,
+        Quat::from_rotation_x(PI / 3. * 2.),
+        UVec2::splat(20),
+        Vec2::new(2., 2.),
+        PURPLE,
+    );
+    gizmos.sphere(Vec3::ONE * 10.0, Quat::default(), 1.0, PURPLE);
 
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
