@@ -18,7 +18,7 @@ pub trait IntoClosure<'env, Marker> {
 
 impl<'env, F, Marker1, Marker2> IntoClosure<'env, (Marker1, Marker2)> for F
 where
-    F: ReflectFn<'env, Marker1> + TypedFunction<Marker2> + 'env,
+    F: ReflectFn<'env, Marker1> + TypedFunction<Marker2> + Send + Sync + 'env,
 {
     fn into_closure(self) -> DynamicClosure<'env> {
         DynamicClosure::new(move |args| self.reflect_call(args), Self::function_info())
