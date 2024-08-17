@@ -69,13 +69,13 @@ impl From<bool> for Visibility {
 /// - returns `Ok(false)` if `Visibility::Hidden`
 /// - returns `Err()` if `Visibility::Inherited`
 impl TryFrom<Visibility> for bool {
-    type Error = InheritedToBoolConversionError;
+    type Error = VisibilityInheritedToBoolConversionError;
 
     fn try_from(visible: Visibility) -> Result<Self, Self::Error> {
         match visible {
             Visibility::Hidden => Ok(false),
             Visibility::Visible => Ok(true),
-            Visibility::Inherited => Err(InheritedToBoolConversionError),
+            Visibility::Inherited => Err(VisibilityInheritedToBoolConversionError),
         }
     }
 }

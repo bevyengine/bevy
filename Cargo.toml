@@ -1604,6 +1604,17 @@ description = "Shows how to create a custom diagnostic"
 category = "Diagnostics"
 wasm = true
 
+[[example]]
+name = "enabling_disabling_diagnostic"
+path = "examples/diagnostics/enabling_disabling_diagnostic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.enabling_disabling_diagnostic]
+name = "Enabling/disabling diagnostic"
+description = "Shows how to disable/re-enable a Diagnostic during runtime"
+category = "Diagnostics"
+wasm = true
+
 # ECS (Entity Component System)
 [[example]]
 name = "ecs_guide"
