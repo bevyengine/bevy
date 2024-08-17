@@ -1108,7 +1108,7 @@ where
 pub fn quadratic_ease_in() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: |t: f32| t.squared(),
+        f: ops::FloatPow::squared,
         _phantom: PhantomData,
     }
 }
