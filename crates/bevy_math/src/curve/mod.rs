@@ -9,9 +9,9 @@ pub use interval::{interval, Interval};
 use itertools::Itertools;
 
 use crate::StableInterpolate;
-use core::{marker::PhantomData, ops::Deref};
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
+use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
@@ -263,6 +263,39 @@ pub trait Curve<T> {
             second: other,
             _phantom: PhantomData,
         })
+    }
+
+    /// Create a new [`Curve`] inverting this curve on the x-axis, producing another curve with
+    /// outputs of the same type, effectively playing backwards starting at `self.domain().end()`
+    /// and transitioning over to `self.domain().start()`. The domain of the new curve is still the
+    /// same.
+    fn reverse(self) -> ReverseCurve<T, Self>
+    where
+        Self: Sized,
+    {
+        ReverseCurve {
+            curve: self,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Create a new [`Curve`] repeating this curve `n` times, producing another curve with outputs
+    /// of the same type. The domain of the new curve will be bigger by a factor of `n`.
+    ///
+    /// # Note
+    ///
+    /// - this doesn't guarantee a smooth transition from one occurence of the curve to its next
+    ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
+    /// - for `n == 0` the output of this adaptor is basically identical to the previous curve
+    fn repeat(self, n: usize) -> RepeatCurve<T, Self>
+    where
+        Self: Sized,
+    {
+        RepeatCurve {
+            curve: self,
+            times: n,
+            _phantom: PhantomData,
+        }
     }
 
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
@@ -802,6 +835,61 @@ where
         } else {
             self.first.sample_unchecked(t)
         }
+    }
+}
+
+/// The curve that results from reversing the current curve on the x-axis.
+///
+/// Curves of this type are produced by [`Curve::reverse`].
+pub struct ReverseCurve<T, C> {
+    curve: C,
+    _phantom: PhantomData<T>,
+}
+
+impl<T, C> Curve<T> for ReverseCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        self.curve.domain()
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.curve.sample_unchecked(self.domain().end() - t)
+    }
+}
+
+/// The curve that results from repeating the current curve `N` times
+///
+/// Curves of this type are produced by [`Curve::repeat`].
+pub struct RepeatCurve<T, C> {
+    curve: C,
+    times: usize,
+    _phantom: PhantomData<T>,
+}
+
+impl<T, C> Curve<T> for RepeatCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
+        // length of `curve` cannot be NAN. It's still fine if it's infinity.
+        Interval::new(
+            self.curve.domain().start(),
+            self.curve.domain().start() + self.curve.domain().length() * (self.times + 1) as f32,
+        )
+        .unwrap()
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.curve.sample_unchecked(
+            self.domain().start() + ((t - self.domain().start()) % self.domain().length()),
+        )
     }
 }
 
