@@ -51,7 +51,7 @@ pub enum Visibility {
 
 #[derive(Error, Debug)]
 #[error("could not convert Visibility::Inherited to bool")]
-pub struct VisibilityInheritedToBoolConversionError;
+pub struct InheritedVisibilityToBoolConversionError;
 
 /// Implements conversion from bool to Visibility
 impl From<bool> for Visibility {
@@ -69,13 +69,13 @@ impl From<bool> for Visibility {
 /// - returns `Ok(false)` if `Visibility::Hidden`
 /// - returns `Err()` if `Visibility::Inherited`
 impl TryFrom<Visibility> for bool {
-    type Error = VisibilityInheritedToBoolConversionError;
+    type Error = InheritedVisibilityToBoolConversionError;
 
     fn try_from(visible: Visibility) -> Result<Self, Self::Error> {
         match visible {
             Visibility::Hidden => Ok(false),
             Visibility::Visible => Ok(true),
-            Visibility::Inherited => Err(VisibilityInheritedToBoolConversionError),
+            Visibility::Inherited => Err(InheritedVisibilityToBoolConversionError),
         }
     }
 }
