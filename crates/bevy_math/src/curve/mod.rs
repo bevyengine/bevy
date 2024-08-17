@@ -292,7 +292,7 @@ pub trait Curve<T> {
     ///
     /// # Notes
     ///
-    /// - this doesn't guarantee a smooth transition from one occurence of the curve to its next
+    /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
     ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
     /// - for `RepeatMode::Fixed(0)` the output of this adaptor is basically identical to the previous curve
     /// - the domain of this curve has to be bounded
