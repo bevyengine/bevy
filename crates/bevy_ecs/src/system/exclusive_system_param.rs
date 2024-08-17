@@ -77,12 +77,12 @@ impl<'_s, T: FromWorld + Send + 'static> ExclusiveSystemParam for Local<'_s, T> 
 
 impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
     type State = ();
-    type Item<'s> = PhantomData<S>;
+    type Item<'s> = Self;
 
     fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     fn get_param<'s>(_state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
-        PhantomData
+        Self
     }
 }
 

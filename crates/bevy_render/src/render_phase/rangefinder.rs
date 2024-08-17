@@ -7,10 +7,9 @@ pub struct ViewRangefinder3d {
 
 impl ViewRangefinder3d {
     /// Creates a 3D rangefinder for a view matrix.
-    pub fn from_world_from_view(world_from_view: &Mat4) -> ViewRangefinder3d {
+    pub fn from_world_from_view(world_from_view: &Mat4) -> Self {
         let view_from_world = world_from_view.inverse();
-
-        ViewRangefinder3d {
+        Self {
             view_from_world_row_2: view_from_world.row(2),
         }
     }

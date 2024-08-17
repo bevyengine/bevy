@@ -57,11 +57,11 @@ impl PartialEq<Visibility> for &Visibility {
 }
 
 // Allows `Visibility == &Visibility`
-impl PartialEq<&Visibility> for Visibility {
+impl PartialEq<&Self> for Visibility {
     #[inline]
-    fn eq(&self, other: &&Visibility) -> bool {
+    fn eq(&self, other: &&Self) -> bool {
         // Use the base Visibility == Visibility implementation.
-        <Visibility as PartialEq<Visibility>>::eq(self, *other)
+        <Self as PartialEq<Self>>::eq(self, *other)
     }
 }
 

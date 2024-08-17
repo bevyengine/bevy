@@ -52,7 +52,7 @@ impl Parent {
 impl FromWorld for Parent {
     #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
-        Parent(Entity::PLACEHOLDER)
+        Self(Entity::PLACEHOLDER)
     }
 }
 

@@ -1380,7 +1380,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// * `&mut T` -> `&T`
     /// * `&mut T` -> `Ref<T>`
     /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
     #[track_caller]
@@ -1626,7 +1626,7 @@ impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
 impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
     for Query<'w, 's, Q, F>
 {
-    fn from(value: &'s mut QueryLens<'w, Q, F>) -> Query<'w, 's, Q, F> {
+    fn from(value: &'s mut QueryLens<'w, Q, F>) -> Self {
         value.query()
     }
 }
@@ -1634,7 +1634,7 @@ impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
 impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
     for QueryLens<'q, Q, F>
 {
-    fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
+    fn from(value: &'q mut Query<'w, '_, Q, F>) -> Self {
         value.transmute_lens_filtered()
     }
 }

@@ -119,7 +119,7 @@ impl ObserverDescriptor {
         self
     }
 
-    pub(crate) fn merge(&mut self, descriptor: &ObserverDescriptor) {
+    pub(crate) fn merge(&mut self, descriptor: &Self) {
         self.events.extend(descriptor.events.iter().copied());
         self.components
             .extend(descriptor.components.iter().copied());

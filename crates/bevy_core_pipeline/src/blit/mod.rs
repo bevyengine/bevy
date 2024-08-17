@@ -59,7 +59,7 @@ impl FromWorld for BlitPipeline {
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        BlitPipeline {
+        Self {
             texture_bind_group,
             sampler,
         }

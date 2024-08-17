@@ -158,8 +158,8 @@ impl ComputedStates for Tutorial {
         // If we're paused, we're in the PauseInstructions tutorial
         // Otherwise, we're in the MovementInstructions tutorial
         match is_paused? {
-            IsPaused::NotPaused => Some(Tutorial::MovementInstructions),
-            IsPaused::Paused => Some(Tutorial::PauseInstructions),
+            IsPaused::NotPaused => Some(Self::MovementInstructions),
+            IsPaused::Paused => Some(Self::PauseInstructions),
         }
     }
 }

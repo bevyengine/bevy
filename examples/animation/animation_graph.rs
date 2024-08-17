@@ -545,8 +545,8 @@ impl NodeRect {
     /// Note that node rectangles are anchored in the *lower*-left corner. The
     /// `bottom` parameter specifies vertical distance from the *bottom* of the
     /// window.
-    const fn new(left: f32, bottom: f32, width: f32, height: f32) -> NodeRect {
-        NodeRect {
+    const fn new(left: f32, bottom: f32, width: f32, height: f32) -> Self {
+        Self {
             left,
             bottom,
             width,

@@ -285,7 +285,7 @@ impl FromWorld for TaaPipeline {
             ),
         );
 
-        TaaPipeline {
+        Self {
             taa_bind_group_layout,
             nearest_sampler,
             linear_sampler,

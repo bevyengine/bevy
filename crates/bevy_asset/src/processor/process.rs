@@ -81,7 +81,7 @@ impl<
     > LoadTransformAndSave<L, T, S>
 {
     pub fn new(transformer: T, saver: S) -> Self {
-        LoadTransformAndSave {
+        Self {
             transformer,
             saver,
             marker: PhantomData,
@@ -105,7 +105,7 @@ pub struct LoadAndSave<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> {
 
 impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S> for LoadAndSave<L, S> {
     fn from(value: S) -> Self {
-        LoadAndSave {
+        Self {
             saver: value,
             marker: PhantomData,
         }

@@ -102,7 +102,7 @@ impl CommandQueue {
     }
 
     /// Take all commands from `other` and append them to `self`, leaving `other` empty
-    pub fn append(&mut self, other: &mut CommandQueue) {
+    pub fn append(&mut self, other: &mut Self) {
         self.bytes.append(&mut other.bytes);
     }
 

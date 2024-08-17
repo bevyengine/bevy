@@ -136,8 +136,8 @@ pub enum Handle<A: Asset> {
 impl<T: Asset> Clone for Handle<T> {
     fn clone(&self) -> Self {
         match self {
-            Handle::Strong(handle) => Handle::Strong(handle.clone()),
-            Handle::Weak(id) => Handle::Weak(*id),
+            Self::Strong(handle) => Self::Strong(handle.clone()),
+            Self::Weak(id) => Self::Weak(*id),
         }
     }
 }
@@ -145,7 +145,7 @@ impl<T: Asset> Clone for Handle<T> {
 impl<A: Asset> Handle<A> {
     /// Create a new [`Handle::Weak`] with the given [`u128`] encoding of a [`Uuid`].
     pub const fn weak_from_u128(value: u128) -> Self {
-        Handle::Weak(AssetId::Uuid {
+        Self::Weak(AssetId::Uuid {
             uuid: Uuid::from_u128(value),
         })
     }
@@ -154,8 +154,8 @@ impl<A: Asset> Handle<A> {
     #[inline]
     pub fn id(&self) -> AssetId<A> {
         match self {
-            Handle::Strong(handle) => handle.id.typed_unchecked(),
-            Handle::Weak(id) => *id,
+            Self::Strong(handle) => handle.id.typed_unchecked(),
+            Self::Weak(id) => *id,
         }
     }
 
@@ -163,29 +163,29 @@ impl<A: Asset> Handle<A> {
     #[inline]
     pub fn path(&self) -> Option<&AssetPath<'static>> {
         match self {
-            Handle::Strong(handle) => handle.path.as_ref(),
-            Handle::Weak(_) => None,
+            Self::Strong(handle) => handle.path.as_ref(),
+            Self::Weak(_) => None,
         }
     }
 
     /// Returns `true` if this is a weak handle.
     #[inline]
     pub fn is_weak(&self) -> bool {
-        matches!(self, Handle::Weak(_))
+        matches!(self, Self::Weak(_))
     }
 
     /// Returns `true` if this is a strong handle.
     #[inline]
     pub fn is_strong(&self) -> bool {
-        matches!(self, Handle::Strong(_))
+        matches!(self, Self::Strong(_))
     }
 
     /// Creates a [`Handle::Weak`] clone of this [`Handle`], which will not keep the referenced [`Asset`] alive.
     #[inline]
     pub fn clone_weak(&self) -> Self {
         match self {
-            Handle::Strong(handle) => Handle::Weak(handle.id.typed_unchecked::<A>()),
-            Handle::Weak(id) => Handle::Weak(*id),
+            Self::Strong(handle) => Self::Weak(handle.id.typed_unchecked::<A>()),
+            Self::Weak(id) => Self::Weak(*id),
         }
     }
 
@@ -200,7 +200,7 @@ impl<A: Asset> Handle<A> {
 
 impl<A: Asset> Default for Handle<A> {
     fn default() -> Self {
-        Handle::Weak(AssetId::default())
+        Self::Weak(AssetId::default())
     }
 }
 
@@ -208,7 +208,7 @@ impl<A: Asset> std::fmt::Debug for Handle<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = get_short_name(std::any::type_name::<A>());
         match self {
-            Handle::Strong(handle) => {
+            Self::Strong(handle) => {
                 write!(
                     f,
                     "StrongHandle<{name}>{{ id: {:?}, path: {:?} }}",
@@ -216,7 +216,7 @@ impl<A: Asset> std::fmt::Debug for Handle<A> {
                     handle.path
                 )
             }
-            Handle::Weak(id) => write!(f, "WeakHandle<{name}>({:?})", id.internal()),
+            Self::Weak(id) => write!(f, "WeakHandle<{name}>({:?})", id.internal()),
         }
     }
 }
@@ -293,8 +293,8 @@ impl UntypedHandle {
     #[inline]
     pub fn id(&self) -> UntypedAssetId {
         match self {
-            UntypedHandle::Strong(handle) => handle.id,
-            UntypedHandle::Weak(id) => *id,
+            Self::Strong(handle) => handle.id,
+            Self::Weak(id) => *id,
         }
     }
 
@@ -302,17 +302,17 @@ impl UntypedHandle {
     #[inline]
     pub fn path(&self) -> Option<&AssetPath<'static>> {
         match self {
-            UntypedHandle::Strong(handle) => handle.path.as_ref(),
-            UntypedHandle::Weak(_) => None,
+            Self::Strong(handle) => handle.path.as_ref(),
+            Self::Weak(_) => None,
         }
     }
 
     /// Creates an [`UntypedHandle::Weak`] clone of this [`UntypedHandle`], which will not keep the referenced [`Asset`] alive.
     #[inline]
-    pub fn clone_weak(&self) -> UntypedHandle {
+    pub fn clone_weak(&self) -> Self {
         match self {
-            UntypedHandle::Strong(handle) => UntypedHandle::Weak(handle.id),
-            UntypedHandle::Weak(id) => UntypedHandle::Weak(*id),
+            Self::Strong(handle) => Self::Weak(handle.id),
+            Self::Weak(id) => Self::Weak(*id),
         }
     }
 
@@ -320,8 +320,8 @@ impl UntypedHandle {
     #[inline]
     pub fn type_id(&self) -> TypeId {
         match self {
-            UntypedHandle::Strong(handle) => handle.id.type_id(),
-            UntypedHandle::Weak(id) => id.type_id(),
+            Self::Strong(handle) => handle.id.type_id(),
+            Self::Weak(id) => id.type_id(),
         }
     }
 
@@ -329,8 +329,8 @@ impl UntypedHandle {
     #[inline]
     pub fn typed_unchecked<A: Asset>(self) -> Handle<A> {
         match self {
-            UntypedHandle::Strong(handle) => Handle::Strong(handle),
-            UntypedHandle::Weak(id) => Handle::Weak(id.typed_unchecked::<A>()),
+            Self::Strong(handle) => Handle::Strong(handle),
+            Self::Weak(id) => Handle::Weak(id.typed_unchecked::<A>()),
         }
     }
 
@@ -346,8 +346,8 @@ impl UntypedHandle {
             "The target Handle<A>'s TypeId does not match the TypeId of this UntypedHandle"
         );
         match self {
-            UntypedHandle::Strong(handle) => Handle::Strong(handle),
-            UntypedHandle::Weak(id) => Handle::Weak(id.typed_unchecked::<A>()),
+            Self::Strong(handle) => Handle::Strong(handle),
+            Self::Weak(id) => Handle::Weak(id.typed_unchecked::<A>()),
         }
     }
 
@@ -375,8 +375,8 @@ impl UntypedHandle {
     #[inline]
     pub fn meta_transform(&self) -> Option<&MetaTransform> {
         match self {
-            UntypedHandle::Strong(handle) => handle.meta_transform.as_ref(),
-            UntypedHandle::Weak(_) => None,
+            Self::Strong(handle) => handle.meta_transform.as_ref(),
+            Self::Weak(_) => None,
         }
     }
 }
@@ -400,7 +400,7 @@ impl Hash for UntypedHandle {
 impl std::fmt::Debug for UntypedHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UntypedHandle::Strong(handle) => {
+            Self::Strong(handle) => {
                 write!(
                     f,
                     "StrongHandle{{ type_id: {:?}, id: {:?}, path: {:?} }}",
@@ -409,7 +409,7 @@ impl std::fmt::Debug for UntypedHandle {
                     handle.path
                 )
             }
-            UntypedHandle::Weak(id) => write!(
+            Self::Weak(id) => write!(
                 f,
                 "WeakHandle{{ type_id: {:?}, id: {:?} }}",
                 id.type_id(),
@@ -473,8 +473,8 @@ impl<A: Asset> PartialOrd<Handle<A>> for UntypedHandle {
 impl<A: Asset> From<Handle<A>> for UntypedHandle {
     fn from(value: Handle<A>) -> Self {
         match value {
-            Handle::Strong(handle) => UntypedHandle::Strong(handle),
-            Handle::Weak(id) => UntypedHandle::Weak(id.into()),
+            Handle::Strong(handle) => Self::Strong(handle),
+            Handle::Weak(id) => Self::Weak(id.into()),
         }
     }
 }
@@ -491,12 +491,12 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
         }
 
         match value {
-            UntypedHandle::Strong(handle) => Ok(Handle::Strong(handle)),
+            UntypedHandle::Strong(handle) => Ok(Self::Strong(handle)),
             UntypedHandle::Weak(id) => {
                 let Ok(id) = id.try_into() else {
                     return Err(UntypedAssetConversionError::TypeIdMismatch { expected, found });
                 };
-                Ok(Handle::Weak(id))
+                Ok(Self::Weak(id))
             }
         }
     }

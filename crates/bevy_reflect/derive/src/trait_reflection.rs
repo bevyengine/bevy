@@ -17,7 +17,7 @@ impl Parse for TraitInfo {
         if lookahead.peek(Token![pub]) || lookahead.peek(Token![trait]) {
             let mut item_trait: ItemTrait = input.parse()?;
             item_trait.attrs = attrs;
-            Ok(TraitInfo { item_trait })
+            Ok(Self { item_trait })
         } else {
             Err(lookahead.error())
         }

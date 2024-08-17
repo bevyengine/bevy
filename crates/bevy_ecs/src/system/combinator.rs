@@ -258,7 +258,7 @@ where
 {
     /// Clone the combined system. The cloned instance must be `.initialize()`d before it can run.
     fn clone(&self) -> Self {
-        CombinatorSystem::new(self.a.clone(), self.b.clone(), self.name.clone())
+        Self::new(self.a.clone(), self.b.clone(), self.name.clone())
     }
 }
 

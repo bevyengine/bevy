@@ -43,16 +43,14 @@ pub struct DiagnosticsRecorder(WgpuWrapper<DiagnosticsRecorderInternal>);
 
 impl DiagnosticsRecorder {
     /// Creates the new `DiagnosticsRecorder`.
-    pub fn new(device: &RenderDevice, queue: &Queue) -> DiagnosticsRecorder {
+    pub fn new(device: &RenderDevice, queue: &Queue) -> Self {
         let features = device.features();
-
         let timestamp_period_ns = if features.contains(Features::TIMESTAMP_QUERY) {
             queue.get_timestamp_period()
         } else {
             0.0
         };
-
-        DiagnosticsRecorder(WgpuWrapper::new(DiagnosticsRecorderInternal {
+        Self(WgpuWrapper::new(DiagnosticsRecorderInternal {
             timestamp_period_ns,
             features,
             current_frame: Mutex::new(FrameData::new(device, features)),
@@ -174,7 +172,7 @@ struct FrameData {
 }
 
 impl FrameData {
-    fn new(device: &RenderDevice, features: Features) -> FrameData {
+    fn new(device: &RenderDevice, features: Features) -> Self {
         let wgpu_device = device.wgpu_device();
         let mut buffer_size = 0;
 
@@ -221,7 +219,7 @@ impl FrameData {
             (None, None)
         };
 
-        FrameData {
+        Self {
             timestamps_query_set,
             num_timestamps: 0,
             supports_timestamps_inside_passes: features
@@ -609,7 +607,7 @@ pub trait WriteTimestamp {
 
 impl WriteTimestamp for CommandEncoder {
     fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
-        CommandEncoder::write_timestamp(self, query_set, index);
+        Self::write_timestamp(self, query_set, index);
     }
 }
 

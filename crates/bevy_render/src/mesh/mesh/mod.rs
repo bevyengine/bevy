@@ -206,7 +206,7 @@ impl Mesh {
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
     pub fn new(primitive_topology: PrimitiveTopology, asset_usage: RenderAssetUsages) -> Self {
-        Mesh {
+        Self {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
@@ -649,7 +649,7 @@ impl Mesh {
         );
 
         let positions = self
-            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .attribute(Self::ATTRIBUTE_POSITION)
             .unwrap()
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
@@ -660,7 +660,7 @@ impl Mesh {
             .flat_map(|normal| [normal; 3])
             .collect();
 
-        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        self.insert_attribute(Self::ATTRIBUTE_NORMAL, normals);
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
@@ -685,7 +685,7 @@ impl Mesh {
         );
 
         let positions = self
-            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .attribute(Self::ATTRIBUTE_POSITION)
             .unwrap()
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
@@ -716,7 +716,7 @@ impl Mesh {
             }
         }
 
-        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        self.insert_attribute(Self::ATTRIBUTE_NORMAL, normals);
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
@@ -768,7 +768,7 @@ impl Mesh {
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
     pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
         let tangents = generate_tangents_for_mesh(self)?;
-        self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
+        self.insert_attribute(Self::ATTRIBUTE_TANGENT, tangents);
         Ok(())
     }
 
@@ -779,7 +779,7 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
+    pub fn with_generated_tangents(mut self) -> Result<Self, GenerateTangentsError> {
         self.generate_tangents()?;
         Ok(self)
     }
@@ -795,12 +795,12 @@ impl Mesh {
     /// Panics if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
     #[allow(clippy::match_same_arms)]
-    pub fn merge(&mut self, other: &Mesh) {
+    pub fn merge(&mut self, other: &Self) {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
         let index_offset = self
-            .attribute(Mesh::ATTRIBUTE_POSITION)
+            .attribute(Self::ATTRIBUTE_POSITION)
             .get_or_insert(&VertexAttributeValues::Float32x3(Vec::default()))
             .len();
 
@@ -885,7 +885,7 @@ impl Mesh {
         );
 
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            self.attribute_mut(Self::ATTRIBUTE_POSITION)
         {
             // Apply scale, rotation, and translation to vertex positions
             positions
@@ -902,7 +902,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+            self.attribute_mut(Self::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling and rotation
             normals.iter_mut().for_each(|normal| {
@@ -913,7 +913,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+            self.attribute_mut(Self::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
@@ -940,7 +940,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            self.attribute_mut(Self::ATTRIBUTE_POSITION)
         {
             // Apply translation to vertex positions
             positions
@@ -962,7 +962,7 @@ impl Mesh {
     /// [`Aabb`] of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            self.attribute_mut(Self::ATTRIBUTE_POSITION)
         {
             // Apply rotation to vertex positions
             positions
@@ -976,7 +976,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+            self.attribute_mut(Self::ATTRIBUTE_NORMAL)
         {
             // Transform normals
             normals.iter_mut().for_each(|normal| {
@@ -985,7 +985,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+            self.attribute_mut(Self::ATTRIBUTE_TANGENT)
         {
             // Transform tangents
             tangents.iter_mut().for_each(|tangent| {
@@ -1014,7 +1014,7 @@ impl Mesh {
         );
 
         if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            self.attribute_mut(Self::ATTRIBUTE_POSITION)
         {
             // Apply scale to vertex positions
             positions
@@ -1028,7 +1028,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+            self.attribute_mut(Self::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling
             normals.iter_mut().for_each(|normal| {
@@ -1037,7 +1037,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+            self.attribute_mut(Self::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
@@ -1053,7 +1053,7 @@ impl Mesh {
     /// type [`VertexAttributeValues::Float32x3`], or if `self` doesn't have any vertices.
     pub fn compute_aabb(&self) -> Option<Aabb> {
         let Some(VertexAttributeValues::Float32x3(values)) =
-            self.attribute(Mesh::ATTRIBUTE_POSITION)
+            self.attribute(Self::ATTRIBUTE_POSITION)
         else {
             return None;
         };
@@ -1141,7 +1141,7 @@ impl Mesh {
     /// [primitive topology]: PrimitiveTopology
     /// [triangles]: Triangle3d
     pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
-        let Some(position_data) = self.attribute(Mesh::ATTRIBUTE_POSITION) else {
+        let Some(position_data) = self.attribute(Self::ATTRIBUTE_POSITION) else {
             return Err(MeshTrianglesError::MissingPositions);
         };
 
@@ -1233,10 +1233,10 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            FourIterators::First(iter) => iter.next(),
-            FourIterators::Second(iter) => iter.next(),
-            FourIterators::Third(iter) => iter.next(),
-            FourIterators::Fourth(iter) => iter.next(),
+            Self::First(iter) => iter.next(),
+            Self::Second(iter) => iter.next(),
+            Self::Third(iter) => iter.next(),
+            Self::Fourth(iter) => iter.next(),
         }
     }
 }
@@ -1425,41 +1425,41 @@ impl VertexFormatSize for VertexFormat {
     #[allow(clippy::match_same_arms)]
     fn get_size(self) -> u64 {
         match self {
-            VertexFormat::Uint8x2 => 2,
-            VertexFormat::Uint8x4 => 4,
-            VertexFormat::Sint8x2 => 2,
-            VertexFormat::Sint8x4 => 4,
-            VertexFormat::Unorm8x2 => 2,
-            VertexFormat::Unorm8x4 => 4,
-            VertexFormat::Snorm8x2 => 2,
-            VertexFormat::Snorm8x4 => 4,
-            VertexFormat::Unorm10_10_10_2 => 4,
-            VertexFormat::Uint16x2 => 2 * 2,
-            VertexFormat::Uint16x4 => 2 * 4,
-            VertexFormat::Sint16x2 => 2 * 2,
-            VertexFormat::Sint16x4 => 2 * 4,
-            VertexFormat::Unorm16x2 => 2 * 2,
-            VertexFormat::Unorm16x4 => 2 * 4,
-            VertexFormat::Snorm16x2 => 2 * 2,
-            VertexFormat::Snorm16x4 => 2 * 4,
-            VertexFormat::Float16x2 => 2 * 2,
-            VertexFormat::Float16x4 => 2 * 4,
-            VertexFormat::Float32 => 4,
-            VertexFormat::Float32x2 => 4 * 2,
-            VertexFormat::Float32x3 => 4 * 3,
-            VertexFormat::Float32x4 => 4 * 4,
-            VertexFormat::Uint32 => 4,
-            VertexFormat::Uint32x2 => 4 * 2,
-            VertexFormat::Uint32x3 => 4 * 3,
-            VertexFormat::Uint32x4 => 4 * 4,
-            VertexFormat::Sint32 => 4,
-            VertexFormat::Sint32x2 => 4 * 2,
-            VertexFormat::Sint32x3 => 4 * 3,
-            VertexFormat::Sint32x4 => 4 * 4,
-            VertexFormat::Float64 => 8,
-            VertexFormat::Float64x2 => 8 * 2,
-            VertexFormat::Float64x3 => 8 * 3,
-            VertexFormat::Float64x4 => 8 * 4,
+            Self::Uint8x2 => 2,
+            Self::Uint8x4 => 4,
+            Self::Sint8x2 => 2,
+            Self::Sint8x4 => 4,
+            Self::Unorm8x2 => 2,
+            Self::Unorm8x4 => 4,
+            Self::Snorm8x2 => 2,
+            Self::Snorm8x4 => 4,
+            Self::Unorm10_10_10_2 => 4,
+            Self::Uint16x2 => 2 * 2,
+            Self::Uint16x4 => 2 * 4,
+            Self::Sint16x2 => 2 * 2,
+            Self::Sint16x4 => 2 * 4,
+            Self::Unorm16x2 => 2 * 2,
+            Self::Unorm16x4 => 2 * 4,
+            Self::Snorm16x2 => 2 * 2,
+            Self::Snorm16x4 => 2 * 4,
+            Self::Float16x2 => 2 * 2,
+            Self::Float16x4 => 2 * 4,
+            Self::Float32 => 4,
+            Self::Float32x2 => 4 * 2,
+            Self::Float32x3 => 4 * 3,
+            Self::Float32x4 => 4 * 4,
+            Self::Uint32 => 4,
+            Self::Uint32x2 => 4 * 2,
+            Self::Uint32x3 => 4 * 3,
+            Self::Uint32x4 => 4 * 4,
+            Self::Sint32 => 4,
+            Self::Sint32x2 => 4 * 2,
+            Self::Sint32x3 => 4 * 3,
+            Self::Sint32x4 => 4 * 4,
+            Self::Float64 => 8,
+            Self::Float64x2 => 8 * 2,
+            Self::Float64x3 => 8 * 3,
+            Self::Float64x4 => 8 * 4,
         }
     }
 }
@@ -1504,34 +1504,34 @@ impl VertexAttributeValues {
     #[allow(clippy::match_same_arms)]
     pub fn len(&self) -> usize {
         match self {
-            VertexAttributeValues::Float32(values) => values.len(),
-            VertexAttributeValues::Sint32(values) => values.len(),
-            VertexAttributeValues::Uint32(values) => values.len(),
-            VertexAttributeValues::Float32x2(values) => values.len(),
-            VertexAttributeValues::Sint32x2(values) => values.len(),
-            VertexAttributeValues::Uint32x2(values) => values.len(),
-            VertexAttributeValues::Float32x3(values) => values.len(),
-            VertexAttributeValues::Sint32x3(values) => values.len(),
-            VertexAttributeValues::Uint32x3(values) => values.len(),
-            VertexAttributeValues::Float32x4(values) => values.len(),
-            VertexAttributeValues::Sint32x4(values) => values.len(),
-            VertexAttributeValues::Uint32x4(values) => values.len(),
-            VertexAttributeValues::Sint16x2(values) => values.len(),
-            VertexAttributeValues::Snorm16x2(values) => values.len(),
-            VertexAttributeValues::Uint16x2(values) => values.len(),
-            VertexAttributeValues::Unorm16x2(values) => values.len(),
-            VertexAttributeValues::Sint16x4(values) => values.len(),
-            VertexAttributeValues::Snorm16x4(values) => values.len(),
-            VertexAttributeValues::Uint16x4(values) => values.len(),
-            VertexAttributeValues::Unorm16x4(values) => values.len(),
-            VertexAttributeValues::Sint8x2(values) => values.len(),
-            VertexAttributeValues::Snorm8x2(values) => values.len(),
-            VertexAttributeValues::Uint8x2(values) => values.len(),
-            VertexAttributeValues::Unorm8x2(values) => values.len(),
-            VertexAttributeValues::Sint8x4(values) => values.len(),
-            VertexAttributeValues::Snorm8x4(values) => values.len(),
-            VertexAttributeValues::Uint8x4(values) => values.len(),
-            VertexAttributeValues::Unorm8x4(values) => values.len(),
+            Self::Float32(values) => values.len(),
+            Self::Sint32(values) => values.len(),
+            Self::Uint32(values) => values.len(),
+            Self::Float32x2(values) => values.len(),
+            Self::Sint32x2(values) => values.len(),
+            Self::Uint32x2(values) => values.len(),
+            Self::Float32x3(values) => values.len(),
+            Self::Sint32x3(values) => values.len(),
+            Self::Uint32x3(values) => values.len(),
+            Self::Float32x4(values) => values.len(),
+            Self::Sint32x4(values) => values.len(),
+            Self::Uint32x4(values) => values.len(),
+            Self::Sint16x2(values) => values.len(),
+            Self::Snorm16x2(values) => values.len(),
+            Self::Uint16x2(values) => values.len(),
+            Self::Unorm16x2(values) => values.len(),
+            Self::Sint16x4(values) => values.len(),
+            Self::Snorm16x4(values) => values.len(),
+            Self::Uint16x4(values) => values.len(),
+            Self::Unorm16x4(values) => values.len(),
+            Self::Sint8x2(values) => values.len(),
+            Self::Snorm8x2(values) => values.len(),
+            Self::Uint8x2(values) => values.len(),
+            Self::Unorm8x2(values) => values.len(),
+            Self::Sint8x4(values) => values.len(),
+            Self::Snorm8x4(values) => values.len(),
+            Self::Uint8x4(values) => values.len(),
+            Self::Unorm8x4(values) => values.len(),
         }
     }
 
@@ -1543,7 +1543,7 @@ impl VertexAttributeValues {
     /// Returns the values as float triples if possible.
     pub fn as_float3(&self) -> Option<&[[f32; 3]]> {
         match self {
-            VertexAttributeValues::Float32x3(values) => Some(values),
+            Self::Float32x3(values) => Some(values),
             _ => None,
         }
     }
@@ -1554,34 +1554,34 @@ impl VertexAttributeValues {
     #[allow(clippy::match_same_arms)]
     pub fn get_bytes(&self) -> &[u8] {
         match self {
-            VertexAttributeValues::Float32(values) => cast_slice(values),
-            VertexAttributeValues::Sint32(values) => cast_slice(values),
-            VertexAttributeValues::Uint32(values) => cast_slice(values),
-            VertexAttributeValues::Float32x2(values) => cast_slice(values),
-            VertexAttributeValues::Sint32x2(values) => cast_slice(values),
-            VertexAttributeValues::Uint32x2(values) => cast_slice(values),
-            VertexAttributeValues::Float32x3(values) => cast_slice(values),
-            VertexAttributeValues::Sint32x3(values) => cast_slice(values),
-            VertexAttributeValues::Uint32x3(values) => cast_slice(values),
-            VertexAttributeValues::Float32x4(values) => cast_slice(values),
-            VertexAttributeValues::Sint32x4(values) => cast_slice(values),
-            VertexAttributeValues::Uint32x4(values) => cast_slice(values),
-            VertexAttributeValues::Sint16x2(values) => cast_slice(values),
-            VertexAttributeValues::Snorm16x2(values) => cast_slice(values),
-            VertexAttributeValues::Uint16x2(values) => cast_slice(values),
-            VertexAttributeValues::Unorm16x2(values) => cast_slice(values),
-            VertexAttributeValues::Sint16x4(values) => cast_slice(values),
-            VertexAttributeValues::Snorm16x4(values) => cast_slice(values),
-            VertexAttributeValues::Uint16x4(values) => cast_slice(values),
-            VertexAttributeValues::Unorm16x4(values) => cast_slice(values),
-            VertexAttributeValues::Sint8x2(values) => cast_slice(values),
-            VertexAttributeValues::Snorm8x2(values) => cast_slice(values),
-            VertexAttributeValues::Uint8x2(values) => cast_slice(values),
-            VertexAttributeValues::Unorm8x2(values) => cast_slice(values),
-            VertexAttributeValues::Sint8x4(values) => cast_slice(values),
-            VertexAttributeValues::Snorm8x4(values) => cast_slice(values),
-            VertexAttributeValues::Uint8x4(values) => cast_slice(values),
-            VertexAttributeValues::Unorm8x4(values) => cast_slice(values),
+            Self::Float32(values) => cast_slice(values),
+            Self::Sint32(values) => cast_slice(values),
+            Self::Uint32(values) => cast_slice(values),
+            Self::Float32x2(values) => cast_slice(values),
+            Self::Sint32x2(values) => cast_slice(values),
+            Self::Uint32x2(values) => cast_slice(values),
+            Self::Float32x3(values) => cast_slice(values),
+            Self::Sint32x3(values) => cast_slice(values),
+            Self::Uint32x3(values) => cast_slice(values),
+            Self::Float32x4(values) => cast_slice(values),
+            Self::Sint32x4(values) => cast_slice(values),
+            Self::Uint32x4(values) => cast_slice(values),
+            Self::Sint16x2(values) => cast_slice(values),
+            Self::Snorm16x2(values) => cast_slice(values),
+            Self::Uint16x2(values) => cast_slice(values),
+            Self::Unorm16x2(values) => cast_slice(values),
+            Self::Sint16x4(values) => cast_slice(values),
+            Self::Snorm16x4(values) => cast_slice(values),
+            Self::Uint16x4(values) => cast_slice(values),
+            Self::Unorm16x4(values) => cast_slice(values),
+            Self::Sint8x2(values) => cast_slice(values),
+            Self::Snorm8x2(values) => cast_slice(values),
+            Self::Uint8x2(values) => cast_slice(values),
+            Self::Unorm8x2(values) => cast_slice(values),
+            Self::Sint8x4(values) => cast_slice(values),
+            Self::Snorm8x4(values) => cast_slice(values),
+            Self::Uint8x4(values) => cast_slice(values),
+            Self::Unorm8x4(values) => cast_slice(values),
         }
     }
 }
@@ -1589,34 +1589,34 @@ impl VertexAttributeValues {
 impl From<&VertexAttributeValues> for VertexFormat {
     fn from(values: &VertexAttributeValues) -> Self {
         match values {
-            VertexAttributeValues::Float32(_) => VertexFormat::Float32,
-            VertexAttributeValues::Sint32(_) => VertexFormat::Sint32,
-            VertexAttributeValues::Uint32(_) => VertexFormat::Uint32,
-            VertexAttributeValues::Float32x2(_) => VertexFormat::Float32x2,
-            VertexAttributeValues::Sint32x2(_) => VertexFormat::Sint32x2,
-            VertexAttributeValues::Uint32x2(_) => VertexFormat::Uint32x2,
-            VertexAttributeValues::Float32x3(_) => VertexFormat::Float32x3,
-            VertexAttributeValues::Sint32x3(_) => VertexFormat::Sint32x3,
-            VertexAttributeValues::Uint32x3(_) => VertexFormat::Uint32x3,
-            VertexAttributeValues::Float32x4(_) => VertexFormat::Float32x4,
-            VertexAttributeValues::Sint32x4(_) => VertexFormat::Sint32x4,
-            VertexAttributeValues::Uint32x4(_) => VertexFormat::Uint32x4,
-            VertexAttributeValues::Sint16x2(_) => VertexFormat::Sint16x2,
-            VertexAttributeValues::Snorm16x2(_) => VertexFormat::Snorm16x2,
-            VertexAttributeValues::Uint16x2(_) => VertexFormat::Uint16x2,
-            VertexAttributeValues::Unorm16x2(_) => VertexFormat::Unorm16x2,
-            VertexAttributeValues::Sint16x4(_) => VertexFormat::Sint16x4,
-            VertexAttributeValues::Snorm16x4(_) => VertexFormat::Snorm16x4,
-            VertexAttributeValues::Uint16x4(_) => VertexFormat::Uint16x4,
-            VertexAttributeValues::Unorm16x4(_) => VertexFormat::Unorm16x4,
-            VertexAttributeValues::Sint8x2(_) => VertexFormat::Sint8x2,
-            VertexAttributeValues::Snorm8x2(_) => VertexFormat::Snorm8x2,
-            VertexAttributeValues::Uint8x2(_) => VertexFormat::Uint8x2,
-            VertexAttributeValues::Unorm8x2(_) => VertexFormat::Unorm8x2,
-            VertexAttributeValues::Sint8x4(_) => VertexFormat::Sint8x4,
-            VertexAttributeValues::Snorm8x4(_) => VertexFormat::Snorm8x4,
-            VertexAttributeValues::Uint8x4(_) => VertexFormat::Uint8x4,
-            VertexAttributeValues::Unorm8x4(_) => VertexFormat::Unorm8x4,
+            VertexAttributeValues::Float32(_) => Self::Float32,
+            VertexAttributeValues::Sint32(_) => Self::Sint32,
+            VertexAttributeValues::Uint32(_) => Self::Uint32,
+            VertexAttributeValues::Float32x2(_) => Self::Float32x2,
+            VertexAttributeValues::Sint32x2(_) => Self::Sint32x2,
+            VertexAttributeValues::Uint32x2(_) => Self::Uint32x2,
+            VertexAttributeValues::Float32x3(_) => Self::Float32x3,
+            VertexAttributeValues::Sint32x3(_) => Self::Sint32x3,
+            VertexAttributeValues::Uint32x3(_) => Self::Uint32x3,
+            VertexAttributeValues::Float32x4(_) => Self::Float32x4,
+            VertexAttributeValues::Sint32x4(_) => Self::Sint32x4,
+            VertexAttributeValues::Uint32x4(_) => Self::Uint32x4,
+            VertexAttributeValues::Sint16x2(_) => Self::Sint16x2,
+            VertexAttributeValues::Snorm16x2(_) => Self::Snorm16x2,
+            VertexAttributeValues::Uint16x2(_) => Self::Uint16x2,
+            VertexAttributeValues::Unorm16x2(_) => Self::Unorm16x2,
+            VertexAttributeValues::Sint16x4(_) => Self::Sint16x4,
+            VertexAttributeValues::Snorm16x4(_) => Self::Snorm16x4,
+            VertexAttributeValues::Uint16x4(_) => Self::Uint16x4,
+            VertexAttributeValues::Unorm16x4(_) => Self::Unorm16x4,
+            VertexAttributeValues::Sint8x2(_) => Self::Sint8x2,
+            VertexAttributeValues::Snorm8x2(_) => Self::Snorm8x2,
+            VertexAttributeValues::Uint8x2(_) => Self::Uint8x2,
+            VertexAttributeValues::Unorm8x2(_) => Self::Unorm8x2,
+            VertexAttributeValues::Sint8x4(_) => Self::Sint8x4,
+            VertexAttributeValues::Snorm8x4(_) => Self::Snorm8x4,
+            VertexAttributeValues::Uint8x4(_) => Self::Uint8x4,
+            VertexAttributeValues::Unorm8x4(_) => Self::Unorm8x4,
         }
     }
 }
@@ -1633,24 +1633,24 @@ impl Indices {
     /// Returns an iterator over the indices.
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {
-            Indices::U16(vec) => IndicesIter::U16(vec.iter()),
-            Indices::U32(vec) => IndicesIter::U32(vec.iter()),
+            Self::U16(vec) => IndicesIter::U16(vec.iter()),
+            Self::U32(vec) => IndicesIter::U32(vec.iter()),
         }
     }
 
     /// Returns the number of indices.
     pub fn len(&self) -> usize {
         match self {
-            Indices::U16(vec) => vec.len(),
-            Indices::U32(vec) => vec.len(),
+            Self::U16(vec) => vec.len(),
+            Self::U32(vec) => vec.len(),
         }
     }
 
     /// Returns `true` if there are no indices.
     pub fn is_empty(&self) -> bool {
         match self {
-            Indices::U16(vec) => vec.is_empty(),
-            Indices::U32(vec) => vec.is_empty(),
+            Self::U16(vec) => vec.is_empty(),
+            Self::U32(vec) => vec.is_empty(),
         }
     }
 }
@@ -1685,8 +1685,8 @@ impl<'a> FusedIterator for IndicesIter<'a> {}
 impl From<&Indices> for IndexFormat {
     fn from(indices: &Indices) -> Self {
         match indices {
-            Indices::U16(_) => IndexFormat::Uint16,
-            Indices::U32(_) => IndexFormat::Uint32,
+            Indices::U16(_) => Self::Uint16,
+            Indices::U32(_) => Self::Uint32,
         }
     }
 }
@@ -1826,7 +1826,7 @@ impl RenderAsset for RenderMesh {
             mesh.morph_targets.is_some(),
         );
 
-        Ok(RenderMesh {
+        Ok(Self {
             vertex_count: mesh.count_vertices() as u32,
             buffer_info,
             key_bits,

@@ -293,8 +293,8 @@ pub(crate) enum MaybeAssetLoader {
 impl MaybeAssetLoader {
     pub(crate) async fn get(self) -> Result<Arc<dyn ErasedAssetLoader>, GetLoaderError> {
         match self {
-            MaybeAssetLoader::Ready(loader) => Ok(loader),
-            MaybeAssetLoader::Pending { mut receiver, .. } => Ok(receiver.recv().await?),
+            Self::Ready(loader) => Ok(loader),
+            Self::Pending { mut receiver, .. } => Ok(receiver.recv().await?),
         }
     }
 }

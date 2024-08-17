@@ -254,8 +254,7 @@ impl From<Hsla> for Hsva {
         } else {
             2. * (1. - (lightness / value))
         };
-
-        Hsva::new(hue, saturation, value, alpha)
+        Self::new(hue, saturation, value, alpha)
     }
 }
 
@@ -275,8 +274,7 @@ impl From<Hsva> for Hsla {
         } else {
             (value - lightness) / lightness.min(1. - lightness)
         };
-
-        Hsla::new(hue, saturation, lightness, alpha)
+        Self::new(hue, saturation, lightness, alpha)
     }
 }
 

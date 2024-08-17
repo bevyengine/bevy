@@ -81,14 +81,14 @@ enum WeightChange {
 impl WeightChange {
     fn reverse(&mut self) {
         *self = match *self {
-            WeightChange::Increase => WeightChange::Decrease,
-            WeightChange::Decrease => WeightChange::Increase,
+            Self::Increase => Self::Decrease,
+            Self::Decrease => Self::Increase,
         }
     }
     fn sign(self) -> f32 {
         match self {
-            WeightChange::Increase => 1.0,
-            WeightChange::Decrease => -1.0,
+            Self::Increase => 1.0,
+            Self::Decrease => -1.0,
         }
     }
     fn change_weight(&mut self, weight: f32, change: f32) -> f32 {
@@ -130,13 +130,13 @@ impl Target {
         weights: &[f32],
         target_names: Option<&[String]>,
         entity: Entity,
-    ) -> Vec<Target> {
+    ) -> Vec<Self> {
         let get_name = |i| target_names.and_then(|names| names.get(i));
         let entity_name = entity_name.map(Name::as_str);
         weights
             .iter()
             .enumerate()
-            .map(|(index, weight)| Target {
+            .map(|(index, weight)| Self {
                 entity_name: entity_name.map(ToOwned::to_owned),
                 entity,
                 name: get_name(index).cloned(),
@@ -160,7 +160,7 @@ struct MorphKey {
 }
 impl MorphKey {
     const fn new(name: &'static str, modifiers: &'static [KeyCode], key: KeyCode) -> Self {
-        MorphKey {
+        Self {
             name,
             modifiers,
             key,

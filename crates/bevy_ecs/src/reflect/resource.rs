@@ -183,7 +183,7 @@ impl ReflectResource {
 
 impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
     fn from_type() -> Self {
-        ReflectResource(ReflectResourceFns {
+        Self(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {
                 let resource = from_reflect_with_fallback::<R>(reflected_resource, world, registry);
                 world.insert_resource(resource);

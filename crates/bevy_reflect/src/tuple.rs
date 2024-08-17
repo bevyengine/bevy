@@ -288,7 +288,7 @@ impl Tuple for DynamicTuple {
 
     #[inline]
     fn clone_dynamic(&self) -> DynamicTuple {
-        DynamicTuple {
+        Self {
             represented_type: self.represented_type,
             fields: self
                 .fields

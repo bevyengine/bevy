@@ -235,7 +235,7 @@ impl From<LinearRgba> for Oklaba {
         let l = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
         let a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
         let b = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
-        Oklaba::new(l, a, b, alpha)
+        Self::new(l, a, b, alpha)
     }
 }
 

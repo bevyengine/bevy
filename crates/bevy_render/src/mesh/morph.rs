@@ -110,7 +110,7 @@ impl MorphTargetImage {
             TextureFormat::R32Float,
             asset_usage,
         );
-        Ok(MorphTargetImage(image))
+        Ok(Self(image))
     }
 }
 
@@ -143,7 +143,7 @@ impl MorphWeights {
             let target_count = weights.len();
             return Err(MorphBuildError::TooManyTargets { target_count });
         }
-        Ok(MorphWeights {
+        Ok(Self {
             weights,
             first_mesh,
         })
@@ -183,7 +183,7 @@ impl MeshMorphWeights {
             let target_count = weights.len();
             return Err(MorphBuildError::TooManyTargets { target_count });
         }
-        Ok(MeshMorphWeights { weights })
+        Ok(Self { weights })
     }
     pub fn weights(&self) -> &[f32] {
         &self.weights
@@ -228,7 +228,7 @@ pub struct MorphAttributes {
 }
 impl From<[Vec3; 3]> for MorphAttributes {
     fn from([position, normal, tangent]: [Vec3; 3]) -> Self {
-        MorphAttributes {
+        Self {
             position,
             normal,
             tangent,
@@ -242,7 +242,7 @@ impl MorphAttributes {
     pub const COMPONENT_COUNT: usize = 9;
 
     pub fn new(position: Vec3, normal: Vec3, tangent: Vec3) -> Self {
-        MorphAttributes {
+        Self {
             position,
             normal,
             tangent,

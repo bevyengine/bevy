@@ -206,7 +206,7 @@ impl BinnedPhaseItem for Opaque3dPrepass {
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
-        Opaque3dPrepass {
+        Self {
             key,
             representative_entity,
             batch_range,

@@ -38,19 +38,19 @@ const MAX_DEPTH: f32 = 0.3;
 struct TargetDepth(f32);
 impl Default for TargetDepth {
     fn default() -> Self {
-        TargetDepth(0.09)
+        Self(0.09)
     }
 }
 struct TargetLayers(f32);
 impl Default for TargetLayers {
     fn default() -> Self {
-        TargetLayers(5.0)
+        Self(5.0)
     }
 }
 struct CurrentMethod(ParallaxMappingMethod);
 impl Default for CurrentMethod {
     fn default() -> Self {
-        CurrentMethod(ParallaxMappingMethod::Relief { max_steps: 4 })
+        Self(ParallaxMappingMethod::Relief { max_steps: 4 })
     }
 }
 impl fmt::Display for CurrentMethod {

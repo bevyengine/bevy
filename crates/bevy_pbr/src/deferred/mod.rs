@@ -54,8 +54,8 @@ pub struct PbrDeferredLightingDepthId {
 }
 
 impl PbrDeferredLightingDepthId {
-    pub fn new(value: u8) -> PbrDeferredLightingDepthId {
-        PbrDeferredLightingDepthId {
+    pub fn new(value: u8) -> Self {
+        Self {
             depth_id: value as u32,
 
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -78,7 +78,7 @@ impl PbrDeferredLightingDepthId {
 
 impl Default for PbrDeferredLightingDepthId {
     fn default() -> Self {
-        PbrDeferredLightingDepthId {
+        Self {
             depth_id: DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID as u32,
 
             #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]

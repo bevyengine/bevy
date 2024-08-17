@@ -96,7 +96,7 @@ impl Capsule3dMeshBuilder {
 impl MeshBuilder for Capsule3dMeshBuilder {
     fn build(&self) -> Mesh {
         // code adapted from https://behreajj.medium.com/making-a-capsule-mesh-via-script-in-five-3d-environments-c2214abf02db
-        let Capsule3dMeshBuilder {
+        let Self {
             capsule,
             rings,
             longitudes,

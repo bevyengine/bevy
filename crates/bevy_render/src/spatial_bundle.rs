@@ -35,14 +35,14 @@ impl SpatialBundle {
     /// This initializes [`GlobalTransform`] as identity, and visibility as visible
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
-        SpatialBundle {
+        Self {
             transform,
             ..Self::INHERITED_IDENTITY
         }
     }
 
     /// A [`SpatialBundle`] with inherited visibility and identity transform.
-    pub const INHERITED_IDENTITY: Self = SpatialBundle {
+    pub const INHERITED_IDENTITY: Self = Self {
         visibility: Visibility::Inherited,
         inherited_visibility: InheritedVisibility::HIDDEN,
         view_visibility: ViewVisibility::HIDDEN,
@@ -51,7 +51,7 @@ impl SpatialBundle {
     };
 
     /// An invisible [`SpatialBundle`] with identity transform.
-    pub const HIDDEN_IDENTITY: Self = SpatialBundle {
+    pub const HIDDEN_IDENTITY: Self = Self {
         visibility: Visibility::Hidden,
         ..Self::INHERITED_IDENTITY
     };

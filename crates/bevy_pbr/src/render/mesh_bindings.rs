@@ -136,7 +136,7 @@ impl MeshLayouts {
     ///
     /// [`Mesh`]: bevy_render::prelude::Mesh
     pub fn new(render_device: &RenderDevice) -> Self {
-        MeshLayouts {
+        Self {
             model_only: Self::model_only_layout(render_device),
             lightmapped: Self::lightmapped_layout(render_device),
             skinned: Self::skinned_layout(render_device),

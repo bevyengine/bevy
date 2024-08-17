@@ -254,9 +254,9 @@ impl TryFrom<u32> for ReflectionMode {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(ReflectionMode::None),
-            1 => Ok(ReflectionMode::EnvironmentMap),
-            2 => Ok(ReflectionMode::ReflectionProbe),
+            0 => Ok(Self::None),
+            1 => Ok(Self::EnvironmentMap),
+            2 => Ok(Self::ReflectionProbe),
             _ => Err(()),
         }
     }
@@ -265,9 +265,9 @@ impl TryFrom<u32> for ReflectionMode {
 impl Display for ReflectionMode {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         let text = match *self {
-            ReflectionMode::None => "No reflections",
-            ReflectionMode::EnvironmentMap => "Environment map",
-            ReflectionMode::ReflectionProbe => "Reflection probe",
+            Self::None => "No reflections",
+            Self::EnvironmentMap => "Environment map",
+            Self::ReflectionProbe => "Reflection probe",
         };
         formatter.write_str(text)
     }
@@ -330,8 +330,7 @@ impl FromWorld for Cubemaps {
         // In reality you wouldn't do this--you'd use a real skybox texture--but
         // reusing the textures like this saves space in the Bevy repository.
         let specular_map = world.load_asset("environment_maps/pisa_specular_rgb9e5_zstd.ktx2");
-
-        Cubemaps {
+        Self {
             diffuse: world.load_asset("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_reflection_probe: world
                 .load_asset("environment_maps/cubes_reflection_probe_specular_rgb9e5_zstd.ktx2"),

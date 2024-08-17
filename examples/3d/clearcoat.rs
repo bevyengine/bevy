@@ -335,8 +335,8 @@ impl LightMode {
     /// Creates the help text at the bottom of the screen.
     fn create_help_text(&self) -> Text {
         let help_text = match *self {
-            LightMode::Point => "Press Space to switch to a directional light",
-            LightMode::Directional => "Press Space to switch to a point light",
+            Self::Point => "Press Space to switch to a directional light",
+            Self::Directional => "Press Space to switch to a point light",
         };
 
         Text::from_section(help_text, TextStyle::default())

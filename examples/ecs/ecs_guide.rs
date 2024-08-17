@@ -59,9 +59,9 @@ enum PlayerStreak {
 impl fmt::Display for PlayerStreak {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PlayerStreak::Hot(n) => write!(f, "{n} round hot streak"),
-            PlayerStreak::None => write!(f, "0 round streak"),
-            PlayerStreak::Cold(n) => write!(f, "{n} round cold streak"),
+            Self::Hot(n) => write!(f, "{n} round hot streak"),
+            Self::None => write!(f, "0 round streak"),
+            Self::Cold(n) => write!(f, "{n} round cold streak"),
         }
     }
 }

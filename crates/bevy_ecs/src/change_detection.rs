@@ -638,8 +638,8 @@ impl_debug!(ResMut<'w, T>, Resource);
 impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `ResMut` for resources.
-    fn from(other: ResMut<'w, T>) -> Mut<'w, T> {
-        Mut {
+    fn from(other: ResMut<'w, T>) -> Self {
+        Self {
             value: other.value,
             ticks: other.ticks,
             #[cfg(feature = "track_change_detection")]
@@ -675,8 +675,8 @@ impl_debug!(NonSendMut<'w, T>,);
 impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
     /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
     /// while losing the specificity of `NonSendMut`.
-    fn from(other: NonSendMut<'w, T>) -> Mut<'w, T> {
-        Mut {
+    fn from(other: NonSendMut<'w, T>) -> Self {
+        Self {
             value: other.value,
             ticks: other.ticks,
             #[cfg(feature = "track_change_detection")]
@@ -753,8 +753,8 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         last_run: Tick,
         this_run: Tick,
         #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
-    ) -> Ref<'w, T> {
-        Ref {
+    ) -> Self {
+        Self {
             value,
             ticks: Ticks {
                 added,

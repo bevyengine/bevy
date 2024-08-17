@@ -73,7 +73,7 @@ impl FromWorld for BloomDownsamplingPipeline {
             ..Default::default()
         });
 
-        BloomDownsamplingPipeline {
+        Self {
             bind_group_layout,
             sampler,
         }

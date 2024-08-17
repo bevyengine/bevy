@@ -212,19 +212,15 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
             Default::default(),
             &source.lut,
         );
-
         let texture_view = texture.create_view(&Default::default());
-
         let mut extents = UniformBuffer::from(AutoExposureCompensationCurveUniform {
             min_log_lum: source.min_log_lum,
             inv_log_lum_range: 1.0 / (source.max_log_lum - source.min_log_lum),
             min_compensation: source.min_compensation,
             compensation_range: source.max_compensation - source.min_compensation,
         });
-
         extents.write_buffer(render_device, render_queue);
-
-        Ok(GpuAutoExposureCompensationCurve {
+        Ok(Self {
             texture_view,
             extents,
         })

@@ -43,7 +43,7 @@ impl std::fmt::Debug for RenderLayers {
 
 impl FromIterator<Layer> for RenderLayers {
     fn from_iter<T: IntoIterator<Item = Layer>>(i: T) -> Self {
-        i.into_iter().fold(Self::none(), RenderLayers::with)
+        i.into_iter().fold(Self::none(), Self::with)
     }
 }
 
@@ -66,14 +66,14 @@ impl RenderLayers {
         );
         let mut buffer = [0; INLINE_BLOCKS];
         buffer[buffer_index] = bit;
-        RenderLayers(SmallVec::from_const(buffer))
+        Self(SmallVec::from_const(buffer))
     }
 
     /// Create a new `RenderLayers` that belongs to no layers.
     ///
     /// This is distinct from [`RenderLayers::default`], which belongs to the first layer.
     pub const fn none() -> Self {
-        RenderLayers(SmallVec::from_const([0; INLINE_BLOCKS]))
+        Self(SmallVec::from_const([0; INLINE_BLOCKS]))
     }
 
     /// Create a `RenderLayers` from a list of layers.
@@ -119,7 +119,7 @@ impl RenderLayers {
     ///
     /// A `RenderLayers` with no layers will not match any other
     /// `RenderLayers`, even another with no layers.
-    pub fn intersects(&self, other: &RenderLayers) -> bool {
+    pub fn intersects(&self, other: &Self) -> bool {
         // Check for the common case where the view layer and entity layer
         // both point towards our default layer.
         if self.0.as_ptr() == other.0.as_ptr() {

@@ -29,7 +29,7 @@ impl SineDecoder {
     fn new(frequency: f32) -> Self {
         // standard sample rate for most recordings
         let sample_rate = 44_100;
-        SineDecoder {
+        Self {
             current_progress: 0.,
             progress_per_frame: frequency / sample_rate as f32,
             period: std::f32::consts::PI * 2.,

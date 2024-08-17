@@ -72,19 +72,19 @@ impl GlobalTransform {
     #[doc(hidden)]
     #[inline]
     pub fn from_translation(translation: Vec3) -> Self {
-        GlobalTransform(Affine3A::from_translation(translation))
+        Self(Affine3A::from_translation(translation))
     }
 
     #[doc(hidden)]
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
-        GlobalTransform(Affine3A::from_rotation_translation(rotation, Vec3::ZERO))
+        Self(Affine3A::from_rotation_translation(rotation, Vec3::ZERO))
     }
 
     #[doc(hidden)]
     #[inline]
     pub fn from_scale(scale: Vec3) -> Self {
-        GlobalTransform(Affine3A::from_scale(scale))
+        Self(Affine3A::from_scale(scale))
     }
 
     #[doc(hidden)]
@@ -166,7 +166,7 @@ impl GlobalTransform {
     /// The transform is expected to be non-degenerate and without shearing, or the output
     /// will be invalid.
     #[inline]
-    pub fn reparented_to(&self, parent: &GlobalTransform) -> Transform {
+    pub fn reparented_to(&self, parent: &Self) -> Transform {
         let relative_affine = parent.affine().inverse() * self.affine();
         let (scale, rotation, translation) = relative_affine.to_scale_rotation_translation();
         Transform {
@@ -277,17 +277,17 @@ impl From<Mat4> for GlobalTransform {
     }
 }
 
-impl Mul<GlobalTransform> for GlobalTransform {
-    type Output = GlobalTransform;
+impl Mul<Self> for GlobalTransform {
+    type Output = Self;
 
     #[inline]
-    fn mul(self, global_transform: GlobalTransform) -> Self::Output {
-        GlobalTransform(self.0 * global_transform.0)
+    fn mul(self, global_transform: Self) -> Self::Output {
+        Self(self.0 * global_transform.0)
     }
 }
 
 impl Mul<Transform> for GlobalTransform {
-    type Output = GlobalTransform;
+    type Output = Self;
 
     #[inline]
     fn mul(self, transform: Transform) -> Self::Output {

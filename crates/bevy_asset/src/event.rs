@@ -33,7 +33,7 @@ pub struct UntypedAssetLoadFailedEvent {
 
 impl<A: Asset> From<&AssetLoadFailedEvent<A>> for UntypedAssetLoadFailedEvent {
     fn from(value: &AssetLoadFailedEvent<A>) -> Self {
-        UntypedAssetLoadFailedEvent {
+        Self {
             id: value.id.untyped(),
             path: value.path.clone(),
             error: value.error.clone(),
@@ -59,27 +59,27 @@ pub enum AssetEvent<A: Asset> {
 impl<A: Asset> AssetEvent<A> {
     /// Returns `true` if this event is [`AssetEvent::LoadedWithDependencies`] and matches the given `id`.
     pub fn is_loaded_with_dependencies(&self, asset_id: impl Into<AssetId<A>>) -> bool {
-        matches!(self, AssetEvent::LoadedWithDependencies { id } if *id == asset_id.into())
+        matches!(self, Self::LoadedWithDependencies { id } if *id == asset_id.into())
     }
 
     /// Returns `true` if this event is [`AssetEvent::Added`] and matches the given `id`.
     pub fn is_added(&self, asset_id: impl Into<AssetId<A>>) -> bool {
-        matches!(self, AssetEvent::Added { id } if *id == asset_id.into())
+        matches!(self, Self::Added { id } if *id == asset_id.into())
     }
 
     /// Returns `true` if this event is [`AssetEvent::Modified`] and matches the given `id`.
     pub fn is_modified(&self, asset_id: impl Into<AssetId<A>>) -> bool {
-        matches!(self, AssetEvent::Modified { id } if *id == asset_id.into())
+        matches!(self, Self::Modified { id } if *id == asset_id.into())
     }
 
     /// Returns `true` if this event is [`AssetEvent::Removed`] and matches the given `id`.
     pub fn is_removed(&self, asset_id: impl Into<AssetId<A>>) -> bool {
-        matches!(self, AssetEvent::Removed { id } if *id == asset_id.into())
+        matches!(self, Self::Removed { id } if *id == asset_id.into())
     }
 
     /// Returns `true` if this event is [`AssetEvent::Unused`] and matches the given `id`.
     pub fn is_unused(&self, asset_id: impl Into<AssetId<A>>) -> bool {
-        matches!(self, AssetEvent::Unused { id } if *id == asset_id.into())
+        matches!(self, Self::Unused { id } if *id == asset_id.into())
     }
 }
 

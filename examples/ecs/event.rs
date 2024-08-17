@@ -26,7 +26,7 @@ struct DamageTimer(pub Timer);
 
 impl Default for DamageTimer {
     fn default() -> Self {
-        DamageTimer(Timer::from_seconds(1.0, TimerMode::Repeating))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }
 

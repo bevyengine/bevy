@@ -523,7 +523,7 @@ where
     /// Create a new curve with the given `domain` from the given `function`. When sampled, the
     /// `function` is evaluated at the sample time to compute the output.
     pub fn new(domain: Interval, function: F) -> Self {
-        FunctionCurve {
+        Self {
             domain,
             f: function,
             _phantom: PhantomData,
@@ -894,7 +894,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
-    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleCurve<T, I> {
+    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> Self {
         Self {
             core: self.core.map_sample_times(f),
             interpolation: self.interpolation,
@@ -943,7 +943,7 @@ impl<T> UnevenSampleAutoCurve<T> {
     ///
     /// The samples are re-sorted by time after mapping and deduplicated by output time, so
     /// the function `f` should generally be injective over the sample times of the curve.
-    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> UnevenSampleAutoCurve<T> {
+    pub fn map_sample_times(self, f: impl Fn(f32) -> f32) -> Self {
         Self {
             core: self.core.map_sample_times(f),
         }

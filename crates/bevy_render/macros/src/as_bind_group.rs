@@ -657,9 +657,9 @@ impl VisibilityFlags {
 impl ShaderStageVisibility {
     fn hygienic_quote(&self, path: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
         match self {
-            ShaderStageVisibility::All => quote! { #path::ShaderStages::all() },
-            ShaderStageVisibility::None => quote! { #path::ShaderStages::NONE },
-            ShaderStageVisibility::Flags(flags) => {
+            Self::All => quote! { #path::ShaderStages::all() },
+            Self::None => quote! { #path::ShaderStages::NONE },
+            Self::Flags(flags) => {
                 let mut quoted = Vec::new();
 
                 if flags.vertex {
@@ -751,12 +751,12 @@ enum BindingTextureSampleType {
 impl ToTokens for BindingTextureDimension {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
-            BindingTextureDimension::D1 => quote! { TextureViewDimension::D1 },
-            BindingTextureDimension::D2 => quote! { TextureViewDimension::D2 },
-            BindingTextureDimension::D2Array => quote! { TextureViewDimension::D2Array },
-            BindingTextureDimension::Cube => quote! { TextureViewDimension::Cube },
-            BindingTextureDimension::CubeArray => quote! { TextureViewDimension::CubeArray },
-            BindingTextureDimension::D3 => quote! { TextureViewDimension::D3 },
+            Self::D1 => quote! { TextureViewDimension::D1 },
+            Self::D2 => quote! { TextureViewDimension::D2 },
+            Self::D2Array => quote! { TextureViewDimension::D2Array },
+            Self::Cube => quote! { TextureViewDimension::Cube },
+            Self::CubeArray => quote! { TextureViewDimension::CubeArray },
+            Self::D3 => quote! { TextureViewDimension::D3 },
         });
     }
 }
@@ -764,12 +764,12 @@ impl ToTokens for BindingTextureDimension {
 impl ToTokens for BindingTextureSampleType {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
-            BindingTextureSampleType::Float { filterable } => {
+            Self::Float { filterable } => {
                 quote! { TextureSampleType::Float { filterable: #filterable } }
             }
-            BindingTextureSampleType::Depth => quote! { TextureSampleType::Depth },
-            BindingTextureSampleType::Sint => quote! { TextureSampleType::Sint },
-            BindingTextureSampleType::Uint => quote! { TextureSampleType::Uint },
+            Self::Depth => quote! { TextureSampleType::Depth },
+            Self::Sint => quote! { TextureSampleType::Sint },
+            Self::Uint => quote! { TextureSampleType::Uint },
         });
     }
 }
@@ -783,7 +783,7 @@ struct TextureAttrs {
 
 impl Default for BindingTextureSampleType {
     fn default() -> Self {
-        BindingTextureSampleType::Float { filterable: true }
+        Self::Float { filterable: true }
     }
 }
 
@@ -1004,9 +1004,9 @@ enum SamplerBindingType {
 impl ToTokens for SamplerBindingType {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
-            SamplerBindingType::Filtering => quote! { SamplerBindingType::Filtering },
-            SamplerBindingType::NonFiltering => quote! { SamplerBindingType::NonFiltering },
-            SamplerBindingType::Comparison => quote! { SamplerBindingType::Comparison },
+            Self::Filtering => quote! { SamplerBindingType::Filtering },
+            Self::NonFiltering => quote! { SamplerBindingType::NonFiltering },
+            Self::Comparison => quote! { SamplerBindingType::Comparison },
         });
     }
 }

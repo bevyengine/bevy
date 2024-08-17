@@ -31,7 +31,7 @@ impl Texture {
 
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
-        Texture {
+        Self {
             id: TextureId::new(),
             value: ErasedTexture::new(value),
         }
@@ -78,7 +78,7 @@ impl TextureView {
 
 impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
-        TextureView {
+        Self {
             id: TextureViewId::new(),
             value: ErasedTextureView::new(value),
         }
@@ -87,7 +87,7 @@ impl From<wgpu::TextureView> for TextureView {
 
 impl From<wgpu::SurfaceTexture> for SurfaceTexture {
     fn from(value: wgpu::SurfaceTexture) -> Self {
-        SurfaceTexture {
+        Self {
             value: ErasedSurfaceTexture::new(value),
         }
     }
@@ -135,7 +135,7 @@ impl Sampler {
 
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
-        Sampler {
+        Self {
             id: SamplerId::new(),
             value: ErasedSampler::new(value),
         }

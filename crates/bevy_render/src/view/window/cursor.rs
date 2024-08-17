@@ -31,19 +31,19 @@ pub enum CursorIcon {
 
 impl Default for CursorIcon {
     fn default() -> Self {
-        CursorIcon::System(Default::default())
+        Self::System(Default::default())
     }
 }
 
 impl From<SystemCursorIcon> for CursorIcon {
     fn from(icon: SystemCursorIcon) -> Self {
-        CursorIcon::System(icon)
+        Self::System(icon)
     }
 }
 
 impl From<CustomCursor> for CursorIcon {
     fn from(cursor: CustomCursor) -> Self {
-        CursorIcon::Custom(cursor)
+        Self::Custom(cursor)
     }
 }
 

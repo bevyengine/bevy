@@ -51,7 +51,7 @@ struct BatchMeta<T: PartialEq> {
 
 impl<T: PartialEq> BatchMeta<T> {
     fn new(item: &impl CachedRenderPipelinePhaseItem, user_data: T) -> Self {
-        BatchMeta {
+        Self {
             pipeline_id: item.cached_pipeline(),
             draw_function_id: item.draw_function(),
             dynamic_offset: item.extra_index().as_dynamic_offset(),

@@ -15,7 +15,7 @@ where
     T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
-        if index < SmallVec::len(self) {
+        if index < Self::len(self) {
             Some(&self[index] as &dyn PartialReflect)
         } else {
             None
@@ -23,7 +23,7 @@ where
     }
 
     fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        if index < SmallVec::len(self) {
+        if index < Self::len(self) {
             Some(&mut self[index] as &mut dyn PartialReflect)
         } else {
             None
@@ -39,7 +39,7 @@ where
                 )
             })
         });
-        SmallVec::insert(self, index, value);
+        Self::insert(self, index, value);
     }
 
     fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
@@ -55,7 +55,7 @@ where
                 )
             })
         });
-        SmallVec::push(self, value);
+        Self::push(self, value);
     }
 
     fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
@@ -64,7 +64,7 @@ where
     }
 
     fn len(&self) -> usize {
-        <SmallVec<T>>::len(self)
+        <Self>::len(self)
     }
 
     fn iter(&self) -> ListIter {
@@ -211,8 +211,8 @@ where
     T::Item: FromReflect + MaybeTyped + TypePath,
 {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration::of::<SmallVec<T>>();
-        registration.insert::<ReflectFromPtr>(FromType::<SmallVec<T>>::from_type());
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
         registration
     }
 }

@@ -92,15 +92,15 @@ pub enum Camera3dDepthLoadOp {
 
 impl Default for Camera3dDepthLoadOp {
     fn default() -> Self {
-        Camera3dDepthLoadOp::Clear(0.0)
+        Self::Clear(0.0)
     }
 }
 
 impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
     fn from(config: Camera3dDepthLoadOp) -> Self {
         match config {
-            Camera3dDepthLoadOp::Clear(x) => LoadOp::Clear(x),
-            Camera3dDepthLoadOp::Load => LoadOp::Load,
+            Camera3dDepthLoadOp::Clear(x) => Self::Clear(x),
+            Camera3dDepthLoadOp::Load => Self::Load,
         }
     }
 }

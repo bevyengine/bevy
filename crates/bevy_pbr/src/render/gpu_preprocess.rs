@@ -310,7 +310,7 @@ impl FromWorld for PreprocessPipelines {
             &gpu_culling_bind_group_layout_entries,
         );
 
-        PreprocessPipelines {
+        Self {
             direct: PreprocessPipeline {
                 bind_group_layout: direct_bind_group_layout,
                 pipeline_id: None,
@@ -361,7 +361,7 @@ impl PreprocessPipeline {
     fn prepare(
         &mut self,
         pipeline_cache: &PipelineCache,
-        pipelines: &mut SpecializedComputePipelines<PreprocessPipeline>,
+        pipelines: &mut SpecializedComputePipelines<Self>,
         key: PreprocessPipelineKey,
     ) {
         if self.pipeline_id.is_some() {

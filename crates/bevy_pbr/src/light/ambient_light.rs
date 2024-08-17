@@ -36,7 +36,7 @@ impl Default for AmbientLight {
     }
 }
 impl AmbientLight {
-    pub const NONE: AmbientLight = AmbientLight {
+    pub const NONE: Self = Self {
         color: Color::WHITE,
         brightness: 0.0,
     };

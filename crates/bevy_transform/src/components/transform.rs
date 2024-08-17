@@ -63,7 +63,7 @@ pub struct Transform {
 
 impl Transform {
     /// An identity [`Transform`] with no translation, rotation, and a scale of 1 on all axes.
-    pub const IDENTITY: Self = Transform {
+    pub const IDENTITY: Self = Self {
         translation: Vec3::ZERO,
         rotation: Quat::IDENTITY,
         scale: Vec3::ONE,
@@ -82,8 +82,7 @@ impl Transform {
     #[inline]
     pub fn from_matrix(world_from_local: Mat4) -> Self {
         let (scale, rotation, translation) = world_from_local.to_scale_rotation_translation();
-
-        Transform {
+        Self {
             translation,
             rotation,
             scale,
@@ -94,7 +93,7 @@ impl Transform {
     /// all axes.
     #[inline]
     pub const fn from_translation(translation: Vec3) -> Self {
-        Transform {
+        Self {
             translation,
             ..Self::IDENTITY
         }
@@ -104,7 +103,7 @@ impl Transform {
     /// all axes.
     #[inline]
     pub const fn from_rotation(rotation: Quat) -> Self {
-        Transform {
+        Self {
             rotation,
             ..Self::IDENTITY
         }
@@ -114,7 +113,7 @@ impl Transform {
     /// all axes.
     #[inline]
     pub const fn from_scale(scale: Vec3) -> Self {
-        Transform {
+        Self {
             scale,
             ..Self::IDENTITY
         }
@@ -125,7 +124,7 @@ impl Transform {
     /// [isometry]: Isometry3d
     #[inline]
     pub fn from_isometry(iso: Isometry3d) -> Self {
-        Transform {
+        Self {
             translation: iso.translation.into(),
             rotation: iso.rotation,
             ..Self::IDENTITY
@@ -499,11 +498,11 @@ impl Transform {
     /// resulting [`Transform`]
     #[inline]
     #[must_use]
-    pub fn mul_transform(&self, transform: Transform) -> Self {
+    pub fn mul_transform(&self, transform: Self) -> Self {
         let translation = self.transform_point(transform.translation);
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
-        Transform {
+        Self {
             translation,
             rotation,
             scale,
@@ -561,10 +560,10 @@ impl From<GlobalTransform> for Transform {
     }
 }
 
-impl Mul<Transform> for Transform {
-    type Output = Transform;
+impl Mul<Self> for Transform {
+    type Output = Self;
 
-    fn mul(self, transform: Transform) -> Self::Output {
+    fn mul(self, transform: Self) -> Self::Output {
         self.mul_transform(transform)
     }
 }

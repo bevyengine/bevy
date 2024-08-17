@@ -67,7 +67,6 @@ impl Plugin for TerminalCtrlCHandlerPlugin {
             }
             Err(err) => bevy_utils::tracing::warn!("Failed to set `Ctrl+C` handler: {err}"),
         }
-
-        app.add_systems(Update, TerminalCtrlCHandlerPlugin::exit_on_flag);
+        app.add_systems(Update, Self::exit_on_flag);
     }
 }

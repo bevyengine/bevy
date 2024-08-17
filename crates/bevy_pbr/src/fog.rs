@@ -307,51 +307,42 @@ pub enum FogFalloff {
 impl FogFalloff {
     /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world units,
     /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
-    pub fn from_visibility(visibility: f32) -> FogFalloff {
-        FogFalloff::from_visibility_contrast(
-            visibility,
-            FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
-        )
+    pub fn from_visibility(visibility: f32) -> Self {
+        Self::from_visibility_contrast(visibility, Self::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD)
     }
 
     /// Creates a [`FogFalloff::Exponential`] value from the given visibility distance in world units,
     /// and a given contrast threshold in the range of `0.0` to `1.0`.
-    pub fn from_visibility_contrast(visibility: f32, contrast_threshold: f32) -> FogFalloff {
-        FogFalloff::Exponential {
-            density: FogFalloff::koschmieder(visibility, contrast_threshold),
+    pub fn from_visibility_contrast(visibility: f32, contrast_threshold: f32) -> Self {
+        Self::Exponential {
+            density: Self::koschmieder(visibility, contrast_threshold),
         }
     }
 
     /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in world units,
     /// using the revised Koschmieder contrast threshold, [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
-    pub fn from_visibility_squared(visibility: f32) -> FogFalloff {
-        FogFalloff::from_visibility_contrast_squared(
+    pub fn from_visibility_squared(visibility: f32) -> Self {
+        Self::from_visibility_contrast_squared(
             visibility,
-            FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
+            Self::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
         )
     }
 
     /// Creates a [`FogFalloff::ExponentialSquared`] value from the given visibility distance in world units,
     /// and a given contrast threshold in the range of `0.0` to `1.0`.
-    pub fn from_visibility_contrast_squared(
-        visibility: f32,
-        contrast_threshold: f32,
-    ) -> FogFalloff {
-        FogFalloff::ExponentialSquared {
-            density: (FogFalloff::koschmieder(visibility, contrast_threshold) / visibility).sqrt(),
+    pub fn from_visibility_contrast_squared(visibility: f32, contrast_threshold: f32) -> Self {
+        Self::ExponentialSquared {
+            density: (Self::koschmieder(visibility, contrast_threshold) / visibility).sqrt(),
         }
     }
 
     /// Creates a [`FogFalloff::Atmospheric`] value from the given visibility distance in world units,
     /// and a shared color for both extinction and inscattering, using the revised Koschmieder contrast threshold,
     /// [`FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD`].
-    pub fn from_visibility_color(
-        visibility: f32,
-        extinction_inscattering_color: Color,
-    ) -> FogFalloff {
-        FogFalloff::from_visibility_contrast_colors(
+    pub fn from_visibility_color(visibility: f32, extinction_inscattering_color: Color) -> Self {
+        Self::from_visibility_contrast_colors(
             visibility,
-            FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
+            Self::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
             extinction_inscattering_color,
             extinction_inscattering_color,
         )
@@ -369,10 +360,10 @@ impl FogFalloff {
         visibility: f32,
         extinction_color: Color,
         inscattering_color: Color,
-    ) -> FogFalloff {
-        FogFalloff::from_visibility_contrast_colors(
+    ) -> Self {
+        Self::from_visibility_contrast_colors(
             visibility,
-            FogFalloff::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
+            Self::REVISED_KOSCHMIEDER_CONTRAST_THRESHOLD,
             extinction_color,
             inscattering_color,
         )
@@ -384,8 +375,8 @@ impl FogFalloff {
         visibility: f32,
         contrast_threshold: f32,
         extinction_inscattering_color: Color,
-    ) -> FogFalloff {
-        FogFalloff::from_visibility_contrast_colors(
+    ) -> Self {
+        Self::from_visibility_contrast_colors(
             visibility,
             contrast_threshold,
             extinction_inscattering_color,
@@ -405,13 +396,13 @@ impl FogFalloff {
         contrast_threshold: f32,
         extinction_color: Color,
         inscattering_color: Color,
-    ) -> FogFalloff {
+    ) -> Self {
         use std::f32::consts::E;
 
         let [r_e, g_e, b_e, a_e] = LinearRgba::from(extinction_color).to_f32_array();
         let [r_i, g_i, b_i, a_i] = LinearRgba::from(inscattering_color).to_f32_array();
 
-        FogFalloff::Atmospheric {
+        Self::Atmospheric {
             extinction: Vec3::new(
                 // Values are subtracted from 1.0 here to preserve the intuitive/artistic meaning of
                 // colors, since they're later subtracted. (e.g. by giving a blue extinction color, you
@@ -419,11 +410,11 @@ impl FogFalloff {
                 (1.0 - r_e).powf(E),
                 (1.0 - g_e).powf(E),
                 (1.0 - b_e).powf(E),
-            ) * FogFalloff::koschmieder(visibility, contrast_threshold)
+            ) * Self::koschmieder(visibility, contrast_threshold)
                 * a_e.powf(E),
 
             inscattering: Vec3::new(r_i.powf(E), g_i.powf(E), b_i.powf(E))
-                * FogFalloff::koschmieder(visibility, contrast_threshold)
+                * Self::koschmieder(visibility, contrast_threshold)
                 * a_i.powf(E),
         }
     }
@@ -465,7 +456,7 @@ impl FogFalloff {
 
 impl Default for FogSettings {
     fn default() -> Self {
-        FogSettings {
+        Self {
             color: Color::WHITE,
             falloff: FogFalloff::Linear {
                 start: 0.0,

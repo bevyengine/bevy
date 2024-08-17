@@ -209,8 +209,8 @@ impl Touch {
 }
 
 impl From<&TouchInput> for Touch {
-    fn from(input: &TouchInput) -> Touch {
-        Touch {
+    fn from(input: &TouchInput) -> Self {
+        Self {
             id: input.id,
             start_position: input.position,
             start_force: input.force,

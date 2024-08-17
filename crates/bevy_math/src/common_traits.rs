@@ -50,19 +50,19 @@ pub trait VectorSpace:
 }
 
 impl VectorSpace for Vec4 {
-    const ZERO: Self = Vec4::ZERO;
+    const ZERO: Self = Self::ZERO;
 }
 
 impl VectorSpace for Vec3 {
-    const ZERO: Self = Vec3::ZERO;
+    const ZERO: Self = Self::ZERO;
 }
 
 impl VectorSpace for Vec3A {
-    const ZERO: Self = Vec3A::ZERO;
+    const ZERO: Self = Self::ZERO;
 }
 
 impl VectorSpace for Vec2 {
-    const ZERO: Self = Vec2::ZERO;
+    const ZERO: Self = Self::ZERO;
 }
 
 impl VectorSpace for f32 {

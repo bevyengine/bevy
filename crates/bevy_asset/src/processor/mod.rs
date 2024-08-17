@@ -973,7 +973,7 @@ impl AssetProcessorData {
         finished_sender.set_overflow(true);
         initialized_sender.set_overflow(true);
 
-        AssetProcessorData {
+        Self {
             sources: source,
             finished_sender,
             finished_receiver,

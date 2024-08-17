@@ -61,7 +61,7 @@ impl ColorMaterial {
 
 impl Default for ColorMaterial {
     fn default() -> Self {
-        ColorMaterial {
+        Self {
             color: Color::WHITE,
             texture: None,
             // TODO should probably default to AlphaMask once supported?
@@ -72,7 +72,7 @@ impl Default for ColorMaterial {
 
 impl From<Color> for ColorMaterial {
     fn from(color: Color) -> Self {
-        ColorMaterial {
+        Self {
             color,
             alpha_mode: if color.alpha() < 1.0 {
                 AlphaMode2d::Blend
@@ -86,7 +86,7 @@ impl From<Color> for ColorMaterial {
 
 impl From<Handle<Image>> for ColorMaterial {
     fn from(texture: Handle<Image>) -> Self {
-        ColorMaterial {
+        Self {
             texture: Some(texture),
             ..Default::default()
         }

@@ -381,8 +381,8 @@ impl ColorGrading {
     pub fn with_identical_sections(
         global: ColorGradingGlobal,
         section: ColorGradingSection,
-    ) -> ColorGrading {
-        ColorGrading {
+    ) -> Self {
+        Self {
             global,
             highlights: section,
             midtones: section,
@@ -641,7 +641,7 @@ impl ViewTarget {
     /// Returns `true` if and only if the main texture is [`Self::TEXTURE_FORMAT_HDR`]
     #[inline]
     pub fn is_hdr(&self) -> bool {
-        self.main_texture_format == ViewTarget::TEXTURE_FORMAT_HDR
+        self.main_texture_format == Self::TEXTURE_FORMAT_HDR
     }
 
     /// The final texture this view will render to.

@@ -41,23 +41,23 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
     pub fn new(device: &RenderDevice) -> Self {
         let limits = device.limits();
         if limits.max_storage_buffers_per_shader_stage == 0 {
-            GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(&limits))
+            Self::Uniform(BatchedUniformBuffer::new(&limits))
         } else {
-            GpuArrayBuffer::Storage(BufferVec::new(BufferUsages::STORAGE))
+            Self::Storage(BufferVec::new(BufferUsages::STORAGE))
         }
     }
 
     pub fn clear(&mut self) {
         match self {
-            GpuArrayBuffer::Uniform(buffer) => buffer.clear(),
-            GpuArrayBuffer::Storage(buffer) => buffer.clear(),
+            Self::Uniform(buffer) => buffer.clear(),
+            Self::Storage(buffer) => buffer.clear(),
         }
     }
 
     pub fn push(&mut self, value: T) -> GpuArrayBufferIndex<T> {
         match self {
-            GpuArrayBuffer::Uniform(buffer) => buffer.push(value),
-            GpuArrayBuffer::Storage(buffer) => {
+            Self::Uniform(buffer) => buffer.push(value),
+            Self::Storage(buffer) => {
                 let index = buffer.push(value) as u32;
                 GpuArrayBufferIndex {
                     index,
@@ -70,8 +70,8 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
 
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         match self {
-            GpuArrayBuffer::Uniform(buffer) => buffer.write_buffer(device, queue),
-            GpuArrayBuffer::Storage(buffer) => buffer.write_buffer(device, queue),
+            Self::Uniform(buffer) => buffer.write_buffer(device, queue),
+            Self::Storage(buffer) => buffer.write_buffer(device, queue),
         }
     }
 
@@ -90,8 +90,8 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
 
     pub fn binding(&self) -> Option<BindingResource> {
         match self {
-            GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
-            GpuArrayBuffer::Storage(buffer) => buffer.binding(),
+            Self::Uniform(buffer) => buffer.binding(),
+            Self::Storage(buffer) => buffer.binding(),
         }
     }
 

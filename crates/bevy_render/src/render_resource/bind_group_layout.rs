@@ -30,7 +30,7 @@ impl BindGroupLayout {
 
 impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
-        BindGroupLayout {
+        Self {
             id: BindGroupLayoutId::new(),
             value: ErasedBindGroupLayout::new(value),
         }

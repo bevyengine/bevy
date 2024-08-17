@@ -321,7 +321,7 @@ impl ColorToPacked for LinearRgba {
 #[cfg(feature = "wgpu-types")]
 impl From<LinearRgba> for wgpu_types::Color {
     fn from(color: LinearRgba) -> Self {
-        wgpu_types::Color {
+        Self {
             r: color.red as f64,
             g: color.green as f64,
             b: color.blue as f64,
@@ -370,8 +370,7 @@ impl encase::private::ReadFrom for LinearRgba {
         for el in &mut buffer {
             encase::private::ReadFrom::read_from(el, reader);
         }
-
-        *self = LinearRgba {
+        *self = Self {
             red: buffer[0],
             green: buffer[1],
             blue: buffer[2],
@@ -391,7 +390,7 @@ impl encase::private::CreateFrom for LinearRgba {
         let green: f32 = encase::private::CreateFrom::create_from(reader);
         let blue: f32 = encase::private::CreateFrom::create_from(reader);
         let alpha: f32 = encase::private::CreateFrom::create_from(reader);
-        LinearRgba {
+        Self {
             red,
             green,
             blue,

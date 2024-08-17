@@ -21,7 +21,7 @@ pub struct ReportHierarchyIssue<T> {
 impl<T> ReportHierarchyIssue<T> {
     /// Constructs a new object
     pub fn new(enabled: bool) -> Self {
-        ReportHierarchyIssue {
+        Self {
             enabled,
             _comp: Default::default(),
         }

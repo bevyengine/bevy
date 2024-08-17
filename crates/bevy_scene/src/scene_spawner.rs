@@ -37,7 +37,7 @@ pub struct InstanceId(Uuid);
 
 impl InstanceId {
     fn new() -> Self {
-        InstanceId(Uuid::new_v4())
+        Self(Uuid::new_v4())
     }
 }
 

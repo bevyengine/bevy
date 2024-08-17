@@ -142,8 +142,7 @@ pub struct ShadowSamplers {
 impl FromWorld for ShadowSamplers {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-
-        ShadowSamplers {
+        Self {
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
@@ -1360,7 +1359,7 @@ impl BinnedPhaseItem for Shadow {
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
-        Shadow {
+        Self {
             key,
             representative_entity,
             batch_range,

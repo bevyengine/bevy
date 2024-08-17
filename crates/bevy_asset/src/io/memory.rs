@@ -69,7 +69,7 @@ impl Dir {
         );
     }
 
-    pub fn get_or_insert_dir(&self, path: &Path) -> Dir {
+    pub fn get_or_insert_dir(&self, path: &Path) -> Self {
         let mut dir = self.clone();
         let mut full_path = PathBuf::new();
         for c in path.components() {
@@ -78,7 +78,7 @@ impl Dir {
             dir = {
                 let dirs = &mut dir.0.write().dirs;
                 dirs.entry(name)
-                    .or_insert_with(|| Dir::new(full_path.clone()))
+                    .or_insert_with(|| Self::new(full_path.clone()))
                     .clone()
             };
         }
@@ -86,7 +86,7 @@ impl Dir {
         dir
     }
 
-    pub fn get_dir(&self, path: &Path) -> Option<Dir> {
+    pub fn get_dir(&self, path: &Path) -> Option<Self> {
         let mut dir = self.clone();
         for p in path.components() {
             let component = p.as_os_str().to_str().unwrap();

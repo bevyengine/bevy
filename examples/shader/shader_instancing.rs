@@ -73,12 +73,12 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
 struct InstanceMaterialData(Vec<InstanceData>);
 
 impl ExtractComponent for InstanceMaterialData {
-    type QueryData = &'static InstanceMaterialData;
+    type QueryData = &'static Self;
     type QueryFilter = ();
     type Out = Self;
 
     fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(InstanceMaterialData(item.0.clone()))
+        Some(Self(item.0.clone()))
     }
 }
 
@@ -192,8 +192,7 @@ struct CustomPipeline {
 impl FromWorld for CustomPipeline {
     fn from_world(world: &mut World) -> Self {
         let mesh_pipeline = world.resource::<MeshPipeline>();
-
-        CustomPipeline {
+        Self {
             shader: world.load_asset(SHADER_ASSET_PATH),
             mesh_pipeline: mesh_pipeline.clone(),
         }

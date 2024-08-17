@@ -119,9 +119,9 @@ enum SplineMode {
 impl std::fmt::Display for SplineMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SplineMode::Hermite => f.write_str("Hermite"),
-            SplineMode::Cardinal => f.write_str("Cardinal"),
-            SplineMode::B => f.write_str("B"),
+            Self::Hermite => f.write_str("Hermite"),
+            Self::Cardinal => f.write_str("Cardinal"),
+            Self::B => f.write_str("B"),
         }
     }
 }
@@ -138,8 +138,8 @@ enum CyclingMode {
 impl std::fmt::Display for CyclingMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CyclingMode::NotCyclic => f.write_str("Not Cyclic"),
-            CyclingMode::Cyclic => f.write_str("Cyclic"),
+            Self::NotCyclic => f.write_str("Not Cyclic"),
+            Self::Cyclic => f.write_str("Cyclic"),
         }
     }
 }

@@ -463,7 +463,7 @@ impl ComponentInfo {
 
     /// Create a new [`ComponentInfo`].
     pub(crate) fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
-        ComponentInfo {
+        Self {
             id,
             descriptor,
             hooks: ComponentHooks::default(),
@@ -528,8 +528,8 @@ impl ComponentId {
     /// The `index` is a unique value associated with each type of component in a given world.
     /// Usually, this value is taken from a counter incremented for each type of component registered with the world.
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
+    pub const fn new(index: usize) -> Self {
+        Self(index)
     }
 
     /// Returns the index of the current component.
@@ -694,17 +694,14 @@ impl Components {
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
 
-        let Components {
+        let Self {
             indices,
             components,
             ..
         } = self;
         *indices.entry(type_id).or_insert_with(|| {
-            let index = Components::init_component_inner(
-                components,
-                storages,
-                ComponentDescriptor::new::<T>(),
-            );
+            let index =
+                Self::init_component_inner(components, storages, ComponentDescriptor::new::<T>());
             T::register_component_hooks(&mut components[index.index()].hooks);
             index
         })
@@ -726,7 +723,7 @@ impl Components {
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        Components::init_component_inner(&mut self.components, storages, descriptor)
+        Self::init_component_inner(&mut self.components, storages, descriptor)
     }
 
     #[inline]
@@ -961,7 +958,7 @@ impl Tick {
     ///
     /// `this_run` is the current tick of the system, used as a reference to help deal with wraparound.
     #[inline]
-    pub fn is_newer_than(self, last_run: Tick, this_run: Tick) -> bool {
+    pub fn is_newer_than(self, last_run: Self, this_run: Self) -> bool {
         // This works even with wraparound because the world tick (`this_run`) is always "newer" than
         // `last_run` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
@@ -984,7 +981,7 @@ impl Tick {
     ///
     /// Returns `true` if wrapping was performed. Otherwise, returns `false`.
     #[inline]
-    pub(crate) fn check_tick(&mut self, tick: Tick) -> bool {
+    pub(crate) fn check_tick(&mut self, tick: Self) -> bool {
         let age = tick.relative_to(*self);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
@@ -1114,7 +1111,7 @@ impl<T: Component> std::ops::Deref for ComponentIdFor<'_, T> {
 
 impl<T: Component> From<ComponentIdFor<'_, T>> for ComponentId {
     #[inline]
-    fn from(to_component_id: ComponentIdFor<T>) -> ComponentId {
+    fn from(to_component_id: ComponentIdFor<T>) -> Self {
         *to_component_id
     }
 }

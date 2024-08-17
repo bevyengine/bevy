@@ -527,8 +527,7 @@ impl Clone for TypeRegistration {
         for (id, type_data) in &self.data {
             data.insert(*id, (*type_data).clone_type_data());
         }
-
-        TypeRegistration {
+        Self {
             data,
             type_info: self.type_info,
         }
@@ -579,7 +578,7 @@ pub struct ReflectSerialize {
 
 impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
     fn from_type() -> Self {
-        ReflectSerialize {
+        Self {
             get_serializable: |value| {
                 value
                     .downcast_ref::<T>()
@@ -632,7 +631,7 @@ impl ReflectDeserialize {
 
 impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
     fn from_type() -> Self {
-        ReflectDeserialize {
+        Self {
             func: |deserializer| Ok(Box::new(T::deserialize(deserializer)?)),
         }
     }
@@ -730,7 +729,7 @@ impl ReflectFromPtr {
 #[allow(unsafe_code)]
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
-        ReflectFromPtr {
+        Self {
             type_id: TypeId::of::<T>(),
             from_ptr: |ptr| {
                 // SAFETY: `from_ptr_mut` is either called in `ReflectFromPtr::as_reflect`

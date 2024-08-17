@@ -154,7 +154,7 @@ impl<A: Asset> LoadedAsset<A> {
         value.visit_dependencies(&mut |id| {
             dependencies.insert(id);
         });
-        LoadedAsset {
+        Self {
             value,
             dependencies,
             loader_dependencies: HashMap::default(),
@@ -189,7 +189,7 @@ impl<A: Asset> LoadedAsset<A> {
 
 impl<A: Asset> From<A> for LoadedAsset<A> {
     fn from(asset: A) -> Self {
-        LoadedAsset::new_with_dependencies(asset, None)
+        Self::new_with_dependencies(asset, None)
     }
 }
 
@@ -204,7 +204,7 @@ pub struct ErasedLoadedAsset {
 
 impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
     fn from(asset: LoadedAsset<A>) -> Self {
-        ErasedLoadedAsset {
+        Self {
             value: Box::new(asset.value),
             dependencies: asset.dependencies,
             loader_dependencies: asset.loader_dependencies,
@@ -237,10 +237,7 @@ impl ErasedLoadedAsset {
     }
 
     /// Returns the [`ErasedLoadedAsset`] for the given label, if it exists.
-    pub fn get_labeled(
-        &self,
-        label: impl Into<CowArc<'static, str>>,
-    ) -> Option<&ErasedLoadedAsset> {
+    pub fn get_labeled(&self, label: impl Into<CowArc<'static, str>>) -> Option<&Self> {
         self.labeled_assets.get(&label.into()).map(|a| &a.asset)
     }
 
@@ -252,7 +249,7 @@ impl ErasedLoadedAsset {
     /// Cast this loaded asset as the given type. If the type does not match,
     /// the original type-erased asset is returned.
     #[allow(clippy::result_large_err)]
-    pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
+    pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, Self> {
         match self.value.downcast::<A>() {
             Ok(value) => Ok(LoadedAsset {
                 value: *value,

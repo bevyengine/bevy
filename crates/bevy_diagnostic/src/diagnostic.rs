@@ -24,15 +24,15 @@ impl DiagnosticPath {
     /// Create a new `DiagnosticPath`. Usable in const contexts.
     ///
     /// **Note**: path is not validated, so make sure it follows all the requirements.
-    pub const fn const_new(path: &'static str) -> DiagnosticPath {
-        DiagnosticPath {
+    pub const fn const_new(path: &'static str) -> Self {
+        Self {
             path: Cow::Borrowed(path),
             hash: fnv1a_hash_str_64(path),
         }
     }
 
     /// Create a new `DiagnosticPath` from the specified string.
-    pub fn new(path: impl Into<Cow<'static, str>>) -> DiagnosticPath {
+    pub fn new(path: impl Into<Cow<'static, str>>) -> Self {
         let path = path.into();
 
         debug_assert!(!path.is_empty(), "diagnostic path can't be empty");
@@ -49,24 +49,22 @@ impl DiagnosticPath {
             "diagnostic path can't contain empty components"
         );
 
-        DiagnosticPath {
+        Self {
             hash: fnv1a_hash_str_64(&path),
             path,
         }
     }
 
     /// Create a new `DiagnosticPath` from an iterator over components.
-    pub fn from_components<'a>(components: impl IntoIterator<Item = &'a str>) -> DiagnosticPath {
+    pub fn from_components<'a>(components: impl IntoIterator<Item = &'a str>) -> Self {
         let mut buf = String::new();
-
         for (i, component) in components.into_iter().enumerate() {
             if i > 0 {
                 buf.push('/');
             }
             buf.push_str(component);
         }
-
-        DiagnosticPath::new(buf)
+        Self::new(buf)
     }
 
     /// Returns full path, joined by `/`
@@ -165,8 +163,8 @@ impl Diagnostic {
     }
 
     /// Create a new diagnostic with the given path.
-    pub fn new(path: DiagnosticPath) -> Diagnostic {
-        Diagnostic {
+    pub fn new(path: DiagnosticPath) -> Self {
+        Self {
             path,
             suffix: Cow::Borrowed(""),
             history: VecDeque::with_capacity(DEFAULT_MAX_HISTORY_LENGTH),

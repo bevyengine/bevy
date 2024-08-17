@@ -251,10 +251,10 @@ impl Default for ClusterConfig {
 impl ClusterConfig {
     fn dimensions_for_screen_size(&self, screen_size: UVec2) -> UVec3 {
         match &self {
-            ClusterConfig::None => UVec3::ZERO,
-            ClusterConfig::Single => UVec3::ONE,
-            ClusterConfig::XYZ { dimensions, .. } => *dimensions,
-            ClusterConfig::FixedZ {
+            Self::None => UVec3::ZERO,
+            Self::Single => UVec3::ONE,
+            Self::XYZ { dimensions, .. } => *dimensions,
+            Self::FixedZ {
                 total, z_slices, ..
             } => {
                 let aspect_ratio: f32 =
@@ -288,8 +288,8 @@ impl ClusterConfig {
 
     fn first_slice_depth(&self) -> f32 {
         match self {
-            ClusterConfig::None | ClusterConfig::Single => 0.0,
-            ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
+            Self::None | Self::Single => 0.0,
+            Self::XYZ { z_config, .. } | Self::FixedZ { z_config, .. } => {
                 z_config.first_slice_depth
             }
         }
@@ -297,21 +297,19 @@ impl ClusterConfig {
 
     fn far_z_mode(&self) -> ClusterFarZMode {
         match self {
-            ClusterConfig::None => ClusterFarZMode::Constant(0.0),
-            ClusterConfig::Single => ClusterFarZMode::MaxClusterableObjectRange,
-            ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
-                z_config.far_z_mode
-            }
+            Self::None => ClusterFarZMode::Constant(0.0),
+            Self::Single => ClusterFarZMode::MaxClusterableObjectRange,
+            Self::XYZ { z_config, .. } | Self::FixedZ { z_config, .. } => z_config.far_z_mode,
         }
     }
 
     fn dynamic_resizing(&self) -> bool {
         match self {
-            ClusterConfig::None | ClusterConfig::Single => false,
-            ClusterConfig::XYZ {
+            Self::None | Self::Single => false,
+            Self::XYZ {
                 dynamic_resizing, ..
             }
-            | ClusterConfig::FixedZ {
+            | Self::FixedZ {
                 dynamic_resizing, ..
             } => *dynamic_resizing,
         }
@@ -431,7 +429,7 @@ impl GpuClusterableObjects {
 
     pub(crate) fn set(&mut self, mut clusterable_objects: Vec<GpuClusterableObject>) {
         match self {
-            GpuClusterableObjects::Uniform(buffer) => {
+            Self::Uniform(buffer) => {
                 let len = clusterable_objects
                     .len()
                     .min(MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS);
@@ -439,7 +437,7 @@ impl GpuClusterableObjects {
                 let dst = &mut buffer.get_mut().data[..len];
                 dst.copy_from_slice(src);
             }
-            GpuClusterableObjects::Storage(buffer) => {
+            Self::Storage(buffer) => {
                 buffer.get_mut().data.clear();
                 buffer.get_mut().data.append(&mut clusterable_objects);
             }
@@ -452,10 +450,10 @@ impl GpuClusterableObjects {
         render_queue: &RenderQueue,
     ) {
         match self {
-            GpuClusterableObjects::Uniform(buffer) => {
+            Self::Uniform(buffer) => {
                 buffer.write_buffer(render_device, render_queue);
             }
-            GpuClusterableObjects::Storage(buffer) => {
+            Self::Storage(buffer) => {
                 buffer.write_buffer(render_device, render_queue);
             }
         }
@@ -463,8 +461,8 @@ impl GpuClusterableObjects {
 
     pub fn binding(&self) -> Option<BindingResource> {
         match self {
-            GpuClusterableObjects::Uniform(buffer) => buffer.binding(),
-            GpuClusterableObjects::Storage(buffer) => buffer.binding(),
+            Self::Uniform(buffer) => buffer.binding(),
+            Self::Storage(buffer) => buffer.binding(),
         }
     }
 
@@ -775,14 +773,14 @@ impl ViewClusterBuffers {
     }
 
     fn uniform() -> Self {
-        ViewClusterBuffers::Uniform {
+        Self::Uniform {
             clusterable_object_index_lists: UniformBuffer::default(),
             cluster_offsets_and_counts: UniformBuffer::default(),
         }
     }
 
     fn storage() -> Self {
-        ViewClusterBuffers::Storage {
+        Self::Storage {
             clusterable_object_index_lists: StorageBuffer::default(),
             cluster_offsets_and_counts: StorageBuffer::default(),
         }

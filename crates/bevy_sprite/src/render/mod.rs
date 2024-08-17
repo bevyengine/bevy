@@ -122,7 +122,7 @@ impl FromWorld for SpritePipeline {
             }
         };
 
-        SpritePipeline {
+        Self {
             view_layout,
             material_layout,
             dummy_white_gpu_image,
@@ -175,9 +175,9 @@ impl SpritePipelineKey {
     #[inline]
     pub const fn from_hdr(hdr: bool) -> Self {
         if hdr {
-            SpritePipelineKey::HDR
+            Self::HDR
         } else {
-            SpritePipelineKey::NONE
+            Self::NONE
         }
     }
 }

@@ -33,7 +33,7 @@ pub struct TransformBundle {
 
 impl TransformBundle {
     /// An identity [`TransformBundle`] with no translation, rotation, and a scale of 1 on all axes.
-    pub const IDENTITY: Self = TransformBundle {
+    pub const IDENTITY: Self = Self {
         local: Transform::IDENTITY,
         global: GlobalTransform::IDENTITY,
     };
@@ -44,7 +44,7 @@ impl TransformBundle {
     /// [`bevy_app::PostUpdate`] schedule.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
-        TransformBundle {
+        Self {
             local: transform,
             ..Self::IDENTITY
         }

@@ -216,7 +216,7 @@ impl From<Srgba> for Hwba {
         let whiteness = x_min;
         let blackness = 1.0 - x_max;
 
-        Hwba {
+        Self {
             hue,
             whiteness,
             blackness,
@@ -258,7 +258,7 @@ impl From<Hwba> for Srgba {
             _ => unreachable!("i is bounded in [0, 6)"),
         };
 
-        Srgba::new(red, green, blue, alpha)
+        Self::new(red, green, blue, alpha)
     }
 }
 

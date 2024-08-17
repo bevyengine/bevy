@@ -37,7 +37,7 @@ impl Buffer {
 
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
-        Buffer {
+        Self {
             id: BufferId::new(),
             value: ErasedBuffer::new(value),
         }

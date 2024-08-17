@@ -64,7 +64,7 @@ impl Aabb3d {
     pub fn from_point_cloud(
         isometry: Isometry3d,
         points: impl Iterator<Item = impl Into<Vec3A>>,
-    ) -> Aabb3d {
+    ) -> Self {
         // Transform all points by rotation
         let mut iter = points.map(|point| isometry.rotation * point.into());
 
@@ -76,7 +76,7 @@ impl Aabb3d {
             (point.min(prev_min), point.max(prev_max))
         });
 
-        Aabb3d {
+        Self {
             min: min + isometry.translation,
             max: max + isometry.translation,
         }
@@ -475,10 +475,7 @@ impl BoundingSphere {
     ///
     /// The bounding sphere is not guaranteed to be the smallest possible.
     #[inline(always)]
-    pub fn from_point_cloud(
-        isometry: Isometry3d,
-        points: &[impl Copy + Into<Vec3A>],
-    ) -> BoundingSphere {
+    pub fn from_point_cloud(isometry: Isometry3d, points: &[impl Copy + Into<Vec3A>]) -> Self {
         let center = point_cloud_3d_center(points.iter().map(|v| Into::<Vec3A>::into(*v)));
         let mut radius_squared: f32 = 0.0;
 
@@ -490,7 +487,7 @@ impl BoundingSphere {
             }
         }
 
-        BoundingSphere::new(isometry * center, radius_squared.sqrt())
+        Self::new(isometry * center, radius_squared.sqrt())
     }
 
     /// Get the radius of the bounding sphere

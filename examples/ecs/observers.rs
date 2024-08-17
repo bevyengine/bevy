@@ -50,7 +50,7 @@ struct Mine {
 
 impl Mine {
     fn random(rand: &mut ChaCha8Rng) -> Self {
-        Mine {
+        Self {
             pos: Vec2::new(
                 (rand.gen::<f32>() - 0.5) * 1200.0,
                 (rand.gen::<f32>() - 0.5) * 600.0,

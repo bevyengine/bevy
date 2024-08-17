@@ -112,7 +112,7 @@ pub enum CircularMeshUvMode {
 
 impl Default for CircularMeshUvMode {
     fn default() -> Self {
-        CircularMeshUvMode::Mask { angle: 0.0 }
+        Self::Mask { angle: 0.0 }
     }
 }
 

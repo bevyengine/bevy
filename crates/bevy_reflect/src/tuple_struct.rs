@@ -296,7 +296,7 @@ impl TupleStruct for DynamicTupleStruct {
     }
 
     fn clone_dynamic(&self) -> DynamicTupleStruct {
-        DynamicTupleStruct {
+        Self {
             represented_type: self.represented_type,
             fields: self
                 .fields

@@ -19,14 +19,14 @@ pub struct SteppingPlugin {
 
 impl SteppingPlugin {
     /// add a schedule to be stepped when stepping is enabled
-    pub fn add_schedule(mut self, label: impl ScheduleLabel) -> SteppingPlugin {
+    pub fn add_schedule(mut self, label: impl ScheduleLabel) -> Self {
         self.schedule_labels.push(label.intern());
         self
     }
 
     /// Set the location of the stepping UI when activated
-    pub fn at(self, left: Val, top: Val) -> SteppingPlugin {
-        SteppingPlugin { top, left, ..self }
+    pub fn at(self, left: Val, top: Val) -> Self {
+        Self { top, left, ..self }
     }
 }
 

@@ -162,15 +162,15 @@ pub enum ReflectKind {
 impl std::fmt::Display for ReflectKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ReflectKind::Struct => f.pad("struct"),
-            ReflectKind::TupleStruct => f.pad("tuple struct"),
-            ReflectKind::Tuple => f.pad("tuple"),
-            ReflectKind::List => f.pad("list"),
-            ReflectKind::Array => f.pad("array"),
-            ReflectKind::Map => f.pad("map"),
-            ReflectKind::Set => f.pad("set"),
-            ReflectKind::Enum => f.pad("enum"),
-            ReflectKind::Value => f.pad("value"),
+            Self::Struct => f.pad("struct"),
+            Self::TupleStruct => f.pad("tuple struct"),
+            Self::Tuple => f.pad("tuple"),
+            Self::List => f.pad("list"),
+            Self::Array => f.pad("array"),
+            Self::Map => f.pad("map"),
+            Self::Set => f.pad("set"),
+            Self::Enum => f.pad("enum"),
+            Self::Value => f.pad("value"),
         }
     }
 }

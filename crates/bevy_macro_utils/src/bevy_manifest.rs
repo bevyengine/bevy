@@ -115,7 +115,7 @@ impl BevyManifest {
         self.maybe_get_path(BEVY)
             .map(|bevy_path| {
                 let mut segments = bevy_path.segments;
-                segments.push(BevyManifest::parse_str(subcrate));
+                segments.push(Self::parse_str(subcrate));
                 syn::Path {
                     leading_colon: None,
                     segments,

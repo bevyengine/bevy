@@ -142,8 +142,8 @@ struct Vertex {
 
 impl Vertex {
     /// Creates a new vertex structure.
-    const fn new(position: Vec3, color: Vec3) -> Vertex {
-        Vertex {
+    const fn new(position: Vec3, color: Vec3) -> Self {
+        Self {
             position,
             color,
             pad0: 0,
@@ -371,7 +371,7 @@ impl FromWorld for CustomPhaseItemBuffers {
         vbo.write_buffer(render_device, render_queue);
         ibo.write_buffer(render_device, render_queue);
 
-        CustomPhaseItemBuffers {
+        Self {
             vertices: vbo,
             indices: ibo,
         }
@@ -382,8 +382,7 @@ impl FromWorld for CustomPhasePipeline {
     fn from_world(world: &mut World) -> Self {
         // Load and compile the shader in the background.
         let asset_server = world.resource::<AssetServer>();
-
-        CustomPhasePipeline {
+        Self {
             shader: asset_server.load("shaders/custom_phase_item.wgsl"),
         }
     }

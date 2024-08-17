@@ -38,14 +38,14 @@ impl Edge {
     /// Returns the id of the `input_node`.
     pub fn get_input_node(&self) -> InternedRenderLabel {
         match self {
-            Edge::SlotEdge { input_node, .. } | Edge::NodeEdge { input_node, .. } => *input_node,
+            Self::SlotEdge { input_node, .. } | Self::NodeEdge { input_node, .. } => *input_node,
         }
     }
 
     /// Returns the id of the `output_node`.
     pub fn get_output_node(&self) -> InternedRenderLabel {
         match self {
-            Edge::SlotEdge { output_node, .. } | Edge::NodeEdge { output_node, .. } => *output_node,
+            Self::SlotEdge { output_node, .. } | Self::NodeEdge { output_node, .. } => *output_node,
         }
     }
 }

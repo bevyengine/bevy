@@ -60,21 +60,21 @@ pub struct ImagePlugin {
 
 impl Default for ImagePlugin {
     fn default() -> Self {
-        ImagePlugin::default_linear()
+        Self::default_linear()
     }
 }
 
 impl ImagePlugin {
     /// Creates image settings with linear sampling by default.
-    pub fn default_linear() -> ImagePlugin {
-        ImagePlugin {
+    pub fn default_linear() -> Self {
+        Self {
             default_sampler: ImageSamplerDescriptor::linear(),
         }
     }
 
     /// Creates image settings with nearest sampling by default.
-    pub fn default_nearest() -> ImagePlugin {
-        ImagePlugin {
+    pub fn default_nearest() -> Self {
+        Self {
             default_sampler: ImageSamplerDescriptor::nearest(),
         }
     }
@@ -172,6 +172,6 @@ pub trait BevyDefault {
 
 impl BevyDefault for wgpu::TextureFormat {
     fn bevy_default() -> Self {
-        wgpu::TextureFormat::Rgba8UnormSrgb
+        Self::Rgba8UnormSrgb
     }
 }

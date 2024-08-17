@@ -486,10 +486,8 @@ pub fn prepare_ssr_settings(
 }
 
 impl ExtractComponent for ScreenSpaceReflectionsSettings {
-    type QueryData = Read<ScreenSpaceReflectionsSettings>;
-
+    type QueryData = Read<Self>;
     type QueryFilter = ();
-
     type Out = ScreenSpaceReflectionsUniform;
 
     fn extract_component(settings: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {

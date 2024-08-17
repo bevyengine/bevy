@@ -501,7 +501,7 @@ impl RenderAsset for GpuLineGizmo {
             contents: color_buffer_data,
         });
 
-        Ok(GpuLineGizmo {
+        Ok(Self {
             position_buffer,
             color_buffer,
             vertex_count: gizmo.positions.len() as u32,

@@ -13,7 +13,7 @@ struct Clips {
 }
 impl Clips {
     fn new(clips: Vec<AnimationNodeIndex>) -> Self {
-        Clips {
+        Self {
             nodes: clips,
             current: 0,
         }

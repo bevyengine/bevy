@@ -25,13 +25,13 @@ impl InvalidDirectionError {
     /// Creates an [`InvalidDirectionError`] from the length of an invalid direction vector.
     pub fn from_length(length: f32) -> Self {
         if length.is_nan() {
-            InvalidDirectionError::NaN
+            Self::NaN
         } else if !length.is_finite() {
             // If the direction is non-finite but also not NaN, it must be infinite
-            InvalidDirectionError::Infinite
+            Self::Infinite
         } else {
             // If the direction is invalid but neither NaN nor infinite, it must be zero
-            InvalidDirectionError::Zero
+            Self::Zero
         }
     }
 }
@@ -472,7 +472,7 @@ impl Dir3 {
     #[inline]
     pub fn slerp(self, rhs: Self, s: f32) -> Self {
         let quat = Quat::IDENTITY.slerp(Quat::from_rotation_arc(self.0, rhs.0), s);
-        Dir3(quat.mul_vec3(self.0))
+        Self(quat.mul_vec3(self.0))
     }
 
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.
@@ -740,7 +740,7 @@ impl Dir3A {
             Quat::from_rotation_arc(Vec3::from(self.0), Vec3::from(rhs.0)),
             s,
         );
-        Dir3A(quat.mul_vec3a(self.0))
+        Self(quat.mul_vec3a(self.0))
     }
 
     /// Returns `self` after an approximate normalization, assuming the value is already nearly normalized.

@@ -87,12 +87,12 @@ impl Parse for NamedTypePathDef {
         if path.leading_colon.is_none() && custom_path.is_none() {
             if path.segments.len() == 1 {
                 let ident = path.segments.into_iter().next().unwrap().ident;
-                Ok(NamedTypePathDef::Primitive(ident))
+                Ok(Self::Primitive(ident))
             } else {
                 Err(input.error("non-customized paths must start with a double colon (`::`)"))
             }
         } else {
-            Ok(NamedTypePathDef::External {
+            Ok(Self::External {
                 path,
                 generics,
                 custom_path,

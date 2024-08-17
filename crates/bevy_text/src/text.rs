@@ -199,10 +199,10 @@ pub enum JustifyText {
 impl From<JustifyText> for cosmic_text::Align {
     fn from(justify: JustifyText) -> Self {
         match justify {
-            JustifyText::Left => cosmic_text::Align::Left,
-            JustifyText::Center => cosmic_text::Align::Center,
-            JustifyText::Right => cosmic_text::Align::Right,
-            JustifyText::Justified => cosmic_text::Align::Justified,
+            JustifyText::Left => Self::Left,
+            JustifyText::Center => Self::Center,
+            JustifyText::Right => Self::Right,
+            JustifyText::Justified => Self::Justified,
         }
     }
 }

@@ -67,7 +67,7 @@ pub struct DirectionalLight {
 
 impl Default for DirectionalLight {
     fn default() -> Self {
-        DirectionalLight {
+        Self {
             color: Color::WHITE,
             illuminance: light_consts::lux::AMBIENT_DAYLIGHT,
             shadows_enabled: false,

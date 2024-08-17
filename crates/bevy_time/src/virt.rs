@@ -258,7 +258,7 @@ impl Time<Virtual> {
 impl Default for Virtual {
     fn default() -> Self {
         Self {
-            max_delta: Time::<Virtual>::DEFAULT_MAX_DELTA,
+            max_delta: Time::<Self>::DEFAULT_MAX_DELTA,
             paused: false,
             relative_speed: 1.0,
             effective_speed: 1.0,

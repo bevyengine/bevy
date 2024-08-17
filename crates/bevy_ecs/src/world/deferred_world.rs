@@ -47,8 +47,8 @@ impl<'w> UnsafeWorldCell<'w> {
 }
 
 impl<'w> From<&'w mut World> for DeferredWorld<'w> {
-    fn from(world: &'w mut World) -> DeferredWorld<'w> {
-        DeferredWorld {
+    fn from(world: &'w mut World) -> Self {
+        Self {
             world: world.as_unsafe_world_cell(),
         }
     }
@@ -57,8 +57,8 @@ impl<'w> From<&'w mut World> for DeferredWorld<'w> {
 impl<'w> DeferredWorld<'w> {
     /// Reborrow self as a new instance of [`DeferredWorld`]
     #[inline]
-    pub fn reborrow(&mut self) -> DeferredWorld {
-        DeferredWorld { world: self.world }
+    pub fn reborrow(&mut self) -> Self {
+        Self { world: self.world }
     }
 
     /// Creates a [`Commands`] instance that pushes to the world's command queue

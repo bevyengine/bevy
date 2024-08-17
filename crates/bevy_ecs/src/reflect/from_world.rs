@@ -79,7 +79,7 @@ impl ReflectFromWorld {
 
 impl<B: Reflect + FromWorld> FromType<B> for ReflectFromWorld {
     fn from_type() -> Self {
-        ReflectFromWorld(ReflectFromWorldFns {
+        Self(ReflectFromWorldFns {
             from_world: |world| Box::new(B::from_world(world)),
         })
     }

@@ -190,7 +190,7 @@ impl FromWorld for ComputePipeline {
             shader_defs: Vec::new(),
             entry_point: "main".into(),
         });
-        ComputePipeline { layout, pipeline }
+        Self { layout, pipeline }
     }
 }
 

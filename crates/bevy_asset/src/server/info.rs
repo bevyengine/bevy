@@ -305,8 +305,8 @@ impl AssetInfos {
 
             fn next(&mut self) -> Option<Self::Item> {
                 match self {
-                    HandlesByPathIterator::None => None,
-                    HandlesByPathIterator::Some(iter) => iter.next(),
+                    Self::None => None,
+                    Self::Some(iter) => iter.next(),
                 }
             }
         }
@@ -531,7 +531,7 @@ impl AssetInfos {
 
     /// Recursively propagates loaded state up the dependency tree.
     fn propagate_loaded_state(
-        infos: &mut AssetInfos,
+        infos: &mut Self,
         loaded_id: UntypedAssetId,
         waiting_id: UntypedAssetId,
         sender: &Sender<InternalAssetEvent>,
@@ -564,7 +564,7 @@ impl AssetInfos {
 
     /// Recursively propagates failed state up the dependency tree
     fn propagate_failed_state(
-        infos: &mut AssetInfos,
+        infos: &mut Self,
         failed_id: UntypedAssetId,
         waiting_id: UntypedAssetId,
     ) {

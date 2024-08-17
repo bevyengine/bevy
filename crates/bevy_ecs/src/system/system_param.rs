@@ -534,6 +534,7 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 // SAFETY: this impl defers to `Res`, which initializes and validates the correct world access.
 unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     type State = ComponentId;
+    #[allow(clippy::use_self)] // False positive: https://github.com/rust-lang/rust-clippy/issues/13277
     type Item<'w, 's> = Option<Res<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -627,6 +628,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 // SAFETY: this impl defers to `ResMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     type State = ComponentId;
+    #[allow(clippy::use_self)] // False positive: https://github.com/rust-lang/rust-clippy/issues/13277
     type Item<'w, 's> = Option<ResMut<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1161,6 +1163,7 @@ unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSend<'_, T>> {}
 // SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
 unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     type State = ComponentId;
+    #[allow(clippy::use_self)] // False positive: https://github.com/rust-lang/rust-clippy/issues/13277
     type Item<'w, 's> = Option<NonSend<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1249,6 +1252,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 // SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     type State = ComponentId;
+    #[allow(clippy::use_self)] // False positive: https://github.com/rust-lang/rust-clippy/issues/13277
     type Item<'w, 's> = Option<NonSendMut<'w, T>>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1392,7 +1396,7 @@ unsafe impl ReadOnlySystemParam for SystemChangeTick {}
 // SAFETY: `SystemChangeTick` doesn't require any world access
 unsafe impl SystemParam for SystemChangeTick {
     type State = ();
-    type Item<'w, 's> = SystemChangeTick;
+    type Item<'w, 's> = Self;
 
     fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
@@ -1402,7 +1406,7 @@ unsafe impl SystemParam for SystemChangeTick {
         _world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        SystemChangeTick {
+        Self {
             last_run: system_meta.last_run,
             this_run: change_tick,
         }
@@ -1627,7 +1631,7 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
         _world: UnsafeWorldCell<'world>,
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        PhantomData
+        Self
     }
 }
 

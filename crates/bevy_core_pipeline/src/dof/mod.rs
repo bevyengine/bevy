@@ -474,8 +474,8 @@ impl DepthOfFieldSettings {
     ///
     /// All fields of the returned [`DepthOfFieldSettings`] other than
     /// `focal_length` and `aperture_f_stops` are set to their default values.
-    pub fn from_physical_camera(camera: &PhysicalCameraParameters) -> DepthOfFieldSettings {
-        DepthOfFieldSettings {
+    pub fn from_physical_camera(camera: &PhysicalCameraParameters) -> Self {
+        Self {
             sensor_height: camera.sensor_height,
             aperture_f_stops: camera.aperture_f_stops,
             ..default()
@@ -510,7 +510,7 @@ impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
             ..default()
         });
 
-        DepthOfFieldGlobalBindGroupLayout {
+        Self {
             color_texture_sampler: sampler,
             layout,
         }
@@ -846,7 +846,7 @@ impl DepthOfFieldPipelines {
     /// depth of field render passes.
     fn pipeline_render_info(&self) -> [DepthOfFieldPipelineRenderInfo; 2] {
         match *self {
-            DepthOfFieldPipelines::Gaussian {
+            Self::Gaussian {
                 horizontal: horizontal_pipeline,
                 vertical: vertical_pipeline,
             } => [
@@ -866,7 +866,7 @@ impl DepthOfFieldPipelines {
                 },
             ],
 
-            DepthOfFieldPipelines::Bokeh {
+            Self::Bokeh {
                 pass_0: pass_0_pipeline,
                 pass_1: pass_1_pipeline,
             } => [

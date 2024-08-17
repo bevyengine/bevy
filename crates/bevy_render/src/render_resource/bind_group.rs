@@ -36,7 +36,7 @@ impl BindGroup {
 
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
-        BindGroup {
+        Self {
             id: BindGroupId::new(),
             value: ErasedBindGroup::new(value),
         }
@@ -380,9 +380,9 @@ pub enum OwnedBindingResource {
 impl OwnedBindingResource {
     pub fn get_binding(&self) -> BindingResource {
         match self {
-            OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
-            OwnedBindingResource::TextureView(view) => BindingResource::TextureView(view),
-            OwnedBindingResource::Sampler(sampler) => BindingResource::Sampler(sampler),
+            Self::Buffer(buffer) => buffer.as_entire_binding(),
+            Self::TextureView(view) => BindingResource::TextureView(view),
+            Self::Sampler(sampler) => BindingResource::Sampler(sampler),
         }
     }
 }

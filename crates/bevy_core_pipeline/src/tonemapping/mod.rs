@@ -185,7 +185,7 @@ pub enum Tonemapping {
 
 impl Tonemapping {
     pub fn is_enabled(&self) -> bool {
-        *self != Tonemapping::None
+        *self != Self::None
     }
 }
 
@@ -331,7 +331,7 @@ impl FromWorld for TonemappingPipeline {
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        TonemappingPipeline {
+        Self {
             texture_bind_group: tonemap_texture_bind_group,
             sampler,
         }

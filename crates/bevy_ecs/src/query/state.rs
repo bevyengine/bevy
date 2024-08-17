@@ -1706,7 +1706,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
 impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D, F> {
     fn from(mut value: QueryBuilder<D, F>) -> Self {
-        QueryState::from_builder(&mut value)
+        Self::from_builder(&mut value)
     }
 }
 

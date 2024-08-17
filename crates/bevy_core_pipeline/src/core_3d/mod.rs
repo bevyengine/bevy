@@ -285,7 +285,7 @@ impl BinnedPhaseItem for Opaque3d {
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
-        Opaque3d {
+        Self {
             key,
             representative_entity,
             batch_range,

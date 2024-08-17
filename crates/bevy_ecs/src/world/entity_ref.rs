@@ -159,10 +159,10 @@ impl<'w> EntityRef<'w> {
 }
 
 impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
-    fn from(entity_mut: EntityWorldMut<'w>) -> EntityRef<'w> {
+    fn from(entity_mut: EntityWorldMut<'w>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityRef::new(entity_mut.into_unsafe_entity_cell()) }
+        unsafe { Self::new(entity_mut.into_unsafe_entity_cell()) }
     }
 }
 
@@ -171,7 +171,7 @@ impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
         // - `&value` ensures no mutable accesses are active.
-        unsafe { EntityRef::new(value.as_unsafe_entity_cell_readonly()) }
+        unsafe { Self::new(value.as_unsafe_entity_cell_readonly()) }
     }
 }
 
@@ -179,7 +179,7 @@ impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     fn from(value: EntityMut<'w>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        unsafe { EntityRef::new(value.0) }
+        unsafe { Self::new(value.0) }
     }
 }
 
@@ -188,7 +188,7 @@ impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all of the entity's components.
         // - `&value` ensures there are no mutable accesses.
-        unsafe { EntityRef::new(value.0) }
+        unsafe { Self::new(value.0) }
     }
 }
 
@@ -200,7 +200,7 @@ impl<'a> TryFrom<FilteredEntityRef<'a>> for EntityRef<'a> {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
             // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(value.entity) })
+            Ok(unsafe { Self::new(value.entity) })
         }
     }
 }
@@ -213,7 +213,7 @@ impl<'a> TryFrom<&'a FilteredEntityRef<'_>> for EntityRef<'a> {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
             // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(value.entity) })
+            Ok(unsafe { Self::new(value.entity) })
         }
     }
 }
@@ -226,7 +226,7 @@ impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityRef<'a> {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
             // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(value.entity) })
+            Ok(unsafe { Self::new(value.entity) })
         }
     }
 }
@@ -239,7 +239,7 @@ impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
             // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(value.entity) })
+            Ok(unsafe { Self::new(value.entity) })
         }
     }
 }

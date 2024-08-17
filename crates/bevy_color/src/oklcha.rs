@@ -262,10 +262,8 @@ impl From<Oklaba> for Oklcha {
     ) -> Self {
         let chroma = a.hypot(b);
         let hue = b.atan2(a).to_degrees();
-
         let hue = if hue < 0.0 { hue + 360.0 } else { hue };
-
-        Oklcha::new(lightness, chroma, hue, alpha)
+        Self::new(lightness, chroma, hue, alpha)
     }
 }
 
@@ -281,8 +279,7 @@ impl From<Oklcha> for Oklaba {
         let l = lightness;
         let a = chroma * hue.to_radians().cos();
         let b = chroma * hue.to_radians().sin();
-
-        Oklaba::new(l, a, b, alpha)
+        Self::new(l, a, b, alpha)
     }
 }
 

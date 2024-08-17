@@ -51,7 +51,7 @@ impl<A: Asset> TransformedAsset<A> {
     /// Creates a new [`TransformedAsset`] from `asset` if its internal value matches `A`.
     pub fn from_loaded(asset: ErasedLoadedAsset) -> Option<Self> {
         if let Ok(value) = asset.value.downcast::<A>() {
-            return Some(TransformedAsset {
+            return Some(Self {
                 value: *value,
                 labeled_assets: asset.labeled_assets,
             });

@@ -34,19 +34,19 @@ pub enum PointerId {
 impl PointerId {
     /// Returns true if the pointer is a touch input.
     pub fn is_touch(&self) -> bool {
-        matches!(self, PointerId::Touch(_))
+        matches!(self, Self::Touch(_))
     }
     /// Returns true if the pointer is the mouse.
     pub fn is_mouse(&self) -> bool {
-        matches!(self, PointerId::Mouse)
+        matches!(self, Self::Mouse)
     }
     /// Returns true if the pointer is a custom input.
     pub fn is_custom(&self) -> bool {
-        matches!(self, PointerId::Custom(_))
+        matches!(self, Self::Custom(_))
     }
     /// Returns the touch id if the pointer is a touch input.
     pub fn get_touch_id(&self) -> Option<u64> {
-        if let PointerId::Touch(id) = self {
+        if let Self::Touch(id) = self {
             Some(*id)
         } else {
             None
@@ -131,7 +131,7 @@ pub struct InputPress {
 
 impl InputPress {
     /// Create a new pointer button down event.
-    pub fn new_down(id: PointerId, button: PointerButton) -> InputPress {
+    pub fn new_down(id: PointerId, button: PointerButton) -> Self {
         Self {
             pointer_id: id,
             direction: PressDirection::Down,
@@ -140,7 +140,7 @@ impl InputPress {
     }
 
     /// Create a new pointer button up event.
-    pub fn new_up(id: PointerId, button: PointerButton) -> InputPress {
+    pub fn new_up(id: PointerId, button: PointerButton) -> Self {
         Self {
             pointer_id: id,
             direction: PressDirection::Up,
@@ -162,7 +162,7 @@ impl InputPress {
 
     /// Receives [`InputPress`] events and updates corresponding [`PointerPress`] components.
     pub fn receive(
-        mut events: EventReader<InputPress>,
+        mut events: EventReader<Self>,
         mut pointers: Query<(&PointerId, &mut PointerPress)>,
     ) {
         for input_press_event in events.read() {
@@ -202,7 +202,7 @@ pub enum PointerButton {
 
 impl PointerButton {
     /// Iterator over all buttons that a pointer can have.
-    pub fn iter() -> impl Iterator<Item = PointerButton> {
+    pub fn iter() -> impl Iterator<Item = Self> {
         [Self::Primary, Self::Secondary, Self::Middle].into_iter()
     }
 }
@@ -238,7 +238,7 @@ pub struct InputMove {
 
 impl InputMove {
     /// Create a new [`InputMove`] event.
-    pub fn new(id: PointerId, location: Location, delta: Vec2) -> InputMove {
+    pub fn new(id: PointerId, location: Location, delta: Vec2) -> Self {
         Self {
             pointer_id: id,
             location,
@@ -248,7 +248,7 @@ impl InputMove {
 
     /// Receives [`InputMove`] events and updates corresponding [`PointerLocation`] components.
     pub fn receive(
-        mut events: EventReader<InputMove>,
+        mut events: EventReader<Self>,
         mut pointers: Query<(&PointerId, &mut PointerLocation)>,
     ) {
         for event_pointer in events.read() {

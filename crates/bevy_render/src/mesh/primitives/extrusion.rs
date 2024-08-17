@@ -51,8 +51,8 @@ impl PerimeterSegment {
     /// A layer is the set of vertices sharing a common Z value or depth.
     fn vertices_per_layer(&self) -> u32 {
         match self {
-            PerimeterSegment::Smooth { indices, .. } => indices.len() as u32,
-            PerimeterSegment::Flat { indices } => 2 * (indices.len() as u32 - 1),
+            Self::Smooth { indices, .. } => indices.len() as u32,
+            Self::Flat { indices } => 2 * (indices.len() as u32 - 1),
         }
     }
 
@@ -61,9 +61,7 @@ impl PerimeterSegment {
     /// A segment is the set of faces on the mantel of the extrusion between two layers of vertices.
     fn indices_per_segment(&self) -> usize {
         match self {
-            PerimeterSegment::Smooth { indices, .. } | PerimeterSegment::Flat { indices } => {
-                6 * (indices.len() - 1)
-            }
+            Self::Smooth { indices, .. } | Self::Flat { indices } => 6 * (indices.len() - 1),
         }
     }
 }

@@ -285,7 +285,7 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
 
         let mesh_pipeline = world.resource::<MeshPipeline>();
 
-        PrepassPipeline {
+        Self {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
             mesh_layouts: mesh_pipeline.mesh_layouts.clone(),

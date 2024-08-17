@@ -63,7 +63,7 @@ pub struct FpsOverlayConfig {
 
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
-        FpsOverlayConfig {
+        Self {
             text_config: TextStyle {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,

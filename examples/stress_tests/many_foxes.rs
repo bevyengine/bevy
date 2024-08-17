@@ -95,8 +95,8 @@ enum RotationDirection {
 impl RotationDirection {
     fn sign(&self) -> f32 {
         match self {
-            RotationDirection::CounterClockwise => 1.0,
-            RotationDirection::Clockwise => -1.0,
+            Self::CounterClockwise => 1.0,
+            Self::Clockwise => -1.0,
         }
     }
 }

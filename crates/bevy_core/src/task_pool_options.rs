@@ -51,7 +51,7 @@ pub struct TaskPoolOptions {
 
 impl Default for TaskPoolOptions {
     fn default() -> Self {
-        TaskPoolOptions {
+        Self {
             // By default, use however many cores are available on the system
             min_total_threads: 1,
             max_total_threads: usize::MAX,
@@ -83,7 +83,7 @@ impl Default for TaskPoolOptions {
 impl TaskPoolOptions {
     /// Create a configuration that forces using the given number of threads.
     pub fn with_num_threads(thread_count: usize) -> Self {
-        TaskPoolOptions {
+        Self {
             min_total_threads: thread_count,
             max_total_threads: thread_count,
             ..Default::default()

@@ -99,7 +99,7 @@ impl<T: NoUninit> RawBufferVec<T> {
         index
     }
 
-    pub fn append(&mut self, other: &mut RawBufferVec<T>) {
+    pub fn append(&mut self, other: &mut Self) {
         self.values.append(&mut other.values);
     }
 

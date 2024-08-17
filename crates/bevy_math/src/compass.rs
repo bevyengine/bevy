@@ -75,10 +75,10 @@ pub enum CompassOctant {
 impl From<CompassQuadrant> for Dir2 {
     fn from(q: CompassQuadrant) -> Self {
         match q {
-            CompassQuadrant::North => Dir2::NORTH,
-            CompassQuadrant::East => Dir2::EAST,
-            CompassQuadrant::South => Dir2::SOUTH,
-            CompassQuadrant::West => Dir2::WEST,
+            CompassQuadrant::North => Self::NORTH,
+            CompassQuadrant::East => Self::EAST,
+            CompassQuadrant::South => Self::SOUTH,
+            CompassQuadrant::West => Self::WEST,
         }
     }
 }
@@ -102,14 +102,14 @@ impl From<Dir2> for CompassQuadrant {
 impl From<CompassOctant> for Dir2 {
     fn from(o: CompassOctant) -> Self {
         match o {
-            CompassOctant::North => Dir2::NORTH,
-            CompassOctant::NorthEast => Dir2::NORTH_EAST,
-            CompassOctant::East => Dir2::EAST,
-            CompassOctant::SouthEast => Dir2::SOUTH_EAST,
-            CompassOctant::South => Dir2::SOUTH,
-            CompassOctant::SouthWest => Dir2::SOUTH_WEST,
-            CompassOctant::West => Dir2::WEST,
-            CompassOctant::NorthWest => Dir2::NORTH_WEST,
+            CompassOctant::North => Self::NORTH,
+            CompassOctant::NorthEast => Self::NORTH_EAST,
+            CompassOctant::East => Self::EAST,
+            CompassOctant::SouthEast => Self::SOUTH_EAST,
+            CompassOctant::South => Self::SOUTH,
+            CompassOctant::SouthWest => Self::SOUTH_WEST,
+            CompassOctant::West => Self::WEST,
+            CompassOctant::NorthWest => Self::NORTH_WEST,
         }
     }
 }

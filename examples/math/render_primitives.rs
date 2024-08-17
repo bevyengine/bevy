@@ -92,8 +92,8 @@ enum PrimitiveSelected {
 impl std::fmt::Display for PrimitiveSelected {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
-            PrimitiveSelected::RectangleAndCuboid => String::from("Rectangle/Cuboid"),
-            PrimitiveSelected::CircleAndSphere => String::from("Circle/Sphere"),
+            Self::RectangleAndCuboid => String::from("Rectangle/Cuboid"),
+            Self::CircleAndSphere => String::from("Circle/Sphere"),
             other => format!("{other:?}"),
         };
         write!(f, "{name}")

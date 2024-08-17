@@ -208,8 +208,8 @@ pub struct IndirectParametersBuffer(pub BufferVec<IndirectParameters>);
 
 impl IndirectParametersBuffer {
     /// Creates the indirect parameters buffer.
-    pub fn new() -> IndirectParametersBuffer {
-        IndirectParametersBuffer(BufferVec::new(
+    pub fn new() -> Self {
+        Self(BufferVec::new(
             BufferUsages::STORAGE | BufferUsages::INDIRECT,
         ))
     }
@@ -236,16 +236,16 @@ impl FromWorld for GpuPreprocessingSupport {
                 )
             })
         {
-            GpuPreprocessingSupport::None
+            Self::None
         } else if !device
             .features()
             .contains(Features::INDIRECT_FIRST_INSTANCE) ||
             !adapter.get_downlevel_capabilities().flags.contains(
         DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
         {
-            GpuPreprocessingSupport::PreprocessingOnly
+            Self::PreprocessingOnly
         } else {
-            GpuPreprocessingSupport::Culling
+            Self::Culling
         }
     }
 }
@@ -257,7 +257,7 @@ where
 {
     /// Creates new buffers.
     pub fn new() -> Self {
-        BatchedInstanceBuffers {
+        Self {
             data_buffer: UninitBufferVec::new(BufferUsages::STORAGE),
             work_item_buffers: EntityHashMap::default(),
             current_input_buffer: RawBufferVec::new(BufferUsages::STORAGE),

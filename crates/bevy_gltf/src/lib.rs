@@ -234,7 +234,7 @@ impl GltfNode {
     /// Create a node extracting name and index from glTF def
     pub fn new(
         node: &gltf::Node,
-        children: Vec<Handle<GltfNode>>,
+        children: Vec<Handle<Self>>,
         mesh: Option<Handle<GltfMesh>>,
         transform: bevy_transform::prelude::Transform,
         skin: Option<Handle<GltfSkin>>,
@@ -389,7 +389,7 @@ impl GltfPrimitive {
         extras: Option<GltfExtras>,
         material_extras: Option<GltfExtras>,
     ) -> Self {
-        GltfPrimitive {
+        Self {
             index: gltf_primitive.index(),
             parent_mesh_index: gltf_mesh.index(),
             name: {
@@ -527,17 +527,17 @@ pub enum GltfAssetLabel {
 impl std::fmt::Display for GltfAssetLabel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GltfAssetLabel::Scene(index) => f.write_str(&format!("Scene{index}")),
-            GltfAssetLabel::Node(index) => f.write_str(&format!("Node{index}")),
-            GltfAssetLabel::Mesh(index) => f.write_str(&format!("Mesh{index}")),
-            GltfAssetLabel::Primitive { mesh, primitive } => {
+            Self::Scene(index) => f.write_str(&format!("Scene{index}")),
+            Self::Node(index) => f.write_str(&format!("Node{index}")),
+            Self::Mesh(index) => f.write_str(&format!("Mesh{index}")),
+            Self::Primitive { mesh, primitive } => {
                 f.write_str(&format!("Mesh{mesh}/Primitive{primitive}"))
             }
-            GltfAssetLabel::MorphTarget { mesh, primitive } => {
+            Self::MorphTarget { mesh, primitive } => {
                 f.write_str(&format!("Mesh{mesh}/Primitive{primitive}/MorphTargets"))
             }
-            GltfAssetLabel::Texture(index) => f.write_str(&format!("Texture{index}")),
-            GltfAssetLabel::Material {
+            Self::Texture(index) => f.write_str(&format!("Texture{index}")),
+            Self::Material {
                 index,
                 is_scale_inverted,
             } => f.write_str(&format!(
@@ -548,10 +548,10 @@ impl std::fmt::Display for GltfAssetLabel {
                     ""
                 }
             )),
-            GltfAssetLabel::DefaultMaterial => f.write_str("DefaultMaterial"),
-            GltfAssetLabel::Animation(index) => f.write_str(&format!("Animation{index}")),
-            GltfAssetLabel::Skin(index) => f.write_str(&format!("Skin{index}")),
-            GltfAssetLabel::InverseBindMatrices(index) => {
+            Self::DefaultMaterial => f.write_str("DefaultMaterial"),
+            Self::Animation(index) => f.write_str(&format!("Animation{index}")),
+            Self::Skin(index) => f.write_str(&format!("Skin{index}")),
+            Self::InverseBindMatrices(index) => {
                 f.write_str(&format!("Skin{index}/InverseBindMatrices"))
             }
         }

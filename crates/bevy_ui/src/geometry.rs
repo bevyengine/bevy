@@ -102,17 +102,17 @@ impl Default for Val {
 }
 
 impl Mul<f32> for Val {
-    type Output = Val;
+    type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value * rhs),
-            Val::Percent(value) => Val::Percent(value * rhs),
-            Val::Vw(value) => Val::Vw(value * rhs),
-            Val::Vh(value) => Val::Vh(value * rhs),
-            Val::VMin(value) => Val::VMin(value * rhs),
-            Val::VMax(value) => Val::VMax(value * rhs),
+            Self::Auto => Self::Auto,
+            Self::Px(value) => Self::Px(value * rhs),
+            Self::Percent(value) => Self::Percent(value * rhs),
+            Self::Vw(value) => Self::Vw(value * rhs),
+            Self::Vh(value) => Self::Vh(value * rhs),
+            Self::VMin(value) => Self::VMin(value * rhs),
+            Self::VMax(value) => Self::VMax(value * rhs),
         }
     }
 }
@@ -120,29 +120,29 @@ impl Mul<f32> for Val {
 impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value *= rhs,
+            Self::Auto => {}
+            Self::Px(value)
+            | Self::Percent(value)
+            | Self::Vw(value)
+            | Self::Vh(value)
+            | Self::VMin(value)
+            | Self::VMax(value) => *value *= rhs,
         }
     }
 }
 
 impl Div<f32> for Val {
-    type Output = Val;
+    type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
         match self {
-            Val::Auto => Val::Auto,
-            Val::Px(value) => Val::Px(value / rhs),
-            Val::Percent(value) => Val::Percent(value / rhs),
-            Val::Vw(value) => Val::Vw(value / rhs),
-            Val::Vh(value) => Val::Vh(value / rhs),
-            Val::VMin(value) => Val::VMin(value / rhs),
-            Val::VMax(value) => Val::VMax(value / rhs),
+            Self::Auto => Self::Auto,
+            Self::Px(value) => Self::Px(value / rhs),
+            Self::Percent(value) => Self::Percent(value / rhs),
+            Self::Vw(value) => Self::Vw(value / rhs),
+            Self::Vh(value) => Self::Vh(value / rhs),
+            Self::VMin(value) => Self::VMin(value / rhs),
+            Self::VMax(value) => Self::VMax(value / rhs),
         }
     }
 }
@@ -150,28 +150,28 @@ impl Div<f32> for Val {
 impl DivAssign<f32> for Val {
     fn div_assign(&mut self, rhs: f32) {
         match self {
-            Val::Auto => {}
-            Val::Px(value)
-            | Val::Percent(value)
-            | Val::Vw(value)
-            | Val::Vh(value)
-            | Val::VMin(value)
-            | Val::VMax(value) => *value /= rhs,
+            Self::Auto => {}
+            Self::Px(value)
+            | Self::Percent(value)
+            | Self::Vw(value)
+            | Self::Vh(value)
+            | Self::VMin(value)
+            | Self::VMax(value) => *value /= rhs,
         }
     }
 }
 
 impl Neg for Val {
-    type Output = Val;
+    type Output = Self;
 
     fn neg(self) -> Self::Output {
         match self {
-            Val::Px(value) => Val::Px(-value),
-            Val::Percent(value) => Val::Percent(-value),
-            Val::Vw(value) => Val::Vw(-value),
-            Val::Vh(value) => Val::Vh(-value),
-            Val::VMin(value) => Val::VMin(-value),
-            Val::VMax(value) => Val::VMax(-value),
+            Self::Px(value) => Self::Px(-value),
+            Self::Percent(value) => Self::Percent(-value),
+            Self::Vw(value) => Self::Vw(-value),
+            Self::Vh(value) => Self::Vh(-value),
+            Self::VMin(value) => Self::VMin(-value),
+            Self::VMax(value) => Self::VMax(-value),
             _ => self,
         }
     }
@@ -192,13 +192,13 @@ impl Val {
     /// **Note:** If a [`Val::Px`] is resolved, its inner value is returned unchanged.
     pub fn resolve(self, parent_size: f32, viewport_size: Vec2) -> Result<f32, ValArithmeticError> {
         match self {
-            Val::Percent(value) => Ok(parent_size * value / 100.0),
-            Val::Px(value) => Ok(value),
-            Val::Vw(value) => Ok(viewport_size.x * value / 100.0),
-            Val::Vh(value) => Ok(viewport_size.y * value / 100.0),
-            Val::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
-            Val::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
-            Val::Auto => Err(ValArithmeticError::NonEvaluateable),
+            Self::Percent(value) => Ok(parent_size * value / 100.0),
+            Self::Px(value) => Ok(value),
+            Self::Vw(value) => Ok(viewport_size.x * value / 100.0),
+            Self::Vh(value) => Ok(viewport_size.y * value / 100.0),
+            Self::VMin(value) => Ok(viewport_size.min_element() * value / 100.0),
+            Self::VMax(value) => Ok(viewport_size.max_element() * value / 100.0),
+            Self::Auto => Err(ValArithmeticError::NonEvaluateable),
         }
     }
 }
@@ -301,7 +301,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(40.0));
     /// ```
     pub const fn new(left: Val, right: Val, top: Val, bottom: Val) -> Self {
-        UiRect {
+        Self {
             left,
             right,
             top,
@@ -324,7 +324,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub const fn all(value: Val) -> Self {
-        UiRect {
+        Self {
             left: value,
             right: value,
             top: value,
@@ -348,7 +348,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(40.));
     /// ```
     pub const fn px(left: f32, right: f32, top: f32, bottom: f32) -> Self {
-        UiRect {
+        Self {
             left: Val::Px(left),
             right: Val::Px(right),
             top: Val::Px(top),
@@ -372,7 +372,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Percent(1.));
     /// ```
     pub const fn percent(left: f32, right: f32, top: f32, bottom: f32) -> Self {
-        UiRect {
+        Self {
             left: Val::Percent(left),
             right: Val::Percent(right),
             top: Val::Percent(top),
@@ -396,7 +396,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn horizontal(value: Val) -> Self {
-        UiRect {
+        Self {
             left: value,
             right: value,
             ..Default::default()
@@ -419,7 +419,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn vertical(value: Val) -> Self {
-        UiRect {
+        Self {
             top: value,
             bottom: value,
             ..Default::default()
@@ -441,7 +441,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
     /// ```
     pub fn axes(horizontal: Val, vertical: Val) -> Self {
-        UiRect {
+        Self {
             left: horizontal,
             right: horizontal,
             top: vertical,
@@ -465,7 +465,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn left(value: Val) -> Self {
-        UiRect {
+        Self {
             left: value,
             ..Default::default()
         }
@@ -487,7 +487,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn right(value: Val) -> Self {
-        UiRect {
+        Self {
             right: value,
             ..Default::default()
         }
@@ -509,7 +509,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn top(value: Val) -> Self {
-        UiRect {
+        Self {
             top: value,
             ..Default::default()
         }
@@ -531,7 +531,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     pub fn bottom(value: Val) -> Self {
-        UiRect {
+        Self {
             bottom: value,
             ..Default::default()
         }

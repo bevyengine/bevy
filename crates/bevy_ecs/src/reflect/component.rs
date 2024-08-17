@@ -258,7 +258,7 @@ impl ReflectComponent {
 
 impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
-        ReflectComponent(ReflectComponentFns {
+        Self(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
                 let component = entity.world_scope(|world| {
                     from_reflect_with_fallback::<C>(reflected_component, world, registry)

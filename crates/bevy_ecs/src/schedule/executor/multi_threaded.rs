@@ -748,7 +748,7 @@ impl Default for MainThreadExecutor {
 impl MainThreadExecutor {
     /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
-        MainThreadExecutor(TaskPool::get_thread_executor())
+        Self(TaskPool::get_thread_executor())
     }
 }
 

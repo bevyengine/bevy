@@ -258,7 +258,7 @@ impl FromWorld for VolumetricFogPipeline {
             render_device.create_bind_group_layout(&*description, &bind_group_layout_entries)
         });
 
-        VolumetricFogPipeline {
+        Self {
             mesh_view_layouts: mesh_view_layouts.clone(),
             volumetric_view_bind_group_layouts: bind_group_layouts,
         }
@@ -804,9 +804,9 @@ impl VolumetricFogBindGroupLayoutKey {
             "volumetric lighting view bind group layout ({})",
             self.iter()
                 .filter_map(|flag| {
-                    if flag == VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE {
+                    if flag == Self::DENSITY_TEXTURE {
                         Some("density texture")
-                    } else if flag == VolumetricFogBindGroupLayoutKey::MULTISAMPLED {
+                    } else if flag == Self::MULTISAMPLED {
                         Some("multisampled")
                     } else {
                         None

@@ -63,15 +63,15 @@ impl<A: Asset> AssetId<A> {
     #[inline]
     pub(crate) fn internal(self) -> InternalAssetId {
         match self {
-            AssetId::Index { index, .. } => InternalAssetId::Index(index),
-            AssetId::Uuid { uuid } => InternalAssetId::Uuid(uuid),
+            Self::Index { index, .. } => InternalAssetId::Index(index),
+            Self::Uuid { uuid } => InternalAssetId::Uuid(uuid),
         }
     }
 }
 
 impl<A: Asset> Default for AssetId<A> {
     fn default() -> Self {
-        AssetId::Uuid {
+        Self::Uuid {
             uuid: Self::DEFAULT_UUID,
         }
     }
@@ -94,7 +94,7 @@ impl<A: Asset> Display for AssetId<A> {
 impl<A: Asset> Debug for AssetId<A> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AssetId::Index { index, .. } => {
+            Self::Index { index, .. } => {
                 write!(
                     f,
                     "AssetId<{}>{{ index: {}, generation: {}}}",
@@ -103,7 +103,7 @@ impl<A: Asset> Debug for AssetId<A> {
                     index.generation
                 )
             }
-            AssetId::Uuid { uuid } => {
+            Self::Uuid { uuid } => {
                 write!(
                     f,
                     "AssetId<{}>{{uuid: {}}}",
@@ -186,11 +186,11 @@ impl UntypedAssetId {
     #[inline]
     pub fn typed_unchecked<A: Asset>(self) -> AssetId<A> {
         match self {
-            UntypedAssetId::Index { index, .. } => AssetId::Index {
+            Self::Index { index, .. } => AssetId::Index {
                 index,
                 marker: PhantomData,
             },
-            UntypedAssetId::Uuid { uuid, .. } => AssetId::Uuid { uuid },
+            Self::Uuid { uuid, .. } => AssetId::Uuid { uuid },
         }
     }
 
@@ -238,17 +238,15 @@ impl UntypedAssetId {
     #[inline]
     pub fn type_id(&self) -> TypeId {
         match self {
-            UntypedAssetId::Index { type_id, .. } | UntypedAssetId::Uuid { type_id, .. } => {
-                *type_id
-            }
+            Self::Index { type_id, .. } | Self::Uuid { type_id, .. } => *type_id,
         }
     }
 
     #[inline]
     pub(crate) fn internal(self) -> InternalAssetId {
         match self {
-            UntypedAssetId::Index { index, .. } => InternalAssetId::Index(index),
-            UntypedAssetId::Uuid { uuid, .. } => InternalAssetId::Uuid(uuid),
+            Self::Index { index, .. } => InternalAssetId::Index(index),
+            Self::Uuid { uuid, .. } => InternalAssetId::Uuid(uuid),
         }
     }
 }
@@ -257,13 +255,13 @@ impl Display for UntypedAssetId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut writer = f.debug_struct("UntypedAssetId");
         match self {
-            UntypedAssetId::Index { index, type_id } => {
+            Self::Index { index, type_id } => {
                 writer
                     .field("type_id", type_id)
                     .field("index", &index.index)
                     .field("generation", &index.generation);
             }
-            UntypedAssetId::Uuid { uuid, type_id } => {
+            Self::Uuid { uuid, type_id } => {
                 writer.field("type_id", type_id).field("uuid", uuid);
             }
         }
@@ -319,19 +317,19 @@ impl InternalAssetId {
     #[inline]
     pub(crate) fn typed<A: Asset>(self) -> AssetId<A> {
         match self {
-            InternalAssetId::Index(index) => AssetId::Index {
+            Self::Index(index) => AssetId::Index {
                 index,
                 marker: PhantomData,
             },
-            InternalAssetId::Uuid(uuid) => AssetId::Uuid { uuid },
+            Self::Uuid(uuid) => AssetId::Uuid { uuid },
         }
     }
 
     #[inline]
     pub(crate) fn untyped(self, type_id: TypeId) -> UntypedAssetId {
         match self {
-            InternalAssetId::Index(index) => UntypedAssetId::Index { index, type_id },
-            InternalAssetId::Uuid(uuid) => UntypedAssetId::Uuid { uuid, type_id },
+            Self::Index(index) => UntypedAssetId::Index { index, type_id },
+            Self::Uuid(uuid) => UntypedAssetId::Uuid { uuid, type_id },
         }
     }
 }
@@ -388,8 +386,8 @@ impl<A: Asset> From<AssetId<A>> for UntypedAssetId {
         let type_id = TypeId::of::<A>();
 
         match value {
-            AssetId::Index { index, .. } => UntypedAssetId::Index { type_id, index },
-            AssetId::Uuid { uuid } => UntypedAssetId::Uuid { type_id, uuid },
+            AssetId::Index { index, .. } => Self::Index { type_id, index },
+            AssetId::Uuid { uuid } => Self::Uuid { type_id, uuid },
         }
     }
 }
@@ -403,12 +401,12 @@ impl<A: Asset> TryFrom<UntypedAssetId> for AssetId<A> {
         let expected = TypeId::of::<A>();
 
         match value {
-            UntypedAssetId::Index { index, type_id } if type_id == expected => Ok(AssetId::Index {
+            UntypedAssetId::Index { index, type_id } if type_id == expected => Ok(Self::Index {
                 index,
                 marker: PhantomData,
             }),
             UntypedAssetId::Uuid { uuid, type_id } if type_id == expected => {
-                Ok(AssetId::Uuid { uuid })
+                Ok(Self::Uuid { uuid })
             }
             _ => Err(UntypedAssetIdConversionError::TypeIdMismatch { expected, found }),
         }

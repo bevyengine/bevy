@@ -26,35 +26,35 @@ impl SlotValue {
     /// Returns the [`SlotType`] of this value.
     pub fn slot_type(&self) -> SlotType {
         match self {
-            SlotValue::Buffer(_) => SlotType::Buffer,
-            SlotValue::TextureView(_) => SlotType::TextureView,
-            SlotValue::Sampler(_) => SlotType::Sampler,
-            SlotValue::Entity(_) => SlotType::Entity,
+            Self::Buffer(_) => SlotType::Buffer,
+            Self::TextureView(_) => SlotType::TextureView,
+            Self::Sampler(_) => SlotType::Sampler,
+            Self::Entity(_) => SlotType::Entity,
         }
     }
 }
 
 impl From<Buffer> for SlotValue {
     fn from(value: Buffer) -> Self {
-        SlotValue::Buffer(value)
+        Self::Buffer(value)
     }
 }
 
 impl From<TextureView> for SlotValue {
     fn from(value: TextureView) -> Self {
-        SlotValue::TextureView(value)
+        Self::TextureView(value)
     }
 }
 
 impl From<Sampler> for SlotValue {
     fn from(value: Sampler) -> Self {
-        SlotValue::Sampler(value)
+        Self::Sampler(value)
     }
 }
 
 impl From<Entity> for SlotValue {
     fn from(value: Entity) -> Self {
-        SlotValue::Entity(value)
+        Self::Entity(value)
     }
 }
 
@@ -77,10 +77,10 @@ pub enum SlotType {
 impl fmt::Display for SlotType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            SlotType::Buffer => "Buffer",
-            SlotType::TextureView => "TextureView",
-            SlotType::Sampler => "Sampler",
-            SlotType::Entity => "Entity",
+            Self::Buffer => "Buffer",
+            Self::TextureView => "TextureView",
+            Self::Sampler => "Sampler",
+            Self::Entity => "Entity",
         };
 
         f.write_str(s)
@@ -95,33 +95,33 @@ pub enum SlotLabel {
     Name(Cow<'static, str>),
 }
 
-impl From<&SlotLabel> for SlotLabel {
-    fn from(value: &SlotLabel) -> Self {
+impl From<&Self> for SlotLabel {
+    fn from(value: &Self) -> Self {
         value.clone()
     }
 }
 
 impl From<String> for SlotLabel {
     fn from(value: String) -> Self {
-        SlotLabel::Name(value.into())
+        Self::Name(value.into())
     }
 }
 
 impl From<&'static str> for SlotLabel {
     fn from(value: &'static str) -> Self {
-        SlotLabel::Name(value.into())
+        Self::Name(value.into())
     }
 }
 
 impl From<Cow<'static, str>> for SlotLabel {
     fn from(value: Cow<'static, str>) -> Self {
-        SlotLabel::Name(value)
+        Self::Name(value)
     }
 }
 
 impl From<usize> for SlotLabel {
     fn from(value: usize) -> Self {
-        SlotLabel::Index(value)
+        Self::Index(value)
     }
 }
 
@@ -134,7 +134,7 @@ pub struct SlotInfo {
 
 impl SlotInfo {
     pub fn new(name: impl Into<Cow<'static, str>>, slot_type: SlotType) -> Self {
-        SlotInfo {
+        Self {
             name: name.into(),
             slot_type,
         }
@@ -150,7 +150,7 @@ pub struct SlotInfos {
 
 impl<T: IntoIterator<Item = SlotInfo>> From<T> for SlotInfos {
     fn from(slots: T) -> Self {
-        SlotInfos {
+        Self {
             slots: slots.into_iter().collect(),
         }
     }

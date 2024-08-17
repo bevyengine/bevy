@@ -31,7 +31,7 @@ where
 {
     /// Creates a new buffer.
     pub fn new(render_device: &RenderDevice) -> Self {
-        BatchedInstanceBuffer(GpuArrayBuffer::new(render_device))
+        Self(GpuArrayBuffer::new(render_device))
     }
 
     /// Returns the binding of the buffer that contains the per-instance data.

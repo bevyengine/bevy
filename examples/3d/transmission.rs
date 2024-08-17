@@ -405,7 +405,7 @@ struct ExampleDisplay;
 
 impl Default for ExampleState {
     fn default() -> Self {
-        ExampleState {
+        Self {
             diffuse_transmission: 0.5,
             specular_transmission: 0.9,
             thickness: 1.8,

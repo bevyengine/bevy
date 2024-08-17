@@ -33,15 +33,13 @@ impl Parse for AllTuples {
         while input.parse::<Comma>().is_ok() {
             idents.push(input.parse::<Ident>()?);
         }
-
         if start > 1 && fake_variadic {
             return Err(Error::new(
                 input.span(),
                 "#[doc(fake_variadic)] only works when the tuple with length one is included",
             ));
         }
-
-        Ok(AllTuples {
+        Ok(Self {
             fake_variadic,
             macro_ident,
             start,

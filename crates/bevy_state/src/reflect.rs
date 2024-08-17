@@ -38,7 +38,7 @@ impl ReflectState {
 
 impl<S: States + Reflect> FromType<S> for ReflectState {
     fn from_type() -> Self {
-        ReflectState(ReflectStateFns {
+        Self(ReflectStateFns {
             reflect: |world| {
                 world
                     .get_resource::<State<S>>()
@@ -82,7 +82,7 @@ impl ReflectFreelyMutableState {
 
 impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMutableState {
     fn from_type() -> Self {
-        ReflectFreelyMutableState(ReflectFreelyMutableStateFns {
+        Self(ReflectFreelyMutableStateFns {
             set_next_state: |world, reflected_state, registry| {
                 let new_state: S = from_reflect_with_fallback(
                     reflected_state.as_partial_reflect(),

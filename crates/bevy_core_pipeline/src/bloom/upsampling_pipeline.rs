@@ -37,7 +37,6 @@ pub struct BloomUpsamplingPipelineKeys {
 impl FromWorld for BloomUpsamplingPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-
         let bind_group_layout = render_device.create_bind_group_layout(
             "bloom_upsampling_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
@@ -52,8 +51,7 @@ impl FromWorld for BloomUpsamplingPipeline {
                 ),
             ),
         );
-
-        BloomUpsamplingPipeline { bind_group_layout }
+        Self { bind_group_layout }
     }
 }
 

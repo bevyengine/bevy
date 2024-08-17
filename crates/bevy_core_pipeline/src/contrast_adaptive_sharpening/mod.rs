@@ -56,7 +56,7 @@ pub struct ContrastAdaptiveSharpeningSettings {
 
 impl Default for ContrastAdaptiveSharpeningSettings {
     fn default() -> Self {
-        ContrastAdaptiveSharpeningSettings {
+        Self {
             enabled: true,
             sharpening_strength: 0.6,
             denoise: false,
@@ -191,7 +191,7 @@ impl FromWorld for CasPipeline {
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        CasPipeline {
+        Self {
             texture_bind_group,
             sampler,
         }

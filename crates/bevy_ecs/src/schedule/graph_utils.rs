@@ -21,18 +21,18 @@ impl NodeId {
     /// Returns the internal integer value.
     pub(crate) fn index(&self) -> usize {
         match self {
-            NodeId::System(index) | NodeId::Set(index) => *index,
+            Self::System(index) | Self::Set(index) => *index,
         }
     }
 
     /// Returns `true` if the identified node is a system.
     pub const fn is_system(&self) -> bool {
-        matches!(self, NodeId::System(_))
+        matches!(self, Self::System(_))
     }
 
     /// Returns `true` if the identified node is a system set.
     pub const fn is_set(&self) -> bool {
-        matches!(self, NodeId::Set(_))
+        matches!(self, Self::Set(_))
     }
 }
 

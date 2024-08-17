@@ -50,11 +50,11 @@ pub enum NodeMeasure {
 impl Measure for NodeMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
         match self {
-            NodeMeasure::Fixed(fixed) => fixed.measure(measure_args, style),
+            Self::Fixed(fixed) => fixed.measure(measure_args, style),
             #[cfg(feature = "bevy_text")]
-            NodeMeasure::Text(text) => text.measure(measure_args, style),
-            NodeMeasure::Image(image) => image.measure(measure_args, style),
-            NodeMeasure::Custom(custom) => custom.measure(measure_args, style),
+            Self::Text(text) => text.measure(measure_args, style),
+            Self::Image(image) => image.measure(measure_args, style),
+            Self::Custom(custom) => custom.measure(measure_args, style),
         }
     }
 }
@@ -89,7 +89,7 @@ impl ContentSize {
     }
 
     /// Creates a `ContentSize` with a `Measure` that always returns given `size` argument, regardless of the UI layout's constraints.
-    pub fn fixed_size(size: Vec2) -> ContentSize {
+    pub fn fixed_size(size: Vec2) -> Self {
         let mut content_size = Self::default();
         content_size.set(NodeMeasure::Fixed(FixedMeasure { size }));
         content_size

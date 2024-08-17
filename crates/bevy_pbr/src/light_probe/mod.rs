@@ -306,7 +306,7 @@ pub struct EnvironmentMapUniform {
 
 impl Default for EnvironmentMapUniform {
     fn default() -> Self {
-        EnvironmentMapUniform {
+        Self {
             transform: Mat4::IDENTITY,
         }
     }
@@ -583,8 +583,8 @@ where
     fn new(
         (light_probe_transform, environment_map): (&GlobalTransform, &C),
         image_assets: &RenderAssets<GpuImage>,
-    ) -> Option<LightProbeInfo<C>> {
-        environment_map.id(image_assets).map(|id| LightProbeInfo {
+    ) -> Option<Self> {
+        environment_map.id(image_assets).map(|id| Self {
             world_from_light: light_probe_transform.affine(),
             light_from_world: light_probe_transform.compute_matrix().inverse(),
             asset_id: id,
@@ -621,8 +621,8 @@ where
     C: LightProbeComponent,
 {
     /// Creates a new empty list of light probes.
-    fn new() -> RenderViewLightProbes<C> {
-        RenderViewLightProbes {
+    fn new() -> Self {
+        Self {
             binding_index_to_textures: vec![],
             cubemap_to_binding_index: HashMap::new(),
             render_light_probes: vec![],

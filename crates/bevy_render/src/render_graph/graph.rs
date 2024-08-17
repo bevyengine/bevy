@@ -527,14 +527,14 @@ impl RenderGraph {
     }
 
     /// Returns an iterator over the sub graphs.
-    pub fn iter_sub_graphs(&self) -> impl Iterator<Item = (InternedRenderSubGraph, &RenderGraph)> {
+    pub fn iter_sub_graphs(&self) -> impl Iterator<Item = (InternedRenderSubGraph, &Self)> {
         self.sub_graphs.iter().map(|(name, graph)| (*name, graph))
     }
 
     /// Returns an iterator over the sub graphs, that allows modifying each value.
     pub fn iter_sub_graphs_mut(
         &mut self,
-    ) -> impl Iterator<Item = (InternedRenderSubGraph, &mut RenderGraph)> {
+    ) -> impl Iterator<Item = (InternedRenderSubGraph, &mut Self)> {
         self.sub_graphs
             .iter_mut()
             .map(|(name, graph)| (*name, graph))
@@ -572,7 +572,7 @@ impl RenderGraph {
 
     /// Adds the `sub_graph` with the `label` to the graph.
     /// If the label is already present replaces it instead.
-    pub fn add_sub_graph(&mut self, label: impl RenderSubGraph, sub_graph: RenderGraph) {
+    pub fn add_sub_graph(&mut self, label: impl RenderSubGraph, sub_graph: Self) {
         self.sub_graphs.insert(label.intern(), sub_graph);
     }
 
@@ -583,12 +583,12 @@ impl RenderGraph {
     }
 
     /// Retrieves the sub graph corresponding to the `label`.
-    pub fn get_sub_graph(&self, label: impl RenderSubGraph) -> Option<&RenderGraph> {
+    pub fn get_sub_graph(&self, label: impl RenderSubGraph) -> Option<&Self> {
         self.sub_graphs.get(&label.intern())
     }
 
     /// Retrieves the sub graph corresponding to the `label` mutably.
-    pub fn get_sub_graph_mut(&mut self, label: impl RenderSubGraph) -> Option<&mut RenderGraph> {
+    pub fn get_sub_graph_mut(&mut self, label: impl RenderSubGraph) -> Option<&mut Self> {
         self.sub_graphs.get_mut(&label.intern())
     }
 
@@ -601,7 +601,7 @@ impl RenderGraph {
     /// # See also
     ///
     /// - [`get_sub_graph`](Self::get_sub_graph) for a fallible version.
-    pub fn sub_graph(&self, label: impl RenderSubGraph) -> &RenderGraph {
+    pub fn sub_graph(&self, label: impl RenderSubGraph) -> &Self {
         let label = label.intern();
         self.sub_graphs
             .get(&label)
@@ -617,7 +617,7 @@ impl RenderGraph {
     /// # See also
     ///
     /// - [`get_sub_graph_mut`](Self::get_sub_graph_mut) for a fallible version.
-    pub fn sub_graph_mut(&mut self, label: impl RenderSubGraph) -> &mut RenderGraph {
+    pub fn sub_graph_mut(&mut self, label: impl RenderSubGraph) -> &mut Self {
         let label = label.intern();
         self.sub_graphs
             .get_mut(&label)
@@ -694,7 +694,7 @@ mod tests {
 
     impl TestNode {
         pub fn new(inputs: usize, outputs: usize) -> Self {
-            TestNode {
+            Self {
                 inputs: (0..inputs)
                     .map(|i| SlotInfo::new(format!("in_{i}"), SlotType::TextureView))
                     .collect(),

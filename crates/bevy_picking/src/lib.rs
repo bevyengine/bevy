@@ -139,7 +139,7 @@ pub struct PointerBundle {
 impl PointerBundle {
     /// Create a new pointer with the provided [`PointerId`](pointer::PointerId).
     pub fn new(id: pointer::PointerId) -> Self {
-        PointerBundle {
+        Self {
             id,
             location: pointer::PointerLocation::default(),
             click: pointer::PointerPress::default(),

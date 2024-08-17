@@ -140,7 +140,7 @@ impl SampledShapes {
         let translations =
             (0..n_shapes).map(|i| (i as f32 - n_shapes as f32 / 2.0) * DISTANCE_BETWEEN_SHAPES);
 
-        SampledShapes(shapes.into_iter().zip(translations).collect())
+        Self(shapes.into_iter().zip(translations).collect())
     }
 }
 
@@ -160,14 +160,14 @@ struct ShapeMeshBuilder {
 
 impl Shape {
     /// Return a vector containing all implemented shapes
-    fn list_all_shapes() -> Vec<Shape> {
+    fn list_all_shapes() -> Vec<Self> {
         vec![
-            Shape::Cuboid,
-            Shape::Sphere,
-            Shape::Capsule,
-            Shape::Cylinder,
-            Shape::Tetrahedron,
-            Shape::Triangle,
+            Self::Cuboid,
+            Self::Sphere,
+            Self::Capsule,
+            Self::Cylinder,
+            Self::Tetrahedron,
+            Self::Triangle,
         ]
     }
 }
@@ -176,23 +176,23 @@ impl ShapeSample for Shape {
     type Output = Vec3;
     fn sample_interior<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         match self {
-            Shape::Cuboid => CUBOID.sample_interior(rng),
-            Shape::Sphere => SPHERE.sample_interior(rng),
-            Shape::Capsule => CAPSULE_3D.sample_interior(rng),
-            Shape::Cylinder => CYLINDER.sample_interior(rng),
-            Shape::Tetrahedron => TETRAHEDRON.sample_interior(rng),
-            Shape::Triangle => TRIANGLE_3D.sample_interior(rng),
+            Self::Cuboid => CUBOID.sample_interior(rng),
+            Self::Sphere => SPHERE.sample_interior(rng),
+            Self::Capsule => CAPSULE_3D.sample_interior(rng),
+            Self::Cylinder => CYLINDER.sample_interior(rng),
+            Self::Tetrahedron => TETRAHEDRON.sample_interior(rng),
+            Self::Triangle => TRIANGLE_3D.sample_interior(rng),
         }
     }
 
     fn sample_boundary<R: rand::prelude::Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
         match self {
-            Shape::Cuboid => CUBOID.sample_boundary(rng),
-            Shape::Sphere => SPHERE.sample_boundary(rng),
-            Shape::Capsule => CAPSULE_3D.sample_boundary(rng),
-            Shape::Cylinder => CYLINDER.sample_boundary(rng),
-            Shape::Tetrahedron => TETRAHEDRON.sample_boundary(rng),
-            Shape::Triangle => TRIANGLE_3D.sample_boundary(rng),
+            Self::Cuboid => CUBOID.sample_boundary(rng),
+            Self::Sphere => SPHERE.sample_boundary(rng),
+            Self::Capsule => CAPSULE_3D.sample_boundary(rng),
+            Self::Cylinder => CYLINDER.sample_boundary(rng),
+            Self::Tetrahedron => TETRAHEDRON.sample_boundary(rng),
+            Self::Triangle => TRIANGLE_3D.sample_boundary(rng),
         }
     }
 }

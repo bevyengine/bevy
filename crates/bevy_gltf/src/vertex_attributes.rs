@@ -104,7 +104,7 @@ impl<'a> VertexAttributeIter<'a> {
     fn from_accessor(
         accessor: gltf::Accessor<'a>,
         buffer_data: &'a Vec<Vec<u8>>,
-    ) -> Result<VertexAttributeIter<'a>, AccessFailed> {
+    ) -> Result<Self, AccessFailed> {
         let normalization = Normalization(accessor.normalized());
         let format = (accessor.data_type(), accessor.dimensions());
         let acc = BufferAccessor {

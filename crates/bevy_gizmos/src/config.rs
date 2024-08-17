@@ -197,7 +197,7 @@ pub(crate) struct GizmoMeshConfig {
 #[cfg(feature = "bevy_render")]
 impl From<&GizmoConfig> for GizmoMeshConfig {
     fn from(item: &GizmoConfig) -> Self {
-        GizmoMeshConfig {
+        Self {
             line_perspective: item.line_perspective,
             line_style: item.line_style,
             render_layers: item.render_layers.clone(),

@@ -129,20 +129,20 @@ impl<T: ?Sized> ConstNonNull<T> {
 }
 
 impl<T: ?Sized> From<NonNull<T>> for ConstNonNull<T> {
-    fn from(value: NonNull<T>) -> ConstNonNull<T> {
-        ConstNonNull(value)
+    fn from(value: NonNull<T>) -> Self {
+        Self(value)
     }
 }
 
 impl<'a, T: ?Sized> From<&'a T> for ConstNonNull<T> {
-    fn from(value: &'a T) -> ConstNonNull<T> {
-        ConstNonNull(NonNull::from(value))
+    fn from(value: &'a T) -> Self {
+        Self(NonNull::from(value))
     }
 }
 
 impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
-    fn from(value: &'a mut T) -> ConstNonNull<T> {
-        ConstNonNull(NonNull::from(value))
+    fn from(value: &'a mut T) -> Self {
+        Self(NonNull::from(value))
     }
 }
 /// Type-erased borrow of some unknown type chosen when constructing this type.

@@ -1833,7 +1833,7 @@ mod tests {
 
         impl Default for TestStruct {
             fn default() -> Self {
-                TestStruct {
+                Self {
                     _hrl: |input| input,
                 }
             }

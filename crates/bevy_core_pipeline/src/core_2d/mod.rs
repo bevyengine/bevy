@@ -191,7 +191,7 @@ impl BinnedPhaseItem for Opaque2d {
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
-        Opaque2d {
+        Self {
             key,
             representative_entity,
             batch_range,
@@ -276,7 +276,7 @@ impl BinnedPhaseItem for AlphaMask2d {
         batch_range: Range<u32>,
         extra_index: PhaseItemExtraIndex,
     ) -> Self {
-        AlphaMask2d {
+        Self {
             key,
             representative_entity,
             batch_range,

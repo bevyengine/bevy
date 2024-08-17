@@ -59,7 +59,7 @@ impl Aabb2d {
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
-    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> Aabb2d {
+    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> Self {
         // Transform all points by rotation
         let mut iter = points.iter().map(|point| isometry.rotation * *point);
 
@@ -71,7 +71,7 @@ impl Aabb2d {
             (point.min(prev_min), point.max(prev_max))
         });
 
-        Aabb2d {
+        Self {
             min: min + isometry.translation,
             max: max + isometry.translation,
         }
@@ -473,7 +473,7 @@ impl BoundingCircle {
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
-    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> BoundingCircle {
+    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> Self {
         let center = point_cloud_2d_center(points);
         let mut radius_squared = 0.0;
 
@@ -485,7 +485,7 @@ impl BoundingCircle {
             }
         }
 
-        BoundingCircle::new(isometry * center, radius_squared.sqrt())
+        Self::new(isometry * center, radius_squared.sqrt())
     }
 
     /// Get the radius of the bounding circle

@@ -423,10 +423,10 @@ fn add_basic_scene(commands: &mut Commands, asset_server: &AssetServer) {
 impl Display for SelectedGlobalColorGradingOption {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let name = match *self {
-            SelectedGlobalColorGradingOption::Exposure => "Exposure",
-            SelectedGlobalColorGradingOption::Temperature => "Temperature",
-            SelectedGlobalColorGradingOption::Tint => "Tint",
-            SelectedGlobalColorGradingOption::Hue => "Hue",
+            Self::Exposure => "Exposure",
+            Self::Temperature => "Temperature",
+            Self::Tint => "Tint",
+            Self::Hue => "Hue",
         };
         f.write_str(name)
     }
@@ -435,9 +435,9 @@ impl Display for SelectedGlobalColorGradingOption {
 impl Display for SelectedColorGradingSection {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let name = match *self {
-            SelectedColorGradingSection::Highlights => "Highlights",
-            SelectedColorGradingSection::Midtones => "Midtones",
-            SelectedColorGradingSection::Shadows => "Shadows",
+            Self::Highlights => "Highlights",
+            Self::Midtones => "Midtones",
+            Self::Shadows => "Shadows",
         };
         f.write_str(name)
     }
@@ -446,11 +446,11 @@ impl Display for SelectedColorGradingSection {
 impl Display for SelectedSectionColorGradingOption {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let name = match *self {
-            SelectedSectionColorGradingOption::Saturation => "Saturation",
-            SelectedSectionColorGradingOption::Contrast => "Contrast",
-            SelectedSectionColorGradingOption::Gamma => "Gamma",
-            SelectedSectionColorGradingOption::Gain => "Gain",
-            SelectedSectionColorGradingOption::Lift => "Lift",
+            Self::Saturation => "Saturation",
+            Self::Contrast => "Contrast",
+            Self::Gamma => "Gamma",
+            Self::Gain => "Gain",
+            Self::Lift => "Lift",
         };
         f.write_str(name)
     }
@@ -459,8 +459,8 @@ impl Display for SelectedSectionColorGradingOption {
 impl Display for SelectedColorGradingOption {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SelectedColorGradingOption::Global(option) => write!(f, "\"{}\"", option),
-            SelectedColorGradingOption::Section(section, option) => {
+            Self::Global(option) => write!(f, "\"{}\"", option),
+            Self::Section(section, option) => {
                 write!(f, "\"{}\" for \"{}\"", option, section)
             }
         }
@@ -471,21 +471,21 @@ impl SelectedSectionColorGradingOption {
     /// Returns the appropriate value in the given color grading section.
     fn get(&self, section: &ColorGradingSection) -> f32 {
         match *self {
-            SelectedSectionColorGradingOption::Saturation => section.saturation,
-            SelectedSectionColorGradingOption::Contrast => section.contrast,
-            SelectedSectionColorGradingOption::Gamma => section.gamma,
-            SelectedSectionColorGradingOption::Gain => section.gain,
-            SelectedSectionColorGradingOption::Lift => section.lift,
+            Self::Saturation => section.saturation,
+            Self::Contrast => section.contrast,
+            Self::Gamma => section.gamma,
+            Self::Gain => section.gain,
+            Self::Lift => section.lift,
         }
     }
 
     fn set(&self, section: &mut ColorGradingSection, value: f32) {
         match *self {
-            SelectedSectionColorGradingOption::Saturation => section.saturation = value,
-            SelectedSectionColorGradingOption::Contrast => section.contrast = value,
-            SelectedSectionColorGradingOption::Gamma => section.gamma = value,
-            SelectedSectionColorGradingOption::Gain => section.gain = value,
-            SelectedSectionColorGradingOption::Lift => section.lift = value,
+            Self::Saturation => section.saturation = value,
+            Self::Contrast => section.contrast = value,
+            Self::Gamma => section.gamma = value,
+            Self::Gain => section.gain = value,
+            Self::Lift => section.lift = value,
         }
     }
 }
@@ -495,10 +495,10 @@ impl SelectedGlobalColorGradingOption {
     /// values.
     fn get(&self, global: &ColorGradingGlobal) -> f32 {
         match *self {
-            SelectedGlobalColorGradingOption::Exposure => global.exposure,
-            SelectedGlobalColorGradingOption::Temperature => global.temperature,
-            SelectedGlobalColorGradingOption::Tint => global.tint,
-            SelectedGlobalColorGradingOption::Hue => global.hue,
+            Self::Exposure => global.exposure,
+            Self::Temperature => global.temperature,
+            Self::Tint => global.tint,
+            Self::Hue => global.hue,
         }
     }
 
@@ -506,10 +506,10 @@ impl SelectedGlobalColorGradingOption {
     /// values.
     fn set(&self, global: &mut ColorGradingGlobal, value: f32) {
         match *self {
-            SelectedGlobalColorGradingOption::Exposure => global.exposure = value,
-            SelectedGlobalColorGradingOption::Temperature => global.temperature = value,
-            SelectedGlobalColorGradingOption::Tint => global.tint = value,
-            SelectedGlobalColorGradingOption::Hue => global.hue = value,
+            Self::Exposure => global.exposure = value,
+            Self::Temperature => global.temperature = value,
+            Self::Tint => global.tint = value,
+            Self::Hue => global.hue = value,
         }
     }
 }
@@ -518,15 +518,14 @@ impl SelectedColorGradingOption {
     /// Returns the appropriate value in the given set of color grading values.
     fn get(&self, color_grading: &ColorGrading) -> f32 {
         match self {
-            SelectedColorGradingOption::Global(option) => option.get(&color_grading.global),
-            SelectedColorGradingOption::Section(
-                SelectedColorGradingSection::Highlights,
-                option,
-            ) => option.get(&color_grading.highlights),
-            SelectedColorGradingOption::Section(SelectedColorGradingSection::Midtones, option) => {
+            Self::Global(option) => option.get(&color_grading.global),
+            Self::Section(SelectedColorGradingSection::Highlights, option) => {
+                option.get(&color_grading.highlights)
+            }
+            Self::Section(SelectedColorGradingSection::Midtones, option) => {
                 option.get(&color_grading.midtones)
             }
-            SelectedColorGradingOption::Section(SelectedColorGradingSection::Shadows, option) => {
+            Self::Section(SelectedColorGradingSection::Shadows, option) => {
                 option.get(&color_grading.shadows)
             }
         }
@@ -535,17 +534,16 @@ impl SelectedColorGradingOption {
     /// Sets the appropriate value in the given set of color grading values.
     fn set(&self, color_grading: &mut ColorGrading, value: f32) {
         match self {
-            SelectedColorGradingOption::Global(option) => {
+            Self::Global(option) => {
                 option.set(&mut color_grading.global, value);
             }
-            SelectedColorGradingOption::Section(
-                SelectedColorGradingSection::Highlights,
-                option,
-            ) => option.set(&mut color_grading.highlights, value),
-            SelectedColorGradingOption::Section(SelectedColorGradingSection::Midtones, option) => {
+            Self::Section(SelectedColorGradingSection::Highlights, option) => {
+                option.set(&mut color_grading.highlights, value);
+            }
+            Self::Section(SelectedColorGradingSection::Midtones, option) => {
                 option.set(&mut color_grading.midtones, value);
             }
-            SelectedColorGradingOption::Section(SelectedColorGradingSection::Shadows, option) => {
+            Self::Section(SelectedColorGradingSection::Shadows, option) => {
                 option.set(&mut color_grading.shadows, value);
             }
         }

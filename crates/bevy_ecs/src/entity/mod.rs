@@ -166,7 +166,7 @@ pub struct Entity {
 // See <https://github.com/rust-lang/rust/issues/117800>
 impl PartialEq for Entity {
     #[inline]
-    fn eq(&self, other: &Entity) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         // By using `to_bits`, the codegen can be optimised out even
         // further potentially. Relies on the correct alignment/field
         // order of `Entity`.
@@ -223,9 +223,8 @@ impl Entity {
     /// Construct an [`Entity`] from a raw `index` value and a non-zero `generation` value.
     /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
     #[inline(always)]
-    pub(crate) const fn from_raw_and_generation(index: u32, generation: NonZeroU32) -> Entity {
+    pub(crate) const fn from_raw_and_generation(index: u32, generation: NonZeroU32) -> Self {
         debug_assert!(generation.get() <= HIGH_MASK);
-
         Self { index, generation }
     }
 
@@ -278,7 +277,7 @@ impl Entity {
     /// `Entity` lines up between instances, but instead insert a secondary identifier as
     /// a component.
     #[inline(always)]
-    pub const fn from_raw(index: u32) -> Entity {
+    pub const fn from_raw(index: u32) -> Self {
         Self::from_raw_and_generation(index, NonZeroU32::MIN)
     }
 
@@ -364,7 +363,7 @@ impl TryFrom<Identifier> for Entity {
 impl From<Entity> for Identifier {
     #[inline]
     fn from(value: Entity) -> Self {
-        Identifier::from_bits(value.to_bits())
+        Self::from_bits(value.to_bits())
     }
 }
 
@@ -386,7 +385,7 @@ impl<'de> Deserialize<'de> for Entity {
     {
         use serde::de::Error;
         let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
-        Entity::try_from_bits(id).map_err(D::Error::custom)
+        Self::try_from_bits(id).map_err(D::Error::custom)
     }
 }
 
@@ -440,7 +439,7 @@ impl SparseSetIndex for Entity {
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Entity::from_raw(value as u32)
+        Self::from_raw(value as u32)
     }
 }
 
@@ -537,7 +536,7 @@ pub struct Entities {
 
 impl Entities {
     pub(crate) const fn new() -> Self {
-        Entities {
+        Self {
             meta: Vec::new(),
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
@@ -956,7 +955,7 @@ struct EntityMeta {
 
 impl EntityMeta {
     /// meta for **pending entity**
-    const EMPTY: EntityMeta = EntityMeta {
+    const EMPTY: Self = Self {
         generation: NonZeroU32::MIN,
         location: EntityLocation::INVALID,
     };
@@ -993,7 +992,7 @@ pub struct EntityLocation {
 
 impl EntityLocation {
     /// location for **pending entity** and **invalid entity**
-    const INVALID: EntityLocation = EntityLocation {
+    const INVALID: Self = Self {
         archetype_id: ArchetypeId::INVALID,
         archetype_row: ArchetypeRow::INVALID,
         table_id: TableId::INVALID,

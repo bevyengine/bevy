@@ -340,7 +340,7 @@ impl BundleInfo {
         components: &Components,
         component_ids: Vec<ComponentId>,
         id: BundleId,
-    ) -> BundleInfo {
+    ) -> Self {
         let mut deduped = component_ids.clone();
         deduped.sort_unstable();
         deduped.dedup();
@@ -371,7 +371,7 @@ impl BundleInfo {
         // - is valid for the associated world
         // - has had its storage initialized
         // - is in the same order as the source bundle type
-        BundleInfo { id, component_ids }
+        Self { id, component_ids }
     }
 
     /// Returns a value identifying the associated [`Bundle`] type.

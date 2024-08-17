@@ -101,7 +101,7 @@ pub struct Skybox {
 
 impl Default for Skybox {
     fn default() -> Self {
-        Skybox {
+        Self {
             image: Handle::default(),
             brightness: 0.0,
             rotation: Quat::IDENTITY,

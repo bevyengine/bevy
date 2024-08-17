@@ -42,10 +42,10 @@ impl<T> InterpolationDatum<T> {
     #[must_use]
     pub fn map<S>(self, f: impl Fn(T) -> S) -> InterpolationDatum<S> {
         match self {
-            InterpolationDatum::Exact(v) => InterpolationDatum::Exact(f(v)),
-            InterpolationDatum::LeftTail(v) => InterpolationDatum::LeftTail(f(v)),
-            InterpolationDatum::RightTail(v) => InterpolationDatum::RightTail(f(v)),
-            InterpolationDatum::Between(u, v, s) => InterpolationDatum::Between(f(u), f(v), s),
+            Self::Exact(v) => InterpolationDatum::Exact(f(v)),
+            Self::LeftTail(v) => InterpolationDatum::LeftTail(f(v)),
+            Self::RightTail(v) => InterpolationDatum::RightTail(f(v)),
+            Self::Between(u, v, s) => InterpolationDatum::Between(f(u), f(v), s),
         }
     }
 }
@@ -102,7 +102,7 @@ impl<T> InterpolationDatum<T> {
 ///     fn domain(&self) -> Interval {
 ///         self.core.domain()
 ///     }
-///     
+///
 ///     fn sample_unchecked(&self, t: f32) -> T {
 ///         // To sample this curve, check the interpolation mode and dispatch accordingly.
 ///         match self.interpolation_mode {
@@ -165,8 +165,7 @@ impl<T> EvenCore<T> {
         if !domain.is_bounded() {
             return Err(EvenCoreError::UnboundedDomain);
         }
-
-        Ok(EvenCore { domain, samples })
+        Ok(Self { domain, samples })
     }
 
     /// The domain of the curve derived from this core.
@@ -297,7 +296,7 @@ pub fn even_interp(domain: Interval, samples: usize, t: f32) -> InterpolationDat
 ///     fn domain(&self) -> Interval {
 ///         self.core.domain()
 ///     }
-///     
+///
 ///     fn sample_unchecked(&self, t: f32) -> T {
 ///         // To sample the curve, we just look at the interpolation mode and
 ///         // dispatch accordingly.
@@ -369,7 +368,7 @@ impl<T> UnevenCore<T> {
         }
 
         let (times, samples): (Vec<f32>, Vec<T>) = timed_samples.into_iter().unzip();
-        Ok(UnevenCore { times, samples })
+        Ok(Self { times, samples })
     }
 
     /// The domain of the curve derived from this core.
@@ -433,7 +432,7 @@ impl<T> UnevenCore<T> {
     ///
     /// [`Curve::reparametrize`]: crate::curve::Curve::reparametrize
     #[must_use]
-    pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> UnevenCore<T> {
+    pub fn map_sample_times(mut self, f: impl Fn(f32) -> f32) -> Self {
         let mut timed_samples = self
             .times
             .into_iter()

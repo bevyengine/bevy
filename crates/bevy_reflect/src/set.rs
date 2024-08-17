@@ -237,8 +237,7 @@ impl Set for DynamicSet {
                     Self::internal_hash(boxed.as_ref())
                 });
             });
-
-        DynamicSet {
+        Self {
             represented_type: self.represented_type,
             hash_table,
         }

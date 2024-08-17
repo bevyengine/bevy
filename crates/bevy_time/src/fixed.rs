@@ -226,7 +226,7 @@ impl Time<Fixed> {
 impl Default for Fixed {
     fn default() -> Self {
         Self {
-            timestep: Time::<Fixed>::DEFAULT_TIMESTEP,
+            timestep: Time::<Self>::DEFAULT_TIMESTEP,
             overstep: Duration::ZERO,
         }
     }

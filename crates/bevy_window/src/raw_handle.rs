@@ -27,8 +27,8 @@ pub struct WindowWrapper<W> {
 
 impl<W: Send + Sync + 'static> WindowWrapper<W> {
     /// Creates a `WindowWrapper` from a window.
-    pub fn new(window: W) -> WindowWrapper<W> {
-        WindowWrapper {
+    pub fn new(window: W) -> Self {
+        Self {
             reference: Arc::new(window),
             ty: PhantomData,
         }
@@ -61,8 +61,8 @@ impl RawHandleWrapper {
     /// Creates a `RawHandleWrapper` from a `WindowWrapper`.
     pub fn new<W: HasWindowHandle + HasDisplayHandle + 'static>(
         window: &WindowWrapper<W>,
-    ) -> Result<RawHandleWrapper, HandleError> {
-        Ok(RawHandleWrapper {
+    ) -> Result<Self, HandleError> {
+        Ok(Self {
             _window: window.reference.clone(),
             window_handle: window.window_handle()?.as_raw(),
             display_handle: window.display_handle()?.as_raw(),

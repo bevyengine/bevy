@@ -119,36 +119,36 @@ impl From<OrthographicProjection> for Projection {
 impl CameraProjection for Projection {
     fn get_clip_from_view(&self) -> Mat4 {
         match self {
-            Projection::Perspective(projection) => projection.get_clip_from_view(),
-            Projection::Orthographic(projection) => projection.get_clip_from_view(),
+            Self::Perspective(projection) => projection.get_clip_from_view(),
+            Self::Orthographic(projection) => projection.get_clip_from_view(),
         }
     }
 
     fn update(&mut self, width: f32, height: f32) {
         match self {
-            Projection::Perspective(projection) => projection.update(width, height),
-            Projection::Orthographic(projection) => projection.update(width, height),
+            Self::Perspective(projection) => projection.update(width, height),
+            Self::Orthographic(projection) => projection.update(width, height),
         }
     }
 
     fn far(&self) -> f32 {
         match self {
-            Projection::Perspective(projection) => projection.far(),
-            Projection::Orthographic(projection) => projection.far(),
+            Self::Perspective(projection) => projection.far(),
+            Self::Orthographic(projection) => projection.far(),
         }
     }
 
     fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
         match self {
-            Projection::Perspective(projection) => projection.get_frustum_corners(z_near, z_far),
-            Projection::Orthographic(projection) => projection.get_frustum_corners(z_near, z_far),
+            Self::Perspective(projection) => projection.get_frustum_corners(z_near, z_far),
+            Self::Orthographic(projection) => projection.get_frustum_corners(z_near, z_far),
         }
     }
 }
 
 impl Default for Projection {
     fn default() -> Self {
-        Projection::Perspective(Default::default())
+        Self::Perspective(Default::default())
     }
 }
 
@@ -218,7 +218,7 @@ impl CameraProjection for PerspectiveProjection {
 
 impl Default for PerspectiveProjection {
     fn default() -> Self {
-        PerspectiveProjection {
+        Self {
             fov: std::f32::consts::PI / 4.0,
             near: 0.1,
             far: 1000.0,
@@ -264,34 +264,34 @@ pub enum ScalingMode {
 }
 
 impl Mul<f32> for ScalingMode {
-    type Output = ScalingMode;
+    type Output = Self;
 
     /// Scale the `ScalingMode`. For example, multiplying by 2 makes the viewport twice as large.
-    fn mul(self, rhs: f32) -> ScalingMode {
+    fn mul(self, rhs: f32) -> Self {
         match self {
-            ScalingMode::Fixed { width, height } => ScalingMode::Fixed {
+            Self::Fixed { width, height } => Self::Fixed {
                 width: width * rhs,
                 height: height * rhs,
             },
-            ScalingMode::WindowSize(pixels_per_world_unit) => {
-                ScalingMode::WindowSize(pixels_per_world_unit / rhs)
+            Self::WindowSize(pixels_per_world_unit) => {
+                Self::WindowSize(pixels_per_world_unit / rhs)
             }
-            ScalingMode::AutoMin {
+            Self::AutoMin {
                 min_width,
                 min_height,
-            } => ScalingMode::AutoMin {
+            } => Self::AutoMin {
                 min_width: min_width * rhs,
                 min_height: min_height * rhs,
             },
-            ScalingMode::AutoMax {
+            Self::AutoMax {
                 max_width,
                 max_height,
-            } => ScalingMode::AutoMax {
+            } => Self::AutoMax {
                 max_width: max_width * rhs,
                 max_height: max_height * rhs,
             },
-            ScalingMode::FixedVertical(size) => ScalingMode::FixedVertical(size * rhs),
-            ScalingMode::FixedHorizontal(size) => ScalingMode::FixedHorizontal(size * rhs),
+            Self::FixedVertical(size) => Self::FixedVertical(size * rhs),
+            Self::FixedHorizontal(size) => Self::FixedHorizontal(size * rhs),
         }
     }
 }
@@ -303,10 +303,10 @@ impl MulAssign<f32> for ScalingMode {
 }
 
 impl Div<f32> for ScalingMode {
-    type Output = ScalingMode;
+    type Output = Self;
 
     /// Scale the `ScalingMode`. For example, dividing by 2 makes the viewport half as large.
-    fn div(self, rhs: f32) -> ScalingMode {
+    fn div(self, rhs: f32) -> Self {
         self * (1.0 / rhs)
     }
 }
@@ -481,7 +481,7 @@ impl CameraProjection for OrthographicProjection {
 
 impl Default for OrthographicProjection {
     fn default() -> Self {
-        OrthographicProjection {
+        Self {
             scale: 1.0,
             near: 0.0,
             far: 1000.0,

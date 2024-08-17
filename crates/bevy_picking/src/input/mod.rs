@@ -66,8 +66,8 @@ impl Plugin for InputPlugin {
             .add_systems(
                 First,
                 (
-                    mouse::mouse_pick_events.run_if(InputPlugin::is_mouse_enabled),
-                    touch::touch_pick_events.run_if(InputPlugin::is_touch_enabled),
+                    mouse::mouse_pick_events.run_if(Self::is_mouse_enabled),
+                    touch::touch_pick_events.run_if(Self::is_touch_enabled),
                     // IMPORTANT: the commands must be flushed after `touch_pick_events` is run
                     // because we need pointer spawning to happen immediately to prevent issues with
                     // missed events during drag and drop.
@@ -78,9 +78,9 @@ impl Plugin for InputPlugin {
             )
             .add_systems(
                 Last,
-                touch::deactivate_touch_pointers.run_if(InputPlugin::is_touch_enabled),
+                touch::deactivate_touch_pointers.run_if(Self::is_touch_enabled),
             )
             .register_type::<Self>()
-            .register_type::<InputPlugin>();
+            .register_type::<Self>();
     }
 }

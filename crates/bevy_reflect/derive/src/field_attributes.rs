@@ -43,8 +43,8 @@ impl ReflectIgnoreBehavior {
     /// Returns `true` if the ignoring behavior implies member is included in the reflection API, and false otherwise.
     pub fn is_active(self) -> bool {
         match self {
-            ReflectIgnoreBehavior::None | ReflectIgnoreBehavior::IgnoreSerialization => true,
-            ReflectIgnoreBehavior::IgnoreAlways => false,
+            Self::None | Self::IgnoreSerialization => true,
+            Self::IgnoreAlways => false,
         }
     }
 
@@ -85,8 +85,7 @@ pub(crate) struct FieldAttributes {
 impl FieldAttributes {
     /// Parse all field attributes marked "reflect" (such as `#[reflect(ignore)]`).
     pub fn parse_attributes(attrs: &[Attribute]) -> syn::Result<Self> {
-        let mut args = FieldAttributes::default();
-
+        let mut args = Self::default();
         attrs
             .iter()
             .filter_map(|attr| {

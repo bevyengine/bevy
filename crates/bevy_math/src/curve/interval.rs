@@ -85,7 +85,7 @@ impl Interval {
 
     /// Create an [`Interval`] by intersecting this interval with another. Returns an error if the
     /// intersection would be empty (hence an invalid interval).
-    pub fn intersect(self, other: Interval) -> Result<Interval, InvalidIntervalError> {
+    pub fn intersect(self, other: Self) -> Result<Self, InvalidIntervalError> {
         let lower = max_by(self.start, other.start, f32::total_cmp);
         let upper = min_by(self.end, other.end, f32::total_cmp);
         Self::new(lower, upper)
@@ -180,7 +180,7 @@ impl Interval {
 impl TryFrom<RangeInclusive<f32>> for Interval {
     type Error = InvalidIntervalError;
     fn try_from(range: RangeInclusive<f32>) -> Result<Self, Self::Error> {
-        Interval::new(*range.start(), *range.end())
+        Self::new(*range.start(), *range.end())
     }
 }
 

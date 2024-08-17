@@ -38,7 +38,7 @@ impl FromWorld for UiPipeline {
             ),
         );
 
-        UiPipeline {
+        Self {
             view_layout,
             image_layout,
         }

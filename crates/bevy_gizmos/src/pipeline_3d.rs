@@ -77,7 +77,7 @@ struct LineGizmoPipeline {
 
 impl FromWorld for LineGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        LineGizmoPipeline {
+        Self {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             uniform_layout: render_world
                 .resource::<LineGizmoUniformBindgroupLayout>()
@@ -171,7 +171,7 @@ struct LineJointGizmoPipeline {
 
 impl FromWorld for LineJointGizmoPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        LineJointGizmoPipeline {
+        Self {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             uniform_layout: render_world
                 .resource::<LineGizmoUniformBindgroupLayout>()

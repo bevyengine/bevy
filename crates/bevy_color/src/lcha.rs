@@ -259,8 +259,7 @@ impl From<Lcha> for Laba {
         let l = lightness;
         let a = chroma * hue.to_radians().cos();
         let b = chroma * hue.to_radians().sin();
-
-        Laba::new(l, a, b, alpha)
+        Self::new(l, a, b, alpha)
     }
 }
 
@@ -284,11 +283,9 @@ impl From<Laba> for Lcha {
                 h
             }
         };
-
         let chroma = c.clamp(0.0, 1.5);
         let hue = h;
-
-        Lcha::new(lightness, chroma, hue, alpha)
+        Self::new(lightness, chroma, hue, alpha)
     }
 }
 

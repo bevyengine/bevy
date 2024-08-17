@@ -190,8 +190,7 @@ impl FromWorld for GameOfLifePipeline {
             shader_defs: vec![],
             entry_point: Cow::from("update"),
         });
-
-        GameOfLifePipeline {
+        Self {
             texture_bind_group_layout,
             init_pipeline,
             update_pipeline,

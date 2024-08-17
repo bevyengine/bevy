@@ -16,7 +16,7 @@ impl WinitSettings {
     /// [`Continuous`](UpdateMode::Continuous) if windows have focus,
     /// [`reactive_low_power`](UpdateMode::reactive_low_power) otherwise.
     pub fn game() -> Self {
-        WinitSettings {
+        Self {
             focused_mode: UpdateMode::Continuous,
             unfocused_mode: UpdateMode::reactive_low_power(Duration::from_secs_f64(1.0 / 60.0)), // 60Hz,
         }
@@ -29,7 +29,7 @@ impl WinitSettings {
     ///
     /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
     pub fn desktop_app() -> Self {
-        WinitSettings {
+        Self {
             focused_mode: UpdateMode::reactive(Duration::from_secs(5)),
             unfocused_mode: UpdateMode::reactive_low_power(Duration::from_secs(60)),
         }
@@ -48,7 +48,7 @@ impl WinitSettings {
 
 impl Default for WinitSettings {
     fn default() -> Self {
-        WinitSettings::game()
+        Self::game()
     }
 }
 

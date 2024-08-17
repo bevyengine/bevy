@@ -50,7 +50,7 @@ impl ReflectMapEntities {
 
 impl<C: Component + MapEntities> FromType<C> for ReflectMapEntities {
     fn from_type() -> Self {
-        ReflectMapEntities {
+        Self {
             map_entities: |world, entity_mapper, entities| {
                 for &entity in entities {
                     if let Some(mut component) = world.get_mut::<C>(entity) {
@@ -95,7 +95,7 @@ impl ReflectMapEntitiesResource {
 
 impl<R: crate::system::Resource + MapEntities> FromType<R> for ReflectMapEntitiesResource {
     fn from_type() -> Self {
-        ReflectMapEntitiesResource {
+        Self {
             map_entities: |world, entity_mapper| {
                 if let Some(mut resource) = world.get_resource_mut::<R>() {
                     resource.map_entities(entity_mapper);

@@ -16,7 +16,7 @@ impl ReflectDefault {
 
 impl<T: Reflect + Default> FromType<T> for ReflectDefault {
     fn from_type() -> Self {
-        ReflectDefault {
+        Self {
             default: || Box::<T>::default(),
         }
     }

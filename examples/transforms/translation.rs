@@ -14,7 +14,7 @@ struct Movable {
 // Implement a utility function for easier Movable struct creation.
 impl Movable {
     fn new(spawn: Vec3) -> Self {
-        Movable {
+        Self {
             spawn,
             max_distance: 5.0,
             speed: 2.0,

@@ -61,7 +61,7 @@ pub struct CachedRenderPipelineId(CachedPipelineId);
 
 impl CachedRenderPipelineId {
     /// An invalid cached render pipeline index, often used to initialize a variable.
-    pub const INVALID: Self = CachedRenderPipelineId(usize::MAX);
+    pub const INVALID: Self = Self(usize::MAX);
 
     #[inline]
     pub fn id(&self) -> usize {
@@ -75,7 +75,7 @@ pub struct CachedComputePipelineId(CachedPipelineId);
 
 impl CachedComputePipelineId {
     /// An invalid cached compute pipeline index, often used to initialize a variable.
-    pub const INVALID: Self = CachedComputePipelineId(usize::MAX);
+    pub const INVALID: Self = Self(usize::MAX);
 
     #[inline]
     pub fn id(&self) -> usize {
@@ -114,14 +114,14 @@ impl CachedPipelineState {
     /// pending creation or because an error occurred while attempting to create GPU object.
     pub fn unwrap(&self) -> &Pipeline {
         match self {
-            CachedPipelineState::Ok(pipeline) => pipeline,
-            CachedPipelineState::Queued => {
+            Self::Ok(pipeline) => pipeline,
+            Self::Queued => {
                 panic!("Pipeline has not been compiled yet. It is still in the 'Queued' state.")
             }
-            CachedPipelineState::Creating(..) => {
+            Self::Creating(..) => {
                 panic!("Pipeline has not been compiled yet. It is still in the 'Creating' state.")
             }
-            CachedPipelineState::Err(err) => panic!("{}", err),
+            Self::Err(err) => panic!("{}", err),
         }
     }
 }
@@ -151,22 +151,22 @@ pub enum ShaderDefVal {
 
 impl From<&str> for ShaderDefVal {
     fn from(key: &str) -> Self {
-        ShaderDefVal::Bool(key.to_string(), true)
+        Self::Bool(key.to_string(), true)
     }
 }
 
 impl From<String> for ShaderDefVal {
     fn from(key: String) -> Self {
-        ShaderDefVal::Bool(key, true)
+        Self::Bool(key, true)
     }
 }
 
 impl ShaderDefVal {
     pub fn value_as_string(&self) -> String {
         match self {
-            ShaderDefVal::Bool(_, def) => def.to_string(),
-            ShaderDefVal::Int(_, def) => def.to_string(),
-            ShaderDefVal::UInt(_, def) => def.to_string(),
+            Self::Bool(_, def) => def.to_string(),
+            Self::Int(_, def) => def.to_string(),
+            Self::UInt(_, def) => def.to_string(),
         }
     }
 }

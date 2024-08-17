@@ -379,7 +379,7 @@ impl StringExpr {
     /// Appends a [`StringExpr`] to another.
     ///
     /// If both expressions are [`StringExpr::Const`] this will use [`concat`] to merge them.
-    pub fn appended_by(mut self, other: StringExpr) -> Self {
+    pub fn appended_by(mut self, other: Self) -> Self {
         if let Self::Const(tokens) = self {
             if let Self::Const(more) = other {
                 return Self::Const(quote! {
@@ -399,12 +399,12 @@ impl StringExpr {
 
 impl Default for StringExpr {
     fn default() -> Self {
-        StringExpr::from_str("")
+        Self::from_str("")
     }
 }
 
-impl FromIterator<StringExpr> for StringExpr {
-    fn from_iter<T: IntoIterator<Item = StringExpr>>(iter: T) -> Self {
+impl FromIterator<Self> for StringExpr {
+    fn from_iter<T: IntoIterator<Item = Self>>(iter: T) -> Self {
         let mut iter = iter.into_iter();
         match iter.next() {
             Some(mut expr) => {

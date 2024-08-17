@@ -954,7 +954,7 @@ impl Triangle3d {
     /// This triangle but reversed.
     #[inline(always)]
     #[must_use]
-    pub fn reversed(mut self) -> Triangle3d {
+    pub fn reversed(mut self) -> Self {
         self.reverse();
         self
     }

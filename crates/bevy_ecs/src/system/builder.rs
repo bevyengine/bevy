@@ -145,7 +145,7 @@ impl ParamBuilder {
 unsafe impl<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>
     SystemParamBuilder<Query<'w, 's, D, F>> for QueryState<D, F>
 {
-    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> QueryState<D, F> {
+    fn build(self, world: &mut World, system_meta: &mut SystemMeta) -> Self {
         self.validate_world(world.id());
         init_query_param(world, system_meta, &self);
         self

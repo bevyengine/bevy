@@ -126,7 +126,7 @@ impl ReflectAsset {
 
 impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
     fn from_type() -> Self {
-        ReflectAsset {
+        Self {
             handle_type_id: TypeId::of::<Handle<A>>(),
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
             get: |world, handle| {
@@ -222,7 +222,7 @@ impl ReflectHandle {
 
 impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
     fn from_type() -> Self {
-        ReflectHandle {
+        Self {
             asset_type_id: TypeId::of::<A>(),
             downcast_handle_untyped: |handle: &dyn Any| {
                 handle

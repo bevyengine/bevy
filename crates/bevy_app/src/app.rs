@@ -91,7 +91,7 @@ impl Debug for App {
 
 impl Default for App {
     fn default() -> Self {
-        let mut app = App::empty();
+        let mut app = Self::empty();
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]
@@ -116,14 +116,14 @@ impl Default for App {
 impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
-    pub fn new() -> App {
-        App::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Creates a new empty [`App`] with minimal default configuration.
     ///
     /// Use this constructor if you want to customize scheduling, exit handling, cleanup, etc.
-    pub fn empty() -> App {
+    pub fn empty() -> Self {
         Self {
             sub_apps: SubApps {
                 main: SubApp::new(),
@@ -169,7 +169,7 @@ impl App {
         }
 
         let runner = std::mem::replace(&mut self.runner, Box::new(run_once));
-        let app = std::mem::replace(self, App::empty());
+        let app = std::mem::replace(self, Self::empty());
         (runner)(app)
     }
 
@@ -200,7 +200,7 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, f: impl FnOnce(App) -> AppExit + 'static) -> &mut Self {
+    pub fn set_runner(&mut self, f: impl FnOnce(Self) -> AppExit + 'static) -> &mut Self {
         self.runner = Box::new(f);
         self
     }
@@ -1044,13 +1044,13 @@ impl AppExit {
     /// Returns `true` if `self` is a [`AppExit::Success`].
     #[must_use]
     pub const fn is_success(&self) -> bool {
-        matches!(self, AppExit::Success)
+        matches!(self, Self::Success)
     }
 
     /// Returns `true` if `self` is a [`AppExit::Error`].
     #[must_use]
     pub const fn is_error(&self) -> bool {
-        matches!(self, AppExit::Error(_))
+        matches!(self, Self::Error(_))
     }
 
     /// Creates a [`AppExit`] from a code.
@@ -1076,9 +1076,9 @@ impl From<u8> for AppExit {
 impl Termination for AppExit {
     fn report(self) -> std::process::ExitCode {
         match self {
-            AppExit::Success => ExitCode::SUCCESS,
+            Self::Success => ExitCode::SUCCESS,
             // We leave logging an error to our users
-            AppExit::Error(value) => ExitCode::from(value.get()),
+            Self::Error(value) => ExitCode::from(value.get()),
         }
     }
 }
@@ -1420,7 +1420,7 @@ mod tests {
         struct TestResource;
         impl FromWorld for TestResource {
             fn from_world(_world: &mut World) -> Self {
-                TestResource
+                Self
             }
         }
 
@@ -1430,7 +1430,7 @@ mod tests {
         }
         impl FromWorld for NonSendTestResource {
             fn from_world(_world: &mut World) -> Self {
-                NonSendTestResource {
+                Self {
                     _marker: PhantomData,
                 }
             }

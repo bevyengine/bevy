@@ -41,9 +41,9 @@ impl<T: ?Sized> SyncCell<T> {
 
     /// Build a mutable reference to a `SyncCell` from a mutable reference
     /// to its inner value, to skip constructing with [`new()`](SyncCell::new()).
-    pub fn from_mut(r: &'_ mut T) -> &'_ mut SyncCell<T> {
+    pub fn from_mut(r: &'_ mut T) -> &'_ mut Self {
         // SAFETY: repr is transparent, so refs have the same layout; and `SyncCell` properties are `&mut`-agnostic
-        unsafe { &mut *(ptr::from_mut(r) as *mut SyncCell<T>) }
+        unsafe { &mut *(ptr::from_mut(r) as *mut Self) }
     }
 }
 

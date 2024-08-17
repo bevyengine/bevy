@@ -110,21 +110,21 @@ enum Commands {
 impl Prepare for Commands {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, flags: Flag) -> Vec<PreparedCommand<'a>> {
         match self {
-            Commands::Lints(subcommand) => subcommand.prepare(sh, flags),
-            Commands::Doc(subcommand) => subcommand.prepare(sh, flags),
-            Commands::Compile(subcommand) => subcommand.prepare(sh, flags),
+            Self::Lints(subcommand) => subcommand.prepare(sh, flags),
+            Self::Doc(subcommand) => subcommand.prepare(sh, flags),
+            Self::Compile(subcommand) => subcommand.prepare(sh, flags),
 
-            Commands::Format(subcommand) => subcommand.prepare(sh, flags),
-            Commands::Clippy(subcommand) => subcommand.prepare(sh, flags),
-            Commands::Test(subcommand) => subcommand.prepare(sh, flags),
-            Commands::TestCheck(subcommand) => subcommand.prepare(sh, flags),
-            Commands::DocCheck(subcommand) => subcommand.prepare(sh, flags),
-            Commands::DocTest(subcommand) => subcommand.prepare(sh, flags),
-            Commands::CompileCheck(subcommand) => subcommand.prepare(sh, flags),
-            Commands::CfgCheck(subcommand) => subcommand.prepare(sh, flags),
-            Commands::CompileFail(subcommand) => subcommand.prepare(sh, flags),
-            Commands::BenchCheck(subcommand) => subcommand.prepare(sh, flags),
-            Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, flags),
+            Self::Format(subcommand) => subcommand.prepare(sh, flags),
+            Self::Clippy(subcommand) => subcommand.prepare(sh, flags),
+            Self::Test(subcommand) => subcommand.prepare(sh, flags),
+            Self::TestCheck(subcommand) => subcommand.prepare(sh, flags),
+            Self::DocCheck(subcommand) => subcommand.prepare(sh, flags),
+            Self::DocTest(subcommand) => subcommand.prepare(sh, flags),
+            Self::CompileCheck(subcommand) => subcommand.prepare(sh, flags),
+            Self::CfgCheck(subcommand) => subcommand.prepare(sh, flags),
+            Self::CompileFail(subcommand) => subcommand.prepare(sh, flags),
+            Self::BenchCheck(subcommand) => subcommand.prepare(sh, flags),
+            Self::ExampleCheck(subcommand) => subcommand.prepare(sh, flags),
         }
     }
 }

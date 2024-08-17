@@ -78,8 +78,8 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
 
     #[inline]
     /// Returns a `&mut SyncUnsafeCell<T>` from a `&mut T`.
-    pub fn from_mut(t: &mut T) -> &mut SyncUnsafeCell<T> {
-        let ptr = ptr::from_mut(t) as *mut SyncUnsafeCell<T>;
+    pub fn from_mut(t: &mut T) -> &mut Self {
+        let ptr = ptr::from_mut(t) as *mut Self;
         // SAFETY: `ptr` must be safe to mutably dereference, since it was originally
         // obtained from a mutable reference. `SyncUnsafeCell` has the same representation
         // as the original type `T`, since the former is annotated with #[repr(transparent)].
@@ -101,7 +101,7 @@ impl<T> SyncUnsafeCell<[T]> {
     /// assert_eq!(slice_cell.len(), 3);
     /// ```
     pub fn as_slice_of_cells(&self) -> &[SyncUnsafeCell<T>] {
-        let self_ptr: *const SyncUnsafeCell<[T]> = ptr::from_ref(self);
+        let self_ptr: *const Self = ptr::from_ref(self);
         let slice_ptr = self_ptr as *const [SyncUnsafeCell<T>];
         // SAFETY: `UnsafeCell<T>` and `SyncUnsafeCell<T>` have #[repr(transparent)]
         // therefore:
@@ -114,14 +114,14 @@ impl<T> SyncUnsafeCell<[T]> {
 
 impl<T: Default> Default for SyncUnsafeCell<T> {
     /// Creates an `SyncUnsafeCell`, with the `Default` value for T.
-    fn default() -> SyncUnsafeCell<T> {
-        SyncUnsafeCell::new(Default::default())
+    fn default() -> Self {
+        Self::new(Default::default())
     }
 }
 
 impl<T> From<T> for SyncUnsafeCell<T> {
     /// Creates a new `SyncUnsafeCell<T>` containing the given value.
-    fn from(t: T) -> SyncUnsafeCell<T> {
-        SyncUnsafeCell::new(t)
+    fn from(t: T) -> Self {
+        Self::new(t)
     }
 }

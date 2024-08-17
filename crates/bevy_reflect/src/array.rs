@@ -343,7 +343,7 @@ impl Array for DynamicArray {
 
     #[inline]
     fn clone_dynamic(&self) -> DynamicArray {
-        DynamicArray {
+        Self {
             represented_type: self.represented_type,
             values: self
                 .values
@@ -401,8 +401,8 @@ pub struct ArrayIter<'a> {
 impl<'a> ArrayIter<'a> {
     /// Creates a new [`ArrayIter`].
     #[inline]
-    pub const fn new(array: &'a dyn Array) -> ArrayIter {
-        ArrayIter { array, index: 0 }
+    pub const fn new(array: &'a dyn Array) -> Self {
+        Self { array, index: 0 }
     }
 }
 

@@ -215,7 +215,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
-    ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
+    ) -> Self {
         if binding_arrays_are_usable(render_device) {
             RenderViewIrradianceVolumeBindGroupEntries::get_multiple(
                 render_view_irradiance_volumes,
@@ -238,7 +238,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
-    ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
+    ) -> Self {
         let mut texture_views = vec![];
         let mut sampler = None;
 
@@ -271,7 +271,7 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         render_view_irradiance_volumes: Option<&RenderViewLightProbes<IrradianceVolume>>,
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
-    ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
+    ) -> Self {
         if let Some(irradiance_volumes) = render_view_irradiance_volumes {
             if let Some(irradiance_volume) = irradiance_volumes.render_light_probes.first() {
                 if irradiance_volume.texture_index >= 0 {

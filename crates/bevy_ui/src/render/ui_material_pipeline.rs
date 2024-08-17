@@ -217,7 +217,6 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
         let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
         let ui_layout = M::bind_group_layout(render_device);
-
         let view_layout = render_device.create_bind_group_layout(
             "ui_view_layout",
             &BindGroupLayoutEntries::sequential(
@@ -228,8 +227,7 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
                 ),
             ),
         );
-
-        UiMaterialPipeline {
+        Self {
             ui_layout,
             view_layout,
             vertex_shader: match M::vertex_shader() {
@@ -616,7 +614,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
         (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.ui_layout, render_device, images, fallback_image) {
-            Ok(prepared) => Ok(PreparedUiMaterial {
+            Ok(prepared) => Ok(Self {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
                 key: prepared.data,

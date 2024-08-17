@@ -37,9 +37,7 @@ pub struct NestedLoader<'ctx, 'builder> {
 }
 
 impl<'ctx, 'builder> NestedLoader<'ctx, 'builder> {
-    pub(crate) fn new(
-        load_context: &'builder mut LoadContext<'ctx>,
-    ) -> NestedLoader<'ctx, 'builder> {
+    pub(crate) fn new(load_context: &'builder mut LoadContext<'ctx>) -> Self {
         NestedLoader {
             load_context,
             meta_transform: None,

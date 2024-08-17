@@ -180,7 +180,7 @@ impl From<DynamicFunction> for DynamicClosure<'static> {
 
 impl<'env> IntoClosure<'env, ()> for DynamicClosure<'env> {
     #[inline]
-    fn into_closure(self) -> DynamicClosure<'env> {
+    fn into_closure(self) -> Self {
         self
     }
 }

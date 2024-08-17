@@ -141,8 +141,7 @@ impl From<Hsva> for Hwba {
         // Based on https://en.wikipedia.org/wiki/HWB_color_model#Conversion
         let whiteness = (1. - saturation) * value;
         let blackness = 1. - value;
-
-        Hwba::new(hue, whiteness, blackness, alpha)
+        Self::new(hue, whiteness, blackness, alpha)
     }
 }
 
@@ -162,8 +161,7 @@ impl From<Hwba> for Hsva {
         } else {
             0.
         };
-
-        Hsva::new(hue, saturation, value, alpha)
+        Self::new(hue, saturation, value, alpha)
     }
 }
 

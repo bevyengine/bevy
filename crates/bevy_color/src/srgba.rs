@@ -40,12 +40,12 @@ impl Srgba {
     // https://en.wikipedia.org/wiki/Web_colors#Basic_colors
 
     /// <div style="background-color:rgb(0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const BLACK: Srgba = Srgba::new(0.0, 0.0, 0.0, 1.0);
+    pub const BLACK: Self = Self::new(0.0, 0.0, 0.0, 1.0);
     /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     #[doc(alias = "transparent")]
-    pub const NONE: Srgba = Srgba::new(0.0, 0.0, 0.0, 0.0);
+    pub const NONE: Self = Self::new(0.0, 0.0, 0.0, 0.0);
     /// <div style="background-color:rgb(100%, 100%, 100%); width: 10px; padding: 10px; border: 1px solid;"></div>
-    pub const WHITE: Srgba = Srgba::new(1.0, 1.0, 1.0, 1.0);
+    pub const WHITE: Self = Self::new(1.0, 1.0, 1.0, 1.0);
 
     /// A fully red color with full alpha.
     pub const RED: Self = Self {
@@ -250,7 +250,7 @@ impl Luminance for Srgba {
     fn with_luminance(&self, luminance: f32) -> Self {
         let linear: LinearRgba = (*self).into();
         linear
-            .with_luminance(Srgba::gamma_function(luminance))
+            .with_luminance(Self::gamma_function(luminance))
             .into()
     }
 
@@ -389,9 +389,9 @@ impl From<LinearRgba> for Srgba {
     #[inline]
     fn from(value: LinearRgba) -> Self {
         Self {
-            red: Srgba::gamma_function_inverse(value.red),
-            green: Srgba::gamma_function_inverse(value.green),
-            blue: Srgba::gamma_function_inverse(value.blue),
+            red: Self::gamma_function_inverse(value.red),
+            green: Self::gamma_function_inverse(value.green),
+            blue: Self::gamma_function_inverse(value.blue),
             alpha: value.alpha,
         }
     }

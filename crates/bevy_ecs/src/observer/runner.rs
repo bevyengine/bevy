@@ -71,7 +71,7 @@ impl Component for ObserverState {
             let descriptor = std::mem::take(
                 &mut world
                     .entity_mut(entity)
-                    .get_mut::<ObserverState>()
+                    .get_mut::<Self>()
                     .unwrap()
                     .as_mut()
                     .descriptor,

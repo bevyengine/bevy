@@ -54,7 +54,7 @@ pub fn remove_dropped_font_atlas_sets(
 pub struct FontSizeKey(pub u32);
 
 impl From<u32> for FontSizeKey {
-    fn from(val: u32) -> FontSizeKey {
+    fn from(val: u32) -> Self {
         Self(val)
     }
 }
@@ -82,7 +82,7 @@ pub struct FontAtlasSet {
 
 impl Default for FontAtlasSet {
     fn default() -> Self {
-        FontAtlasSet {
+        Self {
             font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
         }
     }

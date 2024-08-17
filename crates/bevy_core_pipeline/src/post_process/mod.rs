@@ -314,7 +314,7 @@ impl FromWorld for PostProcessingPipeline {
             ..default()
         });
 
-        PostProcessingPipeline {
+        Self {
             bind_group_layout,
             source_sampler,
             chromatic_aberration_lut_sampler,
@@ -486,11 +486,9 @@ pub fn prepare_post_processing_uniforms(
 }
 
 impl ExtractComponent for ChromaticAberration {
-    type QueryData = Read<ChromaticAberration>;
-
+    type QueryData = Read<Self>;
     type QueryFilter = With<Camera>;
-
-    type Out = ChromaticAberration;
+    type Out = Self;
 
     fn extract_component(
         chromatic_aberration: QueryItem<'_, Self::QueryData>,

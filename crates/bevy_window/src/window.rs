@@ -510,7 +510,7 @@ impl WindowResizeConstraints {
     /// Will output warnings if it isn't.
     #[must_use]
     pub fn check_constraints(&self) -> Self {
-        let WindowResizeConstraints {
+        let Self {
             mut min_width,
             mut min_height,
             mut max_width,
@@ -532,7 +532,7 @@ impl WindowResizeConstraints {
             );
             max_height = min_height;
         }
-        WindowResizeConstraints {
+        Self {
             min_width,
             min_height,
             max_width,
@@ -581,7 +581,7 @@ pub struct CursorOptions {
 
 impl Default for CursorOptions {
     fn default() -> Self {
-        CursorOptions {
+        Self {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
@@ -624,12 +624,12 @@ impl WindowPosition {
 
     /// Set the position to a specific point.
     pub fn set(&mut self, position: IVec2) {
-        *self = WindowPosition::At(position);
+        *self = Self::At(position);
     }
 
     /// Set the window to a specific monitor.
     pub fn center(&mut self, monitor: MonitorSelection) {
-        *self = WindowPosition::Centered(monitor);
+        *self = Self::Centered(monitor);
     }
 }
 
@@ -703,7 +703,7 @@ pub struct WindowResolution {
 
 impl Default for WindowResolution {
     fn default() -> Self {
-        WindowResolution {
+        Self {
             physical_width: 1280,
             physical_height: 720,
             scale_factor_override: None,
@@ -839,8 +839,8 @@ impl<I> From<(I, I)> for WindowResolution
 where
     I: Into<f32>,
 {
-    fn from((width, height): (I, I)) -> WindowResolution {
-        WindowResolution::new(width.into(), height.into())
+    fn from((width, height): (I, I)) -> Self {
+        Self::new(width.into(), height.into())
     }
 }
 
@@ -848,20 +848,20 @@ impl<I> From<[I; 2]> for WindowResolution
 where
     I: Into<f32>,
 {
-    fn from([width, height]: [I; 2]) -> WindowResolution {
-        WindowResolution::new(width.into(), height.into())
+    fn from([width, height]: [I; 2]) -> Self {
+        Self::new(width.into(), height.into())
     }
 }
 
 impl From<Vec2> for WindowResolution {
-    fn from(res: Vec2) -> WindowResolution {
-        WindowResolution::new(res.x, res.y)
+    fn from(res: Vec2) -> Self {
+        Self::new(res.x, res.y)
     }
 }
 
 impl From<DVec2> for WindowResolution {
-    fn from(res: DVec2) -> WindowResolution {
-        WindowResolution::new(res.x as f32, res.y as f32)
+    fn from(res: DVec2) -> Self {
+        Self::new(res.x as f32, res.y as f32)
     }
 }
 

@@ -69,7 +69,7 @@ pub struct EventCursor<E: Event> {
 
 impl<E: Event> Default for EventCursor<E> {
     fn default() -> Self {
-        EventCursor {
+        Self {
             last_event_count: 0,
             _marker: Default::default(),
         }
@@ -78,7 +78,7 @@ impl<E: Event> Default for EventCursor<E> {
 
 impl<E: Event> Clone for EventCursor<E> {
     fn clone(&self) -> Self {
-        EventCursor {
+        Self {
             last_event_count: self.last_event_count,
             _marker: PhantomData,
         }

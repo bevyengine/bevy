@@ -476,7 +476,7 @@ pub struct ButtonSettings {
 
 impl Default for ButtonSettings {
     fn default() -> Self {
-        ButtonSettings {
+        Self {
             press_threshold: 0.75,
             release_threshold: 0.65,
         }
@@ -500,10 +500,7 @@ impl ButtonSettings {
     /// `GamepadSettingsError::ButtonReleaseThresholdOutOfRange`,
     /// `GamepadSettingsError::ButtonPressThresholdOutOfRange`, or
     /// `GamepadSettingsError::ButtonReleaseThresholdGreaterThanPressThreshold`.
-    pub fn new(
-        press_threshold: f32,
-        release_threshold: f32,
-    ) -> Result<ButtonSettings, ButtonSettingsError> {
+    pub fn new(press_threshold: f32, release_threshold: f32) -> Result<Self, ButtonSettingsError> {
         if !(0.0..=1.0).contains(&release_threshold) {
             Err(ButtonSettingsError::ReleaseThresholdOutOfRange(
                 release_threshold,
@@ -520,7 +517,7 @@ impl ButtonSettings {
                 },
             )
         } else {
-            Ok(ButtonSettings {
+            Ok(Self {
                 press_threshold,
                 release_threshold,
             })
@@ -644,7 +641,7 @@ pub struct AxisSettings {
 
 impl Default for AxisSettings {
     fn default() -> Self {
-        AxisSettings {
+        Self {
             livezone_upperbound: 1.0,
             deadzone_upperbound: 0.05,
             deadzone_lowerbound: -0.05,
@@ -682,7 +679,7 @@ impl AxisSettings {
         deadzone_upperbound: f32,
         livezone_upperbound: f32,
         threshold: f32,
-    ) -> Result<AxisSettings, AxisSettingsError> {
+    ) -> Result<Self, AxisSettingsError> {
         if !(-1.0..=0.0).contains(&livezone_lowerbound) {
             Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(
                 livezone_lowerbound,
@@ -972,7 +969,7 @@ pub struct ButtonAxisSettings {
 
 impl Default for ButtonAxisSettings {
     fn default() -> Self {
-        ButtonAxisSettings {
+        Self {
             high: 0.95,
             low: 0.05,
             threshold: 0.01,
@@ -1341,19 +1338,19 @@ pub struct GamepadRumbleIntensity {
 
 impl GamepadRumbleIntensity {
     /// Rumble both gamepad motors at maximum intensity.
-    pub const MAX: Self = GamepadRumbleIntensity {
+    pub const MAX: Self = Self {
         strong_motor: 1.0,
         weak_motor: 1.0,
     };
 
     /// Rumble the weak motor at maximum intensity.
-    pub const WEAK_MAX: Self = GamepadRumbleIntensity {
+    pub const WEAK_MAX: Self = Self {
         strong_motor: 0.0,
         weak_motor: 1.0,
     };
 
     /// Rumble the strong motor at maximum intensity.
-    pub const STRONG_MAX: Self = GamepadRumbleIntensity {
+    pub const STRONG_MAX: Self = Self {
         strong_motor: 1.0,
         weak_motor: 0.0,
     };

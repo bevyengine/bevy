@@ -321,7 +321,7 @@ impl Map for DynamicMap {
     }
 
     fn clone_dynamic(&self) -> DynamicMap {
-        DynamicMap {
+        Self {
             represented_type: self.represented_type,
             values: self
                 .values
@@ -457,8 +457,8 @@ pub struct MapIter<'a> {
 impl<'a> MapIter<'a> {
     /// Creates a new [`MapIter`].
     #[inline]
-    pub const fn new(map: &'a dyn Map) -> MapIter {
-        MapIter { map, index: 0 }
+    pub const fn new(map: &'a dyn Map) -> Self {
+        Self { map, index: 0 }
     }
 }
 

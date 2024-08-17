@@ -61,7 +61,7 @@ impl ReflectValueDef {
                 attrs
             });
         }
-        Ok(ReflectValueDef {
+        Ok(Self {
             attrs,
             type_path,
             generics,

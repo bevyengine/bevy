@@ -39,7 +39,7 @@ impl FileWatcher {
                 last_event: None,
             },
         )?;
-        Ok(FileWatcher { _watcher: watcher })
+        Ok(Self { _watcher: watcher })
     }
 }
 

@@ -38,7 +38,7 @@ impl<'a> Display for AssetSourceId<'a> {
 
 impl<'a> AssetSourceId<'a> {
     /// Creates a new [`AssetSourceId`]
-    pub fn new(source: Option<impl Into<CowArc<'a, str>>>) -> AssetSourceId<'a> {
+    pub fn new(source: Option<impl Into<CowArc<'a, str>>>) -> Self {
         match source {
             Some(source) => AssetSourceId::Name(source.into()),
             None => AssetSourceId::Default,
@@ -76,8 +76,8 @@ impl From<&'static str> for AssetSourceId<'static> {
     }
 }
 
-impl<'a, 'b> From<&'a AssetSourceId<'b>> for AssetSourceId<'b> {
-    fn from(value: &'a AssetSourceId<'b>) -> Self {
+impl<'a, 'b> From<&'a Self> for AssetSourceId<'b> {
+    fn from(value: &'a Self) -> Self {
         value.clone()
     }
 }

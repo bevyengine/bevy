@@ -222,7 +222,7 @@ impl Frustum {
     /// Returns a frustum derived from `clip_from_world`.
     #[inline]
     pub fn from_clip_from_world(clip_from_world: &Mat4) -> Self {
-        let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
+        let mut frustum = Self::from_clip_from_world_no_far(clip_from_world);
         frustum.half_spaces[5] = HalfSpace::new(clip_from_world.row(2));
         frustum
     }
@@ -236,7 +236,7 @@ impl Frustum {
         view_backward: &Vec3,
         far: f32,
     ) -> Self {
-        let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
+        let mut frustum = Self::from_clip_from_world_no_far(clip_from_world);
         let far_center = *view_translation - far * *view_backward;
         frustum.half_spaces[5] =
             HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));

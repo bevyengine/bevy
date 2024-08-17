@@ -339,7 +339,7 @@ impl FromWorld for Mesh2dPipeline {
                 mip_level_count: image.texture_descriptor.mip_level_count,
             }
         };
-        Mesh2dPipeline {
+        Self {
             view_layout,
             mesh_layout,
             dummy_white_gpu_image,
@@ -511,9 +511,9 @@ impl Mesh2dPipelineKey {
 
     pub fn from_hdr(hdr: bool) -> Self {
         if hdr {
-            Mesh2dPipelineKey::HDR
+            Self::HDR
         } else {
-            Mesh2dPipelineKey::NONE
+            Self::NONE
         }
     }
 

@@ -223,7 +223,7 @@ impl Rot2 {
         let length_squared = self.length_squared();
         // Based on a Taylor approximation of the inverse square root, see [`Dir3::fast_renormalize`](crate::Dir3::fast_renormalize) for more details.
         let length_recip_approx = 0.5 * (3.0 - length_squared);
-        Rot2 {
+        Self {
             sin: self.sin * length_recip_approx,
             cos: self.cos * length_recip_approx,
         }
@@ -369,7 +369,7 @@ impl From<f32> for Rot2 {
 impl From<Rot2> for Mat2 {
     /// Creates a [`Mat2`] rotation matrix from a [`Rot2`].
     fn from(rot: Rot2) -> Self {
-        Mat2::from_cols_array(&[rot.cos, -rot.sin, rot.sin, rot.cos])
+        Self::from_cols_array(&[rot.cos, -rot.sin, rot.sin, rot.cos])
     }
 }
 

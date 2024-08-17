@@ -96,8 +96,8 @@ mod tests {
         struct Foo(i32);
 
         impl Foo {
-            pub fn add(&self, other: &Foo) -> Foo {
-                Foo(self.0 + other.0)
+            pub fn add(&self, other: &Self) -> Self {
+                Self(self.0 + other.0)
             }
         }
 

@@ -247,11 +247,10 @@ impl From<Laba> for Xyza {
                 (116.0 * fz - 16.0) / Laba::CIE_KAPPA
             }
         };
-        let x = xr * Xyza::D65_WHITE.x;
-        let y = yr * Xyza::D65_WHITE.y;
-        let z = zr * Xyza::D65_WHITE.z;
-
-        Xyza::new(x, y, z, alpha)
+        let x = xr * Self::D65_WHITE.x;
+        let y = yr * Self::D65_WHITE.y;
+        let z = zr * Self::D65_WHITE.z;
+        Self::new(x, y, z, alpha)
     }
 }
 
@@ -261,26 +260,25 @@ impl From<Xyza> for Laba {
         let xr = x / Xyza::D65_WHITE.x;
         let yr = y / Xyza::D65_WHITE.y;
         let zr = z / Xyza::D65_WHITE.z;
-        let fx = if xr > Laba::CIE_EPSILON {
+        let fx = if xr > Self::CIE_EPSILON {
             xr.cbrt()
         } else {
-            (Laba::CIE_KAPPA * xr + 16.0) / 116.0
+            (Self::CIE_KAPPA * xr + 16.0) / 116.0
         };
-        let fy = if yr > Laba::CIE_EPSILON {
+        let fy = if yr > Self::CIE_EPSILON {
             yr.cbrt()
         } else {
-            (Laba::CIE_KAPPA * yr + 16.0) / 116.0
+            (Self::CIE_KAPPA * yr + 16.0) / 116.0
         };
-        let fz = if yr > Laba::CIE_EPSILON {
+        let fz = if yr > Self::CIE_EPSILON {
             zr.cbrt()
         } else {
-            (Laba::CIE_KAPPA * zr + 16.0) / 116.0
+            (Self::CIE_KAPPA * zr + 16.0) / 116.0
         };
         let l = 1.16 * fy - 0.16;
         let a = 5.00 * (fx - fy);
         let b = 2.00 * (fy - fz);
-
-        Laba::new(l, a, b, alpha)
+        Self::new(l, a, b, alpha)
     }
 }
 

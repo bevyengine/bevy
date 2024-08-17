@@ -408,25 +408,24 @@ impl MeshFlags {
         lod_index: Option<NonMaxU16>,
         not_shadow_receiver: bool,
         transmitted_receiver: bool,
-    ) -> MeshFlags {
+    ) -> Self {
         let mut mesh_flags = if not_shadow_receiver {
-            MeshFlags::empty()
+            Self::empty()
         } else {
-            MeshFlags::SHADOW_RECEIVER
+            Self::SHADOW_RECEIVER
         };
         if transmitted_receiver {
-            mesh_flags |= MeshFlags::TRANSMITTED_SHADOW_RECEIVER;
+            mesh_flags |= Self::TRANSMITTED_SHADOW_RECEIVER;
         }
         if transform.affine().matrix3.determinant().is_sign_positive() {
-            mesh_flags |= MeshFlags::SIGN_DETERMINANT_MODEL_3X3;
+            mesh_flags |= Self::SIGN_DETERMINANT_MODEL_3X3;
         }
 
         let lod_index_bits = match lod_index {
             None => u16::MAX,
             Some(lod_index) => u16::from(lod_index),
         };
-        mesh_flags |=
-            MeshFlags::from_bits_retain((lod_index_bits as u32) << MeshFlags::LOD_INDEX_SHIFT);
+        mesh_flags |= Self::from_bits_retain((lod_index_bits as u32) << Self::LOD_INDEX_SHIFT);
 
         mesh_flags
     }
@@ -576,7 +575,7 @@ impl RenderMeshInstanceShared {
             previous_transform.is_some(),
         );
 
-        RenderMeshInstanceShared {
+        Self {
             mesh_asset_id: handle.id(),
 
             flags: mesh_instance_flags,
@@ -619,19 +618,19 @@ pub struct RenderMeshInstancesGpu(EntityHashMap<RenderMeshInstanceGpu>);
 
 impl RenderMeshInstances {
     /// Creates a new [`RenderMeshInstances`] instance.
-    fn new(use_gpu_instance_buffer_builder: bool) -> RenderMeshInstances {
+    fn new(use_gpu_instance_buffer_builder: bool) -> Self {
         if use_gpu_instance_buffer_builder {
-            RenderMeshInstances::GpuBuilding(RenderMeshInstancesGpu::default())
+            Self::GpuBuilding(RenderMeshInstancesGpu::default())
         } else {
-            RenderMeshInstances::CpuBuilding(RenderMeshInstancesCpu::default())
+            Self::CpuBuilding(RenderMeshInstancesCpu::default())
         }
     }
 
     /// Returns the ID of the mesh asset attached to the given entity, if any.
     pub(crate) fn mesh_asset_id(&self, entity: Entity) -> Option<AssetId<Mesh>> {
         match *self {
-            RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
-            RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
+            Self::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
+            Self::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
         }
     }
 
@@ -639,12 +638,8 @@ impl RenderMeshInstances {
     /// mesh attached.
     pub fn render_mesh_queue_data(&self, entity: Entity) -> Option<RenderMeshQueueData> {
         match *self {
-            RenderMeshInstances::CpuBuilding(ref instances) => {
-                instances.render_mesh_queue_data(entity)
-            }
-            RenderMeshInstances::GpuBuilding(ref instances) => {
-                instances.render_mesh_queue_data(entity)
-            }
+            Self::CpuBuilding(ref instances) => instances.render_mesh_queue_data(entity),
+            Self::GpuBuilding(ref instances) => instances.render_mesh_queue_data(entity),
         }
     }
 
@@ -652,10 +647,10 @@ impl RenderMeshInstances {
     /// for the given mesh as appropriate.
     fn insert_mesh_instance_flags(&mut self, entity: Entity, flags: RenderMeshInstanceFlags) {
         match *self {
-            RenderMeshInstances::CpuBuilding(ref mut instances) => {
+            Self::CpuBuilding(ref mut instances) => {
                 instances.insert_mesh_instance_flags(entity, flags);
             }
-            RenderMeshInstances::GpuBuilding(ref mut instances) => {
+            Self::GpuBuilding(ref mut instances) => {
                 instances.insert_mesh_instance_flags(entity, flags);
             }
         }
@@ -716,10 +711,10 @@ impl RenderMeshInstanceGpuQueue {
     /// enabled.
     fn init(&mut self, any_gpu_culling: bool) {
         match (any_gpu_culling, &mut *self) {
-            (true, RenderMeshInstanceGpuQueue::GpuCulling(queue)) => queue.clear(),
-            (true, _) => *self = RenderMeshInstanceGpuQueue::GpuCulling(vec![]),
-            (false, RenderMeshInstanceGpuQueue::CpuCulling(queue)) => queue.clear(),
-            (false, _) => *self = RenderMeshInstanceGpuQueue::CpuCulling(vec![]),
+            (true, Self::GpuCulling(queue)) => queue.clear(),
+            (true, _) => *self = Self::GpuCulling(vec![]),
+            (false, Self::CpuCulling(queue)) => queue.clear(),
+            (false, _) => *self = Self::CpuCulling(vec![]),
         }
     }
 
@@ -731,24 +726,17 @@ impl RenderMeshInstanceGpuQueue {
         culling_data_builder: Option<MeshCullingData>,
     ) {
         match (&mut *self, culling_data_builder) {
-            (&mut RenderMeshInstanceGpuQueue::CpuCulling(ref mut queue), None) => {
+            (&mut Self::CpuCulling(ref mut queue), None) => {
                 queue.push((entity, instance_builder));
             }
-            (
-                &mut RenderMeshInstanceGpuQueue::GpuCulling(ref mut queue),
-                Some(culling_data_builder),
-            ) => {
+            (&mut Self::GpuCulling(ref mut queue), Some(culling_data_builder)) => {
                 queue.push((entity, instance_builder, culling_data_builder));
             }
             (_, None) => {
-                *self = RenderMeshInstanceGpuQueue::CpuCulling(vec![(entity, instance_builder)]);
+                *self = Self::CpuCulling(vec![(entity, instance_builder)]);
             }
             (_, Some(culling_data_builder)) => {
-                *self = RenderMeshInstanceGpuQueue::GpuCulling(vec![(
-                    entity,
-                    instance_builder,
-                    culling_data_builder,
-                )]);
+                *self = Self::GpuCulling(vec![(entity, instance_builder, culling_data_builder)]);
             }
         }
     }
@@ -808,11 +796,11 @@ impl MeshCullingData {
     /// chosen.
     fn new(aabb: Option<&Aabb>) -> Self {
         match aabb {
-            Some(aabb) => MeshCullingData {
+            Some(aabb) => Self {
                 aabb_center: aabb.center.extend(0.0),
                 aabb_half_extents: aabb.half_extents.extend(0.0),
             },
-            None => MeshCullingData {
+            None => Self {
                 aabb_center: Vec3::ZERO.extend(0.0),
                 aabb_half_extents: Vec3::INFINITY.extend(0.0),
             },
@@ -1225,7 +1213,7 @@ impl FromWorld for MeshPipeline {
             }
         };
 
-        MeshPipeline {
+        Self {
             view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
@@ -1557,9 +1545,9 @@ impl MeshPipelineKey {
 
     pub fn from_hdr(hdr: bool) -> Self {
         if hdr {
-            MeshPipelineKey::HDR
+            Self::HDR
         } else {
-            MeshPipelineKey::NONE
+            Self::NONE
         }
     }
 

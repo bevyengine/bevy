@@ -101,7 +101,7 @@ impl Default for RenderAssetUsages {
     /// the asset to be unloaded from the main world once it has been prepared for rendering. If the asset does not need
     /// to reach the render world at all, use `RenderAssetUsages::MAIN_WORLD` exclusively.
     fn default() -> Self {
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD
+        Self::MAIN_WORLD | Self::RENDER_WORLD
     }
 }
 

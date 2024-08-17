@@ -15,7 +15,7 @@ pub struct Pitch {
 impl Pitch {
     /// Creates a new note
     pub fn new(frequency: f32, duration: std::time::Duration) -> Self {
-        Pitch {
+        Self {
             frequency,
             duration,
         }

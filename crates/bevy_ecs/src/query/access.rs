@@ -350,7 +350,7 @@ impl<T: SparseSetIndex> Access<T> {
     }
 
     /// Adds all access from `other`.
-    pub fn extend(&mut self, other: &Access<T>) {
+    pub fn extend(&mut self, other: &Self) {
         self.reads_all_resources = self.reads_all_resources || other.reads_all_resources;
         self.writes_all_resources = self.writes_all_resources || other.writes_all_resources;
         self.reads_all_components = self.reads_all_components || other.reads_all_components;
@@ -368,7 +368,7 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
-    pub fn is_components_compatible(&self, other: &Access<T>) -> bool {
+    pub fn is_components_compatible(&self, other: &Self) -> bool {
         if self.writes_all_components {
             return !other.has_any_component_read();
         }
@@ -397,7 +397,7 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
-    pub fn is_resources_compatible(&self, other: &Access<T>) -> bool {
+    pub fn is_resources_compatible(&self, other: &Self) -> bool {
         if self.writes_all_resources {
             return !other.has_any_resource_read();
         }
@@ -425,13 +425,13 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// [`Access`] instances are incompatible if one can write
     /// an element that the other can read or write.
-    pub fn is_compatible(&self, other: &Access<T>) -> bool {
+    pub fn is_compatible(&self, other: &Self) -> bool {
         self.is_components_compatible(other) && self.is_resources_compatible(other)
     }
 
     /// Returns `true` if the set's component access is a subset of another, i.e. `other`'s component access
     /// contains at least all the values in `self`.
-    pub fn is_subset_components(&self, other: &Access<T>) -> bool {
+    pub fn is_subset_components(&self, other: &Self) -> bool {
         if self.writes_all_components {
             return other.writes_all_components;
         }
@@ -455,7 +455,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if the set's resource access is a subset of another, i.e. `other`'s resource access
     /// contains at least all the values in `self`.
-    pub fn is_subset_resources(&self, other: &Access<T>) -> bool {
+    pub fn is_subset_resources(&self, other: &Self) -> bool {
         if self.writes_all_resources {
             return other.writes_all_resources;
         }
@@ -479,12 +479,12 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
-    pub fn is_subset(&self, other: &Access<T>) -> bool {
+    pub fn is_subset(&self, other: &Self) -> bool {
         self.is_subset_components(other) && self.is_subset_resources(other)
     }
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
-    pub fn get_conflicts(&self, other: &Access<T>) -> AccessConflicts {
+    pub fn get_conflicts(&self, other: &Self) -> AccessConflicts {
         let mut conflicts = FixedBitSet::new();
         if self.reads_all_components {
             if other.writes_all_components {
@@ -633,7 +633,7 @@ impl<T: SparseSetIndex> Default for FilteredAccess<T> {
 
 impl<T: SparseSetIndex> From<FilteredAccess<T>> for FilteredAccessSet<T> {
     fn from(filtered_access: FilteredAccess<T>) -> Self {
-        let mut base = FilteredAccessSet::<T>::default();
+        let mut base = Self::default();
         base.add(filtered_access);
         base
     }
@@ -651,12 +651,8 @@ pub enum AccessConflicts {
 impl AccessConflicts {
     fn add(&mut self, other: &Self) {
         match (self, other) {
-            (s, AccessConflicts::All) => {
-                *s = AccessConflicts::All;
-            }
-            (AccessConflicts::Individual(this), AccessConflicts::Individual(other)) => {
-                this.extend(other.ones());
-            }
+            (s, Self::All) => *s = Self::All,
+            (Self::Individual(this), Self::Individual(other)) => this.extend(other.ones()),
             _ => {}
         }
     }
@@ -772,17 +768,17 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// As the underlying array of filters represents a disjunction,
     /// where each element (`AccessFilters`) represents a conjunction,
     /// we can simply append to the array.
-    pub fn append_or(&mut self, other: &FilteredAccess<T>) {
+    pub fn append_or(&mut self, other: &Self) {
         self.filter_sets.append(&mut other.filter_sets.clone());
     }
 
     /// Adds all of the accesses from `other` to `self`.
-    pub fn extend_access(&mut self, other: &FilteredAccess<T>) {
+    pub fn extend_access(&mut self, other: &Self) {
         self.access.extend(&other.access);
     }
 
     /// Returns `true` if this and `other` can be active at the same time.
-    pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
+    pub fn is_compatible(&self, other: &Self) -> bool {
         if self.access.is_compatible(&other.access) {
             return true;
         }
@@ -803,7 +799,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     }
 
     /// Returns a vector of elements that this and `other` cannot access at the same time.
-    pub fn get_conflicts(&self, other: &FilteredAccess<T>) -> AccessConflicts {
+    pub fn get_conflicts(&self, other: &Self) -> AccessConflicts {
         if !self.is_compatible(other) {
             // filters are disjoint, so we can just look at the unfiltered intersection
             return self.access.get_conflicts(&other.access);
@@ -817,7 +813,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     ///
     /// Extending `Or<(With<A>, Without<B>)>` with `Or<(With<C>, Without<D>)>` will result in
     /// `Or<((With<A>, With<C>), (With<A>, Without<D>), (Without<B>, With<C>), (Without<B>, Without<D>))>`.
-    pub fn extend(&mut self, other: &FilteredAccess<T>) {
+    pub fn extend(&mut self, other: &Self) {
         self.access.extend(&other.access);
         self.required.union_with(&other.required);
 
@@ -865,7 +861,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
-    pub fn is_subset(&self, other: &FilteredAccess<T>) -> bool {
+    pub fn is_subset(&self, other: &Self) -> bool {
         self.required.is_subset(&other.required) && self.access().is_subset(other.access())
     }
 
@@ -984,7 +980,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     ///    mutually exclusive. The fine grained phase iterates over all filters in
     ///    the `self` set and compares it to all the filters in the `other` set,
     ///    making sure they are all mutually compatible.
-    pub fn is_compatible(&self, other: &FilteredAccessSet<T>) -> bool {
+    pub fn is_compatible(&self, other: &Self) -> bool {
         if self.combined_access.is_compatible(other.combined_access()) {
             return true;
         }
@@ -999,7 +995,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     /// Returns a vector of elements that this set and `other` cannot access at the same time.
-    pub fn get_conflicts(&self, other: &FilteredAccessSet<T>) -> AccessConflicts {
+    pub fn get_conflicts(&self, other: &Self) -> AccessConflicts {
         // if the unfiltered access is incompatible, must check each pair
         let mut conflicts = AccessConflicts::empty();
         if !self.combined_access.is_compatible(other.combined_access()) {
@@ -1045,7 +1041,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     /// Adds all of the accesses from the passed set to `self`.
-    pub fn extend(&mut self, filtered_access_set: FilteredAccessSet<T>) {
+    pub fn extend(&mut self, filtered_access_set: Self) {
         self.combined_access
             .extend(&filtered_access_set.combined_access);
         self.filtered_accesses

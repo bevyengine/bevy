@@ -70,12 +70,12 @@ macro_rules! feature_gate {
 impl ImageFormat {
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
-            "image/avif" => ImageFormat::Avif,
+            "image/avif" => Self::Avif,
             "image/bmp" | "image/x-bmp" => feature_gate!("bmp", Bmp),
             "image/vnd-ms.dds" => feature_gate!("dds", Dds),
             "image/vnd.radiance" => feature_gate!("hdr", Hdr),
-            "image/gif" => ImageFormat::Gif,
-            "image/x-icon" => ImageFormat::Ico,
+            "image/gif" => Self::Gif,
+            "image/x-icon" => Self::Ico,
             "image/jpeg" => feature_gate!("jpeg", Jpeg),
             "image/ktx2" => feature_gate!("ktx2", Ktx2),
             "image/png" => feature_gate!("png", Png),
@@ -85,7 +85,7 @@ impl ImageFormat {
             | "image/x-portable-pixmap"
             | "image/x-portable-anymap" => feature_gate!("pnm", Pnm),
             "image/x-targa" | "image/x-tga" => feature_gate!("tga", Tga),
-            "image/tiff" => ImageFormat::Tiff,
+            "image/tiff" => Self::Tiff,
             "image/webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
@@ -93,21 +93,21 @@ impl ImageFormat {
 
     pub fn from_extension(extension: &str) -> Option<Self> {
         Some(match extension.to_ascii_lowercase().as_str() {
-            "avif" => ImageFormat::Avif,
+            "avif" => Self::Avif,
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
             "dds" => feature_gate!("dds", Dds),
-            "ff" | "farbfeld" => ImageFormat::Farbfeld,
-            "gif" => ImageFormat::Gif,
+            "ff" | "farbfeld" => Self::Farbfeld,
+            "gif" => Self::Gif,
             "exr" => feature_gate!("exr", OpenExr),
             "hdr" => feature_gate!("hdr", Hdr),
-            "ico" => ImageFormat::Ico,
+            "ico" => Self::Ico,
             "jpg" | "jpeg" => feature_gate!("jpeg", Jpeg),
             "ktx2" => feature_gate!("ktx2", Ktx2),
             "pbm" | "pam" | "ppm" | "pgm" => feature_gate!("pnm", Pnm),
             "png" => feature_gate!("png", Png),
             "tga" => feature_gate!("tga", Tga),
-            "tif" | "tiff" => ImageFormat::Tiff,
+            "tif" | "tiff" => Self::Tiff,
             "webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
@@ -115,51 +115,51 @@ impl ImageFormat {
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         Some(match self {
-            ImageFormat::Avif => image::ImageFormat::Avif,
+            Self::Avif => image::ImageFormat::Avif,
             #[cfg(feature = "bmp")]
-            ImageFormat::Bmp => image::ImageFormat::Bmp,
+            Self::Bmp => image::ImageFormat::Bmp,
             #[cfg(feature = "dds")]
-            ImageFormat::Dds => image::ImageFormat::Dds,
-            ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
-            ImageFormat::Gif => image::ImageFormat::Gif,
+            Self::Dds => image::ImageFormat::Dds,
+            Self::Farbfeld => image::ImageFormat::Farbfeld,
+            Self::Gif => image::ImageFormat::Gif,
             #[cfg(feature = "exr")]
-            ImageFormat::OpenExr => image::ImageFormat::OpenExr,
+            Self::OpenExr => image::ImageFormat::OpenExr,
             #[cfg(feature = "hdr")]
-            ImageFormat::Hdr => image::ImageFormat::Hdr,
-            ImageFormat::Ico => image::ImageFormat::Ico,
+            Self::Hdr => image::ImageFormat::Hdr,
+            Self::Ico => image::ImageFormat::Ico,
             #[cfg(feature = "jpeg")]
-            ImageFormat::Jpeg => image::ImageFormat::Jpeg,
+            Self::Jpeg => image::ImageFormat::Jpeg,
             #[cfg(feature = "png")]
-            ImageFormat::Png => image::ImageFormat::Png,
+            Self::Png => image::ImageFormat::Png,
             #[cfg(feature = "pnm")]
-            ImageFormat::Pnm => image::ImageFormat::Pnm,
+            Self::Pnm => image::ImageFormat::Pnm,
             #[cfg(feature = "tga")]
-            ImageFormat::Tga => image::ImageFormat::Tga,
-            ImageFormat::Tiff => image::ImageFormat::Tiff,
+            Self::Tga => image::ImageFormat::Tga,
+            Self::Tiff => image::ImageFormat::Tiff,
             #[cfg(feature = "webp")]
-            ImageFormat::WebP => image::ImageFormat::WebP,
+            Self::WebP => image::ImageFormat::WebP,
             #[cfg(feature = "basis-universal")]
-            ImageFormat::Basis => return None,
+            Self::Basis => return None,
             #[cfg(feature = "ktx2")]
-            ImageFormat::Ktx2 => return None,
+            Self::Ktx2 => return None,
         })
     }
 
-    pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
+    pub fn from_image_crate_format(format: image::ImageFormat) -> Option<Self> {
         Some(match format {
-            image::ImageFormat::Avif => ImageFormat::Avif,
+            image::ImageFormat::Avif => Self::Avif,
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
-            image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
-            image::ImageFormat::Gif => ImageFormat::Gif,
+            image::ImageFormat::Farbfeld => Self::Farbfeld,
+            image::ImageFormat::Gif => Self::Gif,
             image::ImageFormat::OpenExr => feature_gate!("exr", OpenExr),
             image::ImageFormat::Hdr => feature_gate!("hdr", Hdr),
-            image::ImageFormat::Ico => ImageFormat::Ico,
+            image::ImageFormat::Ico => Self::Ico,
             image::ImageFormat::Jpeg => feature_gate!("jpeg", Jpeg),
             image::ImageFormat::Png => feature_gate!("png", Png),
             image::ImageFormat::Pnm => feature_gate!("pnm", Pnm),
             image::ImageFormat::Tga => feature_gate!("tga", Tga),
-            image::ImageFormat::Tiff => ImageFormat::Tiff,
+            image::ImageFormat::Tiff => Self::Tiff,
             image::ImageFormat::WebP => feature_gate!("webp", WebP),
             _ => return None,
         })
@@ -193,14 +193,14 @@ pub enum ImageSampler {
 impl ImageSampler {
     /// Returns an image sampler with [`ImageFilterMode::Linear`] min and mag filters
     #[inline]
-    pub fn linear() -> ImageSampler {
-        ImageSampler::Descriptor(ImageSamplerDescriptor::linear())
+    pub fn linear() -> Self {
+        Self::Descriptor(ImageSamplerDescriptor::linear())
     }
 
     /// Returns an image sampler with [`ImageFilterMode::Nearest`] min and mag filters
     #[inline]
-    pub fn nearest() -> ImageSampler {
-        ImageSampler::Descriptor(ImageSamplerDescriptor::nearest())
+    pub fn nearest() -> Self {
+        Self::Descriptor(ImageSamplerDescriptor::nearest())
     }
 }
 
@@ -360,8 +360,8 @@ impl Default for ImageSamplerDescriptor {
 impl ImageSamplerDescriptor {
     /// Returns a sampler descriptor with [`Linear`](crate::render_resource::FilterMode::Linear) min and mag filters
     #[inline]
-    pub fn linear() -> ImageSamplerDescriptor {
-        ImageSamplerDescriptor {
+    pub fn linear() -> Self {
+        Self {
             mag_filter: ImageFilterMode::Linear,
             min_filter: ImageFilterMode::Linear,
             mipmap_filter: ImageFilterMode::Linear,
@@ -371,8 +371,8 @@ impl ImageSamplerDescriptor {
 
     /// Returns a sampler descriptor with [`Nearest`](crate::render_resource::FilterMode::Nearest) min and mag filters
     #[inline]
-    pub fn nearest() -> ImageSamplerDescriptor {
-        ImageSamplerDescriptor {
+    pub fn nearest() -> Self {
+        Self {
             mag_filter: ImageFilterMode::Nearest,
             min_filter: ImageFilterMode::Nearest,
             mipmap_filter: ImageFilterMode::Nearest,
@@ -401,10 +401,10 @@ impl ImageSamplerDescriptor {
 impl From<ImageAddressMode> for wgpu::AddressMode {
     fn from(value: ImageAddressMode) -> Self {
         match value {
-            ImageAddressMode::ClampToEdge => wgpu::AddressMode::ClampToEdge,
-            ImageAddressMode::Repeat => wgpu::AddressMode::Repeat,
-            ImageAddressMode::MirrorRepeat => wgpu::AddressMode::MirrorRepeat,
-            ImageAddressMode::ClampToBorder => wgpu::AddressMode::ClampToBorder,
+            ImageAddressMode::ClampToEdge => Self::ClampToEdge,
+            ImageAddressMode::Repeat => Self::Repeat,
+            ImageAddressMode::MirrorRepeat => Self::MirrorRepeat,
+            ImageAddressMode::ClampToBorder => Self::ClampToBorder,
         }
     }
 }
@@ -412,8 +412,8 @@ impl From<ImageAddressMode> for wgpu::AddressMode {
 impl From<ImageFilterMode> for wgpu::FilterMode {
     fn from(value: ImageFilterMode) -> Self {
         match value {
-            ImageFilterMode::Nearest => wgpu::FilterMode::Nearest,
-            ImageFilterMode::Linear => wgpu::FilterMode::Linear,
+            ImageFilterMode::Nearest => Self::Nearest,
+            ImageFilterMode::Linear => Self::Linear,
         }
     }
 }
@@ -421,14 +421,14 @@ impl From<ImageFilterMode> for wgpu::FilterMode {
 impl From<ImageCompareFunction> for wgpu::CompareFunction {
     fn from(value: ImageCompareFunction) -> Self {
         match value {
-            ImageCompareFunction::Never => wgpu::CompareFunction::Never,
-            ImageCompareFunction::Less => wgpu::CompareFunction::Less,
-            ImageCompareFunction::Equal => wgpu::CompareFunction::Equal,
-            ImageCompareFunction::LessEqual => wgpu::CompareFunction::LessEqual,
-            ImageCompareFunction::Greater => wgpu::CompareFunction::Greater,
-            ImageCompareFunction::NotEqual => wgpu::CompareFunction::NotEqual,
-            ImageCompareFunction::GreaterEqual => wgpu::CompareFunction::GreaterEqual,
-            ImageCompareFunction::Always => wgpu::CompareFunction::Always,
+            ImageCompareFunction::Never => Self::Never,
+            ImageCompareFunction::Less => Self::Less,
+            ImageCompareFunction::Equal => Self::Equal,
+            ImageCompareFunction::LessEqual => Self::LessEqual,
+            ImageCompareFunction::Greater => Self::Greater,
+            ImageCompareFunction::NotEqual => Self::NotEqual,
+            ImageCompareFunction::GreaterEqual => Self::GreaterEqual,
+            ImageCompareFunction::Always => Self::Always,
         }
     }
 }
@@ -436,10 +436,10 @@ impl From<ImageCompareFunction> for wgpu::CompareFunction {
 impl From<ImageSamplerBorderColor> for wgpu::SamplerBorderColor {
     fn from(value: ImageSamplerBorderColor) -> Self {
         match value {
-            ImageSamplerBorderColor::TransparentBlack => wgpu::SamplerBorderColor::TransparentBlack,
-            ImageSamplerBorderColor::OpaqueBlack => wgpu::SamplerBorderColor::OpaqueBlack,
-            ImageSamplerBorderColor::OpaqueWhite => wgpu::SamplerBorderColor::OpaqueWhite,
-            ImageSamplerBorderColor::Zero => wgpu::SamplerBorderColor::Zero,
+            ImageSamplerBorderColor::TransparentBlack => Self::TransparentBlack,
+            ImageSamplerBorderColor::OpaqueBlack => Self::OpaqueBlack,
+            ImageSamplerBorderColor::OpaqueWhite => Self::OpaqueWhite,
+            ImageSamplerBorderColor::Zero => Self::Zero,
         }
     }
 }
@@ -447,10 +447,10 @@ impl From<ImageSamplerBorderColor> for wgpu::SamplerBorderColor {
 impl From<wgpu::AddressMode> for ImageAddressMode {
     fn from(value: wgpu::AddressMode) -> Self {
         match value {
-            wgpu::AddressMode::ClampToEdge => ImageAddressMode::ClampToEdge,
-            wgpu::AddressMode::Repeat => ImageAddressMode::Repeat,
-            wgpu::AddressMode::MirrorRepeat => ImageAddressMode::MirrorRepeat,
-            wgpu::AddressMode::ClampToBorder => ImageAddressMode::ClampToBorder,
+            wgpu::AddressMode::ClampToEdge => Self::ClampToEdge,
+            wgpu::AddressMode::Repeat => Self::Repeat,
+            wgpu::AddressMode::MirrorRepeat => Self::MirrorRepeat,
+            wgpu::AddressMode::ClampToBorder => Self::ClampToBorder,
         }
     }
 }
@@ -458,8 +458,8 @@ impl From<wgpu::AddressMode> for ImageAddressMode {
 impl From<wgpu::FilterMode> for ImageFilterMode {
     fn from(value: wgpu::FilterMode) -> Self {
         match value {
-            wgpu::FilterMode::Nearest => ImageFilterMode::Nearest,
-            wgpu::FilterMode::Linear => ImageFilterMode::Linear,
+            wgpu::FilterMode::Nearest => Self::Nearest,
+            wgpu::FilterMode::Linear => Self::Linear,
         }
     }
 }
@@ -467,14 +467,14 @@ impl From<wgpu::FilterMode> for ImageFilterMode {
 impl From<wgpu::CompareFunction> for ImageCompareFunction {
     fn from(value: wgpu::CompareFunction) -> Self {
         match value {
-            wgpu::CompareFunction::Never => ImageCompareFunction::Never,
-            wgpu::CompareFunction::Less => ImageCompareFunction::Less,
-            wgpu::CompareFunction::Equal => ImageCompareFunction::Equal,
-            wgpu::CompareFunction::LessEqual => ImageCompareFunction::LessEqual,
-            wgpu::CompareFunction::Greater => ImageCompareFunction::Greater,
-            wgpu::CompareFunction::NotEqual => ImageCompareFunction::NotEqual,
-            wgpu::CompareFunction::GreaterEqual => ImageCompareFunction::GreaterEqual,
-            wgpu::CompareFunction::Always => ImageCompareFunction::Always,
+            wgpu::CompareFunction::Never => Self::Never,
+            wgpu::CompareFunction::Less => Self::Less,
+            wgpu::CompareFunction::Equal => Self::Equal,
+            wgpu::CompareFunction::LessEqual => Self::LessEqual,
+            wgpu::CompareFunction::Greater => Self::Greater,
+            wgpu::CompareFunction::NotEqual => Self::NotEqual,
+            wgpu::CompareFunction::GreaterEqual => Self::GreaterEqual,
+            wgpu::CompareFunction::Always => Self::Always,
         }
     }
 }
@@ -482,17 +482,17 @@ impl From<wgpu::CompareFunction> for ImageCompareFunction {
 impl From<wgpu::SamplerBorderColor> for ImageSamplerBorderColor {
     fn from(value: wgpu::SamplerBorderColor) -> Self {
         match value {
-            wgpu::SamplerBorderColor::TransparentBlack => ImageSamplerBorderColor::TransparentBlack,
-            wgpu::SamplerBorderColor::OpaqueBlack => ImageSamplerBorderColor::OpaqueBlack,
-            wgpu::SamplerBorderColor::OpaqueWhite => ImageSamplerBorderColor::OpaqueWhite,
-            wgpu::SamplerBorderColor::Zero => ImageSamplerBorderColor::Zero,
+            wgpu::SamplerBorderColor::TransparentBlack => Self::TransparentBlack,
+            wgpu::SamplerBorderColor::OpaqueBlack => Self::OpaqueBlack,
+            wgpu::SamplerBorderColor::OpaqueWhite => Self::OpaqueWhite,
+            wgpu::SamplerBorderColor::Zero => Self::Zero,
         }
     }
 }
 
 impl<'a> From<wgpu::SamplerDescriptor<'a>> for ImageSamplerDescriptor {
     fn from(value: wgpu::SamplerDescriptor) -> Self {
-        ImageSamplerDescriptor {
+        Self {
             label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
             address_mode_v: value.address_mode_v.into(),
@@ -514,7 +514,7 @@ impl Default for Image {
     fn default() -> Self {
         let format = TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size()];
-        Image {
+        Self {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
                 size: Extent3d {
@@ -569,14 +569,14 @@ impl Image {
     /// A transparent white 1x1x1 image.
     ///
     /// Contrast to [`Image::default`], which is opaque.
-    pub fn transparent() -> Image {
+    pub fn transparent() -> Self {
         // We rely on the default texture format being RGBA8UnormSrgb
         // when constructing a transparent color from bytes.
         // If this changes, this function will need to be updated.
         let format = TextureFormat::bevy_default();
         debug_assert!(format.pixel_size() == 4);
         let data = vec![255, 255, 255, 0];
-        Image {
+        Self {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
                 size: Extent3d {
@@ -610,7 +610,7 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        let mut value = Image::default();
+        let mut value = Self::default();
         value.texture_descriptor.format = format;
         value.texture_descriptor.dimension = dimension;
         value.asset_usage = asset_usage;
@@ -749,7 +749,7 @@ impl Image {
         is_srgb: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
-    ) -> Result<Image, TextureError> {
+    ) -> Result<Self, TextureError> {
         let format = image_type.to_image_format()?;
 
         // Load the image in the expected format.
@@ -961,7 +961,7 @@ impl RenderAsset for GpuImage {
             }
         };
 
-        Ok(GpuImage {
+        Ok(Self {
             texture,
             texture_view,
             texture_format: image.texture_descriptor.format,
@@ -1013,7 +1013,7 @@ impl CompressedImageFormats {
             | TextureFormat::Bc6hRgbUfloat
             | TextureFormat::Bc6hRgbFloat
             | TextureFormat::Bc7RgbaUnorm
-            | TextureFormat::Bc7RgbaUnormSrgb => self.contains(CompressedImageFormats::BC),
+            | TextureFormat::Bc7RgbaUnormSrgb => self.contains(Self::BC),
             TextureFormat::Etc2Rgb8Unorm
             | TextureFormat::Etc2Rgb8UnormSrgb
             | TextureFormat::Etc2Rgb8A1Unorm
@@ -1023,8 +1023,8 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Unorm
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
-            | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
+            | TextureFormat::EacRg11Snorm => self.contains(Self::ETC2),
+            TextureFormat::Astc { .. } => self.contains(Self::ASTC_LDR),
             _ => true,
         }
     }

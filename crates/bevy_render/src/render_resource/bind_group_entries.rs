@@ -164,7 +164,7 @@ impl<'a> IntoBinding<'a> for &'a Sampler {
 
 impl<'a> IntoBinding<'a> for BindingResource<'a> {
     #[inline]
-    fn into_binding(self) -> BindingResource<'a> {
+    fn into_binding(self) -> Self {
         self
     }
 }

@@ -103,7 +103,7 @@ impl<'a> AssetPath<'a> {
     ///
     /// # Panics
     /// Panics if the asset path is in an invalid format. Use [`AssetPath::try_parse`] for a fallible variant
-    pub fn parse(asset_path: &'a str) -> AssetPath<'a> {
+    pub fn parse(asset_path: &'a str) -> Self {
         Self::try_parse(asset_path).unwrap()
     }
 
@@ -117,7 +117,7 @@ impl<'a> AssetPath<'a> {
     /// and reference counting for [`AssetPath::into_owned`].
     ///
     /// This will return a [`ParseAssetPathError`] if `asset_path` is in an invalid format.
-    pub fn try_parse(asset_path: &'a str) -> Result<AssetPath<'a>, ParseAssetPathError> {
+    pub fn try_parse(asset_path: &'a str) -> Result<Self, ParseAssetPathError> {
         let (source, path, label) = Self::parse_internal(asset_path)?;
         Ok(Self {
             source: match source {
@@ -220,7 +220,7 @@ impl<'a> AssetPath<'a> {
 
     /// Creates a new [`AssetPath`] from a [`Path`].
     #[inline]
-    pub fn from_path(path: &'a Path) -> AssetPath<'a> {
+    pub fn from_path(path: &'a Path) -> Self {
         AssetPath {
             path: CowArc::Borrowed(path),
             source: AssetSourceId::Default,
@@ -278,7 +278,7 @@ impl<'a> AssetPath<'a> {
     /// Returns this asset path with the given label. This will replace the previous
     /// label if it exists.
     #[inline]
-    pub fn with_label(self, label: impl Into<CowArc<'a, str>>) -> AssetPath<'a> {
+    pub fn with_label(self, label: impl Into<CowArc<'a, str>>) -> Self {
         AssetPath {
             source: self.source,
             path: self.path,
@@ -289,7 +289,7 @@ impl<'a> AssetPath<'a> {
     /// Returns this asset path with the given asset source. This will replace the previous asset
     /// source if it exists.
     #[inline]
-    pub fn with_source(self, source: impl Into<AssetSourceId<'a>>) -> AssetPath<'a> {
+    pub fn with_source(self, source: impl Into<AssetSourceId<'a>>) -> Self {
         AssetPath {
             source: source.into(),
             path: self.path,
@@ -298,7 +298,7 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Returns an [`AssetPath`] for the parent folder of this path, if there is a parent folder in the path.
-    pub fn parent(&self) -> Option<AssetPath<'a>> {
+    pub fn parent(&self) -> Option<Self> {
         let path = match &self.path {
             CowArc::Borrowed(path) => CowArc::Borrowed(path.parent()?),
             CowArc::Static(path) => CowArc::Static(path.parent()?),
@@ -523,8 +523,8 @@ impl From<PathBuf> for AssetPath<'static> {
     }
 }
 
-impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPath<'b> {
-    fn from(value: &'a AssetPath<'b>) -> Self {
+impl<'a, 'b> From<&'a Self> for AssetPath<'b> {
+    fn from(value: &'a Self) -> Self {
         value.clone()
     }
 }

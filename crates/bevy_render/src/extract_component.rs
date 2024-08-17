@@ -195,9 +195,9 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
 }
 
 impl<T: Asset> ExtractComponent for Handle<T> {
-    type QueryData = Read<Handle<T>>;
+    type QueryData = Read<Self>;
     type QueryFilter = ();
-    type Out = Handle<T>;
+    type Out = Self;
 
     #[inline]
     fn extract_component(handle: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {

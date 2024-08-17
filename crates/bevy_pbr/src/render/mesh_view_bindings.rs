@@ -79,23 +79,21 @@ impl MeshPipelineViewLayoutKey {
 
     /// Builds a unique label for each layout based on the flags
     pub fn label(&self) -> String {
-        use MeshPipelineViewLayoutKey as Key;
-
         format!(
             "mesh_view_layout{}{}{}{}{}",
-            self.contains(Key::MULTISAMPLED)
+            self.contains(Self::MULTISAMPLED)
                 .then_some("_multisampled")
                 .unwrap_or_default(),
-            self.contains(Key::DEPTH_PREPASS)
+            self.contains(Self::DEPTH_PREPASS)
                 .then_some("_depth")
                 .unwrap_or_default(),
-            self.contains(Key::NORMAL_PREPASS)
+            self.contains(Self::NORMAL_PREPASS)
                 .then_some("_normal")
                 .unwrap_or_default(),
-            self.contains(Key::MOTION_VECTOR_PREPASS)
+            self.contains(Self::MOTION_VECTOR_PREPASS)
                 .then_some("_motion")
                 .unwrap_or_default(),
-            self.contains(Key::DEFERRED_PREPASS)
+            self.contains(Self::DEFERRED_PREPASS)
                 .then_some("_deferred")
                 .unwrap_or_default(),
         )
@@ -104,22 +102,22 @@ impl MeshPipelineViewLayoutKey {
 
 impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
     fn from(value: MeshPipelineKey) -> Self {
-        let mut result = MeshPipelineViewLayoutKey::empty();
+        let mut result = Self::empty();
 
         if value.msaa_samples() > 1 {
-            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
+            result |= Self::MULTISAMPLED;
         }
         if value.contains(MeshPipelineKey::DEPTH_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
+            result |= Self::DEPTH_PREPASS;
         }
         if value.contains(MeshPipelineKey::NORMAL_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
+            result |= Self::NORMAL_PREPASS;
         }
         if value.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
+            result |= Self::MOTION_VECTOR_PREPASS;
         }
         if value.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-            result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+            result |= Self::DEFERRED_PREPASS;
         }
 
         result
@@ -128,10 +126,10 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
 
 impl From<Msaa> for MeshPipelineViewLayoutKey {
     fn from(value: Msaa) -> Self {
-        let mut result = MeshPipelineViewLayoutKey::empty();
+        let mut result = Self::empty();
 
         if value.samples() > 1 {
-            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
+            result |= Self::MULTISAMPLED;
         }
 
         result
@@ -140,20 +138,20 @@ impl From<Msaa> for MeshPipelineViewLayoutKey {
 
 impl From<Option<&ViewPrepassTextures>> for MeshPipelineViewLayoutKey {
     fn from(value: Option<&ViewPrepassTextures>) -> Self {
-        let mut result = MeshPipelineViewLayoutKey::empty();
+        let mut result = Self::empty();
 
         if let Some(prepass_textures) = value {
             if prepass_textures.depth.is_some() {
-                result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
+                result |= Self::DEPTH_PREPASS;
             }
             if prepass_textures.normal.is_some() {
-                result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
+                result |= Self::NORMAL_PREPASS;
             }
             if prepass_textures.motion_vectors.is_some() {
-                result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
+                result |= Self::MOTION_VECTOR_PREPASS;
             }
             if prepass_textures.deferred.is_some() {
-                result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+                result |= Self::DEFERRED_PREPASS;
             }
         }
 

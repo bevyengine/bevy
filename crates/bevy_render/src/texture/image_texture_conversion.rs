@@ -12,7 +12,7 @@ impl Image {
         dyn_img: DynamicImage,
         is_srgb: bool,
         asset_usage: RenderAssetUsages,
-    ) -> Image {
+    ) -> Self {
         use bytemuck::cast_slice;
         let width;
         let height;
@@ -149,7 +149,7 @@ impl Image {
             }
         }
 
-        Image::new(
+        Self::new(
             Extent3d {
                 width,
                 height,

@@ -293,7 +293,7 @@ pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for Entity {
-    type Item<'w> = Entity;
+    type Item<'w> = Self;
     type Fetch<'w> = ();
     type State = ();
 
@@ -363,7 +363,7 @@ unsafe impl ReadOnlyQueryData for Entity {}
 /// `update_component_access` and `update_archetype_component_access` do nothing.
 /// This is sound because `fetch` does not access components.
 unsafe impl WorldQuery for EntityLocation {
-    type Item<'w> = EntityLocation;
+    type Item<'w> = Self;
     type Fetch<'w> = &'w Entities;
     type State = ();
 

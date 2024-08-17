@@ -29,11 +29,10 @@ impl Scene {
     pub fn from_dynamic_scene(
         dynamic_scene: &DynamicScene,
         type_registry: &AppTypeRegistry,
-    ) -> Result<Scene, SceneSpawnError> {
+    ) -> Result<Self, SceneSpawnError> {
         let mut world = World::new();
         let mut entity_map = EntityHashMap::default();
         dynamic_scene.write_to_world_with(&mut world, &mut entity_map, type_registry)?;
-
         Ok(Self { world })
     }
 
@@ -41,7 +40,7 @@ impl Scene {
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered in the
     /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
-    pub fn clone_with(&self, type_registry: &AppTypeRegistry) -> Result<Scene, SceneSpawnError> {
+    pub fn clone_with(&self, type_registry: &AppTypeRegistry) -> Result<Self, SceneSpawnError> {
         let mut new_world = World::new();
         let mut entity_map = EntityHashMap::default();
         self.write_to_world_with(&mut new_world, &mut entity_map, type_registry)?;

@@ -552,7 +552,7 @@ pub enum CameraOutputMode {
 
 impl Default for CameraOutputMode {
     fn default() -> Self {
-        CameraOutputMode::Write {
+        Self::Write {
             blend_state: None,
             clear_color: ClearColorConfig::Default,
         }
@@ -621,11 +621,11 @@ impl RenderTarget {
     /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
     pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
         match self {
-            RenderTarget::Window(window_ref) => window_ref
+            Self::Window(window_ref) => window_ref
                 .normalize(primary_window)
                 .map(NormalizedRenderTarget::Window),
-            RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
-            RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+            Self::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
+            Self::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
         }
     }
 
@@ -648,15 +648,11 @@ impl NormalizedRenderTarget {
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<&'a TextureView> {
         match self {
-            NormalizedRenderTarget::Window(window_ref) => windows
+            Self::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_view.as_ref()),
-            NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| &image.texture_view)
-            }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| &tex.texture_view)
-            }
+            Self::Image(image_handle) => images.get(image_handle).map(|image| &image.texture_view),
+            Self::TextureView(id) => manual_texture_views.get(id).map(|tex| &tex.texture_view),
         }
     }
 
@@ -668,15 +664,11 @@ impl NormalizedRenderTarget {
         manual_texture_views: &'a ManualTextureViews,
     ) -> Option<TextureFormat> {
         match self {
-            NormalizedRenderTarget::Window(window_ref) => windows
+            Self::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_format),
-            NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| image.texture_format)
-            }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| tex.format)
-            }
+            Self::Image(image_handle) => images.get(image_handle).map(|image| image.texture_format),
+            Self::TextureView(id) => manual_texture_views.get(id).map(|tex| tex.format),
         }
     }
 
@@ -687,26 +679,24 @@ impl NormalizedRenderTarget {
         manual_texture_views: &ManualTextureViews,
     ) -> Option<RenderTargetInfo> {
         match self {
-            NormalizedRenderTarget::Window(window_ref) => resolutions
+            Self::Window(window_ref) => resolutions
                 .into_iter()
                 .find(|(entity, _)| *entity == window_ref.entity())
                 .map(|(_, window)| RenderTargetInfo {
                     physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
                 }),
-            NormalizedRenderTarget::Image(image_handle) => {
+            Self::Image(image_handle) => {
                 let image = images.get(image_handle)?;
                 Some(RenderTargetInfo {
                     physical_size: image.size(),
                     scale_factor: 1.0,
                 })
             }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| RenderTargetInfo {
-                    physical_size: tex.size,
-                    scale_factor: 1.0,
-                })
-            }
+            Self::TextureView(id) => manual_texture_views.get(id).map(|tex| RenderTargetInfo {
+                physical_size: tex.size,
+                scale_factor: 1.0,
+            }),
         }
     }
 
@@ -717,13 +707,9 @@ impl NormalizedRenderTarget {
         changed_image_handles: &HashSet<&AssetId<Image>>,
     ) -> bool {
         match self {
-            NormalizedRenderTarget::Window(window_ref) => {
-                changed_window_ids.contains(&window_ref.entity())
-            }
-            NormalizedRenderTarget::Image(image_handle) => {
-                changed_image_handles.contains(&image_handle.id())
-            }
-            NormalizedRenderTarget::TextureView(_) => true,
+            Self::Window(window_ref) => changed_window_ids.contains(&window_ref.entity()),
+            Self::Image(image_handle) => changed_image_handles.contains(&image_handle.id()),
+            Self::TextureView(_) => true,
         }
     }
 }

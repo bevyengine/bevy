@@ -51,8 +51,7 @@ unsafe impl ReadOnlySystemParam for WorldId {}
 // SAFETY: No world data is accessed.
 unsafe impl SystemParam for WorldId {
     type State = ();
-
-    type Item<'world, 'state> = WorldId;
+    type Item<'world, 'state> = Self;
 
     fn init_state(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {}
 
@@ -67,8 +66,8 @@ unsafe impl SystemParam for WorldId {
 }
 
 impl ExclusiveSystemParam for WorldId {
-    type State = WorldId;
-    type Item<'s> = WorldId;
+    type State = Self;
+    type Item<'s> = Self;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         world.id()

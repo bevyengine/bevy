@@ -1821,7 +1821,7 @@ fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
 }
 
 impl<'a> DataUri<'a> {
-    fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
+    fn parse(uri: &'a str) -> Result<Self, ()> {
         let uri = uri.strip_prefix("data:").ok_or(())?;
         let (mime_type, data) = split_once(uri, ',').ok_or(())?;
 
@@ -1918,7 +1918,7 @@ impl ClearcoatExtension {
         load_context: &mut LoadContext,
         document: &Document,
         material: &Material,
-    ) -> Option<ClearcoatExtension> {
+    ) -> Option<Self> {
         let extension = material
             .extensions()?
             .get("KHR_materials_clearcoat")?
@@ -1960,7 +1960,7 @@ impl ClearcoatExtension {
             })
             .unzip();
 
-        Some(ClearcoatExtension {
+        Some(Self {
             clearcoat_factor: extension.get("clearcoatFactor").and_then(Value::as_f64),
             clearcoat_roughness_factor: extension
                 .get("clearcoatRoughnessFactor")
@@ -2001,7 +2001,7 @@ impl AnisotropyExtension {
         load_context: &mut LoadContext,
         document: &Document,
         material: &Material,
-    ) -> Option<AnisotropyExtension> {
+    ) -> Option<Self> {
         let extension = material
             .extensions()?
             .get("KHR_materials_anisotropy")?
@@ -2019,7 +2019,7 @@ impl AnisotropyExtension {
             })
             .unzip();
 
-        Some(AnisotropyExtension {
+        Some(Self {
             anisotropy_strength: extension.get("anisotropyStrength").and_then(Value::as_f64),
             anisotropy_rotation: extension.get("anisotropyRotation").and_then(Value::as_f64),
             #[cfg(feature = "pbr_anisotropy_texture")]

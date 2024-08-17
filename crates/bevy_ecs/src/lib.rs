@@ -114,7 +114,7 @@ mod tests {
     impl DropCk {
         fn new_pair() -> (Self, Arc<AtomicUsize>) {
             let atomic = Arc::new(AtomicUsize::new(0));
-            (DropCk(atomic.clone()), atomic)
+            (Self(atomic.clone()), atomic)
         }
     }
 

@@ -593,7 +593,6 @@ impl PerMethodSettings {
 impl Default for PerMethodSettings {
     fn default() -> Self {
         let mut settings = HashMap::new();
-
         for method in [
             Tonemapping::None,
             Tonemapping::Reinhard,
@@ -604,12 +603,8 @@ impl Default for PerMethodSettings {
             Tonemapping::TonyMcMapface,
             Tonemapping::BlenderFilmic,
         ] {
-            settings.insert(
-                method,
-                PerMethodSettings::basic_scene_recommendation(method),
-            );
+            settings.insert(method, Self::basic_scene_recommendation(method));
         }
-
         Self { settings }
     }
 }

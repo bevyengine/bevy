@@ -15,21 +15,21 @@ impl Val {
         context: &LayoutContext,
     ) -> taffy::style::LengthPercentageAuto {
         match self {
-            Val::Auto => taffy::style::LengthPercentageAuto::Auto,
-            Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
-            Val::Px(value) => {
+            Self::Auto => taffy::style::LengthPercentageAuto::Auto,
+            Self::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
+            Self::Px(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.scale_factor * value)
             }
-            Val::VMin(value) => {
+            Self::VMin(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.min_size * value / 100.)
             }
-            Val::VMax(value) => {
+            Self::VMax(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.max_size * value / 100.)
             }
-            Val::Vw(value) => {
+            Self::Vw(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.physical_size.x * value / 100.)
             }
-            Val::Vh(value) => {
+            Self::Vh(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.physical_size.y * value / 100.)
             }
         }
@@ -244,10 +244,10 @@ impl From<JustifyContent> for Option<taffy::style::JustifyContent> {
 impl From<Display> for taffy::style::Display {
     fn from(value: Display) -> Self {
         match value {
-            Display::Flex => taffy::style::Display::Flex,
-            Display::Grid => taffy::style::Display::Grid,
-            Display::Block => taffy::style::Display::Block,
-            Display::None => taffy::style::Display::None,
+            Display::Flex => Self::Flex,
+            Display::Grid => Self::Grid,
+            Display::Block => Self::Block,
+            Display::None => Self::None,
         }
     }
 }
@@ -255,9 +255,9 @@ impl From<Display> for taffy::style::Display {
 impl From<OverflowAxis> for taffy::style::Overflow {
     fn from(value: OverflowAxis) -> Self {
         match value {
-            OverflowAxis::Visible => taffy::style::Overflow::Visible,
-            OverflowAxis::Clip => taffy::style::Overflow::Clip,
-            OverflowAxis::Hidden => taffy::style::Overflow::Hidden,
+            OverflowAxis::Visible => Self::Visible,
+            OverflowAxis::Clip => Self::Clip,
+            OverflowAxis::Hidden => Self::Hidden,
         }
     }
 }
@@ -265,10 +265,10 @@ impl From<OverflowAxis> for taffy::style::Overflow {
 impl From<FlexDirection> for taffy::style::FlexDirection {
     fn from(value: FlexDirection) -> Self {
         match value {
-            FlexDirection::Row => taffy::style::FlexDirection::Row,
-            FlexDirection::Column => taffy::style::FlexDirection::Column,
-            FlexDirection::RowReverse => taffy::style::FlexDirection::RowReverse,
-            FlexDirection::ColumnReverse => taffy::style::FlexDirection::ColumnReverse,
+            FlexDirection::Row => Self::Row,
+            FlexDirection::Column => Self::Column,
+            FlexDirection::RowReverse => Self::RowReverse,
+            FlexDirection::ColumnReverse => Self::ColumnReverse,
         }
     }
 }
@@ -276,8 +276,8 @@ impl From<FlexDirection> for taffy::style::FlexDirection {
 impl From<PositionType> for taffy::style::Position {
     fn from(value: PositionType) -> Self {
         match value {
-            PositionType::Relative => taffy::style::Position::Relative,
-            PositionType::Absolute => taffy::style::Position::Absolute,
+            PositionType::Relative => Self::Relative,
+            PositionType::Absolute => Self::Absolute,
         }
     }
 }
@@ -285,9 +285,9 @@ impl From<PositionType> for taffy::style::Position {
 impl From<FlexWrap> for taffy::style::FlexWrap {
     fn from(value: FlexWrap) -> Self {
         match value {
-            FlexWrap::NoWrap => taffy::style::FlexWrap::NoWrap,
-            FlexWrap::Wrap => taffy::style::FlexWrap::Wrap,
-            FlexWrap::WrapReverse => taffy::style::FlexWrap::WrapReverse,
+            FlexWrap::NoWrap => Self::NoWrap,
+            FlexWrap::Wrap => Self::Wrap,
+            FlexWrap::WrapReverse => Self::WrapReverse,
         }
     }
 }
@@ -295,10 +295,10 @@ impl From<FlexWrap> for taffy::style::FlexWrap {
 impl From<GridAutoFlow> for taffy::style::GridAutoFlow {
     fn from(value: GridAutoFlow) -> Self {
         match value {
-            GridAutoFlow::Row => taffy::style::GridAutoFlow::Row,
-            GridAutoFlow::RowDense => taffy::style::GridAutoFlow::RowDense,
-            GridAutoFlow::Column => taffy::style::GridAutoFlow::Column,
-            GridAutoFlow::ColumnDense => taffy::style::GridAutoFlow::ColumnDense,
+            GridAutoFlow::Row => Self::Row,
+            GridAutoFlow::RowDense => Self::RowDense,
+            GridAutoFlow::Column => Self::Column,
+            GridAutoFlow::ColumnDense => Self::ColumnDense,
         }
     }
 }
@@ -307,15 +307,15 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> 
     fn from(value: GridPlacement) -> Self {
         let span = value.get_span().unwrap_or(1);
         match (value.get_start(), value.get_end()) {
-            (Some(start), Some(end)) => taffy::geometry::Line {
+            (Some(start), Some(end)) => Self {
                 start: style_helpers::line(start),
                 end: style_helpers::line(end),
             },
-            (Some(start), None) => taffy::geometry::Line {
+            (Some(start), None) => Self {
                 start: style_helpers::line(start),
                 end: style_helpers::span(span),
             },
-            (None, Some(end)) => taffy::geometry::Line {
+            (None, Some(end)) => Self {
                 start: style_helpers::span(span),
                 end: style_helpers::line(end),
             },
@@ -327,25 +327,25 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> 
 impl MinTrackSizingFunction {
     fn into_taffy(self, context: &LayoutContext) -> taffy::style::MinTrackSizingFunction {
         match self {
-            MinTrackSizingFunction::Px(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            Self::Px(val) => taffy::style::MinTrackSizingFunction::Fixed(
                 Val::Px(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::Percent(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            Self::Percent(val) => taffy::style::MinTrackSizingFunction::Fixed(
                 Val::Percent(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::Auto,
-            MinTrackSizingFunction::MinContent => taffy::style::MinTrackSizingFunction::MinContent,
-            MinTrackSizingFunction::MaxContent => taffy::style::MinTrackSizingFunction::MaxContent,
-            MinTrackSizingFunction::VMin(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            Self::Auto => taffy::style::MinTrackSizingFunction::Auto,
+            Self::MinContent => taffy::style::MinTrackSizingFunction::MinContent,
+            Self::MaxContent => taffy::style::MinTrackSizingFunction::MaxContent,
+            Self::VMin(val) => taffy::style::MinTrackSizingFunction::Fixed(
                 Val::VMin(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::VMax(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            Self::VMax(val) => taffy::style::MinTrackSizingFunction::Fixed(
                 Val::VMax(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::Vh(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            Self::Vh(val) => taffy::style::MinTrackSizingFunction::Fixed(
                 Val::Vh(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::Vw(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            Self::Vw(val) => taffy::style::MinTrackSizingFunction::Fixed(
                 Val::Vw(val).into_length_percentage(context),
             ),
         }
@@ -355,38 +355,32 @@ impl MinTrackSizingFunction {
 impl MaxTrackSizingFunction {
     fn into_taffy(self, context: &LayoutContext) -> taffy::style::MaxTrackSizingFunction {
         match self {
-            MaxTrackSizingFunction::Px(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            Self::Px(val) => taffy::style::MaxTrackSizingFunction::Fixed(
                 Val::Px(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::Percent(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            Self::Percent(val) => taffy::style::MaxTrackSizingFunction::Fixed(
                 Val::Percent(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::Auto,
-            MaxTrackSizingFunction::MinContent => taffy::style::MaxTrackSizingFunction::MinContent,
-            MaxTrackSizingFunction::MaxContent => taffy::style::MaxTrackSizingFunction::MaxContent,
-            MaxTrackSizingFunction::FitContentPx(val) => {
-                taffy::style::MaxTrackSizingFunction::FitContent(
-                    Val::Px(val).into_length_percentage(context),
-                )
-            }
-            MaxTrackSizingFunction::FitContentPercent(val) => {
-                taffy::style::MaxTrackSizingFunction::FitContent(
-                    Val::Percent(val).into_length_percentage(context),
-                )
-            }
-            MaxTrackSizingFunction::Fraction(fraction) => {
-                taffy::style::MaxTrackSizingFunction::Fraction(fraction)
-            }
-            MaxTrackSizingFunction::VMin(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            Self::Auto => taffy::style::MaxTrackSizingFunction::Auto,
+            Self::MinContent => taffy::style::MaxTrackSizingFunction::MinContent,
+            Self::MaxContent => taffy::style::MaxTrackSizingFunction::MaxContent,
+            Self::FitContentPx(val) => taffy::style::MaxTrackSizingFunction::FitContent(
+                Val::Px(val).into_length_percentage(context),
+            ),
+            Self::FitContentPercent(val) => taffy::style::MaxTrackSizingFunction::FitContent(
+                Val::Percent(val).into_length_percentage(context),
+            ),
+            Self::Fraction(fraction) => taffy::style::MaxTrackSizingFunction::Fraction(fraction),
+            Self::VMin(val) => taffy::style::MaxTrackSizingFunction::Fixed(
                 Val::VMin(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::VMax(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            Self::VMax(val) => taffy::style::MaxTrackSizingFunction::Fixed(
                 Val::VMax(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::Vh(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            Self::Vh(val) => taffy::style::MaxTrackSizingFunction::Fixed(
                 Val::Vh(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::Vw(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            Self::Vw(val) => taffy::style::MaxTrackSizingFunction::Fixed(
                 Val::Vw(val).into_length_percentage(context),
             ),
         }

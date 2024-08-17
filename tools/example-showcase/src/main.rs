@@ -121,8 +121,8 @@ enum WebApi {
 impl Display for WebApi {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WebApi::Webgl2 => write!(f, "webgl2"),
-            WebApi::Webgpu => write!(f, "webgpu"),
+            Self::Webgl2 => write!(f, "webgl2"),
+            Self::Webgpu => write!(f, "webgpu"),
         }
     }
 }

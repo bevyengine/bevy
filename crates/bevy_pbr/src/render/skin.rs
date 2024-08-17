@@ -25,7 +25,7 @@ pub struct SkinIndex {
 impl SkinIndex {
     /// Index to be in address space based on the size of a skin uniform.
     const fn new(start: usize) -> Self {
-        SkinIndex {
+        Self {
             index: (start * std::mem::size_of::<Mat4>()) as u32,
         }
     }

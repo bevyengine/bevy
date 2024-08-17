@@ -103,7 +103,7 @@ pub struct Isometry2d {
 
 impl Isometry2d {
     /// The identity isometry which represents the rigid motion of not doing anything.
-    pub const IDENTITY: Self = Isometry2d {
+    pub const IDENTITY: Self = Self {
         rotation: Rot2::IDENTITY,
         translation: Vec2::ZERO,
     };
@@ -111,7 +111,7 @@ impl Isometry2d {
     /// Create a two-dimensional isometry from a rotation and a translation.
     #[inline]
     pub fn new(translation: Vec2, rotation: Rot2) -> Self {
-        Isometry2d {
+        Self {
             rotation,
             translation,
         }
@@ -120,7 +120,7 @@ impl Isometry2d {
     /// Create a two-dimensional isometry from a rotation.
     #[inline]
     pub fn from_rotation(rotation: Rot2) -> Self {
-        Isometry2d {
+        Self {
             rotation,
             translation: Vec2::ZERO,
         }
@@ -129,7 +129,7 @@ impl Isometry2d {
     /// Create a two-dimensional isometry from a translation.
     #[inline]
     pub fn from_translation(translation: Vec2) -> Self {
-        Isometry2d {
+        Self {
             rotation: Rot2::IDENTITY,
             translation,
         }
@@ -138,7 +138,7 @@ impl Isometry2d {
     /// Create a two-dimensional isometry from a translation with the given `x` and `y` components.
     #[inline]
     pub fn from_xy(x: f32, y: f32) -> Self {
-        Isometry2d {
+        Self {
             rotation: Rot2::IDENTITY,
             translation: Vec2::new(x, y),
         }
@@ -148,7 +148,7 @@ impl Isometry2d {
     #[inline]
     pub fn inverse(&self) -> Self {
         let inv_rot = self.rotation.inverse();
-        Isometry2d {
+        Self {
             rotation: inv_rot,
             translation: inv_rot * -self.translation,
         }
@@ -185,7 +185,7 @@ impl Isometry2d {
 impl From<Isometry2d> for Affine2 {
     #[inline]
     fn from(iso: Isometry2d) -> Self {
-        Affine2 {
+        Self {
             matrix2: iso.rotation.into(),
             translation: iso.translation,
         }
@@ -197,7 +197,7 @@ impl Mul for Isometry2d {
 
     #[inline]
     fn mul(self, rhs: Self) -> Self::Output {
-        Isometry2d {
+        Self {
             rotation: self.rotation * rhs.rotation,
             translation: self.rotation * rhs.translation + self.translation,
         }
@@ -367,7 +367,7 @@ pub struct Isometry3d {
 
 impl Isometry3d {
     /// The identity isometry which represents the rigid motion of not doing anything.
-    pub const IDENTITY: Self = Isometry3d {
+    pub const IDENTITY: Self = Self {
         rotation: Quat::IDENTITY,
         translation: Vec3A::ZERO,
     };
@@ -375,7 +375,7 @@ impl Isometry3d {
     /// Create a three-dimensional isometry from a rotation and a translation.
     #[inline]
     pub fn new(translation: impl Into<Vec3A>, rotation: Quat) -> Self {
-        Isometry3d {
+        Self {
             rotation,
             translation: translation.into(),
         }
@@ -384,7 +384,7 @@ impl Isometry3d {
     /// Create a three-dimensional isometry from a rotation.
     #[inline]
     pub fn from_rotation(rotation: Quat) -> Self {
-        Isometry3d {
+        Self {
             rotation,
             translation: Vec3A::ZERO,
         }
@@ -393,7 +393,7 @@ impl Isometry3d {
     /// Create a three-dimensional isometry from a translation.
     #[inline]
     pub fn from_translation(translation: impl Into<Vec3A>) -> Self {
-        Isometry3d {
+        Self {
             rotation: Quat::IDENTITY,
             translation: translation.into(),
         }
@@ -402,7 +402,7 @@ impl Isometry3d {
     /// Create a three-dimensional isometry from a translation with the given `x`, `y`, and `z` components.
     #[inline]
     pub fn from_xyz(x: f32, y: f32, z: f32) -> Self {
-        Isometry3d {
+        Self {
             rotation: Quat::IDENTITY,
             translation: Vec3A::new(x, y, z),
         }
@@ -412,7 +412,7 @@ impl Isometry3d {
     #[inline]
     pub fn inverse(&self) -> Self {
         let inv_rot = self.rotation.inverse();
-        Isometry3d {
+        Self {
             rotation: inv_rot,
             translation: inv_rot * -self.translation,
         }
@@ -449,7 +449,7 @@ impl Isometry3d {
 impl From<Isometry3d> for Affine3 {
     #[inline]
     fn from(iso: Isometry3d) -> Self {
-        Affine3 {
+        Self {
             matrix3: Mat3::from_quat(iso.rotation),
             translation: iso.translation.into(),
         }
@@ -459,7 +459,7 @@ impl From<Isometry3d> for Affine3 {
 impl From<Isometry3d> for Affine3A {
     #[inline]
     fn from(iso: Isometry3d) -> Self {
-        Affine3A {
+        Self {
             matrix3: Mat3A::from_quat(iso.rotation),
             translation: iso.translation,
         }
@@ -471,7 +471,7 @@ impl Mul for Isometry3d {
 
     #[inline]
     fn mul(self, rhs: Self) -> Self::Output {
-        Isometry3d {
+        Self {
             rotation: self.rotation * rhs.rotation,
             translation: self.rotation * rhs.translation + self.translation,
         }

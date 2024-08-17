@@ -183,8 +183,8 @@ impl World {
     /// This guarantee allows System Parameters to safely uniquely identify a [`World`],
     /// since its [`WorldId`] is unique
     #[inline]
-    pub fn new() -> World {
-        World::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Retrieves this [`World`]'s unique ID
@@ -1976,7 +1976,7 @@ impl World {
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
     #[track_caller]
-    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
+    pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut Self, Mut<R>) -> U) -> U {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
@@ -2339,7 +2339,7 @@ impl World {
     pub fn last_change_tick_scope<T>(
         &mut self,
         last_change_tick: Tick,
-        f: impl FnOnce(&mut World) -> T,
+        f: impl FnOnce(&mut Self) -> T,
     ) -> T {
         struct LastTickGuard<'a> {
             world: &'a mut World,
@@ -2817,7 +2817,7 @@ impl World {
     pub fn try_schedule_scope<R>(
         &mut self,
         label: impl ScheduleLabel,
-        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+        f: impl FnOnce(&mut Self, &mut Schedule) -> R,
     ) -> Result<R, TryRunScheduleError> {
         let label = label.intern();
         let Some(mut schedule) = self
@@ -2877,7 +2877,7 @@ impl World {
     pub fn schedule_scope<R>(
         &mut self,
         label: impl ScheduleLabel,
-        f: impl FnOnce(&mut World, &mut Schedule) -> R,
+        f: impl FnOnce(&mut Self, &mut Schedule) -> R,
     ) -> R {
         self.try_schedule_scope(label, f)
             .unwrap_or_else(|e| panic!("{e}"))

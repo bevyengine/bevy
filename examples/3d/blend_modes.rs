@@ -270,7 +270,7 @@ struct ExampleDisplay;
 
 impl Default for ExampleState {
     fn default() -> Self {
-        ExampleState {
+        Self {
             alpha: 0.9,
             unlit: false,
         }

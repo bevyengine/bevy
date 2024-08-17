@@ -219,12 +219,10 @@ impl From<LinearRgba> for Xyza {
         let r = red;
         let g = green;
         let b = blue;
-
         let x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
         let y = r * 0.2126729 + g * 0.7151522 + b * 0.072175;
         let z = r * 0.0193339 + g * 0.119192 + b * 0.9503041;
-
-        Xyza::new(x, y, z, alpha)
+        Self::new(x, y, z, alpha)
     }
 }
 
@@ -236,8 +234,7 @@ impl From<Xyza> for LinearRgba {
         let r = x * 3.2404542 + y * -1.5371385 + z * -0.4985314;
         let g = x * -0.969266 + y * 1.8760108 + z * 0.041556;
         let b = x * 0.0556434 + y * -0.2040259 + z * 1.0572252;
-
-        LinearRgba::new(r, g, b, alpha)
+        Self::new(r, g, b, alpha)
     }
 }
 

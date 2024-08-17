@@ -27,7 +27,7 @@ impl Volume {
     }
 
     /// Zero (silent) volume level
-    pub const ZERO: Self = Volume(0.0);
+    pub const ZERO: Self = Self(0.0);
 }
 
 /// The way Bevy manages the sound playback.
@@ -81,7 +81,7 @@ impl Default for PlaybackSettings {
 
 impl PlaybackSettings {
     /// Will play the associated audio source once.
-    pub const ONCE: PlaybackSettings = PlaybackSettings {
+    pub const ONCE: Self = Self {
         mode: PlaybackMode::Once,
         volume: Volume(1.0),
         speed: 1.0,
@@ -91,21 +91,21 @@ impl PlaybackSettings {
     };
 
     /// Will play the associated audio source in a loop.
-    pub const LOOP: PlaybackSettings = PlaybackSettings {
+    pub const LOOP: Self = Self {
         mode: PlaybackMode::Loop,
-        ..PlaybackSettings::ONCE
+        ..Self::ONCE
     };
 
     /// Will play the associated audio source once and despawn the entity afterwards.
-    pub const DESPAWN: PlaybackSettings = PlaybackSettings {
+    pub const DESPAWN: Self = Self {
         mode: PlaybackMode::Despawn,
-        ..PlaybackSettings::ONCE
+        ..Self::ONCE
     };
 
     /// Will play the associated audio source once and remove the audio components afterwards.
-    pub const REMOVE: PlaybackSettings = PlaybackSettings {
+    pub const REMOVE: Self = Self {
         mode: PlaybackMode::Remove,
-        ..PlaybackSettings::ONCE
+        ..Self::ONCE
     };
 
     /// Helper to start in a paused state.
@@ -164,7 +164,7 @@ impl SpatialListener {
     /// `gap` is the distance between the left and right "ears" of the listener. Ears are
     /// positioned on the x axis.
     pub fn new(gap: f32) -> Self {
-        SpatialListener {
+        Self {
             left_ear_offset: Vec3::X * gap / -2.0,
             right_ear_offset: Vec3::X * gap / 2.0,
         }

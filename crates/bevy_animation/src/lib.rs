@@ -82,9 +82,9 @@ impl Keyframes {
     /// Returns the number of keyframes.
     pub fn len(&self) -> usize {
         match self {
-            Keyframes::Weights(vec) => vec.len(),
-            Keyframes::Translation(vec) | Keyframes::Scale(vec) => vec.len(),
-            Keyframes::Rotation(vec) => vec.len(),
+            Self::Weights(vec) => vec.len(),
+            Self::Translation(vec) | Self::Scale(vec) => vec.len(),
+            Self::Rotation(vec) => vec.len(),
         }
     }
 
@@ -1233,7 +1233,7 @@ impl AnimationTargetId {
 
 impl From<&Name> for AnimationTargetId {
     fn from(name: &Name) -> Self {
-        AnimationTargetId::from_name(name)
+        Self::from_name(name)
     }
 }
 

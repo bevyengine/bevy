@@ -88,7 +88,7 @@ impl MotionBlurPipeline {
 impl FromWorld for MotionBlurPipeline {
     fn from_world(render_world: &mut bevy_ecs::world::World) -> Self {
         let render_device = render_world.resource::<RenderDevice>().clone();
-        MotionBlurPipeline::new(&render_device)
+        Self::new(&render_device)
     }
 }
 

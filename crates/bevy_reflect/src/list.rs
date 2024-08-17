@@ -251,7 +251,7 @@ impl List for DynamicList {
     }
 
     fn push(&mut self, value: Box<dyn PartialReflect>) {
-        DynamicList::push_box(self, value);
+        Self::push_box(self, value);
     }
 
     fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
@@ -271,7 +271,7 @@ impl List for DynamicList {
     }
 
     fn clone_dynamic(&self) -> DynamicList {
-        DynamicList {
+        Self {
             represented_type: self.represented_type,
             values: self
                 .values
@@ -422,7 +422,7 @@ pub struct ListIter<'a> {
 impl<'a> ListIter<'a> {
     /// Creates a new [`ListIter`].
     #[inline]
-    pub const fn new(list: &'a dyn List) -> ListIter {
+    pub const fn new(list: &'a dyn List) -> Self {
         ListIter { list, index: 0 }
     }
 }

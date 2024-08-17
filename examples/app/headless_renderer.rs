@@ -111,8 +111,8 @@ struct SceneController {
 }
 
 impl SceneController {
-    pub fn new(width: u32, height: u32, single_image: bool) -> SceneController {
-        SceneController {
+    pub fn new(width: u32, height: u32, single_image: bool) -> Self {
+        Self {
             state: SceneState::BuildScene,
             name: String::from(""),
             width,
@@ -291,22 +291,16 @@ struct ImageCopier {
 }
 
 impl ImageCopier {
-    pub fn new(
-        src_image: Handle<Image>,
-        size: Extent3d,
-        render_device: &RenderDevice,
-    ) -> ImageCopier {
+    pub fn new(src_image: Handle<Image>, size: Extent3d, render_device: &RenderDevice) -> Self {
         let padded_bytes_per_row =
             RenderDevice::align_copy_bytes_per_row((size.width) as usize) * 4;
-
         let cpu_buffer = render_device.create_buffer(&BufferDescriptor {
             label: None,
             size: padded_bytes_per_row as u64 * size.height as u64,
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-
-        ImageCopier {
+        Self {
             buffer: cpu_buffer,
             src_image,
             enabled: Arc::new(AtomicBool::new(true)),

@@ -108,7 +108,7 @@ pub struct EnvironmentMapLight {
 
 impl Default for EnvironmentMapLight {
     fn default() -> Self {
-        EnvironmentMapLight {
+        Self {
             diffuse_map: Handle::default(),
             specular_map: Handle::default(),
             intensity: 0.0,
@@ -201,7 +201,7 @@ impl ExtractInstance for EnvironmentMapIds {
     type QueryFilter = ();
 
     fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(EnvironmentMapIds {
+        Some(Self {
             diffuse: item.diffuse_map.id(),
             specular: item.specular_map.id(),
         })
@@ -236,7 +236,7 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
-    ) -> RenderViewEnvironmentMapBindGroupEntries<'a> {
+    ) -> Self {
         if binding_arrays_are_usable(render_device) {
             let mut diffuse_texture_views = vec![];
             let mut specular_texture_views = vec![];
@@ -321,14 +321,14 @@ impl LightProbeComponent for EnvironmentMapLight {
     }
 
     fn create_render_view_light_probes(
-        view_component: Option<&EnvironmentMapLight>,
+        view_component: Option<&Self>,
         image_assets: &RenderAssets<GpuImage>,
     ) -> RenderViewLightProbes<Self> {
         let mut render_view_light_probes = RenderViewLightProbes::new();
 
         // Find the index of the cubemap associated with the view, and determine
         // its smallest mip level.
-        if let Some(EnvironmentMapLight {
+        if let Some(Self {
             diffuse_map: diffuse_map_handle,
             specular_map: specular_map_handle,
             intensity,

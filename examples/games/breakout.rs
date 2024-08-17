@@ -123,10 +123,10 @@ impl WallLocation {
     /// Location of the *center* of the wall, used in `transform.translation()`
     fn position(&self) -> Vec2 {
         match self {
-            WallLocation::Left => Vec2::new(LEFT_WALL, 0.),
-            WallLocation::Right => Vec2::new(RIGHT_WALL, 0.),
-            WallLocation::Bottom => Vec2::new(0., BOTTOM_WALL),
-            WallLocation::Top => Vec2::new(0., TOP_WALL),
+            Self::Left => Vec2::new(LEFT_WALL, 0.),
+            Self::Right => Vec2::new(RIGHT_WALL, 0.),
+            Self::Bottom => Vec2::new(0., BOTTOM_WALL),
+            Self::Top => Vec2::new(0., TOP_WALL),
         }
     }
 
@@ -139,12 +139,8 @@ impl WallLocation {
         assert!(arena_width > 0.0);
 
         match self {
-            WallLocation::Left | WallLocation::Right => {
-                Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS)
-            }
-            WallLocation::Bottom | WallLocation::Top => {
-                Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS)
-            }
+            Self::Left | Self::Right => Vec2::new(WALL_THICKNESS, arena_height + WALL_THICKNESS),
+            Self::Bottom | Self::Top => Vec2::new(arena_width + WALL_THICKNESS, WALL_THICKNESS),
         }
     }
 }
@@ -152,8 +148,8 @@ impl WallLocation {
 impl WallBundle {
     // This "builder method" allows us to reuse logic across our wall entities,
     // making our code easier to read and less prone to bugs when we change the logic
-    fn new(location: WallLocation) -> WallBundle {
-        WallBundle {
+    fn new(location: WallLocation) -> Self {
+        Self {
             sprite_bundle: SpriteBundle {
                 transform: Transform {
                     // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate

@@ -55,11 +55,11 @@ impl BlobVec {
         item_layout: Layout,
         drop: Option<unsafe fn(OwningPtr<'_>)>,
         capacity: usize,
-    ) -> BlobVec {
+    ) -> Self {
         let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
         let data = bevy_ptr::dangling_with_align(align);
         if item_layout.size() == 0 {
-            BlobVec {
+            Self {
                 data,
                 // ZST `BlobVec` max size is `usize::MAX`, and `reserve_exact` for ZST assumes
                 // the capacity is always `usize::MAX` and panics if it overflows.
@@ -69,7 +69,7 @@ impl BlobVec {
                 drop,
             }
         } else {
-            let mut blob_vec = BlobVec {
+            let mut blob_vec = Self {
                 data,
                 capacity: 0,
                 len: 0,

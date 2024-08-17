@@ -1741,7 +1741,7 @@ impl<T: Into<Color>> From<T> for BorderColor {
 
 impl BorderColor {
     /// Border color is transparent by default.
-    pub const DEFAULT: Self = BorderColor(Color::NONE);
+    pub const DEFAULT: Self = Self(Color::NONE);
 }
 
 impl Default for BorderColor {
@@ -1862,7 +1862,7 @@ impl Default for UiImage {
     /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
     /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
     fn default() -> Self {
-        UiImage {
+        Self {
             // This should be white because the tint is multiplied with the image,
             // so if you set an actual image with default tint you'd want its original colors
             color: Color::WHITE,

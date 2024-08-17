@@ -34,12 +34,12 @@ pub enum ParallaxMappingMethod {
 }
 impl ParallaxMappingMethod {
     /// [`ParallaxMappingMethod::Relief`] with a 5 steps, a reasonable default.
-    pub const DEFAULT_RELIEF_MAPPING: Self = ParallaxMappingMethod::Relief { max_steps: 5 };
+    pub const DEFAULT_RELIEF_MAPPING: Self = Self::Relief { max_steps: 5 };
 
     pub(crate) fn max_steps(&self) -> u32 {
         match self {
-            ParallaxMappingMethod::Occlusion => 0,
-            ParallaxMappingMethod::Relief { max_steps } => *max_steps,
+            Self::Occlusion => 0,
+            Self::Relief { max_steps } => *max_steps,
         }
     }
 }

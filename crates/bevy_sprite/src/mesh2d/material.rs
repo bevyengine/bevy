@@ -322,8 +322,7 @@ impl<M: Material2d> FromWorld for Material2dPipeline<M> {
         let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
         let material2d_layout = M::bind_group_layout(render_device);
-
-        Material2dPipeline {
+        Self {
             mesh2d_pipeline: world.resource::<Mesh2dPipeline>().clone(),
             material2d_layout,
             vertex_shader: match M::vertex_shader() {
@@ -601,7 +600,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
                 mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));
-                Ok(PreparedMaterial2d {
+                Ok(Self {
                     bindings: prepared.bindings,
                     bind_group: prepared.bind_group,
                     key: prepared.data,

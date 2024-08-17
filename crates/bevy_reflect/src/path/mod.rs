@@ -297,7 +297,7 @@ pub struct OffsetAccess {
 
 impl From<Access<'static>> for OffsetAccess {
     fn from(access: Access<'static>) -> Self {
-        OffsetAccess {
+        Self {
             access,
             offset: None,
         }
@@ -451,17 +451,17 @@ impl<'a> ReflectPath<'a> for &'a ParsedPath {
 }
 impl From<Vec<OffsetAccess>> for ParsedPath {
     fn from(value: Vec<OffsetAccess>) -> Self {
-        ParsedPath(value)
+        Self(value)
     }
 }
 impl<const N: usize> From<[OffsetAccess; N]> for ParsedPath {
     fn from(value: [OffsetAccess; N]) -> Self {
-        ParsedPath(value.to_vec())
+        Self(value.to_vec())
     }
 }
 impl From<Vec<Access<'static>>> for ParsedPath {
     fn from(value: Vec<Access<'static>>) -> Self {
-        ParsedPath(
+        Self(
             value
                 .into_iter()
                 .map(|access| OffsetAccess {

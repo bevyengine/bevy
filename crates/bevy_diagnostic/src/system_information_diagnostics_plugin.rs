@@ -173,7 +173,7 @@ pub mod internal {
                     .with_memory(MemoryRefreshKind::new().with_ram()),
             );
 
-            let system_info = SystemInfo {
+            let system_info = Self {
                 os: System::long_os_version().unwrap_or_else(|| String::from("not available")),
                 kernel: System::kernel_version().unwrap_or_else(|| String::from("not available")),
                 cpu: sys

@@ -27,7 +27,7 @@ pub enum RunMode {
 
 impl Default for RunMode {
     fn default() -> Self {
-        RunMode::Loop { wait: None }
+        Self::Loop { wait: None }
     }
 }
 
@@ -52,14 +52,14 @@ pub struct ScheduleRunnerPlugin {
 impl ScheduleRunnerPlugin {
     /// See [`RunMode::Once`].
     pub fn run_once() -> Self {
-        ScheduleRunnerPlugin {
+        Self {
             run_mode: RunMode::Once,
         }
     }
 
     /// See [`RunMode::Loop`].
     pub fn run_loop(wait_duration: Duration) -> Self {
-        ScheduleRunnerPlugin {
+        Self {
             run_mode: RunMode::Loop {
                 wait: Some(wait_duration),
             },

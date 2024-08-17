@@ -126,7 +126,7 @@ impl ReflectBundle {
 
 impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
     fn from_type() -> Self {
-        ReflectBundle(ReflectBundleFns {
+        Self(ReflectBundleFns {
             insert: |entity, reflected_bundle, registry| {
                 let bundle = entity.world_scope(|world| {
                     from_reflect_with_fallback::<B>(reflected_bundle, world, registry)

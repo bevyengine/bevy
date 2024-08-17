@@ -72,16 +72,16 @@ pub enum Anchor {
 impl Anchor {
     pub fn as_vec(&self) -> Vec2 {
         match self {
-            Anchor::Center => Vec2::ZERO,
-            Anchor::BottomLeft => Vec2::new(-0.5, -0.5),
-            Anchor::BottomCenter => Vec2::new(0.0, -0.5),
-            Anchor::BottomRight => Vec2::new(0.5, -0.5),
-            Anchor::CenterLeft => Vec2::new(-0.5, 0.0),
-            Anchor::CenterRight => Vec2::new(0.5, 0.0),
-            Anchor::TopLeft => Vec2::new(-0.5, 0.5),
-            Anchor::TopCenter => Vec2::new(0.0, 0.5),
-            Anchor::TopRight => Vec2::new(0.5, 0.5),
-            Anchor::Custom(point) => *point,
+            Self::Center => Vec2::ZERO,
+            Self::BottomLeft => Vec2::new(-0.5, -0.5),
+            Self::BottomCenter => Vec2::new(0.0, -0.5),
+            Self::BottomRight => Vec2::new(0.5, -0.5),
+            Self::CenterLeft => Vec2::new(-0.5, 0.0),
+            Self::CenterRight => Vec2::new(0.5, 0.0),
+            Self::TopLeft => Vec2::new(-0.5, 0.5),
+            Self::TopCenter => Vec2::new(0.0, 0.5),
+            Self::TopRight => Vec2::new(0.5, 0.5),
+            Self::Custom(point) => *point,
         }
     }
 }

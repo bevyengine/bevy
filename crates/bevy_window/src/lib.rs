@@ -45,7 +45,7 @@ use bevy_app::prelude::*;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
-        WindowPlugin {
+        Self {
             primary_window: Some(Window::default()),
             exit_condition: ExitCondition::OnAllClosed,
             close_when_requested: true,

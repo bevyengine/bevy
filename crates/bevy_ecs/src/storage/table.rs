@@ -34,7 +34,7 @@ use std::{
 pub struct TableId(u32);
 
 impl TableId {
-    pub(crate) const INVALID: TableId = TableId(u32::MAX);
+    pub(crate) const INVALID: Self = Self(u32::MAX);
 
     /// Creates a new [`TableId`].
     ///
@@ -104,7 +104,7 @@ impl TableId {
 pub struct TableRow(u32);
 
 impl TableRow {
-    pub(crate) const INVALID: TableRow = TableRow(u32::MAX);
+    pub(crate) const INVALID: Self = Self(u32::MAX);
 
     /// Creates a `TableRow`.
     #[inline]
@@ -163,7 +163,7 @@ impl Column {
     /// Constructs a new [`Column`], configured with a component's layout and an initial `capacity`.
     #[inline]
     pub(crate) fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
-        Column {
+        Self {
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             added_ticks: Vec::with_capacity(capacity),
@@ -318,7 +318,7 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
-        other: &mut Column,
+        other: &mut Self,
         src_row: TableRow,
         dst_row: TableRow,
     ) {
@@ -709,7 +709,7 @@ impl Table {
     pub(crate) unsafe fn move_to_and_forget_missing_unchecked(
         &mut self,
         row: TableRow,
-        new_table: &mut Table,
+        new_table: &mut Self,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
@@ -741,7 +741,7 @@ impl Table {
     pub(crate) unsafe fn move_to_and_drop_missing_unchecked(
         &mut self,
         row: TableRow,
-        new_table: &mut Table,
+        new_table: &mut Self,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
@@ -772,7 +772,7 @@ impl Table {
     pub(crate) unsafe fn move_to_superset_unchecked(
         &mut self,
         row: TableRow,
-        new_table: &mut Table,
+        new_table: &mut Self,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
@@ -915,7 +915,7 @@ pub struct Tables {
 impl Default for Tables {
     fn default() -> Self {
         let empty_table = TableBuilder::with_capacity(0, 0).build();
-        Tables {
+        Self {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
         }

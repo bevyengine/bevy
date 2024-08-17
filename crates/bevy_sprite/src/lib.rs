@@ -219,13 +219,11 @@ pub fn calculate_bounds_2d(
 
 impl ExtractComponent for SpriteSource {
     type QueryData = ();
-
-    type QueryFilter = With<SpriteSource>;
-
-    type Out = SpriteSource;
+    type QueryFilter = With<Self>;
+    type Out = Self;
 
     fn extract_component(_: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(SpriteSource)
+        Some(Self)
     }
 }
 

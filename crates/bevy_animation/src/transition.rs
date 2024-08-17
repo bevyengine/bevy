@@ -64,8 +64,8 @@ pub struct AnimationTransition {
 impl AnimationTransitions {
     /// Creates a new [`AnimationTransitions`] component, ready to be added to
     /// an entity with an [`AnimationPlayer`].
-    pub fn new() -> AnimationTransitions {
-        AnimationTransitions::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Plays a new animation on the given [`AnimationPlayer`], fading out any

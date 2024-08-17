@@ -237,7 +237,7 @@ where
     T: Clone + ShaderSize + WriteInto,
 {
     fn from(value: GpuArrayBufferIndex<T>) -> Self {
-        UnbatchableBinnedEntityIndices {
+        Self {
             instance_index: value.index,
             extra_index: PhaseItemExtraIndex::maybe_dynamic_offset(value.dynamic_offset),
         }
@@ -489,20 +489,18 @@ impl UnbatchableBinnedEntityIndexSet {
         entity_index: u32,
     ) -> Option<UnbatchableBinnedEntityIndices> {
         match self {
-            UnbatchableBinnedEntityIndexSet::NoEntities => None,
-            UnbatchableBinnedEntityIndexSet::Sparse { instance_range, .. }
-                if entity_index >= instance_range.len() as u32 =>
-            {
+            Self::NoEntities => None,
+            Self::Sparse { instance_range, .. } if entity_index >= instance_range.len() as u32 => {
                 None
             }
-            UnbatchableBinnedEntityIndexSet::Sparse {
+            Self::Sparse {
                 instance_range,
                 first_indirect_parameters_index: None,
             } => Some(UnbatchableBinnedEntityIndices {
                 instance_index: instance_range.start + entity_index,
                 extra_index: PhaseItemExtraIndex::NONE,
             }),
-            UnbatchableBinnedEntityIndexSet::Sparse {
+            Self::Sparse {
                 instance_range,
                 first_indirect_parameters_index: Some(first_indirect_parameters_index),
             } => Some(UnbatchableBinnedEntityIndices {
@@ -511,9 +509,7 @@ impl UnbatchableBinnedEntityIndexSet {
                     u32::from(*first_indirect_parameters_index) + entity_index,
                 ),
             }),
-            UnbatchableBinnedEntityIndexSet::Dense(ref indices) => {
-                indices.get(entity_index as usize).copied()
-            }
+            Self::Dense(ref indices) => indices.get(entity_index as usize).copied(),
         }
     }
 }
@@ -655,15 +651,15 @@ impl UnbatchableBinnedEntityIndexSet {
     /// Adds a new entity to the list of unbatchable binned entities.
     pub fn add(&mut self, indices: UnbatchableBinnedEntityIndices) {
         match self {
-            UnbatchableBinnedEntityIndexSet::NoEntities => {
+            Self::NoEntities => {
                 if indices.extra_index.is_dynamic_offset() {
                     // This is the first entity we've seen, and we don't have
                     // compute shaders. Initialize an array.
-                    *self = UnbatchableBinnedEntityIndexSet::Dense(vec![indices]);
+                    *self = Self::Dense(vec![indices]);
                 } else {
                     // This is the first entity we've seen, and we have compute
                     // shaders. Initialize the fast path.
-                    *self = UnbatchableBinnedEntityIndexSet::Sparse {
+                    *self = Self::Sparse {
                         instance_range: indices.instance_index..indices.instance_index + 1,
                         first_indirect_parameters_index: indices
                             .extra_index
@@ -672,8 +668,7 @@ impl UnbatchableBinnedEntityIndexSet {
                     }
                 }
             }
-
-            UnbatchableBinnedEntityIndexSet::Sparse {
+            Self::Sparse {
                 ref mut instance_range,
                 first_indirect_parameters_index,
             } if instance_range.end == indices.instance_index
@@ -691,8 +686,7 @@ impl UnbatchableBinnedEntityIndexSet {
                 // This is the normal case on non-WebGL 2.
                 instance_range.end += 1;
             }
-
-            UnbatchableBinnedEntityIndexSet::Sparse { instance_range, .. } => {
+            Self::Sparse { instance_range, .. } => {
                 // We thought we were in non-WebGL 2 mode, but we got a dynamic
                 // offset or non-contiguous index anyway. This shouldn't happen,
                 // but let's go ahead and do the sensible thing anyhow: demote
@@ -702,10 +696,9 @@ impl UnbatchableBinnedEntityIndexSet {
                     .flat_map(|entity_index| self.indices_for_entity_index(entity_index))
                     .chain(iter::once(indices))
                     .collect();
-                *self = UnbatchableBinnedEntityIndexSet::Dense(new_dynamic_offsets);
+                *self = Self::Dense(new_dynamic_offsets);
             }
-
-            UnbatchableBinnedEntityIndexSet::Dense(ref mut dense_indices) => {
+            Self::Dense(ref mut dense_indices) => {
                 dense_indices.push(indices);
             }
         }
@@ -910,7 +903,7 @@ impl PhaseItemExtraIndex {
     pub const FLAGS_MASK: u32 = !Self::OFFSET_MASK;
 
     /// The special value that indicates that no extra index is present.
-    pub const NONE: PhaseItemExtraIndex = PhaseItemExtraIndex(u32::MAX);
+    pub const NONE: Self = Self(u32::MAX);
 
     /// Returns either the indirect parameters index or the dynamic offset,
     /// depending on which is in use.
@@ -933,10 +926,10 @@ impl PhaseItemExtraIndex {
 
     /// Packs a indirect parameters index into this extra index.
     #[inline]
-    pub fn indirect_parameters_index(indirect_parameter_index: u32) -> PhaseItemExtraIndex {
+    pub fn indirect_parameters_index(indirect_parameter_index: u32) -> Self {
         // Make sure we didn't overflow.
         debug_assert_eq!(indirect_parameter_index & Self::FLAGS_MASK, 0);
-        PhaseItemExtraIndex(indirect_parameter_index | Self::INDIRECT_PARAMETER_INDEX)
+        Self(indirect_parameter_index | Self::INDIRECT_PARAMETER_INDEX)
     }
 
     /// Returns either an indirect parameters index or
@@ -944,31 +937,31 @@ impl PhaseItemExtraIndex {
     #[inline]
     pub fn maybe_indirect_parameters_index(
         maybe_indirect_parameters_index: Option<NonMaxU32>,
-    ) -> PhaseItemExtraIndex {
+    ) -> Self {
         match maybe_indirect_parameters_index {
             Some(indirect_parameters_index) => {
                 Self::indirect_parameters_index(indirect_parameters_index.into())
             }
-            None => PhaseItemExtraIndex::NONE,
+            None => Self::NONE,
         }
     }
 
     /// Packs a dynamic offset into this extra index.
     #[inline]
-    pub fn dynamic_offset(dynamic_offset: u32) -> PhaseItemExtraIndex {
+    pub fn dynamic_offset(dynamic_offset: u32) -> Self {
         // Make sure we didn't overflow.
         debug_assert_eq!(dynamic_offset & Self::FLAGS_MASK, 0);
 
-        PhaseItemExtraIndex(dynamic_offset)
+        Self(dynamic_offset)
     }
 
     /// Returns either a dynamic offset or [`PhaseItemExtraIndex::NONE`], as
     /// appropriate.
     #[inline]
-    pub fn maybe_dynamic_offset(maybe_dynamic_offset: Option<NonMaxU32>) -> PhaseItemExtraIndex {
+    pub fn maybe_dynamic_offset(maybe_dynamic_offset: Option<NonMaxU32>) -> Self {
         match maybe_dynamic_offset {
             Some(dynamic_offset) => Self::dynamic_offset(dynamic_offset.into()),
-            None => PhaseItemExtraIndex::NONE,
+            None => Self::NONE,
         }
     }
 
@@ -1108,11 +1101,11 @@ where
 impl BinnedRenderPhaseType {
     /// Creates the appropriate [`BinnedRenderPhaseType`] for a mesh, given its
     /// batchability.
-    pub fn mesh(batchable: bool) -> BinnedRenderPhaseType {
+    pub fn mesh(batchable: bool) -> Self {
         if batchable {
-            BinnedRenderPhaseType::BatchableMesh
+            Self::BatchableMesh
         } else {
-            BinnedRenderPhaseType::UnbatchableMesh
+            Self::UnbatchableMesh
         }
     }
 }

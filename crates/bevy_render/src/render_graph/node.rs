@@ -241,7 +241,7 @@ impl NodeState {
     where
         T: Node,
     {
-        NodeState {
+        Self {
             label,
             input_slots: node.input().into(),
             output_slots: node.output().into(),

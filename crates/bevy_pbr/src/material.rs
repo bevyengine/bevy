@@ -407,8 +407,7 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
-
-        MaterialPipeline {
+        Self {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
             material_layout: M::bind_group_layout(render_device),
             vertex_shader: match M::vertex_shader() {
@@ -830,11 +829,11 @@ pub struct DefaultOpaqueRendererMethod(OpaqueRendererMethod);
 
 impl DefaultOpaqueRendererMethod {
     pub fn forward() -> Self {
-        DefaultOpaqueRendererMethod(OpaqueRendererMethod::Forward)
+        Self(OpaqueRendererMethod::Forward)
     }
 
     pub fn deferred() -> Self {
-        DefaultOpaqueRendererMethod(OpaqueRendererMethod::Deferred)
+        Self(OpaqueRendererMethod::Deferred)
     }
 
     pub fn set_to_forward(&mut self) {
@@ -935,8 +934,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
                     material.reads_view_transmission_texture(),
                 );
-
-                Ok(PreparedMaterial {
+                Ok(Self {
                     bindings: prepared.bindings,
                     bind_group: prepared.bind_group,
                     key: prepared.data,

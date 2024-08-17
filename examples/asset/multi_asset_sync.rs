@@ -90,12 +90,12 @@ pub struct LoadingText;
 
 impl AssetBarrier {
     /// Create an [`AssetBarrier`] with a [`AssetBarrierGuard`].
-    pub fn new() -> (AssetBarrier, AssetBarrierGuard) {
+    pub fn new() -> (Self, AssetBarrierGuard) {
         let inner = Arc::new(AssetBarrierInner {
             count: AtomicU32::new(1),
             notify: Event::new(),
         });
-        (AssetBarrier(inner.clone()), AssetBarrierGuard(inner))
+        (Self(inner.clone()), AssetBarrierGuard(inner))
     }
 
     /// Returns true if all [`AssetBarrierGuard`] is dropped.
@@ -125,7 +125,7 @@ impl AssetBarrier {
 impl Clone for AssetBarrierGuard {
     fn clone(&self) -> Self {
         self.count.fetch_add(1, Ordering::AcqRel);
-        AssetBarrierGuard(self.0.clone())
+        Self(self.0.clone())
     }
 }
 

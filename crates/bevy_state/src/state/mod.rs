@@ -242,9 +242,9 @@ mod tests {
                     if simple == SimpleState::A
                         && (complex.a_flexible_value == "bob" || complex.a_flexible_value == "jane")
                     {
-                        Some(ComplexComputedState::InAAndStrIsBobOrJane)
+                        Some(Self::InAAndStrIsBobOrJane)
                     } else if simple == SimpleState::B(true) && complex.another_value > 8 {
-                        Some(ComplexComputedState::InTrueBAndUsizeAbove8)
+                        Some(Self::InTrueBAndUsizeAbove8)
                     } else {
                         None
                     }
@@ -343,11 +343,9 @@ mod tests {
 
         fn compute((s1, s2): (Option<SimpleState>, Option<SimpleState2>)) -> Option<Self> {
             match (s1, s2) {
-                (Some(SimpleState::A), Some(SimpleState2::A1)) => Some(TestNewcomputedState::A1),
-                (Some(SimpleState::B(true)), Some(SimpleState2::B2)) => {
-                    Some(TestNewcomputedState::B2)
-                }
-                (Some(SimpleState::B(true)), _) => Some(TestNewcomputedState::B1),
+                (Some(SimpleState::A), Some(SimpleState2::A1)) => Some(Self::A1),
+                (Some(SimpleState::B(true)), Some(SimpleState2::B2)) => Some(Self::B2),
+                (Some(SimpleState::B(true)), _) => Some(Self::B1),
                 _ => None,
             }
         }

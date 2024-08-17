@@ -437,7 +437,7 @@ impl FromWorld for SmaaPipelines {
             ),
         );
 
-        SmaaPipelines {
+        Self {
             edge_detection: SmaaEdgeDetectionPipeline {
                 postprocess_bind_group_layout: postprocess_bind_group_layout.clone(),
                 edge_detection_bind_group_layout,
@@ -1079,10 +1079,10 @@ impl SmaaPreset {
     /// preset.
     fn shader_def(&self) -> ShaderDefVal {
         match *self {
-            SmaaPreset::Low => "SMAA_PRESET_LOW".into(),
-            SmaaPreset::Medium => "SMAA_PRESET_MEDIUM".into(),
-            SmaaPreset::High => "SMAA_PRESET_HIGH".into(),
-            SmaaPreset::Ultra => "SMAA_PRESET_ULTRA".into(),
+            Self::Low => "SMAA_PRESET_LOW".into(),
+            Self::Medium => "SMAA_PRESET_MEDIUM".into(),
+            Self::High => "SMAA_PRESET_HIGH".into(),
+            Self::Ultra => "SMAA_PRESET_ULTRA".into(),
         }
     }
 }

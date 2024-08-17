@@ -759,7 +759,7 @@ impl StandardMaterial {
 
 impl Default for StandardMaterial {
     fn default() -> Self {
-        StandardMaterial {
+        Self {
             // White because it gets multiplied with texture values if someone uses
             // a texture.
             base_color: Color::WHITE,
@@ -842,7 +842,7 @@ impl Default for StandardMaterial {
 
 impl From<Color> for StandardMaterial {
     fn from(color: Color) -> Self {
-        StandardMaterial {
+        Self {
             base_color: color,
             alpha_mode: if color.alpha() < 1.0 {
                 AlphaMode::Blend
@@ -856,7 +856,7 @@ impl From<Color> for StandardMaterial {
 
 impl From<Handle<Image>> for StandardMaterial {
     fn from(texture: Handle<Image>) -> Self {
-        StandardMaterial {
+        Self {
             base_color_texture: Some(texture),
             ..Default::default()
         }
@@ -1136,90 +1136,78 @@ const STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT: u64 = 32;
 
 impl From<&StandardMaterial> for StandardMaterialKey {
     fn from(material: &StandardMaterial) -> Self {
-        let mut key = StandardMaterialKey::empty();
+        let mut key = Self::empty();
+        key.set(Self::CULL_FRONT, material.cull_mode == Some(Face::Front));
+        key.set(Self::CULL_BACK, material.cull_mode == Some(Face::Back));
+        key.set(Self::NORMAL_MAP, material.normal_map_texture.is_some());
         key.set(
-            StandardMaterialKey::CULL_FRONT,
-            material.cull_mode == Some(Face::Front),
-        );
-        key.set(
-            StandardMaterialKey::CULL_BACK,
-            material.cull_mode == Some(Face::Back),
-        );
-        key.set(
-            StandardMaterialKey::NORMAL_MAP,
-            material.normal_map_texture.is_some(),
-        );
-        key.set(
-            StandardMaterialKey::RELIEF_MAPPING,
+            Self::RELIEF_MAPPING,
             matches!(
                 material.parallax_mapping_method,
                 ParallaxMappingMethod::Relief { .. }
             ),
         );
         key.set(
-            StandardMaterialKey::DIFFUSE_TRANSMISSION,
+            Self::DIFFUSE_TRANSMISSION,
             material.diffuse_transmission > 0.0,
         );
         key.set(
-            StandardMaterialKey::SPECULAR_TRANSMISSION,
+            Self::SPECULAR_TRANSMISSION,
             material.specular_transmission > 0.0,
         );
 
-        key.set(StandardMaterialKey::CLEARCOAT, material.clearcoat > 0.0);
+        key.set(Self::CLEARCOAT, material.clearcoat > 0.0);
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         key.set(
-            StandardMaterialKey::CLEARCOAT_NORMAL_MAP,
+            Self::CLEARCOAT_NORMAL_MAP,
             material.clearcoat > 0.0 && material.clearcoat_normal_texture.is_some(),
         );
 
-        key.set(
-            StandardMaterialKey::ANISOTROPY,
-            material.anisotropy_strength > 0.0,
-        );
+        key.set(Self::ANISOTROPY, material.anisotropy_strength > 0.0);
 
         key.set(
-            StandardMaterialKey::BASE_COLOR_UV,
+            Self::BASE_COLOR_UV,
             material.base_color_channel != UvChannel::Uv0,
         );
 
         key.set(
-            StandardMaterialKey::EMISSIVE_UV,
+            Self::EMISSIVE_UV,
             material.emissive_channel != UvChannel::Uv0,
         );
         key.set(
-            StandardMaterialKey::METALLIC_ROUGHNESS_UV,
+            Self::METALLIC_ROUGHNESS_UV,
             material.metallic_roughness_channel != UvChannel::Uv0,
         );
         key.set(
-            StandardMaterialKey::OCCLUSION_UV,
+            Self::OCCLUSION_UV,
             material.occlusion_channel != UvChannel::Uv0,
         );
         #[cfg(feature = "pbr_transmission_textures")]
         {
             key.set(
-                StandardMaterialKey::SPECULAR_TRANSMISSION_UV,
+                Self::SPECULAR_TRANSMISSION_UV,
                 material.specular_transmission_channel != UvChannel::Uv0,
             );
             key.set(
-                StandardMaterialKey::THICKNESS_UV,
+                Self::THICKNESS_UV,
                 material.thickness_channel != UvChannel::Uv0,
             );
             key.set(
-                StandardMaterialKey::DIFFUSE_TRANSMISSION_UV,
+                Self::DIFFUSE_TRANSMISSION_UV,
                 material.diffuse_transmission_channel != UvChannel::Uv0,
             );
         }
 
         key.set(
-            StandardMaterialKey::NORMAL_MAP_UV,
+            Self::NORMAL_MAP_UV,
             material.normal_map_channel != UvChannel::Uv0,
         );
 
         #[cfg(feature = "pbr_anisotropy_texture")]
         {
             key.set(
-                StandardMaterialKey::ANISOTROPY_UV,
+                Self::ANISOTROPY_UV,
                 material.anisotropy_channel != UvChannel::Uv0,
             );
         }
@@ -1227,20 +1215,20 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         #[cfg(feature = "pbr_multi_layer_material_textures")]
         {
             key.set(
-                StandardMaterialKey::CLEARCOAT_UV,
+                Self::CLEARCOAT_UV,
                 material.clearcoat_channel != UvChannel::Uv0,
             );
             key.set(
-                StandardMaterialKey::CLEARCOAT_ROUGHNESS_UV,
+                Self::CLEARCOAT_ROUGHNESS_UV,
                 material.clearcoat_roughness_channel != UvChannel::Uv0,
             );
             key.set(
-                StandardMaterialKey::CLEARCOAT_NORMAL_UV,
+                Self::CLEARCOAT_NORMAL_UV,
                 material.clearcoat_normal_channel != UvChannel::Uv0,
             );
         }
 
-        key.insert(StandardMaterialKey::from_bits_retain(
+        key.insert(Self::from_bits_retain(
             (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
         ));
         key

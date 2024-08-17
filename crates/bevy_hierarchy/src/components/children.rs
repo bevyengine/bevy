@@ -43,7 +43,7 @@ impl MapEntities for Children {
 impl FromWorld for Children {
     #[inline]
     fn from_world(_world: &mut World) -> Self {
-        Children(SmallVec::new())
+        Self(SmallVec::new())
     }
 }
 

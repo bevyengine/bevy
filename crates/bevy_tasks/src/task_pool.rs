@@ -160,7 +160,7 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
-                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
+                        Self::LOCAL_EXECUTOR.with(|local_executor| {
                             if let Some(on_thread_spawn) = on_thread_spawn {
                                 on_thread_spawn();
                                 drop(on_thread_spawn);
@@ -551,7 +551,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+        Task::new(Self::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
     }
 
     /// Runs a function with the local executor. Typically used to tick

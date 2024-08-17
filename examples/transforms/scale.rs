@@ -16,7 +16,7 @@ struct Scaling {
 // Implement a simple initialization.
 impl Scaling {
     fn new() -> Self {
-        Scaling {
+        Self {
             scale_direction: Vec3::X,
             scale_speed: 2.0,
             max_element_size: 5.0,

@@ -845,11 +845,11 @@ impl GeneralSlab {
         settings: &MeshAllocatorSettings,
         layout: ElementLayout,
         data_slot_count: u32,
-    ) -> GeneralSlab {
+    ) -> Self {
         let slab_slot_capacity = (settings.min_slab_size.div_ceil(layout.slot_size()) as u32)
             .max(offset_allocator::ext::min_allocator_size(data_slot_count));
 
-        let mut new_slab = GeneralSlab {
+        let mut new_slab = Self {
             allocator: Allocator::new(slab_slot_capacity),
             buffer: None,
             resident_allocations: HashMap::new(),
@@ -940,8 +940,8 @@ impl GeneralSlab {
 impl ElementLayout {
     /// Creates an [`ElementLayout`] for mesh data of the given class (vertex or
     /// index) with the given byte size.
-    fn new(class: ElementClass, size: u64) -> ElementLayout {
-        ElementLayout {
+    fn new(class: ElementClass, size: u64) -> Self {
+        Self {
             class,
             size,
             // Make sure that slot boundaries begin and end on
@@ -956,13 +956,10 @@ impl ElementLayout {
 
     /// Creates the appropriate [`ElementLayout`] for the given mesh's vertex
     /// data.
-    fn vertex(
-        mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
-        mesh: &Mesh,
-    ) -> ElementLayout {
+    fn vertex(mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts, mesh: &Mesh) -> Self {
         let mesh_vertex_buffer_layout =
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
-        ElementLayout::new(
+        Self::new(
             ElementClass::Vertex,
             mesh_vertex_buffer_layout.0.layout().array_stride,
         )
@@ -970,12 +967,12 @@ impl ElementLayout {
 
     /// Creates the appropriate [`ElementLayout`] for the given mesh's index
     /// data.
-    fn index(mesh: &Mesh) -> Option<ElementLayout> {
+    fn index(mesh: &Mesh) -> Option<Self> {
         let size = match mesh.indices()? {
             Indices::U16(_) => 2,
             Indices::U32(_) => 4,
         };
-        Some(ElementLayout::new(ElementClass::Index, size))
+        Some(Self::new(ElementClass::Index, size))
     }
 }
 

@@ -40,11 +40,11 @@ pub enum Sensitivity {
 impl Sensitivity {
     pub fn get_str(&self) -> &str {
         match self {
-            Sensitivity::Low => "LOW",
-            Sensitivity::Medium => "MEDIUM",
-            Sensitivity::High => "HIGH",
-            Sensitivity::Ultra => "ULTRA",
-            Sensitivity::Extreme => "EXTREME",
+            Self::Low => "LOW",
+            Self::Medium => "MEDIUM",
+            Self::High => "HIGH",
+            Self::Ultra => "ULTRA",
+            Self::Extreme => "EXTREME",
         }
     }
 }
@@ -70,7 +70,7 @@ pub struct Fxaa {
 
 impl Default for Fxaa {
     fn default() -> Self {
-        Fxaa {
+        Self {
             enabled: true,
             edge_threshold: Sensitivity::High,
             edge_threshold_min: Sensitivity::High,
@@ -150,7 +150,7 @@ impl FromWorld for FxaaPipeline {
             ..default()
         });
 
-        FxaaPipeline {
+        Self {
             texture_bind_group,
             sampler,
         }

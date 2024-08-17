@@ -221,7 +221,7 @@ impl<'env> From<DynamicClosure<'env>> for DynamicClosureMut<'env> {
 
 impl<'env> IntoClosureMut<'env, ()> for DynamicClosureMut<'env> {
     #[inline]
-    fn into_closure_mut(self) -> DynamicClosureMut<'env> {
+    fn into_closure_mut(self) -> Self {
         self
     }
 }

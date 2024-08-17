@@ -136,7 +136,7 @@ impl std::fmt::Debug for Stepping {
 impl Stepping {
     /// Create a new instance of the `Stepping` resource.
     pub fn new() -> Self {
-        Stepping::default()
+        Self::default()
     }
 
     /// System to call denoting that a new render frame has begun

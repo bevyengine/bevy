@@ -900,7 +900,7 @@ mod tests {
 
         impl FromWorld for Foo {
             fn from_world(world: &mut World) -> Self {
-                Foo {
+                Self {
                     value: world.resource::<ProtoFoo>().value + 1,
                 }
             }

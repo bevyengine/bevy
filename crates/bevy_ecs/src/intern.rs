@@ -82,8 +82,8 @@ impl<T: ?Sized + Debug> Debug for Interned<T> {
     }
 }
 
-impl<T> From<&Interned<T>> for Interned<T> {
-    fn from(value: &Interned<T>) -> Self {
+impl<T> From<&Self> for Interned<T> {
+    fn from(value: &Self) -> Self {
         *value
     }
 }
@@ -183,7 +183,7 @@ mod tests {
 
         impl Internable for A {
             fn leak(&self) -> &'static Self {
-                &A
+                &Self
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
@@ -212,8 +212,8 @@ mod tests {
         impl Internable for A {
             fn leak(&self) -> &'static Self {
                 match self {
-                    A::X => &A::X,
-                    A::Y => &A::Y,
+                    Self::X => &Self::X,
+                    Self::Y => &Self::Y,
                 }
             }
 
