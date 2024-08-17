@@ -269,33 +269,46 @@ pub trait Curve<T> {
     /// outputs of the same type, effectively playing backwards starting at `self.domain().end()`
     /// and transitioning over to `self.domain().start()`. The domain of the new curve is still the
     /// same.
-    fn reverse(self) -> ReverseCurve<T, Self>
+    ///
+    /// # Notes
+    ///
+    /// - the domain end of this curve has to be bounded
+    fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError>
     where
         Self: Sized,
     {
-        ReverseCurve {
-            curve: self,
-            _phantom: PhantomData,
-        }
+        self.domain()
+            .has_finite_end()
+            .then(|| ReverseCurve {
+                curve: self,
+                _phantom: PhantomData,
+            })
+            .ok_or(ReverseError::SourceDomainEndInfinite)
     }
 
     /// Create a new [`Curve`] repeating this curve `n` times, producing another curve with outputs
     /// of the same type. The domain of the new curve will be bigger by a factor of `n`.
     ///
-    /// # Note
+    /// # Notes
     ///
     /// - this doesn't guarantee a smooth transition from one occurence of the curve to its next
     ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
     /// - for `n == 0` the output of this adaptor is basically identical to the previous curve
-    fn repeat(self, n: usize) -> RepeatCurve<T, Self>
+    /// - the domain of this curve has to be bounded
+    /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
+    ///   value at `domain.start()` in the original curve
+    fn repeat(self, n: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
     where
         Self: Sized,
     {
-        RepeatCurve {
-            curve: self,
-            times: n,
-            _phantom: PhantomData,
-        }
+        self.domain()
+            .is_bounded()
+            .then(|| RepeatCurve {
+                curve: self,
+                times: n,
+                _phantom: PhantomData,
+            })
+            .ok_or(RepeatError::SourceDomainUnbounded)
     }
 
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
@@ -514,6 +527,26 @@ pub enum LinearReparamError {
     /// The target interval for reparametrization was unbounded.
     #[error("The target interval for reparametrization is unbounded")]
     TargetIntervalUnbounded,
+}
+
+/// An error indicating that a reversion of a curve couldn't be performed because of
+/// malformed inputs.
+#[derive(Debug, Error)]
+#[error("Could not reverse this curve")]
+pub enum ReverseError {
+    /// The source curve that was to be reversed had unbounded domain.
+    #[error("This curve has an unbounded domain end")]
+    SourceDomainEndInfinite,
+}
+
+/// An error indicating that a repetition of a curve couldn't be performed because of malformed
+/// inputs.
+#[derive(Debug, Error)]
+#[error("Could not repeat this curve")]
+pub enum RepeatError {
+    /// The source curve that was to be reversed had unbounded domain.
+    #[error("This curve has an unbounded domain")]
+    SourceDomainUnbounded,
 }
 
 /// An error indicating that an end-to-end composition couldn't be performed because of
@@ -861,7 +894,13 @@ where
     }
 }
 
-/// The curve that results from repeating the current curve `N` times
+/// The curve that results from repeating the current curve `N` times.
+///
+/// # Notes
+///
+/// - the domain of this curve has to be bounded
+/// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
+///   value at `domain.start()` in the original curve
 ///
 /// Curves of this type are produced by [`Curve::repeat`].
 pub struct RepeatCurve<T, C> {
@@ -887,9 +926,10 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
-        self.curve.sample_unchecked(
-            self.domain().start() + ((t - self.domain().start()) % self.domain().length()),
-        )
+        // the domain is bounded by construction
+        let d = self.curve.domain();
+        self.curve
+            .sample_unchecked(d.start() + ((t - d.start()) % d.length()))
     }
 }
 
@@ -1158,6 +1198,28 @@ mod tests {
         assert_eq!(mapped_curve.sample_unchecked(0.0), Quat::IDENTITY);
         assert!(mapped_curve.sample_unchecked(1.0).is_near_identity());
         assert_eq!(mapped_curve.domain(), Interval::UNIT);
+    }
+
+    #[test]
+    fn reverse() {
+        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let rev_curve = curve.reverse().unwrap();
+        assert_eq!(rev_curve.sample_unchecked(0.0), 1.0 * 3.0 + 1.0);
+        assert_eq!(rev_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
+        assert_eq!(rev_curve.sample_unchecked(1.0), 0.0 * 3.0 + 1.0);
+    }
+
+    #[test]
+    fn repeat() {
+        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let repeat_curve = curve.repeat(1).unwrap();
+        assert_eq!(repeat_curve.sample_unchecked(0.0), 0.0 * 3.0 + 1.0);
+        assert_eq!(repeat_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
+        assert_eq!(repeat_curve.sample_unchecked(0.99), 0.99 * 3.0 + 1.0);
+        assert_eq!(repeat_curve.sample_unchecked(1.0), 0.0 * 3.0 + 1.0);
+        assert_eq!(repeat_curve.sample_unchecked(1.5), 0.5 * 3.0 + 1.0);
+        assert_eq!(repeat_curve.sample_unchecked(1.99), 0.99 * 3.0 + 1.0);
+        assert_eq!(repeat_curve.sample_unchecked(2.0), 0.0 * 3.0 + 1.0);
     }
 
     #[test]
