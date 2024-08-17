@@ -1,9 +1,11 @@
-use alloc::borrow::Cow;
-use core::fmt::{Debug, Formatter};
-
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{FunctionResult, IntoClosure, ReturnInfo};
+use crate::func::{
+    DynamicClosureMut, DynamicFunction, FunctionResult, IntoClosure, IntoClosureMut, ReturnInfo,
+};
+use alloc::borrow::Cow;
+use core::fmt::{Debug, Formatter};
+use std::sync::Arc;
 
 /// A dynamic representation of a Rust closure.
 ///
@@ -42,12 +44,9 @@ use crate::func::{FunctionResult, IntoClosure, ReturnInfo};
 /// // Check the result:
 /// assert_eq!(value.try_take::<String>().unwrap(), "Hello, world!!!");
 /// ```
-///
-/// [`DynamicClosureMut`]: crate::func::closures::DynamicClosureMut
-/// [`DynamicFunction`]: crate::func::DynamicFunction
 pub struct DynamicClosure<'env> {
-    info: FunctionInfo,
-    func: Box<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'env>,
+    pub(super) info: FunctionInfo,
+    pub(super) func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>,
 }
 
 impl<'env> DynamicClosure<'env> {
@@ -57,13 +56,13 @@ impl<'env> DynamicClosure<'env> {
     ///
     /// It's important that the closure signature matches the provided [`FunctionInfo`].
     /// This info may be used by consumers of the function for validation and debugging.
-    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'env>(
+    pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>(
         func: F,
         info: FunctionInfo,
     ) -> Self {
         Self {
             info,
-            func: Box::new(func),
+            func: Arc::new(func),
         }
     }
 
@@ -160,10 +159,36 @@ impl<'env> Debug for DynamicClosure<'env> {
     }
 }
 
+impl<'env> Clone for DynamicClosure<'env> {
+    fn clone(&self) -> Self {
+        Self {
+            info: self.info.clone(),
+            func: Arc::clone(&self.func),
+        }
+    }
+}
+
+impl From<DynamicFunction> for DynamicClosure<'static> {
+    #[inline]
+    fn from(func: DynamicFunction) -> Self {
+        Self {
+            info: func.info,
+            func: func.func,
+        }
+    }
+}
+
 impl<'env> IntoClosure<'env, ()> for DynamicClosure<'env> {
     #[inline]
     fn into_closure(self) -> DynamicClosure<'env> {
         self
+    }
+}
+
+impl<'env> IntoClosureMut<'env, ()> for DynamicClosure<'env> {
+    #[inline]
+    fn into_closure_mut(self) -> DynamicClosureMut<'env> {
+        DynamicClosureMut::from(self)
     }
 }
 
@@ -189,5 +214,27 @@ mod tests {
         let c = 23;
         let closure: DynamicClosure = make_closure(|a: i32, b: i32| a + b + c);
         let _: DynamicClosure = make_closure(closure);
+    }
+
+    #[test]
+    fn should_clone_dynamic_closure() {
+        let hello = String::from("Hello");
+
+        let greet = |name: &String| -> String { format!("{}, {}!", hello, name) };
+
+        let greet = greet.into_closure().with_name("greet");
+        let clone = greet.clone();
+
+        assert_eq!(greet.name().unwrap(), "greet");
+        assert_eq!(clone.name().unwrap(), "greet");
+
+        let clone_value = clone
+            .call(ArgList::default().push_ref(&String::from("world")))
+            .unwrap()
+            .unwrap_owned()
+            .try_take::<String>()
+            .unwrap();
+
+        assert_eq!(clone_value, "Hello, world!");
     }
 }
