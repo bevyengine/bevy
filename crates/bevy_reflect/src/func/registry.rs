@@ -11,12 +11,9 @@ use crate::func::{DynamicClosure, FunctionRegistrationError, IntoClosure};
 /// This is the function-equivalent to the [`TypeRegistry`].
 ///
 /// All functions and closures are stored as `'static` closures via [`DynamicClosure<'static>`].
-/// [`DynamicClosure`] is used instead of [`DynamicFunction`] as it can represent both functions and closures,
-/// allowing registered functions to contain captured environment data.
 ///
 /// [reflected functions]: crate::func
 /// [`TypeRegistry`]: crate::TypeRegistry
-/// [`DynamicFunction`]: crate::func::DynamicFunction
 #[derive(Default)]
 pub struct FunctionRegistry {
     /// Maps function [names] to their respective [`DynamicClosures`].
@@ -30,7 +27,7 @@ impl FunctionRegistry {
     /// Attempts to register the given function.
     ///
     /// This function accepts both functions/closures that satisfy [`IntoClosure`]
-    /// and direct [`DynamicFunction`]/[`DynamicClosure`] instances.
+    /// and direct [`DynamicClosure`] instances.
     /// The given function will internally be stored as a [`DynamicClosure<'static>`]
     /// and mapped according to its [name].
     ///
@@ -63,7 +60,7 @@ impl FunctionRegistry {
     /// Functions cannot be registered more than once.
     ///
     /// ```
-    /// # use bevy_reflect::func::{DynamicFunction, FunctionRegistrationError, FunctionRegistry, IntoClosure};
+    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoClosure};
     /// fn add(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
@@ -83,7 +80,7 @@ impl FunctionRegistry {
     /// Anonymous functions and closures should be registered using [`register_with_name`] or given a name using [`DynamicClosure::with_name`].
     ///
     /// ```
-    /// # use bevy_reflect::func::{DynamicFunction, FunctionRegistrationError, FunctionRegistry, IntoClosure};
+    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoClosure};
     ///
     /// let anonymous = || -> i32 { 123 };
     ///
@@ -99,7 +96,6 @@ impl FunctionRegistry {
     /// assert!(result.is_ok());
     /// ```
     ///
-    /// [`DynamicFunction`]: crate::func::DynamicFunction
     /// [name]: DynamicClosure::name
     /// [`register_with_name`]: Self::register_with_name
     /// [`overwrite_registration`]: Self::overwrite_registration
@@ -125,7 +121,7 @@ impl FunctionRegistry {
     /// Attempts to register the given function with the given name.
     ///
     /// This function accepts both functions/closures that satisfy [`IntoClosure`]
-    /// and direct [`DynamicFunction`]/[`DynamicClosure`] instances.
+    /// and direct [`DynamicClosure`] instances.
     /// The given function will internally be stored as a [`DynamicClosure<'static>`]
     /// with its [name] set to the given name.
     ///
@@ -193,7 +189,6 @@ impl FunctionRegistry {
     /// registry.register_with_name("my_function", two).unwrap();
     /// ```
     ///
-    /// [`DynamicFunction`]: crate::func::DynamicFunction
     /// [name]: DynamicClosure::name
     /// [`register`]: Self::register
     /// [`overwrite_registration_with_name`]: Self::overwrite_registration_with_name
@@ -213,7 +208,7 @@ impl FunctionRegistry {
     /// Registers the given function, overwriting any existing registration.
     ///
     /// This function accepts both functions/closures that satisfy [`IntoClosure`]
-    /// and direct [`DynamicFunction`]/[`DynamicClosure`] instances.
+    /// and direct [`DynamicClosure`] instances.
     /// The given function will internally be stored as a [`DynamicClosure<'static>`]
     /// and mapped according to its [name].
     ///
@@ -228,7 +223,6 @@ impl FunctionRegistry {
     ///
     /// Returns the previous function with the same name, if any.
     ///
-    /// [`DynamicFunction`]: crate::func::DynamicFunction
     /// [name]: DynamicClosure::name
     /// [`overwrite_registration_with_name`]: Self::overwrite_registration_with_name
     /// [`register`]: Self::register
@@ -251,7 +245,7 @@ impl FunctionRegistry {
     /// Registers the given function, overwriting any existing registration.
     ///
     /// This function accepts both functions/closures that satisfy [`IntoClosure`]
-    /// and direct [`DynamicFunction`]/[`DynamicClosure`] instances.
+    /// and direct [`DynamicClosure`] instances.
     /// The given function will internally be stored as a [`DynamicClosure<'static>`]
     /// with its [name] set to the given name.
     ///
@@ -264,7 +258,6 @@ impl FunctionRegistry {
     ///
     /// Returns the previous function with the same name, if any.
     ///
-    /// [`DynamicFunction`]: crate::func::DynamicFunction
     /// [name]: DynamicClosure::name
     /// [`register_with_name`]: Self::register_with_name
     /// [`overwrite_registration`]: Self::overwrite_registration
@@ -347,7 +340,7 @@ impl FunctionRegistryArc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{ArgList, IntoFunction};
+    use crate::func::{ArgList, IntoClosure};
 
     #[test]
     fn should_register_function() {
@@ -392,7 +385,7 @@ mod tests {
             123
         }
 
-        let function = foo.into_function().with_name("custom_name");
+        let function = foo.into_closure().with_name("custom_name");
 
         let mut registry = FunctionRegistry::default();
         registry.register(function).unwrap();
@@ -431,7 +424,7 @@ mod tests {
 
         let mut registry = FunctionRegistry::default();
         registry.register(foo).unwrap();
-        let result = registry.register(bar.into_function().with_name(name));
+        let result = registry.register(bar.into_closure().with_name(name));
 
         assert!(matches!(
             result,
@@ -459,7 +452,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register(foo).unwrap();
         registry
-            .overwrite_registration(bar.into_function().with_name(name))
+            .overwrite_registration(bar.into_closure().with_name(name))
             .unwrap();
 
         assert_eq!(registry.len(), 1);
@@ -473,7 +466,7 @@ mod tests {
     fn should_error_on_missing_name() {
         let foo = || -> i32 { 123 };
 
-        let function = foo.into_function();
+        let function = foo.into_closure();
 
         let mut registry = FunctionRegistry::default();
         let result = registry.register(function);

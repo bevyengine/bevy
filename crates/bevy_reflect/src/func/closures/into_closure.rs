@@ -5,11 +5,8 @@ use crate::func::{DynamicClosure, ReflectFn, TypedFunction};
 /// This trait is automatically implemented for any type that implements
 /// [`ReflectFn`] and [`TypedFunction`].
 ///
-/// This trait can be seen as a supertrait of [`IntoFunction`].
-///
 /// See the [module-level documentation] for more information.
 ///
-/// [`IntoFunction`]: crate::func::IntoFunction
 /// [module-level documentation]: crate::func
 pub trait IntoClosure<'env, Marker> {
     /// Converts [`Self`] into a [`DynamicClosure`].

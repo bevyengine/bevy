@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use bevy_reflect::func::IntoFunction;
+use bevy_reflect::func::IntoClosure;
 use bevy_reflect::Reflect;
 
 fn pass() -> i32 {
@@ -22,13 +22,13 @@ fn return_with_invalid_lifetime<'a, 'b>(a: &'a String, b: &'b String) -> &'b Str
 }
 
 fn main() {
-    let _ = pass.into_function();
+    let _ = pass.into_closure();
 
-    let _ = return_not_reflect.into_function();
+    let _ = return_not_reflect.into_closure();
     //~^ E0599
 
-    let _ = return_with_lifetime_pass.into_function();
+    let _ = return_with_lifetime_pass.into_closure();
 
-    let _ = return_with_invalid_lifetime.into_function();
+    let _ = return_with_invalid_lifetime.into_closure();
     //~^ E0599
 }

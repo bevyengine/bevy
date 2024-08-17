@@ -1,8 +1,6 @@
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{
-    DynamicClosureMut, DynamicFunction, FunctionResult, IntoClosure, IntoClosureMut, ReturnInfo,
-};
+use crate::func::{DynamicClosureMut, FunctionResult, IntoClosure, IntoClosureMut, ReturnInfo};
 use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 use std::sync::Arc;
@@ -12,8 +10,6 @@ use std::sync::Arc;
 /// This type can be used to represent any Rust closure that captures its environment immutably.
 /// For closures that need to capture their environment mutably,
 /// see [`DynamicClosureMut`].
-///
-/// This type can be seen as a superset of [`DynamicFunction`].
 ///
 /// See the [module-level documentation] for more information.
 ///
@@ -164,16 +160,6 @@ impl<'env> Clone for DynamicClosure<'env> {
         Self {
             info: self.info.clone(),
             func: Arc::clone(&self.func),
-        }
-    }
-}
-
-impl From<DynamicFunction> for DynamicClosure<'static> {
-    #[inline]
-    fn from(func: DynamicFunction) -> Self {
-        Self {
-            info: func.info,
-            func: func.func,
         }
     }
 }

@@ -1,9 +1,9 @@
 use crate::PartialReflect;
 
-/// The return type of a [`DynamicFunction`] or [`DynamicClosure`].
+/// The return type of a [`DynamicClosure`] or [`DynamicClosureMut`].
 ///
-/// [`DynamicFunction`]: crate::func::DynamicFunction
 /// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
 #[derive(Debug)]
 pub enum Return<'a> {
     /// The function returns nothing (i.e. it returns `()`).
@@ -62,14 +62,15 @@ impl<'a> Return<'a> {
 /// A trait for types that can be converted into a [`Return`] value.
 ///
 /// This trait exists so that types can be automatically converted into a [`Return`]
-/// by [`IntoFunction`].
+/// by [`ReflectFn`] and [`ReflectFnMut`].
 ///
 /// This trait is used instead of a blanket [`Into`] implementation due to coherence issues:
 /// we can't implement `Into<Return>` for both `T` and `&T`/`&mut T`.
 ///
 /// This trait is automatically implemented when using the `Reflect` [derive macro].
 ///
-/// [`IntoFunction`]: crate::func::IntoFunction
+/// [`ReflectFn`]: crate::func::ReflectFn
+/// [`ReflectFnMut`]: crate::func::ReflectFnMut
 /// [derive macro]: derive@crate::Reflect
 pub trait IntoReturn {
     /// Converts [`Self`] into a [`Return`] value.

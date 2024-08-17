@@ -24,7 +24,7 @@ fn typed(c: &mut Criterion) {
 fn into(c: &mut Criterion) {
     c.benchmark_group("into")
         .bench_function("function", |b| {
-            b.iter(|| add.into_function());
+            b.iter(|| add.into_closure());
         })
         .bench_function("closure", |b| {
             let capture = 25;
@@ -36,7 +36,7 @@ fn into(c: &mut Criterion) {
 fn call(c: &mut Criterion) {
     c.benchmark_group("call")
         .bench_function("function", |b| {
-            let add = add.into_function();
+            let add = add.into_closure();
             b.iter_batched(
                 || ArgList::new().push_owned(75_i32).push_owned(25_i32),
                 |args| add.call(args),
@@ -56,7 +56,7 @@ fn call(c: &mut Criterion) {
 
 fn clone(c: &mut Criterion) {
     c.benchmark_group("clone").bench_function("function", |b| {
-        let add = add.into_function();
+        let add = add.into_closure();
         b.iter(|| add.clone());
     });
 }

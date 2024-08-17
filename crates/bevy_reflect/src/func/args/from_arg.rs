@@ -3,16 +3,16 @@ use crate::func::args::{Arg, ArgError};
 /// A trait for types that can be created from an [`Arg`].
 ///
 /// This trait exists so that types can be automatically converted into an [`Arg`]
-/// by [`IntoFunction`] so they can be passed to a [`DynamicFunction`] in an [`ArgList`].
+/// so they can be put into an [`ArgList`] and passed to a [`DynamicClosure`] or [`DynamicClosureMut`].
 ///
 /// This trait is used instead of a blanket [`From`] implementation due to coherence issues:
 /// we can't implement `From<T>` for both `T` and `&T`/`&mut T`.
 ///
 /// This trait is automatically implemented when using the `Reflect` [derive macro].
 ///
-/// [`IntoFunction`]: crate::func::IntoFunction
-/// [`DynamicFunction`]: crate::func::DynamicFunction
 /// [`ArgList`]: crate::func::args::ArgList
+/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
 /// [derive macro]: derive@crate::Reflect
 pub trait FromArg {
     /// The type to convert into.

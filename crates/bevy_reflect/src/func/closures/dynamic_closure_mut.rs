@@ -3,7 +3,7 @@ use core::fmt::{Debug, Formatter};
 
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{DynamicClosure, DynamicFunction, FunctionResult, IntoClosureMut, ReturnInfo};
+use crate::func::{DynamicClosure, FunctionResult, IntoClosureMut, ReturnInfo};
 
 /// A dynamic representation of a Rust closure.
 ///
@@ -196,16 +196,6 @@ impl<'env> Debug for DynamicClosureMut<'env> {
 
         let ret = self.info.return_info().type_path();
         write!(f, ") -> {ret})")
-    }
-}
-
-impl From<DynamicFunction> for DynamicClosureMut<'static> {
-    #[inline]
-    fn from(func: DynamicFunction) -> Self {
-        Self {
-            info: func.info,
-            func: Box::new(move |args| (func.func)(args)),
-        }
     }
 }
 

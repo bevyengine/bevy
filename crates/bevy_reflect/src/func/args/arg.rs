@@ -2,10 +2,8 @@ use crate::func::args::{ArgError, FromArg, Ownership};
 use crate::{PartialReflect, Reflect, TypePath};
 use std::ops::Deref;
 
-/// Represents an argument that can be passed to a [`DynamicFunction`], [`DynamicClosure`],
-/// or [`DynamicClosureMut`].
+/// Represents an argument that can be passed to a [`DynamicClosure`] or [`DynamicClosureMut`].
 ///
-/// [`DynamicFunction`]: crate::func::DynamicFunction
 /// [`DynamicClosure`]: crate::func::DynamicClosure
 /// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
 #[derive(Debug)]
@@ -181,9 +179,10 @@ impl<'a> Arg<'a> {
     }
 }
 
-/// Represents an argument that can be passed to a [`DynamicFunction`].
+/// Represents an argument that can be passed to a [`DynamicClosure`] or [`DynamicClosureMut`].
 ///
-/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
 #[derive(Debug)]
 pub enum ArgValue<'a> {
     Owned(Box<dyn PartialReflect>),

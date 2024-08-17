@@ -1,10 +1,10 @@
 //! Reflection-based dynamic functions.
 //!
 //! This module provides a way to pass around and call functions dynamically
-//! using the [`DynamicFunction`], [`DynamicClosure`], and [`DynamicClosureMut`] types.
+//! using the [`DynamicClosure`] and [`DynamicClosureMut`] types.
 //!
 //! Many simple functions and closures can be automatically converted to these types
-//! using the [`IntoFunction`], [`IntoClosure`], and [`IntoClosureMut`] traits, respectively.
+//! using the [`IntoClosure`] and [`IntoClosureMut`] traits, respectively.
 //!
 //! Once this dynamic representation is created, it can be called with a set of arguments provided
 //! via an [`ArgList`].
@@ -17,12 +17,12 @@
 //! ```
 //! # use bevy_reflect::PartialReflect;
 //! # use bevy_reflect::func::args::ArgList;
-//! # use bevy_reflect::func::{DynamicFunction, FunctionResult, IntoFunction, Return};
+//! # use bevy_reflect::func::{DynamicClosure, FunctionResult, IntoClosure, Return};
 //! fn add(a: i32, b: i32) -> i32 {
 //!   a + b
 //! }
 //!
-//! let mut func: DynamicFunction = add.into_function();
+//! let mut func: DynamicClosure = add.into_closure();
 //! let args: ArgList = ArgList::default()
 //!   // Pushing a known type with owned ownership
 //!   .push_owned(25_i32)
@@ -69,8 +69,7 @@
 //! functions are a subset of immutable closures which are a subset of mutable closures.
 //!
 //! This means that, in terms of traits, you could imagine that any type that implements
-//! [`IntoFunction`], also implements [`IntoClosure`] and [`IntoClosureMut`].
-//! And every type that implements [`IntoClosure`] also implements [`IntoClosureMut`].
+//! [`IntoClosure`] also implements [`IntoClosureMut`].
 //!
 //! # Valid Signatures
 //!
@@ -93,7 +92,7 @@
 //! namely the [lack of variadic generics] and certain [coherence issues].
 //!
 //! For other functions that don't conform to one of the above signatures,
-//! [`DynamicFunction`] and [`DynamicClosure`] can instead be created manually.
+//! [`DynamicClosure`] and [`DynamicClosureMut`] can instead be created manually.
 //!
 //! [`PartialReflect`]: crate::PartialReflect
 //! [`Reflect`]: crate::Reflect
@@ -103,9 +102,7 @@
 pub use args::{ArgError, ArgList, ArgValue};
 pub use closures::*;
 pub use error::*;
-pub use function::*;
 pub use info::*;
-pub use into_function::*;
 pub use reflect_fn::*;
 pub use reflect_fn_mut::*;
 pub use registry::*;
@@ -114,9 +111,7 @@ pub use return_type::*;
 pub mod args;
 mod closures;
 mod error;
-mod function;
 mod info;
-mod into_function;
 pub(crate) mod macros;
 mod reflect_fn;
 mod reflect_fn_mut;
@@ -136,7 +131,7 @@ mod tests {
     fn should_error_on_missing_args() {
         fn foo(_: i32) {}
 
-        let func = foo.into_function();
+        let func = foo.into_closure();
         let args = ArgList::new();
         let result = func.call(args);
         assert_eq!(
@@ -152,7 +147,7 @@ mod tests {
     fn should_error_on_too_many_args() {
         fn foo() {}
 
-        let func = foo.into_function();
+        let func = foo.into_closure();
         let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
@@ -168,7 +163,7 @@ mod tests {
     fn should_error_on_invalid_arg_type() {
         fn foo(_: i32) {}
 
-        let func = foo.into_function();
+        let func = foo.into_closure();
         let args = ArgList::new().push_owned(123_u32);
         let result = func.call(args);
         assert_eq!(
@@ -185,7 +180,7 @@ mod tests {
     fn should_error_on_invalid_arg_ownership() {
         fn foo(_: &i32) {}
 
-        let func = foo.into_function();
+        let func = foo.into_closure();
         let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
