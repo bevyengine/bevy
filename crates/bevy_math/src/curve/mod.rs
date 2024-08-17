@@ -1097,9 +1097,14 @@ where
 
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
+/// Quadratic easing functions can have exactly one critical point. This is a point on the function
+/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
+/// smooth transitions. A common choice is to place that point at `x = 0` or [`x = 1`].
+///
 /// It uses the function `f(x) = x²`
 ///
 /// [unit domain]: `Interval::UNIT`
+/// [`x = 1`]: `quadratic_ease_out`
 pub fn quadratic_ease_in() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
@@ -1110,9 +1115,14 @@ pub fn quadratic_ease_in() -> impl Curve<f32> {
 
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
+/// Quadratic easing functions can have exactly one critical point. This is a point on the function
+/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
+/// smooth transitions. A common choice is to place that point at [`x = 0`] or`x = 1`.
+///
 /// It uses the function `f(x) = 1 - (1 - x)²`
 ///
 /// [unit domain]: `Interval::UNIT`
+/// [`x = 0`]: `quadratic_ease_in`
 pub fn quadratic_ease_out() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
@@ -1123,9 +1133,16 @@ pub fn quadratic_ease_out() -> impl Curve<f32> {
 
 /// A [`Curve`] mapping the [unit interval] to itself.
 ///
+/// Cubic easing functions can have up to two critical points. These are points on the function
+/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at these points leading to
+/// smooth transitions. For this curve they are placed at `x = 0` and `x = 1` respectively and the
+/// result is a well-known kind of [sigmoid function] called a [smoothstep function].
+///
 /// It uses the function `f(x) = x² * (3 - 2x)`
 ///
 /// [unit domain]: `Interval::UNIT`
+/// [sigmoid function]: https://en.wikipedia.org/wiki/Sigmoid_function
+/// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
 pub fn cubic_curve() -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
@@ -1135,6 +1152,9 @@ pub fn cubic_curve() -> impl Curve<f32> {
 }
 
 /// A [`Curve`] mapping the [unit interval] to itself.
+///
+/// This leads to a cruve with sudden jumps at the step points and segments with constant values
+/// everywhere else.
 ///
 /// It uses the function `f(n,x) = round(x * n) / n`
 ///
@@ -1155,18 +1175,26 @@ pub fn step_curve(num_steps: usize) -> impl Curve<f32> {
     }
 }
 
-/// A [`Curve`] mapping the [unit interval] to itself.
+/// A [`Curve`] over the [unit interval].
 ///
-/// It uses the function `f(omega,x) = (1 - (1 - x)²)(2sin(omega * x) / omega + cos(omega * x))`
+/// This class of easing functions is derived as an approximation of a [spring-mass-system]
+/// solution.
+///
+/// - For `ω → 0` the curve converges to the [smoothstep function]
+/// - For `ω → ∞` the curve gets increasingly more bouncy
+///
+/// It uses the function `f(omega,x) = 1 - (1 - x)²(2sin(omega * x) / omega + cos(omega * x))`
 ///
 /// parametrized by `omega`
 ///
 /// [unit domain]: `Interval::UNIT`
+/// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
+/// [spring-mass-system]: https://notes.yvt.jp/Graphics/Easing-Functions/#elastic-easing
 pub fn elastic_curve(omega: f32) -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
         f: move |t: f32| {
-            (1.0 - (1.0 - t).squared()) * (2.0 * ops::sin(omega * t) / omega + ops::cos(omega * t))
+            1.0 - (1.0 - t).squared() * (2.0 * ops::sin(omega * t) / omega + ops::cos(omega * t))
         },
         _phantom: PhantomData,
     }
