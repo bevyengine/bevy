@@ -1033,8 +1033,47 @@ where
     /// Create a new [`CubicBezierCurve`] over the [unit interval] from a [`CubicSegment`].
     ///
     /// [unit interval]: `Interval::UNIT`
-    pub fn new(bezier_segment: CubicSegment<T>) -> Result<Self, EvenCoreError> {
-        Ok(Self { bezier_segment })
+    pub fn new(bezier_segment: CubicSegment<T>) -> Self {
+        Self { bezier_segment }
+    }
+}
+
+/// A [`Curve`] that is defined by a `start` and an `end` point, together with linear interpolation
+/// between the values over the [unit interval].
+///
+/// [unit interval]: `Interval::UNIT`
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct LineCurve<T: VectorSpace> {
+    start: T,
+    end: T,
+}
+
+impl<T> Curve<T> for LineCurve<T>
+where
+    T: VectorSpace,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.start * (1.0 - t) + self.end * t
+    }
+}
+
+impl<T> LineCurve<T>
+where
+    T: VectorSpace,
+{
+    /// Create a new [`LineCurve`] over the [unit interval] from `start` to `end`.
+    ///
+    /// [unit interval]: `Interval::UNIT`
+    pub fn new(start: T, end: T) -> Self {
+        Self { start, end }
     }
 }
 
@@ -1052,18 +1091,6 @@ where
     FunctionCurve {
         domain,
         f,
-        _phantom: PhantomData,
-    }
-}
-
-/// Convert a `start` and `end` point of some [`VectorSpace`] type into a [`Curve`] over the
-/// [unit interval], sampled by linearly interpolating between the two boundary values.
-///
-/// [unit interval]: `Interval::UNIT`
-pub fn line_curve<T: VectorSpace>(start: T, end: T) -> impl Curve<T> {
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f: move |t: f32| start * (1.0 - t) + end * t,
         _phantom: PhantomData,
     }
 }
@@ -1152,7 +1179,7 @@ pub fn easing_curve<T: VectorSpace>(
     end: T,
     easing_curve: impl Curve<f32>,
 ) -> impl Curve<T> {
-    line_curve(start, end).reparametrize_by_curve(easing_curve)
+    LineCurve::new(start, end).reparametrize_by_curve(easing_curve)
 }
 
 #[cfg(test)]
@@ -1198,7 +1225,7 @@ mod tests {
     fn easing_curves() {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
-        let curve = line_curve(start, end);
+        let curve = LineCurve::new(start, end);
 
         let mid = (start + end) / 2.0;
 
