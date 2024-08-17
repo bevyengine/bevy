@@ -6,8 +6,8 @@
 use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Isometry2d, Quat, Rot2, Vec2, Vec3};
-use std::f32::consts::TAU;
+use bevy_math::{Isometry2d, Quat, Vec2, Vec3};
+use std::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===
 
@@ -33,15 +33,15 @@ where
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use std::f32::consts::PI;
+    /// # use std::f32::consts::FRAC_PI_4;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Isometry2d::IDENTITY, Rot2::FRAC_PI_4, 1., GREEN);
+    ///     gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_4, 1., GREEN);
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Isometry2d::IDENTITY, Rot2::FRAC_PI_4, 5., RED)
+    ///         .arc_2d(Isometry2d::IDENTITY, FRAC_PI_4, 5., RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -50,7 +50,7 @@ where
     pub fn arc_2d(
         &mut self,
         isometry: Isometry2d,
-        arc_angle: Rot2,
+        arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
@@ -73,7 +73,7 @@ where
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
     isometry: Isometry2d,
-    arc_angle: Rot2,
+    arc_angle: f32,
     radius: f32,
     color: Color,
     resolution: Option<u32>,
@@ -103,7 +103,7 @@ where
 
         let resolution = self
             .resolution
-            .unwrap_or_else(|| resolution_from_angle(self.arc_angle.as_radians()));
+            .unwrap_or_else(|| resolution_from_angle(self.arc_angle));
 
         let positions =
             arc_2d_inner(self.arc_angle, self.radius, resolution).map(|vec2| self.isometry * vec2);
@@ -111,11 +111,11 @@ where
     }
 }
 
-fn arc_2d_inner(arc_angle: Rot2, radius: f32, resolution: u32) -> impl Iterator<Item = Vec2> {
+fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<Item = Vec2> {
     (0..=resolution)
-        .map(move |n| Rot2::IDENTITY.slerp(arc_angle, n as f32 / resolution as f32))
-        .map(|angle| angle * Rot2::FRAC_PI_2)
-        .map(Rot2::sin_cos)
+        .map(move |n| arc_angle * n as f32 / resolution as f32)
+        .map(|angle| angle + FRAC_PI_2)
+        .map(f32::sin_cos)
         .map(|(sin, cos)| Vec2::new(cos, sin))
         .map(move |vec2| vec2 * radius)
 }
