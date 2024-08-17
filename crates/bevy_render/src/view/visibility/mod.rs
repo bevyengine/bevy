@@ -54,6 +54,8 @@ pub enum Visibility {
 pub struct InheritedVisibilityToBoolConversionError;
 
 /// Implements conversion from bool to Visibility
+/// 
+/// `true` corresponds to [`Visibility::Visible`], while false corresponds to [`Visibility::Hidden`].
 impl From<bool> for Visibility {
     fn from(visible: bool) -> Visibility {
         if visible {
@@ -64,7 +66,7 @@ impl From<bool> for Visibility {
     }
 }
 
-/// Implements conversion from Visibility to bool
+/// Implements conversion from [`Visibility`] to [`bool`]
 /// - returns `Ok(true)` if `Visibility::Visible`
 /// - returns `Ok(false)` if `Visibility::Hidden`
 /// - returns `Err()` if `Visibility::Inherited`
