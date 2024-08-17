@@ -899,6 +899,7 @@ pub trait CyclicCubicGenerator<P: VectorSpace> {
 ///
 /// Segments can be chained together to form a longer compound curve.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
 pub struct CubicSegment<P: VectorSpace> {
     /// Polynomial coefficients for the segment.

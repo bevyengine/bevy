@@ -10,6 +10,7 @@ use itertools::Itertools;
 
 use crate::{
     ops::{self, FloatPow},
+    prelude::CubicSegment,
     StableInterpolate, VectorSpace,
 };
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
@@ -1000,6 +1001,43 @@ impl<T> UnevenSampleAutoCurve<T> {
     }
 }
 
+/// A [`Curve`] that is defined by a [`CubicSegment`] over the [unit interval].
+///
+/// [unit interval]: `Interval::UNIT`
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct CubicBezierCurve<T: VectorSpace> {
+    bezier_segment: CubicSegment<T>,
+}
+
+impl<T> Curve<T> for CubicBezierCurve<T>
+where
+    T: VectorSpace,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.bezier_segment.position(t)
+    }
+}
+
+impl<T> CubicBezierCurve<T>
+where
+    T: VectorSpace,
+{
+    /// Create a new [`CubicBezierCurve`] over the [unit interval] from a [`CubicSegment`].
+    ///
+    /// [unit interval]: `Interval::UNIT`
+    pub fn new(bezier_segment: CubicSegment<T>) -> Result<Self, EvenCoreError> {
+        Ok(Self { bezier_segment })
+    }
+}
+
 /// Create a [`Curve`] that constantly takes the given `value` over the given `domain`.
 pub fn constant_curve<T: Clone>(domain: Interval, value: T) -> ConstantCurve<T> {
     ConstantCurve { domain, value }
@@ -1102,28 +1140,6 @@ pub fn elastic_curve(omega: f32) -> impl Curve<f32> {
         domain: Interval::UNIT,
         f: move |t: f32| {
             (1.0 - (1.0 - t).squared()) * (2.0 * ops::sin(omega * t) / omega + ops::cos(omega * t))
-        },
-        _phantom: PhantomData,
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// It uses the function
-/// `f(p0,p1,p2,p3,x) = (1 - x)³ * p0 + 3(1 - x)² * x * p1 + 3(1 - x) * x² * p2 + t³ * p3`
-///
-/// parametrized by `p0`, `p1`, `p2`, `p3`, called "control points"
-///
-/// [unit domain]: `Interval::UNIT`
-pub fn cubic_bezier_curve(control_points: [f32; 4]) -> impl Curve<f32> {
-    let [p0, p1, p2, p3] = control_points;
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f: move |t: f32| {
-            (1.0 - t).cubed() * p0
-                + 3.0 * (1.0 - t).squared() * t * p1
-                + 3.0 * (1.0 - t) * t.squared() * p2
-                + t.cubed() * p3
         },
         _phantom: PhantomData,
     }
