@@ -286,18 +286,19 @@ pub trait Curve<T> {
             .ok_or(ReverseError::SourceDomainEndInfinite)
     }
 
-    /// Create a new [`Curve`] repeating this curve `n` times, producing another curve with outputs
-    /// of the same type. The domain of the new curve will be bigger by a factor of `n`.
+    /// Create a new [`Curve`] repeating this curve either `n` times or indefinitely, producing
+    /// another curve with outputs of the same type. The domain of the new curve will be bigger by
+    /// a factor of `n` or unbounded based on the [`RepeatMode`].
     ///
     /// # Notes
     ///
     /// - this doesn't guarantee a smooth transition from one occurence of the curve to its next
     ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
-    /// - for `n == 0` the output of this adaptor is basically identical to the previous curve
+    /// - for `RepeatMode::Fixed(0)` the output of this adaptor is basically identical to the previous curve
     /// - the domain of this curve has to be bounded
     /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
     ///   value at `domain.start()` in the original curve
-    fn repeat(self, n: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
+    fn repeat(self, mode: RepeatMode) -> Result<RepeatCurve<T, Self>, RepeatError>
     where
         Self: Sized,
     {
@@ -305,7 +306,7 @@ pub trait Curve<T> {
             .is_bounded()
             .then(|| RepeatCurve {
                 curve: self,
-                times: n,
+                mode,
                 _phantom: PhantomData,
             })
             .ok_or(RepeatError::SourceDomainUnbounded)
@@ -905,8 +906,20 @@ where
 /// Curves of this type are produced by [`Curve::repeat`].
 pub struct RepeatCurve<T, C> {
     curve: C,
-    times: usize,
+    mode: RepeatMode,
     _phantom: PhantomData<T>,
+}
+
+/// Describes how a [`Curve`] will be repeated.
+#[derive(Debug, Clone, Copy)]
+pub enum RepeatMode {
+    /// Repeat the [`Curve`] indefinitely. This is useful for creating wave-like curves like the
+    /// saw-tooth wave from basic finite curves
+    Infinite,
+    /// Repeat the [`Curve`] a fixed amount of times.
+    ///
+    /// `RepeatMode::Fixed(0)` basically means no repetition.
+    Fixed(usize),
 }
 
 impl<T, C> Curve<T> for RepeatCurve<T, C>
@@ -917,11 +930,16 @@ where
     fn domain(&self) -> Interval {
         // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
         // length of `curve` cannot be NAN. It's still fine if it's infinity.
-        Interval::new(
-            self.curve.domain().start(),
-            self.curve.domain().start() + self.curve.domain().length() * (self.times + 1) as f32,
-        )
-        .unwrap()
+        match self.mode {
+            RepeatMode::Infinite => {
+                Interval::new(self.curve.domain().start(), f32::INFINITY).unwrap()
+            }
+            RepeatMode::Fixed(n) => Interval::new(
+                self.curve.domain().start(),
+                self.curve.domain().start() + self.curve.domain().length() * (n + 1) as f32,
+            )
+            .unwrap(),
+        }
     }
 
     #[inline]
@@ -1212,7 +1230,7 @@ mod tests {
     #[test]
     fn repeat() {
         let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
-        let repeat_curve = curve.repeat(1).unwrap();
+        let repeat_curve = curve.repeat(RepeatMode::Fixed(1)).unwrap();
         assert_eq!(repeat_curve.sample_unchecked(0.0), 0.0 * 3.0 + 1.0);
         assert_eq!(repeat_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
         assert_eq!(repeat_curve.sample_unchecked(0.99), 0.99 * 3.0 + 1.0);
