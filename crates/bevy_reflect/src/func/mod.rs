@@ -100,18 +100,24 @@
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
 
 pub use args::{ArgError, ArgList, ArgValue};
-pub use closures::*;
+pub use dynamic_closure::*;
+pub use dynamic_closure_mut::*;
 pub use error::*;
 pub use info::*;
+pub use into_closure::*;
+pub use into_closure_mut::*;
 pub use reflect_fn::*;
 pub use reflect_fn_mut::*;
 pub use registry::*;
 pub use return_type::*;
 
 pub mod args;
-mod closures;
+mod dynamic_closure;
+mod dynamic_closure_mut;
 mod error;
 mod info;
+mod into_closure;
+mod into_closure_mut;
 pub(crate) mod macros;
 mod reflect_fn;
 mod reflect_fn_mut;

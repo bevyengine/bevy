@@ -6,8 +6,8 @@ use crate::TypePath;
 /// Type information for an [`Arg`] used in a [`DynamicClosure`] or [`DynamicClosureMut`].
 ///
 /// [`Arg`]: crate::func::args::Arg
-/// [`DynamicClosure`]: crate::func::closures::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::closures::DynamicClosureMut
+/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
 #[derive(Debug, Clone)]
 pub struct ArgInfo {
     /// The index of the argument within its function.

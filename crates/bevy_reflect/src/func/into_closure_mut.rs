@@ -10,7 +10,7 @@ use crate::func::{DynamicClosureMut, ReflectFnMut, TypedFunction};
 /// See the [module-level documentation] for more information.
 ///
 /// [`ReflectFn`]: crate::func::ReflectFn
-/// [`IntoClosure`]: crate::func::closures::IntoClosure
+/// [`IntoClosure`]: crate::func::IntoClosure
 /// [module-level documentation]: crate::func
 pub trait IntoClosureMut<'env, Marker> {
     /// Converts [`Self`] into a [`DynamicClosureMut`].
