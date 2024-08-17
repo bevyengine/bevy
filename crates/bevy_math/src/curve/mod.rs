@@ -1158,9 +1158,15 @@ pub fn cubic_curve() -> impl Curve<f32> {
 ///
 /// It uses the function `f(n,x) = round(x * n) / n`
 ///
-/// parametrized by `n`, the number of steps
+/// parametrized by `n`, the number of jumps
+///
+/// - for `n == 0` this is equal to [`constant_curve(Interval::UNIT, 0.0)`]
+/// - for `n == 1` this makes a single jump at `t = 0.5`, splitting the interval evenly
+/// - for `n >= 2` the curve has a start segment and an end segment of length `1 / (2 * n)` and in
+///   between there are `n - 1` segments of length `1 / n`
 ///
 /// [unit domain]: `Interval::UNIT`
+/// [`constant_curve(Interval::UNIT, 0.0)`]: `constant_curve`
 pub fn step_curve(num_steps: usize) -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
