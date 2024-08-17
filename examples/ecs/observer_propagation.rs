@@ -69,9 +69,9 @@ struct Armor(u16);
 
 /// A normal bevy system that attacks a piece of the goblin's armor on a timer.
 fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
     if let Some(target) = entities.iter().choose(&mut rng) {
-        let damage = thread_rng().gen_range(1..20);
+        let damage = rng.gen_range(1..20);
         commands.trigger_targets(Attack { damage }, target);
         info!("⚔️  Attack for {} damage", damage);
     }
