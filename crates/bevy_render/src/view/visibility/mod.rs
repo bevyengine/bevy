@@ -21,7 +21,6 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
-use core::fmt;
 use thiserror::Error;
 
 use super::NoCpuCulling;
@@ -48,16 +47,6 @@ pub enum Visibility {
     /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
     /// [`Parent`] entity is hidden.
     Visible,
-}
-
-impl fmt::Display for Visibility {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Visibility::Hidden => write!(f, "`Hidden`"),
-            Visibility::Visible => write!(f, "`Visible`"),
-            Visibility::Inherited => write!(f, "`Inherited`"),
-        }
-    }
 }
 
 /// Enum of errors that could occur during conversion to [`bool`]
