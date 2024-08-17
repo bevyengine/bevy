@@ -1079,7 +1079,13 @@ pub fn cubic_curve() -> impl Curve<f32> {
 pub fn step_curve(num_steps: usize) -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: move |t: f32| (t * num_steps as f32).round() / num_steps as f32,
+        f: move |t: f32| {
+            if t != 0.0 || t != 1.0 {
+                (t * num_steps as f32).round() / num_steps.max(1) as f32
+            } else {
+                t
+            }
+        },
         _phantom: PhantomData,
     }
 }
