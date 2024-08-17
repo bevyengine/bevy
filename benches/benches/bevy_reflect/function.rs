@@ -1,4 +1,4 @@
-use bevy_reflect::func::{ArgList, IntoClosure, TypedFunction};
+use bevy_reflect::func::{ArgList, IntoCallable, TypedFunction};
 use bevy_reflect::prelude::*;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
@@ -24,19 +24,19 @@ fn typed(c: &mut Criterion) {
 fn into(c: &mut Criterion) {
     c.benchmark_group("into")
         .bench_function("function", |b| {
-            b.iter(|| add.into_closure());
+            b.iter(|| add.into_callable());
         })
         .bench_function("closure", |b| {
             let capture = 25;
             let closure = |a: i32| a + capture;
-            b.iter(|| closure.into_closure());
+            b.iter(|| closure.into_callable());
         });
 }
 
 fn call(c: &mut Criterion) {
     c.benchmark_group("call")
         .bench_function("function", |b| {
-            let add = add.into_closure();
+            let add = add.into_callable();
             b.iter_batched(
                 || ArgList::new().push_owned(75_i32).push_owned(25_i32),
                 |args| add.call(args),
@@ -45,7 +45,7 @@ fn call(c: &mut Criterion) {
         })
         .bench_function("closure", |b| {
             let capture = 25;
-            let add = (|a: i32| a + capture).into_closure();
+            let add = (|a: i32| a + capture).into_callable();
             b.iter_batched(
                 || ArgList::new().push_owned(75_i32),
                 |args| add.call(args),
@@ -56,7 +56,7 @@ fn call(c: &mut Criterion) {
 
 fn clone(c: &mut Criterion) {
     c.benchmark_group("clone").bench_function("function", |b| {
-        let add = add.into_closure();
+        let add = add.into_callable();
         b.iter(|| add.clone());
     });
 }

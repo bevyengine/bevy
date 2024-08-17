@@ -5,13 +5,13 @@ use bevy_utils::all_tuples;
 use crate::func::args::{ArgInfo, GetOwnership, Ownership};
 use crate::TypePath;
 
-/// Type information for a [`DynamicClosure`] or [`DynamicClosureMut`].
+/// Type information for a [`DynamicCallable`] or [`DynamicCallableMut`].
 ///
 /// This information can be retrieved from certain functions and closures
 /// using the [`TypedFunction`] trait.
 ///
-/// [`DynamicClosure`]: crate::func::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
+/// [`DynamicCallable`]: crate::func::DynamicCallable
+/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
@@ -105,13 +105,13 @@ impl FunctionInfo {
 
     /// The name of the function.
     ///
-    /// For [`DynamicClosures`] created using [`IntoClosure`] or [`DynamicClosureMuts`] created using [`IntoClosureMut`],
+    /// For [`DynamicCallables`] created using [`IntoCallable`] or [`DynamicCallableMuts`] created using [`IntoCallableMut`],
     /// the name will always be the full path to the function as returned by [`std::any::type_name`].
     ///
-    /// [`DynamicClosures`]: crate::func::DynamicClosure
-    /// [`IntoClosure`]: crate::func::IntoClosure
-    /// [`DynamicClosureMuts`]: crate::func::DynamicClosureMut
-    /// [`IntoClosureMut`]: crate::func::IntoClosureMut
+    /// [`DynamicCallables`]: crate::func::DynamicCallable
+    /// [`IntoCallable`]: crate::func::IntoCallable
+    /// [`DynamicCallableMuts`]: crate::func::DynamicCallableMut
+    /// [`IntoCallableMut`]: crate::func::IntoCallableMut
     pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.name.as_ref()
     }
@@ -132,10 +132,10 @@ impl FunctionInfo {
     }
 }
 
-/// Information about the return type of a [`DynamicClosure`] or [`DynamicClosureMut`].
+/// Information about the return type of a [`DynamicCallable`] or [`DynamicCallableMut`].
 ///
-/// [`DynamicClosure`]: crate::func::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
+/// [`DynamicCallable`]: crate::func::DynamicCallable
+/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
     type_path: &'static str,

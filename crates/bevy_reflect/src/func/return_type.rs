@@ -1,9 +1,9 @@
 use crate::PartialReflect;
 
-/// The return type of a [`DynamicClosure`] or [`DynamicClosureMut`].
+/// The return type of a [`DynamicCallable`] or [`DynamicCallableMut`].
 ///
-/// [`DynamicClosure`]: crate::func::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
+/// [`DynamicCallable`]: crate::func::DynamicCallable
+/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
 #[derive(Debug)]
 pub enum Return<'a> {
     /// The function returns nothing (i.e. it returns `()`).

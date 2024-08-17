@@ -3,27 +3,27 @@ use core::fmt::{Debug, Formatter};
 
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{DynamicClosure, FunctionResult, IntoClosureMut, ReturnInfo};
+use crate::func::{DynamicCallable, FunctionResult, IntoCallableMut, ReturnInfo};
 
 /// A dynamic representation of a Rust closure.
 ///
 /// This type can be used to represent any Rust closure that captures its environment mutably.
 /// For closures that only need to capture their environment immutably,
-/// consider using [`DynamicClosure`].
+/// consider using [`DynamicCallable`].
 ///
-/// This type can be seen as a superset of [`DynamicClosure`].
+/// This type can be seen as a superset of [`DynamicCallable`].
 ///
 /// See the [module-level documentation] for more information.
 ///
 /// You will generally not need to construct this manually.
-/// Instead, many functions and closures can be automatically converted using the [`IntoClosureMut`] trait.
+/// Instead, many functions and closures can be automatically converted using the [`IntoCallableMut`] trait.
 ///
 /// # Example
 ///
-/// Most of the time, a [`DynamicClosureMut`] can be created using the [`IntoClosureMut`] trait:
+/// Most of the time, a [`DynamicCallableMut`] can be created using the [`IntoCallableMut`] trait:
 ///
 /// ```
-/// # use bevy_reflect::func::{ArgList, DynamicClosureMut, FunctionInfo, IntoClosureMut};
+/// # use bevy_reflect::func::{ArgList, DynamicCallableMut, FunctionInfo, IntoCallableMut};
 /// #
 /// let mut list: Vec<i32> = vec![1, 2, 3];
 ///
@@ -34,8 +34,8 @@ use crate::func::{DynamicClosure, FunctionResult, IntoClosureMut, ReturnInfo};
 ///   old_value
 /// };
 ///
-/// // Convert the closure into a dynamic closure using `IntoClosureMut::into_closure_mut`
-/// let mut func: DynamicClosureMut = replace.into_closure_mut();
+/// // Convert the closure into a dynamic closure using `IntoCallableMut::into_callable_mut`
+/// let mut func: DynamicCallableMut = replace.into_callable_mut();
 ///
 /// // Dynamically call the closure:
 /// let args = ArgList::default().push_owned(1_usize).push_owned(-2_i32);
@@ -47,17 +47,17 @@ use crate::func::{DynamicClosure, FunctionResult, IntoClosureMut, ReturnInfo};
 /// // Note that `func` still has a reference to `list`,
 /// // so we need to drop it before we can access `list` again.
 /// // Alternatively, we could have called the `func` using
-/// // `DynamicClosureMut::call_once` to immediately consume the closure.
+/// // `DynamicCallableMut::call_once` to immediately consume the closure.
 /// drop(func);
 /// assert_eq!(list, vec![1, -2, 3]);
 /// ```
-pub struct DynamicClosureMut<'env> {
+pub struct DynamicCallableMut<'env> {
     info: FunctionInfo,
     func: Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>,
 }
 
-impl<'env> DynamicClosureMut<'env> {
-    /// Create a new [`DynamicClosureMut`].
+impl<'env> DynamicCallableMut<'env> {
+    /// Create a new [`DynamicCallableMut`].
     ///
     /// The given function can be used to call out to a regular function, closure, or method.
     ///
@@ -75,13 +75,13 @@ impl<'env> DynamicClosureMut<'env> {
 
     /// Set the name of the closure.
     ///
-    /// For [`DynamicClosureMuts`] created using [`IntoClosureMut`],
+    /// For [`DynamicCallableMuts`] created using [`IntoCallableMut`],
     /// the default name will always be the full path to the closure as returned by [`std::any::type_name`].
     ///
     /// This default name generally does not contain the actual name of the closure, only its module path.
     /// It is therefore recommended to set the name manually using this method.
     ///
-    /// [`DynamicClosureMuts`]: DynamicClosureMut
+    /// [`DynamicCallableMuts`]: DynamicCallableMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.info = self.info.with_name(name);
         self
@@ -112,20 +112,20 @@ impl<'env> DynamicClosureMut<'env> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_reflect::func::{IntoClosureMut, ArgList};
+    /// # use bevy_reflect::func::{IntoCallableMut, ArgList};
     /// let mut total = 0;
     /// let add = |a: i32, b: i32| -> i32 {
     ///   total = a + b;
     ///   total
     /// };
     ///
-    /// let mut func = add.into_closure_mut().with_name("add");
+    /// let mut func = add.into_callable_mut().with_name("add");
     /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     /// ```
     ///
-    /// [`call_once`]: DynamicClosureMut::call_once
+    /// [`call_once`]: DynamicCallableMut::call_once
     pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
         (self.func)(args)
     }
@@ -138,11 +138,11 @@ impl<'env> DynamicClosureMut<'env> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_reflect::func::{IntoClosureMut, ArgList};
+    /// # use bevy_reflect::func::{IntoCallableMut, ArgList};
     /// let mut count = 0;
     /// let increment = |amount: i32| count += amount;
     ///
-    /// let increment_function = increment.into_closure_mut();
+    /// let increment_function = increment.into_callable_mut();
     /// let args = ArgList::new().push_owned(5_i32);
     ///
     /// // We need to drop `increment_function` here so that we
@@ -162,7 +162,7 @@ impl<'env> DynamicClosureMut<'env> {
 
     /// The [name] of the closure.
     ///
-    /// If this [`DynamicClosureMut`] was created using [`IntoClosureMut`],
+    /// If this [`DynamicCallableMut`] was created using [`IntoCallableMut`],
     /// then the default name will always be `None`.
     ///
     /// This can be overridden using [`with_name`].
@@ -176,13 +176,13 @@ impl<'env> DynamicClosureMut<'env> {
 
 /// Outputs the closure's signature.
 ///
-/// This takes the format: `DynamicClosureMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
+/// This takes the format: `DynamicCallableMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
 /// Names for arguments and the closure itself are optional and will default to `_` if not provided.
-impl<'env> Debug for DynamicClosureMut<'env> {
+impl<'env> Debug for DynamicCallableMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
-        write!(f, "DynamicClosureMut(fn {name}(")?;
+        write!(f, "DynamicCallableMut(fn {name}(")?;
 
         for (index, arg) in self.info.args().iter().enumerate() {
             let name = arg.name().unwrap_or("_");
@@ -199,9 +199,9 @@ impl<'env> Debug for DynamicClosureMut<'env> {
     }
 }
 
-impl<'env> From<DynamicClosure<'env>> for DynamicClosureMut<'env> {
+impl<'env> From<DynamicCallable<'env>> for DynamicCallableMut<'env> {
     #[inline]
-    fn from(closure: DynamicClosure<'env>) -> Self {
+    fn from(closure: DynamicCallable<'env>) -> Self {
         Self {
             info: closure.info,
             func: Box::new(move |args| (closure.func)(args)),
@@ -209,9 +209,9 @@ impl<'env> From<DynamicClosure<'env>> for DynamicClosureMut<'env> {
     }
 }
 
-impl<'env> IntoClosureMut<'env, ()> for DynamicClosureMut<'env> {
+impl<'env> IntoCallableMut<'env, ()> for DynamicCallableMut<'env> {
     #[inline]
-    fn into_closure_mut(self) -> DynamicClosureMut<'env> {
+    fn into_callable_mut(self) -> DynamicCallableMut<'env> {
         self
     }
 }
@@ -224,19 +224,19 @@ mod tests {
     fn should_overwrite_closure_name() {
         let mut total = 0;
         let func = (|a: i32, b: i32| total = a + b)
-            .into_closure_mut()
+            .into_callable_mut()
             .with_name("my_closure");
         assert_eq!(func.info().name().unwrap(), "my_closure");
     }
 
     #[test]
-    fn should_convert_dynamic_closure_mut_with_into_closure() {
-        fn make_closure<'env, F: IntoClosureMut<'env, M>, M>(f: F) -> DynamicClosureMut<'env> {
-            f.into_closure_mut()
+    fn should_convert_dynamic_closure_mut_with_into_callable() {
+        fn make_closure<'env, F: IntoCallableMut<'env, M>, M>(f: F) -> DynamicCallableMut<'env> {
+            f.into_callable_mut()
         }
 
         let mut total = 0;
-        let closure: DynamicClosureMut = make_closure(|a: i32, b: i32| total = a + b);
-        let _: DynamicClosureMut = make_closure(closure);
+        let closure: DynamicCallableMut = make_closure(|a: i32, b: i32| total = a + b);
+        let _: DynamicCallableMut = make_closure(closure);
     }
 }

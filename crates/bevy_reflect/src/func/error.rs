@@ -3,10 +3,10 @@ use crate::func::Return;
 use alloc::borrow::Cow;
 use thiserror::Error;
 
-/// An error that occurs when calling a [`DynamicClosure`] or [`DynamicClosureMut`].
+/// An error that occurs when calling a [`DynamicCallable`] or [`DynamicCallableMut`].
 ///
-/// [`DynamicClosure`]: crate::func::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
+/// [`DynamicCallable`]: crate::func::DynamicCallable
+/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
 #[derive(Debug, Error, PartialEq)]
 pub enum FunctionError {
     /// An error occurred while converting an argument.
@@ -17,13 +17,13 @@ pub enum FunctionError {
     ArgCountMismatch { expected: usize, received: usize },
 }
 
-/// The result of calling a dynamic [`DynamicClosure`] or [`DynamicClosureMut`].
+/// The result of calling a dynamic [`DynamicCallable`] or [`DynamicCallableMut`].
 ///
 /// Returns `Ok(value)` if the function was called successfully,
 /// where `value` is the [`Return`] value of the function.
 ///
-/// [`DynamicClosure`]: crate::func::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
+/// [`DynamicCallable`]: crate::func::DynamicCallable
+/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
 pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 
 /// An error that occurs when registering a function into a [`FunctionRegistry`].

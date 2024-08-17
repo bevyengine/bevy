@@ -7,8 +7,8 @@
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
 use bevy::reflect::func::{
-    ArgList, DynamicClosure, DynamicClosureMut, FunctionError, FunctionInfo, IntoClosure,
-    IntoClosureMut, Return,
+    ArgList, DynamicCallable, DynamicCallableMut, FunctionError, FunctionInfo, IntoCallable,
+    IntoCallableMut, Return,
 };
 use bevy::reflect::{PartialReflect, Reflect};
 
@@ -35,12 +35,12 @@ fn main() {
     // However, you'll notice that we have to know the types of the arguments and return value at compile time.
     // This means there's not really a way to store or call these functions dynamically at runtime.
     // Luckily, Bevy's reflection crate comes with a set of tools for doing just that!
-    // We do this by first converting our function into the reflection-based `DynamicClosure` type
-    // using the `IntoClosure` trait.
-    let function: DynamicClosure<'static> = dbg!(add.into_closure());
+    // We do this by first converting our function into the reflection-based `DynamicCallable` type
+    // using the `IntoCallable` trait.
+    let function: DynamicCallable<'static> = dbg!(add.into_callable());
 
-    // This time, you'll notice that `DynamicClosure` doesn't take any information about the function's arguments or return value.
-    // This is because `DynamicClosure` checks the types of the arguments and return value at runtime.
+    // This time, you'll notice that `DynamicCallable` doesn't take any information about the function's arguments or return value.
+    // This is because `DynamicCallable` checks the types of the arguments and return value at runtime.
     // Now we can generate a list of arguments:
     let args: ArgList = dbg!(ArgList::new().push_owned(2_i32).push_owned(2_i32));
 
@@ -56,33 +56,33 @@ fn main() {
     assert_eq!(value.try_take::<i32>().unwrap(), 4);
 
     // The same can also be done for closures that capture references to their environment.
-    // Closures that capture their environment immutably can be converted into a `DynamicClosure`
-    // using the `IntoClosure` trait.
+    // Closures that capture their environment immutably can be converted into a `DynamicCallable`
+    // using the `IntoCallable` trait.
     let minimum = 5;
     let clamp = |value: i32| value.max(minimum);
 
-    let function: DynamicClosure = dbg!(clamp.into_closure());
+    let function: DynamicCallable = dbg!(clamp.into_callable());
     let args = dbg!(ArgList::new().push_owned(2_i32));
     let return_value = dbg!(function.call(args).unwrap());
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 5);
 
     // We can also handle closures that capture their environment mutably
-    // using the `IntoClosureMut` trait.
+    // using the `IntoCallableMut` trait.
     let mut count = 0;
     let increment = |amount: i32| count += amount;
 
-    let closure: DynamicClosureMut = dbg!(increment.into_closure_mut());
+    let closure: DynamicCallableMut = dbg!(increment.into_callable_mut());
     let args = dbg!(ArgList::new().push_owned(5_i32));
-    // Because `DynamicClosureMut` mutably borrows `total`,
+    // Because `DynamicCallableMut` mutably borrows `total`,
     // it will need to be dropped before `total` can be accessed again.
-    // This can be done manually with `drop(closure)` or by using the `DynamicClosureMut::call_once` method.
+    // This can be done manually with `drop(closure)` or by using the `DynamicCallableMut::call_once` method.
     dbg!(closure.call_once(args).unwrap());
     assert_eq!(count, 5);
 
     // As stated before, this works for many kinds of simple functions.
     // Functions with non-reflectable arguments or return values may not be able to be converted.
-    // Generic functions are also not supported (unless manually monomorphized like `foo::<i32>.into_closure()`).
+    // Generic functions are also not supported (unless manually monomorphized like `foo::<i32>.into_callable()`).
     // Additionally, the lifetime of the return value is tied to the lifetime of the first argument.
     // However, this means that many methods (i.e. functions with a `self` parameter) are also supported:
     #[derive(Reflect, Default)]
@@ -104,20 +104,20 @@ fn main() {
 
     let mut data = Data::default();
 
-    let set_value = dbg!(Data::set_value.into_closure());
+    let set_value = dbg!(Data::set_value.into_callable());
     let args = dbg!(ArgList::new().push_mut(&mut data)).push_owned(String::from("Hello, world!"));
     dbg!(set_value.call(args).unwrap());
     assert_eq!(data.value, "Hello, world!");
 
-    let get_value = dbg!(Data::get_value.into_closure());
+    let get_value = dbg!(Data::get_value.into_callable());
     let args = dbg!(ArgList::new().push_ref(&data));
     let return_value = dbg!(get_value.call(args).unwrap());
     let value: &dyn PartialReflect = return_value.unwrap_ref();
     assert_eq!(value.try_downcast_ref::<String>().unwrap(), "Hello, world!");
 
-    // Lastly, for more complex use cases, you can always create a custom `DynamicClosure` manually.
-    // This is useful for functions that can't be converted via the `IntoClosure` trait.
-    // For example, this function doesn't implement `IntoClosure` due to the fact that
+    // Lastly, for more complex use cases, you can always create a custom `DynamicCallable` manually.
+    // This is useful for functions that can't be converted via the `IntoCallable` trait.
+    // For example, this function doesn't implement `IntoCallable` due to the fact that
     // the lifetime of the return value is not tied to the lifetime of the first argument.
     fn get_or_insert(value: i32, container: &mut Option<i32>) -> &i32 {
         if container.is_none() {
@@ -127,7 +127,7 @@ fn main() {
         container.as_ref().unwrap()
     }
 
-    let get_or_insert_function = dbg!(DynamicClosure::new(
+    let get_or_insert_function = dbg!(DynamicCallable::new(
         |mut args| {
             // We can optionally add a check to ensure we were given the correct number of arguments.
             if args.len() != 2 {
