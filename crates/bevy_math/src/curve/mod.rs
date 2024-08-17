@@ -1069,7 +1069,7 @@ impl<T> LinearCurve<T>
 where
     T: VectorSpace,
 {
-    /// Create a new [`LineCurve`] over the [unit interval] from `start` to `end`.
+    /// Create a new [`LinearCurve`] over the [unit interval] from `start` to `end`.
     ///
     /// [unit interval]: `Interval::UNIT`
     pub fn new(start: T, end: T) -> Self {
