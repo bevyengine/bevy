@@ -1250,7 +1250,7 @@ mod tests {
     }
 
     #[test]
-    fn easing_curves() {
+    fn linear_curve() {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
         let curve = LinearCurve::new(start, end);
@@ -1262,6 +1262,12 @@ mod tests {
             .for_each(|(t, x)| {
                 assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
             });
+    }
+
+    #[test]
+    fn easing_curves_step() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
 
         let curve = easing_curve(start, end, step_curve(4));
         [
@@ -1280,6 +1286,12 @@ mod tests {
         .for_each(|(t, x)| {
             assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
         });
+    }
+
+    #[test]
+    fn easing_curves_quadratic() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
 
         let curve = easing_curve(start, end, quadratic_ease_in());
         [
