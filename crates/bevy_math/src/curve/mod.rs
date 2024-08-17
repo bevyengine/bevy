@@ -1045,12 +1045,12 @@ where
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct LineCurve<T: VectorSpace> {
+pub struct LinearCurve<T: VectorSpace> {
     start: T,
     end: T,
 }
 
-impl<T> Curve<T> for LineCurve<T>
+impl<T> Curve<T> for LinearCurve<T>
 where
     T: VectorSpace,
 {
@@ -1065,7 +1065,7 @@ where
     }
 }
 
-impl<T> LineCurve<T>
+impl<T> LinearCurve<T>
 where
     T: VectorSpace,
 {
@@ -1207,7 +1207,7 @@ pub fn easing_curve<T: VectorSpace>(
     end: T,
     easing_curve: impl Curve<f32>,
 ) -> impl Curve<T> {
-    LineCurve::new(start, end).reparametrize_by_curve(easing_curve)
+    LinearCurve::new(start, end).reparametrize_by_curve(easing_curve)
 }
 
 #[cfg(test)]
@@ -1253,7 +1253,7 @@ mod tests {
     fn easing_curves() {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
-        let curve = LineCurve::new(start, end);
+        let curve = LinearCurve::new(start, end);
 
         let mid = (start + end) / 2.0;
 
