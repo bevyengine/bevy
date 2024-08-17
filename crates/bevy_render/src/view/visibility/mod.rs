@@ -21,6 +21,7 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
+use core::fmt;
 use thiserror::Error;
 
 use super::NoCpuCulling;
@@ -49,12 +50,24 @@ pub enum Visibility {
     Visible,
 }
 
-#[derive(Error, Debug)]
-#[error("could not convert Visibility::Inherited to bool")]
-pub struct InheritedVisibilityToBoolConversionError;
+impl fmt::Display for Visibility {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Visibility::Hidden => write!(f, "`Hidden`"),
+            Visibility::Visible => write!(f, "`Visible`"),
+            Visibility::Inherited => write!(f, "`Inherited`"),
+        }
+    }
+}
 
+/// Enum of errors that could occur during conversion to [`bool`]
+#[non_exhaustive]
+#[derive(Error, Debug)]
+pub enum VisibilityToBoolConversionError {
+    #[error("The variant `{0:?}` cannot be converted to a bool")]
+    VariantNotSupported(Visibility),
+}
 /// Implements conversion from bool to Visibility
-/// 
 /// `true` corresponds to [`Visibility::Visible`], while false corresponds to [`Visibility::Hidden`].
 impl From<bool> for Visibility {
     fn from(visible: bool) -> Visibility {
@@ -71,13 +84,15 @@ impl From<bool> for Visibility {
 /// - returns `Ok(false)` if `Visibility::Hidden`
 /// - returns `Err()` if `Visibility::Inherited`
 impl TryFrom<Visibility> for bool {
-    type Error = InheritedVisibilityToBoolConversionError;
+    type Error = VisibilityToBoolConversionError;
 
     fn try_from(visible: Visibility) -> Result<Self, Self::Error> {
         match visible {
             Visibility::Hidden => Ok(false),
             Visibility::Visible => Ok(true),
-            Visibility::Inherited => Err(InheritedVisibilityToBoolConversionError),
+            Visibility::Inherited => Err(VisibilityToBoolConversionError::VariantNotSupported(
+                Visibility::Inherited,
+            )),
         }
     }
 }
