@@ -312,6 +312,22 @@ pub trait Curve<T> {
             .ok_or(RepeatError::SourceDomainUnbounded)
     }
 
+    /// Create a new [`Curve`] chaining the original curve with its inverse, producing
+    /// another curve with outputs of the same type. The domain of the new curve will be twice as
+    /// long. The transition point is guaranteed to not make a jump
+    fn ping_pong(self) -> Result<PingPongCurve<T, Self>, PingPongError>
+    where
+        Self: Sized,
+    {
+        self.domain()
+            .is_bounded()
+            .then(|| PingPongCurve {
+                curve: self,
+                _phantom: PhantomData,
+            })
+            .ok_or(PingPongError::SourceDomainEndInfinite)
+    }
+
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
     /// spaced sample values, using the provided `interpolation` to interpolate between adjacent samples.
     /// The curve is interpolated on `segments` segments between samples. For example, if `segments` is 1,
@@ -535,7 +551,7 @@ pub enum LinearReparamError {
 #[derive(Debug, Error)]
 #[error("Could not reverse this curve")]
 pub enum ReverseError {
-    /// The source curve that was to be reversed had unbounded domain.
+    /// The source curve that was to be reversed had unbounded domain end.
     #[error("This curve has an unbounded domain end")]
     SourceDomainEndInfinite,
 }
@@ -545,9 +561,19 @@ pub enum ReverseError {
 #[derive(Debug, Error)]
 #[error("Could not repeat this curve")]
 pub enum RepeatError {
-    /// The source curve that was to be reversed had unbounded domain.
+    /// The source curve that was to be repeated had unbounded domain.
     #[error("This curve has an unbounded domain")]
     SourceDomainUnbounded,
+}
+
+/// An error indicating that a ping ponging of a curve couldn't be performed because of
+/// malformed inputs.
+#[derive(Debug, Error)]
+#[error("Could not ping pong this curve")]
+pub enum PingPongError {
+    /// The source curve that was to be ping ponged had unbounded domain end.
+    #[error("This curve has an unbounded domain end")]
+    SourceDomainEndInfinite,
 }
 
 /// An error indicating that an end-to-end composition couldn't be performed because of
@@ -951,6 +977,46 @@ where
     }
 }
 
+/// The curve that results from chaining the curve with it's reversed version. The transition point
+/// is guaranteed to make no jump.
+///
+/// # Notes
+///
+/// - the domain end of this curve has to be finite
+///
+/// Curves of this type are produced by [`Curve::ping_pong`].
+pub struct PingPongCurve<T, C> {
+    curve: C,
+    _phantom: PhantomData<T>,
+}
+
+impl<T, C> Curve<T> for PingPongCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
+        // length of `curve` cannot be NAN. It's still fine if it's infinity.
+        Interval::new(
+            self.curve.domain().start(),
+            self.curve.domain().start() + self.curve.domain().length() * 2.0,
+        )
+        .unwrap()
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        // the domain is bounded by construction
+        let final_t = if t > self.curve.domain().end() {
+            self.curve.domain().end() * 2.0 - t
+        } else {
+            t
+        };
+        self.curve.sample_unchecked(final_t)
+    }
+}
+
 /// A curve that is defined by explicit neighbor interpolation over a set of samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1238,6 +1304,17 @@ mod tests {
         assert_eq!(repeat_curve.sample_unchecked(1.5), 0.5 * 3.0 + 1.0);
         assert_eq!(repeat_curve.sample_unchecked(1.99), 0.99 * 3.0 + 1.0);
         assert_eq!(repeat_curve.sample_unchecked(2.0), 0.0 * 3.0 + 1.0);
+    }
+
+    #[test]
+    fn ping_pong() {
+        let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let ping_pong_curve = curve.ping_pong().unwrap();
+        assert_eq!(ping_pong_curve.sample_unchecked(0.0), 0.0 * 3.0 + 1.0);
+        assert_eq!(ping_pong_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
+        assert_eq!(ping_pong_curve.sample_unchecked(1.0), 1.0 * 3.0 + 1.0);
+        assert_eq!(ping_pong_curve.sample_unchecked(1.5), 0.5 * 3.0 + 1.0);
+        assert_eq!(ping_pong_curve.sample_unchecked(2.0), 0.0 * 3.0 + 1.0);
     }
 
     #[test]
