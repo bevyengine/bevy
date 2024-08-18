@@ -154,7 +154,7 @@ impl Deref for BindGroup {
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` |   `vertex`, `fragment` |
 ///
 /// * `storage(BINDING_INDEX, arguments)`
-///     * The field's [`Handle<Storage>`] will be used to look up the matching [`Buffer`] GPU resource, which will be bound as a storage buffer in shaders.
+///     * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which will be bound as a storage buffer in shaders.
 ///     * It supports and optional `read_only` parameter. Defaults to false if not present.
 ///
 /// | Arguments              | Values                                                                  | Default              |

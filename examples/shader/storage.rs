@@ -71,18 +71,20 @@ fn update(
 ) {
     let mut material = materials.get_mut(&material_handle.0).unwrap();
     material.colors = buffers.add(Storage::new(
-        bytemuck::cast_slice((0..5)
-            .map(|i| {
-                let t = time.elapsed_seconds() * 5.0;
-                [
-                    (t + i as f32).sin() / 2.0 + 0.5,
-                    (t + i as f32 + 2.0).sin() / 2.0 + 0.5,
-                    (t + i as f32 + 4.0).sin() / 2.0 + 0.5,
-                    1.0,
-                ]
-            })
-            .collect::<Vec<[f32; 4]>>()
-            .as_slice()),
+        bytemuck::cast_slice(
+            (0..5)
+                .map(|i| {
+                    let t = time.elapsed_seconds() * 5.0;
+                    [
+                        (t + i as f32).sin() / 2.0 + 0.5,
+                        (t + i as f32 + 2.0).sin() / 2.0 + 0.5,
+                        (t + i as f32 + 4.0).sin() / 2.0 + 0.5,
+                        1.0,
+                    ]
+                })
+                .collect::<Vec<[f32; 4]>>()
+                .as_slice(),
+        ),
         RenderAssetUsages::default(),
     ));
 }
