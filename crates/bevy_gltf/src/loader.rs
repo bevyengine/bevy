@@ -37,7 +37,6 @@ use bevy_render::{
     },
 };
 use bevy_scene::Scene;
-#[cfg(not(target_arch = "wasm32"))]
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::{error, info_span, warn};
 use bevy_utils::{HashMap, HashSet};
