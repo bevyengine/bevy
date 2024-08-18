@@ -7,7 +7,18 @@ use crate::func::{DynamicCallable, ReflectFn, TypedFunction};
 ///
 /// See the [module-level documentation] for more information.
 ///
+/// # Trait Parameters
+///
+/// This trait has a `Marker` type parameter that is used to get around issues with
+/// [unconstrained type parameters] when defining impls with generic arguments or return types.
+/// This `Marker` can be any type, provided it doesn't conflict with other implementations.
+///
+/// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the callable.
+/// For functions and some closures, this will end up just being `'static`,
+/// however, closures that borrow from their environment will have a lifetime bound to that environment.
+///
 /// [module-level documentation]: crate::func
+/// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait IntoCallable<'env, Marker> {
     /// Converts [`Self`] into a [`DynamicCallable`].
     fn into_callable(self) -> DynamicCallable<'env>;
@@ -28,7 +39,7 @@ mod tests {
     use crate::func::ArgList;
 
     #[test]
-    fn should_create_dynamic_closure_from_closure() {
+    fn should_create_dynamic_callable_from_closure() {
         let c = 23;
         let func = (|a: i32, b: i32| a + b + c).into_callable();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
@@ -37,7 +48,7 @@ mod tests {
     }
 
     #[test]
-    fn should_create_dynamic_closure_from_function() {
+    fn should_create_dynamic_callable_from_function() {
         fn add(a: i32, b: i32) -> i32 {
             a + b
         }

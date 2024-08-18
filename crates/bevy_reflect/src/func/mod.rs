@@ -1,6 +1,6 @@
-//! Reflection-based dynamic functions.
+//! Reflection-based dynamic callables.
 //!
-//! This module provides a way to pass around and call functions dynamically
+//! This module provides a way to pass around and invoke callables dynamically
 //! using the [`DynamicCallable`] and [`DynamicCallableMut`] types.
 //!
 //! Many simple functions and closures can be automatically converted to these types
@@ -33,9 +33,14 @@
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
 //! ```
 //!
-//! # Functions vs Closures
+//! # Types of Callables
 //!
-//! In Rust, a "function" is any callable that does not capture its environment.
+//! A "callable", put simply, is code that can be invoked with a set of arguments
+//! to perform some action.
+//!
+//! In Rust, there are two main categories of callables: functions and closures.
+//!
+//! A "function" is a callable that does not capture its environment.
 //! These are typically defined with the `fn` keyword, but may also use anonymous function syntax.
 //!
 //! ```rust
@@ -48,7 +53,7 @@
 //! let add = |a: i32, b: i32| a + b;
 //! ```
 //!
-//! Rust also has the concept of "closures", which are special functions that capture their environment.
+//! Closures, on the other hand, are special functions that do capture their environment.
 //! These are always defined with anonymous function syntax.
 //!
 //! ```rust
@@ -65,15 +70,9 @@
 //! let add = move |a: i32, b: i32| a + b + c;
 //! ```
 //!
-//! Each callable may be considered a subset of the other:
-//! functions are a subset of immutable closures which are a subset of mutable closures.
-//!
-//! This means that, in terms of traits, you could imagine that any type that implements
-//! [`IntoCallable`] also implements [`IntoCallableMut`].
-//!
 //! # Valid Signatures
 //!
-//! Many of the traits in this module have default blanket implementations over a specific set of function signatures.
+//! Many of the traits in this module have default blanket implementations over a specific set of callable signatures.
 //!
 //! These signatures are:
 //! - `(...) -> R`

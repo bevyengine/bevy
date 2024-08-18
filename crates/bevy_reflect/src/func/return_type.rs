@@ -6,13 +6,13 @@ use crate::PartialReflect;
 /// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
 #[derive(Debug)]
 pub enum Return<'a> {
-    /// The function returns nothing (i.e. it returns `()`).
+    /// The callable returns nothing (i.e. it returns `()`).
     Unit,
-    /// The function returns an owned value.
+    /// The callable returns an owned value.
     Owned(Box<dyn PartialReflect>),
-    /// The function returns a reference to a value.
+    /// The callable returns a reference to a value.
     Ref(&'a dyn PartialReflect),
-    /// The function returns a mutable reference to a value.
+    /// The callable returns a mutable reference to a value.
     Mut(&'a mut dyn PartialReflect),
 }
 

@@ -7,22 +7,23 @@ use crate::{Reflect, TypePath};
 
 /// A reflection-based version of the [`FnMut`] trait.
 ///
-/// This allows functions to be called dynamically through [reflection].
+/// This allows callables to be called dynamically through [reflection].
 ///
-/// This is a supertrait of [`ReflectFn`], and is used for closures that may mutate their environment.
+/// This is a supertrait of [`ReflectFn`], and is used for callables that may mutate their environment.
 ///
 /// # Blanket Implementation
 ///
 /// This trait has a blanket implementation that covers everything that [`ReflectFn`] does:
 /// - Functions and methods defined with the `fn` keyword
-/// - Closures that do not capture their environment
+/// - Anonymous functions
+/// - Function pointers
 /// - Closures that capture immutable references to their environment
 /// - Closures that take ownership of captured variables
 ///
 /// But also allows for:
 /// - Closures that capture mutable references to their environment
 ///
-/// For each of the above cases, the function signature may only have up to 15 arguments,
+/// For each of the above cases, the callable signature may only have up to 15 arguments,
 /// not including an optional receiver argument (often `&self` or `&mut self`).
 /// This optional receiver argument may be either a mutable or immutable reference to a type.
 /// If the return type is also a reference, its lifetime will be bound to the lifetime of this receiver.
@@ -66,7 +67,7 @@ use crate::{Reflect, TypePath};
 /// [derive macro]: derive@crate::Reflect
 /// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait ReflectFnMut<'env, Marker> {
-    /// Call the function with the given arguments and return the result.
+    /// Invoke the callable with the given arguments and return the result.
     fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a>;
 }
 

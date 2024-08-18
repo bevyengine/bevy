@@ -5,13 +5,23 @@ use crate::func::{DynamicCallableMut, ReflectFnMut, TypedFunction};
 /// This trait is automatically implemented for any type that implements
 /// [`ReflectFnMut`] and [`TypedFunction`].
 ///
-/// This trait can be seen as a supertrait of [`IntoCallable`].
+/// This trait can be seen as a superset of [`IntoCallable`].
 ///
 /// See the [module-level documentation] for more information.
 ///
-/// [`ReflectFn`]: crate::func::ReflectFn
+/// # Trait Parameters
+///
+/// This trait has a `Marker` type parameter that is used to get around issues with
+/// [unconstrained type parameters] when defining impls with generic arguments or return types.
+/// This `Marker` can be any type, provided it doesn't conflict with other implementations.
+///
+/// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the callable.
+/// For functions and some closures, this will end up just being `'static`,
+/// however, closures that borrow from their environment will have a lifetime bound to that environment.
+///
 /// [`IntoCallable`]: crate::func::IntoCallable
 /// [module-level documentation]: crate::func
+/// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait IntoCallableMut<'env, Marker> {
     /// Converts [`Self`] into a [`DynamicCallableMut`].
     fn into_callable_mut(self) -> DynamicCallableMut<'env>;
@@ -35,7 +45,7 @@ mod tests {
     use crate::func::{ArgList, IntoCallable};
 
     #[test]
-    fn should_create_dynamic_closure_mut_from_closure() {
+    fn should_create_dynamic_callable_mut_from_closure() {
         let c = 23;
         let func = (|a: i32, b: i32| a + b + c).into_callable();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
@@ -44,7 +54,7 @@ mod tests {
     }
 
     #[test]
-    fn should_create_dynamic_closure_mut_from_closure_with_mutable_capture() {
+    fn should_create_dynamic_callable_mut_from_closure_with_mutable_capture() {
         let mut total = 0;
         let func = (|a: i32, b: i32| total = a + b).into_callable_mut();
         let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
@@ -53,7 +63,7 @@ mod tests {
     }
 
     #[test]
-    fn should_create_dynamic_closure_mut_from_function() {
+    fn should_create_dynamic_callable_mut_from_function() {
         fn add(a: i32, b: i32) -> i32 {
             a + b
         }

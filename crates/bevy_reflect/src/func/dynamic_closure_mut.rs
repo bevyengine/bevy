@@ -3,13 +3,16 @@ use core::fmt::{Debug, Formatter};
 
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{DynamicCallable, FunctionResult, IntoCallableMut, ReturnInfo};
+use crate::func::{DynamicCallable, FunctionResult, IntoCallable, IntoCallableMut, ReturnInfo};
 
-/// A dynamic representation of a Rust closure.
+/// A dynamic representation of a callable.
 ///
-/// This type can be used to represent any Rust closure that captures its environment mutably.
-/// For closures that only need to capture their environment immutably,
-/// consider using [`DynamicCallable`].
+/// This type can be used to represent any callable that satisfies [`FnMut`]
+/// (or the reflection-based equivalent, [`ReflectFnMut`]).
+/// That is, any function or closure.
+///
+/// For callables that do not need to capture their environment mutably,
+/// it's recommended to use [`DynamicCallable`] instead.
 ///
 /// This type can be seen as a superset of [`DynamicCallable`].
 ///
@@ -34,10 +37,14 @@ use crate::func::{DynamicCallable, FunctionResult, IntoCallableMut, ReturnInfo};
 ///   old_value
 /// };
 ///
-/// // Convert the closure into a dynamic closure using `IntoCallableMut::into_callable_mut`
+/// // Since this closure mutably borrows data, we can't convert it into a regular `DynamicCallable`,
+/// // as doing so would result in a compile-time error:
+/// // let mut func: DynamicCallable = replace.into_callable();
+///
+/// // Instead, we convert it into a dynamic callable using `IntoCallableMut::into_callable_mut`:
 /// let mut func: DynamicCallableMut = replace.into_callable_mut();
 ///
-/// // Dynamically call the closure:
+/// // Dynamically call it:
 /// let args = ArgList::default().push_owned(1_usize).push_owned(-2_i32);
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
@@ -46,11 +53,14 @@ use crate::func::{DynamicCallable, FunctionResult, IntoCallableMut, ReturnInfo};
 ///
 /// // Note that `func` still has a reference to `list`,
 /// // so we need to drop it before we can access `list` again.
-/// // Alternatively, we could have called the `func` using
-/// // `DynamicCallableMut::call_once` to immediately consume the closure.
+/// // Alternatively, we could have invoked `func` with
+/// // `DynamicCallableMut::call_once` to immediately consume it.
 /// drop(func);
 /// assert_eq!(list, vec![1, -2, 3]);
 /// ```
+///
+/// [`ReflectFnMut`]: crate::func::ReflectFnMut
+/// [module-level documentation]: crate::func
 pub struct DynamicCallableMut<'env> {
     info: FunctionInfo,
     func: Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>,
@@ -59,10 +69,11 @@ pub struct DynamicCallableMut<'env> {
 impl<'env> DynamicCallableMut<'env> {
     /// Create a new [`DynamicCallableMut`].
     ///
-    /// The given function can be used to call out to a regular function, closure, or method.
+    /// The given function can be used to call out to any other callable,
+    /// including functions, closures, or methods.
     ///
-    /// It's important that the closure signature matches the provided [`FunctionInfo`].
-    /// This info may be used by consumers of the function for validation and debugging.
+    /// It's important that the callable signature matches the provided [`FunctionInfo`].
+    /// This info may be used by consumers of this callable for validation and debugging.
     pub fn new<F: for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>(
         func: F,
         info: FunctionInfo,
@@ -73,13 +84,12 @@ impl<'env> DynamicCallableMut<'env> {
         }
     }
 
-    /// Set the name of the closure.
+    /// Set the name of the callable.
     ///
     /// For [`DynamicCallableMuts`] created using [`IntoCallableMut`],
-    /// the default name will always be the full path to the closure as returned by [`std::any::type_name`].
-    ///
-    /// This default name generally does not contain the actual name of the closure, only its module path.
-    /// It is therefore recommended to set the name manually using this method.
+    /// the default name will always be the full path to the callable as returned by [`std::any::type_name`],
+    /// unless the callable is a closure, anonymous function, or function pointer,
+    /// in which case the name will be `None`.
     ///
     /// [`DynamicCallableMuts`]: DynamicCallableMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
@@ -87,26 +97,26 @@ impl<'env> DynamicCallableMut<'env> {
         self
     }
 
-    /// Set the arguments of the closure.
+    /// Set the argument information of the callable.
     ///
-    /// It's important that the arguments match the intended closure signature,
-    /// as this can be used by consumers of the function for validation and debugging.
+    /// It's important that the arguments match the intended callable signature,
+    /// as this can be used by consumers of this callable for validation and debugging.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.info = self.info.with_args(args);
         self
     }
 
-    /// Set the return information of the closure.
+    /// Set the return information of the callable.
     pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
         self.info = self.info.with_return_info(return_info);
         self
     }
 
-    /// Call the closure with the given arguments.
+    /// Invoke the callable with the given arguments.
     ///
-    /// Variables that are captured mutably by this closure
-    /// won't be usable until this closure is dropped.
-    /// Consider using [`call_once`] if you want to consume the closure
+    /// Variables that are captured mutably by this callable
+    /// won't be usable until this callable is dropped.
+    /// Consider using [`call_once`] if you want to consume the callable
     /// immediately after calling it.
     ///
     /// # Example
@@ -130,10 +140,10 @@ impl<'env> DynamicCallableMut<'env> {
         (self.func)(args)
     }
 
-    /// Call the closure with the given arguments and consume the closure.
+    /// Invoke the callable with the given arguments and consume it.
     ///
-    /// This is useful for closures that capture their environment mutably
-    /// because otherwise any captured variables would still be borrowed by this closure.
+    /// This is useful for callables that capture their environment mutably
+    /// because otherwise any captured variables would still be borrowed by it.
     ///
     /// # Example
     ///
@@ -155,30 +165,33 @@ impl<'env> DynamicCallableMut<'env> {
         (self.func)(args)
     }
 
-    /// Returns the closure info.
+    /// Returns the callable info.
     pub fn info(&self) -> &FunctionInfo {
         &self.info
     }
 
-    /// The [name] of the closure.
+    /// The [name] of the callable.
     ///
-    /// If this [`DynamicCallableMut`] was created using [`IntoCallableMut`],
-    /// then the default name will always be `None`.
+    /// For [`DynamicCallableMuts`] created using [`IntoCallableMut`],
+    /// the default name will always be the full path to the callable as returned by [`std::any::type_name`],
+    /// unless the callable is a closure, anonymous function, or function pointer,
+    /// in which case the name will be `None`.
     ///
     /// This can be overridden using [`with_name`].
     ///
     /// [name]: FunctionInfo::name
+    /// [`DynamicCallableMuts`]: DynamicCallableMut
     /// [`with_name`]: Self::with_name
     pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.info.name()
     }
 }
 
-/// Outputs the closure's signature.
+/// Outputs the callable's signature.
 ///
 /// This takes the format: `DynamicCallableMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
-/// Names for arguments and the closure itself are optional and will default to `_` if not provided.
+/// Names for arguments and the callable itself are optional and will default to `_` if not provided.
 impl<'env> Debug for DynamicCallableMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
@@ -221,16 +234,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn should_overwrite_closure_name() {
+    fn should_overwrite_callable_name() {
         let mut total = 0;
         let func = (|a: i32, b: i32| total = a + b)
             .into_callable_mut()
-            .with_name("my_closure");
-        assert_eq!(func.info().name().unwrap(), "my_closure");
+            .with_name("my_callable");
+        assert_eq!(func.info().name().unwrap(), "my_callable");
     }
 
     #[test]
-    fn should_convert_dynamic_closure_mut_with_into_callable() {
+    fn should_convert_dynamic_callable_mut_with_into_callable() {
         fn make_closure<'env, F: IntoCallableMut<'env, M>, M>(f: F) -> DynamicCallableMut<'env> {
             f.into_callable_mut()
         }

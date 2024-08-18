@@ -7,24 +7,25 @@ use crate::{Reflect, TypePath};
 
 /// A reflection-based version of the [`Fn`] trait.
 ///
-/// This allows functions to be called dynamically through [reflection].
+/// This allows callables to be called dynamically through [reflection].
 ///
 /// # Blanket Implementation
 ///
 /// This trait has a blanket implementation that covers:
 /// - Functions and methods defined with the `fn` keyword
-/// - Closures that do not capture their environment
+/// - Anonymous functions
+/// - Function pointers
 /// - Closures that capture immutable references to their environment
 /// - Closures that take ownership of captured variables
 ///
-/// For each of the above cases, the function signature may only have up to 15 arguments,
+/// For each of the above cases, the callable signature may only have up to 15 arguments,
 /// not including an optional receiver argument (often `&self` or `&mut self`).
 /// This optional receiver argument may be either a mutable or immutable reference to a type.
 /// If the return type is also a reference, its lifetime will be bound to the lifetime of this receiver.
 ///
 /// See the [module-level documentation] for more information on valid signatures.
 ///
-/// To handle closures that capture mutable references to their environment,
+/// To handle callable that capture mutable references to their environment,
 /// see the [`ReflectFnMut`] trait instead.
 ///
 /// Arguments are expected to implement [`FromArg`], and the return type is expected to implement [`IntoReturn`].
@@ -60,11 +61,11 @@ use crate::{Reflect, TypePath};
 /// [derive macro]: derive@crate::Reflect
 /// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait ReflectFn<'env, Marker>: ReflectFnMut<'env, Marker> {
-    /// Call the function with the given arguments and return the result.
+    /// Invoke the callable with the given arguments and return the result.
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;
 }
 
-/// Helper macro for implementing [`ReflectFn`] on Rust closures.
+/// Helper macro for implementing [`ReflectFn`] on Rust callables.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
 /// - `Fn(arg0, arg1, ..., argN) -> R`
