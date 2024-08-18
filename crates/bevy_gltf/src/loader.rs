@@ -294,137 +294,163 @@ async fn load_gltf<'a, 'b, 'c>(
                     continue;
                 }
 
-                let curve = if let Some(outputs) = reader.read_outputs() {
+                let maybe_curve: Option<VariableCurve> = if let Some(outputs) =
+                    reader.read_outputs()
+                {
                     match outputs {
                         ReadOutputs::Translations(tr) => {
                             let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
-                            VariableCurve::Translation(if keyframe_timestamps.len() == 1 {
-                                TranslationCurve::Constant(constant_curve(
-                                    Interval::EVERYWHERE,
-                                    translations[0],
-                                ))
+                            if keyframe_timestamps.len() == 1 {
+                                Some(VariableCurve::Translation(TranslationCurve::Constant(
+                                    constant_curve(Interval::EVERYWHERE, translations[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
-                                        TranslationCurve::Linear(
-                                            UnevenSampleAutoCurve::new(
-                                                keyframe_timestamps.into_iter().zip(translations),
-                                            )
-                                            .unwrap(),
+                                        UnevenSampleAutoCurve::new(
+                                            keyframe_timestamps.into_iter().zip(translations),
                                         )
+                                        .ok()
+                                        .map(|c| {
+                                            VariableCurve::Translation(TranslationCurve::Linear(c))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
-                                        TranslationCurve::Step(SteppedKeyframeCurve::new_raw(
-                                            keyframe_timestamps,
-                                            translations,
-                                        ))
+                                        SteppedKeyframeCurve::new(
+                                            keyframe_timestamps.into_iter().zip(translations),
+                                        )
+                                        .ok()
+                                        .map(|c| {
+                                            VariableCurve::Translation(TranslationCurve::Step(c))
+                                        })
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
-                                        TranslationCurve::CubicSpline(CubicKeyframeCurve::new_raw(
-                                            keyframe_timestamps,
-                                            translations,
-                                        ))
+                                        CubicKeyframeCurve::new(keyframe_timestamps, translations)
+                                            .ok()
+                                            .map(|c| {
+                                                VariableCurve::Translation(
+                                                    TranslationCurve::CubicSpline(c),
+                                                )
+                                            })
                                     }
                                 }
-                            })
+                            }
                         }
                         ReadOutputs::Rotations(rots) => {
                             let rotations: Vec<Quat> =
                                 rots.into_f32().map(bevy_math::Quat::from_array).collect();
-                            VariableCurve::Rotation(if keyframe_timestamps.len() == 1 {
-                                RotationCurve::Constant(constant_curve(
-                                    Interval::EVERYWHERE,
-                                    rotations[0],
-                                ))
+                            if keyframe_timestamps.len() == 1 {
+                                Some(VariableCurve::Rotation(RotationCurve::Constant(
+                                    constant_curve(Interval::EVERYWHERE, rotations[0]),
+                                )))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
-                                        RotationCurve::SphericalLinear(
-                                            UnevenSampleAutoCurve::new(
-                                                keyframe_timestamps.into_iter().zip(rotations),
-                                            )
-                                            .unwrap(),
+                                        UnevenSampleAutoCurve::new(
+                                            keyframe_timestamps.into_iter().zip(rotations),
                                         )
+                                        .ok()
+                                        .map(|c| {
+                                            VariableCurve::Rotation(RotationCurve::SphericalLinear(
+                                                c,
+                                            ))
+                                        })
                                     }
                                     gltf::animation::Interpolation::Step => {
-                                        RotationCurve::Step(SteppedKeyframeCurve::new_raw(
-                                            keyframe_timestamps,
-                                            rotations,
-                                        ))
+                                        SteppedKeyframeCurve::new(
+                                            keyframe_timestamps.into_iter().zip(rotations),
+                                        )
+                                        .ok()
+                                        .map(|c| VariableCurve::Rotation(RotationCurve::Step(c)))
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
-                                        RotationCurve::CubicSpline(CubicKeyframeCurve::new_raw(
+                                        CubicKeyframeCurve::new(
                                             keyframe_timestamps,
-                                            rotations
-                                                .into_iter()
-                                                .map(Vec4::from)
-                                                .collect::<Vec<_>>(),
-                                        ))
+                                            rotations.into_iter().map(Vec4::from),
+                                        )
+                                        .ok()
+                                        .map(|c| {
+                                            VariableCurve::Rotation(RotationCurve::CubicSpline(c))
+                                        })
                                     }
                                 }
-                            })
+                            }
                         }
                         ReadOutputs::Scales(scale) => {
                             let scales: Vec<Vec3> = scale.map(Vec3::from).collect();
-                            VariableCurve::Scale(if keyframe_timestamps.len() == 1 {
-                                ScaleCurve::Constant(constant_curve(
+                            if keyframe_timestamps.len() == 1 {
+                                Some(VariableCurve::Scale(ScaleCurve::Constant(constant_curve(
                                     Interval::EVERYWHERE,
                                     scales[0],
-                                ))
-                            } else {
-                                match interpolation {
-                                    gltf::animation::Interpolation::Linear => ScaleCurve::Linear(
-                                        UnevenSampleAutoCurve::new(
-                                            keyframe_timestamps.into_iter().zip(scales),
-                                        )
-                                        .unwrap(),
-                                    ),
-                                    gltf::animation::Interpolation::Step => ScaleCurve::Step(
-                                        SteppedKeyframeCurve::new_raw(keyframe_timestamps, scales),
-                                    ),
-                                    gltf::animation::Interpolation::CubicSpline => {
-                                        ScaleCurve::CubicSpline(CubicKeyframeCurve::new_raw(
-                                            keyframe_timestamps,
-                                            scales,
-                                        ))
-                                    }
-                                }
-                            })
-                        }
-                        ReadOutputs::MorphTargetWeights(weights) => {
-                            let weights: Vec<f32> = weights.into_f32().collect();
-                            VariableCurve::Weights(if keyframe_timestamps.len() == 1 {
-                                WeightsCurve::Constant(constant_curve(
-                                    Interval::EVERYWHERE,
-                                    weights,
-                                ))
+                                ))))
                             } else {
                                 match interpolation {
                                     gltf::animation::Interpolation::Linear => {
-                                        WeightsCurve::Linear(WideLinearKeyframeCurve::new_raw(
-                                            keyframe_timestamps,
-                                            weights,
-                                        ))
+                                        UnevenSampleAutoCurve::new(
+                                            keyframe_timestamps.into_iter().zip(scales),
+                                        )
+                                        .ok()
+                                        .map(|c| VariableCurve::Scale(ScaleCurve::Linear(c)))
                                     }
                                     gltf::animation::Interpolation::Step => {
-                                        WeightsCurve::Step(WideSteppedKeyframeCurve::new_raw(
-                                            keyframe_timestamps,
-                                            weights,
-                                        ))
+                                        SteppedKeyframeCurve::new(
+                                            keyframe_timestamps.into_iter().zip(scales),
+                                        )
+                                        .ok()
+                                        .map(|c| VariableCurve::Scale(ScaleCurve::Step(c)))
                                     }
                                     gltf::animation::Interpolation::CubicSpline => {
-                                        WeightsCurve::CubicSpline(WideCubicKeyframeCurve::new_raw(
-                                            keyframe_timestamps,
-                                            weights,
-                                        ))
+                                        CubicKeyframeCurve::new(keyframe_timestamps, scales)
+                                            .ok()
+                                            .map(|c| {
+                                                VariableCurve::Scale(ScaleCurve::CubicSpline(c))
+                                            })
                                     }
                                 }
-                            })
+                            }
+                        }
+                        ReadOutputs::MorphTargetWeights(weights) => {
+                            let weights: Vec<f32> = weights.into_f32().collect();
+                            if keyframe_timestamps.len() == 1 {
+                                Some(VariableCurve::Weights(WeightsCurve::Constant(
+                                    constant_curve(Interval::EVERYWHERE, weights),
+                                )))
+                            } else {
+                                match interpolation {
+                                    gltf::animation::Interpolation::Linear => {
+                                        WideLinearKeyframeCurve::new(keyframe_timestamps, weights)
+                                            .ok()
+                                            .map(|c| {
+                                                VariableCurve::Weights(WeightsCurve::Linear(c))
+                                            })
+                                    }
+                                    gltf::animation::Interpolation::Step => {
+                                        WideSteppedKeyframeCurve::new(keyframe_timestamps, weights)
+                                            .ok()
+                                            .map(|c| VariableCurve::Weights(WeightsCurve::Step(c)))
+                                    }
+                                    gltf::animation::Interpolation::CubicSpline => {
+                                        WideCubicKeyframeCurve::new(keyframe_timestamps, weights)
+                                            .ok()
+                                            .map(|c| {
+                                                VariableCurve::Weights(WeightsCurve::CubicSpline(c))
+                                            })
+                                    }
+                                }
+                            }
                         }
                     }
                 } else {
                     warn!("Animations without a sampler output are not supported");
                     return Err(GltfError::MissingAnimationSampler(animation.index()));
+                };
+
+                let Some(curve) = maybe_curve else {
+                    warn!(
+                        "Invalid keyframe data for node {}; curve could not be constructed",
+                        node.index()
+                    );
+                    continue;
                 };
 
                 if let Some((root_index, path)) = paths.get(&node.index()) {

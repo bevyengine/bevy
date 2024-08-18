@@ -5,6 +5,7 @@ use bevy_math::{
     Quat, Vec3, Vec4, VectorSpace,
 };
 use bevy_reflect::Reflect;
+use thiserror::Error;
 
 /// A keyframe-defined curve that "interpolates" by stepping at `t = 1.0` to the next keyframe.
 #[derive(Debug, Clone, Reflect)]
@@ -29,16 +30,13 @@ where
 }
 
 impl<T> SteppedKeyframeCurve<T> {
-    /// Create a new [`SteppedKeyframeCurve`], bypassing any formatting. If you use this, you must
-    /// uphold the invariants of [`UnevenCore`] yourself.
+    /// Create a new [`SteppedKeyframeCurve`]. If the curve could not be constructed from the
+    /// given data, an error is returned.
     #[inline]
-    pub fn new_raw(times: impl Into<Vec<f32>>, samples: impl Into<Vec<T>>) -> Self {
-        Self {
-            core: UnevenCore {
-                times: times.into(),
-                samples: samples.into(),
-            },
-        }
+    pub fn new(timed_samples: impl IntoIterator<Item = (f32, T)>) -> Result<Self, UnevenCoreError> {
+        Ok(Self {
+            core: UnevenCore::new(timed_samples)?,
+        })
     }
 }
 
@@ -74,16 +72,25 @@ where
 }
 
 impl<T> CubicKeyframeCurve<T> {
-    /// Create a new [`CubicKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
-    /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
+    /// Create a new [`CubicKeyframeCurve`] from keyframe `times` and their associated `values`.
+    /// Because 3 values are needed to perform cubic interpolation, `values` must have triple the
+    /// length of `times` — each consecutive triple `a_k, v_k, b_k` associated to time `t_k`
+    /// consists of:
+    /// - The in-tangent `a_k` for the sample at time `t_k`
+    /// - The actual value `v_k` for the sample at time `t_k`
+    /// - The out-tangent `b_k` for the sample at time `t_k`
+    ///
+    /// For example, for a curve built from two keyframes, the inputs would have the following form:
+    /// - `times`: `[t_0, t_1]`
+    /// - `values`: `[a_0, v_0, b_0, a_1, v_1, b_1]`
     #[inline]
-    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>) -> Self {
-        Self {
-            core: ChunkedUnevenCore {
-                times: times.into(),
-                values: values.into(),
-            },
-        }
+    pub fn new(
+        times: impl IntoIterator<Item = f32>,
+        values: impl IntoIterator<Item = T>,
+    ) -> Result<Self, ChunkedUnevenCoreError> {
+        Ok(Self {
+            core: ChunkedUnevenCore::new(times, values, 3)?,
+        })
     }
 }
 
@@ -303,16 +310,19 @@ where
 }
 
 impl<T> WideLinearKeyframeCurve<T> {
-    /// Create a new [`WideLinearKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
-    /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
+    /// Create a new [`WideLinearKeyframeCurve`]. An error will be returned if:
+    /// - `values` has length zero.
+    /// - `times` has less than `2` unique valid entries.
+    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered,
+    ///   and deduplicated).
     #[inline]
-    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>) -> Self {
-        Self {
-            core: ChunkedUnevenCore {
-                times: times.into(),
-                values: values.into(),
-            },
-        }
+    pub fn new(
+        times: impl IntoIterator<Item = f32>,
+        values: impl IntoIterator<Item = T>,
+    ) -> Result<Self, WideKeyframeCurveError> {
+        Ok(Self {
+            core: ChunkedUnevenCore::new_width_inferred(times, values)?,
+        })
     }
 }
 
@@ -355,16 +365,19 @@ where
 }
 
 impl<T> WideSteppedKeyframeCurve<T> {
-    /// Create a new [`WideSteppedKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
-    /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
+    /// Create a new [`WideSteppedKeyframeCurve`]. An error will be returned if:
+    /// - `values` has length zero.
+    /// - `times` has less than `2` unique valid entries.
+    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered,
+    ///   and deduplicated).
     #[inline]
-    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>) -> Self {
-        Self {
-            core: ChunkedUnevenCore {
-                times: times.into(),
-                values: values.into(),
-            },
-        }
+    pub fn new(
+        times: impl IntoIterator<Item = f32>,
+        values: impl IntoIterator<Item = T>,
+    ) -> Result<Self, WideKeyframeCurveError> {
+        Ok(Self {
+            core: ChunkedUnevenCore::new_width_inferred(times, values)?,
+        })
     }
 }
 
@@ -406,17 +419,48 @@ where
     }
 }
 
+/// An error indicating that a multisampling keyframe curve could not be constructed.
+#[derive(Debug, Error)]
+#[error("Unable to construct a curve using this data")]
+pub enum WideKeyframeCurveError {
+    /// The number of given values was not divisible by a multiple of the number of keyframes.
+    #[error("The number of values ({values_given}) was expected to be divisible by {divisor}")]
+    LengthMismatch {
+        /// The number of values given.
+        values_given: usize,
+        /// The number that `values_given` was supposed to be divisible by.
+        divisor: usize,
+    },
+
+    /// An error was returned by the internal core constructor.
+    CoreError(#[from] ChunkedUnevenCoreError),
+}
+
 impl<T> WideCubicKeyframeCurve<T> {
-    /// Create a new [`WideCubicKeyframeCurve`] from raw data, bypassing all checks. If you use this, you
-    /// must uphold the invariants of [`ChunkedUnevenCore`] yourself.
+    /// Create a new [`WideCubicKeyframeCurve`]. An error will be returned if:
+    /// - `values` has length zero.
+    /// - `times` has less than `2` unique valid entries.
+    /// - The length of `values` is not divisible by three times that of `times` (once sorted,
+    ///   filtered, and deduplicated).
     #[inline]
-    pub fn new_raw(times: impl Into<Vec<f32>>, values: impl Into<Vec<T>>) -> Self {
-        Self {
-            core: ChunkedUnevenCore {
-                times: times.into(),
-                values: values.into(),
-            },
+    pub fn new(
+        times: impl IntoIterator<Item = f32>,
+        values: impl IntoIterator<Item = T>,
+    ) -> Result<Self, WideKeyframeCurveError> {
+        let times: Vec<f32> = times.into_iter().collect();
+        let values: Vec<T> = values.into_iter().collect();
+        let divisor = times.len() * 3;
+
+        if values.len() % divisor != 0 {
+            return Err(WideKeyframeCurveError::LengthMismatch {
+                values_given: values.len(),
+                divisor,
+            });
         }
+
+        Ok(Self {
+            core: ChunkedUnevenCore::new_width_inferred(times, values)?,
+        })
     }
 }
 

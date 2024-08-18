@@ -496,6 +496,15 @@ pub enum ChunkedUnevenCoreError {
         /// The actual length of the value buffer.
         actual: usize,
     },
+
+    /// Tried to infer the width, but the ratio of lengths wasn't an integer, so no such length exists.
+    #[error("The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})")]
+    NonDivisibleLengths {
+        /// The length of the value buffer.
+        values_len: usize,
+        /// The length of the time buffer.
+        times_len: usize,
+    },
 }
 
 impl<T> ChunkedUnevenCore<T> {
@@ -504,17 +513,17 @@ impl<T> ChunkedUnevenCore<T> {
     ///
     /// Produces an error in any of the following circumstances:
     /// - `width` is zero.
-    /// - `times` has less than `2` valid unique entries.
+    /// - `times` has less than `2` unique valid entries.
     /// - `values` has the incorrect length relative to `times`.
     ///
     /// [type-level documentation]: ChunkedUnevenCore
     pub fn new(
-        times: impl Into<Vec<f32>>,
-        values: impl Into<Vec<T>>,
+        times: impl IntoIterator<Item = f32>,
+        values: impl IntoIterator<Item = T>,
         width: usize,
     ) -> Result<Self, ChunkedUnevenCoreError> {
-        let times: Vec<f32> = times.into();
-        let values: Vec<T> = values.into();
+        let times = times.into_iter().collect_vec();
+        let values = values.into_iter().collect_vec();
 
         if width == 0 {
             return Err(ChunkedUnevenCoreError::ZeroWidth);
@@ -533,6 +542,52 @@ impl<T> ChunkedUnevenCore<T> {
                 expected: times.len() * width,
                 actual: values.len(),
             });
+        }
+
+        Ok(Self { times, values })
+    }
+
+    /// Create a new [`ChunkedUnevenCore`], inferring the width from the sizes of the inputs.
+    /// The given `times` are sorted, filtered to finite times, and deduplicated. See the
+    /// [type-level documentation] for more information about this type. Prefer using [`new`]
+    /// if possible, since that constructor has richer error checking.
+    ///
+    /// Produces an error in any of the following circumstances:
+    /// - `values` has length zero.
+    /// - `times` has less than `2` unique valid entries.
+    /// - The length of `values` is not divisible by that of `times` (once sorted, filtered,
+    ///   and deduplicated).
+    ///
+    /// The [width] is implicitly taken to be the length of `values` divided by that of `times`
+    /// (once sorted, filtered, and deduplicated).
+    ///
+    /// [type-level documentation]: ChunkedUnevenCore
+    /// [`new`]: ChunkedUnevenCore::new
+    /// [width]: ChunkedUnevenCore::width
+    pub fn new_width_inferred(
+        times: impl IntoIterator<Item = f32>,
+        values: impl IntoIterator<Item = T>,
+    ) -> Result<Self, ChunkedUnevenCoreError> {
+        let times = times.into_iter().collect_vec();
+        let values = values.into_iter().collect_vec();
+
+        let times = filter_sort_dedup_times(times);
+
+        if times.len() < 2 {
+            return Err(ChunkedUnevenCoreError::NotEnoughSamples {
+                samples: times.len(),
+            });
+        }
+
+        if values.len() % times.len() != 0 {
+            return Err(ChunkedUnevenCoreError::NonDivisibleLengths {
+                values_len: values.len(),
+                times_len: times.len(),
+            });
+        }
+
+        if values.is_empty() {
+            return Err(ChunkedUnevenCoreError::ZeroWidth);
         }
 
         Ok(Self { times, values })
