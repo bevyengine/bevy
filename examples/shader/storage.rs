@@ -1,3 +1,4 @@
+/// This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
 use bevy::{
     prelude::*,
     reflect::TypePath,
@@ -69,7 +70,7 @@ fn update(
     mut materials: ResMut<Assets<CustomMaterial>>,
     mut buffers: ResMut<Assets<Storage>>,
 ) {
-    let mut material = materials.get_mut(&material_handle.0).unwrap();
+    let material = materials.get_mut(&material_handle.0).unwrap();
     material.colors = buffers.add(Storage::new(
         bytemuck::cast_slice(
             (0..5)
@@ -91,7 +92,7 @@ fn update(
 
 // Holds a handle to the custom material
 #[derive(Resource)]
-pub struct CustomMaterialHandle(Handle<CustomMaterial>);
+struct CustomMaterialHandle(Handle<CustomMaterial>);
 
 // This struct defines the data that will be passed to your shader
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
