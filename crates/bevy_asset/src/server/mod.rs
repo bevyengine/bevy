@@ -22,13 +22,13 @@ use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{error, info};
 use bevy_utils::{CowArc, HashSet};
 use crossbeam_channel::{Receiver, Sender};
-use futures_lite::StreamExt;
+use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
 use parking_lot::RwLock;
-use std::future::Future;
 use std::{any::Any, path::PathBuf};
 use std::{any::TypeId, path::Path, sync::Arc};
+use std::{future::Future, panic::AssertUnwindSafe};
 use thiserror::Error;
 
 // Needed for doc string
@@ -1176,13 +1176,20 @@ impl AssetServer {
         let asset_path = asset_path.clone_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        loader.load(reader, meta, load_context).await.map_err(|e| {
-            AssetLoadError::AssetLoaderError(AssetLoaderError {
+        AssertUnwindSafe(loader.load(reader, meta, load_context))
+            .catch_unwind()
+            .await
+            .map_err(|_| AssetLoadError::AssetLoaderPanic {
                 path: asset_path.clone_owned(),
                 loader_name: loader.type_name(),
-                error: e.into(),
+            })?
+            .map_err(|e| {
+                AssetLoadError::AssetLoaderError(AssetLoaderError {
+                    path: asset_path.clone_owned(),
+                    loader_name: loader.type_name(),
+                    error: e.into(),
+                })
             })
-        })
     }
 }
 
@@ -1404,6 +1411,11 @@ pub enum AssetLoadError {
     CannotLoadProcessedAsset { path: AssetPath<'static> },
     #[error("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
+    #[error("Failed to load asset '{path}', asset loader '{loader_name}' panicked")]
+    AssetLoaderPanic {
+        path: AssetPath<'static>,
+        loader_name: &'static str,
+    },
     #[error(transparent)]
     AssetLoaderError(#[from] AssetLoaderError),
     #[error(transparent)]
