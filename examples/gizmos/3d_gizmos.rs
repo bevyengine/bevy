@@ -103,8 +103,8 @@ fn draw_example_collection(
                 normal: Dir3::Y,
                 half_size: Vec2::splat(1.0),
             },
-            Vec3::ONE * 4.0,
-            Quat::from_rotation_x(PI / 2.),
+            Vec3::ONE * 4.0 + Vec2::from(time.elapsed_seconds().sin_cos()).extend(0.0),
+            Quat::from_rotation_x(PI / 2. + time.elapsed_seconds()),
             GREEN,
         )
         .cell_count(UVec2::new(5, 10))
