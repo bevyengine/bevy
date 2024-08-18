@@ -378,15 +378,18 @@ impl AssetServer {
         if should_load {
             let owned_handle = Some(handle.clone().untyped());
             let server = self.clone();
-            infos.pending_tasks.insert(
-                handle.id().untyped(),
-                IoTaskPool::get().spawn(async move {
-                    if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
-                        error!("{}", err);
-                    }
-                    drop(guard);
-                }),
-            );
+            let task = IoTaskPool::get().spawn(async move {
+                if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
+                    error!("{}", err);
+                }
+                drop(guard);
+            });
+
+            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+            infos.pending_tasks.insert(handle.id().untyped(), task);
+
+            #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+            task.detach();
         }
 
         handle
@@ -429,30 +432,34 @@ impl AssetServer {
         let owned_handle = Some(handle.clone().untyped());
 
         let server = self.clone();
-        infos.pending_tasks.insert(
-            id,
-            IoTaskPool::get().spawn(async move {
-                let path_clone = path.clone();
-                match server.load_internal(owned_handle, path, false, None).await {
-                    Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
+        let task = IoTaskPool::get().spawn(async move {
+            let path_clone = path.clone();
+            match server.load_internal(owned_handle, path, false, None).await {
+                Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
+                    id,
+                    loaded_asset: LoadedAsset::new_with_dependencies(
+                        LoadedUntypedAsset { handle },
+                        None,
+                    )
+                    .into(),
+                }),
+                Err(err) => {
+                    error!("{err}");
+                    server.send_asset_event(InternalAssetEvent::Failed {
                         id,
-                        loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedUntypedAsset { handle },
-                            None,
-                        )
-                        .into(),
-                    }),
-                    Err(err) => {
-                        error!("{err}");
-                        server.send_asset_event(InternalAssetEvent::Failed {
-                            id,
-                            path: path_clone,
-                            error: err,
-                        });
-                    }
+                        path: path_clone,
+                        error: err,
+                    });
                 }
-            }),
-        );
+            }
+        });
+
+        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        infos.pending_tasks.insert(handle.id().untyped(), task);
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        task.detach();
+
         handle
     }
 
@@ -732,32 +739,35 @@ impl AssetServer {
 
         let event_sender = self.data.asset_event_sender.clone();
 
-        infos.pending_tasks.insert(
-            id,
-            IoTaskPool::get().spawn(async move {
-                match future.await {
-                    Ok(asset) => {
-                        let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
-                        event_sender
-                            .send(InternalAssetEvent::Loaded { id, loaded_asset })
-                            .unwrap();
-                    }
-                    Err(error) => {
-                        let error = AddAsyncError {
-                            error: Arc::new(error),
-                        };
-                        error!("{error}");
-                        event_sender
-                            .send(InternalAssetEvent::Failed {
-                                id,
-                                path: Default::default(),
-                                error: AssetLoadError::AddAsyncError(error),
-                            })
-                            .unwrap();
-                    }
+        let task = IoTaskPool::get().spawn(async move {
+            match future.await {
+                Ok(asset) => {
+                    let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
+                    event_sender
+                        .send(InternalAssetEvent::Loaded { id, loaded_asset })
+                        .unwrap();
                 }
-            }),
-        );
+                Err(error) => {
+                    let error = AddAsyncError {
+                        error: Arc::new(error),
+                    };
+                    error!("{error}");
+                    event_sender
+                        .send(InternalAssetEvent::Failed {
+                            id,
+                            path: Default::default(),
+                            error: AssetLoadError::AddAsyncError(error),
+                        })
+                        .unwrap();
+                }
+            }
+        });
+
+        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        infos.pending_tasks.insert(id, task);
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        task.detach();
 
         handle.typed_debug_checked()
     }
