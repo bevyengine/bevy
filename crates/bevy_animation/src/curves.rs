@@ -94,14 +94,14 @@ impl<T> CubicKeyframeCurve<T> {
     }
 }
 
-// The first couple variants can be taken "off the shelf" from the Curve library, while the others
-// are built on top of the core abstractions.
-
 /// A curve specifying the translation component of a [`Transform`] in animation. The variants are
 /// broken down by interpolation mode (with the exception of `Constant`, which never interpolates).
 ///
 /// This type is, itself, a `Curve<Vec3>`, and it internally uses the provided sampling modes; each
 /// variant "knows" its own interpolation mode.
+///
+/// [`Transform`]: bevy_transform::components::Transform
+
 #[derive(Clone, Debug, Reflect)]
 pub enum TranslationCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
@@ -160,6 +160,8 @@ impl TranslationCurve {
 ///
 /// This type is, itself, a `Curve<Vec3>`, and it internally uses the provided sampling modes; each
 /// variant "knows" its own interpolation mode.
+///
+/// [`Transform`]: bevy_transform::components::Transform
 #[derive(Clone, Debug, Reflect)]
 pub enum ScaleCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
@@ -218,6 +220,8 @@ impl ScaleCurve {
 ///
 /// This type is, itself, a `Curve<Quat>`, and it internally uses the provided sampling modes; each
 /// variant "knows" its own interpolation mode.
+///
+/// [`Transform`]: bevy_transform::components::Transform
 #[derive(Clone, Debug, Reflect)]
 pub enum RotationCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
@@ -470,6 +474,8 @@ impl<T> WideCubicKeyframeCurve<T> {
 /// This type is, itself, a `Curve<Vec<f32>>`; however, in order to avoid allocation, it is
 /// recommended to use its implementation of the [`IterableCurve`] trait, which allows iterating
 /// directly over information derived from the curve without allocating.
+///
+/// [`MorphWeights`]: bevy_render::prelude::MorphWeights
 #[derive(Debug, Clone, Reflect)]
 pub enum WeightsCurve {
     /// A curve which takes a constant value over its domain. Notably, this is how animations with
@@ -533,18 +539,29 @@ impl WeightsCurve {
 ///
 /// This follows the [glTF design].
 /// [glTF design]: <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#animations/>
+///
+/// [`Transform`]: bevy_transform::components::Transform
+/// [`MorphWeights`]: bevy_render::prelude::MorphWeights
 #[derive(Debug, Clone, Reflect)]
 pub enum VariableCurve {
     /// A [`TranslationCurve`] for animating the `translation` component of a [`Transform`].
+    ///
+    /// [`Transform`]: bevy_transform::components::Transform
     Translation(TranslationCurve),
 
     /// A [`RotationCurve`] for animating the `rotation` component of a [`Transform`].
+    ///
+    /// [`Transform`]: bevy_transform::components::Transform
     Rotation(RotationCurve),
 
     /// A [`ScaleCurve`] for animating the `scale` component of a [`Transform`].
+    ///
+    /// [`Transform`]: bevy_transform::components::Transform
     Scale(ScaleCurve),
 
     /// A [`WeightsCurve`] for animating [`MorphWeights`] of a mesh.
+    ///
+    /// [`MorphWeights`]: bevy_render::prelude::MorphWeights
     Weights(WeightsCurve),
 }
 
