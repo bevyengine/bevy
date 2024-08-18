@@ -1,6 +1,5 @@
 use std::{hash::Hash, marker::PhantomData, ops::Range};
 
-use crate::*;
 use bevy_asset::*;
 use bevy_ecs::{
     prelude::Component,
@@ -25,6 +24,8 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
+
+use crate::*;
 
 pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
 
