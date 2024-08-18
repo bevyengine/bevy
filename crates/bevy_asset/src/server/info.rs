@@ -5,6 +5,7 @@ use crate::{
     UntypedAssetId, UntypedHandle,
 };
 use bevy_ecs::world::World;
+use bevy_tasks::Task;
 use bevy_utils::tracing::warn;
 use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use crossbeam_channel::Sender;
@@ -76,6 +77,7 @@ pub(crate) struct AssetInfos {
     pub(crate) dependency_loaded_event_sender: TypeIdMap<fn(&mut World, UntypedAssetId)>,
     pub(crate) dependency_failed_event_sender:
         TypeIdMap<fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
+    pub(crate) pending_tasks: HashMap<UntypedAssetId, Task<()>>,
 }
 
 impl std::fmt::Debug for AssetInfos {
@@ -364,6 +366,7 @@ impl AssetInfos {
             &mut self.path_to_id,
             &mut self.loader_dependants,
             &mut self.living_labeled_assets,
+            &mut self.pending_tasks,
             self.watching_for_changes,
             id,
         )
@@ -648,6 +651,7 @@ impl AssetInfos {
         path_to_id: &mut HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
         loader_dependants: &mut HashMap<AssetPath<'static>, HashSet<AssetPath<'static>>>,
         living_labeled_assets: &mut HashMap<AssetPath<'static>, HashSet<Box<str>>>,
+        pending_tasks: &mut HashMap<UntypedAssetId, Task<()>>,
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {
@@ -661,6 +665,8 @@ impl AssetInfos {
             entry.get_mut().handle_drops_to_skip -= 1;
             return false;
         }
+
+        pending_tasks.remove(&id);
 
         let type_id = entry.key().type_id();
 
@@ -704,6 +710,7 @@ impl AssetInfos {
                         &mut self.path_to_id,
                         &mut self.loader_dependants,
                         &mut self.living_labeled_assets,
+                        &mut self.pending_tasks,
                         self.watching_for_changes,
                         id.untyped(provider.type_id),
                     );

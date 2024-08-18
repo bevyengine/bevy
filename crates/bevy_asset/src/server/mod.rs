@@ -368,7 +368,8 @@ impl AssetServer {
         guard: G,
     ) -> Handle<A> {
         let path = path.into().into_owned();
-        let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
+        let mut infos = self.data.infos.write();
+        let (handle, should_load) = infos.get_or_create_path_handle::<A>(
             path.clone(),
             HandleLoadingMode::Request,
             meta_transform,
@@ -377,14 +378,15 @@ impl AssetServer {
         if should_load {
             let owned_handle = Some(handle.clone().untyped());
             let server = self.clone();
-            IoTaskPool::get()
-                .spawn(async move {
+            infos.pending_tasks.insert(
+                handle.id().untyped(),
+                IoTaskPool::get().spawn(async move {
                     if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
                         error!("{}", err);
                     }
                     drop(guard);
-                })
-                .detach();
+                }),
+            );
         }
 
         handle
@@ -414,25 +416,24 @@ impl AssetServer {
                 CowArc::Owned(format!("{source}--{UNTYPED_SOURCE_SUFFIX}").into())
             }
         });
-        let (handle, should_load) = self
-            .data
-            .infos
-            .write()
-            .get_or_create_path_handle::<LoadedUntypedAsset>(
-                path.clone().with_source(untyped_source),
-                HandleLoadingMode::Request,
-                meta_transform,
-            );
+        let mut infos = self.data.infos.write();
+        let (handle, should_load) = infos.get_or_create_path_handle::<LoadedUntypedAsset>(
+            path.clone().with_source(untyped_source),
+            HandleLoadingMode::Request,
+            meta_transform,
+        );
         if !should_load {
             return handle;
         }
         let id = handle.id().untyped();
+        let owned_handle = Some(handle.clone().untyped());
 
         let server = self.clone();
-        IoTaskPool::get()
-            .spawn(async move {
+        infos.pending_tasks.insert(
+            id,
+            IoTaskPool::get().spawn(async move {
                 let path_clone = path.clone();
-                match server.load_untyped_async(path).await {
+                match server.load_internal(owned_handle, path, false, None).await {
                     Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                         id,
                         loaded_asset: LoadedAsset::new_with_dependencies(
@@ -450,8 +451,8 @@ impl AssetServer {
                         });
                     }
                 }
-            })
-            .detach();
+            }),
+        );
         handle
     }
 
@@ -488,7 +489,7 @@ impl AssetServer {
     /// avoid looking up `should_load` twice, but it means you _must_ be sure a load is necessary when calling this function with [`Some`].
     async fn load_internal<'a>(
         &self,
-        input_handle: Option<UntypedHandle>,
+        mut input_handle: Option<UntypedHandle>,
         path: AssetPath<'a>,
         force: bool,
         meta_transform: Option<MetaTransform>,
@@ -511,6 +512,13 @@ impl AssetServer {
                     });
                 }
             })?;
+
+        if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
+            (*meta_transform)(&mut *meta);
+        }
+        // downgrade the input handle so we don't keep the asset alive just because we're loading it
+        // note we can't just pass a weak handle in, as only strong handles contain the asset meta transform
+        input_handle = input_handle.map(|h| h.clone_weak());
 
         // This contains Some(UntypedHandle), if it was retrievable
         // If it is None, that is because it was _not_ retrievable, due to
@@ -579,10 +587,6 @@ impl AssetServer {
         } else {
             (handle.clone().unwrap(), path.clone())
         };
-
-        if let Some(meta_transform) = base_handle.meta_transform() {
-            (*meta_transform)(&mut *meta);
-        }
 
         match self
             .load_with_meta_loader_and_reader(&base_path, meta, &*loader, &mut *reader, true, false)
@@ -721,17 +725,16 @@ impl AssetServer {
         &self,
         future: impl Future<Output = Result<A, E>> + Send + 'static,
     ) -> Handle<A> {
-        let handle = self
-            .data
-            .infos
-            .write()
+        let mut infos = self.data.infos.write();
+        let handle = infos
             .create_loading_handle_untyped(std::any::TypeId::of::<A>(), std::any::type_name::<A>());
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();
 
-        IoTaskPool::get()
-            .spawn(async move {
+        infos.pending_tasks.insert(
+            id,
+            IoTaskPool::get().spawn(async move {
                 match future.await {
                     Ok(asset) => {
                         let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
@@ -753,8 +756,8 @@ impl AssetServer {
                             .unwrap();
                     }
                 }
-            })
-            .detach();
+            }),
+        );
 
         handle.typed_debug_checked()
     }
@@ -1305,6 +1308,10 @@ pub fn handle_internal_asset_events(world: &mut World) {
             info!("Reloading {path} because it has changed");
             server.reload(path);
         }
+
+        infos
+            .pending_tasks
+            .retain(|_, load_task| !load_task.is_finished());
     });
 }
 
