@@ -392,31 +392,33 @@ async fn load_gltf<'a, 'b, 'c>(
         }
     } else {
         #[cfg(not(target_arch = "wasm32"))]
-        let futures = gltf.textures().map(|gltf_texture| {
-            let parent_path = load_context.path().parent().unwrap();
-            let linear_textures = &linear_textures;
-            let buffer_data = &buffer_data;
-            load_image(
-                gltf_texture,
-                buffer_data,
-                linear_textures,
-                parent_path,
-                loader.supported_compressed_formats,
-                settings.load_materials,
-            )
-        });
-
-        join_all(futures)
-            .await
-            .into_iter()
-            .for_each(|result| match result {
-                Ok(image) => {
-                    process_loaded_texture(load_context, &mut _texture_handles, image);
-                }
-                Err(err) => {
-                    warn!("Error loading glTF texture: {}", err);
-                }
+        {
+            let futures = gltf.textures().map(|gltf_texture| {
+                let parent_path = load_context.path().parent().unwrap();
+                let linear_textures = &linear_textures;
+                let buffer_data = &buffer_data;
+                load_image(
+                    gltf_texture,
+                    buffer_data,
+                    linear_textures,
+                    parent_path,
+                    loader.supported_compressed_formats,
+                    settings.load_materials,
+                )
             });
+
+            join_all(futures)
+                .await
+                .into_iter()
+                .for_each(|result| match result {
+                    Ok(image) => {
+                        process_loaded_texture(load_context, &mut _texture_handles, image);
+                    }
+                    Err(err) => {
+                        warn!("Error loading glTF texture: {}", err);
+                    }
+                });
+        }
     }
 
     let mut materials = vec![];
