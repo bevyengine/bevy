@@ -1319,6 +1319,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
             server.reload(path);
         }
 
+        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
         infos
             .pending_tasks
             .retain(|_, load_task| !load_task.is_finished());
