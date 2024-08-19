@@ -96,6 +96,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
+    // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
@@ -195,7 +197,11 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         } else if attr.path().is_ident(REQUIRE) {
             let punctuated =
                 attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
-            attrs.requires = Some(punctuated);
+            if let Some(current) = &mut attrs.requires {
+                current.extend(punctuated);
+            } else {
+                attrs.requires = Some(punctuated);
+            }
         }
     }
 
