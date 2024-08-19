@@ -1061,7 +1061,7 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
-        self.start * (1.0 - t) + self.end * t
+        self.start.lerp(self.end, t)
     }
 }
 
@@ -1074,6 +1074,98 @@ where
     /// [unit interval]: `Interval::UNIT`
     pub fn new(start: T, end: T) -> Self {
         Self { start, end }
+    }
+}
+
+/// A [`Curve`] mapping the [unit interval] to itself.
+///
+/// This leads to a cruve with sudden jumps at the step points and segments with constant values
+/// everywhere else.
+///
+/// It uses the function `f(n,x) = round(x * n) / n`
+///
+/// parametrized by `n`, the number of jumps
+///
+/// - for `n == 0` this is equal to [`constant_curve(Interval::UNIT, 0.0)`]
+/// - for `n == 1` this makes a single jump at `t = 0.5`, splitting the interval evenly
+/// - for `n >= 2` the curve has a start segment and an end segment of length `1 / (2 * n)` and in
+///   between there are `n - 1` segments of length `1 / n`
+///
+/// [unit domain]: `Interval::UNIT`
+/// [`constant_curve(Interval::UNIT, 0.0)`]: `constant_curve`
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct StepCurve {
+    num_steps: usize,
+}
+
+impl Curve<f32> for StepCurve {
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> f32 {
+        if t != 0.0 || t != 1.0 {
+            (t * self.num_steps as f32).round() / self.num_steps.max(1) as f32
+        } else {
+            t
+        }
+    }
+}
+
+impl StepCurve {
+    /// Create a new [`StepCurve`] over the [unit interval] which makes the given amount of steps.
+    ///
+    /// [unit interval]: `Interval::UNIT`
+    pub fn new(num_steps: usize) -> Self {
+        Self { num_steps }
+    }
+}
+
+/// A [`Curve`] over the [unit interval].
+///
+/// This class of easing functions is derived as an approximation of a [spring-mass-system]
+/// solution.
+///
+/// - For `ω → 0` the curve converges to the [smoothstep function]
+/// - For `ω → ∞` the curve gets increasingly more bouncy
+///
+/// It uses the function `f(omega,x) = 1 - (1 - x)²(2sin(omega * x) / omega + cos(omega * x))`
+///
+/// parametrized by `omega`
+///
+/// [unit domain]: `Interval::UNIT`
+/// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
+/// [spring-mass-system]: https://notes.yvt.jp/Graphics/Easing-Functions/#elastic-easing
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct ElasticCurve {
+    omega: f32,
+}
+
+impl Curve<f32> for ElasticCurve {
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> f32 {
+        1.0 - (1.0 - t).squared()
+            * (2.0 * ops::sin(self.omega * t) / self.omega + ops::cos(self.omega * t))
+    }
+}
+
+impl ElasticCurve {
+    /// Create a new [`ElasticCurve`] over the [unit interval] with the given parameter `omega`.
+    ///
+    /// [unit interval]: `Interval::UNIT`
+    pub fn new(omega: f32) -> Self {
+        Self { omega }
     }
 }
 
@@ -1105,7 +1197,7 @@ where
 ///
 /// [unit domain]: `Interval::UNIT`
 /// [`x = 1`]: `quadratic_ease_out`
-pub fn quadratic_ease_in() -> impl Curve<f32> {
+pub fn quadratic_ease_in() -> FunctionCurve<f32, fn(f32) -> f32> {
     FunctionCurve {
         domain: Interval::UNIT,
         f: ops::FloatPow::squared,
@@ -1123,10 +1215,13 @@ pub fn quadratic_ease_in() -> impl Curve<f32> {
 ///
 /// [unit domain]: `Interval::UNIT`
 /// [`x = 0`]: `quadratic_ease_in`
-pub fn quadratic_ease_out() -> impl Curve<f32> {
+pub fn quadratic_ease_out() -> FunctionCurve<f32, fn(f32) -> f32> {
+    fn f(t: f32) -> f32 {
+        1.0 - (1.0 - t).squared()
+    }
     FunctionCurve {
         domain: Interval::UNIT,
-        f: |t: f32| 1.0 - (1.0 - t).squared(),
+        f,
         _phantom: PhantomData,
     }
 }
@@ -1143,65 +1238,13 @@ pub fn quadratic_ease_out() -> impl Curve<f32> {
 /// [unit domain]: `Interval::UNIT`
 /// [sigmoid function]: https://en.wikipedia.org/wiki/Sigmoid_function
 /// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
-pub fn cubic_curve() -> impl Curve<f32> {
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f: |t: f32| t.squared() * (3.0 - 2.0 * t),
-        _phantom: PhantomData,
+pub fn smoothstep() -> FunctionCurve<f32, fn(f32) -> f32> {
+    fn f(t: f32) -> f32 {
+        t.squared() * (3.0 - 2.0 * t)
     }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// This leads to a cruve with sudden jumps at the step points and segments with constant values
-/// everywhere else.
-///
-/// It uses the function `f(n,x) = round(x * n) / n`
-///
-/// parametrized by `n`, the number of jumps
-///
-/// - for `n == 0` this is equal to [`constant_curve(Interval::UNIT, 0.0)`]
-/// - for `n == 1` this makes a single jump at `t = 0.5`, splitting the interval evenly
-/// - for `n >= 2` the curve has a start segment and an end segment of length `1 / (2 * n)` and in
-///   between there are `n - 1` segments of length `1 / n`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [`constant_curve(Interval::UNIT, 0.0)`]: `constant_curve`
-pub fn step_curve(num_steps: usize) -> impl Curve<f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: move |t: f32| {
-            if t != 0.0 || t != 1.0 {
-                (t * num_steps as f32).round() / num_steps.max(1) as f32
-            } else {
-                t
-            }
-        },
-        _phantom: PhantomData,
-    }
-}
-
-/// A [`Curve`] over the [unit interval].
-///
-/// This class of easing functions is derived as an approximation of a [spring-mass-system]
-/// solution.
-///
-/// - For `ω → 0` the curve converges to the [smoothstep function]
-/// - For `ω → ∞` the curve gets increasingly more bouncy
-///
-/// It uses the function `f(omega,x) = 1 - (1 - x)²(2sin(omega * x) / omega + cos(omega * x))`
-///
-/// parametrized by `omega`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
-/// [spring-mass-system]: https://notes.yvt.jp/Graphics/Easing-Functions/#elastic-easing
-pub fn elastic_curve(omega: f32) -> impl Curve<f32> {
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f: move |t: f32| {
-            1.0 - (1.0 - t).squared() * (2.0 * ops::sin(omega * t) / omega + ops::cos(omega * t))
-        },
+        f,
         _phantom: PhantomData,
     }
 }
