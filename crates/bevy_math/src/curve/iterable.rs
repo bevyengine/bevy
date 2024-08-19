@@ -13,7 +13,7 @@ pub trait IterableCurve<T> {
     fn domain(&self) -> Interval;
 
     /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
-    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    fn sample_iter_unchecked<'a>(&self, t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a;
 }
@@ -26,7 +26,7 @@ where
         self.domain
     }
 
-    fn sample_iter<'a>(&self, _t: f32) -> impl Iterator<Item = T>
+    fn sample_iter_unchecked<'a>(&self, _t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a,
     {

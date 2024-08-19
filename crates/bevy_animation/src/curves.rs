@@ -296,7 +296,7 @@ where
     }
 
     #[inline]
-    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    fn sample_iter_unchecked<'a>(&self, t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a,
     {
@@ -348,7 +348,7 @@ where
     }
 
     #[inline]
-    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    fn sample_iter_unchecked<'a>(&self, t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a,
     {
@@ -402,7 +402,7 @@ where
     }
 
     #[inline]
-    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = T>
+    fn sample_iter_unchecked<'a>(&self, t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a,
     {
@@ -505,15 +505,15 @@ impl IterableCurve<f32> for WeightsCurve {
     }
 
     #[inline]
-    fn sample_iter<'a>(&self, t: f32) -> impl Iterator<Item = f32>
+    fn sample_iter_unchecked<'a>(&self, t: f32) -> impl Iterator<Item = f32>
     where
         Self: 'a,
     {
         match self {
-            WeightsCurve::Constant(c) => FourIterators::First(c.sample_iter(t)),
-            WeightsCurve::Linear(c) => FourIterators::Second(c.sample_iter(t)),
-            WeightsCurve::Step(c) => FourIterators::Third(c.sample_iter(t)),
-            WeightsCurve::CubicSpline(c) => FourIterators::Fourth(c.sample_iter(t)),
+            WeightsCurve::Constant(c) => FourIterators::First(c.sample_iter_unchecked(t)),
+            WeightsCurve::Linear(c) => FourIterators::Second(c.sample_iter_unchecked(t)),
+            WeightsCurve::Step(c) => FourIterators::Third(c.sample_iter_unchecked(t)),
+            WeightsCurve::CubicSpline(c) => FourIterators::Fourth(c.sample_iter_unchecked(t)),
         }
     }
 }

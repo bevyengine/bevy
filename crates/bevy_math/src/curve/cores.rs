@@ -681,3 +681,134 @@ pub fn uneven_interp(times: &[f32], t: f32) -> InterpolationDatum<usize> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ChunkedUnevenCore, EvenCore, UnevenCore};
+    use crate::curve::{cores::InterpolationDatum, interval};
+    use approx::{assert_abs_diff_eq, AbsDiffEq};
+
+    fn approx_between<T>(datum: InterpolationDatum<T>, start: T, end: T, p: f32) -> bool
+    where
+        T: PartialEq,
+    {
+        if let InterpolationDatum::Between(m_start, m_end, m_p) = datum {
+            m_start == start && m_end == end && m_p.abs_diff_eq(&p, 1e-6)
+        } else {
+            false
+        }
+    }
+
+    fn is_left_tail<T>(datum: InterpolationDatum<T>) -> bool {
+        matches!(datum, InterpolationDatum::LeftTail(_))
+    }
+
+    fn is_right_tail<T>(datum: InterpolationDatum<T>) -> bool {
+        matches!(datum, InterpolationDatum::RightTail(_))
+    }
+
+    fn is_exact<T>(datum: InterpolationDatum<T>, target: T) -> bool
+    where
+        T: PartialEq,
+    {
+        if let InterpolationDatum::Exact(v) = datum {
+            v == target
+        } else {
+            false
+        }
+    }
+
+    #[test]
+    fn even_sample_interp() {
+        let even_core = EvenCore::<f32>::new(
+            interval(0.0, 1.0).unwrap(),
+            // 11 entries -> 10 segments
+            vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+        )
+        .expect("Failed to construct test core");
+
+        let datum = even_core.sample_interp(-1.0);
+        assert!(is_left_tail(datum));
+        let datum = even_core.sample_interp(0.0);
+        assert!(is_left_tail(datum));
+        let datum = even_core.sample_interp(1.0);
+        assert!(is_right_tail(datum));
+        let datum = even_core.sample_interp(2.0);
+        assert!(is_right_tail(datum));
+
+        let datum = even_core.sample_interp(0.05);
+        let InterpolationDatum::Between(0.0, 1.0, p) = datum else {
+            panic!("Sample did not lie in the correct subinterval")
+        };
+        assert_abs_diff_eq!(p, 0.5);
+
+        let datum = even_core.sample_interp(0.05);
+        assert!(approx_between(datum, &0.0, &1.0, 0.5));
+        let datum = even_core.sample_interp(0.33);
+        assert!(approx_between(datum, &3.0, &4.0, 0.3));
+        let datum = even_core.sample_interp(0.78);
+        assert!(approx_between(datum, &7.0, &8.0, 0.8));
+
+        let datum = even_core.sample_interp(0.5);
+        assert!(approx_between(datum, &4.0, &5.0, 1.0) || approx_between(datum, &5.0, &6.0, 0.0));
+        let datum = even_core.sample_interp(0.7);
+        assert!(approx_between(datum, &6.0, &7.0, 1.0) || approx_between(datum, &7.0, &8.0, 0.0));
+    }
+
+    #[test]
+    fn uneven_sample_interp() {
+        let uneven_core = UnevenCore::<f32>::new(vec![
+            (0.0, 0.0),
+            (1.0, 3.0),
+            (2.0, 9.0),
+            (4.0, 10.0),
+            (8.0, -5.0),
+        ])
+        .expect("Failed to construct test core");
+
+        let datum = uneven_core.sample_interp(-1.0);
+        assert!(is_left_tail(datum));
+        let datum = uneven_core.sample_interp(0.0);
+        assert!(is_exact(datum, &0.0));
+        let datum = uneven_core.sample_interp(8.0);
+        assert!(is_exact(datum, &(-5.0)));
+        let datum = uneven_core.sample_interp(9.0);
+        assert!(is_right_tail(datum));
+
+        let datum = uneven_core.sample_interp(0.5);
+        assert!(approx_between(datum, &0.0, &3.0, 0.5));
+        let datum = uneven_core.sample_interp(2.5);
+        assert!(approx_between(datum, &9.0, &10.0, 0.25));
+        let datum = uneven_core.sample_interp(7.0);
+        assert!(approx_between(datum, &10.0, &(-5.0), 0.75));
+
+        let datum = uneven_core.sample_interp(2.0);
+        assert!(is_exact(datum, &9.0));
+        let datum = uneven_core.sample_interp(4.0);
+        assert!(is_exact(datum, &10.0));
+    }
+
+    #[test]
+    fn chunked_uneven_sample_interp() {
+        let core =
+            ChunkedUnevenCore::new(vec![0.0, 2.0, 8.0], vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0], 2)
+                .expect("Failed to construct test core");
+
+        let datum = core.sample_interp(-1.0);
+        assert!(is_left_tail(datum));
+        let datum = core.sample_interp(0.0);
+        assert!(is_exact(datum, &[0.0, 1.0]));
+        let datum = core.sample_interp(8.0);
+        assert!(is_exact(datum, &[4.0, 5.0]));
+        let datum = core.sample_interp(10.0);
+        assert!(is_right_tail(datum));
+
+        let datum = core.sample_interp(1.0);
+        assert!(approx_between(datum, &[0.0, 1.0], &[2.0, 3.0], 0.5));
+        let datum = core.sample_interp(3.0);
+        assert!(approx_between(datum, &[2.0, 3.0], &[4.0, 5.0], 1.0 / 6.0));
+
+        let datum = core.sample_interp(2.0);
+        assert!(is_exact(datum, &[2.0, 3.0]));
+    }
+}
