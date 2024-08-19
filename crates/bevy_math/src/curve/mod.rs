@@ -1060,7 +1060,7 @@ where
 pub struct ContinuousChainCurve<T, C, D> {
     first: C,
     second: D,
-    // cache the offset in the curve directly to prevent tripple sampling for every sample we make
+    // cache the offset in the curve directly to prevent triple sampling for every sample we make
     offset: T,
     _phantom: PhantomData<T>,
 }
