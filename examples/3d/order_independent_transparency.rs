@@ -104,14 +104,11 @@ fn cycle_scenes(
             commands.entity(e).despawn_recursive();
         }
         // increment scene_id
-        *scene_id += 1;
-        if *scene_id >= 2 {
-            *scene_id = 0;
-        }
+        *scene_id = (*scene_id + 1) % 2;
         // spawn next scene
         match *scene_id {
-            0 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
-            1 => spawn_spheres(&mut commands, &mut meshes, &mut materials),
+            0 => spawn_spheres(&mut commands, &mut meshes, &mut materials),
+            1 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
             _ => unreachable!(),
         }
     }
