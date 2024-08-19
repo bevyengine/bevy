@@ -787,6 +787,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "spectral_lighting"
+path = "examples/3d/spectral_lighting.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.spectral_lighting]
+name = "Spectral Lighting"
+description = "Showcases support for spectral color (monochromatic) lights in a 3D scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "spotlight"
 path = "examples/3d/spotlight.rs"
 doc-scrape-examples = true
