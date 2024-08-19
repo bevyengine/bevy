@@ -79,14 +79,24 @@ fn setup(
         ..default()
     });
     // rainbow cubes
-    for i in 0..18 {
-        // cube
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-            material: materials.add(Color::hsla(i as f32 * 15.0, 1.0, 0.5, 1.0)),
-            transform: Transform::from_xyz(-4.0 + i as f32 * 0.5, 2.0, 0.0),
-            ..default()
-        });
+    for j in 0..=5 {
+        for i in 0..=17 {
+            // cube
+            commands.spawn(PbrBundle {
+                mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
+                material: materials.add(StandardMaterial {
+                    base_color: if j == 5 {
+                        Color::hsva(0.0, 0.0, i as f32 / 17.0, 1.0)
+                    } else {
+                        Color::hsva(i as f32 * 15.0, j as f32 / 4.0, 1.0, 1.0)
+                    },
+                    perceptual_roughness: 1.0,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(-4.0 + i as f32 * 0.5, 2.5 + j as f32 * 0.5, 0.0),
+                ..default()
+            });
+        }
     }
     // monochromatic light
     commands.spawn((
@@ -108,11 +118,11 @@ fn setup(
         PointLightBundle {
             point_light: PointLight {
                 shadows_enabled: true,
-                intensity: 100000.0,
+                intensity: 1000000.0,
                 // intensity: 0.0,
                 ..default()
             },
-            transform: Transform::from_xyz(-5.0, 0.5, 0.0),
+            transform: Transform::from_xyz(-5.0, 2.5, 0.0),
             ..default()
         },
         Monochromatic,
@@ -120,7 +130,8 @@ fn setup(
     // camera
     commands.spawn(Camera3dBundle {
         camera: Camera { ..default() },
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(-3.5, 7.0, 12.0)
+            .looking_at(Vec3::new(0.0, 2.5, 0.), Vec3::Y),
         ..default()
     });
     // UI
@@ -188,9 +199,9 @@ fn update(
     indicator.left = Val::Px(356. * (config.spectral_color.wavelength - 380.) / (750. - 380.));
 
     polychormatic_light.translation = Vec3::new(
+        -5.0 * time.elapsed_seconds().cos(),
+        2.5,
         5.0 * time.elapsed_seconds().sin(),
-        0.5,
-        5.0 * time.elapsed_seconds().cos(),
     );
 
     if keyboard.pressed(KeyCode::ArrowRight) {
