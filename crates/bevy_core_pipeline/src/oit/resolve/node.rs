@@ -9,12 +9,13 @@ use bevy_render::{
 
 use super::{OitResolveBindGroup, OitResolvePipeline, OitResolvePipelineId};
 
+/// Render label for the OIT resolve pass
 #[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct OitResolvePass;
 
+/// The node that executes the OIT resolve pass
 #[derive(Default)]
 pub struct OitResolveNode;
-
 impl ViewNode for OitResolveNode {
     type ViewQuery = (
         &'static ExtractedCamera,

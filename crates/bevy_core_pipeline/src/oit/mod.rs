@@ -22,10 +22,14 @@ use crate::core_3d::{
     Camera3d,
 };
 
+/// Module that defines the necesasry systems to resolve the OIT buffer and render it to the screen
 pub mod resolve;
 
+/// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer
 pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4042527984320512);
 
+/// Used to identify which camera will use OIT to render transparent meshes
+/// Alos used to configure OIT
 // TODO consider supporting multiple OIT techniques like WBOIT, Moment Based OIT,
 // depth peeling, stochastic transparency, ray tracing etc.
 // This should probably be done by adding an enum to this component
@@ -41,6 +45,7 @@ impl Default for OrderIndependentTransparencySettings {
     }
 }
 
+/// Plugin needed to enable Order Independent Transparency
 pub struct OrderIndependentTransparencyPlugin;
 impl Plugin for OrderIndependentTransparencyPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -103,9 +108,16 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
     }
 }
 
+/// Holds the buffers that contain the data of all OIT layers
+/// We use one big buffer for the entire app. Each camaera will reuse it so it will
+/// always be the size of the biggest OIT enabled camera.
 #[derive(Resource)]
 pub struct OitBuffers {
+    /// The OIT layers containing depth and color for each fragments
+    /// This is essentially used as a 3d array where xy is the screen coordinate and z is
+    /// the list of fragments rendered with OIT
     pub layers: BufferVec<UVec2>,
+    /// Buffer containing the index of the last layer that was written for each fragment
     pub layer_ids: BufferVec<i32>,
 }
 
@@ -144,6 +156,7 @@ pub fn prepare_oit_buffers(
     >,
     mut buffers: ResMut<OitBuffers>,
 ) {
+    // Get the max buffer size for any OIT enabled camera
     let mut max_layer_ids_size = usize::MIN;
     let mut max_layers_size = usize::MIN;
     for (camera, settings) in &cameras {
@@ -157,6 +170,7 @@ pub fn prepare_oit_buffers(
         max_layers_size = max_layers_size.max(size * layer_count);
     }
 
+    // Create or update the layers buffer based on the max size
     if buffers.layers.capacity() < max_layers_size {
         let start = Instant::now();
         buffers.layers.reserve(max_layers_size, &device);
@@ -172,6 +186,7 @@ pub fn prepare_oit_buffers(
         );
     }
 
+    // Create or update the layer_ids buffer based on the max size
     if buffers.layer_ids.capacity() < max_layer_ids_size {
         let start = Instant::now();
         buffers.layer_ids.reserve(max_layer_ids_size, &device);

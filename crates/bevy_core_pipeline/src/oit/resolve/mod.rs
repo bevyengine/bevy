@@ -24,10 +24,13 @@ use crate::{
 
 use super::OitBuffers;
 
+/// Shader handle for the shader that sorts the OIT layers, blends the colors based on depth and renders them to the screen
 pub const OIT_RESOLVE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7698420424769536);
 
+/// Contains the render node used to run the resolve pass
 pub mod node;
 
+/// Plugin needed to resolve the OIT buffer to the screen
 pub struct OitResolvePlugin;
 impl Plugin for OitResolvePlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -60,12 +63,16 @@ impl Plugin for OitResolvePlugin {
     }
 }
 
+/// Bind group for the OIT resolve pass
 #[derive(Resource, Deref)]
 pub struct OitResolveBindGroup(pub BindGroup);
 
+/// Bind group layouts used for the OIT resolve pass
 #[derive(Resource)]
 pub struct OitResolvePipeline {
+    /// View bind group layout
     pub view_bind_group_layout: BindGroupLayout,
+    /// Depth bind group layout
     pub oit_depth_bind_group_layout: BindGroupLayout,
 }
 
