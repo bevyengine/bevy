@@ -166,9 +166,7 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
-                (update_target_camera_system, apply_deferred)
-                    .chain()
-                    .in_set(UiSystem::Prepare),
+                update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),

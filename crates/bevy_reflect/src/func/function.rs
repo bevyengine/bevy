@@ -4,7 +4,10 @@ use std::sync::Arc;
 
 use crate::func::args::{ArgInfo, ArgList};
 use crate::func::info::FunctionInfo;
-use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
+use crate::func::{
+    DynamicClosure, DynamicClosureMut, FunctionResult, IntoClosure, IntoClosureMut, IntoFunction,
+    ReturnInfo,
+};
 
 /// A dynamic representation of a Rust function.
 ///
@@ -88,11 +91,10 @@ use crate::func::{FunctionResult, IntoFunction, ReturnInfo};
 /// assert_eq!(list, vec!["Hello, World!!!"]);
 /// ```
 ///
-/// [`DynamicClosure`]: crate::func::DynamicClosure
 /// [module-level documentation]: crate::func
 pub struct DynamicFunction {
-    info: FunctionInfo,
-    func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'static>,
+    pub(super) info: FunctionInfo,
+    pub(super) func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'static>,
 }
 
 impl DynamicFunction {
@@ -218,6 +220,20 @@ impl IntoFunction<()> for DynamicFunction {
     #[inline]
     fn into_function(self) -> DynamicFunction {
         self
+    }
+}
+
+impl IntoClosure<'_, ()> for DynamicFunction {
+    #[inline]
+    fn into_closure(self) -> DynamicClosure<'static> {
+        DynamicClosure::from(self)
+    }
+}
+
+impl IntoClosureMut<'_, ()> for DynamicFunction {
+    #[inline]
+    fn into_closure_mut(self) -> DynamicClosureMut<'static> {
+        DynamicClosureMut::from(self)
     }
 }
 

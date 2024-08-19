@@ -50,6 +50,78 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
+    /// Creates a new separate iterator yielding the same remaining items of the current one.
+    /// Advancing the new iterator will not advance the original one, which will resume at the
+    /// point it was left at.
+    ///
+    /// Differently from [`remaining_mut`](QueryIter::remaining_mut) the new iterator does not
+    /// borrow from the original one. However it can only be called from an iterator over read only
+    /// items.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn combinations(query: Query<&ComponentA>) {
+    ///     let mut iter = query.iter();
+    ///     while let Some(a) = iter.next() {
+    ///         for b in iter.remaining() {
+    ///             // Check every combination (a, b)
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn remaining(&self) -> QueryIter<'w, 's, D, F>
+    where
+        D: ReadOnlyQueryData,
+    {
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            query_state: self.query_state,
+            cursor: self.cursor.clone(),
+        }
+    }
+
+    /// Creates a new separate iterator yielding the same remaining items of the current one.
+    /// Advancing the new iterator will not advance the original one, which will resume at the
+    /// point it was left at.
+    ///
+    /// This method can be called on iterators over mutable items. However the original iterator
+    /// will be borrowed while the new iterator exists and will thus not be usable in that timespan.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn combinations(mut query: Query<&mut ComponentA>) {
+    ///     let mut iter = query.iter_mut();
+    ///     while let Some(a) = iter.next() {
+    ///         for b in iter.remaining_mut() {
+    ///             // Check every combination (a, b)
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn remaining_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            query_state: self.query_state,
+            cursor: self.cursor.reborrow(),
+        }
+    }
+
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
     /// from an table.
     ///
@@ -1662,6 +1734,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             storage_id_iter: query_state.matched_storage_ids.iter(),
             current_len: 0,
             current_row: 0,
+        }
+    }
+
+    fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
+        QueryIterationCursor {
+            fetch: D::shrink_fetch(self.fetch.clone()),
+            filter: F::shrink_fetch(self.filter.clone()),
+            table_entities: self.table_entities,
+            archetype_entities: self.archetype_entities,
+            storage_id_iter: self.storage_id_iter.clone(),
+            current_len: self.current_len,
+            current_row: self.current_row,
         }
     }
 

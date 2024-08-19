@@ -605,16 +605,16 @@ impl App {
 
     /// Registers the given function into the [`AppFunctionRegistry`] resource.
     ///
-    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// The given function will internally be stored as a [`DynamicClosure`]
     /// and mapped according to its [name].
     ///
     /// Because the function must have a name,
-    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) must instead
-    /// be registered using [`register_function_with_name`] or converted to a [`DynamicFunction`]
-    /// and named using [`DynamicFunction::with_name`].
-    /// Failure to do so will result in an error being returned.
+    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
+    /// be registered using [`register_function_with_name`] or converted to a [`DynamicClosure`]
+    /// and named using [`DynamicClosure::with_name`].
+    /// Failure to do so will result in a panic.
     ///
-    /// Only functions that implement [`IntoFunction`] may be registered via this method.
+    /// Only types that implement [`IntoClosure`] may be registered via this method.
     ///
     /// See [`FunctionRegistry::register`] for more information.
     ///
@@ -650,7 +650,7 @@ impl App {
     ///     .register_function(add);
     /// ```
     ///
-    /// Anonymous functions should be registered using [`register_function_with_name`] or given a name using [`DynamicFunction::with_name`].
+    /// Anonymous functions and closures should be registered using [`register_function_with_name`] or given a name using [`DynamicClosure::with_name`].
     ///
     /// ```should_panic
     /// use bevy_app::App;
@@ -660,21 +660,21 @@ impl App {
     /// ```
     ///
     /// [`register_function_with_name`]: Self::register_function_with_name
-    /// [`DynamicFunction`]: bevy_reflect::func::DynamicFunction
+    /// [`DynamicClosure`]: bevy_reflect::func::DynamicClosure
     /// [name]: bevy_reflect::func::FunctionInfo::name
-    /// [`DynamicFunction::with_name`]: bevy_reflect::func::DynamicFunction::with_name
-    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
+    /// [`DynamicClosure::with_name`]: bevy_reflect::func::DynamicClosure::with_name
+    /// [`IntoClosure`]: bevy_reflect::func::IntoClosure
     /// [`FunctionRegistry::register`]: bevy_reflect::func::FunctionRegistry::register
     #[cfg(feature = "reflect_functions")]
     pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
     where
-        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+        F: bevy_reflect::func::IntoClosure<'static, Marker> + 'static,
     {
         self.main_mut().register_function(function);
         self
     }
 
-    /// Registers the given function into the [`AppFunctionRegistry`] resource using the given name.
+    /// Registers the given function or closure into the [`AppFunctionRegistry`] resource using the given name.
     ///
     /// To avoid conflicts, it's recommended to use a unique name for the function.
     /// This can be achieved by "namespacing" the function with a unique identifier,
@@ -689,7 +689,7 @@ impl App {
     /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
     /// it's recommended to use [`register_function`] instead as the generated name is guaranteed to be unique.
     ///
-    /// Only functions that implement [`IntoFunction`] may be registered via this method.
+    /// Only types that implement [`IntoClosure`] may be registered via this method.
     ///
     /// See [`FunctionRegistry::register_with_name`] for more information.
     ///
@@ -718,7 +718,7 @@ impl App {
     ///     // Registering an existing function with a custom name
     ///     .register_function_with_name("my_crate::mul", mul)
     ///     // Be careful not to register anonymous functions with their type name.
-    ///     // This code works but registers the function with the non-unique name of `fn(i32, i32) -> i32`
+    ///     // This code works but registers the function with a non-unique name like `foo::bar::{{closure}}`
     ///     .register_function_with_name(std::any::type_name_of_val(&div), div);
     /// ```
     ///
@@ -738,7 +738,7 @@ impl App {
     ///
     /// [type name]: std::any::type_name
     /// [`register_function`]: Self::register_function
-    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
+    /// [`IntoClosure`]: bevy_reflect::func::IntoClosure
     /// [`FunctionRegistry::register_with_name`]: bevy_reflect::func::FunctionRegistry::register_with_name
     #[cfg(feature = "reflect_functions")]
     pub fn register_function_with_name<F, Marker>(
@@ -747,7 +747,7 @@ impl App {
         function: F,
     ) -> &mut Self
     where
-        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+        F: bevy_reflect::func::IntoClosure<'static, Marker> + 'static,
     {
         self.main_mut().register_function_with_name(name, function);
         self
