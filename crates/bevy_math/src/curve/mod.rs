@@ -3,15 +3,14 @@
 //! curves that are interpolated from samples.
 
 pub mod cores;
+pub mod easing;
 pub mod interval;
 
-use glam::Vec2;
 pub use interval::{interval, Interval};
 use itertools::Itertools;
 
 use crate::{
     ops::{self, FloatPow},
-    prelude::CubicSegment,
     StableInterpolate, VectorSpace,
 };
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
@@ -1002,44 +1001,13 @@ impl<T> UnevenSampleAutoCurve<T> {
     }
 }
 
-/// A [`Curve`] that is defined by a [`CubicSegment`] over the [unit interval].
-///
-/// [unit interval]: `Interval::UNIT`
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct CubicBezierCurve {
-    bezier_segment: CubicSegment<Vec2>,
-}
-
-impl Curve<f32> for CubicBezierCurve {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> f32 {
-        self.bezier_segment.ease(t)
-    }
-}
-
-impl CubicBezierCurve {
-    /// Create a new [`CubicBezierCurve`] over the [unit interval] from a [`CubicSegment`].
-    ///
-    /// [unit interval]: `Interval::UNIT`
-    pub fn new(bezier_segment: CubicSegment<Vec2>) -> Self {
-        Self { bezier_segment }
-    }
-}
-
 /// A [`Curve`] that is defined by a `start` and an `end` point, together with linear interpolation
 /// between the values over the [unit interval].
 ///
 /// [unit interval]: `Interval::UNIT`
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct LinearCurve<T: VectorSpace> {
     start: T,
     end: T,
@@ -1069,98 +1037,6 @@ where
     /// [unit interval]: `Interval::UNIT`
     pub fn new(start: T, end: T) -> Self {
         Self { start, end }
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// This leads to a cruve with sudden jumps at the step points and segments with constant values
-/// everywhere else.
-///
-/// It uses the function `f(n,x) = round(x * n) / n`
-///
-/// parametrized by `n`, the number of jumps
-///
-/// - for `n == 0` this is equal to [`constant_curve(Interval::UNIT, 0.0)`]
-/// - for `n == 1` this makes a single jump at `t = 0.5`, splitting the interval evenly
-/// - for `n >= 2` the curve has a start segment and an end segment of length `1 / (2 * n)` and in
-///   between there are `n - 1` segments of length `1 / n`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [`constant_curve(Interval::UNIT, 0.0)`]: `constant_curve`
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct StepCurve {
-    num_steps: usize,
-}
-
-impl Curve<f32> for StepCurve {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> f32 {
-        if t != 0.0 || t != 1.0 {
-            (t * self.num_steps as f32).round() / self.num_steps.max(1) as f32
-        } else {
-            t
-        }
-    }
-}
-
-impl StepCurve {
-    /// Create a new [`StepCurve`] over the [unit interval] which makes the given amount of steps.
-    ///
-    /// [unit interval]: `Interval::UNIT`
-    pub fn new(num_steps: usize) -> Self {
-        Self { num_steps }
-    }
-}
-
-/// A [`Curve`] over the [unit interval].
-///
-/// This class of easing functions is derived as an approximation of a [spring-mass-system]
-/// solution.
-///
-/// - For `ω → 0` the curve converges to the [smoothstep function]
-/// - For `ω → ∞` the curve gets increasingly more bouncy
-///
-/// It uses the function `f(omega,x) = 1 - (1 - x)²(2sin(omega * x) / omega + cos(omega * x))`
-///
-/// parametrized by `omega`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
-/// [spring-mass-system]: https://notes.yvt.jp/Graphics/Easing-Functions/#elastic-easing
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ElasticCurve {
-    omega: f32,
-}
-
-impl Curve<f32> for ElasticCurve {
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> f32 {
-        1.0 - (1.0 - t).squared()
-            * (2.0 * ops::sin(self.omega * t) / self.omega + ops::cos(self.omega * t))
-    }
-}
-
-impl ElasticCurve {
-    /// Create a new [`ElasticCurve`] over the [unit interval] with the given parameter `omega`.
-    ///
-    /// [unit interval]: `Interval::UNIT`
-    pub fn new(omega: f32) -> Self {
-        Self { omega }
     }
 }
 
@@ -1256,6 +1132,7 @@ pub fn easing_curve<T: VectorSpace>(
 
 #[cfg(test)]
 mod tests {
+    use super::easing::*;
     use super::*;
     use crate::{ops, Quat};
     use approx::{assert_abs_diff_eq, AbsDiffEq};
