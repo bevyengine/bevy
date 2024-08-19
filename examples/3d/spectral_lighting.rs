@@ -35,10 +35,10 @@ struct Config {
 }
 
 #[derive(Component)]
-struct Monochromatic;
+struct Polychromatic;
 
 #[derive(Component)]
-struct Polychromatic;
+struct Monochromatic;
 
 #[derive(Component)]
 struct Indicator;
@@ -111,7 +111,7 @@ fn setup(
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
             ..default()
         },
-        Polychromatic,
+        Monochromatic,
     ));
     // polychromatic light
     commands.spawn((
@@ -125,7 +125,7 @@ fn setup(
             transform: Transform::from_xyz(-5.0, 2.5, 0.0),
             ..default()
         },
-        Monochromatic,
+        Polychromatic,
     ));
     // camera
     commands.spawn(Camera3dBundle {
@@ -179,9 +179,9 @@ fn setup(
 
 fn update(
     mut text: Query<&mut Text>,
-    mut polychromatic_light: Query<&mut Transform, With<Monochromatic>>,
+    mut polychromatic_light: Query<&mut Transform, With<Polychromatic>>,
     mut indicator: Query<&mut Style, With<Indicator>>,
-    mut monochromatic_light: Query<&mut PointLight, With<Polychromatic>>,
+    mut monochromatic_light: Query<&mut PointLight, With<Monochromatic>>,
     mut config: ResMut<Config>,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
