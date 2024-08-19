@@ -12,10 +12,33 @@ pub trait IterableCurve<T> {
     /// The interval over which this curve is parametrized.
     fn domain(&self) -> Interval;
 
-    /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
+    /// Sample a point on this curve at the parameter value `t`, producing an iterator over values.
+    /// This is the unchecked version of sampling, which should only be used if the sample time `t`
+    /// is already known to lie within the curve's domain.
+    ///
+    /// Values sampled from outside of a curve's domain are generally considered invalid; data which
+    /// is nonsensical or otherwise useless may be returned in such a circumstance, and extrapolation
+    /// beyond a curve's domain should not be relied upon.
     fn sample_iter_unchecked<'a>(&self, t: f32) -> impl Iterator<Item = T>
     where
         Self: 'a;
+
+    /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
+    /// The parameter `t` is clamped to the domain of the curve.
+    fn sample_iter_clamped<'a>(self: &'a Self, t: f32) -> impl Iterator<Item = T> {
+        let t_clamped = self.domain().clamp(t);
+        self.sample_iter_unchecked(t_clamped)
+    }
+
+    /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
+    /// If the parameter `t` does not lie in the curve's domain, `None` is returned.
+    fn sample_iter<'a>(self: &'a Self, t: f32) -> Option<impl Iterator<Item = T>> {
+        if self.domain().contains(t) {
+            Some(self.sample_iter_unchecked(t))
+        } else {
+            None
+        }
+    }
 }
 
 impl<T> IterableCurve<T> for ConstantCurve<Vec<T>>
