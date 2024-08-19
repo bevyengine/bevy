@@ -74,6 +74,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// # Safety
 ///
 /// The [`WorldQuery`] implementation must not take any mutable access.
+/// This is the same safety requirement as [`ReadOnlyQueryData`](crate::query::ReadOnlyQueryData).
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid `Query` filter",
     label = "invalid `Query` filter",
