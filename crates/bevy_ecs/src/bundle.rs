@@ -2,8 +2,6 @@
 //!
 //! This module contains the [`Bundle`] trait and some other helper types.
 
-use std::any::TypeId;
-
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
@@ -12,8 +10,8 @@ use crate::{
         SpawnBundleStatus,
     },
     component::{
-        Component, ComponentId, Components, RequiredComponent, RequiredComponents, StorageType,
-        Tick,
+        Component, ComponentId, Components, RequiredComponent, RequiredComponentConstructor,
+        RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -22,12 +20,11 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };
-
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
 use std::panic::Location;
-use std::ptr::NonNull;
+use std::{any::TypeId, ptr::NonNull};
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -442,12 +439,12 @@ impl BundleInfo {
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
     #[allow(clippy::too_many_arguments)]
-    unsafe fn write_components<T: DynamicBundle, S: BundleComponentStatus>(
+    unsafe fn write_components<'a, T: DynamicBundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
         bundle_component_status: &S,
-        required_components: &[RequiredComponent],
+        required_components: impl Iterator<Item = &'a RequiredComponentConstructor>,
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
@@ -620,7 +617,7 @@ impl BundleInfo {
 
         for required_component in self.required_components.iter() {
             if !current_archetype.contains(required_component.component_id) {
-                added_required_components.push(required_component.clone());
+                added_required_components.push(required_component.constructor.clone());
                 // SAFETY: component_id exists
                 let component_info =
                     unsafe { components.get_info_unchecked(required_component.component_id) };
@@ -874,7 +871,7 @@ impl<'w> BundleInserter<'w> {
                     table,
                     sparse_sets,
                     add_bundle,
-                    &add_bundle.required_components,
+                    add_bundle.required_components.iter(),
                     entity,
                     location.table_row,
                     self.change_tick,
@@ -916,7 +913,7 @@ impl<'w> BundleInserter<'w> {
                     table,
                     sparse_sets,
                     add_bundle,
-                    &add_bundle.required_components,
+                    add_bundle.required_components.iter(),
                     entity,
                     result.table_row,
                     self.change_tick,
@@ -999,7 +996,7 @@ impl<'w> BundleInserter<'w> {
                     new_table,
                     sparse_sets,
                     add_bundle,
-                    &add_bundle.required_components,
+                    add_bundle.required_components.iter(),
                     entity,
                     move_result.new_row,
                     self.change_tick,
@@ -1147,7 +1144,10 @@ impl<'w> BundleSpawner<'w> {
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
-                &bundle_info.required_components,
+                bundle_info
+                    .required_components
+                    .iter()
+                    .map(|r| &r.constructor),
                 entity,
                 table_row,
                 self.change_tick,

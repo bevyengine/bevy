@@ -21,7 +21,7 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, Components, RequiredComponent, StorageType},
+    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
@@ -126,7 +126,7 @@ pub(crate) struct AddBundle {
     /// The set of additional required components that must be initialized immediately when adding this Bundle.
     ///
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
-    pub required_components: Vec<RequiredComponent>,
+    pub required_components: Vec<RequiredComponentConstructor>,
     pub added: Vec<ComponentId>,
     pub existing: Vec<ComponentId>,
 }
@@ -212,7 +212,7 @@ impl Edges {
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
         bundle_status: Vec<ComponentStatus>,
-        required_components: Vec<RequiredComponent>,
+        required_components: Vec<RequiredComponentConstructor>,
         added: Vec<ComponentId>,
         existing: Vec<ComponentId>,
     ) {

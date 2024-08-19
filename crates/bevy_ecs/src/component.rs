@@ -1230,32 +1230,22 @@ impl<T: Component> FromWorld for InitComponentId<T> {
         }
     }
 }
+
+/// A Required Component constructor. See [`Component`] for details.
 #[cfg(feature = "track_change_detection")]
-type RequiredComponentConstructor =
-    dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, &'static Location<'static>);
-#[cfg(not(feature = "track_change_detection"))]
-type RequiredComponentConstructor = dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity);
-
-/// A component that another component must when it is inserted. This contains a context-less constructor that
-/// can be called to construct a new instance of a component.
 #[derive(Clone)]
-pub(crate) struct RequiredComponent {
-    pub(crate) component_id: ComponentId,
-    /// # Safety
-    /// Calling this constructor is unsafe. It should only be called in the context of [`BundleInfo::write_components`], where the
-    /// inputs are already validated. This _should not_ have its module visibility increased.
-    constructor: Arc<RequiredComponentConstructor>,
-}
+pub struct RequiredComponentConstructor(
+    pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, &'static Location<'static>)>,
+);
 
-impl Debug for RequiredComponent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RequiredComponent")
-            .field("component_id", &self.component_id)
-            .finish()
-    }
-}
+/// A Required Component constructor. See [`Component`] for details.
+#[cfg(not(feature = "track_change_detection"))]
+#[derive(Clone)]
+pub struct RequiredComponentConstructor(
+    pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity)>,
+);
 
-impl RequiredComponent {
+impl RequiredComponentConstructor {
     /// # Safety
     /// This is intended to only be called in the context of [`BundleInfo::write_components`] to initialized required components.
     /// Calling it _anywhere else_ should be considered unsafe.
@@ -1274,7 +1264,7 @@ impl RequiredComponent {
         entity: Entity,
         #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) {
-        (self.constructor)(
+        (self.0)(
             table,
             sparse_sets,
             change_tick,
@@ -1283,6 +1273,25 @@ impl RequiredComponent {
             #[cfg(feature = "track_change_detection")]
             caller,
         );
+    }
+}
+
+/// A component that another component must when it is inserted. This contains a context-less constructor that
+/// can be called to construct a new instance of a component.
+#[derive(Clone)]
+pub(crate) struct RequiredComponent {
+    pub(crate) component_id: ComponentId,
+    /// # Safety
+    /// Calling this constructor is unsafe. It should only be called in the context of [`BundleInfo::write_components`], where the
+    /// inputs are already validated. This _should not_ have its module visibility increased.
+    pub(crate) constructor: RequiredComponentConstructor,
+}
+
+impl Debug for RequiredComponent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RequiredComponent")
+            .field("component_id", &self.component_id)
+            .finish()
     }
 }
 
@@ -1305,7 +1314,7 @@ impl RequiredComponents {
     pub unsafe fn register_dynamic(
         &mut self,
         component_id: ComponentId,
-        constructor: Arc<RequiredComponentConstructor>,
+        constructor: RequiredComponentConstructor,
     ) {
         self.0.entry(component_id).or_insert(RequiredComponent {
             component_id,
@@ -1322,7 +1331,7 @@ impl RequiredComponents {
         constructor: fn() -> C,
     ) {
         let component_id = components.init_component::<C>(storages);
-        let erased: Arc<RequiredComponentConstructor> = Arc::new(
+        let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
             move |table,
                   sparse_sets,
                   change_tick,
@@ -1350,7 +1359,7 @@ impl RequiredComponents {
                     }
                 });
             },
-        );
+        ));
         // SAFETY:
         // `component_id` matches the type initialized by the `erased` constructor above.
         // `erased` initializes a component for `component_id` in such a way that
