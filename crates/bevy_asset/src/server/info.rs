@@ -590,6 +590,11 @@ impl AssetInfos {
     }
 
     pub(crate) fn process_asset_fail(&mut self, failed_id: UntypedAssetId, error: AssetLoadError) {
+        // Check whether the handle has been dropped since the asset was loaded.
+        if !self.infos.contains_key(&failed_id) {
+            return;
+        }
+
         let (dependants_waiting_on_load, dependants_waiting_on_rec_load) = {
             let Some(info) = self.get_mut(failed_id) else {
                 // The asset was already dropped.
