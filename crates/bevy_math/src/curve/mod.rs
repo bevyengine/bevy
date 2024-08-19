@@ -1318,7 +1318,7 @@ mod tests {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
 
-        let curve = easing_curve(start, end, step_curve(4));
+        let curve = easing_curve(start, end, StepCurve::new(4));
         [
             (0.0, start),
             (0.124, start),
