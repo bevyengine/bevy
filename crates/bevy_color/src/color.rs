@@ -1,6 +1,6 @@
 use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
-    Luminance, Mix, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
+    Luminance, Mix, Oklaba, Oklcha, SpectralColor, Srgba, StandardColor, Xyza,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
@@ -483,6 +483,12 @@ impl From<Laba> for Color {
 impl From<Xyza> for Color {
     fn from(value: Xyza) -> Self {
         Self::Xyza(value)
+    }
+}
+
+impl From<SpectralColor> for Color {
+    fn from(value: SpectralColor) -> Self {
+        Self::LinearRgba(value.to_linear())
     }
 }
 
