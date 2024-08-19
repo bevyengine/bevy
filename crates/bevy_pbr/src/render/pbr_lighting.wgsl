@@ -638,13 +638,16 @@ fn monochromaticity_blend(base: vec3<f32>, light: vec3<f32>, monochromaticity: f
     let response = mix(
         1.0,
         triangular,
-        light_hsv.y // Any < 1.0 value means a non-spectral monochromatic color (non-physically accurate)
+        (
+            base_hsv.y * // As the base color gets less saturated, the response to the light color is more uniform
+            light_hsv.y // Any < 1.0 value means a non-spectral monochromatic color (non-physically accurate)
+        ),
     ) * base_hsv.z;
 
     return mix(
         base * light, // Polychromatic (Multiplicative blending)
         response * light, // Mono-chromatic (Hue + value-based blending)
-        monochromaticity * base_hsv.y,
+        monochromaticity,
     );
 }
 #endif  // SPECTRAL_LIGHTING
