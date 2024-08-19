@@ -51,6 +51,44 @@ pub trait Curve<T> {
         self.sample_unchecked(t)
     }
 
+    /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
+    /// returning `None` if the point is outside of the curve's domain.
+    ///
+    /// The samples are returned in the same order as the parameter values `t_n` were provided and
+    /// will include all results. This leaves the responsibility for things like filtering and
+    /// sorting to the user for maximum flexibility.
+    fn sample_iter(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = Option<T>> {
+        iter.into_iter().map(|t| self.sample(t))
+    }
+
+    /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
+    /// extracting the associated values. This is the unchecked version of sampling, which should
+    /// only be used if the sample times `t_n` are already known to lie within the curve's domain.
+    ///
+    /// Values sampled from outside of a curve's domain are generally considered invalid; data
+    /// which is nonsensical or otherwise useless may be returned in such a circumstance, and
+    /// extrapolation beyond a curve's domain should not be relied upon.
+    ///
+    /// The samples are returned in the same order as the parameter values `t_n` were provided and
+    /// will include all results. This leaves the responsibility for things like filtering and
+    /// sorting to the user for maximum flexibility.
+    fn sample_iter_unchecked(
+        &self,
+        iter: impl IntoIterator<Item = f32>,
+    ) -> impl Iterator<Item = T> {
+        iter.into_iter().map(|t| self.sample_unchecked(t))
+    }
+
+    /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
+    /// clamping `t_n` to lie inside the domain of the curve.
+    ///
+    /// The samples are returned in the same order as the parameter values `t_n` were provided and
+    /// will include all results. This leaves the responsibility for things like filtering and
+    /// sorting to the user for maximum flexibility.
+    fn sample_iter_clamped(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T> {
+        iter.into_iter().map(|t| self.sample_clamped(t))
+    }
+
     /// Create a new curve by mapping the values of this curve via a function `f`; i.e., if the
     /// sample at time `t` for this curve is `x`, the value at time `t` on the new curve will be
     /// `f(x)`.
