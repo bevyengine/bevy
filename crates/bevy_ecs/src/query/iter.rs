@@ -1741,6 +1741,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
 
     fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
         QueryIterationCursor {
+            is_dense: self.is_dense,
             fetch: D::shrink_fetch(self.fetch.clone()),
             filter: F::shrink_fetch(self.filter.clone()),
             table_entities: self.table_entities,
