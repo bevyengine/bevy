@@ -272,13 +272,13 @@ pub trait Curve<T> {
     ///
     /// # Notes
     ///
-    /// - the domain end of this curve has to be bounded
+    /// - the domain of this curve has to be bounded
     fn reverse(self) -> Result<ReverseCurve<T, Self>, ReverseError>
     where
         Self: Sized,
     {
         self.domain()
-            .has_finite_end()
+            .is_bounded()
             .then(|| ReverseCurve {
                 curve: self,
                 _phantom: PhantomData,
@@ -304,10 +304,24 @@ pub trait Curve<T> {
     {
         self.domain()
             .is_bounded()
-            .then(|| RepeatCurve {
-                curve: self,
-                mode,
-                _phantom: PhantomData,
+            .then(|| {
+                // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
+                // length of `curve` cannot be NAN. It's still fine if it's infinity.
+                let domain = match mode {
+                    RepeatMode::Infinite => {
+                        Interval::new(self.domain().start(), f32::INFINITY).unwrap()
+                    }
+                    RepeatMode::Fixed(n) => Interval::new(
+                        self.domain().start(),
+                        self.domain().end() + self.domain().length() * n as f32,
+                    )
+                    .unwrap(),
+                };
+                RepeatCurve {
+                    domain,
+                    curve: self,
+                    _phantom: PhantomData,
+                }
             })
             .ok_or(RepeatError::SourceDomainUnbounded)
     }
@@ -320,7 +334,7 @@ pub trait Curve<T> {
         Self: Sized,
     {
         self.domain()
-            .is_bounded()
+            .has_finite_end()
             .then(|| PingPongCurve {
                 curve: self,
                 _phantom: PhantomData,
@@ -933,6 +947,9 @@ where
 /// The curve that results from reversing the current curve on the x-axis.
 ///
 /// Curves of this type are produced by [`Curve::reverse`].
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ReverseCurve<T, C> {
     curve: C,
     _phantom: PhantomData<T>,
@@ -949,7 +966,8 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
-        self.curve.sample_unchecked(self.domain().end() - t)
+        self.curve
+            .sample_unchecked(self.domain().end() - (t - self.domain().start()))
     }
 }
 
@@ -962,9 +980,12 @@ where
 ///   value at `domain.start()` in the original curve
 ///
 /// Curves of this type are produced by [`Curve::repeat`].
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct RepeatCurve<T, C> {
+    domain: Interval,
     curve: C,
-    mode: RepeatMode,
     _phantom: PhantomData<T>,
 }
 
@@ -986,26 +1007,20 @@ where
 {
     #[inline]
     fn domain(&self) -> Interval {
-        // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
-        // length of `curve` cannot be NAN. It's still fine if it's infinity.
-        match self.mode {
-            RepeatMode::Infinite => {
-                Interval::new(self.curve.domain().start(), f32::INFINITY).unwrap()
-            }
-            RepeatMode::Fixed(n) => Interval::new(
-                self.curve.domain().start(),
-                self.curve.domain().start() + self.curve.domain().length() * (n + 1) as f32,
-            )
-            .unwrap(),
-        }
+        self.domain
     }
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        self.curve
-            .sample_unchecked(d.start() + ((t - d.start()) % d.length()))
+        let cyclic_t = (t - d.start()) % d.length();
+        let t = if t != d.start() && cyclic_t == 0.0 {
+            d.end()
+        } else {
+            d.start() + cyclic_t
+        };
+        self.curve.sample_unchecked(t)
     }
 }
 
@@ -1017,6 +1032,9 @@ where
 /// - the domain end of this curve has to be finite
 ///
 /// Curves of this type are produced by [`Curve::ping_pong`].
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct PingPongCurve<T, C> {
     curve: C,
     _phantom: PhantomData<T>,
@@ -1057,6 +1075,9 @@ where
 /// useless complexity.
 ///
 /// Curves of this type are produced by [`Curve::chain_continuous`].
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ContinuousChainCurve<T, C, D> {
     first: C,
     second: D,
@@ -1366,33 +1387,60 @@ mod tests {
     fn reverse() {
         let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let rev_curve = curve.reverse().unwrap();
-        assert_eq!(rev_curve.sample_unchecked(0.0), 1.0 * 3.0 + 1.0);
-        assert_eq!(rev_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
-        assert_eq!(rev_curve.sample_unchecked(1.0), 0.0 * 3.0 + 1.0);
+        assert_eq!(rev_curve.sample(-0.1), None);
+        assert_eq!(rev_curve.sample(0.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(1.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(1.1), None);
+
+        let curve = function_curve(Interval::new(-2.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let rev_curve = curve.reverse().unwrap();
+        assert_eq!(rev_curve.sample(-2.1), None);
+        assert_eq!(rev_curve.sample(-2.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(-0.5), Some(-0.5 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(1.0), Some(-2.0 * 3.0 + 1.0));
+        assert_eq!(rev_curve.sample(1.1), None);
     }
 
     #[test]
     fn repeat() {
         let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
-        let repeat_curve = curve.repeat(RepeatMode::Fixed(1)).unwrap();
-        assert_eq!(repeat_curve.sample_unchecked(0.0), 0.0 * 3.0 + 1.0);
-        assert_eq!(repeat_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
-        assert_eq!(repeat_curve.sample_unchecked(0.99), 0.99 * 3.0 + 1.0);
-        assert_eq!(repeat_curve.sample_unchecked(1.0), 0.0 * 3.0 + 1.0);
-        assert_eq!(repeat_curve.sample_unchecked(1.5), 0.5 * 3.0 + 1.0);
-        assert_eq!(repeat_curve.sample_unchecked(1.99), 0.99 * 3.0 + 1.0);
-        assert_eq!(repeat_curve.sample_unchecked(2.0), 0.0 * 3.0 + 1.0);
+        let repeat_curve = curve.by_ref().repeat(RepeatMode::Fixed(1)).unwrap();
+        assert_eq!(repeat_curve.sample(-0.1), None);
+        assert_eq!(repeat_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(0.99), Some(0.99 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(1.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(1.01), Some(0.01 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(1.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(1.99), Some(0.99 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(2.01), None);
+
+        let repeat_curve = curve.by_ref().repeat(RepeatMode::Fixed(3)).unwrap();
+        assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(3.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(4.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(5.0), None);
+
+        let repeat_curve = curve.by_ref().repeat(RepeatMode::Infinite).unwrap();
+        assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(3.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(4.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(repeat_curve.sample(5.0), Some(1.0 * 3.0 + 1.0));
     }
 
     #[test]
     fn ping_pong() {
         let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let ping_pong_curve = curve.ping_pong().unwrap();
-        assert_eq!(ping_pong_curve.sample_unchecked(0.0), 0.0 * 3.0 + 1.0);
-        assert_eq!(ping_pong_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
-        assert_eq!(ping_pong_curve.sample_unchecked(1.0), 1.0 * 3.0 + 1.0);
-        assert_eq!(ping_pong_curve.sample_unchecked(1.5), 0.5 * 3.0 + 1.0);
-        assert_eq!(ping_pong_curve.sample_unchecked(2.0), 0.0 * 3.0 + 1.0);
+        assert_eq!(ping_pong_curve.sample(-0.1), None);
+        assert_eq!(ping_pong_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(1.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(1.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(2.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(2.1), None);
     }
 
     #[test]
@@ -1400,11 +1448,13 @@ mod tests {
         let first = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let second = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * t);
         let c0_chain_curve = first.chain_continuous(second).unwrap();
-        assert_eq!(c0_chain_curve.sample_unchecked(0.0), 0.0 * 3.0 + 1.0);
-        assert_eq!(c0_chain_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
-        assert_eq!(c0_chain_curve.sample_unchecked(1.0), 1.0 * 3.0 + 1.0);
-        assert_eq!(c0_chain_curve.sample_unchecked(1.5), 1.0 * 3.0 + 1.0 + 0.25);
-        assert_eq!(c0_chain_curve.sample_unchecked(2.0), 1.0 * 3.0 + 1.0 + 1.0);
+        assert_eq!(c0_chain_curve.sample(-0.1), None);
+        assert_eq!(c0_chain_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
+        assert_eq!(c0_chain_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
+        assert_eq!(c0_chain_curve.sample(1.0), Some(1.0 * 3.0 + 1.0));
+        assert_eq!(c0_chain_curve.sample(1.5), Some(1.0 * 3.0 + 1.0 + 0.25));
+        assert_eq!(c0_chain_curve.sample(2.0), Some(1.0 * 3.0 + 1.0 + 1.0));
+        assert_eq!(c0_chain_curve.sample(2.1), None);
     }
 
     #[test]
