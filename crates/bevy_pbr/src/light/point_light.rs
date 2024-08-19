@@ -45,6 +45,12 @@ pub struct PointLight {
     /// shadow map's texel size so that it can be small close to the camera and gets larger further
     /// away.
     pub shadow_normal_bias: f32,
+    /// The degree to which this light is monochromatic. A value of 0.0 means this light is perfectly polychromatic,
+    /// while a value of 1.0 means this light is perfectly monochromatic.
+    ///
+    /// Meant to be used with `SpectralColor` to render monochromatic lights. (e.g. Sodium vapor lamps)
+    /// Combining non-zero values with non-spectral colors is not physically correct, but can be used for artistic effect.
+    pub monochromaticity: f32,
 }
 
 impl Default for PointLight {
@@ -60,6 +66,7 @@ impl Default for PointLight {
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
+            monochromaticity: 0.0,
         }
     }
 }

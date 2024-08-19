@@ -38,6 +38,7 @@ pub struct ExtractedPointLight {
     pub shadow_depth_bias: f32,
     pub shadow_normal_bias: f32,
     pub spot_light_angles: Option<(f32, f32)>,
+    pub monochromaticity: f32,
 }
 
 #[derive(Component, Debug)]
@@ -53,6 +54,7 @@ pub struct ExtractedDirectionalLight {
     pub cascades: EntityHashMap<Vec<Cascade>>,
     pub frusta: EntityHashMap<Vec<Frustum>>,
     pub render_layers: RenderLayers,
+    pub monochromaticity: f32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -111,6 +113,7 @@ pub struct GpuLights {
     n_directional_lights: u32,
     // offset from spot light's light index to spot light's shadow map index
     spot_light_shadowmap_offset: i32,
+    ambient_monochromaticity: f32,
 }
 
 //NOTE: When running bevy on Adreno GPU chipsets in WebGL, any value above 1 will result in a crash
@@ -258,6 +261,7 @@ pub fn extract_lights(
                 * point_light_texel_size
                 * std::f32::consts::SQRT_2,
             spot_light_angles: None,
+            monochromaticity: point_light.monochromaticity,
         };
         point_lights_values.push((
             entity,
@@ -307,6 +311,7 @@ pub fn extract_lights(
                             * texel_size
                             * std::f32::consts::SQRT_2,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                        monochromaticity: spot_light.monochromaticity,
                     },
                     render_visible_entities,
                     *frustum,
@@ -350,6 +355,7 @@ pub fn extract_lights(
                 cascades: cascades.cascades.clone(),
                 frusta: frusta.frusta.clone(),
                 render_layers: maybe_layers.unwrap_or_default().clone(),
+                monochromaticity: directional_light.monochromaticity,
             },
             render_visible_entities,
         ));
@@ -730,6 +736,7 @@ pub fn prepare_lights(
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
             spot_light_tan_angle,
+            monochromaticity: light.monochromaticity,
         });
         global_light_meta.entity_to_index.insert(entity, index);
     }
@@ -860,6 +867,7 @@ pub fn prepare_lights(
             // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
             spot_light_shadowmap_offset: num_directional_cascades_enabled as i32
                 - point_light_count as i32,
+            ambient_monochromaticity: ambient_light.monochromaticity,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
