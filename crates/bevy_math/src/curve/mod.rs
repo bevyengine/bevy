@@ -8,7 +8,7 @@ pub mod interval;
 pub use interval::{interval, Interval};
 use itertools::Itertools;
 
-use crate::StableInterpolate;
+use crate::{StableInterpolate, VectorSpace};
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
 use std::{marker::PhantomData, ops::Deref};
@@ -243,7 +243,7 @@ pub trait Curve<T> {
         })
     }
 
-    /// Create a new [`Curve`] by composing this curve end-to-end with another, producing another curve
+    /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another curve
     /// with outputs of the same type. The domain of the other curve is translated so that its start
     /// coincides with where this curve ends. A [`ChainError`] is returned if this curve's domain
     /// doesn't have a finite end or if `other`'s domain doesn't have a finite start.
@@ -326,6 +326,38 @@ pub trait Curve<T> {
                 _phantom: PhantomData,
             })
             .ok_or(PingPongError::SourceDomainEndInfinite)
+    }
+
+    /// Create a new [`Curve`] by composing this curve end-to-start with another, producing another curve
+    /// with outputs of the same type. The domain of the other curve is translated so that its start
+    /// coincides with where this curve ends. A [`ChainError`] is returned if this curve's domain
+    /// doesn't have a finite end or if `other`'s domain doesn't have a finite start.
+    ///
+    /// Additionally the transition of the samples is guaranteed to be continuous. This is useful
+    /// if you really just know about the shapes of your curves and don't want to deal with
+    /// stitching them together properly when it would just introduce useless complexity.
+    fn chain_continuous<C>(self, other: C) -> Result<ContinuousChainCurve<T, Self, C>, ChainError>
+    where
+        Self: Sized,
+        T: VectorSpace,
+        C: Curve<T>,
+    {
+        if !self.domain().has_finite_end() {
+            return Err(ChainError::FirstEndInfinite);
+        }
+        if !other.domain().has_finite_start() {
+            return Err(ChainError::SecondStartInfinite);
+        }
+
+        let offset = self.sample_unchecked(self.domain().end())
+            - other.sample_unchecked(self.domain().start());
+
+        Ok(ContinuousChainCurve {
+            first: self,
+            second: other,
+            offset,
+            _phantom: PhantomData,
+        })
     }
 
     /// Resample this [`Curve`] to produce a new one that is defined by interpolation over equally
@@ -978,7 +1010,7 @@ where
 }
 
 /// The curve that results from chaining the curve with it's reversed version. The transition point
-/// is guaranteed to make no jump.
+/// is guaranteed to be continuous so that it makes no jump.
 ///
 /// # Notes
 ///
@@ -1000,7 +1032,7 @@ where
         // length of `curve` cannot be NAN. It's still fine if it's infinity.
         Interval::new(
             self.curve.domain().start(),
-            self.curve.domain().start() + self.curve.domain().length() * 2.0,
+            self.curve.domain().end() + self.curve.domain().length(),
         )
         .unwrap()
     }
@@ -1014,6 +1046,52 @@ where
             t
         };
         self.curve.sample_unchecked(final_t)
+    }
+}
+
+/// The curve that results from chaining two curves.
+///
+/// Additionally the transition of the samples is guaranteed to be continuous so that samples
+/// won't make sudden jumps. This is useful if you really just know about the shapes of your curves
+/// and don't want to deal with stitching them together properly when it would just introduce
+/// useless complexity.
+///
+/// Curves of this type are produced by [`Curve::chain_continuous`].
+pub struct ContinuousChainCurve<T, C, D> {
+    first: C,
+    second: D,
+    // cache the offset in the curve directly to prevent tripple sampling for every sample we make
+    offset: T,
+    _phantom: PhantomData<T>,
+}
+
+impl<T, C, D> Curve<T> for ContinuousChainCurve<T, C, D>
+where
+    T: VectorSpace,
+    C: Curve<T>,
+    D: Curve<T>,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
+        // length of `curve` cannot be NAN. It's still fine if it's infinity.
+        Interval::new(
+            self.first.domain().start(),
+            self.first.domain().end() + self.second.domain().length(),
+        )
+        .unwrap()
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        if t > self.first.domain().end() {
+            self.second.sample_unchecked(
+                // `t - first.domain.end` computes the offset into the domain of the second.
+                t - self.first.domain().end() + self.second.domain().start(),
+            ) + self.offset
+        } else {
+            self.first.sample_unchecked(t)
+        }
     }
 }
 
@@ -1315,6 +1393,18 @@ mod tests {
         assert_eq!(ping_pong_curve.sample_unchecked(1.0), 1.0 * 3.0 + 1.0);
         assert_eq!(ping_pong_curve.sample_unchecked(1.5), 0.5 * 3.0 + 1.0);
         assert_eq!(ping_pong_curve.sample_unchecked(2.0), 0.0 * 3.0 + 1.0);
+    }
+
+    #[test]
+    fn continuous_chain() {
+        let first = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let second = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * t);
+        let c0_chain_curve = first.chain_continuous(second).unwrap();
+        assert_eq!(c0_chain_curve.sample_unchecked(0.0), 0.0 * 3.0 + 1.0);
+        assert_eq!(c0_chain_curve.sample_unchecked(0.5), 0.5 * 3.0 + 1.0);
+        assert_eq!(c0_chain_curve.sample_unchecked(1.0), 1.0 * 3.0 + 1.0);
+        assert_eq!(c0_chain_curve.sample_unchecked(1.5), 1.0 * 3.0 + 1.0 + 0.25);
+        assert_eq!(c0_chain_curve.sample_unchecked(2.0), 1.0 * 3.0 + 1.0 + 1.0);
     }
 
     #[test]
