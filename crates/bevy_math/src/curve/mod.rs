@@ -9,10 +9,7 @@ pub mod interval;
 pub use interval::{interval, Interval};
 use itertools::Itertools;
 
-use crate::{
-    ops::{self, FloatPow},
-    StableInterpolate, VectorSpace,
-};
+use crate::{StableInterpolate, VectorSpace};
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
 use std::{marker::PhantomData, ops::Deref};
@@ -1058,78 +1055,6 @@ where
     }
 }
 
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// Quadratic easing functions can have exactly one critical point. This is a point on the function
-/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
-/// smooth transitions. A common choice is to place that point at `x = 0` or [`x = 1`].
-///
-/// It uses the function `f(x) = x²`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [`x = 1`]: `quadratic_ease_out`
-pub fn quadratic_ease_in() -> FunctionCurve<f32, fn(f32) -> f32> {
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f: ops::FloatPow::squared,
-        _phantom: PhantomData,
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// Quadratic easing functions can have exactly one critical point. This is a point on the function
-/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
-/// smooth transitions. A common choice is to place that point at [`x = 0`] or`x = 1`.
-///
-/// It uses the function `f(x) = 1 - (1 - x)²`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [`x = 0`]: `quadratic_ease_in`
-pub fn quadratic_ease_out() -> FunctionCurve<f32, fn(f32) -> f32> {
-    fn f(t: f32) -> f32 {
-        1.0 - (1.0 - t).squared()
-    }
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f,
-        _phantom: PhantomData,
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// Cubic easing functions can have up to two critical points. These are points on the function
-/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at these points leading to
-/// smooth transitions. For this curve they are placed at `x = 0` and `x = 1` respectively and the
-/// result is a well-known kind of [sigmoid function] called a [smoothstep function].
-///
-/// It uses the function `f(x) = x² * (3 - 2x)`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [sigmoid function]: https://en.wikipedia.org/wiki/Sigmoid_function
-/// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
-pub fn smoothstep() -> FunctionCurve<f32, fn(f32) -> f32> {
-    fn f(t: f32) -> f32 {
-        t.squared() * (3.0 - 2.0 * t)
-    }
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f,
-        _phantom: PhantomData,
-    }
-}
-
-/// Convert a `start` and `end` point of some type into a [`Curve`], sampled by interpolating
-/// between the two boundary values and under the application of an easing function.
-pub fn easing_curve<T: VectorSpace>(
-    start: T,
-    end: T,
-    easing_curve: impl Curve<f32>,
-) -> impl Curve<T> {
-    LinearCurve::new(start, end).reparametrize_by_curve(easing_curve)
-}
-
 #[cfg(test)]
 mod tests {
     use super::easing::*;
@@ -1190,7 +1115,7 @@ mod tests {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
 
-        let curve = easing_curve(start, end, StepCurve::new(4));
+        let curve = EasingCurve::new(start, end, StepCurve::new(4));
         [
             (0.0, start),
             (0.124, start),
@@ -1214,7 +1139,7 @@ mod tests {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
 
-        let curve = easing_curve(start, end, quadratic_ease_in());
+        let curve = EasingCurve::new(start, end, quadratic_ease_in());
         [
             (0.0, start),
             (0.25, Vec2::new(0.0625, 0.125)),
