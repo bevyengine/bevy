@@ -136,7 +136,7 @@ pub trait Curve<T> {
     /// # use bevy_math::vec2;
     /// let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let domain = my_curve.domain();
-    /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - t);
+    /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - (t - domain.start()));
     ///
     /// // Take a segment of a curve:
     /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
@@ -286,19 +286,18 @@ pub trait Curve<T> {
             .ok_or(ReverseError::SourceDomainEndInfinite)
     }
 
-    /// Create a new [`Curve`] repeating this curve either `n` times or indefinitely, producing
-    /// another curve with outputs of the same type. The domain of the new curve will be bigger by
-    /// a factor of `n` or unbounded based on the [`RepeatMode`].
+    /// Create a new [`Curve`] repeating this curve `n` times, producing another curve with outputs
+    /// of the same type. The domain of the new curve will be bigger by a factor of `n`.
     ///
     /// # Notes
     ///
     /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
     ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
-    /// - for `RepeatMode::Fixed(0)` the output of this adaptor is basically identical to the previous curve
-    /// - the domain of this curve has to be bounded
+    /// - for `count == 0` the output of this adaptor is basically identical to the previous curve
+    /// - the domain of the input curve has to be bounded
     /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
-    ///   value at `domain.start()` in the original curve
-    fn repeat(self, mode: RepeatMode) -> Result<RepeatCurve<T, Self>, RepeatError>
+    ///   value at `domain.end()` in the original curve
+    fn repeat(self, count: usize) -> Result<RepeatCurve<T, Self>, RepeatError>
     where
         Self: Sized,
     {
@@ -307,21 +306,39 @@ pub trait Curve<T> {
             .then(|| {
                 // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
                 // length of `curve` cannot be NAN. It's still fine if it's infinity.
-                let domain = match mode {
-                    RepeatMode::Infinite => {
-                        Interval::new(self.domain().start(), f32::INFINITY).unwrap()
-                    }
-                    RepeatMode::Fixed(n) => Interval::new(
-                        self.domain().start(),
-                        self.domain().end() + self.domain().length() * n as f32,
-                    )
-                    .unwrap(),
-                };
+                let domain = Interval::new(
+                    self.domain().start(),
+                    self.domain().end() + self.domain().length() * count as f32,
+                )
+                .unwrap();
                 RepeatCurve {
                     domain,
                     curve: self,
                     _phantom: PhantomData,
                 }
+            })
+            .ok_or(RepeatError::SourceDomainUnbounded)
+    }
+
+    /// Create a new [`Curve`] repeating this curve forever, producing another curve with
+    /// outputs of the same type. The domain of the new curve will be unbounded.
+    ///
+    /// # Notes
+    ///
+    /// - this doesn't guarantee a smooth transition from one occurrence of the curve to its next
+    ///   iteration. The curve will make a jump if `self.domain().start() != self.domain().end()`!
+    /// - the domain of the input curve has to be bounded
+    /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
+    ///   value at `domain.end()` in the original curve
+    fn forever(self) -> Result<ForeverCurve<T, Self>, RepeatError>
+    where
+        Self: Sized,
+    {
+        self.domain()
+            .is_bounded()
+            .then(|| ForeverCurve {
+                curve: self,
+                _phantom: PhantomData,
             })
             .ok_or(RepeatError::SourceDomainUnbounded)
     }
@@ -347,10 +364,12 @@ pub trait Curve<T> {
     /// coincides with where this curve ends. A [`ChainError`] is returned if this curve's domain
     /// doesn't have a finite end or if `other`'s domain doesn't have a finite start.
     ///
-    /// Additionally the transition of the samples is guaranteed to be continuous. This is useful
-    /// if you really just know about the shapes of your curves and don't want to deal with
-    /// stitching them together properly when it would just introduce useless complexity.
-    fn chain_continuous<C>(self, other: C) -> Result<ContinuousChainCurve<T, Self, C>, ChainError>
+    /// Additionally the transition of the samples is guaranteed to make no sudden jumps. This is
+    /// useful if you really just know about the shapes of your curves and don't want to deal with
+    /// stitching them together properly when it would just introduce useless complexity. It is
+    /// realized by translating the other curve so that its start sample point coincides with the
+    /// current curves' end sample point.
+    fn chain_continue<C>(self, other: C) -> Result<ContinuationCurve<T, Self, C>, ChainError>
     where
         Self: Sized,
         T: VectorSpace,
@@ -366,7 +385,7 @@ pub trait Curve<T> {
         let offset = self.sample_unchecked(self.domain().end())
             - other.sample_unchecked(self.domain().start());
 
-        Ok(ContinuousChainCurve {
+        Ok(ContinuationCurve {
             first: self,
             second: other,
             offset,
@@ -944,7 +963,7 @@ where
     }
 }
 
-/// The curve that results from reversing the current curve on the x-axis.
+/// The curve that results from reversing another.
 ///
 /// Curves of this type are produced by [`Curve::reverse`].
 #[derive(Clone, Debug)]
@@ -971,13 +990,13 @@ where
     }
 }
 
-/// The curve that results from repeating the current curve `N` times.
+/// The curve that results from repeating a curve `N` times.
 ///
 /// # Notes
 ///
 /// - the domain of this curve has to be bounded
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
-///   value at `domain.start()` in the original curve
+///   value at `domain.end()` in the original curve
 ///
 /// Curves of this type are produced by [`Curve::repeat`].
 #[derive(Clone, Debug)]
@@ -987,18 +1006,6 @@ pub struct RepeatCurve<T, C> {
     domain: Interval,
     curve: C,
     _phantom: PhantomData<T>,
-}
-
-/// Describes how a [`Curve`] will be repeated.
-#[derive(Debug, Clone, Copy)]
-pub enum RepeatMode {
-    /// Repeat the [`Curve`] indefinitely. This is useful for creating wave-like curves like the
-    /// saw-tooth wave from basic finite curves
-    Infinite,
-    /// Repeat the [`Curve`] a fixed amount of times.
-    ///
-    /// `RepeatMode::Fixed(0)` basically means no repetition.
-    Fixed(usize),
 }
 
 impl<T, C> Curve<T> for RepeatCurve<T, C>
@@ -1024,8 +1031,48 @@ where
     }
 }
 
-/// The curve that results from chaining the curve with it's reversed version. The transition point
-/// is guaranteed to be continuous so that it makes no jump.
+/// The curve that results from repeating a curve forever.
+///
+/// # Notes
+///
+/// - the domain of this curve has to be bounded
+/// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
+///   value at `domain.end()` in the original curve
+///
+/// Curves of this type are produced by [`Curve::repeat`].
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+pub struct ForeverCurve<T, C> {
+    curve: C,
+    _phantom: PhantomData<T>,
+}
+
+impl<T, C> Curve<T> for ForeverCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::EVERYWHERE
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        // the domain is bounded by construction
+        let d = self.curve.domain();
+        let cyclic_t = (t - d.start()) % d.length();
+        let t = if t != d.start() && cyclic_t == 0.0 {
+            d.end()
+        } else {
+            d.start() + cyclic_t
+        };
+        self.curve.sample_unchecked(t)
+    }
+}
+
+/// The curve that results from chaining a curve with its reversed version. The transition point
+/// is guaranteed to make no jump.
 ///
 /// # Notes
 ///
@@ -1069,16 +1116,17 @@ where
 
 /// The curve that results from chaining two curves.
 ///
-/// Additionally the transition of the samples is guaranteed to be continuous so that samples
-/// won't make sudden jumps. This is useful if you really just know about the shapes of your curves
-/// and don't want to deal with stitching them together properly when it would just introduce
-/// useless complexity.
+/// Additionally the transition of the samples is guaranteed to not make sudden jumps. This is
+/// useful if you really just know about the shapes of your curves and don't want to deal with
+/// stitching them together properly when it would just introduce useless complexity. It is
+/// realized by translating the second curve so that its start sample point coincides with the
+/// first curves' end sample point.
 ///
-/// Curves of this type are produced by [`Curve::chain_continuous`].
+/// Curves of this type are produced by [`Curve::chain_continue`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ContinuousChainCurve<T, C, D> {
+pub struct ContinuationCurve<T, C, D> {
     first: C,
     second: D,
     // cache the offset in the curve directly to prevent triple sampling for every sample we make
@@ -1086,7 +1134,7 @@ pub struct ContinuousChainCurve<T, C, D> {
     _phantom: PhantomData<T>,
 }
 
-impl<T, C, D> Curve<T> for ContinuousChainCurve<T, C, D>
+impl<T, C, D> Curve<T> for ContinuationCurve<T, C, D>
 where
     T: VectorSpace,
     C: Curve<T>,
@@ -1405,7 +1453,7 @@ mod tests {
     #[test]
     fn repeat() {
         let curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
-        let repeat_curve = curve.by_ref().repeat(RepeatMode::Fixed(1)).unwrap();
+        let repeat_curve = curve.by_ref().repeat(1).unwrap();
         assert_eq!(repeat_curve.sample(-0.1), None);
         assert_eq!(repeat_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
         assert_eq!(repeat_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
@@ -1417,13 +1465,14 @@ mod tests {
         assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
         assert_eq!(repeat_curve.sample(2.01), None);
 
-        let repeat_curve = curve.by_ref().repeat(RepeatMode::Fixed(3)).unwrap();
+        let repeat_curve = curve.by_ref().repeat(3).unwrap();
         assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
         assert_eq!(repeat_curve.sample(3.0), Some(1.0 * 3.0 + 1.0));
         assert_eq!(repeat_curve.sample(4.0), Some(1.0 * 3.0 + 1.0));
         assert_eq!(repeat_curve.sample(5.0), None);
 
-        let repeat_curve = curve.by_ref().repeat(RepeatMode::Infinite).unwrap();
+        let repeat_curve = curve.by_ref().forever().unwrap();
+        assert_eq!(repeat_curve.sample(-1.0), Some(1.0 * 3.0 + 1.0));
         assert_eq!(repeat_curve.sample(2.0), Some(1.0 * 3.0 + 1.0));
         assert_eq!(repeat_curve.sample(3.0), Some(1.0 * 3.0 + 1.0));
         assert_eq!(repeat_curve.sample(4.0), Some(1.0 * 3.0 + 1.0));
@@ -1441,13 +1490,23 @@ mod tests {
         assert_eq!(ping_pong_curve.sample(1.5), Some(0.5 * 3.0 + 1.0));
         assert_eq!(ping_pong_curve.sample(2.0), Some(0.0 * 3.0 + 1.0));
         assert_eq!(ping_pong_curve.sample(2.1), None);
+
+        let curve = function_curve(Interval::new(-2.0, 2.0).unwrap(), |t| t * 3.0 + 1.0);
+        let ping_pong_curve = curve.ping_pong().unwrap();
+        assert_eq!(ping_pong_curve.sample(-2.1), None);
+        assert_eq!(ping_pong_curve.sample(-2.0), Some(-2.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(-0.5), Some(-0.5 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(2.0), Some(2.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(4.5), Some(-0.5 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(6.0), Some(-2.0 * 3.0 + 1.0));
+        assert_eq!(ping_pong_curve.sample(6.1), None);
     }
 
     #[test]
-    fn continuous_chain() {
+    fn continue_chain() {
         let first = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
         let second = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * t);
-        let c0_chain_curve = first.chain_continuous(second).unwrap();
+        let c0_chain_curve = first.chain_continue(second).unwrap();
         assert_eq!(c0_chain_curve.sample(-0.1), None);
         assert_eq!(c0_chain_curve.sample(0.0), Some(0.0 * 3.0 + 1.0));
         assert_eq!(c0_chain_curve.sample(0.5), Some(0.5 * 3.0 + 1.0));
