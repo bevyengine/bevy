@@ -119,7 +119,6 @@ fn setup(
             point_light: PointLight {
                 shadows_enabled: true,
                 intensity: 1000000.0,
-                // intensity: 0.0,
                 ..default()
             },
             transform: Transform::from_xyz(-5.0, 2.5, 0.0),
@@ -178,18 +177,18 @@ fn setup(
 }
 
 fn update(
-    mut text: Query<&mut Text>,
-    mut polychromatic_light: Query<&mut Transform, With<Polychromatic>>,
-    mut indicator: Query<&mut Style, With<Indicator>>,
-    mut monochromatic_light: Query<&mut PointLight, With<Monochromatic>>,
+    mut text_query: Query<&mut Text>,
+    mut polychromatic_light_query: Query<&mut Transform, With<Polychromatic>>,
+    mut indicator_query: Query<&mut Style, With<Indicator>>,
+    mut monochromatic_light_query: Query<&mut PointLight, With<Monochromatic>>,
     mut config: ResMut<Config>,
     time: Res<Time>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    let mut monochromatic_light = monochromatic_light.single_mut();
-    let mut polychormatic_light = polychromatic_light.single_mut();
-    let mut text = text.single_mut();
-    let mut indicator = indicator.single_mut();
+    let mut monochromatic_light = monochromatic_light_query.single_mut();
+    let mut polychromatic_light = polychromatic_light_query.single_mut();
+    let mut text = text_query.single_mut();
+    let mut indicator = indicator_query.single_mut();
 
     text.sections[0].value = format!(
         "Light Wavelength: {:.0} nm (Left/Right Arrows to Adjust)\nLight Monochromaticity: {:.2} (Up/Down Arrows to Adjust, Space to Toggle)",
@@ -198,7 +197,7 @@ fn update(
 
     indicator.left = Val::Px(356. * (config.spectral_color.wavelength - 380.) / (750. - 380.));
 
-    polychormatic_light.translation = Vec3::new(
+    polychromatic_light.translation = Vec3::new(
         -5.0 * time.elapsed_seconds().cos(),
         2.5,
         5.0 * time.elapsed_seconds().sin(),
