@@ -3364,6 +3364,17 @@ description = "Demonstrates how to use picking events to spawn simple objects"
 category = "Picking"
 wasm = true
 
+[[example]]
+name = "sprite_picking"
+path = "examples/picking/sprite_picking.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_picking]
+name = "Sprite Picking"
+description = "Demonstrates picking sprites and sprite atlases"
+category = "Picking"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
