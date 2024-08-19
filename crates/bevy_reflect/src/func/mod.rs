@@ -100,24 +100,24 @@
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
 
 pub use args::{ArgError, ArgList, ArgValue};
-pub use dynamic_callable::*;
-pub use dynamic_callable_mut::*;
+pub use dynamic_function::*;
+pub use dynamic_function_mut::*;
 pub use error::*;
 pub use info::*;
-pub use into_callable::*;
-pub use into_callable_mut::*;
+pub use into_function::*;
+pub use into_function_mut::*;
 pub use reflect_fn::*;
 pub use reflect_fn_mut::*;
 pub use registry::*;
 pub use return_type::*;
 
 pub mod args;
-mod dynamic_callable;
-mod dynamic_callable_mut;
+mod dynamic_function;
+mod dynamic_function_mut;
 mod error;
 mod info;
-mod into_callable;
-mod into_callable_mut;
+mod into_function;
+mod into_function_mut;
 pub(crate) mod macros;
 mod reflect_fn;
 mod reflect_fn_mut;
