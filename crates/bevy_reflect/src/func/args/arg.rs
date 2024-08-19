@@ -2,10 +2,10 @@ use crate::func::args::{ArgError, FromArg, Ownership};
 use crate::{PartialReflect, Reflect, TypePath};
 use std::ops::Deref;
 
-/// Represents an argument that can be passed to a [`DynamicCallable`] or [`DynamicCallableMut`].
+/// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
-/// [`DynamicCallable`]: crate::func::DynamicCallable
-/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub struct Arg<'a> {
     index: usize,
@@ -179,10 +179,10 @@ impl<'a> Arg<'a> {
     }
 }
 
-/// Represents an argument that can be passed to a [`DynamicCallable`] or [`DynamicCallableMut`].
+/// Represents an argument that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
-/// [`DynamicCallable`]: crate::func::DynamicCallable
-/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum ArgValue<'a> {
     Owned(Box<dyn PartialReflect>),

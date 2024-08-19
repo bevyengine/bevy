@@ -1,10 +1,10 @@
-//! Reflection-based dynamic callables.
+//! Reflection-based dynamic functions.
 //!
-//! This module provides a way to pass around and invoke callables dynamically
-//! using the [`DynamicCallable`] and [`DynamicCallableMut`] types.
+//! This module provides a way to pass around and call functions dynamically
+//! using the [`DynamicFunction`] and [`DynamicFunctionMut`] types.
 //!
 //! Many simple functions and closures can be automatically converted to these types
-//! using the [`IntoCallable`] and [`IntoCallableMut`] traits, respectively.
+//! using the [`IntoFunction`] and [`IntoFunctionMut`] traits, respectively.
 //!
 //! Once this dynamic representation is created, it can be called with a set of arguments provided
 //! via an [`ArgList`].
@@ -17,12 +17,12 @@
 //! ```
 //! # use bevy_reflect::PartialReflect;
 //! # use bevy_reflect::func::args::ArgList;
-//! # use bevy_reflect::func::{DynamicCallable, FunctionResult, IntoCallable, Return};
+//! # use bevy_reflect::func::{DynamicFunction, FunctionResult, IntoFunction, Return};
 //! fn add(a: i32, b: i32) -> i32 {
 //!   a + b
 //! }
 //!
-//! let mut func: DynamicCallable = add.into_callable();
+//! let mut func: DynamicFunction = add.into_function();
 //! let args: ArgList = ArgList::default()
 //!   // Pushing a known type with owned ownership
 //!   .push_owned(25_i32)
@@ -33,23 +33,24 @@
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
 //! ```
 //!
-//! # Types of Callables
+//! # Types of Functions
 //!
-//! A "callable", put simply, is code that can be invoked with a set of arguments
-//! to perform some action.
+//! For simplicity, this module uses the umbrella term "function" to refer to any Rust callable:
+//! code that can be invoked with a set of arguments to perform some action.
 //!
 //! In Rust, there are two main categories of callables: functions and closures.
 //!
 //! A "function" is a callable that does not capture its environment.
-//! These are typically defined with the `fn` keyword, but may also use anonymous function syntax.
+//! These are typically defined with the `fn` keyword, which are referred to as _named_ functions.
+//! But they are also _anonymous_ functions, which are unnamed and defined with anonymous function syntax.
 //!
 //! ```rust
-//! // This is a standard Rust function:
+//! // This is a named function:
 //! fn add(a: i32, b: i32) -> i32 {
 //!   a + b
 //! }
 //!
-//! // This is an anonymous Rust function:
+//! // This is an anonymous function:
 //! let add = |a: i32, b: i32| a + b;
 //! ```
 //!
@@ -72,7 +73,7 @@
 //!
 //! # Valid Signatures
 //!
-//! Many of the traits in this module have default blanket implementations over a specific set of callable signatures.
+//! Many of the traits in this module have default blanket implementations over a specific set of function signatures.
 //!
 //! These signatures are:
 //! - `(...) -> R`
@@ -91,7 +92,7 @@
 //! namely the [lack of variadic generics] and certain [coherence issues].
 //!
 //! For other functions that don't conform to one of the above signatures,
-//! [`DynamicCallable`] and [`DynamicCallableMut`] can instead be created manually.
+//! [`DynamicFunction`] and [`DynamicFunctionMut`] can instead be created manually.
 //!
 //! [`PartialReflect`]: crate::PartialReflect
 //! [`Reflect`]: crate::Reflect
@@ -136,7 +137,7 @@ mod tests {
     fn should_error_on_missing_args() {
         fn foo(_: i32) {}
 
-        let func = foo.into_callable();
+        let func = foo.into_function();
         let args = ArgList::new();
         let result = func.call(args);
         assert_eq!(
@@ -152,7 +153,7 @@ mod tests {
     fn should_error_on_too_many_args() {
         fn foo() {}
 
-        let func = foo.into_callable();
+        let func = foo.into_function();
         let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
@@ -168,7 +169,7 @@ mod tests {
     fn should_error_on_invalid_arg_type() {
         fn foo(_: i32) {}
 
-        let func = foo.into_callable();
+        let func = foo.into_function();
         let args = ArgList::new().push_owned(123_u32);
         let result = func.call(args);
         assert_eq!(
@@ -185,7 +186,7 @@ mod tests {
     fn should_error_on_invalid_arg_ownership() {
         fn foo(_: &i32) {}
 
-        let func = foo.into_callable();
+        let func = foo.into_function();
         let args = ArgList::new().push_owned(123_i32);
         let result = func.call(args);
         assert_eq!(

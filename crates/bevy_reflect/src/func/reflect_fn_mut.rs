@@ -7,9 +7,10 @@ use crate::{Reflect, TypePath};
 
 /// A reflection-based version of the [`FnMut`] trait.
 ///
-/// This allows callables to be called dynamically through [reflection].
+/// This allows functions to be called dynamically through [reflection].
 ///
-/// This is a supertrait of [`ReflectFn`], and is used for callables that may mutate their environment.
+/// This is a supertrait of [`ReflectFn`], and is used for functions that may mutate their environment,
+/// such as closures that capture mutable references.
 ///
 /// # Blanket Implementation
 ///
@@ -23,7 +24,7 @@ use crate::{Reflect, TypePath};
 /// But also allows for:
 /// - Closures that capture mutable references to their environment
 ///
-/// For each of the above cases, the callable signature may only have up to 15 arguments,
+/// For each of the above cases, the function signature may only have up to 15 arguments,
 /// not including an optional receiver argument (often `&self` or `&mut self`).
 /// This optional receiver argument may be either a mutable or immutable reference to a type.
 /// If the return type is also a reference, its lifetime will be bound to the lifetime of this receiver.
@@ -58,7 +59,7 @@ use crate::{Reflect, TypePath};
 /// This `Marker` can be any type, provided it doesn't conflict with other implementations.
 ///
 /// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the function.
-/// For most functions, this will end up just being `'static`,
+/// For named functions and some closures, this will end up just being `'static`,
 /// however, closures that borrow from their environment will have a lifetime bound to that environment.
 ///
 /// [reflection]: crate
@@ -67,11 +68,11 @@ use crate::{Reflect, TypePath};
 /// [derive macro]: derive@crate::Reflect
 /// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait ReflectFnMut<'env, Marker> {
-    /// Invoke the callable with the given arguments and return the result.
+    /// Call the function with the given arguments and return the result.
     fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a>;
 }
 
-/// Helper macro for implementing [`ReflectFnMut`] on Rust closures.
+/// Helper macro for implementing [`ReflectFnMut`] on Rust functions.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
 /// - `FnMut(arg0, arg1, ..., argN) -> R`

@@ -4,42 +4,42 @@ use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy_utils::HashMap;
 
-use crate::func::{DynamicCallable, FunctionRegistrationError, IntoCallable};
+use crate::func::{DynamicFunction, FunctionRegistrationError, IntoFunction};
 
-/// A registry of [reflected callables].
+/// A registry of [reflected functions].
 ///
-/// This is the callable-equivalent to the [`TypeRegistry`].
+/// This is the function-equivalent to the [`TypeRegistry`].
 ///
-/// All callables must be `'static` as they are stored as [`DynamicCallable<'static>`].
+/// All functions must be `'static` as they are stored as [`DynamicFunction<'static>`].
 ///
-/// [reflected callables]: crate::func
+/// [reflected functions]: crate::func
 /// [`TypeRegistry`]: crate::TypeRegistry
 #[derive(Default)]
 pub struct FunctionRegistry {
-    /// Maps callable [names] to their respective [`DynamicCallables`].
+    /// Maps function [names] to their respective [`DynamicFunctions`].
     ///
-    /// [names]: DynamicCallable::name
-    /// [`DynamicCallables`]: DynamicCallable
-    callables: HashMap<Cow<'static, str>, DynamicCallable<'static>>,
+    /// [names]: DynamicFunction::name
+    /// [`DynamicFunctions`]: DynamicFunction
+    functions: HashMap<Cow<'static, str>, DynamicFunction<'static>>,
 }
 
 impl FunctionRegistry {
-    /// Attempts to register the given callable.
+    /// Attempts to register the given function.
     ///
-    /// This function accepts both callables that satisfy [`IntoCallable`]
-    /// and direct [`DynamicCallable`] instances.
-    /// The given callable will internally be stored as a [`DynamicCallable<'static>`]
+    /// This function accepts both functions that satisfy [`IntoFunction`]
+    /// and direct [`DynamicFunction`] instances.
+    /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// and mapped according to its [name].
     ///
-    /// Because the callable must have a name,
+    /// Because the function must have a name,
     /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
-    /// be registered using [`register_with_name`] or manually converted to a [`DynamicCallable`]
-    /// and named using [`DynamicCallable::with_name`].
+    /// be registered using [`register_with_name`] or manually converted to a [`DynamicFunction`]
+    /// and named using [`DynamicFunction::with_name`].
     /// Failure to do so will result in an error being returned.
     ///
-    /// If a registered callable with the same name already exists,
+    /// If a registered function with the same name already exists,
     /// it will not be registered again and an error will be returned.
-    /// To register the callable anyway, overwriting any existing registration,
+    /// To register the function anyway, overwriting any existing registration,
     /// use [`overwrite_registration`] instead.
     ///
     /// # Examples
@@ -57,10 +57,10 @@ impl FunctionRegistry {
     /// # }
     /// ```
     ///
-    /// Callables cannot be registered more than once.
+    /// Functions cannot be registered more than once.
     ///
     /// ```
-    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoCallable};
+    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoFunction};
     /// fn add(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
@@ -73,14 +73,14 @@ impl FunctionRegistry {
     ///
     /// // Note that this simply relies on the name of the function to determine uniqueness.
     /// // You can rename the function to register a separate instance of it.
-    /// let result = registry.register(add.into_callable().with_name("add2"));
+    /// let result = registry.register(add.into_function().with_name("add2"));
     /// assert!(result.is_ok());
     /// ```
     ///
-    /// Anonymous functions and closures should be registered using [`register_with_name`] or given a name using [`DynamicCallable::with_name`].
+    /// Anonymous functions and closures should be registered using [`register_with_name`] or given a name using [`DynamicFunction::with_name`].
     ///
     /// ```
-    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoCallable};
+    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoFunction};
     ///
     /// let anonymous = || -> i32 { 123 };
     ///
@@ -92,60 +92,60 @@ impl FunctionRegistry {
     /// let result = registry.register_with_name("my_crate::add", |a: i32, b: i32| a + b);
     /// assert!(result.is_ok());
     ///
-    /// let result = registry.register((|a: i32, b: i32| a * b).into_callable().with_name("my_crate::mul"));
+    /// let result = registry.register((|a: i32, b: i32| a * b).into_function().with_name("my_crate::mul"));
     /// assert!(result.is_ok());
     /// ```
     ///
-    /// [name]: DynamicCallable::name
+    /// [name]: DynamicFunction::name
     /// [`register_with_name`]: Self::register_with_name
     /// [`overwrite_registration`]: Self::overwrite_registration
     pub fn register<F, Marker>(
         &mut self,
-        callable: F,
+        function: F,
     ) -> Result<&mut Self, FunctionRegistrationError>
     where
-        F: IntoCallable<'static, Marker> + 'static,
+        F: IntoFunction<'static, Marker> + 'static,
     {
-        let callable = callable.into_callable();
-        let name = callable
+        let function = function.into_function();
+        let name = function
             .name()
             .ok_or(FunctionRegistrationError::MissingName)?
             .clone();
-        self.callables
-            .try_insert(name, callable.into_callable())
+        self.functions
+            .try_insert(name, function.into_function())
             .map_err(|err| FunctionRegistrationError::DuplicateName(err.entry.key().clone()))?;
 
         Ok(self)
     }
 
-    /// Attempts to register the given callable with the given name.
+    /// Attempts to register the given function with the given name.
     ///
-    /// This function accepts both callables that satisfy [`IntoCallable`]
-    /// and direct [`DynamicCallable`] instances.
-    /// The given callable will internally be stored as a [`DynamicCallable<'static>`]
+    /// This function accepts both functions that satisfy [`IntoFunction`]
+    /// and direct [`DynamicFunction`] instances.
+    /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// with its [name] set to the given name.
     ///
     /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
     /// it's recommended to use [`register`] instead as the generated name is guaranteed to be unique.
     ///
-    /// If a registered callable with the same name already exists,
+    /// If a registered function with the same name already exists,
     /// it will not be registered again and an error will be returned.
-    /// To register the callable anyway, overwriting any existing registration,
+    /// To register the function anyway, overwriting any existing registration,
     /// use [`overwrite_registration_with_name`] instead.
     ///
-    /// To avoid conflicts, it's recommended to use a unique name for the callable.
-    /// This can be achieved by "namespacing" the callable with a unique identifier,
+    /// To avoid conflicts, it's recommended to use a unique name for the function.
+    /// This can be achieved by "namespacing" the function with a unique identifier,
     /// such as the name of your crate.
     ///
-    /// For example, to register a callable, `add`, from a crate, `my_crate`,
+    /// For example, to register a function, `add`, from a crate, `my_crate`,
     /// you could use the name, `"my_crate::add"`.
     ///
-    /// Another approach could be to use the [type name] of the callable,
+    /// Another approach could be to use the [type name] of the function,
     /// however, it should be noted that anonymous functions and closures
     ///are not guaranteed to have unique type names.
     ///
-    /// This method is a convenience around calling [`IntoCallable::into_callable`] and [`DynamicCallable::with_name`]
-    /// on the callable and inserting it into the registry using the [`register`] method.
+    /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
+    /// on the function and inserting it into the registry using the [`register`] method.
     ///
     /// # Examples
     ///
@@ -190,88 +190,88 @@ impl FunctionRegistry {
     /// registry.register_with_name("my_function", two).unwrap();
     /// ```
     ///
-    /// [name]: DynamicCallable::name
+    /// [name]: DynamicFunction::name
     /// [`register`]: Self::register
     /// [`overwrite_registration_with_name`]: Self::overwrite_registration_with_name
     /// [type name]: std::any::type_name
     pub fn register_with_name<F, Marker>(
         &mut self,
         name: impl Into<Cow<'static, str>>,
-        callable: F,
+        function: F,
     ) -> Result<&mut Self, FunctionRegistrationError>
     where
-        F: IntoCallable<'static, Marker> + 'static,
+        F: IntoFunction<'static, Marker> + 'static,
     {
-        let callable = callable.into_callable().with_name(name);
-        self.register(callable)
+        let function = function.into_function().with_name(name);
+        self.register(function)
     }
 
-    /// Registers the given callable, overwriting any existing registration.
+    /// Registers the given function, overwriting any existing registration.
     ///
-    /// This function accepts both callables that satisfy [`IntoCallable`]
-    /// and direct [`DynamicCallable`] instances.
-    /// The given callable will internally be stored as a [`DynamicCallable<'static>`]
+    /// This function accepts both functions that satisfy [`IntoFunction`]
+    /// and direct [`DynamicFunction`] instances.
+    /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// and mapped according to its [name].
     ///
-    /// Because the callable must have a name,
+    /// Because the function must have a name,
     /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
-    /// be registered using [`overwrite_registration_with_name`] or manually converted to a [`DynamicCallable`]
-    /// and named using [`DynamicCallable::with_name`].
+    /// be registered using [`overwrite_registration_with_name`] or manually converted to a [`DynamicFunction`]
+    /// and named using [`DynamicFunction::with_name`].
     /// Failure to do so will result in an error being returned.
     ///
     /// To avoid overwriting existing registrations,
     /// it's recommended to use the [`register`] method instead.
     ///
-    /// Returns the previous callable with the same name, if any.
+    /// Returns the previous function with the same name, if any.
     ///
-    /// [name]: DynamicCallable::name
+    /// [name]: DynamicFunction::name
     /// [`overwrite_registration_with_name`]: Self::overwrite_registration_with_name
     /// [`register`]: Self::register
     pub fn overwrite_registration<F, Marker>(
         &mut self,
         function: F,
-    ) -> Result<Option<DynamicCallable<'static>>, FunctionRegistrationError>
+    ) -> Result<Option<DynamicFunction<'static>>, FunctionRegistrationError>
     where
-        F: IntoCallable<'static, Marker> + 'static,
+        F: IntoFunction<'static, Marker> + 'static,
     {
-        let function = function.into_callable();
+        let function = function.into_function();
         let name = function
             .name()
             .ok_or(FunctionRegistrationError::MissingName)?
             .clone();
 
-        Ok(self.callables.insert(name, function))
+        Ok(self.functions.insert(name, function))
     }
 
-    /// Registers the given callable, overwriting any existing registration.
+    /// Registers the given function, overwriting any existing registration.
     ///
-    /// This function accepts both callables that satisfy [`IntoCallable`]
-    /// and direct [`DynamicCallable`] instances.
-    /// The given callable will internally be stored as a [`DynamicCallable<'static>`]
+    /// This function accepts both functions that satisfy [`IntoFunction`]
+    /// and direct [`DynamicFunction`] instances.
+    /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// with its [name] set to the given name.
     ///
-    /// Callables are mapped according to their name.
+    /// Functions are mapped according to their name.
     /// To avoid overwriting existing registrations,
     /// it's recommended to use the [`register_with_name`] method instead.
     ///
-    /// This method is a convenience around calling [`IntoCallable::into_callable`] and [`DynamicCallable::with_name`]
+    /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
     /// on the function and inserting it into the registry using the [`overwrite_registration`] method.
     ///
     /// Returns the previous function with the same name, if any.
     ///
-    /// [name]: DynamicCallable::name
+    /// [name]: DynamicFunction::name
     /// [`register_with_name`]: Self::register_with_name
     /// [`overwrite_registration`]: Self::overwrite_registration
     pub fn overwrite_registration_with_name<F, Marker>(
         &mut self,
         name: impl Into<Cow<'static, str>>,
-        callable: F,
-    ) -> Option<DynamicCallable<'static>>
+        function: F,
+    ) -> Option<DynamicFunction<'static>>
     where
-        F: IntoCallable<'static, Marker> + 'static,
+        F: IntoFunction<'static, Marker> + 'static,
     {
-        let callable = callable.into_callable().with_name(name);
-        match self.overwrite_registration(callable) {
+        let function = function.into_function().with_name(name);
+        match self.overwrite_registration(function) {
             Ok(existing) => existing,
             Err(FunctionRegistrationError::MissingName) => {
                 unreachable!("the function should have a name")
@@ -282,39 +282,39 @@ impl FunctionRegistry {
         }
     }
 
-    /// Get a reference to a registered callable by [name].
+    /// Get a reference to a registered function by [name].
     ///
-    /// [name]: DynamicCallable::name
-    pub fn get(&self, name: &str) -> Option<&DynamicCallable<'static>> {
-        self.callables.get(name)
+    /// [name]: DynamicFunction::name
+    pub fn get(&self, name: &str) -> Option<&DynamicFunction<'static>> {
+        self.functions.get(name)
     }
 
-    /// Returns `true` if a callable with the given [name] is registered.
+    /// Returns `true` if a function with the given [name] is registered.
     ///
-    /// [name]: DynamicCallable::name
+    /// [name]: DynamicFunction::name
     pub fn contains(&self, name: &str) -> bool {
-        self.callables.contains_key(name)
+        self.functions.contains_key(name)
     }
 
-    /// Returns an iterator over all registered callables.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &DynamicCallable<'static>> {
-        self.callables.values()
+    /// Returns an iterator over all registered functions.
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &DynamicFunction<'static>> {
+        self.functions.values()
     }
 
-    /// Returns the number of registered callables.
+    /// Returns the number of registered functions.
     pub fn len(&self) -> usize {
-        self.callables.len()
+        self.functions.len()
     }
 
-    /// Returns `true` if no callables are registered.
+    /// Returns `true` if no functions are registered.
     pub fn is_empty(&self) -> bool {
-        self.callables.is_empty()
+        self.functions.is_empty()
     }
 }
 
 impl Debug for FunctionRegistry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_set().entries(self.callables.values()).finish()
+        f.debug_set().entries(self.functions.values()).finish()
     }
 }
 
@@ -341,7 +341,7 @@ impl FunctionRegistryArc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{ArgList, IntoCallable};
+    use crate::func::{ArgList, IntoFunction};
 
     #[test]
     fn should_register_function() {
@@ -386,7 +386,7 @@ mod tests {
             123
         }
 
-        let function = foo.into_callable().with_name("custom_name");
+        let function = foo.into_function().with_name("custom_name");
 
         let mut registry = FunctionRegistry::default();
         registry.register(function).unwrap();
@@ -401,7 +401,7 @@ mod tests {
         let value = 123;
         let foo = move || -> i32 { value };
 
-        let function = foo.into_callable().with_name("custom_name");
+        let function = foo.into_function().with_name("custom_name");
 
         let mut registry = FunctionRegistry::default();
         registry.register(function).unwrap();
@@ -412,7 +412,7 @@ mod tests {
     }
 
     #[test]
-    fn should_only_register_callable_once() {
+    fn should_only_register_function_once() {
         fn foo() -> i32 {
             123
         }
@@ -425,7 +425,7 @@ mod tests {
 
         let mut registry = FunctionRegistry::default();
         registry.register(foo).unwrap();
-        let result = registry.register(bar.into_callable().with_name(name));
+        let result = registry.register(bar.into_function().with_name(name));
 
         assert!(matches!(
             result,
@@ -453,7 +453,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register(foo).unwrap();
         registry
-            .overwrite_registration(bar.into_callable().with_name(name))
+            .overwrite_registration(bar.into_function().with_name(name))
             .unwrap();
 
         assert_eq!(registry.len(), 1);
@@ -467,7 +467,7 @@ mod tests {
     fn should_error_on_missing_name() {
         let foo = || -> i32 { 123 };
 
-        let function = foo.into_callable();
+        let function = foo.into_function();
 
         let mut registry = FunctionRegistry::default();
         let result = registry.register(function);
@@ -488,6 +488,6 @@ mod tests {
         registry.register_with_name("foo", foo).unwrap();
 
         let debug = format!("{:?}", registry);
-        assert_eq!(debug, "{DynamicCallable(fn foo() -> i32)}");
+        assert_eq!(debug, "{DynamicFunction(fn foo() -> i32)}");
     }
 }

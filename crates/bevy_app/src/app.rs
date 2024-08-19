@@ -605,16 +605,16 @@ impl App {
 
     /// Registers the given function into the [`AppFunctionRegistry`] resource.
     ///
-    /// The given function will internally be stored as a [`DynamicCallable`]
+    /// The given function will internally be stored as a [`DynamicFunction`]
     /// and mapped according to its [name].
     ///
     /// Because the function must have a name,
     /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
-    /// be registered using [`register_function_with_name`] or converted to a [`DynamicCallable`]
-    /// and named using [`DynamicCallable::with_name`].
+    /// be registered using [`register_function_with_name`] or converted to a [`DynamicFunction`]
+    /// and named using [`DynamicFunction::with_name`].
     /// Failure to do so will result in a panic.
     ///
-    /// Only types that implement [`IntoCallable`] may be registered via this method.
+    /// Only types that implement [`IntoFunction`] may be registered via this method.
     ///
     /// See [`FunctionRegistry::register`] for more information.
     ///
@@ -650,7 +650,7 @@ impl App {
     ///     .register_function(add);
     /// ```
     ///
-    /// Anonymous functions and closures should be registered using [`register_function_with_name`] or given a name using [`DynamicCallable::with_name`].
+    /// Anonymous functions and closures should be registered using [`register_function_with_name`] or given a name using [`DynamicFunction::with_name`].
     ///
     /// ```should_panic
     /// use bevy_app::App;
@@ -660,15 +660,15 @@ impl App {
     /// ```
     ///
     /// [`register_function_with_name`]: Self::register_function_with_name
-    /// [`DynamicCallable`]: bevy_reflect::func::DynamicCallable
+    /// [`DynamicFunction`]: bevy_reflect::func::DynamicFunction
     /// [name]: bevy_reflect::func::FunctionInfo::name
-    /// [`DynamicCallable::with_name`]: bevy_reflect::func::DynamicCallable::with_name
-    /// [`IntoCallable`]: bevy_reflect::func::IntoCallable
+    /// [`DynamicFunction::with_name`]: bevy_reflect::func::DynamicFunction::with_name
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
     /// [`FunctionRegistry::register`]: bevy_reflect::func::FunctionRegistry::register
     #[cfg(feature = "reflect_functions")]
     pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
     where
-        F: bevy_reflect::func::IntoCallable<'static, Marker> + 'static,
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
     {
         self.main_mut().register_function(function);
         self
@@ -689,7 +689,7 @@ impl App {
     /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
     /// it's recommended to use [`register_function`] instead as the generated name is guaranteed to be unique.
     ///
-    /// Only types that implement [`IntoCallable`] may be registered via this method.
+    /// Only types that implement [`IntoFunction`] may be registered via this method.
     ///
     /// See [`FunctionRegistry::register_with_name`] for more information.
     ///
@@ -738,7 +738,7 @@ impl App {
     ///
     /// [type name]: std::any::type_name
     /// [`register_function`]: Self::register_function
-    /// [`IntoCallable`]: bevy_reflect::func::IntoCallable
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
     /// [`FunctionRegistry::register_with_name`]: bevy_reflect::func::FunctionRegistry::register_with_name
     #[cfg(feature = "reflect_functions")]
     pub fn register_function_with_name<F, Marker>(
@@ -747,7 +747,7 @@ impl App {
         function: F,
     ) -> &mut Self
     where
-        F: bevy_reflect::func::IntoCallable<'static, Marker> + 'static,
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
     {
         self.main_mut().register_function_with_name(name, function);
         self

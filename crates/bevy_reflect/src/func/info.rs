@@ -5,13 +5,13 @@ use bevy_utils::all_tuples;
 use crate::func::args::{ArgInfo, GetOwnership, Ownership};
 use crate::TypePath;
 
-/// Type information for a [`DynamicCallable`] or [`DynamicCallableMut`].
+/// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// This information can be retrieved directly from certain functions and closures
 /// using the [`TypedFunction`] trait, and manually constructed otherwise.
 ///
-/// [`DynamicCallable`]: crate::func::DynamicCallable
-/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
@@ -20,7 +20,7 @@ pub struct FunctionInfo {
 }
 
 impl FunctionInfo {
-    /// Create a new [`FunctionInfo`] for a callable with the given name.
+    /// Create a new [`FunctionInfo`] for a function with the given name.
     pub fn named(name: impl Into<Cow<'static, str>>) -> Self {
         Self {
             name: Some(name.into()),
@@ -43,7 +43,7 @@ impl FunctionInfo {
         }
     }
 
-    /// Create a new [`FunctionInfo`] from the given callable.
+    /// Create a new [`FunctionInfo`] from the given function.
     pub fn from<F, Marker>(function: &F) -> Self
     where
         F: TypedFunction<Marker>,
@@ -51,13 +51,13 @@ impl FunctionInfo {
         function.get_function_info()
     }
 
-    /// Set the name of the callable.
+    /// Set the name of the function.
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.name = Some(name.into());
         self
     }
 
-    /// Push an argument onto the callable's argument list.
+    /// Push an argument onto the function's argument list.
     ///
     /// The order in which this method is called matters as it will determine the index of the argument
     /// based on the current number of arguments.
@@ -70,20 +70,20 @@ impl FunctionInfo {
         self
     }
 
-    /// Set the arguments of the callable.
+    /// Set the arguments of the function.
     ///
     /// This will completely replace any existing arguments.
     ///
-    /// It's preferable to use [`Self::with_arg`] to add arguments to the callable
+    /// It's preferable to use [`Self::with_arg`] to add arguments to the function
     /// as it will automatically set the index of the argument.
     pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
         self.args = args;
         self
     }
 
-    /// Set the [return information] of the callable.
+    /// Set the [return information] of the function.
     ///
-    /// To manually set the [`ReturnInfo`] of the callable, see [`Self::with_return_info`].
+    /// To manually set the [`ReturnInfo`] of the function, see [`Self::with_return_info`].
     ///
     /// [return information]: ReturnInfo
     pub fn with_return<T: TypePath + GetOwnership>(mut self) -> Self {
@@ -91,7 +91,7 @@ impl FunctionInfo {
         self
     }
 
-    /// Set the [return information] of the callable.
+    /// Set the [return information] of the function.
     ///
     /// This will completely replace any existing return information.
     ///
@@ -103,41 +103,41 @@ impl FunctionInfo {
         self
     }
 
-    /// The name of the callable.
+    /// The name of the function.
     ///
-    /// For [`DynamicCallables`] created using [`IntoCallable`] or [`DynamicCallableMuts`] created using [`IntoCallableMut`],
-    /// the default name will always be the full path to the callable as returned by [`std::any::type_name`],
-    /// unless the callable is a closure, anonymous function, or function pointer,
+    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
+    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// unless the function is a closure, anonymous function, or function pointer,
     /// in which case the name will be `None`.
     ///
-    /// [`DynamicCallables`]: crate::func::DynamicCallable
-    /// [`IntoCallable`]: crate::func::IntoCallable
-    /// [`DynamicCallableMuts`]: crate::func::DynamicCallableMut
-    /// [`IntoCallableMut`]: crate::func::IntoCallableMut
+    /// [`DynamicFunctions`]: crate::func::DynamicFunction
+    /// [`IntoFunction`]: crate::func::IntoFunction
+    /// [`DynamicFunctionMuts`]: crate::func::DynamicFunctionMut
+    /// [`IntoFunctionMut`]: crate::func::IntoFunctionMut
     pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.name.as_ref()
     }
 
-    /// The arguments of the callable.
+    /// The arguments of the function.
     pub fn args(&self) -> &[ArgInfo] {
         &self.args
     }
 
-    /// The number of arguments the callable takes.
+    /// The number of arguments the function takes.
     pub fn arg_count(&self) -> usize {
         self.args.len()
     }
 
-    /// The return information of the callable.
+    /// The return information of the function.
     pub fn return_info(&self) -> &ReturnInfo {
         &self.return_info
     }
 }
 
-/// Information about the return type of a [`DynamicCallable`] or [`DynamicCallableMut`].
+/// Information about the return type of a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
-/// [`DynamicCallable`]: crate::func::DynamicCallable
-/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
     type_path: &'static str,
@@ -164,9 +164,9 @@ impl ReturnInfo {
     }
 }
 
-/// A static accessor to compile-time type information for callables.
+/// A static accessor to compile-time type information for functions.
 ///
-/// This is the equivalent of [`Typed`], but for callables.
+/// This is the equivalent of [`Typed`], but for function.
 ///
 /// # Blanket Implementation
 ///
@@ -178,7 +178,7 @@ impl ReturnInfo {
 /// - Closures that capture mutable references to their environment
 /// - Closures that take ownership of captured variables
 ///
-/// For each of the above cases, the callable signature may only have up to 15 arguments,
+/// For each of the above cases, the function signature may only have up to 15 arguments,
 /// not including an optional receiver argument (often `&self` or `&mut self`).
 /// This optional receiver argument may be either a mutable or immutable reference to a type.
 /// If the return type is also a reference, its lifetime will be bound to the lifetime of this receiver.
@@ -223,7 +223,7 @@ pub trait TypedFunction<Marker> {
     }
 }
 
-/// Helper macro for implementing [`TypedFunction`] on Rust callables.
+/// Helper macro for implementing [`TypedFunction`] on Rust functions.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
 /// - `FnMut(arg0, arg1, ..., argN) -> R`

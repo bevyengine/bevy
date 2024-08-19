@@ -3,14 +3,14 @@ use alloc::borrow::Cow;
 use crate::func::args::{GetOwnership, Ownership};
 use crate::TypePath;
 
-/// Type information for an [`Arg`] used in a [`DynamicCallable`] or [`DynamicCallableMut`].
+/// Type information for an [`Arg`] used in a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`Arg`]: crate::func::args::Arg
-/// [`DynamicCallable`]: crate::func::DynamicCallable
-/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct ArgInfo {
-    /// The index of the argument within its callable.
+    /// The index of the argument within its function.
     index: usize,
     /// The name of the argument (if provided).
     name: Option<Cow<'static, str>>,
@@ -44,7 +44,7 @@ impl ArgInfo {
         self
     }
 
-    /// The index of the argument within its callable.
+    /// The index of the argument within its function.
     pub fn index(&self) -> usize {
         self.index
     }
@@ -53,16 +53,16 @@ impl ArgInfo {
     ///
     /// Note that this may return `None` even if the argument has a name.
     /// This is because the name needs to be manually set using [`Self::with_name`]
-    /// since the name can't be inferred from the callable type alone.
+    /// since the name can't be inferred from the function type alone.
     ///
-    /// For [`DynamicCallables`] created using [`IntoCallable`]
-    /// and [`DynamicCallableMuts`] created using [`IntoCallableMut`],
+    /// For [`DynamicFunctions`] created using [`IntoFunction`]
+    /// and [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
     /// the name will always be `None`.
     ///
-    /// [`DynamicCallables`]: crate::func::DynamicCallable
-    /// [`IntoCallable`]: crate::func::IntoCallable
-    /// [`DynamicCallableMuts`]: crate::func::DynamicCallableMut
-    /// [`IntoCallableMut`]: crate::func::IntoCallableMut
+    /// [`DynamicFunctions`]: crate::func::DynamicFunction
+    /// [`IntoFunction`]: crate::func::IntoFunction
+    /// [`DynamicFunctionMuts`]: crate::func::DynamicFunctionMut
+    /// [`IntoFunctionMut`]: crate::func::IntoFunctionMut
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
@@ -96,7 +96,7 @@ impl ArgInfo {
 /// This is primarily used for error reporting and debugging.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArgId {
-    /// The index of the argument within its callable.
+    /// The index of the argument within its function.
     Index(usize),
     /// The name of the argument.
     Name(Cow<'static, str>),

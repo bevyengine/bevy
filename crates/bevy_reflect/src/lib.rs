@@ -574,7 +574,7 @@ pub mod prelude {
     };
 
     #[cfg(feature = "functions")]
-    pub use crate::func::{IntoCallable, IntoCallableMut};
+    pub use crate::func::{IntoFunction, IntoFunctionMut};
 }
 
 pub use array::*;

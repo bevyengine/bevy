@@ -1,18 +1,18 @@
 use crate::PartialReflect;
 
-/// The return type of a [`DynamicCallable`] or [`DynamicCallableMut`].
+/// The return type of a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
-/// [`DynamicCallable`]: crate::func::DynamicCallable
-/// [`DynamicCallableMut`]: crate::func::DynamicCallableMut
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum Return<'a> {
-    /// The callable returns nothing (i.e. it returns `()`).
+    /// The function returns nothing (i.e. it returns `()`).
     Unit,
-    /// The callable returns an owned value.
+    /// The function returns an owned value.
     Owned(Box<dyn PartialReflect>),
-    /// The callable returns a reference to a value.
+    /// The function returns a reference to a value.
     Ref(&'a dyn PartialReflect),
-    /// The callable returns a mutable reference to a value.
+    /// The function returns a mutable reference to a value.
     Mut(&'a mut dyn PartialReflect),
 }
 

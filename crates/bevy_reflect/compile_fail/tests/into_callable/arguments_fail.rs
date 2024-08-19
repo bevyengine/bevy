@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use bevy_reflect::func::IntoCallable;
+use bevy_reflect::func::IntoFunction;
 use bevy_reflect::Reflect;
 
 fn pass(_: i32) {}
@@ -30,11 +30,11 @@ struct Foo;
 fn argument_not_reflect(foo: Foo) {}
 
 fn main() {
-    let _ = pass.into_callable();
+    let _ = pass.into_function();
 
-    let _ = too_many_arguments.into_callable();
+    let _ = too_many_arguments.into_function();
     //~^ E0599
 
-    let _ = argument_not_reflect.into_callable();
+    let _ = argument_not_reflect.into_function();
     //~^ E0599
 }

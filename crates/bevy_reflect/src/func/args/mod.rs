@@ -1,7 +1,7 @@
-//! Argument types and utilities for working with [`DynamicCallable`] and [`DynamicCallableMut`].
+//! Argument types and utilities for working with [`DynamicFunction`] and [`DynamicFunctionMut`].
 //!
-//! [`DynamicCallable`]: crate::func::DynamicCallable
-//! [`DynamicCallableMut`]: crate::func::DynamicCallableMut
+//! [`DynamicFunction`]: crate::func::DynamicFunction
+//! [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 
 pub use arg::*;
 pub use error::*;
