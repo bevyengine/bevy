@@ -94,6 +94,7 @@ fn setup(
             point_light: PointLight {
                 color: SpectralColor::INFRARED.into(),
                 shadows_enabled: true,
+                #[cfg(feature = "spectral_lighting")]
                 monochromaticity: 1.0,
                 ..default()
             },

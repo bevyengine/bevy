@@ -152,6 +152,7 @@ pub struct GpuClusterableObject {
     pub(crate) shadow_depth_bias: f32,
     pub(crate) shadow_normal_bias: f32,
     pub(crate) spot_light_tan_angle: f32,
+    #[cfg(feature = "spectral_lighting")]
     pub(crate) monochromaticity: f32,
 }
 

@@ -25,5 +25,9 @@ fn ambient_light(
     // See: https://google.github.io/filament/Filament.html#specularocclusion
     let specular_occlusion = saturate(dot(specular_color, vec3(50.0 * 0.33)));
 
+#ifdef SPECTRAL_LIGHTING
     return monochromaticity_blend((diffuse_ambient + specular_ambient * specular_occlusion), lights.ambient_color.rgb * occlusion, lights.ambient_monochromaticity);
+#else
+    return (diffuse_ambient + specular_ambient * specular_occlusion) * lights.ambient_color.rgb * occlusion;
+#endif
 }

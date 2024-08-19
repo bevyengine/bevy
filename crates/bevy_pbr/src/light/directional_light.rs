@@ -68,6 +68,7 @@ pub struct DirectionalLight {
     ///
     /// Meant to be used with `SpectralColor` to render monochromatic lights. (e.g. Sodium vapor lamps)
     /// Combining non-zero values with non-spectral colors is not physically correct, but can be used for artistic effect.
+    #[cfg(feature = "spectral_lighting")]
     pub monochromaticity: f32,
 }
 
@@ -79,6 +80,7 @@ impl Default for DirectionalLight {
             shadows_enabled: false,
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
+            #[cfg(feature = "spectral_lighting")]
             monochromaticity: 0.0,
         }
     }

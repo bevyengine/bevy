@@ -5,10 +5,13 @@
     mesh_view_bindings as view_bindings,
 }
 #import bevy_render::maths::PI
+
+#ifdef SPECTRAL_LIGHTING
 #import bevy_render::color_operations::{
     hsv_to_rgb,
     rgb_to_hsv,
 }
+#endif
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -536,8 +539,11 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
     color = diffuse + specular_light;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    return monochromaticity_blend(color, (*light).color_inverse_square_range.rgb *
-        (rangeAttenuation * derived_input.NdotL), (*light).monochromaticity);
+#ifdef SPECTRAL_LIGHTING
+    return monochromaticity_blend(color, (*light).color_inverse_square_range.rgb * (rangeAttenuation * derived_input.NdotL), (*light).monochromaticity);
+#else
+    return color * (*light).color_inverse_square_range.rgb * (rangeAttenuation * derived_input.NdotL);
+#endif
 }
 
 fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
@@ -611,9 +617,14 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     color = (diffuse + specular_light) * derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
+#ifdef SPECTRAL_LIGHTING
     return monochromaticity_blend(color, (*light).color.rgb, (*light).monochromaticity);
+#else
+    return color * (*light).color.rgb;
+#endif
 }
 
+#ifdef SPECTRAL_LIGHTING
 // Blends base and light colors taking into account the light's monochromaticity
 fn monochromaticity_blend(base: vec3<f32>, light: vec3<f32>, monochromaticity: f32) -> vec3<f32> {
     // Convert both colors to HSV
@@ -636,3 +647,4 @@ fn monochromaticity_blend(base: vec3<f32>, light: vec3<f32>, monochromaticity: f
         monochromaticity * base_hsv.y,
     );
 }
+#endif  // SPECTRAL_LIGHTING

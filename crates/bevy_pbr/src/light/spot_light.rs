@@ -34,6 +34,7 @@ pub struct SpotLight {
     ///
     /// Meant to be used with `SpectralColor` to render monochromatic lights. (e.g. Sodium vapor lamps)
     /// Combining non-zero values with non-spectral colors is not physically correct, but can be used for artistic effect.
+    #[cfg(feature = "spectral_lighting")]
     pub monochromaticity: f32,
 }
 
@@ -58,6 +59,7 @@ impl Default for SpotLight {
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             inner_angle: 0.0,
             outer_angle: std::f32::consts::FRAC_PI_4,
+            #[cfg(feature = "spectral_lighting")]
             monochromaticity: 0.0,
         }
     }
