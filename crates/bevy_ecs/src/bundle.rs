@@ -1261,7 +1261,7 @@ impl Bundles {
             let id = BundleId(bundle_infos.len());
             let mut required_components = RequiredComponents::default();
             T::register_required_components(components, storages, &mut required_components);
-            required_components.remove_bundle_components(&component_ids);
+            required_components.remove_explicit_components(&component_ids);
             let required_components = required_components.0.into_iter().map(|(_, v)| v).collect();
             let bundle_info =
                 // SAFETY: T::component_id ensures:

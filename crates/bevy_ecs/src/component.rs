@@ -15,7 +15,6 @@ use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, TypeIdMap};
-use std::cell::UnsafeCell;
 #[cfg(feature = "track_change_detection")]
 use std::panic::Location;
 use std::{
@@ -26,6 +25,7 @@ use std::{
     mem::needs_drop,
     sync::Arc,
 };
+use std::{cell::UnsafeCell, fmt::Debug};
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -96,6 +96,91 @@ use std::{
 ///
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
+///
+/// # Required Components
+///
+/// Components can specify Required Components. If some [`Component`] `A` requires [`Component`] `B`,  then when `A` is inserted,
+/// `B` will _also_ be initialized and inserted (if it was not manually specified).
+///
+/// The [`Default`] constructor will be used to initialize the component, by default:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B)]
+/// struct A;
+///
+/// #[derive(Component, Default)]
+/// struct B(usize);
+///
+/// # let mut world = World::default();
+/// // This will implicitly also insert B with the Default constructor
+/// world.spawn(A);
+///
+/// // This will _not_ implicitly insert B, because it was already provided
+/// world.spawn((A, B(11)));
+/// ```
+///
+/// Components can have more than one required component:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B, C)]
+/// struct A;
+///
+/// #[derive(Component, Default)]
+/// #[require(C)]
+/// struct B(usize);
+///
+/// #[derive(Component, Default)]
+/// struct C(f32);
+///
+/// # let mut world = World::default();
+/// // This will implicitly also insert B and C with their Default constructors
+/// world.spawn(A);
+/// ```
+///
+/// You can also define a custom constructor:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B(init_b))]
+/// struct A;
+///
+/// #[derive(Component)]
+/// struct B(usize);
+///
+/// fn init_b() -> B {
+///     B(10)
+/// }
+///
+/// # let mut world = World::default();
+/// // This will implicitly also insert B with the init_b() constructor
+/// world.spawn(A);
+/// ```
+///
+/// Required components are _recursive_. This means, if a Required Component has required components,
+/// those components will _also_ be inserted if they are missing:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[require(B)]
+/// struct A;
+///
+/// #[derive(Component, Default)]
+/// #[require(C)]
+/// struct B(usize);
+///
+/// #[derive(Component, Default)]
+/// struct C(f32);
+///
+/// # let mut world = World::default();
+/// // This will implicitly also insert B and C with their Default constructors
+/// world.spawn(A);
+/// ```
 ///
 /// # Adding component's hooks
 ///
@@ -1151,14 +1236,23 @@ type RequiredComponentConstructor =
 #[cfg(not(feature = "track_change_detection"))]
 type RequiredComponentConstructor = dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity);
 
-/// A context-less constructor that can be called to construct a new instance of a component.
-#[derive(Clone, Debug)]
+/// A component that another component must when it is inserted. This contains a context-less constructor that
+/// can be called to construct a new instance of a component.
+#[derive(Clone)]
 pub(crate) struct RequiredComponent {
     pub(crate) component_id: ComponentId,
     /// # Safety
     /// Calling this constructor is unsafe. It should only be called in the context of [`BundleInfo::write_components`], where the
     /// inputs are already validated. This _should not_ have its module visibility increased.
     constructor: Arc<RequiredComponentConstructor>,
+}
+
+impl Debug for RequiredComponent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RequiredComponent")
+            .field("component_id", &self.component_id)
+            .finish()
+    }
 }
 
 impl RequiredComponent {
@@ -1193,6 +1287,8 @@ impl RequiredComponent {
 }
 
 /// The collection of metadata for components that are required for a given component.
+///
+/// For more information, see the "Required Components" section of [`Component`].
 #[derive(Default, Debug)]
 pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponent>);
 
@@ -1267,7 +1363,7 @@ impl RequiredComponents {
     /// be logically treated as normal components, not "required components".
     ///
     /// [`Bundle`]: crate::bundle::Bundle
-    pub fn remove_bundle_components(&mut self, components: &[ComponentId]) {
+    pub fn remove_explicit_components(&mut self, components: &[ComponentId]) {
         for component in components {
             self.0.remove(component);
         }
