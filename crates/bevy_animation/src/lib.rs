@@ -766,21 +766,21 @@ impl AnimationTargetContext<'_> {
                     if let Some(ref mut transform) = self.transform {
                         transform.translation = transform
                             .translation
-                            .lerp(translation_curve.sample_clamped(seek_time), weight);
+                            .lerp(translation_curve.sample_unchecked(seek_time), weight);
                     }
                 }
                 VariableCurve::Rotation(rotation_curve) => {
                     if let Some(ref mut transform) = self.transform {
                         transform.rotation = transform
                             .rotation
-                            .slerp(rotation_curve.sample_clamped(seek_time), weight);
+                            .slerp(rotation_curve.sample_unchecked(seek_time), weight);
                     }
                 }
                 VariableCurve::Scale(scale_curve) => {
                     if let Some(ref mut transform) = self.transform {
                         transform.scale = transform
                             .scale
-                            .lerp(scale_curve.sample_clamped(seek_time), weight);
+                            .lerp(scale_curve.sample_unchecked(seek_time), weight);
                     }
                 }
                 VariableCurve::Weights(weights_curve) => {
@@ -794,7 +794,7 @@ impl AnimationTargetContext<'_> {
 
                     lerp_morph_weights(
                         morphs.weights_mut(),
-                        weights_curve.sample_iter_clamped(seek_time),
+                        weights_curve.sample_iter_unchecked(seek_time),
                         weight,
                     );
                 }
