@@ -13,9 +13,9 @@ use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
 #[derive(Clone)]
-pub struct SpriteBackend;
+pub struct SpritePickingBackend;
 
-impl Plugin for SpriteBackend {
+impl Plugin for SpritePickingBackend {
     fn build(&self, app: &mut App) {
         app.add_systems(PreUpdate, sprite_picking.in_set(PickSet::Backend));
     }
