@@ -89,6 +89,8 @@ pub struct GpuDirectionalLight {
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
     skip: u32,
+    #[cfg(feature = "spectral_lighting")]
+    monochromaticity: f32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -790,6 +792,8 @@ pub fn prepare_lights(
             num_cascades: num_cascades as u32,
             cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
             depth_texture_base_index: num_directional_cascades_enabled as u32,
+            #[cfg(feature = "spectral_lighting")]
+            monochromaticity: light.monochromaticity,
         };
         if index < directional_shadow_enabled_count {
             num_directional_cascades_enabled += num_cascades;
