@@ -2,9 +2,11 @@
 //! contains the [`Interval`] type, along with a selection of core data structures used to back
 //! curves that are interpolated from samples.
 
+pub mod adaptors;
 pub mod cores;
 pub mod interval;
 
+use adaptors::*;
 pub use interval::{interval, Interval};
 use itertools::Itertools;
 
@@ -13,9 +15,6 @@ use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
 use std::{marker::PhantomData, ops::Deref};
 use thiserror::Error;
-
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
 
 /// A trait for a type that can represent values of type `T` parametrized over a fixed interval.
 ///
@@ -674,7 +673,7 @@ pub enum ResamplingError {
 /// This is a curve that holds an inner value and always produces a clone of that value when sampled.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct ConstantCurve<T> {
     domain: Interval,
     value: T,
@@ -712,7 +711,7 @@ where
 /// output of type `T`. The value of this curve when sampled at time `t` is just `f(t)`.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct FunctionCurve<T, F> {
     domain: Interval,
     f: F,
@@ -753,7 +752,7 @@ where
 /// given function. Curves of this type are produced by [`Curve::map`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct MapCurve<S, T, C, F> {
     preimage: C,
     f: F,
@@ -780,7 +779,7 @@ where
 /// Curves of this type are produced by [`Curve::reparametrize`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct ReparamCurve<T, C, F> {
     domain: Interval,
     base: C,
@@ -808,7 +807,7 @@ where
 /// Curves of this type are produced by [`Curve::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct LinearReparamCurve<T, C> {
     /// Invariants: The domain of this curve must always be bounded.
     base: C,
@@ -838,7 +837,7 @@ where
 /// sample times before sampling. Curves of this type are produced by [`Curve::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct CurveReparamCurve<T, C, D> {
     base: C,
     reparam_curve: D,
@@ -866,7 +865,7 @@ where
 /// produced by [`Curve::graph`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct GraphCurve<T, C> {
     base: C,
     _phantom: PhantomData<T>,
@@ -891,7 +890,7 @@ where
 /// of this type are produced by [`Curve::zip`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct ProductCurve<S, T, C, D> {
     domain: Interval,
     first: C,
@@ -918,256 +917,10 @@ where
     }
 }
 
-/// The curve that results from chaining one curve with another. The second curve is
-/// effectively reparametrized so that its start is at the end of the first.
-///
-/// For this to be well-formed, the first curve's domain must be right-finite and the second's
-/// must be left-finite.
-///
-/// Curves of this type are produced by [`Curve::chain`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ChainCurve<T, C, D> {
-    first: C,
-    second: D,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C, D> Curve<T> for ChainCurve<T, C, D>
-where
-    C: Curve<T>,
-    D: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        // This unwrap always succeeds because `first` has a valid Interval as its domain and the
-        // length of `second` cannot be NAN. It's still fine if it's infinity.
-        Interval::new(
-            self.first.domain().start(),
-            self.first.domain().end() + self.second.domain().length(),
-        )
-        .unwrap()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        if t > self.first.domain().end() {
-            self.second.sample_unchecked(
-                // `t - first.domain.end` computes the offset into the domain of the second.
-                t - self.first.domain().end() + self.second.domain().start(),
-            )
-        } else {
-            self.first.sample_unchecked(t)
-        }
-    }
-}
-
-/// The curve that results from reversing another.
-///
-/// Curves of this type are produced by [`Curve::reverse`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ReverseCurve<T, C> {
-    curve: C,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C> Curve<T> for ReverseCurve<T, C>
-where
-    C: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.curve.domain()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.curve
-            .sample_unchecked(self.domain().end() - (t - self.domain().start()))
-    }
-}
-
-/// The curve that results from repeating a curve `N` times.
-///
-/// # Notes
-///
-/// - the domain of this curve has to be bounded
-/// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
-///   value at `domain.end()` in the original curve
-///
-/// Curves of this type are produced by [`Curve::repeat`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct RepeatCurve<T, C> {
-    domain: Interval,
-    curve: C,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C> Curve<T> for RepeatCurve<T, C>
-where
-    C: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        self.domain
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        // the domain is bounded by construction
-        let d = self.curve.domain();
-        let cyclic_t = (t - d.start()) % d.length();
-        let t = if t != d.start() && cyclic_t == 0.0 {
-            d.end()
-        } else {
-            d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
-    }
-}
-
-/// The curve that results from repeating a curve forever.
-///
-/// # Notes
-///
-/// - the domain of this curve has to be bounded
-/// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
-///   value at `domain.end()` in the original curve
-///
-/// Curves of this type are produced by [`Curve::repeat`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ForeverCurve<T, C> {
-    curve: C,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C> Curve<T> for ForeverCurve<T, C>
-where
-    C: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::EVERYWHERE
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        // the domain is bounded by construction
-        let d = self.curve.domain();
-        let cyclic_t = (t - d.start()) % d.length();
-        let t = if t != d.start() && cyclic_t == 0.0 {
-            d.end()
-        } else {
-            d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
-    }
-}
-
-/// The curve that results from chaining a curve with its reversed version. The transition point
-/// is guaranteed to make no jump.
-///
-/// # Notes
-///
-/// - the domain end of this curve has to be finite
-///
-/// Curves of this type are produced by [`Curve::ping_pong`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct PingPongCurve<T, C> {
-    curve: C,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C> Curve<T> for PingPongCurve<T, C>
-where
-    C: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
-        // length of `curve` cannot be NAN. It's still fine if it's infinity.
-        Interval::new(
-            self.curve.domain().start(),
-            self.curve.domain().end() + self.curve.domain().length(),
-        )
-        .unwrap()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        // the domain is bounded by construction
-        let final_t = if t > self.curve.domain().end() {
-            self.curve.domain().end() * 2.0 - t
-        } else {
-            t
-        };
-        self.curve.sample_unchecked(final_t)
-    }
-}
-
-/// The curve that results from chaining two curves.
-///
-/// Additionally the transition of the samples is guaranteed to not make sudden jumps. This is
-/// useful if you really just know about the shapes of your curves and don't want to deal with
-/// stitching them together properly when it would just introduce useless complexity. It is
-/// realized by translating the second curve so that its start sample point coincides with the
-/// first curves' end sample point.
-///
-/// Curves of this type are produced by [`Curve::chain_continue`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct ContinuationCurve<T, C, D> {
-    first: C,
-    second: D,
-    // cache the offset in the curve directly to prevent triple sampling for every sample we make
-    offset: T,
-    _phantom: PhantomData<T>,
-}
-
-impl<T, C, D> Curve<T> for ContinuationCurve<T, C, D>
-where
-    T: VectorSpace,
-    C: Curve<T>,
-    D: Curve<T>,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        // This unwrap always succeeds because `curve` has a valid Interval as its domain and the
-        // length of `curve` cannot be NAN. It's still fine if it's infinity.
-        Interval::new(
-            self.first.domain().start(),
-            self.first.domain().end() + self.second.domain().length(),
-        )
-        .unwrap()
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        if t > self.first.domain().end() {
-            self.second.sample_unchecked(
-                // `t - first.domain.end` computes the offset into the domain of the second.
-                t - self.first.domain().end() + self.second.domain().start(),
-            ) + self.offset
-        } else {
-            self.first.sample_unchecked(t)
-        }
-    }
-}
-
 /// A curve that is defined by explicit neighbor interpolation over a set of samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct SampleCurve<T, I> {
     core: EvenCore<T>,
     interpolation: I,
@@ -1215,7 +968,7 @@ impl<T, I> SampleCurve<T, I> {
 /// A curve that is defined by neighbor interpolation over a set of samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct SampleAutoCurve<T> {
     core: EvenCore<T>,
 }
@@ -1254,7 +1007,7 @@ impl<T> SampleAutoCurve<T> {
 /// interpolation.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct UnevenSampleCurve<T, I> {
     core: UnevenCore<T>,
     interpolation: I,
@@ -1312,7 +1065,7 @@ impl<T, I> UnevenSampleCurve<T, I> {
 /// A curve that is defined by interpolation over unevenly spaced samples.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct UnevenSampleAutoCurve<T> {
     core: UnevenCore<T>,
 }
