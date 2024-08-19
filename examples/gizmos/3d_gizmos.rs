@@ -152,10 +152,18 @@ fn draw_example_collection(
         .resolution(10);
 
     // Circles have 32 line-segments by default.
-    my_gizmos.circle(Isometry3d::IDENTITY, 3., BLACK);
+    my_gizmos.circle(
+        Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, Vec3::Y)),
+        3.,
+        BLACK,
+    );
     // You may want to increase this for larger circles or spheres.
     my_gizmos
-        .circle(Isometry3d::IDENTITY, 3.1, NAVY)
+        .circle(
+            Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, Vec3::Y)),
+            3.1,
+            NAVY,
+        )
         .resolution(64);
     my_gizmos
         .sphere(Isometry3d::IDENTITY, 3.2, BLACK)
