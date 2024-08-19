@@ -1162,4 +1162,38 @@ mod tests {
         assert_abs_diff_eq!(resampled_curve.domain().start(), 1.0);
         assert_abs_diff_eq!(resampled_curve.domain().end(), 512.0);
     }
+
+    #[test]
+    fn sample_iterators() {
+        let times = [-0.5, 0.0, 0.5, 1.0, 1.5];
+
+        let curve = function_curve(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
+        let samples = curve.sample_iter_unchecked(times).collect::<Vec<_>>();
+        let [y0, y1, y2, y3, y4] = samples.try_into().unwrap();
+
+        assert_eq!(y0, -0.5 * 3.0 + 1.0);
+        assert_eq!(y1, 0.0 * 3.0 + 1.0);
+        assert_eq!(y2, 0.5 * 3.0 + 1.0);
+        assert_eq!(y3, 1.0 * 3.0 + 1.0);
+        assert_eq!(y4, 1.5 * 3.0 + 1.0);
+
+        let finite_curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let samples = finite_curve.sample_iter(times).collect::<Vec<_>>();
+        let [y0, y1, y2, y3, y4] = samples.try_into().unwrap();
+
+        assert_eq!(y0, None);
+        assert_eq!(y1, Some(0.0 * 3.0 + 1.0));
+        assert_eq!(y2, Some(0.5 * 3.0 + 1.0));
+        assert_eq!(y3, Some(1.0 * 3.0 + 1.0));
+        assert_eq!(y4, None);
+
+        let samples = finite_curve.sample_iter_clamped(times).collect::<Vec<_>>();
+        let [y0, y1, y2, y3, y4] = samples.try_into().unwrap();
+
+        assert_eq!(y0, 0.0 * 3.0 + 1.0);
+        assert_eq!(y1, 0.0 * 3.0 + 1.0);
+        assert_eq!(y2, 0.5 * 3.0 + 1.0);
+        assert_eq!(y3, 1.0 * 3.0 + 1.0);
+        assert_eq!(y4, 1.0 * 3.0 + 1.0);
+    }
 }
