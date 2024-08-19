@@ -68,6 +68,46 @@ where
     }
 }
 
+/// A [`Curve`] that is defined by a `start` and an `end` point, together with linear interpolation
+/// between the values over the [unit interval]. It's basically an [`EasingCurve`] with the
+/// identity as an easing function.
+///
+/// [unit interval]: `Interval::UNIT`
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub struct LinearCurve<T: VectorSpace> {
+    start: T,
+    end: T,
+}
+
+impl<T> Curve<T> for LinearCurve<T>
+where
+    T: VectorSpace,
+{
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.start.lerp(self.end, t)
+    }
+}
+
+impl<T> LinearCurve<T>
+where
+    T: VectorSpace,
+{
+    /// Create a new [`LinearCurve`] over the [unit interval] from `start` to `end`.
+    ///
+    /// [unit interval]: `Interval::UNIT`
+    pub fn new(start: T, end: T) -> Self {
+        Self { start, end }
+    }
+}
+
 /// A [`Curve`] that is defined by a [`CubicSegment`] over the [unit interval].
 ///
 /// [unit interval]: `Interval::UNIT`
@@ -249,6 +289,19 @@ pub fn smoothstep() -> FunctionCurve<f32, fn(f32) -> f32> {
     FunctionCurve {
         domain: Interval::UNIT,
         f,
+        _phantom: PhantomData,
+    }
+}
+
+/// A [`Curve`] mapping the [unit interval] to itself linearly.
+///
+/// It uses the function `f(x) = x`
+///
+/// [unit domain]: `Interval::UNIT`
+pub fn identity() -> FunctionCurve<f32, fn(f32) -> f32> {
+    FunctionCurve {
+        domain: Interval::UNIT,
+        f: std::convert::identity,
         _phantom: PhantomData,
     }
 }

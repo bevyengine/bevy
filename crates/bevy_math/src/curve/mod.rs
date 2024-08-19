@@ -9,7 +9,7 @@ pub mod interval;
 pub use interval::{interval, Interval};
 use itertools::Itertools;
 
-use crate::{StableInterpolate, VectorSpace};
+use crate::StableInterpolate;
 use cores::{EvenCore, EvenCoreError, UnevenCore, UnevenCoreError};
 use interval::InvalidIntervalError;
 use std::{marker::PhantomData, ops::Deref};
@@ -995,45 +995,6 @@ impl<T> UnevenSampleAutoCurve<T> {
         Self {
             core: self.core.map_sample_times(f),
         }
-    }
-}
-
-/// A [`Curve`] that is defined by a `start` and an `end` point, together with linear interpolation
-/// between the values over the [unit interval].
-///
-/// [unit interval]: `Interval::UNIT`
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct LinearCurve<T: VectorSpace> {
-    start: T,
-    end: T,
-}
-
-impl<T> Curve<T> for LinearCurve<T>
-where
-    T: VectorSpace,
-{
-    #[inline]
-    fn domain(&self) -> Interval {
-        Interval::UNIT
-    }
-
-    #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.start.lerp(self.end, t)
-    }
-}
-
-impl<T> LinearCurve<T>
-where
-    T: VectorSpace,
-{
-    /// Create a new [`LinearCurve`] over the [unit interval] from `start` to `end`.
-    ///
-    /// [unit interval]: `Interval::UNIT`
-    pub fn new(start: T, end: T) -> Self {
-        Self { start, end }
     }
 }
 
