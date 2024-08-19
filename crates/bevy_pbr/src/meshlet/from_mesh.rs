@@ -82,7 +82,7 @@ impl MeshletMesh {
 
                 // Add the maximum child error to the parent error to make parent error cumulative from LOD 0
                 // (we're currently building the parent from its children)
-                group_error += group_meshlets.iter().fold(0.0, |acc, meshlet_id| {
+                group_error += group_meshlets.iter().fold(0.0f32, |acc, meshlet_id| {
                     acc.max(bounding_spheres[*meshlet_id].self_lod.radius)
                 });
 
