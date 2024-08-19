@@ -5,6 +5,7 @@
 pub mod cores;
 pub mod interval;
 
+use glam::Vec2;
 pub use interval::{interval, Interval};
 use itertools::Itertools;
 
@@ -1007,33 +1008,27 @@ impl<T> UnevenSampleAutoCurve<T> {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-pub struct CubicBezierCurve<T: VectorSpace> {
-    bezier_segment: CubicSegment<T>,
+pub struct CubicBezierCurve {
+    bezier_segment: CubicSegment<Vec2>,
 }
 
-impl<T> Curve<T> for CubicBezierCurve<T>
-where
-    T: VectorSpace,
-{
+impl Curve<f32> for CubicBezierCurve {
     #[inline]
     fn domain(&self) -> Interval {
         Interval::UNIT
     }
 
     #[inline]
-    fn sample_unchecked(&self, t: f32) -> T {
-        self.bezier_segment.position(t)
+    fn sample_unchecked(&self, t: f32) -> f32 {
+        self.bezier_segment.ease(t)
     }
 }
 
-impl<T> CubicBezierCurve<T>
-where
-    T: VectorSpace,
-{
+impl CubicBezierCurve {
     /// Create a new [`CubicBezierCurve`] over the [unit interval] from a [`CubicSegment`].
     ///
     /// [unit interval]: `Interval::UNIT`
-    pub fn new(bezier_segment: CubicSegment<T>) -> Self {
+    pub fn new(bezier_segment: CubicSegment<Vec2>) -> Self {
         Self { bezier_segment }
     }
 }
