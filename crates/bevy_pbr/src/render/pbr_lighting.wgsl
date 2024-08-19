@@ -5,6 +5,10 @@
     mesh_view_bindings as view_bindings,
 }
 #import bevy_render::maths::PI
+#import bevy_render::color_operations::{
+    hsv_to_rgb,
+    rgb_to_hsv,
+}
 
 const LAYER_BASE: u32 = 0;
 const LAYER_CLEARCOAT: u32 = 1;
@@ -532,8 +536,8 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
     color = diffuse + specular_light;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    return color * (*light).color_inverse_square_range.rgb *
-        (rangeAttenuation * derived_input.NdotL);
+    return monochromaticity_blend(color, (*light).color_inverse_square_range.rgb *
+        (rangeAttenuation * derived_input.NdotL), (*light).monochromaticity);
 }
 
 fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
@@ -607,5 +611,28 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     color = (diffuse + specular_light) * derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    return color * (*light).color.rgb;
+    return monochromaticity_blend(color, (*light).color.rgb, (*light).monochromaticity);
+}
+
+// Blends base and light colors taking into account the light's monochromaticity
+fn monochromaticity_blend(base: vec3<f32>, light: vec3<f32>, monochromaticity: f32) -> vec3<f32> {
+    // Convert both colors to HSV
+    let base_hsv = rgb_to_hsv(base);
+    let light_hsv = rgb_to_hsv(light);
+
+    // Approximate a gaussian using a triangle function
+    let deviation = 2.0 * PI / 3.0; // 120°
+    let triangular = (max(0.0, deviation - abs(base_hsv.x - light_hsv.x)) / deviation);
+
+    let response = mix(
+        1.0,
+        triangular,
+        light_hsv.y // Any < 1.0 value means a non-spectral monochromatic color (non-physically accurate)
+    ) * base_hsv.z;
+
+    return mix(
+        base * light, // Polychromatic (Multiplicative blending)
+        response * light, // Mono-chromatic (Hue + value-based blending)
+        monochromaticity * base_hsv.y,
+    );
 }

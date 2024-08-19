@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::ambient
 
 #import bevy_pbr::{
-    lighting::{EnvBRDFApprox, F_AB},
+    lighting::{EnvBRDFApprox, F_AB, monochromaticity_blend},
     mesh_view_bindings::lights,
 }
 
@@ -25,5 +25,5 @@ fn ambient_light(
     // See: https://google.github.io/filament/Filament.html#specularocclusion
     let specular_occlusion = saturate(dot(specular_color, vec3(50.0 * 0.33)));
 
-    return (diffuse_ambient + specular_ambient * specular_occlusion) * lights.ambient_color.rgb * occlusion;
+    return monochromaticity_blend((diffuse_ambient + specular_ambient * specular_occlusion), lights.ambient_color.rgb * occlusion, lights.ambient_monochromaticity);
 }
