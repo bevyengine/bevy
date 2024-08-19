@@ -763,8 +763,7 @@ mod test {
 
     #[test]
     fn ensure_visibility_enum_size() {
-        use std::mem;
-        assert_eq!(1, mem::size_of::<Visibility>());
-        assert_eq!(1, mem::size_of::<Option<Visibility>>());
+        assert_eq!(1, size_of::<Visibility>());
+        assert_eq!(1, size_of::<Option<Visibility>>());
     }
 }

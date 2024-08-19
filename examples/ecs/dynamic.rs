@@ -118,7 +118,7 @@ fn main() {
 
                     // Calculate the length for the array based on the layout created for this component id
                     let info = world.components().get_info(id).unwrap();
-                    let len = info.layout().size() / std::mem::size_of::<u64>();
+                    let len = info.layout().size() / size_of::<u64>();
                     let mut values: Vec<u64> = component
                         .take(len)
                         .filter_map(|value| value.parse::<u64>().ok())
@@ -155,7 +155,7 @@ fn main() {
                         .map(|id| {
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();
-                            let len = info.layout().size() / std::mem::size_of::<u64>();
+                            let len = info.layout().size() / size_of::<u64>();
 
                             // SAFETY:
                             // - All components are created with layout [u64]

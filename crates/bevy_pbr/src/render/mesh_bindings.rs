@@ -7,10 +7,10 @@ use bevy_render::{
 
 use crate::render::skin::MAX_JOINTS;
 
-const MORPH_WEIGHT_SIZE: usize = std::mem::size_of::<f32>();
+const MORPH_WEIGHT_SIZE: usize = size_of::<f32>();
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 
-const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
+const JOINT_SIZE: usize = size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 /// Individual layout entries.

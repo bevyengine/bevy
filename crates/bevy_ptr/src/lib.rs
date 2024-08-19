@@ -599,7 +599,7 @@ trait DebugEnsureAligned {
 impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
-        let align = core::mem::align_of::<T>();
+        let align = align_of::<T>();
         // Implementation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
         //

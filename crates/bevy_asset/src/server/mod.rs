@@ -725,7 +725,7 @@ impl AssetServer {
             .data
             .infos
             .write()
-            .create_loading_handle_untyped(std::any::TypeId::of::<A>(), std::any::type_name::<A>());
+            .create_loading_handle_untyped(TypeId::of::<A>(), std::any::type_name::<A>());
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();

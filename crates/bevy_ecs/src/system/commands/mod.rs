@@ -87,7 +87,7 @@ const _: () = {
         type State = FetchState;
         type Item<'w, 's> = Commands<'w, 's>;
         fn init_state(
-            world: &mut bevy_ecs::world::World,
+            world: &mut World,
             system_meta: &mut bevy_ecs::system::SystemMeta,
         ) -> Self::State {
             FetchState {
@@ -114,7 +114,7 @@ const _: () = {
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
-            world: &mut bevy_ecs::world::World,
+            world: &mut World,
         ) {
             <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
                 &mut state.state,
@@ -1319,7 +1319,7 @@ where
     B: Bundle,
 {
     #[cfg(feature = "track_change_detection")]
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |world: &mut World| {
         if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
             bundles_iter,
@@ -1353,7 +1353,7 @@ fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
 fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
@@ -1373,7 +1373,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
 #[track_caller]
 fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     #[cfg(feature = "track_change_detection")]
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(

@@ -210,7 +210,7 @@ pub async fn initialize_renderer(
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features();
-        if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
+        if adapter_info.device_type == DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
             // should not be automatically enabled in this case. It is however beneficial for
