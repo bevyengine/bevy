@@ -12,8 +12,8 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(AmbientLight {
-            color: Color::WHITE,
             brightness: 2000.,
+            ..default()
         })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)

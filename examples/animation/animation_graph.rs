@@ -92,8 +92,8 @@ fn main() {
         )
         .insert_resource(args)
         .insert_resource(AmbientLight {
-            color: WHITE.into(),
             brightness: 100.0,
+            ..default()
         })
         .run();
 }
