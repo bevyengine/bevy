@@ -1,4 +1,6 @@
-//! A [`bevy_picking`] backend for sprites.
+//! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
+//! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
+//! This means a partially transparent sprite is pickable even in its transparent areas.
 
 use std::cmp::Ordering;
 
