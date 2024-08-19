@@ -25,14 +25,14 @@ pub trait IterableCurve<T> {
 
     /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
     /// The parameter `t` is clamped to the domain of the curve.
-    fn sample_iter_clamped<'a>(self: &'a Self, t: f32) -> impl Iterator<Item = T> {
+    fn sample_iter_clamped(&self, t: f32) -> impl Iterator<Item = T> {
         let t_clamped = self.domain().clamp(t);
         self.sample_iter_unchecked(t_clamped)
     }
 
     /// Sample this curve at a specified time `t`, producing an iterator over sampled values.
     /// If the parameter `t` does not lie in the curve's domain, `None` is returned.
-    fn sample_iter<'a>(self: &'a Self, t: f32) -> Option<impl Iterator<Item = T>> {
+    fn sample_iter(&self, t: f32) -> Option<impl Iterator<Item = T>> {
         if self.domain().contains(t) {
             Some(self.sample_iter_unchecked(t))
         } else {
