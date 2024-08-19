@@ -1,0 +1,1062 @@
+
+Josh@Jameson MINGW64 /c/dev
+$ cd sandbox/asteroids
+
+Josh@Jameson MINGW64 /c/dev/sandbox/asteroids (master)
+$ code .
+
+Josh@Jameson MINGW64 /c/dev/sandbox/asteroids (master)
+$ cd ../../projects/bevy_upward/
+
+Josh@Jameson MINGW64 /c/dev/projects/bevy_upward (master)
+$ code .
+
+Josh@Jameson MINGW64 /c/dev/projects/bevy_upward (master)
+$ cd ../../bevy
+
+Josh@Jameson MINGW64 /c/dev/bevy (sprite-picking)
+$ cargo run --example ambiguity_detection
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.18s
+     Running `target\debug\examples\ambiguity_detection.exe`
+2024-08-19T19:59:38.011432Z  INFO bevy_diagnostic::system_information_diagnostics_plugin::internal: SystemInfo { os: "Windows 10 Pro", kernel: "19045", cpu: "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz", core_count: "4", memory: "31.8 GiB" }
+2024-08-19T19:59:39.128857Z  INFO bevy_render::renderer: AdapterInfo { name: "Quadro M1000M", vendor: 4318, device: 5041, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "538.18", backend: Vulkan }
+2024-08-19T19:59:40.414969Z  WARN bevy_ecs::schedule::schedule: Schedule PreUpdate has ambiguities.
+14 pairs of systems with conflicting data access have indeterminate execution order. Consider adding `before`, `after`, or `ambiguous_with` relationships between these:
+ -- bevy_pbr::prepass::update_mesh_previous_global_transforms and bevy_asset::server::handle_internal_asset_events
+    conflict on: bevy_ecs::world::World
+ -- bevy_gilrs::gilrs_system::gilrs_event_system and bevy_asset::server::handle_internal_asset_events
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::touch::touch_screen_input_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::gamepad::gamepad_event_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::gamepad::gamepad_connection_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::gamepad::gamepad_axis_event_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::gamepad::gamepad_button_event_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_pbr::prepass::update_previous_view_data
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::mouse::accumulate_mouse_scroll_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::mouse::accumulate_mouse_motion_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::mouse::mouse_button_input_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_input::keyboard::keyboard_input_system (in set InputSystem)
+    conflict on: bevy_ecs::world::World
+ -- bevy_asset::server::handle_internal_asset_events and bevy_ui::focus::ui_focus_system (in set Focus)
+    conflict on: bevy_ecs::world::World
+ -- bevy_sprite::picking_backend::sprite_picking (in set Backend) and bevy_ui::picking_backend::ui_picking (in set Backend)
+    conflict on: ["bevy_ecs::event::collections::Events<bevy_picking::backend::PointerHits>"]
+
+2024-08-19T19:59:40.443272Z  WARN bevy_ecs::schedule::schedule: Schedule PostUpdate has ambiguities.
+31 pairs of systems with conflicting data access have indeterminate execution order. Consider adding `before`, `after`, or `ambiguous_with` relationships between these:
+ -- bevy_text::text2d::update_text2d_layout and bevy_ui::layout::ui_layout_system (in set Layout)
+    conflict on: ["bevy_text::pipeline::TextPipeline"]
+ -- bevy_render::mesh::morph::inherit_weights and bevy_animation::animate_targets
+    conflict on: ["bevy_render::mesh::morph::MorphWeights"]
+ -- bevy_pbr::cluster::add_clusters (in set AddClusters) and bevy_render::camera::camera::camera_system<bevy_render::camera::projection::PerspectiveProjection> (in set CameraUpdateSystem)
+    conflict on: ["bevy_render::camera::camera::Camera"]
+ -- bevy_pbr::cluster::add_clusters (in set AddClusters) and bevy_render::camera::camera::camera_system<bevy_render::camera::projection::OrthographicProjection> (in set CameraUpdateSystem)
+    conflict on: ["bevy_render::camera::camera::Camera"]
+ -- bevy_pbr::cluster::add_clusters (in set AddClusters) and bevy_render::camera::camera::camera_system<bevy_render::camera::projection::Projection> (in set CameraUpdateSystem)
+    conflict on: ["bevy_render::camera::camera::Camera"]
+ -- bevy_ui::layout::ui_layout_system (in set Layout) and bevy_animation::animate_targets
+    conflict on: ["bevy_transform::components::transform::Transform"]
+ -- bevy_ui::texture_slice::compute_slices_on_asset_event (in set PostLayout) and bevy_ui::layout::resolve_outlines_system (in sets AmbiguousWithTextSystem, Outlines)
+    conflict on: ["bevy_ui::ui_node::Node"]
+ -- bevy_ui::texture_slice::compute_slices_on_asset_event (in set PostLayout) and bevy_ui::stack::ui_stack_system (in sets AmbiguousWithTextSystem, Stack)
+    conflict on: ["bevy_ui::ui_node::Node"]
+ -- bevy_ui::texture_slice::compute_slices_on_image_change (in set PostLayout) and bevy_ui::layout::resolve_outlines_system (in sets AmbiguousWithTextSystem, Outlines)
+    conflict on: ["bevy_ui::ui_node::Node"]
+ -- bevy_ui::texture_slice::compute_slices_on_image_change (in set PostLayout) and bevy_ui::stack::ui_stack_system (in sets AmbiguousWithTextSystem, Stack)
+    conflict on: ["bevy_ui::ui_node::Node"]
+ -- bevy_ui::widget::text::text_system (in set PostLayout) and bevy_text::text2d::calculate_bounds_text2d (in set CalculateBounds)
+    conflict on: ["bevy_text::pipeline::TextLayoutInfo"]
+ -- bevy_text::text2d::calculate_bounds_text2d (in set CalculateBounds) and bevy_gizmos::aabb::draw_all_aabbs
+    conflict on: ["bevy_render::primitives::Aabb"]
+ -- bevy_text::text2d::calculate_bounds_text2d (in set CalculateBounds) and bevy_gizmos::aabb::draw_aabbs
+    conflict on: ["bevy_render::primitives::Aabb"]
+ -- bevy_pbr::light::build_directional_light_cascades<bevy_render::camera::projection::PerspectiveProjection> (in set UpdateDirectionalLightCascades) and bevy_pbr::light::build_directional_light_cascades<bevy_render::camera::projection::OrthographicProjection> (in set UpdateDirectionalLightCascades)
+    conflict on: ["bevy_pbr::light::Cascades"]
+ -- bevy_pbr::light::build_directional_light_cascades<bevy_render::camera::projection::PerspectiveProjection> (in set UpdateDirectionalLightCascades) and bevy_pbr::light::build_directional_light_cascades<bevy_render::camera::projection::Projection> (in set UpdateDirectionalLightCascades)
+    conflict on: ["bevy_pbr::light::Cascades"]
+ -- bevy_pbr::light::build_directional_light_cascades<bevy_render::camera::projection::OrthographicProjection> (in set UpdateDirectionalLightCascades) and bevy_pbr::light::build_directional_light_cascades<bevy_render::camera::projection::Projection> (in set UpdateDirectionalLightCascades)
+    conflict on: ["bevy_pbr::light::Cascades"]
+ -- bevy_render::view::visibility::range::check_visibility_ranges (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_sprite::mesh2d::mesh::Mesh2dHandle>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::range::VisibleEntityRanges"]
+ -- bevy_render::view::visibility::range::check_visibility_ranges (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_sprite::sprite::Sprite>, bevy_ecs::query::filter::With<bevy_sprite::SpriteSource>)>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::range::VisibleEntityRanges"]
+ -- bevy_render::view::visibility::range::check_visibility_ranges (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_ui::ui_node::Node>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::range::VisibleEntityRanges"]
+ -- bevy_render::view::visibility::range::check_visibility_ranges (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_pbr::light::point_light::PointLight>, bevy_ecs::query::filter::With<bevy_pbr::light::spot_light::SpotLight>, bevy_ecs::query::filter::With<bevy_pbr::light::directional_light::DirectionalLight>)>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::range::VisibleEntityRanges"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_sprite::mesh2d::mesh::Mesh2dHandle>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_sprite::sprite::Sprite>, bevy_ecs::query::filter::With<bevy_sprite::SpriteSource>)>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_sprite::mesh2d::mesh::Mesh2dHandle>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_ui::ui_node::Node>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_sprite::mesh2d::mesh::Mesh2dHandle>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_pbr::light::point_light::PointLight>, bevy_ecs::query::filter::With<bevy_pbr::light::spot_light::SpotLight>, bevy_ecs::query::filter::With<bevy_pbr::light::directional_light::DirectionalLight>)>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_sprite::mesh2d::mesh::Mesh2dHandle>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_asset::handle::Handle<bevy_render::mesh::mesh::Mesh>>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_sprite::sprite::Sprite>, bevy_ecs::query::filter::With<bevy_sprite::SpriteSource>)>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_ui::ui_node::Node>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_sprite::sprite::Sprite>, bevy_ecs::query::filter::With<bevy_sprite::SpriteSource>)>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_pbr::light::point_light::PointLight>, bevy_ecs::query::filter::With<bevy_pbr::light::spot_light::SpotLight>, bevy_ecs::query::filter::With<bevy_pbr::light::directional_light::DirectionalLight>)>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_sprite::sprite::Sprite>, bevy_ecs::query::filter::With<bevy_sprite::SpriteSource>)>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_asset::handle::Handle<bevy_render::mesh::mesh::Mesh>>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_ui::ui_node::Node>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_pbr::light::point_light::PointLight>, bevy_ecs::query::filter::With<bevy_pbr::light::spot_light::SpotLight>, bevy_ecs::query::filter::With<bevy_pbr::light::directional_light::DirectionalLight>)>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_ui::ui_node::Node>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_asset::handle::Handle<bevy_render::mesh::mesh::Mesh>>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::Or<(bevy_ecs::query::filter::With<bevy_pbr::light::point_light::PointLight>, bevy_ecs::query::filter::With<bevy_pbr::light::spot_light::SpotLight>, bevy_ecs::query::filter::With<bevy_pbr::light::directional_light::DirectionalLight>)>> (in set CheckVisibility) and bevy_render::view::visibility::check_visibility<bevy_ecs::query::filter::With<bevy_asset::handle::Handle<bevy_render::mesh::mesh::Mesh>>> (in set CheckVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility", "bevy_render::view::visibility::VisibleEntities"]
+ -- bevy_pbr::light::check_point_light_mesh_visibility (in set CheckLightVisibility) and bevy_pbr::light::check_dir_light_mesh_visibility (in set CheckLightVisibility)
+    conflict on: ["bevy_render::view::visibility::ViewVisibility"]
+
+2024-08-19T19:59:40.454390Z  WARN bevy_ecs::schedule::schedule: Schedule Last has ambiguities.
+3 pairs of systems with conflicting data access have indeterminate execution order. Consider adding `before`, `after`, or `ambiguous_with` relationships between these:
+ -- bevy_gizmos::update_gizmo_meshes<bevy_gizmos::light::LightGizmoConfigGroup> (in set UpdateGizmoMeshes) and bevy_gizmos::update_gizmo_meshes<bevy_gizmos::aabb::AabbGizmoConfigGroup> (in set UpdateGizmoMeshes)
+    conflict on: ["bevy_gizmos::LineGizmoHandles"]
+ -- bevy_gizmos::update_gizmo_meshes<bevy_gizmos::light::LightGizmoConfigGroup> (in set UpdateGizmoMeshes) and bevy_gizmos::update_gizmo_meshes<bevy_gizmos::config::DefaultGizmoConfigGroup> (in set UpdateGizmoMeshes)
+    conflict on: ["bevy_gizmos::LineGizmoHandles"]
+ -- bevy_gizmos::update_gizmo_meshes<bevy_gizmos::aabb::AabbGizmoConfigGroup> (in set UpdateGizmoMeshes) and bevy_gizmos::update_gizmo_meshes<bevy_gizmos::config::DefaultGizmoConfigGroup> (in set UpdateGizmoMeshes)
+    conflict on: ["bevy_gizmos::LineGizmoHandles"]
+
+2024-08-19T19:59:40.470085Z  WARN bevy_ecs::schedule::schedule: Schedule ExtractSchedule has ambiguities.
+306 pairs of systems with conflicting data access have indeterminate execution order. Consider adding `before`, `after`, or `ambiguous_with` relationships between these:
+ -- bevy_render::extract_component::extract_components<bevy_sprite::SpriteSource> and bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_sprite::SpriteSource> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_sprite::SpriteSource> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_sprite::SpriteSource> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_sprite::SpriteSource> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_environment_map_uniform and bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_environment_map_uniform and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_environment_map_uniform and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_environment_map_uniform and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_environment_map_uniform and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::material::extract_material_meshes_2d<bevy_sprite::mesh2d::color_material::ColorMaterial> and bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::material::extract_material_meshes_2d<bevy_sprite::mesh2d::color_material::ColorMaterial> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::material::extract_material_meshes_2d<bevy_sprite::mesh2d::color_material::ColorMaterial> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::material::extract_material_meshes_2d<bevy_sprite::mesh2d::color_material::ColorMaterial> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::material::extract_material_meshes_2d<bevy_sprite::mesh2d::color_material::ColorMaterial> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::material::DefaultOpaqueRendererMethod> and bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::material::DefaultOpaqueRendererMethod> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::material::DefaultOpaqueRendererMethod> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::material::DefaultOpaqueRendererMethod> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::material::DefaultOpaqueRendererMethod> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_sprite::mesh2d::mesh::extract_mesh2d
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::post_process::ChromaticAberration>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::irradiance_volume::IrradianceVolume>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::smaa::SmaaSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_ui::render::extract_uinode_background_colors (in set ExtractBackgrounds)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_core_pipeline::dof::extract_depth_of_field_settings
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::render::morph::extract_morphs
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::motion_blur::MotionBlur>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_sprite::render::extract_sprite_events
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_pbr::fog::FogSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::fxaa::Fxaa>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::ssao::extract_ssao_settings
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::bloom::settings::BloomSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_pbr::light::ShadowFilteringMethod>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::DebandDither>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::Tonemapping>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::render::mesh::extract_meshes_for_gpu_building (in set ExtractMeshesSet)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_resource::extract_resource<bevy_core_pipeline::tonemapping::TonemappingLuts>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_instances::extract_visible<bevy_asset::id::AssetId<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_core_pipeline::core_3d::extract_camera_prepass_phase
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::environment_map::EnvironmentMapLight>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_core_pipeline::core_3d::extract_core_3d_camera_phases
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_ui::render::extract_uinode_images (in set ExtractImages)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::core_3d::camera_3d::Camera3d>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_ui::render::extract_default_ui_camera_view
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::skybox::Skybox>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_pbr::deferred::PbrDeferredLightingDepthId>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_core_pipeline::core_2d::extract_core_2d_camera_phases
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::volumetric_fog::render::extract_volumetric_fog
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_core_pipeline::core_2d::camera_2d::Camera2d>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_resource::extract_resource<bevy_pbr::light::ambient_light::AmbientLight>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::lightmap::extract_lightmaps
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_resource::extract_resource<bevy_render::render_asset::RenderAssetBytesPerFrame>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::render::skin::extract_skins
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::globals::extract_time
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::globals::extract_frame_count
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::render::light::extract_lights
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::view::visibility::range::extract_visibility_ranges
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_gizmos::extract_gizmo_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_render::view::Msaa>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::camera::camera::extract_cameras
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_render::camera::camera::CameraMainTextureUsages>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_component::extract_components<bevy_pbr::ssr::ScreenSpaceReflectionsSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_resource::extract_resource<bevy_render::camera::clear_color::ClearColor>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::cluster::extract_clusters
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::extract_resource::extract_resource<bevy_render::camera::manual_texture_view::ManualTextureViews>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_pbr::prepass::extract_camera_previous_view_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::view::window::extract_windows
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_sprite::render::extract_sprites (in set ExtractSprites)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_text::text2d::extract_text2d_sprite
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_ui::render::extract_uinode_borders (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_ui::render::extract_uinode_outlines (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_ui::render::extract_uinode_text (in set ExtractText)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> and bevy_render::render_resource::pipeline_cache::PipelineCache::extract_shaders
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::mesh::extract_mesh2d and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::mesh::extract_mesh2d and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::mesh::extract_mesh2d and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::mesh2d::mesh::extract_mesh2d and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::post_process::ChromaticAberration> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::post_process::ChromaticAberration> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::post_process::ChromaticAberration> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::post_process::ChromaticAberration> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::irradiance_volume::IrradianceVolume> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::irradiance_volume::IrradianceVolume> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::irradiance_volume::IrradianceVolume> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::irradiance_volume::IrradianceVolume> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::smaa::SmaaSettings> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::smaa::SmaaSettings> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::smaa::SmaaSettings> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::smaa::SmaaSettings> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_uinode_background_colors (in set ExtractBackgrounds) and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_uinode_background_colors (in set ExtractBackgrounds) and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_uinode_background_colors (in set ExtractBackgrounds) and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_uinode_background_colors (in set ExtractBackgrounds) and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::dof::extract_depth_of_field_settings and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::dof::extract_depth_of_field_settings and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::dof::extract_depth_of_field_settings and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::dof::extract_depth_of_field_settings and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::morph::extract_morphs and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::morph::extract_morphs and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::morph::extract_morphs and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::morph::extract_morphs and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::motion_blur::MotionBlur> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::motion_blur::MotionBlur> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::motion_blur::MotionBlur> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::motion_blur::MotionBlur> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::render::extract_sprite_events and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::render::extract_sprite_events and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::render::extract_sprite_events and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_sprite::render::extract_sprite_events and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::fog::FogSettings> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::fog::FogSettings> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::fog::FogSettings> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::fog::FogSettings> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::fxaa::Fxaa> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::fxaa::Fxaa> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::fxaa::Fxaa> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::fxaa::Fxaa> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::ssao::extract_ssao_settings and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::ssao::extract_ssao_settings and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::ssao::extract_ssao_settings and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::ssao::extract_ssao_settings and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::bloom::settings::BloomSettings> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::bloom::settings::BloomSettings> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::bloom::settings::BloomSettings> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::bloom::settings::BloomSettings> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::light::ShadowFilteringMethod> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::light::ShadowFilteringMethod> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::light::ShadowFilteringMethod> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::light::ShadowFilteringMethod> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::DebandDither> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::DebandDither> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::DebandDither> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::DebandDither> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::Tonemapping> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::Tonemapping> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::Tonemapping> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::tonemapping::Tonemapping> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::mesh::extract_meshes_for_gpu_building (in set ExtractMeshesSet) and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::mesh::extract_meshes_for_gpu_building (in set ExtractMeshesSet) and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::mesh::extract_meshes_for_gpu_building (in set ExtractMeshesSet) and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::mesh::extract_meshes_for_gpu_building (in set ExtractMeshesSet) and bevy_render::view::visibility::range::extract_visibility_ranges
+    conflict on: ["bevy_render::view::visibility::range::RenderVisibilityRanges"]
+ -- bevy_pbr::render::mesh::extract_meshes_for_gpu_building (in set ExtractMeshesSet) and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_core_pipeline::tonemapping::TonemappingLuts> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_core_pipeline::tonemapping::TonemappingLuts> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_core_pipeline::tonemapping::TonemappingLuts> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_core_pipeline::tonemapping::TonemappingLuts> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_instances::extract_visible<bevy_asset::id::AssetId<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_instances::extract_visible<bevy_asset::id::AssetId<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_instances::extract_visible<bevy_asset::id::AssetId<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_instances::extract_visible<bevy_asset::id::AssetId<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_3d::extract_camera_prepass_phase and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_3d::extract_camera_prepass_phase and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_3d::extract_camera_prepass_phase and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_3d::extract_camera_prepass_phase and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::environment_map::EnvironmentMapLight> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::environment_map::EnvironmentMapLight> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::environment_map::EnvironmentMapLight> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::light_probe::gather_light_probes<bevy_pbr::light_probe::environment_map::EnvironmentMapLight> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_3d::extract_core_3d_camera_phases and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_3d::extract_core_3d_camera_phases and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_3d::extract_core_3d_camera_phases and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_3d::extract_core_3d_camera_phases and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_uinode_images (in set ExtractImages) and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_uinode_images (in set ExtractImages) and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_uinode_images (in set ExtractImages) and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_uinode_images (in set ExtractImages) and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::core_3d::camera_3d::Camera3d> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::core_3d::camera_3d::Camera3d> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::core_3d::camera_3d::Camera3d> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::core_3d::camera_3d::Camera3d> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_default_ui_camera_view and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_default_ui_camera_view and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_default_ui_camera_view and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_ui::render::extract_default_ui_camera_view and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::skybox::Skybox> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::skybox::Skybox> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::skybox::Skybox> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::skybox::Skybox> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::deferred::PbrDeferredLightingDepthId> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::deferred::PbrDeferredLightingDepthId> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::deferred::PbrDeferredLightingDepthId> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_pbr::deferred::PbrDeferredLightingDepthId> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_2d::extract_core_2d_camera_phases and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_2d::extract_core_2d_camera_phases and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_2d::extract_core_2d_camera_phases and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_core_pipeline::core_2d::extract_core_2d_camera_phases and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::volumetric_fog::render::extract_volumetric_fog and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::volumetric_fog::render::extract_volumetric_fog and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::volumetric_fog::render::extract_volumetric_fog and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::volumetric_fog::render::extract_volumetric_fog and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::core_2d::camera_2d::Camera2d> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::core_2d::camera_2d::Camera2d> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::core_2d::camera_2d::Camera2d> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_core_pipeline::core_2d::camera_2d::Camera2d> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::light::ambient_light::AmbientLight> and bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::light::ambient_light::AmbientLight> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::light::ambient_light::AmbientLight> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_pbr::light::ambient_light::AmbientLight> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_pbr::lightmap::extract_lightmaps
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::extract_resource::extract_resource<bevy_render::render_asset::RenderAssetBytesPerFrame>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_pbr::render::skin::extract_skins
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::globals::extract_time
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::globals::extract_frame_count
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_pbr::render::light::extract_lights
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::view::visibility::range::extract_visibility_ranges
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_gizmos::extract_gizmo_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::extract_component::extract_components<bevy_render::view::Msaa>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::camera::camera::extract_cameras
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::extract_component::extract_components<bevy_render::camera::camera::CameraMainTextureUsages>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::extract_component::extract_components<bevy_pbr::ssr::ScreenSpaceReflectionsSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::extract_resource::extract_resource<bevy_render::camera::clear_color::ClearColor>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_pbr::cluster::extract_clusters
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::extract_resource::extract_resource<bevy_render::camera::manual_texture_view::ManualTextureViews>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_pbr::prepass::extract_camera_previous_view_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::view::window::extract_windows
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_sprite::render::extract_sprites (in set ExtractSprites)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_text::text2d::extract_text2d_sprite
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_ui::render::extract_uinode_borders (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_ui::render::extract_uinode_outlines (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_ui::render::extract_uinode_text (in set ExtractText)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::texture::image::GpuImage> and bevy_render::render_resource::pipeline_cache::PipelineCache::extract_shaders
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::lightmap::extract_lightmaps and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::lightmap::extract_lightmaps and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::lightmap::extract_lightmaps and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_render::render_asset::RenderAssetBytesPerFrame> and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_render::render_asset::RenderAssetBytesPerFrame> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_resource::extract_resource<bevy_render::render_asset::RenderAssetBytesPerFrame> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::skin::extract_skins and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::skin::extract_skins and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::skin::extract_skins and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::globals::extract_time and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::globals::extract_time and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::globals::extract_time and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::globals::extract_frame_count and bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::globals::extract_frame_count and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::globals::extract_frame_count and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_pbr::render::light::extract_lights
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::view::visibility::range::extract_visibility_ranges
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_gizmos::extract_gizmo_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::extract_component::extract_components<bevy_render::view::Msaa>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::camera::camera::extract_cameras
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::extract_component::extract_components<bevy_render::camera::camera::CameraMainTextureUsages>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::extract_component::extract_components<bevy_pbr::ssr::ScreenSpaceReflectionsSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::extract_resource::extract_resource<bevy_render::camera::clear_color::ClearColor>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_pbr::cluster::extract_clusters
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::extract_resource::extract_resource<bevy_render::camera::manual_texture_view::ManualTextureViews>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_pbr::prepass::extract_camera_previous_view_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::view::window::extract_windows
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_sprite::render::extract_sprites (in set ExtractSprites)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_text::text2d::extract_text2d_sprite
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_ui::render::extract_uinode_borders (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_ui::render::extract_uinode_outlines (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_ui::render::extract_uinode_text (in set ExtractText)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_gizmos::GpuLineGizmo> and bevy_render::render_resource::pipeline_cache::PipelineCache::extract_shaders
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_pbr::render::light::extract_lights
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::view::visibility::range::extract_visibility_ranges
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_gizmos::extract_gizmo_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::extract_component::extract_components<bevy_render::view::Msaa>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::camera::camera::extract_cameras
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::extract_component::extract_components<bevy_render::camera::camera::CameraMainTextureUsages>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::extract_component::extract_components<bevy_pbr::ssr::ScreenSpaceReflectionsSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::extract_resource::extract_resource<bevy_render::camera::clear_color::ClearColor>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_pbr::cluster::extract_clusters
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::extract_resource::extract_resource<bevy_render::camera::manual_texture_view::ManualTextureViews>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_pbr::prepass::extract_camera_previous_view_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::view::window::extract_windows
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_sprite::render::extract_sprites (in set ExtractSprites)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_text::text2d::extract_text2d_sprite
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_ui::render::extract_uinode_borders (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_ui::render::extract_uinode_outlines (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_ui::render::extract_uinode_text (in set ExtractText)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_render::mesh::mesh::RenderMesh> and bevy_render::render_resource::pipeline_cache::PipelineCache::extract_shaders
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_pbr::render::light::extract_lights and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::view::visibility::range::extract_visibility_ranges and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_gizmos::extract_gizmo_data and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::extract_component::extract_components<bevy_render::view::Msaa> and bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::camera::camera::extract_cameras
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::extract_component::extract_components<bevy_render::camera::camera::CameraMainTextureUsages>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::extract_component::extract_components<bevy_pbr::ssr::ScreenSpaceReflectionsSettings>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::extract_resource::extract_resource<bevy_render::camera::clear_color::ClearColor>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_pbr::cluster::extract_clusters
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::extract_resource::extract_resource<bevy_render::camera::manual_texture_view::ManualTextureViews>
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_pbr::prepass::extract_camera_previous_view_data
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::view::window::extract_windows
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_sprite::render::extract_sprites (in set ExtractSprites)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_text::text2d::extract_text2d_sprite
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_ui::render::extract_uinode_borders (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_ui::render::extract_uinode_outlines (in set ExtractBorders)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_ui::render::extract_uinode_text (in set ExtractText)
+    conflict on: ["bevy_render::MainWorld"]
+ -- bevy_render::render_asset::extract_render_asset<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> and bevy_render::render_resource::pipeline_cache::PipelineCache::extract_shaders
+    conflict on: ["bevy_render::MainWorld"]
+
+2024-08-19T19:59:40.578567Z  WARN bevy_ecs::schedule::schedule: Schedule Render has ambiguities.
+159 pairs of systems with conflicting data access have indeterminate execution order. Consider adding `before`, `after`, or `ambiguous_with` relationships between these:
+ -- bevy_pbr::render::mesh::set_mesh_motion_vector_flags and bevy_render::apply_extract_commands (in set ExtractCommands)
+    conflict on: bevy_ecs::world::World
+ -- bevy_pbr::render::mesh::set_mesh_motion_vector_flags and bevy_pbr::render::mesh::collect_meshes_for_gpu_building (in set PrepareAssets)
+    conflict on: ["bevy_pbr::render::mesh::RenderMeshInstances"]
+ -- bevy_render::view::window::create_surfaces and bevy_render::apply_extract_commands (in set ExtractCommands)
+    conflict on: bevy_ecs::world::World
+ -- bevy_render::render_asset::prepare_assets<bevy_render::texture::image::GpuImage> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssets<bevy_render::texture::image::GpuImage>", "bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_render::render_asset::prepare_assets<bevy_render::texture::image::GpuImage> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_gizmos::GpuLineGizmo> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_render::render_asset::prepare_assets<bevy_render::texture::image::GpuImage> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssets<bevy_render::texture::image::GpuImage>", "bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_render::render_asset::prepare_assets<bevy_render::mesh::mesh::RenderMesh> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_render::render_asset::prepare_assets<bevy_render::mesh::mesh::RenderMesh> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_gizmos::GpuLineGizmo> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_render::render_asset::prepare_assets<bevy_render::mesh::mesh::RenderMesh> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_render::render_asset::prepare_assets<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_gizmos::GpuLineGizmo> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_render::render_asset::prepare_assets<bevy_pbr::material::PreparedMaterial<bevy_pbr::pbr_material::StandardMaterial>> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_render::render_asset::prepare_assets<bevy_gizmos::GpuLineGizmo> (in set PrepareAssets) and bevy_render::render_asset::prepare_assets<bevy_sprite::mesh2d::material::PreparedMaterial2d<bevy_sprite::mesh2d::color_material::ColorMaterial>> (in set PrepareAssets)
+    conflict on: ["bevy_render::render_asset::RenderAssetBytesPerFrame"]
+ -- bevy_pbr::render::light::prepare_lights (in set ManageViews) and bevy_render::view::prepare_view_targets (in set ManageViews)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_render::batching::gpu_preprocessing::delete_old_work_item_buffers<bevy_pbr::render::mesh::MeshPipeline> (in set ManageViews) and bevy_pbr::render::mesh::collect_meshes_for_gpu_building (in set PrepareAssets)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_pbr::material::queue_material_meshes<bevy_pbr::pbr_material::StandardMaterial> (in sets Queue, QueueMeshes) and bevy_pbr::render::mesh::collect_meshes_for_gpu_building (in set PrepareAssets)
+    conflict on: ["bevy_pbr::render::mesh::RenderMeshInstances"]
+ -- bevy_pbr::render::light::queue_shadows<bevy_pbr::pbr_material::StandardMaterial> (in sets Queue, QueueMeshes) and bevy_pbr::render::mesh::collect_meshes_for_gpu_building (in set PrepareAssets)
+    conflict on: ["bevy_pbr::render::mesh::RenderMeshInstances"]
+ -- bevy_pbr::prepass::queue_prepass_material_meshes<bevy_pbr::pbr_material::StandardMaterial> (in sets Queue, QueueMeshes) and bevy_pbr::render::mesh::collect_meshes_for_gpu_building (in set PrepareAssets)
+    conflict on: ["bevy_pbr::render::mesh::RenderMeshInstances"]
+ -- bevy_gizmos::pipeline_2d::queue_line_gizmos_2d (in sets Queue, QueueLineGizmos2d) and bevy_gizmos::pipeline_2d::queue_line_joint_gizmos_2d (in sets Queue, QueueLineGizmos2d)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_2d::Transparent2d>"]
+ -- bevy_gizmos::pipeline_3d::queue_line_gizmos_3d (in sets Queue, QueueLineGizmos3d) and bevy_gizmos::pipeline_3d::queue_line_joint_gizmos_3d (in sets Queue, QueueLineGizmos3d)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transparent3d>"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::deferred::copy_lighting_id::prepare_deferred_lighting_id_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::bloom::prepare_bloom_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::smaa::prepare_smaa_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_2d::Opaque2d, bevy_sprite::mesh2d::mesh::Mesh2dPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_2d::Opaque2d>"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_2d::Transparent2d, bevy_sprite::mesh2d::mesh::Mesh2dPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_2d::Transparent2d>"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_pbr::ssao::prepare_ssao_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_2d::prepare_core_2d_depth_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::deferred::copy_lighting_id::prepare_deferred_lighting_id_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::bloom::prepare_bloom_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::smaa::prepare_smaa_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::Opaque3d>"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::Opaque3d>"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::AlphaMask3d>"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::AlphaMask3d>"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transmissive3d>"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transmissive3d>"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transparent3d>"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transparent3d>"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_pbr::ssao::prepare_ssao_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_pbr::volumetric_fog::render::prepare_view_depth_textures_for_volumetric_fog (in set Prepare)
+    conflict on: ["bevy_core_pipeline::core_3d::camera_3d::Camera3d"]
+ -- bevy_core_pipeline::core_3d::prepare_core_3d_transmission_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::deferred::copy_lighting_id::prepare_deferred_lighting_id_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::bloom::prepare_bloom_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::smaa::prepare_smaa_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::deferred::Opaque3dDeferred>"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::deferred::Opaque3dDeferred>"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::deferred::AlphaMask3dDeferred>"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::deferred::AlphaMask3dDeferred>"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::prepass::Opaque3dPrepass>"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::prepass::Opaque3dPrepass>"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::prepass::AlphaMask3dPrepass>"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::prepass::AlphaMask3dPrepass>"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_pbr::ssao::prepare_ssao_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::core_3d::prepare_prepass_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::deferred::copy_lighting_id::prepare_deferred_lighting_id_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::bloom::prepare_bloom_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::deferred::copy_lighting_id::prepare_deferred_lighting_id_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::smaa::prepare_smaa_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::deferred::copy_lighting_id::prepare_deferred_lighting_id_textures (in sets Prepare, PrepareResources) and bevy_pbr::ssao::prepare_ssao_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::deferred::copy_lighting_id::prepare_deferred_lighting_id_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::bloom::prepare_bloom_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::smaa::prepare_smaa_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::bloom::prepare_bloom_textures (in sets Prepare, PrepareResources) and bevy_pbr::ssao::prepare_ssao_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::bloom::prepare_bloom_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::smaa::prepare_smaa_textures (in sets Prepare, PrepareResources) and bevy_pbr::ssao::prepare_ssao_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_core_pipeline::smaa::prepare_smaa_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_2d::Opaque2d, bevy_sprite::mesh2d::mesh::Mesh2dPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_2d::AlphaMask2d, bevy_sprite::mesh2d::mesh::Mesh2dPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_sprite::mesh2d::mesh::Mesh2dUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_2d::Opaque2d, bevy_sprite::mesh2d::mesh::Mesh2dPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_2d::Transparent2d, bevy_sprite::mesh2d::mesh::Mesh2dPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_sprite::mesh2d::mesh::Mesh2dUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_2d::AlphaMask2d, bevy_sprite::mesh2d::mesh::Mesh2dPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_2d::Transparent2d, bevy_sprite::mesh2d::mesh::Mesh2dPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_sprite::mesh2d::mesh::Mesh2dUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::Opaque3d>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::Opaque3d>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::Opaque3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::Opaque3d>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::AlphaMask3d>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::AlphaMask3d>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::core_3d::AlphaMask3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::core_3d::AlphaMask3d>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_pbr::render::light::Shadow>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_pbr::render::light::Shadow, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::deferred::Opaque3dDeferred>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::Opaque3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::deferred::AlphaMask3dDeferred>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::deferred::AlphaMask3dDeferred, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transmissive3d>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transmissive3d>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transmissive3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transmissive3d>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transparent3d>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transparent3d>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_sorted_render_phase<bevy_core_pipeline::core_3d::Transparent3d, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewSortedRenderPhases<bevy_core_pipeline::core_3d::Transparent3d>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::prepass::Opaque3dPrepass>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::no_gpu_preprocessing::BatchedInstanceBuffer<bevy_pbr::render::mesh::MeshUniform>"]
+ -- bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::Opaque3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer", "bevy_render::batching::gpu_preprocessing::BatchedInstanceBuffers<bevy_pbr::render::mesh::MeshUniform, bevy_pbr::render::mesh::MeshInputUniform>"]
+ -- bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources) and bevy_render::batching::gpu_preprocessing::batch_and_prepare_binned_render_phase<bevy_core_pipeline::prepass::AlphaMask3dPrepass, bevy_pbr::render::mesh::MeshPipeline> (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::render_phase::ViewBinnedRenderPhases<bevy_core_pipeline::prepass::AlphaMask3dPrepass>"]
+ -- bevy_pbr::ssao::prepare_ssao_textures (in sets Prepare, PrepareResources) and bevy_core_pipeline::core_3d::prepare_core_3d_depth_textures (in sets Prepare, PrepareResources)
+    conflict on: ["bevy_render::texture::texture_cache::TextureCache"]
+ -- bevy_pbr::render::gpu_preprocess::prepare_preprocess_pipelines (in set Prepare) and bevy_pbr::render::gpu_preprocess::prepare_preprocess_bind_groups (in sets Prepare, PrepareBindGroups)
+    conflict on: ["bevy_pbr::render::gpu_preprocess::PreprocessPipelines"]
