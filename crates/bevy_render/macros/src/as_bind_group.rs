@@ -395,7 +395,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                             format!("{:?}", #expected_samplers),
                                         ));
                                     }
-                                    image.sampler.clone()                                    
+                                    image.sampler.clone()
                                 } else {
                                     #fallback_image.sampler.clone()
                                 }
