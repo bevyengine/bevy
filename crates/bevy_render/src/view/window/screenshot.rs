@@ -25,6 +25,7 @@ use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_hierarchy::DespawnRecursiveExt;
+use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::default;
 use bevy_utils::tracing::{error, info, warn};
@@ -36,7 +37,6 @@ use std::{borrow::Cow, path::Path};
 use wgpu::{
     CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
 };
-use bevy_reflect::Reflect;
 
 #[derive(Event, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
