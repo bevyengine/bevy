@@ -1,8 +1,15 @@
 #![allow(deprecated)]
 use std::path::PathBuf;
 
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::Event;
+use bevy_ecs::event::{Event, EventReader};
+use bevy_ecs::system::SystemState;
+use bevy_ecs::{entity::Entity, world::World};
+use bevy_input::{
+    gestures::*,
+    keyboard::{KeyboardFocusLost, KeyboardInput},
+    mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+    touch::TouchInput,
+};
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
 use smol_str::SmolStr;
@@ -410,6 +417,294 @@ impl AppLifecycle {
         match self {
             Self::Idle | Self::Suspended => false,
             Self::Running | Self::WillSuspend | Self::WillResume => true,
+        }
+    }
+}
+
+/// Wraps all `bevy_window` and `bevy_input` events in a common enum.
+///
+/// Read these events with `EventReader<WindowEvent>` if you need to
+/// access window events in the order they were received from the
+/// operating system. Otherwise, the event types are individually
+/// readable with `EventReader<E>` (e.g. `EventReader<KeyboardInput>`).
+#[derive(Event, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[allow(missing_docs)]
+pub enum WindowEvent {
+    AppLifecycle(AppLifecycle),
+    CursorEntered(CursorEntered),
+    CursorLeft(CursorLeft),
+    CursorMoved(CursorMoved),
+    FileDragAndDrop(FileDragAndDrop),
+    Ime(Ime),
+    ReceivedCharacter(ReceivedCharacter),
+    RequestRedraw(RequestRedraw),
+    WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
+    WindowCloseRequested(WindowCloseRequested),
+    WindowCreated(WindowCreated),
+    WindowDestroyed(WindowDestroyed),
+    WindowFocused(WindowFocused),
+    WindowMoved(WindowMoved),
+    WindowOccluded(WindowOccluded),
+    WindowResized(WindowResized),
+    WindowScaleFactorChanged(WindowScaleFactorChanged),
+    WindowThemeChanged(WindowThemeChanged),
+
+    MouseButtonInput(MouseButtonInput),
+    MouseMotion(MouseMotion),
+    MouseWheel(MouseWheel),
+
+    PinchGesture(PinchGesture),
+    RotationGesture(RotationGesture),
+    DoubleTapGesture(DoubleTapGesture),
+    PanGesture(PanGesture),
+
+    TouchInput(TouchInput),
+
+    KeyboardInput(KeyboardInput),
+    KeyboardFocusLost(KeyboardFocusLost),
+}
+
+impl From<AppLifecycle> for WindowEvent {
+    fn from(e: AppLifecycle) -> Self {
+        Self::AppLifecycle(e)
+    }
+}
+impl From<CursorEntered> for WindowEvent {
+    fn from(e: CursorEntered) -> Self {
+        Self::CursorEntered(e)
+    }
+}
+impl From<CursorLeft> for WindowEvent {
+    fn from(e: CursorLeft) -> Self {
+        Self::CursorLeft(e)
+    }
+}
+impl From<CursorMoved> for WindowEvent {
+    fn from(e: CursorMoved) -> Self {
+        Self::CursorMoved(e)
+    }
+}
+impl From<FileDragAndDrop> for WindowEvent {
+    fn from(e: FileDragAndDrop) -> Self {
+        Self::FileDragAndDrop(e)
+    }
+}
+impl From<Ime> for WindowEvent {
+    fn from(e: Ime) -> Self {
+        Self::Ime(e)
+    }
+}
+impl From<ReceivedCharacter> for WindowEvent {
+    fn from(e: ReceivedCharacter) -> Self {
+        Self::ReceivedCharacter(e)
+    }
+}
+impl From<RequestRedraw> for WindowEvent {
+    fn from(e: RequestRedraw) -> Self {
+        Self::RequestRedraw(e)
+    }
+}
+impl From<WindowBackendScaleFactorChanged> for WindowEvent {
+    fn from(e: WindowBackendScaleFactorChanged) -> Self {
+        Self::WindowBackendScaleFactorChanged(e)
+    }
+}
+impl From<WindowCloseRequested> for WindowEvent {
+    fn from(e: WindowCloseRequested) -> Self {
+        Self::WindowCloseRequested(e)
+    }
+}
+impl From<WindowCreated> for WindowEvent {
+    fn from(e: WindowCreated) -> Self {
+        Self::WindowCreated(e)
+    }
+}
+impl From<WindowDestroyed> for WindowEvent {
+    fn from(e: WindowDestroyed) -> Self {
+        Self::WindowDestroyed(e)
+    }
+}
+impl From<WindowFocused> for WindowEvent {
+    fn from(e: WindowFocused) -> Self {
+        Self::WindowFocused(e)
+    }
+}
+impl From<WindowMoved> for WindowEvent {
+    fn from(e: WindowMoved) -> Self {
+        Self::WindowMoved(e)
+    }
+}
+impl From<WindowOccluded> for WindowEvent {
+    fn from(e: WindowOccluded) -> Self {
+        Self::WindowOccluded(e)
+    }
+}
+impl From<WindowResized> for WindowEvent {
+    fn from(e: WindowResized) -> Self {
+        Self::WindowResized(e)
+    }
+}
+impl From<WindowScaleFactorChanged> for WindowEvent {
+    fn from(e: WindowScaleFactorChanged) -> Self {
+        Self::WindowScaleFactorChanged(e)
+    }
+}
+impl From<WindowThemeChanged> for WindowEvent {
+    fn from(e: WindowThemeChanged) -> Self {
+        Self::WindowThemeChanged(e)
+    }
+}
+impl From<MouseButtonInput> for WindowEvent {
+    fn from(e: MouseButtonInput) -> Self {
+        Self::MouseButtonInput(e)
+    }
+}
+impl From<MouseMotion> for WindowEvent {
+    fn from(e: MouseMotion) -> Self {
+        Self::MouseMotion(e)
+    }
+}
+impl From<MouseWheel> for WindowEvent {
+    fn from(e: MouseWheel) -> Self {
+        Self::MouseWheel(e)
+    }
+}
+impl From<PinchGesture> for WindowEvent {
+    fn from(e: PinchGesture) -> Self {
+        Self::PinchGesture(e)
+    }
+}
+impl From<RotationGesture> for WindowEvent {
+    fn from(e: RotationGesture) -> Self {
+        Self::RotationGesture(e)
+    }
+}
+impl From<DoubleTapGesture> for WindowEvent {
+    fn from(e: DoubleTapGesture) -> Self {
+        Self::DoubleTapGesture(e)
+    }
+}
+impl From<PanGesture> for WindowEvent {
+    fn from(e: PanGesture) -> Self {
+        Self::PanGesture(e)
+    }
+}
+impl From<TouchInput> for WindowEvent {
+    fn from(e: TouchInput) -> Self {
+        Self::TouchInput(e)
+    }
+}
+impl From<KeyboardInput> for WindowEvent {
+    fn from(e: KeyboardInput) -> Self {
+        Self::KeyboardInput(e)
+    }
+}
+impl From<KeyboardFocusLost> for WindowEvent {
+    fn from(e: KeyboardFocusLost) -> Self {
+        Self::KeyboardFocusLost(e)
+    }
+}
+
+/// Clones events from the unified `WindowEvent` stream into their own event buffers.
+pub fn forward_window_events(
+    world: &mut World,
+    reader_state: &mut SystemState<EventReader<WindowEvent>>,
+) {
+    let mut reader = reader_state.get_mut(world);
+    let window_events: Vec<_> = reader.read().cloned().collect();
+
+    for winit_event in window_events {
+        match winit_event.clone() {
+            WindowEvent::AppLifecycle(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::CursorEntered(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::CursorLeft(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::CursorMoved(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::FileDragAndDrop(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::Ime(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::ReceivedCharacter(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::RequestRedraw(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowBackendScaleFactorChanged(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowCloseRequested(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowCreated(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowDestroyed(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowFocused(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowMoved(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowOccluded(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowResized(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowScaleFactorChanged(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::WindowThemeChanged(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::MouseButtonInput(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::MouseMotion(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::MouseWheel(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::PinchGesture(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::RotationGesture(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::DoubleTapGesture(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::PanGesture(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::TouchInput(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::KeyboardInput(e) => {
+                world.send_event(e);
+            }
+            WindowEvent::KeyboardFocusLost(e) => {
+                world.send_event(e);
+            }
         }
     }
 }

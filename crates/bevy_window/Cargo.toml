@@ -16,6 +16,7 @@ serialize = ["serde", "smol_str/serde", "bevy_ecs/serialize"]
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
+bevy_input = { path = "../bevy_input", version = "0.15.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
   "glam",

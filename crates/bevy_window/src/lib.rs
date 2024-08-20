@@ -91,7 +91,9 @@ impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
         #[allow(deprecated)]
-        app.add_event::<WindowResized>()
+        app.add_event::<WindowEvent>()
+            .add_systems(First, forward_window_events)
+            .add_event::<WindowResized>()
             .add_event::<WindowCreated>()
             .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
@@ -143,7 +145,8 @@ impl Plugin for WindowPlugin {
 
         // Register event types
         #[allow(deprecated)]
-        app.register_type::<WindowResized>()
+        app.register_type::<WindowEvent>()
+            .register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()

@@ -13,7 +13,7 @@
 //! See `winit_runner` for details.
 
 use bevy_derive::Deref;
-use bevy_window::RawHandleWrapperHolder;
+use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use std::marker::PhantomData;
 use winit::event_loop::EventLoop;
 #[cfg(target_os = "android")]
@@ -33,7 +33,6 @@ pub use winit::event_loop::EventLoopProxy;
 pub use winit::platform::web::CustomCursorExtWebSys;
 pub use winit::window::{CustomCursor as WinitCustomCursor, CustomCursorSource};
 pub use winit_config::*;
-pub use winit_event::*;
 pub use winit_windows::*;
 
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers};
@@ -45,7 +44,6 @@ mod converters;
 mod state;
 mod system;
 mod winit_config;
-pub mod winit_event;
 mod winit_monitors;
 mod winit_windows;
 
@@ -122,7 +120,6 @@ impl<T: Event> Plugin for WinitPlugin<T> {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
-            .add_event::<WinitEvent>()
             .set_runner(winit_runner::<T>)
             .add_systems(
                 Last,
@@ -162,12 +159,12 @@ pub struct WakeUp;
 pub struct EventLoopProxyWrapper<T: 'static>(winit::event_loop::EventLoopProxy<T>);
 
 trait AppSendEvent {
-    fn send(&mut self, event: impl Into<WinitEvent>);
+    fn send(&mut self, event: impl Into<WindowEvent>);
 }
 
-impl AppSendEvent for Vec<WinitEvent> {
-    fn send(&mut self, event: impl Into<WinitEvent>) {
-        self.push(Into::<WinitEvent>::into(event));
+impl AppSendEvent for Vec<WindowEvent> {
+    fn send(&mut self, event: impl Into<WindowEvent>) {
+        self.push(Into::<WindowEvent>::into(event));
     }
 }
 
