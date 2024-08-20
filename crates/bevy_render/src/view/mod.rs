@@ -5,6 +5,7 @@ use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
+use crate::camera::NormalizedRenderTarget;
 use crate::extract_component::ExtractComponentPlugin;
 use crate::{
     camera::{
@@ -25,6 +26,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -119,6 +121,9 @@ impl Plugin for ViewPlugin {
             render_app.add_systems(
                 Render,
                 (
+                    prepare_view_textures
+                        .in_set(RenderSet::ManageViews)
+                        .before(prepare_view_targets),
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_windows)
@@ -132,7 +137,9 @@ impl Plugin for ViewPlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ViewUniforms>();
+            render_app
+                .init_resource::<ViewUniforms>()
+                .init_resource::<ViewTargetTextures>();
         }
     }
 }
@@ -457,6 +464,11 @@ pub struct ViewTarget {
     main_texture: Arc<AtomicUsize>,
     out_texture: OutputColorAttachment,
 }
+
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct ViewTargetTextures(
+    HashMap<NormalizedRenderTarget, Option<(TextureView, TextureFormat)>>,
+);
 
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
@@ -794,11 +806,32 @@ struct MainTargetTextures {
     main_texture: Arc<AtomicUsize>,
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_view_targets(
-    mut commands: Commands,
+pub fn prepare_view_textures(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
+    manual_texture_views: Res<ManualTextureViews>,
+    cameras: Query<&ExtractedCamera>,
+    mut view_target_textures: ResMut<ViewTargetTextures>,
+) {
+    view_target_textures.clear();
+    for camera in cameras.iter() {
+        let Some(target) = &camera.target else {
+            continue;
+        };
+
+        view_target_textures
+            .entry(target.clone())
+            .or_insert_with(|| {
+                target
+                    .get_texture_view(&windows, &images, &manual_texture_views)
+                    .map(|view| view.clone())
+                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
+            });
+    }
+}
+
+pub fn prepare_view_targets(
+    mut commands: Commands,
     clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
@@ -809,24 +842,23 @@ pub fn prepare_view_targets(
         &CameraMainTextureUsages,
         &Msaa,
     )>,
-    manual_texture_views: Res<ManualTextureViews>,
+    view_target_textures: Res<ViewTargetTextures>,
 ) {
     let mut textures = HashMap::default();
-    let mut output_textures = HashMap::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {
             continue;
         };
 
-        let Some(out_texture) = output_textures.entry(target.clone()).or_insert_with(|| {
-            target
-                .get_texture_view(&windows, &images, &manual_texture_views)
-                .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                .map(|(view, format)| {
-                    OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                })
-        }) else {
+        let Some(out_texture) = view_target_textures
+            .get(target)
+            .expect("Something went wrong with prepare_view_textures")
+            .as_ref()
+            .map(|(view, format)| {
+                OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
+            })
+        else {
             continue;
         };
 

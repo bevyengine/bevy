@@ -1,8 +1,7 @@
 //! An example showing how to save screenshots to disk
 
 use bevy::prelude::*;
-use bevy::render::view::screenshot::ScreenshotManager;
-use bevy::window::PrimaryWindow;
+use bevy_render::view::screenshot::{save_to_disk, Screenshot};
 
 fn main() {
     App::new()
@@ -13,17 +12,16 @@ fn main() {
 }
 
 fn screenshot_on_spacebar(
+    mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
-    main_window: Query<Entity, With<PrimaryWindow>>,
-    mut screenshot_manager: ResMut<ScreenshotManager>,
     mut counter: Local<u32>,
 ) {
     if input.just_pressed(KeyCode::Space) {
         let path = format!("./screenshot-{}.png", *counter);
         *counter += 1;
-        screenshot_manager
-            .save_screenshot_to_disk(main_window.single(), path)
-            .unwrap();
+        commands
+            .spawn(Screenshot::primary_window())
+            .observe(save_to_disk(path));
     }
 }
 
