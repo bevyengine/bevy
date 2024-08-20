@@ -180,9 +180,34 @@ pub struct ExtractedUiNode {
     pub node_type: NodeType,
 }
 
+pub struct ExtractedGlyphBatch {
+    pub stack_index: u32,
+    pub transform: Mat4,
+    pub color: LinearRgba,
+    pub rect: Rect,
+    pub image: AssetId<Image>,
+    pub atlas_scaling: Option<Vec2>,
+    pub clip: Option<Rect>,
+    // Camera to render this glyph batch to. By the time it is extracted,
+    // it is defaulted to a single camera if only one exists.
+    // Nodes with ambiguous camera will be ignored.
+    pub camera_entity: Entity,
+    pub range: Range<usize>,
+}
+
+pub struct ExtractedGlyph {
+    pub translation: Vec3,
+    pub rect: Rect,
+}
+
 #[derive(Resource, Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: EntityHashMap<ExtractedUiNode>,
+}
+
+#[derive(Resource, Default)]
+pub struct ExtractedGlyphBatches {
+    pub glyph_batches: EntityHashMap<ExtractedGlyphBatch>,
 }
 
 pub fn extract_uinode_background_colors(
