@@ -837,7 +837,6 @@ pub fn extract_text_sections(
         )>,
     >,
 ) {
-    println!("text");
     let mut start = 0;
     let mut end = 1;
     extracted_glyph_batches.glyphs.clear();
@@ -889,16 +888,12 @@ pub fn extract_text_sections(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            println!("section = {section_index}, index = {i}, range = {start}..{end}");
-
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
 
-            println!("position = {position:?}");
-            println!("rect = {rect:?}");
             extracted_glyph_batches.glyphs.push(ExtractedGlyph {
                 transform: transform
                     * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
@@ -912,8 +907,6 @@ pub fn extract_text_sections(
                 .unwrap_or(true)
             {
                 let entity = commands.spawn_empty().id();
-
-                println!("insert finished batch: {entity:?}, range: {:?}", start..end);
 
                 extracted_glyph_batches.batches.insert(
                     entity,
@@ -1006,7 +999,6 @@ pub fn queue_uinodes(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    println!("queue");
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
         let Ok((view_entity, view)) = views.get_mut(extracted_uinode.camera_entity) else {
@@ -1047,7 +1039,6 @@ pub fn queue_text_sections(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    println!("queue text sections");
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_text_section) in extracted_text_sections.batches.iter() {
         let Ok((view_entity, view)) = views.get_mut(extracted_text_section.camera_entity) else {
@@ -1058,7 +1049,6 @@ pub fn queue_text_sections(
             continue;
         };
 
-        println!("queue text section: {entity:?}");
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
@@ -1099,7 +1089,6 @@ pub fn prepare_uinodes(
     events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
 ) {
-    println!("prepare");
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
         match event {
@@ -1363,7 +1352,6 @@ pub fn prepare_text_sections(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
 ) {
     // Similar to prepare_uinodes, but specifically for text sections
-    println!("prepare text sections!!");
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
@@ -1387,7 +1375,6 @@ pub fn prepare_text_sections(
                 if let Some(extracted_text_section) =
                     extracted_text_sections.batches.get(&item.entity)
                 {
-                    println!("section found {extracted_text_section:#?}");
                     let mut existing_batch = batches.last_mut();
 
                     if batch_image_handle == AssetId::invalid()
@@ -1408,7 +1395,6 @@ pub fn prepare_text_sections(
                                 camera: extracted_text_section.camera_entity,
                             };
 
-                            println!("push batch for {:?}", item.entity);
                             batches.push((item.entity, new_batch));
 
                             image_bind_groups
@@ -1443,7 +1429,6 @@ pub fn prepare_text_sections(
                         });
 
                         for i in 0..4 {
-                            println!("position i = {}", positions[i]);
                             ui_meta.vertices.push(UiVertex {
                                 position: positions[i].into(),
                                 uv: uvs[i].into(),
@@ -1462,7 +1447,6 @@ pub fn prepare_text_sections(
                         vertices_index += 6;
                         indices_index += 4;
                     }
-                    println!("vertices index = {vertices_index}, indices_index = {indices_index}");
                     existing_batch.unwrap().1.range.end = vertices_index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 }
