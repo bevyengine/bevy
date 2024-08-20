@@ -5,13 +5,13 @@ use bevy_utils::all_tuples;
 use crate::func::args::{ArgInfo, GetOwnership, Ownership};
 use crate::TypePath;
 
-/// Type information for a [`DynamicFunction`] or [`DynamicClosure`].
+/// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
-/// This information can be retrieved from certain functions and closures
-/// using the [`TypedFunction`] trait.
+/// This information can be retrieved directly from certain functions and closures
+/// using the [`TypedFunction`] trait, and manually constructed otherwise.
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct FunctionInfo {
     name: Option<Cow<'static, str>>,
@@ -43,7 +43,7 @@ impl FunctionInfo {
         }
     }
 
-    /// Create a new [`FunctionInfo`] from the given function or closure.
+    /// Create a new [`FunctionInfo`] from the given function.
     pub fn from<F, Marker>(function: &F) -> Self
     where
         F: TypedFunction<Marker>,
@@ -105,13 +105,15 @@ impl FunctionInfo {
 
     /// The name of the function.
     ///
-    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicClosures`] created using [`IntoClosure`],
-    /// the name will always be the full path to the function as returned by [`std::any::type_name`].
+    /// For [`DynamicFunctions`] created using [`IntoFunction`] or [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
+    /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
+    /// unless the function is a closure, anonymous function, or function pointer,
+    /// in which case the name will be `None`.
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction
-    /// [`DynamicClosures`]: crate::func::DynamicClosure
-    /// [`IntoClosure`]: crate::func::IntoClosure
+    /// [`DynamicFunctionMuts`]: crate::func::DynamicFunctionMut
+    /// [`IntoFunctionMut`]: crate::func::IntoFunctionMut
     pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.name.as_ref()
     }
@@ -132,10 +134,10 @@ impl FunctionInfo {
     }
 }
 
-/// Information about the return type of a [`DynamicFunction`] or [`DynamicClosure`].
+/// Information about the return type of a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
     type_path: &'static str,
@@ -164,13 +166,14 @@ impl ReturnInfo {
 
 /// A static accessor to compile-time type information for functions.
 ///
-/// This is the equivalent of [`Typed`] for functions.
+/// This is the equivalent of [`Typed`], but for function.
 ///
 /// # Blanket Implementation
 ///
 /// This trait has a blanket implementation that covers:
 /// - Functions and methods defined with the `fn` keyword
-/// - Closures that do not capture their environment
+/// - Anonymous functions
+/// - Function pointers
 /// - Closures that capture immutable references to their environment
 /// - Closures that capture mutable references to their environment
 /// - Closures that take ownership of captured variables
@@ -209,6 +212,7 @@ impl ReturnInfo {
 ///
 /// [module-level documentation]: crate::func
 /// [`Typed`]: crate::Typed
+/// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait TypedFunction<Marker> {
     /// Get the [`FunctionInfo`] for this type.
     fn function_info() -> FunctionInfo;
@@ -219,7 +223,7 @@ pub trait TypedFunction<Marker> {
     }
 }
 
-/// Helper macro for implementing [`TypedFunction`] on Rust closures.
+/// Helper macro for implementing [`TypedFunction`] on Rust functions.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
 /// - `FnMut(arg0, arg1, ..., argN) -> R`
