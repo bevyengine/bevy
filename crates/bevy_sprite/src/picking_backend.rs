@@ -8,7 +8,7 @@ use crate::{Sprite, TextureAtlas, TextureAtlasLayout};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_math::prelude::*;
+use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
@@ -115,23 +115,15 @@ pub fn sprite_picking(
                         world_to_sprite.transform_point3(cursor_ray_world.origin);
                     let cursor_end_sprite = world_to_sprite.transform_point3(cursor_ray_end);
 
-                    fn inverse_lerp(a: f32, b: f32, x: f32) -> Option<f32> {
-                        if (b - a).abs() < f32::EPSILON {
-                            None
-                        } else {
-                            Some((x - a) / (b - a))
-                        }
-                    }
-
                     // Find where the cursor segment intersects the plane Z=0 (which is the sprite's
                     // plane in sprite-local space). It may not intersect if, for example, we're
                     // viewing the sprite side-on
-                    let lerp_factor = inverse_lerp(cursor_start_sprite.z, cursor_end_sprite.z, 0.0);
-                    let Some(lerp_factor) = lerp_factor else {
-                        // Lerp factor is `None`, meaning the cursor ray is parallel to the sprite
-                        // and misses it
+                    if cursor_start_sprite.z == cursor_end_sprite.z {
+                        // Cursor ray is parallel to the sprite and misses it
                         return None;
-                    };
+                    }
+                    let lerp_factor =
+                        f32::inverse_lerp(cursor_start_sprite.z, cursor_end_sprite.z, 0.0);
                     if !(0.0..=1.0).contains(&lerp_factor) {
                         // Lerp factor is out of range, meaning that while an infinite line cast by
                         // the cursor would intersect the sprite, the sprite is not between the
