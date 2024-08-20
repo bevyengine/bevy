@@ -1032,7 +1032,7 @@ pub fn queue_text_sections(
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    println!("queue");
+    println!("queue text sections");
     let draw_function = draw_functions.read().id::<DrawUi>();
     for (entity, extracted_text_section) in extracted_uinodes.batches.iter() {
         let Ok((view_entity, view)) = views.get_mut(extracted_text_section.camera_entity) else {
@@ -1347,7 +1347,7 @@ pub fn prepare_text_sections(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
 ) {
     // Similar to prepare_uinodes, but specifically for text sections
-
+    println!("prepare text sections");
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
