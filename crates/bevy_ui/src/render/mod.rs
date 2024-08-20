@@ -119,7 +119,9 @@ pub fn build_ui_render(app: &mut App) {
                 queue_text_sections.in_set(RenderSet::Queue),
                 sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
                 prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
-                prepare_text_sections.in_set(RenderSet::PrepareBindGroups),
+                prepare_text_sections
+                    .in_set(RenderSet::PrepareBindGroups)
+                    .after(prepare_uinodes),
             ),
         );
 
@@ -183,6 +185,7 @@ pub struct ExtractedUiNode {
     pub node_type: NodeType,
 }
 
+#[derive(Debug)]
 pub struct ExtractedTextSection {
     pub stack_index: u32,
     pub color: LinearRgba,
@@ -1347,7 +1350,7 @@ pub fn prepare_text_sections(
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
 ) {
     // Similar to prepare_uinodes, but specifically for text sections
-    println!("prepare text sections");
+    println!("prepare text sections!!");
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
@@ -1371,6 +1374,7 @@ pub fn prepare_text_sections(
                 if let Some(extracted_text_section) =
                     extracted_text_sections.batches.get(&item.entity)
                 {
+                    println!("section found {extracted_text_section:#?}");
                     let mut existing_batch = batches.last_mut();
 
                     if batch_image_handle == AssetId::invalid()
