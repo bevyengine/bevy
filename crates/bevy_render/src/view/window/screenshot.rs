@@ -40,34 +40,64 @@ use wgpu::{
 #[derive(Event, Deref, DerefMut)]
 pub struct ScreenshotCaptured(pub Image);
 
+/// A component that signals to the renderer to capture a screenshot this frame.
+///
+/// This component should be spawned on a new entity with an observer that will trigger
+/// with [`ScreenshotCaptured`] when the screenshot is ready.
+///
+/// Screenshots are captured asynchronously and may not be available immediately after the frame
+/// that the component is spawned on. The observer should be used to handle the screenshot when it
+/// is ready.
+///
+/// Note that the screenshot entity will be despawned after the screenshot is captured and the
+/// observer is triggered.
+///
+/// # Usage
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_render::view::screenshot::{save_to_disk, Screenshot};
+///
+/// fn take_screenshot(mut commands: Commands) {
+///    commands.spawn(Screenshot::primary_window())
+///       .observe(save_to_disk("screenshot.png"));
+/// }
+/// ```
 #[derive(Component)]
 pub struct Screenshot(pub RenderTarget);
 
+/// A marker component that indicates that a screenshot is currently being captured.
 #[derive(Component)]
-struct Capturing;
+pub struct Capturing;
 
+/// A marker component that indicates that a screenshot has been captured, the image is ready, and
+/// the screenshot entity can be despawned.
 #[derive(Component)]
 pub struct Captured;
 
 impl Screenshot {
+    /// Capture a screenshot of the provided window entity.
     pub fn window(window: Entity) -> Self {
         Self(RenderTarget::Window(WindowRef::Entity(window)))
     }
 
+    /// Capture a screenshot of the primary window, if one exists.
     pub fn primary_window() -> Self {
         Self(RenderTarget::Window(WindowRef::Primary))
     }
 
+    /// Capture a screenshot of the provided render target image.
     pub fn image(image: Handle<Image>) -> Self {
         Self(RenderTarget::Image(image))
     }
 
+    /// Capture a screenshot of the provided manual texture view.
     pub fn texture_view(texture_view: ManualTextureViewHandle) -> Self {
         Self(RenderTarget::TextureView(texture_view))
     }
 }
 
-pub struct ScreenshotPreparedState {
+struct ScreenshotPreparedState {
     pub texture: Texture,
     pub buffer: Buffer,
     pub bind_group: BindGroup,
@@ -76,17 +106,18 @@ pub struct ScreenshotPreparedState {
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct CapturedScreenshots(pub Arc<Mutex<Receiver<(Entity, Image)>>>);
+struct CapturedScreenshots(pub Arc<Mutex<Receiver<(Entity, Image)>>>);
 
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct RenderScreenshotTargets(EntityHashMap<NormalizedRenderTarget>);
+struct RenderScreenshotTargets(EntityHashMap<NormalizedRenderTarget>);
 
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct RenderScreenshotsPrepared(EntityHashMap<ScreenshotPreparedState>);
+struct RenderScreenshotsPrepared(EntityHashMap<ScreenshotPreparedState>);
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderScreenshotsSender(Sender<(Entity, Image)>);
+struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 
+/// Saves the captured screenshot to disk at the provided path.
 pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
     move |trigger| {
