@@ -24,7 +24,8 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
             }
             CiTestingEvent::Screenshot => {
                 let path = format!("./screenshot-{}.png", *current_frame);
-                world.spawn(Screenshot::primary_window())
+                world
+                    .spawn(Screenshot::primary_window())
                     .observe(save_to_disk(path));
                 info!("Took a screenshot at frame {}.", *current_frame);
             }
