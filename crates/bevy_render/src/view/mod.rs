@@ -823,7 +823,8 @@ pub fn prepare_view_textures(
             .entry(target.clone())
             .or_insert_with(|| {
                 target
-                    .get_texture_view(&windows, &images, &manual_texture_views).cloned()
+                    .get_texture_view(&windows, &images, &manual_texture_views)
+                    .cloned()
                     .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
             });
     }
