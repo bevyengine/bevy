@@ -50,6 +50,8 @@ pub fn sprite_picking(
             .unwrap_or(Ordering::Equal)
     });
 
+    let primary_window = primary_window.get_single().ok();
+
     for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
         pointer_location.location().map(|loc| (pointer, loc))
     }) {
@@ -60,12 +62,9 @@ pub fn sprite_picking(
             .find(|(_, camera, _, _)| {
                 camera
                     .target
-                    .normalize(Some(match primary_window.get_single() {
-                        Ok(w) => w,
-                        Err(_) => return false,
-                    }))
-                    .unwrap()
-                    == location.target
+                    .normalize(primary_window)
+                    .map(|x| x == location.target)
+                    .unwrap_or(false)
             })
         else {
             continue;
