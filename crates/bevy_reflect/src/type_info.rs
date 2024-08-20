@@ -309,6 +309,30 @@ impl TypeInfo {
 /// actual [type path] when debugging, while still having the same performance
 /// as hashing/comparing [`TypeId`] directly—at the cost of a little more memory.
 ///
+/// # Examples
+///
+/// ```
+/// use bevy_reflect::{Type, TypePath};
+///
+/// fn assert_char<T: ?Sized + TypePath>(t: &T) -> Result<(), String> {
+///     let ty = Type::of::<T>();
+///     if Type::of::<char>() == ty {
+///         Ok(())
+///     } else {
+///         Err(format!("expected `char`, got `{}`", ty.path()))
+///     }
+/// }
+///
+/// assert_eq!(
+///     assert_char(&'a'),
+///     Ok(())
+/// );
+/// assert_eq!(
+///     assert_char(&String::from("Hello, world!")),
+///     Err(String::from("expected `char`, got `alloc::string::String`"))
+/// );
+/// ```
+///
 /// [`&'static TypeInfo`]: TypeInfo
 #[derive(Copy, Clone)]
 pub struct Type {
