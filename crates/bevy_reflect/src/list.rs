@@ -4,10 +4,11 @@ use std::hash::{Hash, Hasher};
 
 use bevy_reflect_derive::impl_type_path;
 
+use crate::type_info::impl_type_methods;
 use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, MaybeTyped, PartialReflect, Reflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -108,8 +109,7 @@ pub trait List: PartialReflect {
 /// A container for compile-time list info.
 #[derive(Clone, Debug)]
 pub struct ListInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     item_info: fn() -> Option<&'static TypeInfo>,
     item_type_path: TypePathTable,
     item_type_id: TypeId,
@@ -121,8 +121,7 @@ impl ListInfo {
     /// Create a new [`ListInfo`].
     pub fn new<TList: List + TypePath, TItem: FromReflect + MaybeTyped + TypePath>() -> Self {
         Self {
-            type_path: TypePathTable::of::<TList>(),
-            type_id: TypeId::of::<TList>(),
+            ty: Type::of::<TList>(),
             item_info: TItem::maybe_type_info,
             item_type_path: TypePathTable::of::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
@@ -137,32 +136,7 @@ impl ListInfo {
         Self { docs, ..self }
     }
 
-    /// A representation of the type path of the list.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the list.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the list.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the list type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The [`TypeInfo`] of the list item.
     ///

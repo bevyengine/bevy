@@ -180,36 +180,33 @@ pub enum TypeInfo {
 }
 
 impl TypeInfo {
+    /// The underlying Rust [type].
+    ///
+    /// [type]: Type
+    pub fn ty(&self) -> Type {
+        match self {
+            Self::Struct(info) => info.ty(),
+            Self::TupleStruct(info) => info.ty(),
+            Self::Tuple(info) => info.ty(),
+            Self::List(info) => info.ty(),
+            Self::Array(info) => info.ty(),
+            Self::Map(info) => info.ty(),
+            Self::Set(info) => info.ty(),
+            Self::Enum(info) => info.ty(),
+            Self::Value(info) => info.ty(),
+        }
+    }
+
     /// The [`TypeId`] of the underlying type.
     pub fn type_id(&self) -> TypeId {
-        match self {
-            Self::Struct(info) => info.type_id(),
-            Self::TupleStruct(info) => info.type_id(),
-            Self::Tuple(info) => info.type_id(),
-            Self::List(info) => info.type_id(),
-            Self::Array(info) => info.type_id(),
-            Self::Map(info) => info.type_id(),
-            Self::Set(info) => info.type_id(),
-            Self::Enum(info) => info.type_id(),
-            Self::Value(info) => info.type_id(),
-        }
+        self.ty().type_id()
     }
 
     /// A representation of the type path of the underlying type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        match self {
-            Self::Struct(info) => info.type_path_table(),
-            Self::TupleStruct(info) => info.type_path_table(),
-            Self::Tuple(info) => info.type_path_table(),
-            Self::List(info) => info.type_path_table(),
-            Self::Array(info) => info.type_path_table(),
-            Self::Map(info) => info.type_path_table(),
-            Self::Set(info) => info.type_path_table(),
-            Self::Enum(info) => info.type_path_table(),
-            Self::Value(info) => info.type_path_table(),
-        }
+    pub fn type_path_table(&self) -> TypePathTable {
+        self.ty().type_path_table()
     }
 
     /// The [stable, full type path] of the underlying type.
@@ -219,12 +216,16 @@ impl TypeInfo {
     /// [stable, full type path]: TypePath
     /// [`type_path_table`]: Self::type_path_table
     pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
+        self.ty().path()
     }
 
-    /// Check if the given type matches the underlying type.
+    /// Check if the given type matches this one.
+    ///
+    /// This only compares the [`TypeId`] of the types
+    /// and does not verify they share the same [`TypePath`]
+    /// (though it implies they do).
     pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id()
+        self.ty().is::<T>()
     }
 
     /// The docstring of the underlying type, if any.
@@ -407,6 +408,57 @@ impl Hash for Type {
     }
 }
 
+macro_rules! impl_type_methods {
+    ($field:ident) => {
+        /// The underlying Rust [type].
+        ///
+        /// [type]: crate::type_info::Type
+        pub fn ty(&self) -> $crate::type_info::Type {
+            self.$field
+        }
+
+        /// The [`TypeId`] of this type.
+        ///
+        /// [`TypeId`]: std::any::TypeId
+        pub fn type_id(&self) -> ::std::any::TypeId {
+            self.$field.type_id()
+        }
+
+        /// The [stable, full type path] of this type.
+        ///
+        /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
+        ///
+        /// [stable, full type path]: TypePath
+        /// [`type_path_table`]: Self::type_path_table
+        pub fn type_path(&self) -> &'static str {
+            self.$field.path()
+        }
+
+        /// A representation of the type path of this type.
+        ///
+        /// Provides dynamic access to all methods on [`TypePath`].
+        ///
+        /// [`TypePath`]: crate::type_path::TypePath
+        pub fn type_path_table(&self) -> $crate::type_path::TypePathTable {
+            self.$field.type_path_table()
+        }
+
+        /// Check if the given type matches this one.
+        ///
+        /// This only compares the [`TypeId`] of the types
+        /// and does not verify they share the same [`TypePath`]
+        /// (though it implies they do).
+        ///
+        /// [`TypeId`]: std::any::TypeId
+        /// [`TypePath`]: crate::type_path::TypePath
+        pub fn is<T: ::std::any::Any>(&self) -> bool {
+            self.$field.is::<T>()
+        }
+    };
+}
+
+pub(crate) use impl_type_methods;
+
 /// A container for compile-time info related to general value types, including primitives.
 ///
 /// This typically represents a type which cannot be broken down any further. This is often
@@ -417,8 +469,7 @@ impl Hash for Type {
 /// it _as_ a struct. It therefore makes more sense to represent it as a [`ValueInfo`].
 #[derive(Debug, Clone)]
 pub struct ValueInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -426,8 +477,7 @@ pub struct ValueInfo {
 impl ValueInfo {
     pub fn new<T: Reflect + TypePath + ?Sized>() -> Self {
         Self {
-            type_path: TypePathTable::of::<T>(),
-            type_id: TypeId::of::<T>(),
+            ty: Type::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -439,32 +489,7 @@ impl ValueInfo {
         Self { docs: doc, ..self }
     }
 
-    /// A representation of the type path of the value.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the value.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the value.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the value type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this dynamic value, if any.
     #[cfg(feature = "documentation")]

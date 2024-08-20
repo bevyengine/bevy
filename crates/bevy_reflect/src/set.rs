@@ -5,9 +5,10 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::hashbrown::hash_table::OccupiedEntry as HashTableOccupiedEntry;
 use bevy_utils::hashbrown::HashTable;
 
+use crate::type_info::impl_type_methods;
 use crate::{
     self as bevy_reflect, hash_error, ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -82,8 +83,7 @@ pub trait Set: PartialReflect {
 /// A container for compile-time set info.
 #[derive(Clone, Debug)]
 pub struct SetInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     value_type_path: TypePathTable,
     value_type_id: TypeId,
     #[cfg(feature = "documentation")]
@@ -94,8 +94,7 @@ impl SetInfo {
     /// Create a new [`SetInfo`].
     pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
         Self {
-            type_path: TypePathTable::of::<TSet>(),
-            type_id: TypeId::of::<TSet>(),
+            ty: Type::of::<TSet>(),
             value_type_path: TypePathTable::of::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
             #[cfg(feature = "documentation")]
@@ -109,32 +108,7 @@ impl SetInfo {
         Self { docs, ..self }
     }
 
-    /// A representation of the type path of the set.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the set.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the set.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the set type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// A representation of the type path of the value type.
     ///

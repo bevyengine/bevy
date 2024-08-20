@@ -4,10 +4,8 @@ use std::fmt::{Debug, Formatter};
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::{
-    self as bevy_reflect, ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
-};
+use crate::{self as bevy_reflect, ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypePathTable};
+use crate::type_info::impl_type_methods;
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -97,8 +95,7 @@ pub trait Map: PartialReflect {
 /// A container for compile-time map info.
 #[derive(Clone, Debug)]
 pub struct MapInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     key_info: fn() -> Option<&'static TypeInfo>,
     key_type_path: TypePathTable,
     key_type_id: TypeId,
@@ -117,8 +114,7 @@ impl MapInfo {
         TValue: Reflect + MaybeTyped + TypePath,
     >() -> Self {
         Self {
-            type_path: TypePathTable::of::<TMap>(),
-            type_id: TypeId::of::<TMap>(),
+            ty: Type::of::<TMap>(),
             key_info: TKey::maybe_type_info,
             key_type_path: TypePathTable::of::<TKey>(),
             key_type_id: TypeId::of::<TKey>(),
@@ -136,32 +132,7 @@ impl MapInfo {
         Self { docs, ..self }
     }
 
-    /// A representation of the type path of the map.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the map.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the map.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the map type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The [`TypeInfo`] of the key type.
     ///
