@@ -953,8 +953,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
             }
-            Err(e) => {
-                Err(PrepareAssetError::AsBindGroupError(e))
+            Err(other) => {
+                Err(PrepareAssetError::AsBindGroupError(other))
             }
         }
     }
