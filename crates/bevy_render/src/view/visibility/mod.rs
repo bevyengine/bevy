@@ -21,8 +21,6 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
-use thiserror::Error;
-
 use super::NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
@@ -47,43 +45,6 @@ pub enum Visibility {
     /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
     /// [`Parent`] entity is hidden.
     Visible,
-}
-
-/// Enum of errors that could occur during conversion to [`bool`]
-#[non_exhaustive]
-#[derive(Error, Debug)]
-pub enum VisibilityToBoolConversionError {
-    #[error("The variant `{0:?}` cannot be converted to a bool")]
-    VariantNotSupported(Visibility),
-}
-/// Implements conversion from bool to Visibility
-/// `true` corresponds to [`Visibility::Visible`], while false corresponds to [`Visibility::Hidden`].
-impl From<bool> for Visibility {
-    fn from(visible: bool) -> Visibility {
-        if visible {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        }
-    }
-}
-
-/// Implements conversion from [`Visibility`] to [`bool`]
-/// - returns `Ok(true)` if `Visibility::Visible`
-/// - returns `Ok(false)` if `Visibility::Hidden`
-/// - returns `Err()` if `Visibility::Inherited`
-impl TryFrom<Visibility> for bool {
-    type Error = VisibilityToBoolConversionError;
-
-    fn try_from(visible: Visibility) -> Result<Self, Self::Error> {
-        match visible {
-            Visibility::Hidden => Ok(false),
-            Visibility::Visible => Ok(true),
-            Visibility::Inherited => Err(VisibilityToBoolConversionError::VariantNotSupported(
-                Visibility::Inherited,
-            )),
-        }
-    }
 }
 
 // Allows `&Visibility == Visibility`
