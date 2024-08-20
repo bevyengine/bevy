@@ -91,7 +91,7 @@ rustflags = [
 ]
 rustdocflags = [
   # LLD linker
-  "-Clink-arg=-fuse-ld=lld"
+  "-Clink-arg=-fuse-ld=lld",
 
   # Mold linker
   # "-Clink-arg=-fuse-ld=mold",
