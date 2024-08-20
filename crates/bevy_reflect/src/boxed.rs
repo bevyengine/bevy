@@ -526,11 +526,23 @@ mod tests {
         }
 
         #[derive(Reflect)]
+        struct Sword(u32);
+
+        impl Equippable for Sword {}
+
+        #[derive(Reflect)]
         #[reflect(from_reflect = false)]
         struct Player {
             #[reflect(remote = ReflectBox<dyn Equippable>)]
             weapon: Box<dyn Equippable>,
         }
+
+        let player: Box<dyn Struct> = Box::new(Player {
+            weapon: Box::new(Sword(123)),
+        });
+
+        let weapon = player.field("weapon").unwrap();
+        assert!(weapon.reflect_partial_eq(&Sword(123)).unwrap_or_default());
     }
 
     #[test]
