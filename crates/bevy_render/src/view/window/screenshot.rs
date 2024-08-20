@@ -24,12 +24,13 @@ use bevy_app::{First, Plugin, Update};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::event::event_update_system;
+use bevy_ecs::system::SystemState;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::default;
 use bevy_utils::tracing::{error, info, warn};
+use bevy_utils::{default, HashSet};
 use bevy_window::{PrimaryWindow, WindowRef};
 use std::ops::Deref;
 use std::sync::mpsc::{Receiver, Sender};
@@ -203,13 +204,29 @@ pub fn trigger_screenshots(
 fn extract_screenshots(
     mut targets: ResMut<RenderScreenshotTargets>,
     mut main_world: ResMut<MainWorld>,
+    mut system_state: Local<
+        Option<
+            SystemState<(
+                Commands,
+                Query<Entity, With<PrimaryWindow>>,
+                Query<(Entity, &Screenshot), Without<Capturing>>,
+            )>,
+        >,
+    >,
+    mut seen_targets: Local<HashSet<NormalizedRenderTarget>>,
 ) {
+    if system_state.is_none() {
+        *system_state = Some(SystemState::new(&mut main_world));
+    }
+    let system_state = system_state.as_mut().unwrap();
+    let (mut commands, primary_window, screenshots) = system_state.get_mut(&mut main_world);
+
     targets.clear();
-    let mut primary_window = main_world.query_filtered::<Entity, With<PrimaryWindow>>();
-    let primary_window = primary_window.iter(&main_world).next();
-    let mut screenshots =
-        main_world.query_filtered::<(Entity, &mut Screenshot), Without<Capturing>>();
-    for (entity, screenshot) in screenshots.iter_mut(&mut main_world) {
+    seen_targets.clear();
+
+    let primary_window = primary_window.iter().next();
+
+    for (entity, screenshot) in screenshots.iter() {
         let render_target = screenshot.0.clone();
         let Some(render_target) = render_target.normalize(primary_window) else {
             warn!(
@@ -218,12 +235,21 @@ fn extract_screenshots(
             );
             continue;
         };
+        if seen_targets.contains(&render_target) {
+            warn!(
+                "Duplicate render target for screenshot, skipping entity {:?}: {:?}",
+                entity, render_target
+            );
+            // If we don't despawn the entity here, it will be captured again in the next frame
+            commands.entity(entity).despawn_recursive();
+            continue;
+        }
+        seen_targets.insert(render_target.clone());
         targets.insert(entity, render_target);
+        commands.entity(entity).insert(Capturing);
     }
 
-    for entity in targets.keys() {
-        main_world.entity_mut(*entity).insert(Capturing);
-    }
+    system_state.apply(&mut main_world);
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -1,13 +1,15 @@
 //! An example showing how to save screenshots to disk
 
 use bevy::prelude::*;
-use bevy_render::view::screenshot::{save_to_disk, Screenshot};
+use bevy::window::SystemCursorIcon;
+use bevy_render::view::cursor::CursorIcon;
+use bevy_render::view::screenshot::{save_to_disk, Capturing, Screenshot};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, screenshot_on_spacebar)
+        .add_systems(Update, (screenshot_on_spacebar, screenshot_saving))
         .run();
 }
 
@@ -22,6 +24,25 @@ fn screenshot_on_spacebar(
         commands
             .spawn(Screenshot::primary_window())
             .observe(save_to_disk(path));
+    }
+}
+
+fn screenshot_saving(
+    mut commands: Commands,
+    screenshot_saving: Query<Entity, With<Capturing>>,
+    windows: Query<Entity, With<Window>>,
+) {
+    let window = windows.single();
+    match screenshot_saving.iter().count() {
+        0 => {
+            commands.entity(window).remove::<CursorIcon>();
+        }
+        x if x > 0 => {
+            commands
+                .entity(window)
+                .insert(CursorIcon::from(SystemCursorIcon::Progress));
+        }
+        _ => {}
     }
 }
 
