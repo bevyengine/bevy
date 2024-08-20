@@ -1152,7 +1152,7 @@ type RequiredComponentConstructor =
 type RequiredComponentConstructor = dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity);
 
 /// A context-less constructor that can be called to construct a new instance of a component.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct RequiredComponent {
     pub(crate) component_id: ComponentId,
     /// # Safety
@@ -1193,7 +1193,7 @@ impl RequiredComponent {
 }
 
 /// The collection of metadata for components that are required for a given component.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponent>);
 
 impl RequiredComponents {

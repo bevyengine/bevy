@@ -123,7 +123,9 @@ pub(crate) struct AddBundle {
     /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
     /// indicate if the component is newly added to the target archetype or if it already existed
     pub bundle_status: Vec<ComponentStatus>,
-    /// Required components that must be initialized immediately when adding this Bundle.
+    /// The set of additional required components that must be initialized immediately when adding this Bundle.
+    ///
+    /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Vec<RequiredComponent>,
     pub added: Vec<ComponentId>,
     pub existing: Vec<ComponentId>,

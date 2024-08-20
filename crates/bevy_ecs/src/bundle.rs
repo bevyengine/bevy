@@ -531,7 +531,7 @@ impl BundleInfo {
     /// the type associated with `component_id`. The `entity` and `table_row` must correspond to an entity with an uninitialized
     /// component matching `component_id`.
     ///
-    /// This _should not_ be used outside of [`BundleInfo::write_components`].
+    /// This method _should not_ be called outside of [`BundleInfo::write_components`].
     /// For more information, read the [`BundleInfo::write_components`] safety docs.
     /// This function inherits the safety requirements defined there.
     #[allow(clippy::too_many_arguments)]
@@ -1262,7 +1262,7 @@ impl Bundles {
             let mut required_components = RequiredComponents::default();
             T::register_required_components(components, storages, &mut required_components);
             required_components.remove_bundle_components(&component_ids);
-            let required_components = required_components.0.drain().map(|(_, v)| v).collect();
+            let required_components = required_components.0.into_iter().map(|(_, v)| v).collect();
             let bundle_info =
                 // SAFETY: T::component_id ensures:
                 // - its info was created
