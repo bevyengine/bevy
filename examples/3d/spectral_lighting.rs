@@ -201,7 +201,7 @@ fn update(
     polychromatic_light.translation = Vec3::new(
         -5.0 * time.elapsed_seconds().cos(),
         2.5,
-        5.0 * time.elapsed_seconds().sin(),
+        -5.0 * time.elapsed_seconds().sin(),
     );
 
     if keyboard.pressed(KeyCode::ArrowRight) {
