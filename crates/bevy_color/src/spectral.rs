@@ -144,6 +144,7 @@ impl SpectralColor {
     /// (For interpolation to zero.)
     ///
     /// Source: <http://cvrl.ioo.ucl.ac.uk/plotcmfs.php>
+    #[allow(clippy::excessive_precision)]
     const CIE_1931_XYZ_CMF_LOOKUP_TABLE: [[f32; 3]; 97] = [
         [0.000000000000, 0.000000000000, 0.000000000000], // Sentinel value
         [0.000129900000, 0.000003917000, 0.000606100000], // 360 nm
