@@ -109,7 +109,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
                 extract_uinode_outlines.in_set(RenderUiSystem::ExtractBorders),
                 #[cfg(feature = "bevy_text")]
-                extract_uinode_text.in_set(RenderUiSystem::ExtractText),
+                extract_text_sections.in_set(RenderUiSystem::ExtractText),
             ),
         )
         .add_systems(
@@ -818,7 +818,7 @@ pub fn extract_default_ui_camera_view(
 }
 
 #[cfg(feature = "bevy_text")]
-pub fn extract_uinode_text(
+pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_glyph_batches: ResMut<ExtractedTextSections>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
@@ -887,12 +887,20 @@ pub fn extract_uinode_text(
             ..
         } in &text_layout_info.glyphs
         {
+            println!("current_section = {current_section}");
             if *section_index != current_section {
+                println!("new section = {section_index}");
                 if let Some(mut finished_batch) = current_batch.take() {
+                    let entity = commands.spawn_empty().id();
                     finished_batch.range.end = current_glyph;
+                    println!(
+                        "insert finished batch: {entity:?}, range: {:?}",
+                        finished_batch.range
+                    );
+
                     extracted_glyph_batches
                         .batches
-                        .insert(commands.spawn_empty().id(), finished_batch);
+                        .insert(entity, finished_batch);
                 }
 
                 current_section = *section_index;
@@ -917,7 +925,7 @@ pub fn extract_uinode_text(
                     * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                 rect,
             });
-
+            println!("current_glyph = {current_glyph}");
             current_glyph += 1;
         }
     }
@@ -1027,7 +1035,7 @@ pub fn queue_uinodes(
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_text_sections(
-    extracted_uinodes: Res<ExtractedTextSections>,
+    extracted_text_sections: Res<ExtractedTextSections>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -1037,7 +1045,7 @@ pub fn queue_text_sections(
 ) {
     println!("queue text sections");
     let draw_function = draw_functions.read().id::<DrawUi>();
-    for (entity, extracted_text_section) in extracted_uinodes.batches.iter() {
+    for (entity, extracted_text_section) in extracted_text_sections.batches.iter() {
         let Ok((view_entity, view)) = views.get_mut(extracted_text_section.camera_entity) else {
             continue;
         };
@@ -1046,6 +1054,7 @@ pub fn queue_text_sections(
             continue;
         };
 
+        println!("queue text section: {entity:?}");
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_pipeline,
