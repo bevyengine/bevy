@@ -78,19 +78,20 @@ fn setup(
         transform: Transform::from_xyz(2.0, 1.0, 0.0),
         ..default()
     });
-    // rainbow cubes
+    // HSV cubes
     for j in 0..=5 {
         for i in 0..=17 {
-            // cube
             commands.spawn(PbrBundle {
                 mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
                 material: materials.add(StandardMaterial {
                     base_color: if j == 5 {
+                        // Grayscale band at the top
                         Color::hsva(0.0, 0.0, i as f32 / 17.0, 1.0)
                     } else {
                         Color::hsva(i as f32 * 15.0, j as f32 / 4.0, 1.0, 1.0)
                     },
                     perceptual_roughness: 1.0,
+                    reflectance: 0.0,
                     ..default()
                 }),
                 transform: Transform::from_xyz(-4.0 + i as f32 * 0.5, 2.5 + j as f32 * 0.5, 0.0),
@@ -102,7 +103,7 @@ fn setup(
     commands.spawn((
         PointLightBundle {
             point_light: PointLight {
-                color: SpectralColor::INFRARED.into(),
+                color: SpectralColor::SODIUM_VAPOR.into(),
                 shadows_enabled: true,
                 #[cfg(feature = "spectral_lighting")]
                 monochromaticity: 1.0,
