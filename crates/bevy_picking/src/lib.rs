@@ -209,8 +209,7 @@ impl Plugin for PickingPlugin {
             .add_event::<backend::PointerHits>()
             // Rather than try to mark all current and future backends as ambiguous with each other,
             // we allow them to send their hits in any order. These are later sorted, so submission
-            // order doesn't matter. Other systems should *not* try to read these events in
-            // `PreUpdate` or they will silently conflict with all backends.
+            // order doesn't matter. See `PointerHits` docs for caveats.
             .allow_ambiguous_resource::<Events<backend::PointerHits>>()
             .add_systems(
                 PreUpdate,

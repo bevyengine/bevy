@@ -50,6 +50,10 @@ pub mod prelude {
 /// Some backends may only support providing the topmost entity; this is a valid limitation of some
 /// backends. For example, a picking shader might only have data on the topmost rendered output from
 /// its buffer.
+///
+/// Note that systems reading these events in [`PreUpdate`](bevy_app) will not report ordering
+/// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
+/// against [`PickSet::Backends`](crate), or better, avoid reading `PointerHits` in `PreUpdate`.
 #[derive(Event, Debug, Clone)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
