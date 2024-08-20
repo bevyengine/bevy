@@ -1,9 +1,18 @@
 use super::config::*;
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
+<<<<<<< Updated upstream
 use bevy_render::view::screenshot::{save_to_disk, Screenshot};
 use bevy_utils::tracing::{debug, info, warn};
 use bevy_window::PrimaryWindow;
+||||||| Stash base
+use bevy_render::view::screenshot::ScreenshotManager;
+use bevy_utils::tracing::{debug, info, warn};
+use bevy_window::PrimaryWindow;
+=======
+use bevy_render::view::screenshot::ScreenshotManager;
+use bevy_utils::tracing::{debug, info};
+>>>>>>> Stashed changes
 
 pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
     let mut config = world.resource_mut::<CiTestingConfig>();
