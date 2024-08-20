@@ -183,7 +183,7 @@ impl TypeInfo {
     /// The underlying Rust [type].
     ///
     /// [type]: Type
-    pub fn ty(&self) -> Type {
+    pub fn ty(&self) -> &Type {
         match self {
             Self::Struct(info) => info.ty(),
             Self::TupleStruct(info) => info.ty(),
@@ -205,7 +205,7 @@ impl TypeInfo {
     /// A representation of the type path of the underlying type.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> TypePathTable {
+    pub fn type_path_table(&self) -> &TypePathTable {
         self.ty().type_path_table()
     }
 
@@ -382,8 +382,8 @@ impl Type {
     /// A representation of the type path of this.
     ///
     /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> TypePathTable {
-        self.type_path_table
+    pub fn type_path_table(&self) -> &TypePathTable {
+        &self.type_path_table
     }
 
     /// Check if the given type matches this one.
@@ -437,8 +437,8 @@ macro_rules! impl_type_methods {
         /// The underlying Rust [type].
         ///
         /// [type]: crate::type_info::Type
-        pub fn ty(&self) -> $crate::type_info::Type {
-            self.$field
+        pub fn ty(&self) -> &$crate::type_info::Type {
+            &self.$field
         }
 
         /// The [`TypeId`] of this type.
@@ -463,8 +463,8 @@ macro_rules! impl_type_methods {
         /// Provides dynamic access to all methods on [`TypePath`].
         ///
         /// [`TypePath`]: crate::type_path::TypePath
-        pub fn type_path_table(&self) -> $crate::type_path::TypePathTable {
-            self.$field.type_path_table()
+        pub fn type_path_table(&self) -> &$crate::type_path::TypePathTable {
+            &self.$field.type_path_table()
         }
 
         /// Check if the given type matches this one.
