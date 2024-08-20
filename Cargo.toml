@@ -2196,6 +2196,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "nested_reflection"
+path = "examples/reflection/nested_reflection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.nested_reflection]
+name = "Nested Reflection"
+description = "Demonstrates how reflection trait objects can be nested in other reflected types"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
 doc-scrape-examples = true
