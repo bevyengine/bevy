@@ -189,7 +189,10 @@ fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Cap
     }
 }
 
-fn trigger_screenshots(mut commands: Commands, captured_screenshots: ResMut<CapturedScreenshots>) {
+pub fn trigger_screenshots(
+    mut commands: Commands,
+    captured_screenshots: ResMut<CapturedScreenshots>,
+) {
     let captured_screenshots = captured_screenshots.lock().unwrap();
     while let Ok((entity, image)) = captured_screenshots.try_recv() {
         commands.entity(entity).insert(Captured);
