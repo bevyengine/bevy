@@ -276,11 +276,11 @@ fn prepare_screenshot_state(
 ) -> (TextureView, ScreenshotPreparedState) {
     let texture = render_device.create_texture(&wgpu::TextureDescriptor {
         label: Some("screenshot-capture-rendertarget"),
-        size: size.clone(),
+        size,
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: format.clone(),
+        format,
         usage: TextureUsages::RENDER_ATTACHMENT
             | TextureUsages::COPY_SRC
             | TextureUsages::TEXTURE_BINDING,
@@ -298,7 +298,7 @@ fn prepare_screenshot_state(
         &pipeline.bind_group_layout,
         &BindGroupEntries::single(&texture_view),
     );
-    let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, format);
+    let pipeline_id = pipelines.specialize(pipeline_cache, pipeline, format);
 
     (
         texture_view,
@@ -451,9 +451,9 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     .create_view(&Default::default());
                 render_screenshot(
                     encoder,
-                    &prepared,
+                    prepared,
                     pipelines,
-                    &entity,
+                    entity,
                     width,
                     height,
                     texture_format,
@@ -471,13 +471,13 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 let texture_view = gpu_image.texture_view.deref();
                 render_screenshot(
                     encoder,
-                    &prepared,
+                    prepared,
                     pipelines,
                     &entity,
                     width,
                     height,
                     texture_format,
-                    &texture_view,
+                    texture_view,
                 );
             }
             NormalizedRenderTarget::TextureView(texture_view) => {
@@ -488,13 +488,13 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 let texture_view = texture_view.texture_view.deref();
                 render_screenshot(
                     encoder,
-                    &prepared,
+                    prepared,
                     pipelines,
                     &entity,
                     width,
                     height,
                     texture_format,
-                    &texture_view,
+                    texture_view,
                 );
             }
         };
@@ -529,7 +529,7 @@ fn render_screenshot(
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("screenshot_to_screen_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &texture_view,
+                    view: texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
