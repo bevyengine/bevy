@@ -1865,6 +1865,26 @@ mod tests {
         );
     }
 
+    #[test]
+    fn generic_required_components() {
+        #[derive(Component)]
+        #[require(Y<usize>)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y<T> {
+            value: T,
+        }
+
+        let mut world = World::new();
+        let id = world.spawn(X).id();
+        assert_eq!(
+            0,
+            world.entity(id).get::<Y<usize>>().unwrap().value,
+            "Y should have the default value"
+        );
+    }
+
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]

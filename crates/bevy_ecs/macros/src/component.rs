@@ -78,7 +78,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut register_recursive_requires = Vec::with_capacity(attrs.requires.iter().len());
     if let Some(requires) = requires {
         for require in requires {
-            let ident = &require.ident;
+            let ident = &require.path;
             register_recursive_requires.push(quote! {
                 <#ident as Component>::register_required_components(components, storages, required_components);
             });
@@ -146,7 +146,7 @@ enum StorageTy {
 }
 
 struct Require {
-    ident: Ident,
+    path: Path,
     func: Option<Path>,
 }
 
@@ -210,7 +210,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
 
 impl Parse for Require {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        let ident = input.parse::<Ident>()?;
+        let path = input.parse::<Path>()?;
         let func = if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
@@ -219,7 +219,7 @@ impl Parse for Require {
         } else {
             None
         };
-        Ok(Require { ident, func })
+        Ok(Require { path, func })
     }
 }
 
