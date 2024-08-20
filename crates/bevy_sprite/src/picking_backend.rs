@@ -137,21 +137,20 @@ pub fn sprite_picking(
                         .xy();
 
                     let is_cursor_in_sprite = rect.contains(cursor_pos_sprite);
-                    let hit_pos_world =
-                        sprite_transform.transform_point(cursor_pos_sprite.extend(0.0));
 
                     blocked = is_cursor_in_sprite
                         && pickable.map(|p| p.should_block_lower) != Some(false);
 
-                    // Transform point from world to camera space to get the Z distance
-                    let hit_pos_cam = cam_transform
-                        .affine()
-                        .inverse()
-                        .transform_point3(hit_pos_world);
-                    // HitData requires a depth as calculated from the camera's near clipping plane
-                    let depth = -cam_ortho.near - hit_pos_cam.z;
-
                     is_cursor_in_sprite.then(|| {
+                        let hit_pos_world =
+                            sprite_transform.transform_point(cursor_pos_sprite.extend(0.0));
+                        // Transform point from world to camera space to get the Z distance
+                        let hit_pos_cam = cam_transform
+                            .affine()
+                            .inverse()
+                            .transform_point3(hit_pos_world);
+                        // HitData requires a depth as calculated from the camera's near clipping plane
+                        let depth = -cam_ortho.near - hit_pos_cam.z;
                         (
                             entity,
                             HitData::new(
