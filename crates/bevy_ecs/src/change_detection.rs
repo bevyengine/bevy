@@ -437,6 +437,8 @@ macro_rules! impl_methods {
                     Some(value) => Some(Mut {
                         value,
                         ticks: self.ticks,
+                        #[cfg(feature = "track_change_detection")]
+                        changed_by: self.changed_by,
                     }),
                     None => None
                 }
