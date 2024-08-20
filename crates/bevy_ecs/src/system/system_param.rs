@@ -1641,6 +1641,59 @@ unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 
 /// A [`SystemParam`] with a type that can be configured at runtime.
 /// To be useful, this must be configured using a [`DynParamBuilder`](crate::system::DynParamBuilder) to build the system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, system::*};
+/// #
+/// # #[derive(Default, Resource)]
+/// # struct A;
+/// #
+/// # #[derive(Default, Resource)]
+/// # struct B;
+/// #
+/// let mut world = World::new();
+/// world.init_resource::<A>();
+/// world.init_resource::<B>();
+///
+/// // If the inner parameter doesn't require any special building, use `ParamBuilder`.
+/// // Either specify the type parameter on `DynParamBuilder::new()` ...
+/// let system = (DynParamBuilder::new::<Res<A>>(ParamBuilder),)
+///     .build_state(&mut world)
+///     .build_system(expects_res_a);
+/// world.run_system_once(system);
+///
+/// // ... or use a factory method on `ParamBuilder` that returns a specific type.
+/// let system = (DynParamBuilder::new(ParamBuilder::resource::<A>()),)
+///     .build_state(&mut world)
+///     .build_system(expects_res_a);
+/// world.run_system_once(system);
+///
+/// fn expects_res_a(mut param: DynSystemParam) {
+///     // Use the `downcast` methods to retrieve the inner parameter.
+///     // They will return `None` if the type does not match.
+///     assert!(param.is::<Res<A>>());
+///     assert!(!param.is::<Res<B>>());
+///     assert!(param.downcast_mut::<Res<B>>().is_none());
+///     let foo: Res<A> = param.downcast::<Res<A>>().unwrap();
+/// }
+///
+/// let system = (
+///     // If the inner parameter also requires building,
+///     // pass the appropriate `SystemParamBuilder`.
+///     DynParamBuilder::new(LocalBuilder(10usize)),
+///     // `DynSystemParam` is just an ordinary `SystemParam`,
+///     // and can be combined with other parameters as usual!
+///     ParamBuilder::query(),
+/// )
+///     .build_state(&mut world)
+///     .build_system(|param: DynSystemParam, query: Query<()>| {
+///         let local: Local<usize> = param.downcast::<Local<usize>>().unwrap();
+///         assert_eq!(*local, 10);
+///     });
+/// world.run_system_once(system);
+/// ```
 pub struct DynSystemParam<'w, 's> {
     /// A `ParamState<T>` wrapping the state for the underlying system param.
     state: &'s mut dyn Any,
