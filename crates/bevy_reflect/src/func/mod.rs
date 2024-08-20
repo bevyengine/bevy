@@ -1,10 +1,10 @@
 //! Reflection-based dynamic functions.
 //!
 //! This module provides a way to pass around and call functions dynamically
-//! using the [`DynamicFunction`], [`DynamicClosure`], and [`DynamicClosureMut`] types.
+//! using the [`DynamicFunction`] and [`DynamicFunctionMut`] types.
 //!
 //! Many simple functions and closures can be automatically converted to these types
-//! using the [`IntoFunction`], [`IntoClosure`], and [`IntoClosureMut`] traits, respectively.
+//! using the [`IntoFunction`] and [`IntoFunctionMut`] traits, respectively.
 //!
 //! Once this dynamic representation is created, it can be called with a set of arguments provided
 //! via an [`ArgList`].
@@ -33,22 +33,28 @@
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
 //! ```
 //!
-//! # Functions vs Closures
+//! # Types of Functions
 //!
-//! In Rust, a "function" is any callable that does not capture its environment.
-//! These are typically defined with the `fn` keyword, but may also use anonymous function syntax.
+//! For simplicity, this module uses the umbrella term "function" to refer to any Rust callable:
+//! code that can be invoked with a set of arguments to perform some action.
+//!
+//! In Rust, there are two main categories of callables: functions and closures.
+//!
+//! A "function" is a callable that does not capture its environment.
+//! These are typically defined with the `fn` keyword, which are referred to as _named_ functions.
+//! But they are also _anonymous_ functions, which are unnamed and defined with anonymous function syntax.
 //!
 //! ```rust
-//! // This is a standard Rust function:
+//! // This is a named function:
 //! fn add(a: i32, b: i32) -> i32 {
 //!   a + b
 //! }
 //!
-//! // This is an anonymous Rust function:
+//! // This is an anonymous function:
 //! let add = |a: i32, b: i32| a + b;
 //! ```
 //!
-//! Rust also has the concept of "closures", which are special functions that capture their environment.
+//! Closures, on the other hand, are special functions that do capture their environment.
 //! These are always defined with anonymous function syntax.
 //!
 //! ```rust
@@ -64,13 +70,6 @@
 //! let c = 123;
 //! let add = move |a: i32, b: i32| a + b + c;
 //! ```
-//!
-//! Each callable may be considered a subset of the other:
-//! functions are a subset of immutable closures which are a subset of mutable closures.
-//!
-//! This means that, in terms of traits, you could imagine that any type that implements
-//! [`IntoFunction`], also implements [`IntoClosure`] and [`IntoClosureMut`].
-//! And every type that implements [`IntoClosure`] also implements [`IntoClosureMut`].
 //!
 //! # Valid Signatures
 //!
@@ -93,7 +92,7 @@
 //! namely the [lack of variadic generics] and certain [coherence issues].
 //!
 //! For other functions that don't conform to one of the above signatures,
-//! [`DynamicFunction`] and [`DynamicClosure`] can instead be created manually.
+//! [`DynamicFunction`] and [`DynamicFunctionMut`] can instead be created manually.
 //!
 //! [`PartialReflect`]: crate::PartialReflect
 //! [`Reflect`]: crate::Reflect
@@ -101,22 +100,24 @@
 //! [coherence issues]: https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html#coherence-leak-check
 
 pub use args::{ArgError, ArgList, ArgValue};
-pub use closures::*;
+pub use dynamic_function::*;
+pub use dynamic_function_mut::*;
 pub use error::*;
-pub use function::*;
 pub use info::*;
 pub use into_function::*;
+pub use into_function_mut::*;
 pub use reflect_fn::*;
 pub use reflect_fn_mut::*;
 pub use registry::*;
 pub use return_type::*;
 
 pub mod args;
-mod closures;
+mod dynamic_function;
+mod dynamic_function_mut;
 mod error;
-mod function;
 mod info;
 mod into_function;
+mod into_function_mut;
 pub(crate) mod macros;
 mod reflect_fn;
 mod reflect_fn_mut;

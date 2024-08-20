@@ -3,13 +3,11 @@ use alloc::borrow::Cow;
 use crate::func::args::{GetOwnership, Ownership};
 use crate::TypePath;
 
-/// Type information for an [`Arg`] used in a [`DynamicFunction`], [`DynamicClosure`],
-/// or [`DynamicClosureMut`].
+/// Type information for an [`Arg`] used in a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`Arg`]: crate::func::args::Arg
-/// [`DynamicFunction`]: crate::func::function::DynamicFunction
-/// [`DynamicClosure`]: crate::func::closures::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::closures::DynamicClosureMut
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct ArgInfo {
     /// The index of the argument within its function.
@@ -58,13 +56,13 @@ impl ArgInfo {
     /// since the name can't be inferred from the function type alone.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`]
-    /// or [`DynamicClosures`] created using [`IntoClosure`],
+    /// and [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
     /// the name will always be `None`.
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction
-    /// [`DynamicClosures`]: crate::func::DynamicClosure
-    /// [`IntoClosure`]: crate::func::IntoClosure
+    /// [`DynamicFunctionMuts`]: crate::func::DynamicFunctionMut
+    /// [`IntoFunctionMut`]: crate::func::IntoFunctionMut
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
@@ -74,6 +72,9 @@ impl ArgInfo {
         self.ownership
     }
 
+    /// The [type path] of the argument.
+    ///
+    /// [type path]: TypePath::type_path
     pub fn type_path(&self) -> &'static str {
         self.type_path
     }

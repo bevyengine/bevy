@@ -10,6 +10,8 @@ use crate::func::{DynamicFunction, FunctionRegistrationError, IntoFunction};
 ///
 /// This is the function-equivalent to the [`TypeRegistry`].
 ///
+/// All functions must be `'static` as they are stored as [`DynamicFunction<'static>`].
+///
 /// [reflected functions]: crate::func
 /// [`TypeRegistry`]: crate::TypeRegistry
 #[derive(Default)]
@@ -18,7 +20,7 @@ pub struct FunctionRegistry {
     ///
     /// [names]: DynamicFunction::name
     /// [`DynamicFunctions`]: DynamicFunction
-    functions: HashMap<Cow<'static, str>, DynamicFunction>,
+    functions: HashMap<Cow<'static, str>, DynamicFunction<'static>>,
 }
 
 impl FunctionRegistry {
@@ -26,12 +28,12 @@ impl FunctionRegistry {
     ///
     /// This function accepts both functions that satisfy [`IntoFunction`]
     /// and direct [`DynamicFunction`] instances.
-    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// and mapped according to its [name].
     ///
     /// Because the function must have a name,
-    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) must instead
-    /// be registered using [`register_with_name`] or converted to a [`DynamicFunction`]
+    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
+    /// be registered using [`register_with_name`] or manually converted to a [`DynamicFunction`]
     /// and named using [`DynamicFunction::with_name`].
     /// Failure to do so will result in an error being returned.
     ///
@@ -58,7 +60,7 @@ impl FunctionRegistry {
     /// Functions cannot be registered more than once.
     ///
     /// ```
-    /// # use bevy_reflect::func::{DynamicFunction, FunctionRegistrationError, FunctionRegistry, IntoFunction};
+    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoFunction};
     /// fn add(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
@@ -75,10 +77,10 @@ impl FunctionRegistry {
     /// assert!(result.is_ok());
     /// ```
     ///
-    /// Anonymous functions should be registered using [`register_with_name`] or given a name using [`DynamicFunction::with_name`].
+    /// Anonymous functions and closures should be registered using [`register_with_name`] or given a name using [`DynamicFunction::with_name`].
     ///
     /// ```
-    /// # use bevy_reflect::func::{DynamicFunction, FunctionRegistrationError, FunctionRegistry, IntoFunction};
+    /// # use bevy_reflect::func::{FunctionRegistrationError, FunctionRegistry, IntoFunction};
     ///
     /// let anonymous = || -> i32 { 123 };
     ///
@@ -102,7 +104,7 @@ impl FunctionRegistry {
         function: F,
     ) -> Result<&mut Self, FunctionRegistrationError>
     where
-        F: IntoFunction<Marker> + 'static,
+        F: IntoFunction<'static, Marker> + 'static,
     {
         let function = function.into_function();
         let name = function
@@ -110,7 +112,7 @@ impl FunctionRegistry {
             .ok_or(FunctionRegistrationError::MissingName)?
             .clone();
         self.functions
-            .try_insert(name, function)
+            .try_insert(name, function.into_function())
             .map_err(|err| FunctionRegistrationError::DuplicateName(err.entry.key().clone()))?;
 
         Ok(self)
@@ -120,7 +122,7 @@ impl FunctionRegistry {
     ///
     /// This function accepts both functions that satisfy [`IntoFunction`]
     /// and direct [`DynamicFunction`] instances.
-    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// with its [name] set to the given name.
     ///
     /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
@@ -139,7 +141,8 @@ impl FunctionRegistry {
     /// you could use the name, `"my_crate::add"`.
     ///
     /// Another approach could be to use the [type name] of the function,
-    /// however, it should be noted that anonymous functions do _not_ have unique type names.
+    /// however, it should be noted that anonymous functions and closures
+    ///are not guaranteed to have unique type names.
     ///
     /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
     /// on the function and inserting it into the registry using the [`register`] method.
@@ -167,7 +170,7 @@ impl FunctionRegistry {
     ///   .register_with_name("my_crate::mul", mul)?;
     ///   
     /// // Be careful not to register anonymous functions with their type name.
-    /// // This code works but registers the function with the non-unique name of `fn(i32, i32) -> i32`
+    /// // This code works but registers the function with a non-unique name like `foo::bar::{{closure}}`
     /// registry.register_with_name(std::any::type_name_of_val(&div), div)?;
     /// # Ok(())
     /// # }
@@ -197,7 +200,7 @@ impl FunctionRegistry {
         function: F,
     ) -> Result<&mut Self, FunctionRegistrationError>
     where
-        F: IntoFunction<Marker> + 'static,
+        F: IntoFunction<'static, Marker> + 'static,
     {
         let function = function.into_function().with_name(name);
         self.register(function)
@@ -207,12 +210,12 @@ impl FunctionRegistry {
     ///
     /// This function accepts both functions that satisfy [`IntoFunction`]
     /// and direct [`DynamicFunction`] instances.
-    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// and mapped according to its [name].
     ///
     /// Because the function must have a name,
-    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) must instead
-    /// be registered using [`overwrite_registration_with_name`] or converted to a [`DynamicFunction`]
+    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
+    /// be registered using [`overwrite_registration_with_name`] or manually converted to a [`DynamicFunction`]
     /// and named using [`DynamicFunction::with_name`].
     /// Failure to do so will result in an error being returned.
     ///
@@ -227,9 +230,9 @@ impl FunctionRegistry {
     pub fn overwrite_registration<F, Marker>(
         &mut self,
         function: F,
-    ) -> Result<Option<DynamicFunction>, FunctionRegistrationError>
+    ) -> Result<Option<DynamicFunction<'static>>, FunctionRegistrationError>
     where
-        F: IntoFunction<Marker> + 'static,
+        F: IntoFunction<'static, Marker> + 'static,
     {
         let function = function.into_function();
         let name = function
@@ -244,7 +247,7 @@ impl FunctionRegistry {
     ///
     /// This function accepts both functions that satisfy [`IntoFunction`]
     /// and direct [`DynamicFunction`] instances.
-    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// The given function will internally be stored as a [`DynamicFunction<'static>`]
     /// with its [name] set to the given name.
     ///
     /// Functions are mapped according to their name.
@@ -263,9 +266,9 @@ impl FunctionRegistry {
         &mut self,
         name: impl Into<Cow<'static, str>>,
         function: F,
-    ) -> Option<DynamicFunction>
+    ) -> Option<DynamicFunction<'static>>
     where
-        F: IntoFunction<Marker> + 'static,
+        F: IntoFunction<'static, Marker> + 'static,
     {
         let function = function.into_function().with_name(name);
         match self.overwrite_registration(function) {
@@ -282,7 +285,7 @@ impl FunctionRegistry {
     /// Get a reference to a registered function by [name].
     ///
     /// [name]: DynamicFunction::name
-    pub fn get(&self, name: &str) -> Option<&DynamicFunction> {
+    pub fn get(&self, name: &str) -> Option<&DynamicFunction<'static>> {
         self.functions.get(name)
     }
 
@@ -294,7 +297,7 @@ impl FunctionRegistry {
     }
 
     /// Returns an iterator over all registered functions.
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &DynamicFunction> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &DynamicFunction<'static>> {
         self.functions.values()
     }
 
@@ -338,7 +341,7 @@ impl FunctionRegistryArc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::ArgList;
+    use crate::func::{ArgList, IntoFunction};
 
     #[test]
     fn should_register_function() {
@@ -365,10 +368,38 @@ mod tests {
     }
 
     #[test]
+    fn should_register_closure() {
+        let value = 123;
+        let foo = move || -> i32 { value };
+
+        let mut registry = FunctionRegistry::default();
+        registry.register_with_name("foo", foo).unwrap();
+
+        let function = registry.get("foo").unwrap();
+        let value = function.call(ArgList::new()).unwrap().unwrap_owned();
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&123));
+    }
+
+    #[test]
     fn should_register_dynamic_function() {
         fn foo() -> i32 {
             123
         }
+
+        let function = foo.into_function().with_name("custom_name");
+
+        let mut registry = FunctionRegistry::default();
+        registry.register(function).unwrap();
+
+        let function = registry.get("custom_name").unwrap();
+        let value = function.call(ArgList::new()).unwrap().unwrap_owned();
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&123));
+    }
+
+    #[test]
+    fn should_register_dynamic_closure() {
+        let value = 123;
+        let foo = move || -> i32 { value };
 
         let function = foo.into_function().with_name("custom_name");
 

@@ -17,7 +17,11 @@ fn draw_cursor(
 ) {
     let (camera, camera_transform) = camera_query.single();
 
-    let Some(cursor_position) = windows.single().cursor_position() else {
+    let Ok(window) = windows.get_single() else {
+        return;
+    };
+
+    let Some(cursor_position) = window.cursor_position() else {
         return;
     };
 
