@@ -110,7 +110,7 @@ struct ScreenshotPreparedState {
 }
 
 #[derive(Resource, Deref, DerefMut)]
-struct CapturedScreenshots(pub Arc<Mutex<Receiver<(Entity, Image)>>>);
+pub struct CapturedScreenshots(pub Arc<Mutex<Receiver<(Entity, Image)>>>);
 
 #[derive(Resource, Deref, DerefMut, Default)]
 struct RenderScreenshotTargets(EntityHashMap<NormalizedRenderTarget>);
