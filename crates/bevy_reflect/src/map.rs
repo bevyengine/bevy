@@ -1,11 +1,13 @@
-use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::{self as bevy_reflect, ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypePathTable};
 use crate::type_info::impl_type_methods;
+use crate::{
+    self as bevy_reflect, ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -97,11 +99,9 @@ pub trait Map: PartialReflect {
 pub struct MapInfo {
     ty: Type,
     key_info: fn() -> Option<&'static TypeInfo>,
-    key_type_path: TypePathTable,
-    key_type_id: TypeId,
+    key_ty: Type,
     value_info: fn() -> Option<&'static TypeInfo>,
-    value_type_path: TypePathTable,
-    value_type_id: TypeId,
+    value_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -116,11 +116,9 @@ impl MapInfo {
         Self {
             ty: Type::of::<TMap>(),
             key_info: TKey::maybe_type_info,
-            key_type_path: TypePathTable::of::<TKey>(),
-            key_type_id: TypeId::of::<TKey>(),
+            key_ty: Type::of::<TKey>(),
             value_info: TValue::maybe_type_info,
-            value_type_path: TypePathTable::of::<TValue>(),
-            value_type_id: TypeId::of::<TValue>(),
+            value_ty: Type::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -142,21 +140,11 @@ impl MapInfo {
         (self.key_info)()
     }
 
-    /// A representation of the type path of the key type.
+    /// The [type] of the key type.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn key_type_path_table(&self) -> &TypePathTable {
-        &self.key_type_path
-    }
-
-    /// The [`TypeId`] of the key.
-    pub fn key_type_id(&self) -> TypeId {
-        self.key_type_id
-    }
-
-    /// Check if the given type matches the key type.
-    pub fn key_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.key_type_id
+    /// [type]: Type
+    pub fn key_ty(&self) -> Type {
+        self.key_ty
     }
 
     /// The [`TypeInfo`] of the value type.
@@ -167,21 +155,11 @@ impl MapInfo {
         (self.value_info)()
     }
 
-    /// A representation of the type path of the value type.
+    /// The [type] of the value type.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn value_type_path_table(&self) -> &TypePathTable {
-        &self.value_type_path
-    }
-
-    /// The [`TypeId`] of the value.
-    pub fn value_type_id(&self) -> TypeId {
-        self.value_type_id
-    }
-
-    /// Check if the given type matches the value type.
-    pub fn value_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.value_type_id
+    /// [type]: Type
+    pub fn value_ty(&self) -> Type {
+        self.value_ty
     }
 
     /// The docstring of this map, if any.

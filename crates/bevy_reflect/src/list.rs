@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
@@ -8,7 +8,7 @@ use crate::type_info::impl_type_methods;
 use crate::utility::reflect_hasher;
 use crate::{
     self as bevy_reflect, ApplyError, FromReflect, MaybeTyped, PartialReflect, Reflect,
-    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypePathTable,
+    ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -111,8 +111,7 @@ pub trait List: PartialReflect {
 pub struct ListInfo {
     ty: Type,
     item_info: fn() -> Option<&'static TypeInfo>,
-    item_type_path: TypePathTable,
-    item_type_id: TypeId,
+    item_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -123,8 +122,7 @@ impl ListInfo {
         Self {
             ty: Type::of::<TList>(),
             item_info: TItem::maybe_type_info,
-            item_type_path: TypePathTable::of::<TItem>(),
-            item_type_id: TypeId::of::<TItem>(),
+            item_ty: Type::of::<TItem>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -146,21 +144,11 @@ impl ListInfo {
         (self.item_info)()
     }
 
-    /// A representation of the type path of the list item.
+    /// The [type] of the list item.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn item_type_path_table(&self) -> &TypePathTable {
-        &self.item_type_path
-    }
-
-    /// The [`TypeId`] of the list item.
-    pub fn item_type_id(&self) -> TypeId {
-        self.item_type_id
-    }
-
-    /// Check if the given type matches the list item type.
-    pub fn item_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.item_type_id
+    /// [type]: Type
+    pub fn item_ty(&self) -> Type {
+        self.item_ty
     }
 
     /// The docstring of this list, if any.

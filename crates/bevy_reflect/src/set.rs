@@ -1,4 +1,3 @@
-use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
@@ -8,7 +7,7 @@ use bevy_utils::hashbrown::HashTable;
 use crate::type_info::impl_type_methods;
 use crate::{
     self as bevy_reflect, hash_error, ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypePathTable,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -84,8 +83,7 @@ pub trait Set: PartialReflect {
 #[derive(Clone, Debug)]
 pub struct SetInfo {
     ty: Type,
-    value_type_path: TypePathTable,
-    value_type_id: TypeId,
+    value_ty: Type,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -95,8 +93,7 @@ impl SetInfo {
     pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
         Self {
             ty: Type::of::<TSet>(),
-            value_type_path: TypePathTable::of::<TValue>(),
-            value_type_id: TypeId::of::<TValue>(),
+            value_ty: Type::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -110,21 +107,11 @@ impl SetInfo {
 
     impl_type_methods!(ty);
 
-    /// A representation of the type path of the value type.
+    /// The [type] of the value.
     ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn value_type_path_table(&self) -> &TypePathTable {
-        &self.value_type_path
-    }
-
-    /// The [`TypeId`] of the value.
-    pub fn value_type_id(&self) -> TypeId {
-        self.value_type_id
-    }
-
-    /// Check if the given type matches the value type.
-    pub fn value_is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.value_type_id
+    /// [type]: Type
+    pub fn value_ty(&self) -> Type {
+        self.value_ty
     }
 
     /// The docstring of this set, if any.
