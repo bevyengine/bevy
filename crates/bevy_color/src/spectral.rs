@@ -8,7 +8,7 @@ use std::ops::Mul;
 /// this type can be converted to `Color`, but not the other way around.
 #[derive(Copy, Clone, Debug)]
 pub struct SpectralColor {
-    /// Wavelegnth in nanometers
+    /// Wavelength in nanometers
     pub wavelength: f32,
 
     /// Luminance in candelas per square meter
