@@ -85,6 +85,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
+        .init_resource::<ExtractedTextSections>()
         .allow_ambiguous_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
@@ -180,11 +181,9 @@ pub struct ExtractedUiNode {
     pub node_type: NodeType,
 }
 
-pub struct ExtractedGlyphBatch {
+pub struct ExtractedTextSection {
     pub stack_index: u32,
-    pub transform: Mat4,
     pub color: LinearRgba,
-    pub rect: Rect,
     pub image: AssetId<Image>,
     pub atlas_scaling: Option<Vec2>,
     pub clip: Option<Rect>,
@@ -196,7 +195,7 @@ pub struct ExtractedGlyphBatch {
 }
 
 pub struct ExtractedGlyph {
-    pub translation: Vec3,
+    pub tranform: Mat4,
     pub rect: Rect,
 }
 
@@ -206,8 +205,9 @@ pub struct ExtractedUiNodes {
 }
 
 #[derive(Resource, Default)]
-pub struct ExtractedGlyphBatches {
-    pub glyph_batches: EntityHashMap<ExtractedGlyphBatch>,
+pub struct ExtractedTextSections {
+    pub batches: EntityHashMap<ExtractedTextSection>,
+    pub glyphs: Vec<ExtractedGlyph>,
 }
 
 pub fn extract_uinode_background_colors(
@@ -815,7 +815,7 @@ pub fn extract_default_ui_camera_view(
 #[cfg(feature = "bevy_text")]
 pub fn extract_uinode_text(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_glyph_batches: ResMut<ExtractedTextSections>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
@@ -832,6 +832,9 @@ pub fn extract_uinode_text(
         )>,
     >,
 ) {
+    let mut current_glyph = 0;
+    extracted_glyph_batches.glyphs.clear();
+    extracted_glyph_batches.batches.clear();
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
         &uinode_query
     {
@@ -869,8 +872,8 @@ pub fn extract_uinode_text(
         transform.translation = transform.translation.round();
         transform.translation *= inverse_scale_factor;
 
-        let mut color = LinearRgba::WHITE;
         let mut current_section = usize::MAX;
+        let mut current_batch: Option<ExtractedTextSection> = None;
         for PositionedGlyph {
             position,
             atlas_info,
@@ -879,33 +882,37 @@ pub fn extract_uinode_text(
         } in &text_layout_info.glyphs
         {
             if *section_index != current_section {
-                color = LinearRgba::from(text.sections[*section_index].style.color);
+                if let Some(mut finished_batch) = current_batch.take() {
+                    finished_batch.range.end = current_glyph;
+                    extracted_glyph_batches
+                        .batches
+                        .insert(commands.spawn_empty().id(), finished_batch);
+                }
+
                 current_section = *section_index;
+                current_batch = Some(ExtractedTextSection {
+                    stack_index: uinode.stack_index,
+                    color: LinearRgba::from(text.sections[*section_index].style.color),
+                    image: atlas_info.texture.id(),
+                    atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
+                    clip: clip.map(|clip| clip.clip),
+                    camera_entity,
+                    range: current_glyph..current_glyph,
+                });
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
-            extracted_uinodes.uinodes.insert(
-                commands.spawn_empty().id(),
-                ExtractedUiNode {
-                    stack_index: uinode.stack_index,
-                    transform: transform
-                        * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
-                    color,
-                    rect,
-                    image: atlas_info.texture.id(),
-                    atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
-                    clip: clip.map(|clip| clip.clip),
-                    flip_x: false,
-                    flip_y: false,
-                    camera_entity,
-                    border: [0.; 4],
-                    border_radius: [0.; 4],
-                    node_type: NodeType::Rect,
-                },
-            );
+
+            extracted_glyph_batches.glyphs.push(ExtractedGlyph {
+                tranform: transform
+                    * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
+                rect,
+            });
+
+            current_glyph += 1;
         }
     }
 }
