@@ -27,7 +27,7 @@ use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::default;
-use bevy_utils::tracing::{error, info, info_span, warn};
+use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{PrimaryWindow, WindowRef};
 use std::ops::Deref;
 use std::sync::mpsc::{Receiver, Sender};
@@ -36,8 +36,10 @@ use std::{borrow::Cow, path::Path};
 use wgpu::{
     CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
 };
+use bevy_reflect::Reflect;
 
-#[derive(Event, Deref, DerefMut)]
+#[derive(Event, Deref, DerefMut, Reflect, Debug)]
+#[reflect(Debug)]
 pub struct ScreenshotCaptured(pub Image);
 
 /// A component that signals to the renderer to capture a screenshot this frame.
@@ -63,7 +65,8 @@ pub struct ScreenshotCaptured(pub Image);
 ///       .observe(save_to_disk("screenshot.png"));
 /// }
 /// ```
-#[derive(Component)]
+#[derive(Component, Deref, DerefMut, Reflect, Debug)]
+#[reflect(Component, Debug)]
 pub struct Screenshot(pub RenderTarget);
 
 /// A marker component that indicates that a screenshot is currently being captured.
@@ -580,7 +583,8 @@ fn render_screenshot(
 }
 
 pub(crate) fn collect_screenshots(world: &mut World) {
-    let _span = info_span!("collect_screenshots");
+    #[cfg(feature = "trace")]
+    let _span = bevy_utils::tracing::info_span!("collect_screenshots");
 
     let sender = world.resource::<RenderScreenshotsSender>().deref().clone();
     let prepared = world.resource::<RenderScreenshotsPrepared>();
