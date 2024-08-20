@@ -23,6 +23,7 @@ use crate::{
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::event::event_update_system;
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
@@ -352,8 +353,13 @@ const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575
 
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(First, clear_screenshots)
-            .add_systems(Update, trigger_screenshots);
+        app.add_systems(
+            First,
+            clear_screenshots
+                .after(event_update_system)
+                .before(apply_deferred),
+        )
+        .add_systems(Update, trigger_screenshots);
 
         load_internal_asset!(
             app,
