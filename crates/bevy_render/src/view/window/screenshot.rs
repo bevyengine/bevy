@@ -473,7 +473,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     encoder,
                     prepared,
                     pipelines,
-                    &entity,
+                    entity,
                     width,
                     height,
                     texture_format,
@@ -490,7 +490,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     encoder,
                     prepared,
                     pipelines,
-                    &entity,
+                    entity,
                     width,
                     height,
                     texture_format,
@@ -501,6 +501,7 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_screenshot(
     encoder: &mut CommandEncoder,
     prepared: &RenderScreenshotsPrepared,
