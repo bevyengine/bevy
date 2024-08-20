@@ -838,7 +838,8 @@ pub fn extract_text_sections(
     >,
 ) {
     println!("text");
-    let mut current_glyph = 0;
+    let mut start = 0;
+    let mut end = 1;
     extracted_glyph_batches.glyphs.clear();
     extracted_glyph_batches.batches.clear();
     for (uinode, global_transform, view_visibility, clip, camera, text, text_layout_info) in
@@ -878,55 +879,58 @@ pub fn extract_text_sections(
         transform.translation = transform.translation.round();
         transform.translation *= inverse_scale_factor;
 
-        let mut current_section = usize::MAX;
-        let mut current_batch: Option<ExtractedTextSection> = None;
-        for PositionedGlyph {
-            position,
-            atlas_info,
-            section_index,
-            ..
-        } in &text_layout_info.glyphs
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                section_index,
+                ..
+            },
+        ) in text_layout_info.glyphs.iter().enumerate()
         {
-            println!("current_section = {current_section}");
-            if *section_index != current_section {
-                println!("new section = {section_index}");
-                if let Some(mut finished_batch) = current_batch.take() {
-                    let entity = commands.spawn_empty().id();
-                    finished_batch.range.end = current_glyph;
-                    println!(
-                        "insert finished batch: {entity:?}, range: {:?}",
-                        finished_batch.range
-                    );
+            println!("section = {section_index}, index = {i}, range = {start}..{end}");
 
-                    extracted_glyph_batches
-                        .batches
-                        .insert(entity, finished_batch);
-                }
-
-                current_section = *section_index;
-                current_batch = Some(ExtractedTextSection {
-                    stack_index: uinode.stack_index,
-                    color: LinearRgba::from(text.sections[*section_index].style.color),
-                    image: atlas_info.texture.id(),
-                    atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
-                    clip: clip.map(|clip| clip.clip),
-                    camera_entity,
-                    range: current_glyph..current_glyph,
-                });
-            }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
 
+            println!("position = {position:?}");
+            println!("rect = {rect:?}");
             extracted_glyph_batches.glyphs.push(ExtractedGlyph {
                 transform: transform
                     * Mat4::from_translation(position.extend(0.) * inverse_scale_factor),
                 rect,
             });
-            println!("current_glyph = {current_glyph}");
-            current_glyph += 1;
+
+            if text_layout_info
+                .glyphs
+                .get(i + 1)
+                .map(|info| info.section_index != *section_index)
+                .unwrap_or(true)
+            {
+                let entity = commands.spawn_empty().id();
+
+                println!("insert finished batch: {entity:?}, range: {:?}", start..end);
+
+                extracted_glyph_batches.batches.insert(
+                    entity,
+                    ExtractedTextSection {
+                        stack_index: uinode.stack_index,
+                        color: LinearRgba::from(text.sections[*section_index].style.color),
+                        image: atlas_info.texture.id(),
+                        atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
+                        clip: clip.map(|clip| clip.clip),
+                        camera_entity,
+                        range: start..end,
+                    },
+                );
+                start = end;
+            }
+
+            end += 1;
         }
     }
 }
@@ -1404,6 +1408,7 @@ pub fn prepare_text_sections(
                                 camera: extracted_text_section.camera_entity,
                             };
 
+                            println!("push batch for {:?}", item.entity);
                             batches.push((item.entity, new_batch));
 
                             image_bind_groups
@@ -1432,10 +1437,13 @@ pub fn prepare_text_sections(
                     for glyph in
                         &extracted_text_sections.glyphs[extracted_text_section.range.clone()]
                     {
-                        let positions = QUAD_VERTEX_POSITIONS
-                            .map(|pos| (glyph.transform * pos.extend(1.)).xyz());
+                        let size = glyph.rect.size();
+                        let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                            (glyph.transform * (pos * size.extend(1.)).extend(1.)).xyz()
+                        });
 
                         for i in 0..4 {
+                            println!("position i = {}", positions[i]);
                             ui_meta.vertices.push(UiVertex {
                                 position: positions[i].into(),
                                 uv: uvs[i].into(),
@@ -1443,7 +1451,7 @@ pub fn prepare_text_sections(
                                 flags: shader_flags::TEXTURED,
                                 radius: [0.0; 4],
                                 border: [0.0; 4],
-                                size: glyph.rect.size().into(),
+                                size: size.into(),
                             });
                         }
 
@@ -1454,7 +1462,7 @@ pub fn prepare_text_sections(
                         vertices_index += 6;
                         indices_index += 4;
                     }
-
+                    println!("vertices index = {vertices_index}, indices_index = {indices_index}");
                     existing_batch.unwrap().1.range.end = vertices_index;
                     ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 }
