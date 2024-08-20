@@ -496,12 +496,10 @@ pub fn check_visibility<QF>(
 
 #[cfg(test)]
 mod test {
-    use bevy_app::prelude::*;
-    use bevy_ecs::prelude::*;
-
     use super::*;
-
+    use bevy_app::prelude::*;
     use bevy_hierarchy::BuildChildren;
+    use std::mem::size_of;
 
     fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
         VisibilityBundle {

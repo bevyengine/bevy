@@ -1,4 +1,4 @@
-use std::mem;
+use std::mem::{self, size_of};
 
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId};

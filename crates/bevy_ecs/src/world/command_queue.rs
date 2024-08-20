@@ -2,7 +2,7 @@ use crate::system::{SystemBuffer, SystemMeta};
 
 use std::{
     fmt::Debug,
-    mem::MaybeUninit,
+    mem::{size_of, MaybeUninit},
     panic::{self, AssertUnwindSafe},
     ptr::{addr_of_mut, NonNull},
 };

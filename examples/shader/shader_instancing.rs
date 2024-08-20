@@ -27,6 +27,7 @@ use bevy::{
     },
 };
 use bytemuck::{Pod, Zeroable};
+use std::mem::size_of;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/instancing.wgsl";

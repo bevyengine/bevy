@@ -521,7 +521,7 @@ mod tests {
     use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;
-    use std::{alloc::Layout, cell::RefCell, rc::Rc};
+    use std::{alloc::Layout, cell::RefCell, mem::align_of, rc::Rc};
 
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
         // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.

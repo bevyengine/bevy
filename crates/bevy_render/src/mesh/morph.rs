@@ -11,7 +11,7 @@ use bevy_hierarchy::Children;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use std::iter;
+use std::{iter, mem::size_of};
 use thiserror::Error;
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;

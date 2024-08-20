@@ -1004,6 +1004,7 @@ impl EntityLocation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::mem::size_of;
 
     #[test]
     fn entity_niche_optimization() {

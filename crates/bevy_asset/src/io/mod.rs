@@ -24,13 +24,13 @@ pub use source::*;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
 use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::{ready, Stream};
-use std::io::SeekFrom;
-use std::task::Context;
 use std::{
+    io::SeekFrom,
+    mem::size_of,
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
-    task::Poll,
+    task::{Context, Poll},
 };
 use thiserror::Error;
 

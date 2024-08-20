@@ -1,4 +1,4 @@
-use std::mem;
+use std::mem::{self, size_of};
 
 use bevy_asset::Assets;
 use bevy_ecs::entity::EntityHashMap;

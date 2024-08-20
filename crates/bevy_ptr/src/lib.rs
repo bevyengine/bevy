@@ -7,9 +7,13 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
-use core::fmt::{self, Formatter, Pointer};
 use core::{
-    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
+    cell::UnsafeCell,
+    fmt::{self, Formatter, Pointer},
+    marker::PhantomData,
+    mem::{align_of, ManuallyDrop},
+    num::NonZeroUsize,
+    ptr::NonNull,
 };
 
 /// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.

@@ -4,6 +4,7 @@ use bevy_math::Mat4;
 use bevy_render::{
     mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice, texture::GpuImage,
 };
+use std::mem::size_of;
 
 use crate::render::skin::MAX_JOINTS;
 
