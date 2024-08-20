@@ -316,7 +316,7 @@ pbr_multi_layer_material_textures = [
 # Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
-# Enable support for spectral colors (monochromatic light) in `StandardMaterial` and lights
+# Enable support for spectral colors (monochromatic light) in lights
 spectral_lighting = ["bevy_internal/spectral_lighting"]
 
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.

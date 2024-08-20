@@ -114,7 +114,7 @@ pbr_anisotropy_texture = [
   "bevy_gltf?/pbr_anisotropy_texture",
 ]
 
-# Spectral colors (monochromatic light) in `StandardMaterial` and lights:
+# Spectral colors (monochromatic light) in lights:
 spectral_lighting = ["bevy_pbr?/spectral_lighting"]
 
 # Optimise for WebGL2
