@@ -37,7 +37,7 @@ pub mod prelude {
     pub use crate::{
         CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
         ReceivedCharacter, Window, WindowMoved, WindowPlugin, WindowPosition,
-        WindowResizeConstraints,
+        WindowResizeConstraints, WindowResolution,
     };
 }
 
