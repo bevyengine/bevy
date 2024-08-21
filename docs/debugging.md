@@ -20,4 +20,4 @@ To capture a wgpu trace:
 3. Enable wgpu's trace feature and run your application
    1. Add `wgpu = "*"` to your Cargo.toml
    2. Execute `cargo run --features wgpu/trace`
-4. Zip up the wgpu_trace folder and attach it to the relevant issue. New wgpu issues should generally be created [in the wgpu repository](https://github.com/gfx-rs/wgpu). Please include the wgpu revision in your bug reports. You can find the revision in the `Cargo.lock` file in your workspace.
+4. Zip up the folder and attach it to the relevant issue. New wgpu issues should generally be created [in the wgpu repository](https://github.com/gfx-rs/wgpu). Please include the wgpu revision in your bug reports. You can find the revision in the `Cargo.lock` file in your workspace.
