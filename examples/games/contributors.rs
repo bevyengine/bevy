@@ -43,6 +43,9 @@ impl Default for SelectionTimer {
 struct ContributorDisplay;
 
 #[derive(Component)]
+struct CommitsDisplay;
+
+#[derive(Component)]
 struct Contributor {
     name: String,
     num_commits: usize,
@@ -137,29 +140,35 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     };
 
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new("Contributor showcase", text_style.clone()),
-            TextSection::from_style(TextStyle {
-                font_size: 30.,
-                ..text_style
-            }),
-        ])
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
             ..default()
-        }),
-        ContributorDisplay,
-    ));
+        }))
+        .with_children(|parent| {
+            parent.spawn((
+                TextSection::new("Contributor showcase", text_style.clone()),
+                ContributorDisplay,
+            ));
+            parent.spawn((
+                TextSection::from_style(TextStyle {
+                    font_size: 30.,
+                    ..text_style
+                }),
+                CommitsDisplay,
+            ));
+        });
 }
 
 /// Finds the next contributor to display and selects the entity
 fn selection(
     mut timer: ResMut<SelectionTimer>,
     mut contributor_selection: ResMut<ContributorSelection>,
-    mut text_query: Query<&mut Text, With<ContributorDisplay>>,
+    mut text_query: Query<&mut TextSection>,
+    contributor_display: Query<Entity, With<ContributorDisplay>>,
+    commits_display: Query<Entity, With<CommitsDisplay>>,
     mut query: Query<(&Contributor, &mut Sprite, &mut Transform)>,
     time: Res<Time>,
 ) {
@@ -185,8 +194,16 @@ fn selection(
     let entity = contributor_selection.order[contributor_selection.idx];
 
     if let Ok((contributor, mut sprite, mut transform)) = query.get_mut(entity) {
-        let mut text = text_query.single_mut();
-        select(&mut sprite, contributor, &mut transform, &mut text);
+        let [mut display_text, mut commits_text] = text_query
+            .get_many_mut([contributor_display.single(), commits_display.single()])
+            .unwrap();
+        select(
+            &mut sprite,
+            contributor,
+            &mut transform,
+            &mut display_text,
+            &mut commits_text,
+        );
     }
 }
 
@@ -196,19 +213,20 @@ fn select(
     sprite: &mut Sprite,
     contributor: &Contributor,
     transform: &mut Transform,
-    text: &mut Text,
+    display_text: &mut TextSection,
+    commits_text: &mut TextSection,
 ) {
     sprite.color = SELECTED.with_hue(contributor.hue).into();
 
     transform.translation.z = 100.0;
 
-    text.sections[0].value.clone_from(&contributor.name);
-    text.sections[1].value = format!(
+    display_text.value.clone_from(&contributor.name);
+    commits_text.value = format!(
         "\n{} commit{}",
         contributor.num_commits,
         if contributor.num_commits > 1 { "s" } else { "" }
     );
-    text.sections[0].style.color = sprite.color;
+    display_text.style.color = sprite.color;
 }
 
 /// Change the tint color to the "deselected" color and push

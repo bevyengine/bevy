@@ -82,21 +82,19 @@ fn setup(mut commands: Commands) {
         ..default()
     };
     commands
-        .spawn(NodeBundle {
-            background_color: BackgroundColor(Color::NONE),
-            style: Style {
-                justify_self: JustifySelf::Center,
-                align_self: AlignSelf::FlexEnd,
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Press 1 or 2 to load a new scene.",
-                text_style,
-            ));
-        });
+        .spawn(
+            TextBundle::default()
+                .with_background_color(Color::NONE)
+                .with_style(Style {
+                    justify_self: JustifySelf::Center,
+                    align_self: AlignSelf::FlexEnd,
+                    ..default()
+                }),
+        )
+        .with_child(TextSection::new(
+            "Press 1 or 2 to load a new scene.",
+            text_style,
+        ));
 }
 
 // Selects the level you want to load.
@@ -299,10 +297,9 @@ fn load_loading_screen(mut commands: Commands) {
             LoadingScreen,
         ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_sections([TextSection::new(
-                "Loading...",
-                text_style.clone(),
-            )]));
+            parent
+                .spawn(TextBundle::default())
+                .with_child(TextSection::new("Loading...", text_style.clone()));
         });
 }
 

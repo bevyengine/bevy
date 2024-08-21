@@ -109,39 +109,40 @@ fn setup(
     {
         let text_style = TextStyle::default();
 
-        commands.spawn(
-            TextBundle::from_section(
-                "Press 'D' to toggle drawing gizmos on top of everything else in the scene\n\
-            Hold 'Left' or 'Right' to change the line width of the gizmos\n\
-            Press 'A' to toggle drawing of the light gizmos\n\
-            Press 'C' to cycle between the light gizmos coloring modes",
-                text_style.clone(),
-            )
-            .with_style(Style {
+        commands
+            .spawn(TextBundle::default().with_style(Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
                 ..default()
-            }),
-        );
+            }))
+            .with_child(TextSection::new(
+                "Press 'D' to toggle drawing gizmos on top of everything else in the scene\n\
+        Hold 'Left' or 'Right' to change the line width of the gizmos\n\
+        Press 'A' to toggle drawing of the light gizmos\n\
+        Press 'C' to cycle between the light gizmos coloring modes",
+                text_style.clone(),
+            ));
 
         let (_, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
         light_config.draw_all = true;
         light_config.color = LightGizmoColor::MatchLightColor;
 
-        commands.spawn((
-            TextBundle::from_sections([
-                TextSection::new("Gizmo color mode: ", text_style.clone()),
-                TextSection::new(gizmo_color_text(light_config), text_style),
-            ])
-            .with_style(Style {
+        commands
+            .spawn((TextBundle::default().with_style(Style {
                 position_type: PositionType::Absolute,
                 bottom: Val::Px(12.0),
                 left: Val::Px(12.0),
                 ..default()
-            }),
-            GizmoColorText,
-        ));
+            }),))
+            .with_children(|parent| {
+                parent.spawn(TextSection::new("Gizmo color mode: ", text_style.clone()));
+
+                parent.spawn((
+                    GizmoColorText,
+                    TextSection::new(gizmo_color_text(light_config), text_style),
+                ));
+            });
     }
 }
 
@@ -155,7 +156,7 @@ fn update_config(
     mut config_store: ResMut<GizmoConfigStore>,
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut color_text_query: Query<&mut Text, With<GizmoColorText>>,
+    mut color_text_query: Query<&mut TextSection, With<GizmoColorText>>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyD) {
         for (_, config, _) in config_store.iter_mut() {
@@ -182,6 +183,6 @@ fn update_config(
             LightGizmoColor::MatchLightColor => LightGizmoColor::ByLightType,
             LightGizmoColor::ByLightType => LightGizmoColor::Manual(GRAY.into()),
         };
-        color_text_query.single_mut().sections[1].value = gizmo_color_text(light_config);
+        color_text_query.single_mut().value = gizmo_color_text(light_config);
     }
 }

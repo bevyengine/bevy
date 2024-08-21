@@ -27,70 +27,90 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
+struct ImeEnabledText;
+
+#[derive(Component)]
+struct ImeActiveText;
+
+#[derive(Component)]
+struct ImeBufferText;
+
+#[derive(Component)]
+struct EditText;
+
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
-    commands.spawn(
-        TextBundle::from_sections([
-            TextSection {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        }))
+        .with_children(|parent| {
+            parent.spawn(TextSection {
                 value: "IME Enabled: ".to_string(),
                 style: TextStyle {
                     font: font.clone_weak(),
                     ..default()
                 },
-            },
-            TextSection {
-                value: "false\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 30.0,
-                    ..default()
+            });
+            parent.spawn((
+                TextSection {
+                    value: "false\n".to_string(),
+                    style: TextStyle {
+                        font: font.clone_weak(),
+                        font_size: 30.0,
+                        ..default()
+                    },
                 },
-            },
-            TextSection {
+                ImeEnabledText,
+            ));
+            parent.spawn(TextSection {
                 value: "IME Active: ".to_string(),
                 style: TextStyle {
                     font: font.clone_weak(),
                     ..default()
                 },
-            },
-            TextSection {
-                value: "false\n".to_string(),
-                style: TextStyle {
-                    font: font.clone_weak(),
-                    font_size: 30.0,
-                    ..default()
+            });
+            parent.spawn((
+                TextSection {
+                    value: "false\n".to_string(),
+                    style: TextStyle {
+                        font: font.clone_weak(),
+                        font_size: 30.0,
+                        ..default()
+                    },
                 },
-            },
-            TextSection {
+                ImeActiveText,
+            ));
+            parent.spawn(TextSection {
                 value: "click to toggle IME, press return to start a new line\n\n".to_string(),
                 style: TextStyle {
                     font: font.clone_weak(),
                     font_size: 18.0,
                     ..default()
                 },
-            },
-            TextSection {
-                value: "".to_string(),
-                style: TextStyle {
-                    font,
-                    font_size: 25.0,
-                    ..default()
+            });
+            parent.spawn((
+                TextSection {
+                    value: "".to_string(),
+                    style: TextStyle {
+                        font,
+                        font_size: 25.0,
+                        ..default()
+                    },
                 },
-            },
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
-            ..default()
-        }),
-    );
+                ImeBufferText,
+            ));
+        });
 
-    commands.spawn(Text2dBundle {
-        text: Text::from_section(
+    commands.spawn(Text2dBundle::default()).with_child((
+        TextSection::new(
             "".to_string(),
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
@@ -98,14 +118,14 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
         ),
-        ..default()
-    });
+        EditText,
+    ));
 }
 
 fn toggle_ime(
     input: Res<ButtonInput<MouseButton>>,
     mut windows: Query<&mut Window>,
-    mut text: Query<&mut Text, With<Node>>,
+    mut text: Query<&mut TextSection, With<ImeEnabledText>>,
 ) {
     if input.just_pressed(MouseButton::Left) {
         let mut window = windows.single_mut();
@@ -114,7 +134,7 @@ fn toggle_ime(
         window.ime_enabled = !window.ime_enabled;
 
         let mut text = text.single_mut();
-        text.sections[1].value = format!("{}\n", window.ime_enabled);
+        text.value = format!("{}\n", window.ime_enabled);
     }
 }
 
@@ -130,7 +150,7 @@ fn bubbling_text(
 ) {
     for (entity, mut transform, mut bubble) in bubbles.iter_mut() {
         if bubble.timer.tick(time.delta()).just_finished() {
-            commands.entity(entity).despawn();
+            commands.entity(entity).despawn_recursive();
         }
         transform.translation.y += time.delta_seconds() * 100.0;
     }
@@ -138,25 +158,33 @@ fn bubbling_text(
 
 fn listen_ime_events(
     mut events: EventReader<Ime>,
-    mut status_text: Query<&mut Text, With<Node>>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
+    mut text_query: Query<&mut TextSection>,
+    ime_buffer_query: Query<Entity, With<ImeBufferText>>,
+    ime_active_query: Query<Entity, With<ImeActiveText>>,
+    edit_text_query: Query<Entity, With<EditText>>,
 ) {
     for event in events.read() {
         match event {
             Ime::Preedit { value, cursor, .. } if !cursor.is_none() => {
-                status_text.single_mut().sections[5].value = format!("IME buffer: {value}");
+                let ime_buffer_entity = ime_buffer_query.single();
+                text_query.get_mut(ime_buffer_entity).unwrap().value =
+                    format!("IME buffer: {value}");
             }
             Ime::Preedit { cursor, .. } if cursor.is_none() => {
-                status_text.single_mut().sections[5].value = "".to_string();
+                let ime_buffer_entity = ime_buffer_query.single();
+                text_query.get_mut(ime_buffer_entity).unwrap().value = "".to_string();
             }
             Ime::Commit { value, .. } => {
-                edit_text.single_mut().sections[0].value.push_str(value);
+                let mut edit_text = text_query.get_mut(edit_text_query.single()).unwrap();
+                edit_text.value.push_str(value);
             }
             Ime::Enabled { .. } => {
-                status_text.single_mut().sections[3].value = "true\n".to_string();
+                let ime_buffer_entity = ime_active_query.single();
+                text_query.get_mut(ime_buffer_entity).unwrap().value = "true\n".to_string();
             }
             Ime::Disabled { .. } => {
-                status_text.single_mut().sections[3].value = "false\n".to_string();
+                let ime_buffer_entity = ime_active_query.single();
+                text_query.get_mut(ime_buffer_entity).unwrap().value = "false\n".to_string();
             }
             _ => (),
         }
@@ -166,7 +194,7 @@ fn listen_ime_events(
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut events: EventReader<KeyboardInput>,
-    mut edit_text: Query<&mut Text, (Without<Node>, Without<Bubble>)>,
+    mut edit_text: Query<&mut TextSection, With<EditText>>,
 ) {
     for event in events.read() {
         // Only trigger changes when the key is first pressed.
@@ -177,29 +205,28 @@ fn listen_keyboard_input_events(
         match &event.logical_key {
             Key::Enter => {
                 let mut text = edit_text.single_mut();
-                if text.sections[0].value.is_empty() {
+                if text.value.is_empty() {
                     continue;
                 }
-                let old_value = mem::take(&mut text.sections[0].value);
+                let old_value = mem::take(&mut text.value);
 
-                commands.spawn((
-                    Text2dBundle {
-                        text: Text::from_section(old_value, text.sections[0].style.clone()),
-                        ..default()
-                    },
-                    Bubble {
-                        timer: Timer::from_seconds(5.0, TimerMode::Once),
-                    },
-                ));
+                commands
+                    .spawn((
+                        Text2dBundle::default(),
+                        Bubble {
+                            timer: Timer::from_seconds(5.0, TimerMode::Once),
+                        },
+                    ))
+                    .with_child(TextSection::new(old_value, text.style.clone()));
             }
             Key::Space => {
-                edit_text.single_mut().sections[0].value.push(' ');
+                edit_text.single_mut().value.push(' ');
             }
             Key::Backspace => {
-                edit_text.single_mut().sections[0].value.pop();
+                edit_text.single_mut().value.pop();
             }
             Key::Character(character) => {
-                edit_text.single_mut().sections[0].value.push_str(character);
+                edit_text.single_mut().value.push_str(character);
             }
             _ => continue,
         }

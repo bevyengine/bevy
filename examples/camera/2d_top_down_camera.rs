@@ -59,18 +59,17 @@ fn setup_scene(
 }
 
 fn setup_instructions(mut commands: Commands) {
-    commands.spawn(
-        TextBundle::from_section(
-            "Move the light with WASD.\nThe camera will smoothly track the light.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::new(
+            "Move the light with WASD.\nThe camera will smoothly track the light.",
+            TextStyle::default(),
+        ));
 }
 
 fn setup_camera(mut commands: Commands) {

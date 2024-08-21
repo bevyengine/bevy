@@ -82,15 +82,15 @@ fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut co
     }
 }
 
-fn system_a(mut query: Query<&mut Text, With<LastTriggeredText>>) {
+fn system_a(mut query: Query<&mut TextSection, With<LastTriggeredText>>) {
     let mut text = query.single_mut();
-    text.section.value = String::from("A");
+    text.value = String::from("A");
     info!("A: One shot system registered with Commands was triggered");
 }
 
-fn system_b(mut query: Query<&mut Text, With<LastTriggeredText>>) {
+fn system_b(mut query: Query<&mut TextSection, With<LastTriggeredText>>) {
     let mut text = query.single_mut();
-    text.section.value = String::from("B");
+    text.value = String::from("B");
     info!("B: One shot system registered with World was triggered");
 }
 
@@ -110,17 +110,15 @@ fn setup_ui(mut commands: Commands) {
             ..default()
         })
         .with_children(|root| {
-            root.spawn(
-                TextBundle::from_section(
+            root.spawn(TextBundle::default().with_text_justify(JustifyText::Center))
+                .with_child(TextSection::new(
                     "Press A or B to trigger a one-shot system\n\n\
-        Last Triggered: ",
+    Last Triggered: ",
                     TextStyle::default(),
-                )
-                .with_text_justify(JustifyText::Center),
-            );
+                ));
 
-            root.spawn((
-                TextBundle::from_section(
+            root.spawn(TextBundle::default()).with_child((
+                TextSection::new(
                     "-",
                     TextStyle {
                         color: bevy::color::palettes::css::ORANGE.into(),

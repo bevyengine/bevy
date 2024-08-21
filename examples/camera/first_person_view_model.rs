@@ -204,17 +204,19 @@ fn spawn_text(mut commands: Commands) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                concat!(
-                    "Move the camera with your mouse.\n",
-                    "Press arrow up to decrease the FOV of the world model.\n",
-                    "Press arrow down to increase the FOV of the world model."
-                ),
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
-            ));
+            parent
+                .spawn(TextBundle::default())
+                .with_child(TextSection::new(
+                    concat!(
+                        "Move the camera with your mouse.\n",
+                        "Press arrow up to decrease the FOV of the world model.\n",
+                        "Press arrow down to increase the FOV of the world model."
+                    ),
+                    TextStyle {
+                        font_size: 25.0,
+                        ..default()
+                    },
+                ));
         });
 }
 

@@ -115,14 +115,13 @@ fn setup(
     };
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section(
-                "Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit.",
-                text_style.clone(),
-            ),
             transform: Transform::from_xyz(0.0, -300.0, 100.0),
             ..default()
         },
         InstructionsText,
+    )).with_child(TextSection::new(
+        "Press Space to play on your desktop! Press it again to return.\nRight click Bevy logo to exit.",
+        text_style.clone(),
     ));
 
     // Create a circle mesh. We will reuse this mesh for all our circles.

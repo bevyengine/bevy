@@ -71,22 +71,21 @@ struct Explode;
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(
-        TextBundle::from_section(
-            "Click on a \"Mine\" to trigger it.\n\
-            When it explodes it will trigger all overlapping mines.",
-            TextStyle {
-                color: Color::WHITE,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::new(
+            "Click on a \"Mine\" to trigger it.\n\
+        When it explodes it will trigger all overlapping mines.",
+            TextStyle {
+                color: Color::WHITE,
+                ..default()
+            },
+        ));
 
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 
