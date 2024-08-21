@@ -609,12 +609,12 @@ impl App {
     /// and mapped according to its [name].
     ///
     /// Because the function must have a name,
-    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) must instead
+    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
     /// be registered using [`register_function_with_name`] or converted to a [`DynamicFunction`]
     /// and named using [`DynamicFunction::with_name`].
-    /// Failure to do so will result in an error being returned.
+    /// Failure to do so will result in a panic.
     ///
-    /// Only functions that implement [`IntoFunction`] may be registered via this method.
+    /// Only types that implement [`IntoFunction`] may be registered via this method.
     ///
     /// See [`FunctionRegistry::register`] for more information.
     ///
@@ -650,7 +650,7 @@ impl App {
     ///     .register_function(add);
     /// ```
     ///
-    /// Anonymous functions should be registered using [`register_function_with_name`] or given a name using [`DynamicFunction::with_name`].
+    /// Anonymous functions and closures should be registered using [`register_function_with_name`] or given a name using [`DynamicFunction::with_name`].
     ///
     /// ```should_panic
     /// use bevy_app::App;
@@ -668,13 +668,13 @@ impl App {
     #[cfg(feature = "reflect_functions")]
     pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
     where
-        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
     {
         self.main_mut().register_function(function);
         self
     }
 
-    /// Registers the given function into the [`AppFunctionRegistry`] resource using the given name.
+    /// Registers the given function or closure into the [`AppFunctionRegistry`] resource using the given name.
     ///
     /// To avoid conflicts, it's recommended to use a unique name for the function.
     /// This can be achieved by "namespacing" the function with a unique identifier,
@@ -689,7 +689,7 @@ impl App {
     /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
     /// it's recommended to use [`register_function`] instead as the generated name is guaranteed to be unique.
     ///
-    /// Only functions that implement [`IntoFunction`] may be registered via this method.
+    /// Only types that implement [`IntoFunction`] may be registered via this method.
     ///
     /// See [`FunctionRegistry::register_with_name`] for more information.
     ///
@@ -718,7 +718,7 @@ impl App {
     ///     // Registering an existing function with a custom name
     ///     .register_function_with_name("my_crate::mul", mul)
     ///     // Be careful not to register anonymous functions with their type name.
-    ///     // This code works but registers the function with the non-unique name of `fn(i32, i32) -> i32`
+    ///     // This code works but registers the function with a non-unique name like `foo::bar::{{closure}}`
     ///     .register_function_with_name(std::any::type_name_of_val(&div), div);
     /// ```
     ///
@@ -747,7 +747,7 @@ impl App {
         function: F,
     ) -> &mut Self
     where
-        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
     {
         self.main_mut().register_function_with_name(name, function);
         self

@@ -264,10 +264,16 @@ pub fn ui_layout_system(
             let Ok(layout) = ui_surface.get_layout(entity) else {
                 return;
             };
-            let layout_size =
-                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let layout_location =
-                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            let layout_size = inverse_target_scale_factor
+                * Vec2::new(
+                    layout.size.width - layout.padding.left - layout.padding.right,
+                    layout.size.height - layout.padding.top - layout.padding.bottom,
+                );
+            let layout_location = inverse_target_scale_factor
+                * Vec2::new(
+                    layout.location.x + layout.padding.left,
+                    layout.location.y + layout.padding.top,
+                );
 
             absolute_location += layout_location;
 

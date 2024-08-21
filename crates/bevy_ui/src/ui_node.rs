@@ -173,13 +173,6 @@ pub struct Style {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
 
-    /// Defines the text direction. For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-    ///
-    /// Note: the corresponding CSS property also affects box layout order, but this isn't yet implemented in Bevy.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/direction>
-    pub direction: Direction,
-
     /// The horizontal position of the left edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
     ///  - For absolutely positioned nodes, this is relative to the *parent* node's bounding box.
@@ -435,7 +428,6 @@ impl Style {
         right: Val::Auto,
         top: Val::Auto,
         bottom: Val::Auto,
-        direction: Direction::DEFAULT,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
         align_items: AlignItems::DEFAULT,
@@ -725,35 +717,6 @@ impl JustifyContent {
 }
 
 impl Default for JustifyContent {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
-/// Defines the text direction.
-///
-/// For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum Direction {
-    /// Inherit from parent node.
-    Inherit,
-    /// Text is written left to right.
-    LeftToRight,
-    /// Text is written right to left.
-    RightToLeft,
-}
-
-impl Direction {
-    pub const DEFAULT: Self = Self::Inherit;
-}
-
-impl Default for Direction {
     fn default() -> Self {
         Self::DEFAULT
     }

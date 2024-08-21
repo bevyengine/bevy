@@ -53,6 +53,9 @@ pub unsafe trait WorldQuery {
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
 
+    /// This function manually implements subtyping for the query fetches.
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
+
     /// Creates a new instance of this fetch.
     ///
     /// # Safety
@@ -163,6 +166,13 @@ macro_rules! impl_tuple_world_query {
                 let ($($name,)*) = item;
                 ($(
                     $name::shrink($name),
+                )*)
+            }
+
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                let ($($name,)*) = fetch;
+                ($(
+                    $name::shrink_fetch($name),
                 )*)
             }
 

@@ -2,6 +2,7 @@
 
 use std::{
     f32::consts::PI,
+    ops::Drop,
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc,

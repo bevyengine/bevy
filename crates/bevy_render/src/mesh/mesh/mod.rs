@@ -1289,7 +1289,7 @@ pub struct MeshVertexAttribute {
 
     /// The _unique_ id of the vertex attribute. This will also determine sort ordering
     /// when generating vertex buffers. Built-in / standard attributes will use "close to zero"
-    /// indices. When in doubt, use a random / very large usize to avoid conflicts.
+    /// indices. When in doubt, use a random / very large u64 to avoid conflicts.
     pub id: MeshVertexAttributeId,
 
     /// The format of the vertex attribute.
@@ -1297,7 +1297,7 @@ pub struct MeshVertexAttribute {
 }
 
 impl MeshVertexAttribute {
-    pub const fn new(name: &'static str, id: usize, format: VertexFormat) -> Self {
+    pub const fn new(name: &'static str, id: u64, format: VertexFormat) -> Self {
         Self {
             name,
             id: MeshVertexAttributeId(id),
@@ -1311,7 +1311,7 @@ impl MeshVertexAttribute {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub struct MeshVertexAttributeId(usize);
+pub struct MeshVertexAttributeId(u64);
 
 impl From<MeshVertexAttribute> for MeshVertexAttributeId {
     fn from(attribute: MeshVertexAttribute) -> Self {

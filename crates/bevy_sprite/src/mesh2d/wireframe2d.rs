@@ -1,7 +1,7 @@
 use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2dHandle};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
-use bevy_color::{LinearRgba, Srgba};
+use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
@@ -67,7 +67,7 @@ pub struct Wireframe2d;
 #[derive(Component, Debug, Clone, Default, Reflect)]
 #[reflect(Component, Default)]
 pub struct Wireframe2dColor {
-    pub color: Srgba,
+    pub color: Color,
 }
 
 /// Disables wireframe rendering for any entity it is attached to.
@@ -81,13 +81,13 @@ pub struct NoWireframe2d;
 #[derive(Resource, Debug, Clone, Default, ExtractResource, Reflect)]
 #[reflect(Resource)]
 pub struct Wireframe2dConfig {
-    /// Whether to show wireframes for all meshes.
+    /// Whether to show wireframes for all 2D meshes.
     /// Can be overridden for individual meshes by adding a [`Wireframe2d`] or [`NoWireframe2d`] component.
     pub global: bool,
     /// If [`Self::global`] is set, any [`Entity`] that does not have a [`Wireframe2d`] component attached to it will have
     /// wireframes using this color. Otherwise, this will be the fallback color for any entity that has a [`Wireframe2d`],
     /// but no [`Wireframe2dColor`].
-    pub default_color: Srgba,
+    pub default_color: Color,
 }
 
 #[derive(Resource)]

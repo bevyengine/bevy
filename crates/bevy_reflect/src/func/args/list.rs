@@ -3,8 +3,7 @@ use crate::func::ArgError;
 use crate::{PartialReflect, Reflect, TypePath};
 use std::collections::VecDeque;
 
-/// A list of arguments that can be passed to a [`DynamicFunction`], [`DynamicClosure`],
-/// or [`DynamicClosureMut`].
+/// A list of arguments that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// # Example
 ///
@@ -28,8 +27,7 @@ use std::collections::VecDeque;
 ///
 /// [arguments]: Arg
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-/// [`DynamicClosure`]: crate::func::DynamicClosure
-/// [`DynamicClosureMut`]: crate::func::DynamicClosureMut
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Default, Debug)]
 pub struct ArgList<'a> {
     list: VecDeque<Arg<'a>>,
