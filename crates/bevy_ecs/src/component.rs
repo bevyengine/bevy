@@ -1280,6 +1280,7 @@ impl RequiredComponentConstructor {
 /// can be called to construct a new instance of a component.
 #[derive(Clone)]
 pub(crate) struct RequiredComponent {
+    // TODO: this is stored on BundleInfo now ... we can remove this I think
     pub(crate) component_id: ComponentId,
     /// # Safety
     /// Calling this constructor is unsafe. It should only be called in the context of [`BundleInfo::write_components`], where the

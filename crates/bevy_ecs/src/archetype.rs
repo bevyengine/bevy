@@ -127,8 +127,25 @@ pub(crate) struct AddBundle {
     ///
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Vec<RequiredComponentConstructor>,
+    /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
     pub added: Vec<ComponentId>,
+    /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
+    /// Required Components.
     pub existing: Vec<ComponentId>,
+}
+
+impl AddBundle {
+    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.added.iter().chain(self.existing.iter()).copied()
+    }
+
+    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.added.iter().copied()
+    }
+
+    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.existing.iter().copied()
+    }
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components

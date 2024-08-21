@@ -1885,6 +1885,121 @@ mod tests {
         );
     }
 
+    #[test]
+    fn required_components_spawn_nonexistent_hooks() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Resource)]
+        struct A(usize);
+
+        #[derive(Resource)]
+        struct I(usize);
+
+        let mut world = World::new();
+        world.insert_resource(A(0));
+        world.insert_resource(I(0));
+        world
+            .register_component_hooks::<Y>()
+            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+
+        // Spawn entity and ensure Y was added
+        assert!(world.spawn(X).contains::<Y>());
+
+        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<I>().0, 1);
+    }
+
+    #[test]
+    fn required_components_insert_existing_hooks() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Resource)]
+        struct A(usize);
+
+        #[derive(Resource)]
+        struct I(usize);
+
+        let mut world = World::new();
+        world.insert_resource(A(0));
+        world.insert_resource(I(0));
+        world
+            .register_component_hooks::<Y>()
+            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+
+        // Spawn entity and ensure Y was added
+        assert!(world.spawn_empty().insert(X).contains::<Y>());
+
+        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<I>().0, 1);
+    }
+
+    #[test]
+    fn required_components_take_leaves_required() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        let e = world.spawn(X).id();
+        let _ = world.entity_mut(e).take::<X>().unwrap();
+        assert!(world.entity_mut(e).contains::<Y>());
+    }
+
+    #[test]
+    fn required_components_retain_keeps_required() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        let mut world = World::new();
+        let e = world.spawn((X, Z)).id();
+        world.entity_mut(e).retain::<X>();
+        assert!(world.entity_mut(e).contains::<X>());
+        assert!(world.entity_mut(e).contains::<Y>());
+        assert!(!world.entity_mut(e).contains::<Z>());
+    }
+
+    #[test]
+    fn required_components_spawn_then_insert_no_overwrite() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y(usize);
+
+        let mut world = World::new();
+        let id = world.spawn((X, Y(10))).id();
+        world.entity_mut(id).insert(X);
+
+        assert_eq!(
+            10,
+            world.entity(id).get::<Y>().unwrap().0,
+            "Y should still have the manually provided value"
+        );
+    }
+
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]

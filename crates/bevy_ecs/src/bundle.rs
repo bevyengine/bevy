@@ -344,11 +344,17 @@ pub(crate) enum InsertMode {
 /// [`World`]: crate::world::World
 pub struct BundleInfo {
     id: BundleId,
-    // SAFETY: Every ID in this list must be valid within the World that owns the BundleInfo,
-    // must have its storage initialized (i.e. columns created in tables, sparse set created),
-    // and must be in the same order as the source bundle type writes its components in.
+    /// The list of all components contributed by the bundle (including Required Components). This is in
+    /// the order `[EXPLICIT_COMPONENTS][REQUIRED_COMPONENTS]`
+    ///
+    /// # Safety
+    /// Every ID in this list must be valid within the World that owns the [`BundleInfo`],
+    /// must have its storage initialized (i.e. columns created in tables, sparse set created),
+    /// and the range (0..`explicit_components_len`) must be in the same order as the source bundle
+    /// type writes its components in.
     component_ids: Vec<ComponentId>,
     required_components: Vec<RequiredComponent>,
+    explicit_components_len: usize,
 }
 
 impl BundleInfo {
@@ -365,6 +371,7 @@ impl BundleInfo {
         component_ids: Vec<ComponentId>,
         required_components: Vec<RequiredComponent>,
         id: BundleId,
+        explicit_components_len: usize,
     ) -> BundleInfo {
         let mut deduped = component_ids.clone();
         deduped.sort_unstable();
@@ -400,6 +407,7 @@ impl BundleInfo {
             id,
             component_ids,
             required_components,
+            explicit_components_len,
         }
     }
 
@@ -409,16 +417,36 @@ impl BundleInfo {
         self.id
     }
 
-    /// Returns the [ID](ComponentId) of each component stored in this bundle.
+    /// Returns the [ID](ComponentId) of each component explicitly defined in this bundle (ex: Required Components are excluded).
+    ///
+    /// For all components contributed by this bundle (including Required Components), see [`BundleInfo::contributed_components`]
     #[inline]
-    pub fn components(&self) -> &[ComponentId] {
+    pub fn explicit_components(&self) -> &[ComponentId] {
+        &self.component_ids[0..self.explicit_components_len]
+    }
+
+    /// Returns the [ID](ComponentId) of each component contributed by this bundle. This includes Required Components.
+    ///
+    /// For only components explicitly defined in this bundle, see [`BundleInfo::explicit_components`]
+    #[inline]
+    pub fn contributed_components(&self) -> &[ComponentId] {
         &self.component_ids
     }
 
-    /// Returns an iterator over the [ID](ComponentId) of each component stored in this bundle.
+    /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this bundle (ex: this excludes Required Components).
+
+    /// To iterate all components contributed by this bundle (including Required Components), see [`BundleInfo::iter_contributed_components`]
     #[inline]
-    pub fn iter_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
-        self.component_ids.iter().cloned()
+    pub fn iter_explicit_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.explicit_components().iter().copied()
+    }
+
+    /// Returns an iterator over the [ID](ComponentId) of each component contributed by this bundle. This includes Required Components.
+    ///
+    /// To iterate only components explicitly defined in this bundle, see [`BundleInfo::iter_explicit_components`]
+    #[inline]
+    pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.component_ids.iter().copied()
     }
 
     /// This writes components from a given [`Bundle`] to the given entity.
@@ -593,16 +621,16 @@ impl BundleInfo {
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
-        let mut bundle_status = Vec::with_capacity(self.component_ids.len());
+        let mut bundle_status = Vec::with_capacity(self.explicit_components_len);
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
-        let mut mutated = Vec::new();
+        let mut existing = Vec::new();
 
         let current_archetype = &mut archetypes[archetype_id];
-        for component_id in self.component_ids.iter().cloned() {
+        for component_id in self.iter_explicit_components() {
             if current_archetype.contains(component_id) {
                 bundle_status.push(ComponentStatus::Existing);
-                mutated.push(component_id);
+                existing.push(component_id);
             } else {
                 bundle_status.push(ComponentStatus::Added);
                 added.push(component_id);
@@ -618,6 +646,7 @@ impl BundleInfo {
         for required_component in self.required_components.iter() {
             if !current_archetype.contains(required_component.component_id) {
                 added_required_components.push(required_component.constructor.clone());
+                added.push(required_component.component_id);
                 // SAFETY: component_id exists
                 let component_info =
                     unsafe { components.get_info_unchecked(required_component.component_id) };
@@ -641,7 +670,7 @@ impl BundleInfo {
                 bundle_status,
                 added_required_components,
                 added,
-                mutated,
+                existing,
             );
             archetype_id
         } else {
@@ -693,7 +722,7 @@ impl BundleInfo {
                 bundle_status,
                 added_required_components,
                 added,
-                mutated,
+                existing,
             );
             new_archetype_id
         }
@@ -844,13 +873,13 @@ impl<'w> BundleInserter<'w> {
             let mut deferred_world = self.world.into_deferred();
 
             if insert_mode == InsertMode::Replace {
-                deferred_world.trigger_on_replace(
-                    archetype,
-                    entity,
-                    add_bundle.existing.iter().copied(),
-                );
+                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
                 if archetype.has_replace_observer() {
-                    deferred_world.trigger_observers(ON_REPLACE, entity, &add_bundle.existing);
+                    deferred_world.trigger_observers(
+                        ON_REPLACE,
+                        entity,
+                        add_bundle.iter_existing(),
+                    );
                 }
             }
         }
@@ -1017,9 +1046,9 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {
-            deferred_world.trigger_on_add(new_archetype, entity, add_bundle.added.iter().cloned());
+            deferred_world.trigger_on_add(new_archetype, entity, add_bundle.iter_added());
             if new_archetype.has_add_observer() {
-                deferred_world.trigger_observers(ON_ADD, entity, &add_bundle.added);
+                deferred_world.trigger_observers(ON_ADD, entity, add_bundle.iter_added());
             }
             match insert_mode {
                 InsertMode::Replace => {
@@ -1027,13 +1056,13 @@ impl<'w> BundleInserter<'w> {
                     deferred_world.trigger_on_insert(
                         new_archetype,
                         entity,
-                        bundle_info.iter_components(),
+                        add_bundle.iter_inserted(),
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
                             entity,
-                            bundle_info.components(),
+                            add_bundle.iter_inserted(),
                         );
                     }
                 }
@@ -1043,10 +1072,14 @@ impl<'w> BundleInserter<'w> {
                     deferred_world.trigger_on_insert(
                         new_archetype,
                         entity,
-                        add_bundle.added.iter().cloned(),
+                        add_bundle.iter_added(),
                     );
                     if new_archetype.has_insert_observer() {
-                        deferred_world.trigger_observers(ON_INSERT, entity, &add_bundle.added);
+                        deferred_world.trigger_observers(
+                            ON_INSERT,
+                            entity,
+                            add_bundle.iter_added(),
+                        );
                     }
                 }
             }
@@ -1167,13 +1200,29 @@ impl<'w> BundleSpawner<'w> {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {
-            deferred_world.trigger_on_add(archetype, entity, bundle_info.iter_components());
+            deferred_world.trigger_on_add(
+                archetype,
+                entity,
+                bundle_info.iter_contributed_components(),
+            );
             if archetype.has_add_observer() {
-                deferred_world.trigger_observers(ON_ADD, entity, bundle_info.components());
+                deferred_world.trigger_observers(
+                    ON_ADD,
+                    entity,
+                    bundle_info.iter_contributed_components(),
+                );
             }
-            deferred_world.trigger_on_insert(archetype, entity, bundle_info.iter_components());
+            deferred_world.trigger_on_insert(
+                archetype,
+                entity,
+                bundle_info.iter_contributed_components(),
+            );
             if archetype.has_insert_observer() {
-                deferred_world.trigger_observers(ON_INSERT, entity, bundle_info.components());
+                deferred_world.trigger_observers(
+                    ON_INSERT,
+                    entity,
+                    bundle_info.iter_contributed_components(),
+                );
             }
         };
 
@@ -1259,16 +1308,22 @@ impl Bundles {
             let mut component_ids = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
+            let explicit_component_len = component_ids.len();
             let mut required_components = RequiredComponents::default();
             T::register_required_components(components, storages, &mut required_components);
             required_components.remove_explicit_components(&component_ids);
-            let required_components = required_components.0.into_iter().map(|(_, v)| v).collect();
+            let required_components = required_components.0.into_iter().map(|(_, v)| {
+                // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
+                // components. This ordering is important!
+                component_ids.push(v.component_id);
+                v
+            }).collect();
             let bundle_info =
                 // SAFETY: T::component_id ensures:
                 // - its info was created
                 // - appropriate storage for it has been initialized.
                 // - it was created in the same order as the components in T
-                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, required_components, id) };
+                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, required_components, id, explicit_component_len) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -1363,9 +1418,10 @@ fn initialize_dynamic_bundle(
     }).collect();
 
     let id = BundleId(bundle_infos.len());
+    let explicit_component_len = component_ids.len();
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
-        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, Vec::new(), id) };
+        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, Vec::new(), id, explicit_component_len) };
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
