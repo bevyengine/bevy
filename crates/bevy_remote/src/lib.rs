@@ -231,8 +231,8 @@ impl RemotePlugin {
 
     /// Set the IP address that the server will use.
     #[must_use]
-    pub fn with_address(mut self, address: IpAddr) -> Self {
-        self.address = address;
+    pub fn with_address(mut self, address: impl Into<IpAddr>) -> Self {
+        self.address = address.into();
         self
     }
 
