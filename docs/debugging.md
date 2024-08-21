@@ -13,7 +13,7 @@ When a suspected wgpu error occurs, you should capture a wgpu trace so that Bevy
 
 To capture a wgpu trace:
 
-1. Create a new folder in which to store your wgpu trace
+1. Create a new folder in which to store your wgpu trace.
 2. Pass the path to the folder you created for your wgpu trace to `bevy_render::RenderPlugin`, using the `render_creation` field.
    * If you're manually creating the renderer resources, pass the path to wgpu when creating the `RenderDevice` and `RenderQueue`.
    * Otherwise, pass the path to Bevy via the `trace_path` field in `bevy_render::settings::WgpuSettings`.
