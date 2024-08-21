@@ -179,9 +179,6 @@ trace_tracy_memory = [
 # Tracing support
 trace = ["bevy_internal/trace"]
 
-# Save a trace of all wgpu calls
-wgpu_trace = ["bevy_internal/wgpu_trace"]
-
 # EXR image format support
 exr = ["bevy_internal/exr"]
 
