@@ -24,7 +24,7 @@ use serde_json::Value;
 /// `GET`: Retrieves one or more components from the entity with the given
 /// ID.
 ///
-/// The server responds with a `BrpResponse::Get`.
+/// The server responds with a [`BrpGetResponse`].
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpGetRequest {
     /// The ID of the entity from which components are to be requested.
@@ -42,7 +42,7 @@ pub struct BrpGetRequest {
 /// `QUERY`: Performs a query over components in the ECS, returning entities
 /// and component values that match.
 ///
-/// The server responds with a `BrpResponse::Query`.
+/// The server responds with a [`BrpQueryResponse`].
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpQueryRequest {
     /// The components to select.
@@ -57,7 +57,7 @@ pub struct BrpQueryRequest {
 /// `SPAWN`: Creates a new entity with the given components and responds
 /// with its ID.
 ///
-/// The server responds with a `BrpResponse::Entity`.
+/// The server responds with a [`BrpEntityResponse`].
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpSpawnRequest {
     /// A map from each component's *full path* to its serialized value.
@@ -72,7 +72,7 @@ pub struct BrpSpawnRequest {
 
 /// `DESTROY`: Given an ID, despawns the entity with that ID.
 ///
-/// The server responds with a `BrpResponse::Ok`.
+/// The server responds with an okay.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpDestroyRequest {
     /// The ID of the entity to despawn.
@@ -81,7 +81,7 @@ pub struct BrpDestroyRequest {
 
 /// `REMOVE`: Deletes one or more components from an entity.
 ///
-/// The server responds with a `BrpResponse::Ok`.
+/// The server responds with an okay.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpRemoveRequest {
     /// The ID of the entity from which components are to be removed.
@@ -98,7 +98,7 @@ pub struct BrpRemoveRequest {
 
 /// `INSERT`: Adds one or more components to an entity.
 ///
-/// The server responds with a `BrpResponse::Ok`.
+/// The server responds with an okay.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpInsertRequest {
     /// The ID of the entity that components are to be added to.
@@ -116,7 +116,7 @@ pub struct BrpInsertRequest {
 
 /// `REPARENT`: Changes the parent of an entity.
 ///
-/// The server responds with a `BrpResponse::Ok`.
+/// The server responds with an okay.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpReparentRequest {
     /// The IDs of the entities that are to become the new children of the
@@ -132,6 +132,8 @@ pub struct BrpReparentRequest {
 
 /// `LIST`: Returns a list of all type names of registered components in the
 /// system, or those on an entity.
+///
+/// The server responds with a [`BrpListResponse`]
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpListRequest {
     /// The entity to query.
@@ -244,6 +246,7 @@ pub fn process_remote_get_request(
     for component_path in components {
         let reflect_component = get_reflect_component(&type_registry, &component_path)?;
 
+        // Retrieve the reflected value for the given specified component on the given entity.
         let Some(reflected) = reflect_component.reflect(entity_ref) else {
             return Err(anyhow!(
                 "Entity {:?} has no component `{}`",
@@ -252,6 +255,7 @@ pub fn process_remote_get_request(
             ));
         };
 
+        // Each component value serializes to a map with a single entry.
         let reflect_serializer = ReflectSerializer::new(reflected, &type_registry);
         let Value::Object(serialized_object) = serde_json::to_value(&reflect_serializer)? else {
             return Err(anyhow!(

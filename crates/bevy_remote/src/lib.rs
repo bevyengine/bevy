@@ -77,7 +77,10 @@
 //!
 //! [the `serde` documentation]: https://serde.rs/
 
-use std::sync::{Arc, Mutex};
+use std::{
+    net::{IpAddr, Ipv4Addr},
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_app::prelude::*;
@@ -111,15 +114,27 @@ pub mod builtin_verbs;
 /// This value was chosen randomly.
 pub const DEFAULT_PORT: u16 = 15702;
 
+/// The default host address that Bevy will use for its server.
+pub const DEFAULT_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+
 const CHANNEL_SIZE: usize = 16;
 
 /// Add this plugin to your [`App`] to allow remote connections to inspect and modify entities.
 ///
-/// By default, this is [`DEFAULT_PORT`]: 15702.
+/// The defaults are:
+/// - [`DEFAULT_ADDR`] : 127.0.0.1.
+/// - [`DEFAULT_PORT`] : 15702.
 pub struct RemotePlugin {
+    /// The address that Bevy will use.
+    pub address: IpAddr,
+
     /// The port that Bevy will listen on.
     pub port: u16,
 }
+
+/// A resource containing the IP address that Bevy will host on.
+#[derive(Resource)]
+pub struct HostAddress(pub IpAddr);
 
 /// A resource containing the port number that Bevy will listen on.
 #[derive(Resource, Reflect)]
@@ -190,14 +205,17 @@ pub struct BrpMessage {
 
 /// A resource that receives messages sent by Bevy Remote Protocol clients.
 ///
-/// Every frame, the `process_remote_requests` system drains this mailbox, and
+/// Every frame, the `process_remote_requests` system drains this mailbox and
 /// processes the messages within.
 #[derive(Resource, Deref, DerefMut)]
 pub struct BrpMailbox(Receiver<BrpMessage>);
 
 impl Default for RemotePlugin {
     fn default() -> Self {
-        RemotePlugin { port: DEFAULT_PORT }
+        RemotePlugin {
+            address: DEFAULT_ADDR,
+            port: DEFAULT_PORT,
+        }
     }
 }
 
@@ -237,7 +255,8 @@ impl Plugin for RemotePlugin {
             app.register_system(builtin_verbs::process_remote_list_request),
         );
 
-        app.insert_resource(RemotePort(self.port))
+        app.insert_resource(HostAddress(self.address))
+            .insert_resource(RemotePort(self.port))
             .insert_resource(remote_verbs)
             .add_systems(Startup, start_server)
             .add_systems(Update, process_remote_requests);
@@ -263,18 +282,18 @@ impl RemoteVerbs {
 }
 
 /// A system that starts up the Bevy Remote Protocol server.
-fn start_server(mut commands: Commands, remote_port: Res<RemotePort>) {
+fn start_server(mut commands: Commands, address: Res<HostAddress>, remote_port: Res<RemotePort>) {
     // Create the channel and the mailbox.
     let (request_sender, request_receiver) = channel::bounded(CHANNEL_SIZE);
     commands.insert_resource(BrpMailbox(request_receiver));
 
     IoTaskPool::get()
-        .spawn(server_main(remote_port.0, request_sender))
+        .spawn(server_main(address.0, remote_port.0, request_sender))
         .detach();
 }
 
 /// A system that receives requests placed in the [`BrpMailbox`] and processes
-/// them.
+/// them, using the [`RemoteVerbs`] resource to map each request to its handler.
 ///
 /// This needs exclusive access to the [`World`] because clients can manipulate
 /// anything in the ECS.
@@ -314,8 +333,8 @@ fn process_remote_requests(world: &mut World) {
 }
 
 /// The Bevy Remote Protocol server main loop.
-async fn server_main(port: u16, sender: Sender<BrpMessage>) -> AnyhowResult<()> {
-    listen(Async::<TcpListener>::bind(([127, 0, 0, 1], port))?, sender).await?;
+async fn server_main(address: IpAddr, port: u16, sender: Sender<BrpMessage>) -> AnyhowResult<()> {
+    listen(Async::<TcpListener>::bind((address, port))?, sender).await?;
     Ok(())
 }
 
