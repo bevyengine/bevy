@@ -144,10 +144,15 @@ pub(crate) mod test_setup {
     #[derive(Component)]
     pub struct ModeText;
 
+    #[derive(Component)]
+    pub struct FrameText;
+
     pub(crate) fn update_text(
         mut frame: Local<usize>,
         mode: Res<ExampleMode>,
-        mut query: Query<&mut Text, With<ModeText>>,
+        mut query: Query<&mut TextSection>,
+        mode_text_query: Query<Entity, With<ModeText>>,
+        frame_text_query: Query<Entity, With<FrameText>>,
     ) {
         *frame += 1;
         let mode = match *mode {
@@ -158,9 +163,10 @@ pub(crate) mod test_setup {
             }
             ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
-        let mut text = query.single_mut();
-        text.sections[1].value = mode.to_string();
-        text.sections[3].value = frame.to_string();
+        let mut mode_text = query.get_mut(mode_text_query.single()).unwrap();
+        mode_text.value = mode.to_string();
+        let mut frame_text = query.get_mut(frame_text_query.single()).unwrap();
+        frame_text.value = frame.to_string();
     }
 
     /// Set up a scene with a cube and some text
@@ -188,36 +194,40 @@ pub(crate) mod test_setup {
             ..default()
         });
         event.send(RequestRedraw);
-        commands.spawn((
-            TextBundle::from_sections([
-                TextSection::new(
-                    "Press space bar to cycle modes\n",
-                    TextStyle { ..default() },
-                ),
-                TextSection::from_style(TextStyle {
-                    color: LIME.into(),
-                    ..default()
-                }),
-                TextSection::new(
-                    "\nFrame: ",
-                    TextStyle {
-                        color: YELLOW.into(),
-                        ..default()
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    color: YELLOW.into(),
-                    ..default()
-                }),
-            ])
-            .with_style(Style {
+        commands
+            .spawn(TextBundle::default().with_style(Style {
                 align_self: AlignSelf::FlexStart,
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
                 left: Val::Px(12.0),
                 ..default()
-            }),
-            ModeText,
-        ));
+            }))
+            .with_children(|parent| {
+                parent.spawn(TextSection::new(
+                    "Press space bar to cycle modes\n",
+                    TextStyle { ..default() },
+                ));
+                parent.spawn((
+                    TextSection::from_style(TextStyle {
+                        color: LIME.into(),
+                        ..default()
+                    }),
+                    ModeText,
+                ));
+                parent.spawn(TextSection::new(
+                    "\nFrame: ",
+                    TextStyle {
+                        color: YELLOW.into(),
+                        ..default()
+                    },
+                ));
+                parent.spawn((
+                    TextSection::from_style(TextStyle {
+                        color: YELLOW.into(),
+                        ..default()
+                    }),
+                    FrameText,
+                ));
+            });
     }
 }

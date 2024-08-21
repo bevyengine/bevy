@@ -14,6 +14,9 @@ use bevy::{
 const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
 const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
 
+#[derive(Component)]
+struct OutputText;
+
 fn main() {
     App::new()
         .add_plugins((
@@ -138,21 +141,27 @@ fn setup(
 
     let style = TextStyle::default();
 
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new("Prepass Output: transparent\n", style.clone()),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls\n", style.clone()),
-            TextSection::new("---------------\n", style.clone()),
-            TextSection::new("Space - Change output\n", style),
-        ])
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_children(|parent| {
+            parent.spawn((
+                TextSection::new("Prepass Output: transparent\n", style.clone()),
+                OutputText,
+            ));
+
+            parent.spawn(TextSection::new(
+                "\n\n\
+                Controls\n\
+                ---------------\n\
+                Space - Change output\n",
+                style,
+            ));
+        });
 }
 
 // This is the struct that will be passed to your shader
@@ -227,7 +236,8 @@ fn toggle_prepass_view(
     keycode: Res<ButtonInput<KeyCode>>,
     material_handle: Query<&Handle<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
-    mut text: Query<&mut Text>,
+    mut text: Query<&mut TextSection, With<OutputText>>,
+    mut other_texts: Query<&mut TextSection, Without<OutputText>>,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
         *prepass_view = (*prepass_view + 1) % 4;
@@ -240,8 +250,8 @@ fn toggle_prepass_view(
             _ => unreachable!(),
         };
         let mut text = text.single_mut();
-        text.sections[0].value = format!("Prepass Output: {label}\n");
-        for section in &mut text.sections {
+        text.value = format!("Prepass Output: {label}\n");
+        for mut section in &mut other_texts {
             section.style.color = Color::WHITE;
         }
 

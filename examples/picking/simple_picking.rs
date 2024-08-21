@@ -20,7 +20,6 @@ fn setup(
     commands
         .spawn((
             TextBundle {
-                text: Text::from_section("Click Me to get a box", TextStyle::default()),
                 style: Style {
                     position_type: PositionType::Absolute,
                     top: Val::Percent(10.0),
@@ -46,16 +45,28 @@ fn setup(
                 *num += 1;
             },
         )
-        .observe(|evt: Trigger<Pointer<Out>>, mut texts: Query<&mut Text>| {
-            let mut text = texts.get_mut(evt.entity()).unwrap();
-            let first = text.sections.first_mut().unwrap();
-            first.style.color = WHITE.into();
-        })
-        .observe(|evt: Trigger<Pointer<Over>>, mut texts: Query<&mut Text>| {
-            let mut text = texts.get_mut(evt.entity()).unwrap();
-            let first = text.sections.first_mut().unwrap();
-            first.style.color = BLUE.into();
-        });
+        .observe(
+            |evt: Trigger<Pointer<Out>>,
+             texts: Query<&Children, With<Text>>,
+             mut sections: Query<&mut TextSection>| {
+                let children = texts.get(evt.entity()).unwrap();
+                let mut first = sections.get_mut(children[0]).unwrap();
+                first.style.color = WHITE.into();
+            },
+        )
+        .observe(
+            |evt: Trigger<Pointer<Over>>,
+             texts: Query<&Children, With<Text>>,
+             mut sections: Query<&mut TextSection>| {
+                let children = texts.get(evt.entity()).unwrap();
+                let mut first = sections.get_mut(children[0]).unwrap();
+                first.style.color = BLUE.into();
+            },
+        )
+        .with_child(TextSection::new(
+            "Click Me to get a box",
+            TextStyle::default(),
+        ));
     // circular base
     commands
         .spawn((

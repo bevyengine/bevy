@@ -90,15 +90,17 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(instructions_text, style.clone()));
-            parent.spawn((
-                SplineModeText,
-                TextBundle::from_section(spline_mode_text, style.clone()),
-            ));
-            parent.spawn((
-                CyclingModeText,
-                TextBundle::from_section(cycling_mode_text, style.clone()),
-            ));
+            parent.spawn(TextBundle::default()).with_children(|parent| {
+                parent.spawn(TextSection::new(instructions_text, style.clone()));
+                parent.spawn((
+                    SplineModeText,
+                    TextSection::new(spline_mode_text, style.clone()),
+                ));
+                parent.spawn((
+                    CyclingModeText,
+                    TextSection::new(cycling_mode_text, style.clone()),
+                ));
+            });
         });
 }
 
@@ -255,7 +257,7 @@ struct CyclingModeText;
 
 fn update_spline_mode_text(
     spline_mode: Res<SplineMode>,
-    mut spline_mode_text: Query<&mut Text, With<SplineModeText>>,
+    mut spline_mode_text: Query<&mut TextSection, With<SplineModeText>>,
 ) {
     if !spline_mode.is_changed() {
         return;
@@ -264,15 +266,13 @@ fn update_spline_mode_text(
     let new_text = format!("Spline: {}", *spline_mode);
 
     for mut spline_mode_text in spline_mode_text.iter_mut() {
-        if let Some(section) = spline_mode_text.sections.first_mut() {
-            section.value.clone_from(&new_text);
-        }
+        spline_mode_text.value.clone_from(&new_text);
     }
 }
 
 fn update_cycling_mode_text(
     cycling_mode: Res<CyclingMode>,
-    mut cycling_mode_text: Query<&mut Text, With<CyclingModeText>>,
+    mut cycling_mode_text: Query<&mut TextSection, With<CyclingModeText>>,
 ) {
     if !cycling_mode.is_changed() {
         return;
@@ -281,9 +281,7 @@ fn update_cycling_mode_text(
     let new_text = format!("{}", *cycling_mode);
 
     for mut cycling_mode_text in cycling_mode_text.iter_mut() {
-        if let Some(section) = cycling_mode_text.sections.first_mut() {
-            section.value.clone_from(&new_text);
-        }
+        cycling_mode_text.value.clone_from(&new_text);
     }
 }
 

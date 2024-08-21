@@ -41,15 +41,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Button 1",
-                        TextStyle {
-                            font: font_handle.clone(),
-                            font_size: 40.0,
-                            // Alpha channel of the color controls transparency.
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
-                        },
-                    ));
+                    parent
+                        .spawn(TextBundle::default())
+                        .with_child(TextSection::new(
+                            "Button 1",
+                            TextStyle {
+                                font: font_handle.clone(),
+                                font_size: 40.0,
+                                // Alpha channel of the color controls transparency.
+                                color: Color::srgba(1.0, 1.0, 1.0, 0.2),
+                            },
+                        ));
                 });
 
             // Button with a different color,
@@ -67,15 +69,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Button 2",
-                        TextStyle {
-                            font: font_handle.clone(),
-                            font_size: 40.0,
-                            // Alpha channel of the color controls transparency.
-                            color: Color::srgba(1.0, 1.0, 1.0, 0.2),
-                        },
-                    ));
+                    parent
+                        .spawn(TextBundle::default())
+                        .with_child(TextSection::new(
+                            "Button 2",
+                            TextStyle {
+                                font: font_handle.clone(),
+                                font_size: 40.0,
+                                // Alpha channel of the color controls transparency.
+                                color: Color::srgba(1.0, 1.0, 1.0, 0.2),
+                            },
+                        ));
                 });
         });
 }

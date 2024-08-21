@@ -71,45 +71,45 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             // text
-                            parent.spawn((
-                                TextBundle::from_section(
+                            parent
+                                .spawn((
+                                    TextBundle::default(),
+                                    // Because this is a distinct label widget and
+                                    // not button/list item text, this is necessary
+                                    // for accessibility to treat the text accordingly.
+                                    Label,
+                                ))
+                                .with_child(TextSection::new(
                                     "Text Example",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 30.0,
                                         ..default()
                                     },
-                                ),
-                                // Because this is a distinct label widget and
-                                // not button/list item text, this is necessary
-                                // for accessibility to treat the text accordingly.
-                                Label,
-                            ));
+                                ));
 
                             #[cfg(feature = "bevy_dev_tools")]
                             // Debug overlay text
-                            parent.spawn((
-                                TextBundle::from_section(
+                            parent.spawn((TextBundle::default(), Label)).with_child(
+                                TextSection::new(
                                     "Press Space to enable debug outlines.",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         ..default()
                                     },
                                 ),
-                                Label,
-                            ));
+                            );
 
                             #[cfg(not(feature = "bevy_dev_tools"))]
-                            parent.spawn((
-                                TextBundle::from_section(
+                            parent.spawn((TextBundle::default(), Label)).with_child(
+                                TextSection::new(
                                     "Try enabling feature \"bevy_dev_tools\".",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         ..default()
                                     },
                                 ),
-                                Label,
-                            ));
+                            );
                         });
                 });
             // right vertical fill
@@ -127,17 +127,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // Title
-                    parent.spawn((
-                        TextBundle::from_section(
+                    parent
+                        .spawn((TextBundle::default(), Label))
+                        .with_child(TextSection::new(
                             "Scrolling list",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 25.,
                                 ..default()
                             },
-                        ),
-                        Label,
-                    ));
+                        ));
                     // List with hidden overflow
                     parent
                         .spawn(NodeBundle {
@@ -169,18 +168,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .with_children(|parent| {
                                     // List items
                                     for i in 0..30 {
-                                        parent.spawn((
-                                            TextBundle::from_section(
+                                        parent
+                                            .spawn((
+                                                TextBundle::default(),
+                                                Label,
+                                                AccessibilityNode(NodeBuilder::new(Role::ListItem)),
+                                            ))
+                                            .with_child(TextSection::new(
                                                 format!("Item {i}"),
                                                 TextStyle {
                                                     font: asset_server
                                                         .load("fonts/FiraSans-Bold.ttf"),
                                                     ..default()
                                                 },
-                                            ),
-                                            Label,
-                                            AccessibilityNode(NodeBuilder::new(Role::ListItem)),
-                                        ));
+                                            ));
                                     }
                                 });
                         });
@@ -321,16 +322,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // alt text
                             // This UI node takes up no space in the layout and the `Text` component is used by the accessibility module
                             // and is not rendered.
-                            parent.spawn((
-                                NodeBundle {
-                                    style: Style {
-                                        display: Display::None,
+                            parent
+                                .spawn((
+                                    NodeBundle {
+                                        style: Style {
+                                            display: Display::None,
+                                            ..Default::default()
+                                        },
                                         ..Default::default()
                                     },
-                                    ..Default::default()
-                                },
-                                Text::from_section("Bevy logo", TextStyle::default()),
-                            ));
+                                    Text::default(),
+                                ))
+                                .with_child(TextSection::new("Bevy logo", TextStyle::default()));
                         });
                 });
         });

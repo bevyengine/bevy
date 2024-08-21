@@ -328,9 +328,9 @@ fn setup_lights(mut commands: Commands) {
     });
 }
 
-/// Marker component for header text
+/// Marker component for the text section that displays the current primitive
 #[derive(Debug, Clone, Component, Default, Reflect)]
-pub struct HeaderText;
+pub struct PrimitiveText;
 
 /// Marker component for header node
 #[derive(Debug, Clone, Component, Default, Reflect)]
@@ -373,21 +373,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    let text = format!("{text}", text = PrimitiveSelected::default());
     let style = TextStyle::default();
-    let instructions = "Press 'C' to switch between 2D and 3D mode\n\
-        Press 'Up' or 'Down' to switch to the next/previous primitive";
-    let text = [
-        TextSection::new("Primitive: ", style.clone()),
-        TextSection::new(text, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(instructions, style.clone()),
-        TextSection::new("\n\n", style.clone()),
-        TextSection::new(
-            "(If nothing is displayed, there's no rendering support yet)",
-            style.clone(),
-        ),
-    ];
 
     commands
         .spawn((
@@ -403,22 +389,37 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             TargetCamera(active_camera),
         ))
         .with_children(|parent| {
-            parent.spawn((
-                HeaderText,
-                TextBundle::from_sections(text).with_text_justify(JustifyText::Center),
-            ));
+            parent
+                .spawn(TextBundle::default().with_text_justify(JustifyText::Center))
+                .with_children(|parent| {
+                    parent.spawn(TextSection::new("Primitive: ", style.clone()));
+
+                    parent.spawn((
+                        TextSection::new(
+                            format!("{text}", text = PrimitiveSelected::default()),
+                            style.clone(),
+                        ),
+                        PrimitiveText,
+                    ));
+
+                    parent.spawn(TextSection::new(
+                        "\n\n\
+                        Press 'C' to switch between 2D and 3D mode\n\
+                        Press 'Up' or 'Down' to switch to the next/previous primitive\n\n\
+                        (If nothing is displayed, there's no rendering support yet)",
+                        style.clone(),
+                    ));
+                });
         });
 }
 
 fn update_text(
     primitive_state: Res<State<PrimitiveSelected>>,
-    mut header: Query<&mut Text, With<HeaderText>>,
+    mut text_query: Query<&mut TextSection, With<PrimitiveText>>,
 ) {
     let new_text = format!("{text}", text = primitive_state.get());
-    header.iter_mut().for_each(|mut header_text| {
-        if let Some(kind) = header_text.sections.get_mut(1) {
-            kind.value.clone_from(&new_text);
-        };
+    text_query.iter_mut().for_each(|mut text| {
+        text.value.clone_from(&new_text);
     });
 }
 

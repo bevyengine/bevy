@@ -159,7 +159,8 @@ fn setup(mut commands: Commands) {
             .add_child(inner_spot)
             .id();
         let label_node = commands
-            .spawn(TextBundle::from_section(
+            .spawn(TextBundle::default())
+            .with_child(TextSection::new(
                 label,
                 TextStyle {
                     font_size: 9.0,
@@ -228,7 +229,8 @@ fn setup(mut commands: Commands) {
             .add_child(inner_spot)
             .id();
         let label_node = commands
-            .spawn(TextBundle::from_section(
+            .spawn(TextBundle::default())
+            .with_child(TextSection::new(
                 label,
                 TextStyle {
                     font_size: 9.0,
@@ -265,13 +267,15 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                "Borders",
-                TextStyle {
-                    font_size: 20.0,
-                    ..Default::default()
-                },
-            ));
+            builder
+                .spawn(TextBundle::default())
+                .with_child(TextSection::new(
+                    "Borders",
+                    TextStyle {
+                        font_size: 20.0,
+                        ..Default::default()
+                    },
+                ));
         })
         .id();
 
@@ -290,13 +294,15 @@ fn setup(mut commands: Commands) {
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                "Borders Rounded",
-                TextStyle {
-                    font_size: 20.0,
-                    ..Default::default()
-                },
-            ));
+            builder
+                .spawn(TextBundle::default())
+                .with_child(TextSection::new(
+                    "Borders Rounded",
+                    TextStyle {
+                        font_size: 20.0,
+                        ..Default::default()
+                    },
+                ));
         })
         .id();
 

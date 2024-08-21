@@ -273,14 +273,16 @@ fn setup_menu(mut commands: Commands) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Play",
-                        TextStyle {
-                            font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
-                            ..default()
-                        },
-                    ));
+                    parent
+                        .spawn(TextBundle::default())
+                        .with_child(TextSection::new(
+                            "Play",
+                            TextStyle {
+                                font_size: 40.0,
+                                color: Color::srgb(0.9, 0.9, 0.9),
+                                ..default()
+                            },
+                        ));
                 });
         })
         .id();

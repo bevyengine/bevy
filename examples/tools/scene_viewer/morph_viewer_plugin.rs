@@ -178,7 +178,8 @@ impl MorphKey {
 }
 fn update_text(
     controls: Option<ResMut<WeightsControl>>,
-    mut text: Query<&mut Text>,
+    text: Query<&Children, With<Text>>,
+    mut query: Query<&mut TextSection>,
     morphs: Query<&MorphWeights>,
 ) {
     let Some(mut controls) = controls else {
@@ -195,8 +196,9 @@ fn update_text(
             target.weight = actual_weight;
         }
         let key_name = &AVAILABLE_KEYS[i].name;
-        let mut text = text.single_mut();
-        text.sections[i + 2].value = format!("[{key_name}] {target}\n");
+        let children = text.single();
+        let mut text = query.get_mut(children[i + 2]).unwrap();
+        text.value = format!("[{key_name}] {target}\n");
     }
 }
 fn update_morphs(
@@ -265,12 +267,18 @@ fn detect_morphs(
         |(i, target): (usize, &Target)| target.text_section(AVAILABLE_KEYS[i].name, style.clone());
     sections.extend(detected.iter().enumerate().map(target_to_text));
     commands.insert_resource(WeightsControl { weights: detected });
-    commands.spawn(TextBundle::from_sections(sections).with_style(Style {
-        position_type: PositionType::Absolute,
-        top: Val::Px(10.0),
-        left: Val::Px(10.0),
-        ..default()
-    }));
+    commands
+        .spawn(TextBundle::default().with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        }))
+        .with_children(|parent| {
+            for section in sections {
+                parent.spawn(section);
+            }
+        });
 }
 
 pub struct MorphViewerPlugin;

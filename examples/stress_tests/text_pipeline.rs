@@ -61,14 +61,19 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             ]
         })
         .collect::<Vec<_>>();
-    commands.spawn(Text2dBundle {
-        text: Text {
-            sections,
-            justify: JustifyText::Center,
-            linebreak_behavior: BreakLineOn::AnyCharacter,
-        },
-        ..Default::default()
-    });
+    commands
+        .spawn(Text2dBundle {
+            text: Text {
+                justify: JustifyText::Center,
+                linebreak_behavior: BreakLineOn::AnyCharacter,
+            },
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            for section in sections {
+                parent.spawn(section);
+            }
+        });
 }
 
 // changing the bounds of the text will cause a recomputation

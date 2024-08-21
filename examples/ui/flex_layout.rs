@@ -173,13 +173,15 @@ fn spawn_nested_text_bundle(
             ..Default::default()
         })
         .with_children(|builder| {
-            builder.spawn(TextBundle::from_section(
-                text,
-                TextStyle {
-                    font,
-                    color: Color::BLACK,
-                    ..default()
-                },
-            ));
+            builder
+                .spawn(TextBundle::default())
+                .with_child(TextSection::new(
+                    text,
+                    TextStyle {
+                        font,
+                        color: Color::BLACK,
+                        ..default()
+                    },
+                ));
         });
 }

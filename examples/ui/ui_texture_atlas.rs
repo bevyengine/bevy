@@ -60,17 +60,20 @@ fn setup(
                 TextureAtlas::from(texture_atlas_handle),
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));
-            parent.spawn(TextBundle::from_sections([
-                TextSection::new("press ".to_string(), text_style.clone()),
-                TextSection::new(
+            parent.spawn(TextBundle::default()).with_children(|parent| {
+                parent.spawn(TextSection::new("press ".to_string(), text_style.clone()));
+                parent.spawn(TextSection::new(
                     "space".to_string(),
                     TextStyle {
                         color: YELLOW.into(),
                         ..text_style.clone()
                     },
-                ),
-                TextSection::new(" to advance frames".to_string(), text_style),
-            ]));
+                ));
+                parent.spawn(TextSection::new(
+                    " to advance frames".to_string(),
+                    text_style,
+                ));
+            });
         });
 }
 

@@ -19,31 +19,26 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
     mut interaction_query: Query<
-        (
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &Children,
-        ),
+        (&Interaction, &mut BackgroundColor, &mut BorderColor),
         (Changed<Interaction>, With<Button>),
     >,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextSection>,
 ) {
-    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+    for (interaction, mut color, mut border_color) in &mut interaction_query {
+        let mut text = text_query.single_mut();
         match *interaction {
             Interaction::Pressed => {
-                text.section.value = "Press".to_string();
+                text.value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
             }
             Interaction::Hovered => {
-                text.section.value = "Hover".to_string();
+                text.value = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
                 border_color.0 = Color::WHITE;
             }
             Interaction::None => {
-                text.section.value = "Button".to_string();
+                text.value = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = Color::BLACK;
             }
@@ -83,13 +78,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     background_color: NORMAL_BUTTON.into(),
                     ..default()
                 })
-                .with_child(TextBundle::from_section(
-                    "Button",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::srgb(0.9, 0.9, 0.9),
-                    },
-                ));
+                .with_children(|parent| {
+                    parent
+                        .spawn(TextBundle::default())
+                        .with_child(TextSection::new(
+                            "Button",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 40.0,
+                                color: Color::srgb(0.9, 0.9, 0.9),
+                            },
+                        ));
+                });
         });
 }

@@ -43,8 +43,8 @@ fn setup_ui(mut cmd: Commands) {
     })
     .with_children(|root| {
         // Text where we display current resolution
-        root.spawn((
-            TextBundle::from_section(
+        root.spawn(TextBundle::default()).with_child((
+            TextSection::new(
                 "Resolution",
                 TextStyle {
                     font_size: 50.0,
@@ -81,12 +81,12 @@ fn toggle_resolution(
 /// This system shows how to respond to a window being resized.
 /// Whenever the window is resized, the text will update with the new resolution.
 fn on_resize_system(
-    mut q: Query<&mut Text, With<ResolutionText>>,
+    mut q: Query<&mut TextSection, With<ResolutionText>>,
     mut resize_reader: EventReader<WindowResized>,
 ) {
     let mut text = q.single_mut();
     for e in resize_reader.read() {
         // When resolution is being changed
-        text.section.value = format!("{:.1} x {:.1}", e.width, e.height);
+        text.value = format!("{:.1} x {:.1}", e.width, e.height);
     }
 }

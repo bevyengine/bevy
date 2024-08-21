@@ -95,16 +95,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     }).with_children(|parent| {
         parent.spawn(TextBundle {
-            text: Text::from_section(
-                "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left",                
-                text_style.clone(),
-            ).with_justify(JustifyText::Center),
+            text: Text::default().with_justify(JustifyText::Center),
             style: Style {
                 margin: UiRect::bottom(Val::Px(10.)),
                 ..Default::default()
             },
             ..Default::default()
-        });
+        }).with_child(TextSection::new(
+            "Use the panel on the right to change the Display and Visibility properties for the respective nodes of the panel on the left",                
+            text_style.clone(),
+        ));
 
         parent
             .spawn(NodeBundle {
@@ -156,23 +156,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 };
 
                 builder.spawn(TextBundle {
-                    text: Text::from_section(
+                    text: Text::default().with_justify(JustifyText::Center),
+                    ..Default::default()
+                    }).with_child(TextSection::new(
                         "Display::None\nVisibility::Hidden\nVisibility::Inherited",
                         TextStyle { color: HIDDEN_COLOR, ..text_style.clone() }
-                        ).with_justify(JustifyText::Center),
+                        ));
+                builder.spawn(TextBundle {
+                    text: Text::default().with_justify(JustifyText::Center),
                     ..Default::default()
-                    });
-                    builder.spawn(TextBundle {
-                        text: Text::from_section(
-                            "-\n-\n-",
-                            TextStyle { color: DARK_GRAY.into(), ..text_style.clone() }
-                            ).with_justify(JustifyText::Center),
-                        ..Default::default()
-                        });
-                    builder.spawn(TextBundle::from_section(
-                        "The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible.",
-                        text_style
-                    ));
+                    }).with_child(TextSection::new(
+                        "-\n-\n-",
+                        TextStyle { color: DARK_GRAY.into(), ..text_style.clone() }
+                        ));
+                builder.spawn(TextBundle::default()).with_child(TextSection::new(
+                    "The UI Node and its descendants will not be visible and will not be allotted any space in the UI layout.\nThe UI Node will not be visible but will still occupy space in the UI layout.\nThe UI node will inherit the visibility property of its parent. If it has no parent it will be visible.",
+                    text_style
+                ));
             });
     });
 }
@@ -421,20 +421,20 @@ where
             Target::<T>::new(target),
         ))
         .with_children(|builder| {
-            builder.spawn(
-                TextBundle::from_section(
+            builder
+                .spawn(TextBundle::default().with_text_justify(JustifyText::Center))
+                .with_child(TextSection::new(
                     format!("{}::{:?}", Target::<T>::NAME, T::default()),
                     text_style,
-                )
-                .with_text_justify(JustifyText::Center),
-            );
+                ));
         });
 }
 
 fn buttons_handler<T>(
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
     mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
-    mut text_query: Query<&mut Text>,
+    text_query: Query<&Children, With<Text>>,
+    mut text_section_query: Query<&mut TextSection>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
@@ -443,15 +443,18 @@ fn buttons_handler<T>(
         if matches!(interaction, Interaction::Pressed) {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
             for &child in children {
-                if let Ok(mut text) = text_query.get_mut(child) {
-                    text.section.value = target.update_target(target_value.as_mut());
-                    text.section.style.color = if text.section.value.contains("None")
-                        || text.section.value.contains("Hidden")
-                    {
-                        Color::srgb(1.0, 0.7, 0.7)
-                    } else {
-                        Color::WHITE
-                    };
+                if let Ok(children) = text_query.get(child) {
+                    for child in children.iter() {
+                        if let Ok(mut text) = text_section_query.get_mut(*child) {
+                            text.value = target.update_target(target_value.as_mut());
+                            text.style.color =
+                                if text.value.contains("None") || text.value.contains("Hidden") {
+                                    Color::srgb(1.0, 0.7, 0.7)
+                                } else {
+                                    Color::WHITE
+                                };
+                        }
+                    }
                 }
             }
         }
@@ -460,31 +463,39 @@ fn buttons_handler<T>(
 
 fn text_hover(
     mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
-    mut text_query: Query<&mut Text>,
+    text_query: Query<&Children, With<Text>>,
+    mut text_section_query: Query<&mut TextSection>,
 ) {
     for (interaction, mut color, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
                 *color = Color::BLACK.with_alpha(0.6).into();
                 for &child in children {
-                    if let Ok(mut text) = text_query.get_mut(child) {
-                        // Bypass change detection to avoid recomputation of the text when only changing the color
-                        text.bypass_change_detection().section.style.color = YELLOW.into();
+                    if let Ok(children) = text_query.get(child) {
+                        for child in children.iter() {
+                            if let Ok(mut text) = text_section_query.get_mut(*child) {
+                                // Bypass change detection to avoid recomputation of the text when only changing the color
+                                text.bypass_change_detection().style.color = YELLOW.into();
+                            }
+                        }
                     }
                 }
             }
             _ => {
                 *color = Color::BLACK.with_alpha(0.5).into();
                 for &child in children {
-                    if let Ok(mut text) = text_query.get_mut(child) {
-                        text.bypass_change_detection().section.style.color =
-                            if text.section.value.contains("None")
-                                || text.section.value.contains("Hidden")
-                            {
-                                HIDDEN_COLOR
-                            } else {
-                                Color::WHITE
-                            };
+                    if let Ok(children) = text_query.get(child) {
+                        for child in children.iter() {
+                            if let Ok(mut text) = text_section_query.get_mut(*child) {
+                                text.bypass_change_detection().style.color =
+                                    if text.value.contains("None") || text.value.contains("Hidden")
+                                    {
+                                        HIDDEN_COLOR
+                                    } else {
+                                        Color::WHITE
+                                    };
+                            }
+                        }
                     }
                 }
             }

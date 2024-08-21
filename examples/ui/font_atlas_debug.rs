@@ -65,13 +65,13 @@ fn atlas_render_system(
 fn text_update_system(
     mut state: ResMut<State>,
     time: Res<Time>,
-    mut query: Query<&mut Text>,
+    mut query: Query<&mut TextSection>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
     if state.timer.tick(time.delta()).finished() {
         for mut text in &mut query {
             let c = seeded_rng.gen::<u8>() as char;
-            let string = &mut text.section.value;
+            let string = &mut text.value;
             if !string.contains(c) {
                 string.push(c);
             }
@@ -96,14 +96,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "a",
-                TextStyle {
-                    font: font_handle,
-                    font_size: 60.0,
-                    color: YELLOW.into(),
-                },
-            ));
+            parent
+                .spawn(TextBundle::default())
+                .with_child(TextSection::new(
+                    "a",
+                    TextStyle {
+                        font: font_handle,
+                        font_size: 60.0,
+                        color: YELLOW.into(),
+                    },
+                ));
         });
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.

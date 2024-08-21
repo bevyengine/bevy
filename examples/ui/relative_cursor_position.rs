@@ -54,40 +54,38 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(RelativeCursorPosition::default());
 
-            parent.spawn(TextBundle {
-                text: Text::from_section(
+            parent
+                .spawn(TextBundle::default())
+                .with_child(TextSection::new(
                     "(0.0, 0.0)",
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 40.0,
                         color: Color::srgb(0.9, 0.9, 0.9),
                     },
-                ),
-                ..default()
-            });
+                ));
         });
 }
 
 /// This systems polls the relative cursor position and displays its value in a text component.
 fn relative_cursor_position_system(
     relative_cursor_position_query: Query<&RelativeCursorPosition>,
-    mut output_query: Query<&mut Text>,
+    mut output_query: Query<&mut TextSection>,
 ) {
     let relative_cursor_position = relative_cursor_position_query.single();
 
     let mut output = output_query.single_mut();
 
-    output.section.value =
-        if let Some(relative_cursor_position) = relative_cursor_position.normalized {
-            format!(
-                "({:.1}, {:.1})",
-                relative_cursor_position.x, relative_cursor_position.y
-            )
-        } else {
-            "unknown".to_string()
-        };
+    output.value = if let Some(relative_cursor_position) = relative_cursor_position.normalized {
+        format!(
+            "({:.1}, {:.1})",
+            relative_cursor_position.x, relative_cursor_position.y
+        )
+    } else {
+        "unknown".to_string()
+    };
 
-    output.section.style.color = if relative_cursor_position.mouse_over() {
+    output.style.color = if relative_cursor_position.mouse_over() {
         Color::srgb(0.1, 0.9, 0.1)
     } else {
         Color::srgb(0.9, 0.1, 0.1)

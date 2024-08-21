@@ -123,10 +123,6 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             for (j, message) in messages.into_iter().enumerate() {
                 let text = Text {
-                    sections: vec![TextSection {
-                        value: message.clone(),
-                        style: text_style.clone(),
-                    }],
                     justify: JustifyText::Left,
                     linebreak_behavior,
                 };
@@ -135,6 +131,10 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                         text,
                         background_color: Color::srgb(0.8 - j as f32 * 0.2, 0., 0.).into(),
                         ..Default::default()
+                    })
+                    .with_child(TextSection {
+                        value: message.clone(),
+                        style: text_style.clone(),
                     })
                     .id();
                 commands.entity(column_id).add_child(text_id);

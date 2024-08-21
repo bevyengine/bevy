@@ -133,13 +133,15 @@ fn spawn_text(mut commands: Commands) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Move the player with WASD",
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
-            ));
+            parent
+                .spawn(TextBundle::default())
+                .with_child(TextSection::new(
+                    "Move the player with WASD",
+                    TextStyle {
+                        font_size: 25.0,
+                        ..default()
+                    },
+                ));
         });
 }
 

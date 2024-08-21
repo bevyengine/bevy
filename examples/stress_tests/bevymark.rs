@@ -216,7 +216,16 @@ struct BirdResources {
 }
 
 #[derive(Component)]
-struct StatsText;
+struct BirdCountText;
+
+#[derive(Component)]
+struct RawFpsText;
+
+#[derive(Component)]
+struct SmaFpsText;
+
+#[derive(Component)]
+struct EmaFpsText;
 
 #[allow(clippy::too_many_arguments)]
 fn setup(
@@ -281,19 +290,19 @@ fn setup(
             ..default()
         })
         .with_children(|c| {
-            c.spawn((
-                TextBundle::from_sections([
-                    text_section(LIME, "Bird Count: "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (raw): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (SMA): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (EMA): "),
-                    text_section(AQUA, ""),
-                ]),
-                StatsText,
-            ));
+            c.spawn(TextBundle::default()).with_children(|c| {
+                c.spawn(text_section(LIME, "Bird Count: "));
+                c.spawn((BirdCountText, text_section(AQUA, "")));
+
+                c.spawn(text_section(LIME, "\nFPS: "));
+                c.spawn((RawFpsText, text_section(AQUA, "")));
+
+                c.spawn(text_section(LIME, "\nFPS (SMA): "));
+                c.spawn((SmaFpsText, text_section(AQUA, "")));
+
+                c.spawn(text_section(LIME, "\nFPS (EMA): "));
+                c.spawn((EmaFpsText, text_section(AQUA, "")));
+            });
         });
 
     let mut scheduled = BirdScheduled {
@@ -547,23 +556,29 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
-    mut query: Query<&mut Text, With<StatsText>>,
+    mut query: Query<&mut TextSection>,
+    bird_count_query: Query<Entity, With<BirdCountText>>,
+    raw_fps_query: Query<Entity, With<RawFpsText>>,
+    sma_fps_query: Query<Entity, With<SmaFpsText>>,
+    ema_fps_query: Query<Entity, With<EmaFpsText>>,
 ) {
-    let mut text = query.single_mut();
-
     if counter.is_changed() {
-        text.sections[1].value = counter.count.to_string();
+        let mut text = query.get_mut(bird_count_query.single()).unwrap();
+        text.value = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
-            text.sections[3].value = format!("{raw:.2}");
+            let mut text = query.get_mut(raw_fps_query.single()).unwrap();
+            text.value = format!("{raw:.2}");
         }
         if let Some(sma) = fps.average() {
-            text.sections[5].value = format!("{sma:.2}");
+            let mut text = query.get_mut(sma_fps_query.single()).unwrap();
+            text.value = format!("{sma:.2}");
         }
         if let Some(ema) = fps.smoothed() {
-            text.sections[7].value = format!("{ema:.2}");
+            let mut text = query.get_mut(ema_fps_query.single()).unwrap();
+            text.value = format!("{ema:.2}");
         }
     };
 }

@@ -19,25 +19,25 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut TextureAtlas, &Children, &mut UiImage),
+        (&Interaction, &mut TextureAtlas, &mut UiImage),
         (Changed<Interaction>, With<Button>),
     >,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut TextSection>,
 ) {
-    for (interaction, mut atlas, children, mut image) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+    for (interaction, mut atlas, mut image) in &mut interaction_query {
+        let mut text = text_query.single_mut();
         match *interaction {
             Interaction::Pressed => {
-                text.section.value = "Press".to_string();
+                text.value = "Press".to_string();
                 atlas.index = (atlas.index + 1) % 30;
                 image.color = GOLD.into();
             }
             Interaction::Hovered => {
-                text.section.value = "Hover".to_string();
+                text.value = "Hover".to_string();
                 image.color = ORANGE.into();
             }
             Interaction::None => {
-                text.section.value = "Button".to_string();
+                text.value = "Button".to_string();
                 image.color = Color::WHITE;
             }
         }
@@ -102,14 +102,16 @@ fn setup(
                         },
                     ))
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Button",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 40.0,
-                                color: Color::srgb(0.9, 0.9, 0.9),
-                            },
-                        ));
+                        parent
+                            .spawn(TextBundle::default())
+                            .with_child(TextSection::new(
+                                "Button",
+                                TextStyle {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 40.0,
+                                    color: Color::srgb(0.9, 0.9, 0.9),
+                                },
+                            ));
                     });
             }
         });

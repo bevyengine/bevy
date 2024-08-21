@@ -26,7 +26,7 @@ fn main() {
 }
 
 #[derive(Component)]
-struct Instructions;
+struct OverflowText;
 
 #[derive(Resource, Default)]
 struct AnimationState {
@@ -77,26 +77,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn(Camera2dBundle::default());
 
-    // Instructions
+    // OverflowText
 
     let text_style = TextStyle::default();
 
-    commands.spawn((
-        TextBundle::from_sections([
-            TextSection::new(
-                "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
-                text_style.clone(),
-            ),
-            TextSection::new(format!("{:?}", Overflow::clip()), text_style.clone()),
-        ])
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-        Instructions,
-    ));
+        }))
+        .with_children(|parent| {
+            parent.spawn(TextSection::new(
+                "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
+                text_style.clone(),
+            ));
+            parent.spawn((
+                TextSection::new(format!("{:?}", Overflow::clip()), text_style.clone()),
+                OverflowText,
+            ));
+        });
 
     // Overflow Debug
 
@@ -162,14 +163,16 @@ fn spawn_text(
     update_transform: impl UpdateTransform + Component,
 ) {
     spawn_container(parent, update_transform, |parent| {
-        parent.spawn(TextBundle::from_section(
-            "Bevy",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 120.0,
-                ..default()
-            },
-        ));
+        parent
+            .spawn(TextBundle::default())
+            .with_child(TextSection::new(
+                "Bevy",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 120.0,
+                    ..default()
+                },
+            ));
     });
 }
 
@@ -254,7 +257,7 @@ fn update_transform<T: UpdateTransform + Component>(
 
 fn toggle_overflow(
     mut containers: Query<&mut Style, With<Container>>,
-    mut instructions: Query<&mut Text, With<Instructions>>,
+    mut overflow_text: Query<&mut TextSection, With<OverflowText>>,
 ) {
     for mut style in &mut containers {
         style.overflow = match style.overflow {
@@ -273,8 +276,8 @@ fn toggle_overflow(
             _ => Overflow::visible(),
         };
 
-        let mut text = instructions.single_mut();
-        text.sections[1].value = format!("{:?}", style.overflow);
+        let mut text = overflow_text.single_mut();
+        text.value = format!("{:?}", style.overflow);
     }
 }
 

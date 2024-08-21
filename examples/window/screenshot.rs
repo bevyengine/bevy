@@ -61,16 +61,15 @@ fn setup(
         ..default()
     });
 
-    commands.spawn(
-        TextBundle::from_section(
-            "Press <spacebar> to save a screenshot to disk",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::new(
+            "Press <spacebar> to save a screenshot to disk",
+            TextStyle::default(),
+        ));
 }

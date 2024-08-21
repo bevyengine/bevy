@@ -160,7 +160,6 @@ pub struct AtlasImageBundle {
 
 #[cfg(feature = "bevy_text")]
 /// A UI node that is a parent of zero or more text entities.
-/// To make this UI node also have text itself, add a [`TextSection`](bevy_text::TextSection) component
 ///
 /// The positioning of this node is controlled by the UI layout system. If you need manual control,
 /// use [`Text2dBundle`](bevy_text::Text2dBundle).

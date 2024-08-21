@@ -97,8 +97,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         })
         .with_children(|builder| {
             // real time info
-            builder.spawn((
-                TextBundle::from_section(
+            builder.spawn(TextBundle::default()).with_child((
+                TextSection::new(
                     "",
                     TextStyle {
                         font_size,
@@ -109,31 +109,31 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             ));
 
             // keybindings
-            builder.spawn(
-                TextBundle::from_section(
+            builder
+                .spawn(TextBundle::default().with_text_justify(JustifyText::Center))
+                .with_child(TextSection::new(
                     "CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down",
                     TextStyle {
                         font_size,
                         color: Color::srgb(0.85, 0.85, 0.85),
                         ..default()
                     },
-                )
-                .with_text_justify(JustifyText::Center),
-            );
+                ));
 
             // virtual time info
-            builder.spawn((
-                TextBundle::from_section(
-                    "",
-                    TextStyle {
-                        font_size,
-                        color: virtual_color,
-                        ..default()
-                    },
-                )
-                .with_text_justify(JustifyText::Right),
-                VirtualTime,
-            ));
+            builder
+                .spawn((TextBundle::default().with_text_justify(JustifyText::Right),))
+                .with_child((
+                    TextSection::new(
+                        "",
+                        TextStyle {
+                            font_size,
+                            color: virtual_color,
+                            ..default()
+                        },
+                    ),
+                    VirtualTime,
+                ));
         });
 }
 
@@ -192,9 +192,12 @@ fn toggle_pause(mut time: ResMut<Time<Virtual>>) {
 }
 
 /// Update the `Real` time info text
-fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text, With<RealTime>>) {
+fn update_real_time_info_text(
+    time: Res<Time<Real>>,
+    mut query: Query<&mut TextSection, With<RealTime>>,
+) {
     for mut text in &mut query {
-        text.section.value = format!(
+        text.value = format!(
             "REAL TIME\nElapsed: {:.1}\nDelta: {:.5}\n",
             time.elapsed_seconds(),
             time.delta_seconds(),
@@ -205,10 +208,10 @@ fn update_real_time_info_text(time: Res<Time<Real>>, mut query: Query<&mut Text,
 /// Update the `Virtual` time info text
 fn update_virtual_time_info_text(
     time: Res<Time<Virtual>>,
-    mut query: Query<&mut Text, With<VirtualTime>>,
+    mut query: Query<&mut TextSection, With<VirtualTime>>,
 ) {
     for mut text in &mut query {
-        text.section.value = format!(
+        text.value = format!(
             "VIRTUAL TIME\nElapsed: {:.1}\nDelta: {:.5}\nSpeed: {:.2}",
             time.elapsed_seconds(),
             time.delta_seconds(),

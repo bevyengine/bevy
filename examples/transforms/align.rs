@@ -99,26 +99,27 @@ fn setup(
     ));
 
     // Instructions for the example
-    commands.spawn((
-        TextBundle::from_section(
+    commands
+        .spawn((
+            TextBundle::default().with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            }),
+            Instructions,
+        ))
+        .with_child(TextSection::new(
             "The bright red axis is the primary alignment axis, and it will always be\n\
-            made to coincide with the primary target direction (white) exactly.\n\
-            The fainter red axis is the secondary alignment axis, and it is made to\n\
-            line up with the secondary target direction (gray) as closely as possible.\n\
-            Press 'R' to generate random target directions.\n\
-            Press 'T' to align the ship to those directions.\n\
-            Click and drag the mouse to rotate the camera.\n\
-            Press 'H' to hide/show these instructions.",
+        made to coincide with the primary target direction (white) exactly.\n\
+        The fainter red axis is the secondary alignment axis, and it is made to\n\
+        line up with the secondary target direction (gray) as closely as possible.\n\
+        Press 'R' to generate random target directions.\n\
+        Press 'T' to align the ship to those directions.\n\
+        Click and drag the mouse to rotate the camera.\n\
+        Press 'H' to hide/show these instructions.",
             TextStyle::default(),
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-        Instructions,
-    ));
+        ));
 
     commands.insert_resource(MousePressed(false));
     commands.insert_resource(SeededRng(seeded_rng));

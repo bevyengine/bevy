@@ -87,17 +87,17 @@ fn setup(mut commands: Commands) {
         ..default()
     });
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(TextSection::default());
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
+fn ui_system(mut query: Query<&mut TextSection>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let mut text = query.single_mut();
 
     let Some(fps) = diag
@@ -107,7 +107,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         return;
     };
 
-    text.section.value = format!(
+    text.value = format!(
         "Line count: {}\n\
         FPS: {:.0}\n\n\
         Controls:\n\

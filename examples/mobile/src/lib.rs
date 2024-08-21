@@ -125,17 +125,15 @@ fn setup_scene(
             ..default()
         })
         .with_children(|b| {
-            b.spawn(
-                TextBundle::from_section(
+            b.spawn(TextBundle::default().with_text_justify(JustifyText::Center))
+                .with_child(TextSection::new(
                     "Test Button",
                     TextStyle {
                         font_size: 30.0,
                         color: Color::BLACK,
                         ..default()
                     },
-                )
-                .with_text_justify(JustifyText::Center),
-            );
+                ));
         });
 }
 

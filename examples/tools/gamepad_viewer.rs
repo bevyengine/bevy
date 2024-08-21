@@ -33,10 +33,11 @@ struct MoveWithAxes {
     scale: f32,
 }
 #[derive(Component)]
-struct TextWithAxes {
-    x_axis: GamepadAxisType,
-    y_axis: GamepadAxisType,
-}
+struct XAxisText(GamepadAxisType);
+
+#[derive(Component)]
+struct YAxisText(GamepadAxisType);
+
 #[derive(Component, Deref)]
 struct TextWithButtonValue(GamepadButtonType);
 
@@ -314,28 +315,32 @@ fn setup_sticks(
                     font_size: 16.,
                     ..default()
                 };
-                parent.spawn((
-                    Text2dBundle {
+                parent
+                    .spawn((Text2dBundle {
                         transform: Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
-                        text: Text::from_sections([
+                        text_anchor: Anchor::BottomCenter,
+                        ..default()
+                    },))
+                    .with_children(|parent| {
+                        parent.spawn((
                             TextSection {
                                 value: format!("{:.3}", 0.),
                                 style: style.clone(),
                             },
-                            TextSection {
-                                value: ", ".to_string(),
-                                style: style.clone(),
-                            },
+                            XAxisText(x_axis),
+                        ));
+                        parent.spawn(TextSection {
+                            value: ", ".to_string(),
+                            style: style.clone(),
+                        });
+                        parent.spawn((
                             TextSection {
                                 value: format!("{:.3}", 0.),
                                 style,
                             },
-                        ]),
-                        text_anchor: Anchor::BottomCenter,
-                        ..default()
-                    },
-                    TextWithAxes { x_axis, y_axis },
-                ));
+                            YAxisText(y_axis),
+                        ));
+                    });
                 // cursor
                 parent.spawn((
                     MaterialMesh2dBundle {
@@ -386,20 +391,21 @@ fn setup_triggers(
                 y,
             ))
             .with_children(|parent| {
-                parent.spawn((
-                    Text2dBundle {
+                parent
+                    .spawn(Text2dBundle {
                         transform: Transform::from_xyz(0., 0., 1.),
-                        text: Text::from_section(
+                        ..default()
+                    })
+                    .with_child((
+                        TextSection::new(
                             format!("{:.3}", 0.),
                             TextStyle {
                                 font_size: 16.,
                                 ..default()
                             },
                         ),
-                        ..default()
-                    },
-                    TextWithButtonValue(button_type),
-                ));
+                        TextWithButtonValue(button_type),
+                    ));
             });
     };
 
@@ -418,18 +424,8 @@ fn setup_triggers(
 fn setup_connected(mut commands: Commands) {
     let text_style = TextStyle::default();
 
-    commands.spawn((
-        TextBundle {
-            text: Text::from_sections([
-                TextSection {
-                    value: "Connected Gamepads:\n".to_string(),
-                    style: text_style.clone(),
-                },
-                TextSection {
-                    value: "None".to_string(),
-                    style: text_style,
-                },
-            ]),
+    commands
+        .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.),
@@ -437,9 +433,20 @@ fn setup_connected(mut commands: Commands) {
                 ..default()
             },
             ..default()
-        },
-        ConnectedGamepadsText,
-    ));
+        })
+        .with_children(|parent| {
+            parent.spawn(TextSection {
+                value: "Connected Gamepads:\n".to_string(),
+                style: text_style.clone(),
+            });
+            parent.spawn((
+                TextSection {
+                    value: "None".to_string(),
+                    style: text_style,
+                },
+                ConnectedGamepadsText,
+            ));
+        });
 }
 
 fn update_buttons(
@@ -462,12 +469,12 @@ fn update_buttons(
 
 fn update_button_values(
     mut events: EventReader<GamepadButtonChangedEvent>,
-    mut query: Query<(&mut Text, &TextWithButtonValue)>,
+    mut query: Query<(&mut TextSection, &TextWithButtonValue)>,
 ) {
     for button_event in events.read() {
         for (mut text, text_with_button_value) in query.iter_mut() {
             if button_event.button_type == **text_with_button_value {
-                text.sections[0].value = format!("{:.3}", button_event.value);
+                text.value = format!("{:.3}", button_event.value);
             }
         }
     }
@@ -476,7 +483,8 @@ fn update_button_values(
 fn update_axes(
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
-    mut text_query: Query<(&mut Text, &TextWithAxes)>,
+    mut x_axis_text_query: Query<(&mut TextSection, &XAxisText)>,
+    mut y_axis_text_query: Query<(&mut TextSection, &YAxisText)>,
 ) {
     for axis_event in axis_events.read() {
         let axis_type = axis_event.axis_type;
@@ -489,12 +497,14 @@ fn update_axes(
                 transform.translation.y = value * move_with.scale;
             }
         }
-        for (mut text, text_with_axes) in text_query.iter_mut() {
-            if axis_type == text_with_axes.x_axis {
-                text.sections[0].value = format!("{value:.3}");
+        for (mut text, axis) in x_axis_text_query.iter_mut() {
+            if axis_type == axis.0 {
+                text.value = format!("{value:.3}");
             }
-            if axis_type == text_with_axes.y_axis {
-                text.sections[2].value = format!("{value:.3}");
+        }
+        for (mut text, axis) in y_axis_text_query.iter_mut() {
+            if axis_type == axis.0 {
+                text.value = format!("{value:.3}");
             }
         }
     }
@@ -502,7 +512,7 @@ fn update_axes(
 
 fn update_connected(
     gamepads: Res<Gamepads>,
-    mut query: Query<&mut Text, With<ConnectedGamepadsText>>,
+    mut query: Query<&mut TextSection, With<ConnectedGamepadsText>>,
 ) {
     if !gamepads.is_changed() {
         return;
@@ -516,7 +526,7 @@ fn update_connected(
         .collect::<Vec<_>>()
         .join("\n");
 
-    text.sections[1].value = if !formatted.is_empty() {
+    text.value = if !formatted.is_empty() {
         formatted
     } else {
         "None".to_string()

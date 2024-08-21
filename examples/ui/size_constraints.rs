@@ -72,13 +72,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(
-                        TextBundle::from_section("Size Constraints Example", text_style.clone())
-                            .with_style(Style {
-                                margin: UiRect::bottom(Val::Px(25.)),
-                                ..Default::default()
-                            }),
-                    );
+                    parent
+                        .spawn(TextBundle::default().with_style(Style {
+                            margin: UiRect::bottom(Val::Px(25.)),
+                            ..Default::default()
+                        }))
+                        .with_child(TextSection::new(
+                            "Size Constraints Example",
+                            text_style.clone(),
+                        ));
 
                     spawn_bar(parent);
 
@@ -192,10 +194,12 @@ fn spawn_button_row(parent: &mut ChildBuilder, constraint: Constraint, text_styl
                             ..Default::default()
                         })
                         .with_children(|parent| {
-                            parent.spawn(TextBundle {
-                                text: Text::from_section(label.to_string(), text_style.clone()),
-                                ..Default::default()
-                            });
+                            parent
+                                .spawn(TextBundle::default())
+                                .with_child(TextSection::new(
+                                    label.to_string(),
+                                    text_style.clone(),
+                                ));
                         });
 
                     // spawn row buttons
@@ -273,8 +277,9 @@ fn spawn_button(
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle {
-                        text: Text::from_section(
+                    parent
+                        .spawn(TextBundle::default().with_text_justify(JustifyText::Center))
+                        .with_child(TextSection::new(
                             label,
                             TextStyle {
                                 color: if active {
@@ -284,10 +289,7 @@ fn spawn_button(
                                 },
                                 ..text_style
                             },
-                        )
-                        .with_justify(JustifyText::Center),
-                        ..Default::default()
-                    });
+                        ));
                 });
         });
 }
@@ -298,7 +300,8 @@ fn update_buttons(
         Changed<Interaction>,
     >,
     mut bar_query: Query<&mut Style, With<Bar>>,
-    mut text_query: Query<&mut Text>,
+    text_query: Query<&Children, With<Text>>,
+    mut sections_query: Query<&mut TextSection>,
     children_query: Query<&Children>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
@@ -327,9 +330,15 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    if text.section.style.color != ACTIVE_TEXT_COLOR {
-                                        text.section.style.color = HOVERED_TEXT_COLOR;
+                                if let Ok(grand_grand_children) = text_query.get(grandchild) {
+                                    for grand_grand_child in grand_grand_children.iter() {
+                                        if let Ok(mut text) =
+                                            sections_query.get_mut(*grand_grand_child)
+                                        {
+                                            if text.style.color != ACTIVE_TEXT_COLOR {
+                                                text.style.color = HOVERED_TEXT_COLOR;
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -342,9 +351,15 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text) = text_query.get_mut(grandchild) {
-                                    if text.section.style.color != ACTIVE_TEXT_COLOR {
-                                        text.section.style.color = UNHOVERED_TEXT_COLOR;
+                                if let Ok(grand_grand_children) = text_query.get(grandchild) {
+                                    for grand_grand_child in grand_grand_children.iter() {
+                                        if let Ok(mut text) =
+                                            sections_query.get_mut(*grand_grand_child)
+                                        {
+                                            if text.style.color != ACTIVE_TEXT_COLOR {
+                                                text.style.color = UNHOVERED_TEXT_COLOR;
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -361,7 +376,8 @@ fn update_radio_buttons_colors(
     button_query: Query<(Entity, &Constraint, &Interaction)>,
     mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
-    mut text_query: Query<&mut Text>,
+    text_query: Query<&Children, With<Text>>,
+    mut sections_query: Query<&mut TextSection>,
     children_query: Query<&Children>,
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.read() {
@@ -386,8 +402,12 @@ fn update_radio_buttons_colors(
                 for &child in children_query.get(id).into_iter().flatten() {
                     color_query.get_mut(child).unwrap().0 = inner_color;
                     for &grandchild in children_query.get(child).into_iter().flatten() {
-                        if let Ok(mut text) = text_query.get_mut(grandchild) {
-                            text.section.style.color = text_color;
+                        if let Ok(grand_grand_children) = text_query.get(grandchild) {
+                            for grand_grand_child in grand_grand_children.iter() {
+                                if let Ok(mut text) = sections_query.get_mut(*grand_grand_child) {
+                                    text.style.color = text_color;
+                                }
+                            }
                         }
                     }
                 }

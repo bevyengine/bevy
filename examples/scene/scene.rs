@@ -149,17 +149,16 @@ fn save_scene_system(world: &mut World) {
 // text example.
 fn infotext_system(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(
-        TextBundle::from_section(
+    commands
+        .spawn(TextBundle::default().with_style(Style {
+            align_self: AlignSelf::FlexEnd,
+            ..default()
+        }))
+        .with_child(TextSection::new(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font_size: 50.0,
                 ..default()
             },
-        )
-        .with_style(Style {
-            align_self: AlignSelf::FlexEnd,
-            ..default()
-        }),
-    );
+        ));
 }
