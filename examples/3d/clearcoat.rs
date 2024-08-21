@@ -236,18 +236,14 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns the help text.
 fn spawn_text(commands: &mut Commands, light_mode: &LightMode) {
-    commands.spawn(
-        TextBundle {
-            text: light_mode.create_help_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(light_mode.create_help_text());
 }
 
 /// Moves the light around.
@@ -307,7 +303,7 @@ fn handle_input(
 }
 
 /// Updates the help text at the bottom of the screen.
-fn update_help_text(mut text_query: Query<&mut Text>, light_mode: Res<LightMode>) {
+fn update_help_text(mut text_query: Query<&mut TextSection>, light_mode: Res<LightMode>) {
     for mut text in text_query.iter_mut() {
         *text = light_mode.create_help_text();
     }
@@ -333,12 +329,12 @@ fn create_directional_light() -> DirectionalLight {
 
 impl LightMode {
     /// Creates the help text at the bottom of the screen.
-    fn create_help_text(&self) -> Text {
+    fn create_help_text(&self) -> TextSection {
         let help_text = match *self {
             LightMode::Point => "Press Space to switch to a directional light",
             LightMode::Directional => "Press Space to switch to a point light",
         };
 
-        Text::from_section(help_text, TextStyle::default())
+        TextSection::new(help_text, TextStyle::default())
     }
 }
