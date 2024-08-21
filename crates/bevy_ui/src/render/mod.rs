@@ -1081,6 +1081,7 @@ pub fn prepare_uinodes(
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_text_sections: ResMut<ExtractedTextSections>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
@@ -1330,159 +1331,135 @@ pub fn prepare_uinodes(
                 }
             }
         }
+
+        for ui_phase in phases.values_mut() {
+            for item_index in 0..ui_phase.items.len() {
+                let item = &mut ui_phase.items[item_index];
+                if let Some(extracted_text_section) =
+                    extracted_text_sections.batches.get(&item.entity)
+                {
+                    if let Some(gpu_image) = gpu_images.get(extracted_text_section.image) {
+                        image_bind_groups
+                            .values
+                            .entry(extracted_text_section.image)
+                            .or_insert_with(|| {
+                                render_device.create_bind_group(
+                                    "ui_material_bind_group",
+                                    &ui_pipeline.image_layout,
+                                    &BindGroupEntries::sequential((
+                                        &gpu_image.texture_view,
+                                        &gpu_image.sampler,
+                                    )),
+                                )
+                            });
+                    } else {
+                        println!("no gpu image");
+                        continue;
+                    }
+
+                    let start_index = vertices_index;
+
+                    let image = gpu_images
+                        .get(extracted_text_section.image)
+                        .expect("Image was checked during batching and should still exist");
+                    let atlas_extent = image.size.as_vec2() * extracted_text_section.atlas_scaling;
+
+                    let color = extracted_text_section.color.to_f32_array();
+                    for glyph in
+                        &extracted_text_sections.glyphs[extracted_text_section.range.clone()]
+                    {
+                        let glyph_rect = glyph.rect;
+                        let size = glyph.rect.size();
+
+                        let rect_size = glyph_rect.size().extend(1.0);
+
+                        // Specify the corners of the glyph
+                        let positions = QUAD_VERTEX_POSITIONS
+                            .map(|pos| (glyph.transform * (pos * rect_size).extend(1.)).xyz());
+
+                        let positions_diff = if let Some(clip) = extracted_text_section.clip {
+                            [
+                                Vec2::new(
+                                    f32::max(clip.min.x - positions[0].x, 0.),
+                                    f32::max(clip.min.y - positions[0].y, 0.),
+                                ),
+                                Vec2::new(
+                                    f32::min(clip.max.x - positions[1].x, 0.),
+                                    f32::max(clip.min.y - positions[1].y, 0.),
+                                ),
+                                Vec2::new(
+                                    f32::min(clip.max.x - positions[2].x, 0.),
+                                    f32::min(clip.max.y - positions[2].y, 0.),
+                                ),
+                                Vec2::new(
+                                    f32::max(clip.min.x - positions[3].x, 0.),
+                                    f32::min(clip.max.y - positions[3].y, 0.),
+                                ),
+                            ]
+                        } else {
+                            [Vec2::ZERO; 4]
+                        };
+
+                        let uvs = [
+                            Vec2::new(
+                                glyph.rect.min.x + positions_diff[0].x,
+                                glyph.rect.min.y + positions_diff[0].y,
+                            ),
+                            Vec2::new(
+                                glyph.rect.max.x + positions_diff[1].x,
+                                glyph.rect.min.y + positions_diff[1].y,
+                            ),
+                            Vec2::new(
+                                glyph.rect.max.x + positions_diff[2].x,
+                                glyph.rect.max.y + positions_diff[2].y,
+                            ),
+                            Vec2::new(
+                                glyph.rect.min.x + positions_diff[3].x,
+                                glyph.rect.max.y + positions_diff[3].y,
+                            ),
+                        ]
+                        .map(|pos| pos / atlas_extent);
+
+                        for i in 0..4 {
+                            ui_meta.vertices.push(UiVertex {
+                                position: positions[i].into(),
+                                uv: uvs[i].into(),
+                                color,
+                                flags: shader_flags::TEXTURED,
+                                radius: [0.0; 4],
+                                border: [0.0; 4],
+                                size: size.into(),
+                            });
+                        }
+
+                        for &i in &QUAD_INDICES {
+                            ui_meta.indices.push(indices_index + i as u32);
+                        }
+
+                        vertices_index += 6;
+                        indices_index += 4;
+                    }
+
+                    batches.push((
+                        item.entity,
+                        UiBatch {
+                            range: start_index..vertices_index,
+                            image: extracted_text_section.image,
+                            camera: extracted_text_section.camera_entity,
+                        },
+                    ));
+
+                    ui_phase.items[item_index].batch_range_mut().end = 1;
+                }
+            }
+        }
+
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         ui_meta.indices.write_buffer(&render_device, &render_queue);
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }
     extracted_uinodes.uinodes.clear();
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_text_sections(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<UiMeta>,
-    mut extracted_text_sections: ResMut<ExtractedTextSections>,
-    ui_pipeline: Res<UiPipeline>,
-    mut image_bind_groups: ResMut<UiImageBindGroups>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
-    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-) {
-    if ui_meta.view_bind_group.is_none() {
-        return;
-    }
-
-    // Buffer indexes
-    let mut vertices_index = 0;
-    let mut indices_index = 0;
-    let mut batches: Vec<(Entity, UiBatch)> =
-        Vec::with_capacity(extracted_text_sections.batches.len());
-
-    for ui_phase in phases.values_mut() {
-        for item_index in 0..ui_phase.items.len() {
-            let item = &mut ui_phase.items[item_index];
-            if let Some(extracted_text_section) = extracted_text_sections.batches.get(&item.entity)
-            {
-                if let Some(gpu_image) = gpu_images.get(extracted_text_section.image) {
-                    image_bind_groups
-                        .values
-                        .entry(extracted_text_section.image)
-                        .or_insert_with(|| {
-                            render_device.create_bind_group(
-                                "ui_material_bind_group",
-                                &ui_pipeline.image_layout,
-                                &BindGroupEntries::sequential((
-                                    &gpu_image.texture_view,
-                                    &gpu_image.sampler,
-                                )),
-                            )
-                        });
-                } else {
-                    println!("no gpu image");
-                    continue;
-                }
-
-                let start_index = vertices_index;
-
-                let image = gpu_images
-                    .get(extracted_text_section.image)
-                    .expect("Image was checked during batching and should still exist");
-                let atlas_extent = image.size.as_vec2() * extracted_text_section.atlas_scaling;
-
-                let color = extracted_text_section.color.to_f32_array();
-                for glyph in &extracted_text_sections.glyphs[extracted_text_section.range.clone()] {
-                    let glyph_rect = glyph.rect;
-                    let size = glyph.rect.size();
-
-                    let rect_size = glyph_rect.size().extend(1.0);
-
-                    // Specify the corners of the glyph
-                    let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (glyph.transform * (pos * rect_size).extend(1.)).xyz());
-
-                    let positions_diff = if let Some(clip) = extracted_text_section.clip {
-                        [
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[0].x, 0.),
-                                f32::max(clip.min.y - positions[0].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[1].x, 0.),
-                                f32::max(clip.min.y - positions[1].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[2].x, 0.),
-                                f32::min(clip.max.y - positions[2].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[3].x, 0.),
-                                f32::min(clip.max.y - positions[3].y, 0.),
-                            ),
-                        ]
-                    } else {
-                        [Vec2::ZERO; 4]
-                    };
-
-                    let uvs = [
-                        Vec2::new(
-                            glyph.rect.min.x + positions_diff[0].x,
-                            glyph.rect.min.y + positions_diff[0].y,
-                        ),
-                        Vec2::new(
-                            glyph.rect.max.x + positions_diff[1].x,
-                            glyph.rect.min.y + positions_diff[1].y,
-                        ),
-                        Vec2::new(
-                            glyph.rect.max.x + positions_diff[2].x,
-                            glyph.rect.max.y + positions_diff[2].y,
-                        ),
-                        Vec2::new(
-                            glyph.rect.min.x + positions_diff[3].x,
-                            glyph.rect.max.y + positions_diff[3].y,
-                        ),
-                    ]
-                    .map(|pos| pos / atlas_extent);
-
-                    for i in 0..4 {
-                        ui_meta.vertices.push(UiVertex {
-                            position: positions[i].into(),
-                            uv: uvs[i].into(),
-                            color,
-                            flags: shader_flags::TEXTURED,
-                            radius: [0.0; 4],
-                            border: [0.0; 4],
-                            size: size.into(),
-                        });
-                    }
-
-                    for &i in &QUAD_INDICES {
-                        ui_meta.indices.push(indices_index + i as u32);
-                    }
-
-                    vertices_index += 6;
-                    indices_index += 4;
-                }
-
-                batches.push((
-                    item.entity,
-                    UiBatch {
-                        range: start_index..vertices_index,
-                        image: extracted_text_section.image,
-                        camera: extracted_text_section.camera_entity,
-                    },
-                ));
-
-                ui_phase.items[item_index].batch_range_mut().end = 1;
-            }
-        }
-    }
-
-    ui_meta.vertices.write_buffer(&render_device, &render_queue);
-    ui_meta.indices.write_buffer(&render_device, &render_queue);
-    commands.insert_or_spawn_batch(batches);
-
     extracted_text_sections.batches.clear();
     extracted_text_sections.glyphs.clear();
 }
