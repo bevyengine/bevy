@@ -5,7 +5,7 @@ use bevy_asset::{load_internal_asset, AssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::prepare_oit_buffers,
+    oit::{prepare_oit_buffers, OitLayersCountOffset},
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -2183,6 +2183,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
+        Option<Read<OitLayersCountOffset>>,
     );
     type ItemQuery = ();
 
@@ -2197,23 +2198,24 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_ssr,
             view_environment_map,
             mesh_view_bind_group,
+            maybe_oit_layers_count_offset,
         ): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(
-            I,
-            &mesh_view_bind_group.value,
-            &[
-                view_uniform.offset,
-                view_lights.offset,
-                view_fog.offset,
-                **view_light_probes,
-                **view_ssr,
-                **view_environment_map,
-            ],
-        );
+        let mut offsets = vec![
+            view_uniform.offset,
+            view_lights.offset,
+            view_fog.offset,
+            **view_light_probes,
+            **view_ssr,
+            **view_environment_map,
+        ];
+        if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
+            offsets.push(layers_count_offset.offset);
+        }
+        pass.set_bind_group(I, &mesh_view_bind_group.value, &offsets);
 
         RenderCommandResult::Success
     }

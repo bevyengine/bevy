@@ -6,7 +6,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{BufferUsages, BufferVec, Shader, TextureUsages},
+    render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, Shader, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
     Render, RenderApp, RenderSet,
@@ -35,8 +35,7 @@ pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(404252
 // This should probably be done by adding an enum to this component
 #[derive(Component, Clone, Copy, ExtractComponent)]
 pub struct OrderIndependentTransparencySettings {
-    // TODO actually send that value to the shader
-    layer_count: u8,
+    pub layer_count: u8,
 }
 
 impl Default for OrderIndependentTransparencySettings {
@@ -119,6 +118,7 @@ pub struct OitBuffers {
     pub layers: BufferVec<UVec2>,
     /// Buffer containing the index of the last layer that was written for each fragment
     pub layer_ids: BufferVec<i32>,
+    pub layers_count_uniforms: DynamicUniformBuffer<i32>,
 }
 
 impl FromWorld for OitBuffers {
@@ -129,15 +129,29 @@ impl FromWorld for OitBuffers {
         // initialize buffers with something so there's a valid binding
 
         let mut layers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-        layers.reserve(0, render_device);
+        layers.set_label(Some("oit_layers"));
+        layers.reserve(1, render_device);
         layers.write_buffer(render_device, render_queue);
 
         let mut layer_ids = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-        layer_ids.reserve(0, render_device);
+        layer_ids.set_label(Some("oit_layer_ids"));
+        layer_ids.reserve(1, render_device);
         layer_ids.write_buffer(render_device, render_queue);
 
-        Self { layers, layer_ids }
+        let mut layers_count_uniforms = DynamicUniformBuffer::default();
+        layers_count_uniforms.set_label(Some("oit_layers_count"));
+
+        Self {
+            layers,
+            layer_ids,
+            layers_count_uniforms,
+        }
     }
+}
+
+#[derive(Component)]
+pub struct OitLayersCountOffset {
+    pub offset: u32,
 }
 
 /// This creates or resizes the oit buffers for each camera
@@ -145,8 +159,9 @@ impl FromWorld for OitBuffers {
 /// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest
 #[allow(clippy::type_complexity)]
 pub fn prepare_oit_buffers(
-    device: Res<RenderDevice>,
-    queue: Res<RenderQueue>,
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
     cameras: Query<
         (&ExtractedCamera, &OrderIndependentTransparencySettings),
         (
@@ -154,6 +169,7 @@ pub fn prepare_oit_buffers(
             Changed<OrderIndependentTransparencySettings>,
         ),
     >,
+    camera_oit_uniforms: Query<(Entity, &OrderIndependentTransparencySettings)>,
     mut buffers: ResMut<OitBuffers>,
 ) {
     // Get the max buffer size for any OIT enabled camera
@@ -173,12 +189,12 @@ pub fn prepare_oit_buffers(
     // Create or update the layers buffer based on the max size
     if buffers.layers.capacity() < max_layers_size {
         let start = Instant::now();
-        buffers.layers.reserve(max_layers_size, &device);
+        buffers.layers.reserve(max_layers_size, &render_device);
         let remaining = max_layers_size - buffers.layers.capacity();
         for _ in 0..remaining {
             buffers.layers.push(UVec2::ZERO);
         }
-        buffers.layers.write_buffer(&device, &queue);
+        buffers.layers.write_buffer(&render_device, &render_queue);
         trace!(
             "OIT layers buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
@@ -189,16 +205,33 @@ pub fn prepare_oit_buffers(
     // Create or update the layer_ids buffer based on the max size
     if buffers.layer_ids.capacity() < max_layer_ids_size {
         let start = Instant::now();
-        buffers.layer_ids.reserve(max_layer_ids_size, &device);
+        buffers
+            .layer_ids
+            .reserve(max_layer_ids_size, &render_device);
         let remaining = max_layer_ids_size - buffers.layer_ids.capacity();
         for _ in 0..remaining {
             buffers.layer_ids.push(0);
         }
-        buffers.layer_ids.write_buffer(&device, &queue);
+        buffers
+            .layer_ids
+            .write_buffer(&render_device, &render_queue);
         trace!(
             "OIT layer ids buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
             buffers.layer_ids.capacity() * std::mem::size_of::<UVec2>() / 1024 / 1024,
         );
+    }
+
+    if let Some(mut writer) = buffers.layers_count_uniforms.get_writer(
+        camera_oit_uniforms.iter().len(),
+        &render_device,
+        &render_queue,
+    ) {
+        for (entity, settings) in &camera_oit_uniforms {
+            let offset = writer.write(&(settings.layer_count as i32));
+            commands
+                .entity(entity)
+                .insert(OitLayersCountOffset { offset });
+        }
     }
 }
