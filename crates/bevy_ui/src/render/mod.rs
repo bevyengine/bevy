@@ -1357,57 +1357,34 @@ pub fn prepare_text_sections(
     // Buffer indexes
     let mut vertices_index = 0;
     let mut indices_index = 0;
-    let mut batches: Vec<(Entity, UiBatch)> = Vec::new();
+    let mut batches: Vec<(Entity, UiBatch)> =
+        Vec::with_capacity(extracted_text_sections.batches.len());
 
     for ui_phase in phases.values_mut() {
-        let mut batch_item_index = 0;
-        let mut batch_image_handle = AssetId::invalid();
-
         for item_index in 0..ui_phase.items.len() {
             let item = &mut ui_phase.items[item_index];
             if let Some(extracted_text_section) = extracted_text_sections.batches.get(&item.entity)
             {
-                let mut existing_batch = batches.last_mut();
-
-                if batch_image_handle == AssetId::invalid()
-                    || existing_batch.is_none()
-                    || (batch_image_handle != AssetId::default()
-                        && extracted_text_section.image != AssetId::default()
-                        && batch_image_handle != extracted_text_section.image)
-                    || existing_batch.as_ref().map(|(_, b)| b.camera)
-                        != Some(extracted_text_section.camera_entity)
-                {
-                    if let Some(gpu_image) = gpu_images.get(extracted_text_section.image) {
-                        batch_item_index = item_index;
-                        batch_image_handle = extracted_text_section.image;
-
-                        let new_batch = UiBatch {
-                            range: vertices_index..vertices_index,
-                            image: extracted_text_section.image,
-                            camera: extracted_text_section.camera_entity,
-                        };
-
-                        batches.push((item.entity, new_batch));
-
-                        image_bind_groups
-                            .values
-                            .entry(batch_image_handle)
-                            .or_insert_with(|| {
-                                render_device.create_bind_group(
-                                    "ui_material_bind_group",
-                                    &ui_pipeline.image_layout,
-                                    &BindGroupEntries::sequential((
-                                        &gpu_image.texture_view,
-                                        &gpu_image.sampler,
-                                    )),
-                                )
-                            });
-
-                        existing_batch = batches.last_mut();
-                    } else {
-                        continue;
-                    }
+                if let Some(gpu_image) = gpu_images.get(extracted_text_section.image) {
+                    image_bind_groups
+                        .values
+                        .entry(extracted_text_section.image)
+                        .or_insert_with(|| {
+                            render_device.create_bind_group(
+                                "ui_material_bind_group",
+                                &ui_pipeline.image_layout,
+                                &BindGroupEntries::sequential((
+                                    &gpu_image.texture_view,
+                                    &gpu_image.sampler,
+                                )),
+                            )
+                        });
+                } else {
+                    println!("no gpu image");
+                    continue;
                 }
+
+                let start_index = vertices_index;
 
                 let image = gpu_images
                     .get(extracted_text_section.image)
@@ -1487,8 +1464,17 @@ pub fn prepare_text_sections(
                     vertices_index += 6;
                     indices_index += 4;
                 }
-                existing_batch.unwrap().1.range.end = vertices_index;
-                ui_phase.items[batch_item_index].batch_range_mut().end += 1;
+
+                batches.push((
+                    item.entity,
+                    UiBatch {
+                        range: start_index..vertices_index,
+                        image: extracted_text_section.image,
+                        camera: extracted_text_section.camera_entity,
+                    },
+                ));
+
+                ui_phase.items[item_index].batch_range_mut().end = 1;
             }
         }
     }
