@@ -35,7 +35,7 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use std::{hash::Hash, marker::PhantomData};
-
+use bevy_ecs::system::lifetimeless::SResMut;
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
     SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
@@ -76,7 +76,7 @@ use crate::{
 /// // All functions on `Material2d` have default impls. You only need to implement the
 /// // functions that are relevant for your material.
 /// impl Material2d for CustomMaterial {
-///     fn fragment_shader() -> ShaderRef {
+///     fn fragment_shader(&self) -> ShaderRef {
 ///         "shaders/custom_material.wgsl".into()
 ///     }
 /// }
@@ -106,13 +106,13 @@ use crate::{
 pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
-    fn vertex_shader() -> ShaderRef {
+    fn vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
     /// will be used.
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -231,15 +231,20 @@ fn extract_material_meshes_2d<M: Material2d>(
 #[derive(Resource)]
 pub struct Material2dPipeline<M: Material2d> {
     pub mesh2d_pipeline: Mesh2dPipeline,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
     marker: PhantomData<M>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Material2dShaders {
+    pub vertex: Option<Handle<Shader>>,
+    pub fragment: Option<Handle<Shader>>,
 }
 
 pub struct Material2dKey<M: Material2d> {
     pub mesh_key: Mesh2dPipelineKey,
     pub bind_group_data: M::Data,
     pub layout: BindGroupLayout,
+    pub shaders: Material2dShaders,
 }
 
 impl<M: Material2d> Eq for Material2dKey<M> where M::Data: PartialEq {}
@@ -249,7 +254,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data
+        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data && self.shaders == other.shaders
     }
 }
 
@@ -262,6 +267,7 @@ where
             mesh_key: self.mesh_key,
             bind_group_data: self.bind_group_data.clone(),
             layout: self.layout.clone(),
+            shaders: self.shaders.clone(),
         }
     }
 }
@@ -273,6 +279,7 @@ where
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
+        self.shaders.hash(state);
     }
 }
 
@@ -280,8 +287,6 @@ impl<M: Material2d> Clone for Material2dPipeline<M> {
     fn clone(&self) -> Self {
         Self {
             mesh2d_pipeline: self.mesh2d_pipeline.clone(),
-            vertex_shader: self.vertex_shader.clone(),
-            fragment_shader: self.fragment_shader.clone(),
             marker: PhantomData,
         }
     }
@@ -299,11 +304,11 @@ where
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh2d_pipeline.specialize(key.mesh_key, layout)?;
-        if let Some(vertex_shader) = &self.vertex_shader {
+        if let Some(vertex_shader) = &key.shaders.vertex {
             descriptor.vertex.shader = vertex_shader.clone();
         }
 
-        if let Some(fragment_shader) = &self.fragment_shader {
+        if let Some(fragment_shader) = &key.shaders.fragment {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
         descriptor.layout = vec![
@@ -319,20 +324,8 @@ where
 
 impl<M: Material2d> FromWorld for Material2dPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-
         Material2dPipeline {
             mesh2d_pipeline: world.resource::<Mesh2dPipeline>().clone(),
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
             marker: PhantomData,
         }
     }
@@ -482,6 +475,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     mesh_key,
                     bind_group_data: material_2d.key.clone(),
                     layout: material_2d.bind_group_layout.clone(),
+                    shaders: material_2d.shaders.clone(),
                 },
                 &mesh.layout,
             );
@@ -569,6 +563,7 @@ pub struct PreparedMaterial2d<T: Material2d> {
     pub bind_group_layout: BindGroupLayout,
     pub key: T::Data,
     pub properties: Material2dProperties,
+    pub shaders: Material2dShaders,
 }
 
 impl<T: Material2d> PreparedMaterial2d<T> {
@@ -584,11 +579,12 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
         SRes<RenderDevice>,
         SRes<RenderAssets<GpuImage>>,
         SRes<FallbackImage>,
+        SResMut<AssetServer>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image, asset_server): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let layout = material.bind_group_layout(render_device);
         match material.as_bind_group(
@@ -609,6 +605,18 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
                         depth_bias: material.depth_bias(),
                         alpha_mode: material.alpha_mode(),
                         mesh_pipeline_key_bits,
+                    },
+                    shaders: Material2dShaders {
+                        vertex: match material.vertex_shader() {
+                            ShaderRef::Default => None,
+                            ShaderRef::Handle(handle) => Some(handle),
+                            ShaderRef::Path(path) => Some(asset_server.load(path)),
+                        },
+                        fragment: match material.fragment_shader() {
+                            ShaderRef::Default => None,
+                            ShaderRef::Handle(handle) => Some(handle),
+                            ShaderRef::Path(path) => Some(asset_server.load(path)),
+                        },
                     },
                 })
             }

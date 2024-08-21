@@ -290,7 +290,7 @@ fn create_text(app_settings: &AppSettings) -> Text {
 }
 
 impl MaterialExtension for Water {
-    fn deferred_fragment_shader() -> ShaderRef {
+    fn deferred_fragment_shader(&self) -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
 }

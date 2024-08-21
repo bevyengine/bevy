@@ -149,7 +149,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
 }
 
 impl Material2d for ColorMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         COLOR_MATERIAL_SHADER_HANDLE.into()
     }
 

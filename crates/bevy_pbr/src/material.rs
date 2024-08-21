@@ -1,3 +1,4 @@
+use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
@@ -38,8 +39,6 @@ use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::{hash::Hash, num::NonZeroU32};
 
-use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
-
 /// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
 /// way to render [`Mesh`](bevy_render::mesh::Mesh) entities with custom shader logic.
@@ -76,7 +75,7 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 /// // All functions on `Material` have default impls. You only need to implement the
 /// // functions that are relevant for your material.
 /// impl Material for CustomMaterial {
-///     fn fragment_shader() -> ShaderRef {
+///     fn fragment_shader(&self) -> ShaderRef {
 ///         "shaders/custom_material.wgsl".into()
 ///     }
 /// }
@@ -102,14 +101,14 @@ use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
-    fn vertex_shader() -> ShaderRef {
+    fn vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
     /// will be used.
     #[allow(unused_variables)]
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -149,7 +148,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     ///
     /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
     /// required for shadow mapping.
-    fn prepass_vertex_shader() -> ShaderRef {
+    fn prepass_vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -159,20 +158,20 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
     /// required for shadow mapping.
     #[allow(unused_variables)]
-    fn prepass_fragment_shader() -> ShaderRef {
+    fn prepass_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's deferred vertex shader. If [`ShaderRef::Default`] is returned, the default deferred vertex shader
     /// will be used.
-    fn deferred_vertex_shader() -> ShaderRef {
+    fn deferred_vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's deferred fragment shader. If [`ShaderRef::Default`] is returned, the default deferred fragment shader
     /// will be used.
     #[allow(unused_variables)]
-    fn deferred_fragment_shader() -> ShaderRef {
+    fn deferred_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -182,7 +181,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+    fn meshlet_mesh_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -192,7 +191,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+    fn meshlet_mesh_prepass_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -202,7 +201,7 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+    fn meshlet_mesh_deferred_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -315,11 +314,26 @@ where
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MaterialShaders {
+    pub vertex: Option<Handle<Shader>>,
+    pub fragment: Option<Handle<Shader>>,
+    pub prepass_vertex: Option<Handle<Shader>>,
+    pub prepass_fragment: Option<Handle<Shader>>,
+    pub deferred_vertex: Option<Handle<Shader>>,
+    pub deferred_fragment: Option<Handle<Shader>>,
+    #[cfg(feature = "meshlet")]
+    pub meshlet_mesh_fragment: Option<Handle<Shader>>,
+    #[cfg(feature = "meshlet")]
+    pub meshlet_mesh_prepass_fragment: Option<Handle<Shader>>,
+}
+
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
 pub struct MaterialPipelineKey<M: Material> {
     pub mesh_key: MeshPipelineKey,
     pub bind_group_data: M::Data,
     pub bind_group_layout: BindGroupLayout,
+    pub shaders: MaterialShaders,
 }
 
 impl<M: Material> Eq for MaterialPipelineKey<M> where M::Data: PartialEq {}
@@ -329,7 +343,10 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.mesh_key == other.mesh_key && self.bind_group_data == other.bind_group_data && self.bind_group_layout.id() == other.bind_group_layout.id()
+        self.mesh_key == other.mesh_key
+            && self.bind_group_data == other.bind_group_data
+            && self.bind_group_layout.id() == other.bind_group_layout.id()
+            && self.shaders == other.shaders
     }
 }
 
@@ -342,6 +359,7 @@ where
             mesh_key: self.mesh_key,
             bind_group_data: self.bind_group_data.clone(),
             bind_group_layout: self.bind_group_layout.clone(),
+            shaders: self.shaders.clone(),
         }
     }
 }
@@ -354,6 +372,7 @@ where
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
         self.bind_group_layout.id().hash(state);
+        self.shaders.hash(state);
     }
 }
 
@@ -361,8 +380,6 @@ where
 #[derive(Resource)]
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
     pub marker: PhantomData<M>,
 }
 
@@ -370,8 +387,6 @@ impl<M: Material> Clone for MaterialPipeline<M> {
     fn clone(&self) -> Self {
         Self {
             mesh_pipeline: self.mesh_pipeline.clone(),
-            vertex_shader: self.vertex_shader.clone(),
-            fragment_shader: self.fragment_shader.clone(),
             marker: PhantomData,
         }
     }
@@ -389,11 +404,11 @@ where
         layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key.mesh_key, layout)?;
-        if let Some(vertex_shader) = &self.vertex_shader {
+        if let Some(vertex_shader) = &key.shaders.vertex {
             descriptor.vertex.shader = vertex_shader.clone();
         }
 
-        if let Some(fragment_shader) = &self.fragment_shader {
+        if let Some(fragment_shader) = &key.shaders.fragment {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
@@ -406,20 +421,8 @@ where
 
 impl<M: Material> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
             marker: PhantomData,
         }
     }
@@ -735,6 +738,7 @@ pub fn queue_material_meshes<M: Material>(
                     mesh_key,
                     bind_group_data: material.key.clone(),
                     bind_group_layout: material.bind_group_layout.clone(),
+                    shaders: material.shaders.clone(),
                 },
                 &mesh.layout,
             );
@@ -902,6 +906,7 @@ pub struct PreparedMaterial<T: Material> {
     pub bind_group_layout: BindGroupLayout,
     pub key: T::Data,
     pub properties: MaterialProperties,
+    pub shaders: MaterialShaders,
 }
 
 impl<M: Material> RenderAsset for PreparedMaterial<M> {
@@ -912,19 +917,15 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         SRes<RenderAssets<GpuImage>>,
         SRes<FallbackImage>,
         SRes<DefaultOpaqueRendererMethod>,
+        SRes<AssetServer>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, default_opaque_render_method): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image, default_opaque_render_method, asset_server): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let layout = material.bind_group_layout(render_device);
-        match material.as_bind_group(
-            &layout,
-            render_device,
-            images,
-            fallback_image,
-        ) {
+        match material.as_bind_group(&layout, render_device, images, fallback_image) {
             Ok(prepared) => {
                 let method = match material.opaque_render_method() {
                     OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
@@ -936,6 +937,51 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE,
                     material.reads_view_transmission_texture(),
                 );
+
+                let shaders = MaterialShaders {
+                    vertex: match material.vertex_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                    fragment: match material.fragment_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                    prepass_vertex: match material.prepass_vertex_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                    prepass_fragment: match material.prepass_fragment_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                    deferred_vertex: match material.deferred_vertex_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                    deferred_fragment: match material.deferred_fragment_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                    #[cfg(feature = "meshlet")]
+                    meshlet_mesh_fragment: match material.meshlet_mesh_fragment_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                    #[cfg(feature = "meshlet")]
+                    meshlet_mesh_prepass_fragment: match material.meshlet_mesh_prepass_fragment_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                };
 
                 Ok(PreparedMaterial {
                     bindings: prepared.bindings,
@@ -950,6 +996,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                         render_method: method,
                         mesh_pipeline_key_bits,
                     },
+                    shaders,
                 })
             }
             Err(AsBindGroupError::RetryNextUpdate) => {

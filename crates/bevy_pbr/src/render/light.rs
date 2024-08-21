@@ -1269,6 +1269,7 @@ pub fn queue_shadows<M: Material>(
                         mesh_key,
                         bind_group_data: material.key.clone(),
                         bind_group_layout: material.bind_group_layout.clone(),
+                        shaders: material.shaders.clone(),
                     },
                     &mesh.layout,
                 );

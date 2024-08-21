@@ -81,11 +81,11 @@ struct MyExtension {
 }
 
 impl MaterialExtension for MyExtension {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
 
-    fn deferred_fragment_shader() -> ShaderRef {
+    fn deferred_fragment_shader(&self) -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
 }

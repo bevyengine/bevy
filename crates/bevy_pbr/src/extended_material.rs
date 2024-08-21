@@ -1,10 +1,10 @@
-use bevy_asset::{Asset, Handle};
+use bevy_asset::Asset;
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef,
     render_asset::RenderAssets,
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
+        AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor,
         ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
@@ -15,8 +15,6 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshP
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
 }
 
 pub struct MaterialExtensionKey<E: MaterialExtension> {
@@ -29,40 +27,40 @@ pub struct MaterialExtensionKey<E: MaterialExtension> {
 pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the base material mesh vertex shader
     /// will be used.
-    fn vertex_shader() -> ShaderRef {
+    fn vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the base material mesh fragment shader
     /// will be used.
     #[allow(unused_variables)]
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
     /// will be used.
-    fn prepass_vertex_shader() -> ShaderRef {
+    fn prepass_vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the base material prepass fragment shader
     /// will be used.
     #[allow(unused_variables)]
-    fn prepass_fragment_shader() -> ShaderRef {
+    fn prepass_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's deferred vertex shader. If [`ShaderRef::Default`] is returned, the base material deferred vertex shader
     /// will be used.
-    fn deferred_vertex_shader() -> ShaderRef {
+    fn deferred_vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this material's prepass fragment shader. If [`ShaderRef::Default`] is returned, the base material deferred fragment shader
     /// will be used.
     #[allow(unused_variables)]
-    fn deferred_fragment_shader() -> ShaderRef {
+    fn deferred_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -70,7 +68,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// the default meshlet mesh fragment shader will be used.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+    fn meshlet_mesh_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -78,7 +76,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// the default meshlet mesh prepass fragment shader will be used.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
+    fn meshlet_mesh_prepass_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -86,7 +84,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     /// the default meshlet mesh deferred fragment shader will be used.
     #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
+    fn meshlet_mesh_deferred_fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -111,7 +109,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 /// so that shader functions built for the base material (and referencing the base material
 /// bindings) will work as expected, and custom alterations based on custom data can also be used.
 ///
-/// If the extension `E` returns a non-default result from `vertex_shader()` it will be used in place of the base
+/// If the extension `E` returns a non-default result from `vertex_shader(&self)` it will be used in place of the base
 /// material's vertex shader.
 ///
 /// If the extension `E` returns a non-default result from `fragment_shader()` it will be used in place of the base
@@ -190,16 +188,16 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
 }
 
 impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
-    fn vertex_shader() -> ShaderRef {
-        match E::vertex_shader() {
-            ShaderRef::Default => B::vertex_shader(),
+    fn vertex_shader(&self) -> ShaderRef {
+        match self.extension.vertex_shader() {
+            ShaderRef::Default => self.base.vertex_shader(),
             specified => specified,
         }
     }
 
-    fn fragment_shader() -> ShaderRef {
-        match E::fragment_shader() {
-            ShaderRef::Default => B::fragment_shader(),
+    fn fragment_shader(&self) -> ShaderRef {
+        match self.extension.fragment_shader() {
+            ShaderRef::Default => self.base.fragment_shader(),
             specified => specified,
         }
     }
@@ -220,54 +218,54 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         B::reads_view_transmission_texture(&self.base)
     }
 
-    fn prepass_vertex_shader() -> ShaderRef {
-        match E::prepass_vertex_shader() {
-            ShaderRef::Default => B::prepass_vertex_shader(),
+    fn prepass_vertex_shader(&self) -> ShaderRef {
+        match self.extension.prepass_vertex_shader() {
+            ShaderRef::Default => self.base.prepass_vertex_shader(),
             specified => specified,
         }
     }
 
-    fn prepass_fragment_shader() -> ShaderRef {
-        match E::prepass_fragment_shader() {
-            ShaderRef::Default => B::prepass_fragment_shader(),
+    fn prepass_fragment_shader(&self) -> ShaderRef {
+        match self.extension.prepass_fragment_shader() {
+            ShaderRef::Default => self.base.prepass_fragment_shader(),
             specified => specified,
         }
     }
 
-    fn deferred_vertex_shader() -> ShaderRef {
-        match E::deferred_vertex_shader() {
-            ShaderRef::Default => B::deferred_vertex_shader(),
+    fn deferred_vertex_shader(&self) -> ShaderRef {
+        match self.extension.deferred_vertex_shader() {
+            ShaderRef::Default => self.base.deferred_vertex_shader(),
             specified => specified,
         }
     }
 
-    fn deferred_fragment_shader() -> ShaderRef {
-        match E::deferred_fragment_shader() {
-            ShaderRef::Default => B::deferred_fragment_shader(),
-            specified => specified,
-        }
-    }
-
-    #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_fragment_shader() -> ShaderRef {
-        match E::meshlet_mesh_fragment_shader() {
-            ShaderRef::Default => B::meshlet_mesh_fragment_shader(),
+    fn deferred_fragment_shader(&self) -> ShaderRef {
+        match self.extension.deferred_fragment_shader() {
+            ShaderRef::Default => self.base.deferred_fragment_shader(),
             specified => specified,
         }
     }
 
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
-        match E::meshlet_mesh_prepass_fragment_shader() {
-            ShaderRef::Default => B::meshlet_mesh_prepass_fragment_shader(),
+    fn meshlet_mesh_fragment_shader(&self) -> ShaderRef {
+        match self.extension.meshlet_mesh_fragment_shader() {
+            ShaderRef::Default => self.base.meshlet_mesh_fragment_shader(),
             specified => specified,
         }
     }
 
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
-        match E::meshlet_mesh_deferred_fragment_shader() {
-            ShaderRef::Default => B::meshlet_mesh_deferred_fragment_shader(),
+    fn meshlet_mesh_prepass_fragment_shader(&self) -> ShaderRef {
+        match self.extension.meshlet_mesh_prepass_fragment_shader() {
+            ShaderRef::Default => self.base.meshlet_mesh_prepass_fragment_shader(),
+            specified => specified,
+        }
+    }
+
+    #[cfg(feature = "meshlet")]
+    fn meshlet_mesh_deferred_fragment_shader(&self) -> ShaderRef {
+        match self.extension.meshlet_mesh_deferred_fragment_shader() {
+            ShaderRef::Default => self.base.meshlet_mesh_deferred_fragment_shader(),
             specified => specified,
         }
     }
@@ -281,36 +279,29 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
         // Call the base material's specialize function
         let MaterialPipeline::<Self> {
             mesh_pipeline,
-            vertex_shader,
-            fragment_shader,
             ..
         } = pipeline.clone();
         let base_pipeline = MaterialPipeline::<B> {
             mesh_pipeline,
-            vertex_shader,
-            fragment_shader,
             marker: Default::default(),
         };
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
             bind_group_data: key.bind_group_data.0,
             bind_group_layout: key.bind_group_layout,
+            shaders: key.shaders,
         };
         B::specialize(&base_pipeline, descriptor, layout, base_key)?;
 
         // Call the extended material's specialize function afterwards
         let MaterialPipeline::<Self> {
             mesh_pipeline,
-            vertex_shader,
-            fragment_shader,
             ..
         } = pipeline.clone();
 
         E::specialize(
             &MaterialExtensionPipeline {
                 mesh_pipeline,
-                vertex_shader,
-                fragment_shader,
             },
             descriptor,
             layout,

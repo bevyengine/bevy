@@ -187,7 +187,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 }),
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: match M::meshlet_mesh_fragment_shader() {
+                    shader: match M::meshlet_mesh_fragment_shader(&self) {
                         ShaderRef::Default => MESHLET_MESH_MATERIAL_SHADER_HANDLE,
                         ShaderRef::Handle(handle) => handle,
                         ShaderRef::Path(path) => asset_server.load(path),
@@ -305,9 +305,9 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             };
 
             let fragment_shader = if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-                M::meshlet_mesh_deferred_fragment_shader()
+                M::meshlet_mesh_deferred_fragment_shader(&self)
             } else {
-                M::meshlet_mesh_prepass_fragment_shader()
+                M::meshlet_mesh_prepass_fragment_shader(&self)
             };
 
             let entry_point = match fragment_shader {

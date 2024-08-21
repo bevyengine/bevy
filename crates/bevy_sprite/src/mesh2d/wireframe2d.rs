@@ -212,7 +212,7 @@ pub struct Wireframe2dMaterial {
 }
 
 impl Material2d for Wireframe2dMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         WIREFRAME_2D_SHADER_HANDLE.into()
     }
 

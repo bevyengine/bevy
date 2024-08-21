@@ -23,7 +23,7 @@ use bevy_render::{
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 use bytemuck::{Pod, Zeroable};
-
+use bevy_ecs::system::lifetimeless::SResMut;
 use crate::*;
 
 pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
@@ -128,8 +128,6 @@ pub struct UiMaterialBatch<M: UiMaterial> {
 #[derive(Resource)]
 pub struct UiMaterialPipeline<M: UiMaterial> {
     pub view_layout: BindGroupLayout,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
     marker: PhantomData<M>,
 }
 
@@ -195,11 +193,11 @@ where
             },
             label: Some("ui_material_pipeline".into()),
         };
-        if let Some(vertex_shader) = &self.vertex_shader {
+        if let Some(vertex_shader) = &key.shaders.vertex {
             descriptor.vertex.shader = vertex_shader.clone();
         }
 
-        if let Some(fragment_shader) = &self.fragment_shader {
+        if let Some(fragment_shader) = &key.shaders.fragment {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
 
@@ -213,7 +211,6 @@ where
 
 impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(
@@ -229,16 +226,6 @@ impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
 
         UiMaterialPipeline {
             view_layout,
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
             marker: PhantomData,
         }
     }
@@ -597,6 +584,7 @@ pub struct PreparedUiMaterial<T: UiMaterial> {
     pub bind_group: BindGroup,
     pub bind_group_layout: BindGroupLayout,
     pub key: T::Data,
+    pub shaders: UiMaterialShaders,
 }
 
 impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
@@ -606,11 +594,12 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
         SRes<RenderDevice>,
         SRes<RenderAssets<GpuImage>>,
         SRes<FallbackImage>,
+        SResMut<AssetServer>,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image): &mut SystemParamItem<Self::Param>,
+        (render_device, images, fallback_image, asset_server): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let layout = material.bind_group_layout(render_device);
         match material.as_bind_group(&layout ,render_device, images, fallback_image) {
@@ -619,6 +608,18 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
                 bind_group: prepared.bind_group,
                 bind_group_layout: layout,
                 key: prepared.data,
+                shaders: UiMaterialShaders {
+                    fragment: match material.fragment_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                    vertex: match material.vertex_shader() {
+                        ShaderRef::Default => None,
+                        ShaderRef::Handle(handle) => Some(handle),
+                        ShaderRef::Path(path) => Some(asset_server.load(path)),
+                    },
+                }
             }),
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
@@ -663,6 +664,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
                 hdr: view.hdr,
                 bind_group_data: material.key.clone(),
                 layout: material.bind_group_layout.clone(),
+                shaders: material.shaders.clone(),
             },
         );
         transparent_phase

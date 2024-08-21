@@ -649,7 +649,7 @@ fn toggle_voxel_visibility(
 }
 
 impl MaterialExtension for VoxelVisualizationExtension {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
 }

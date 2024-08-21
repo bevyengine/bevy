@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
-use bevy_asset::Asset;
+use bevy_asset::{Asset, Handle};
+use bevy_render::prelude::Shader;
 use bevy_render::render_resource::{AsBindGroup, BindGroupLayout, RenderPipelineDescriptor, ShaderRef};
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNodeBundle`](crate::prelude::MaterialNodeBundle)
@@ -44,7 +45,7 @@ use bevy_render::render_resource::{AsBindGroup, BindGroupLayout, RenderPipelineD
 /// // All functions on `UiMaterial` have default impls. You only need to implement the
 /// // functions that are relevant for your material.
 /// impl UiMaterial for CustomMaterial {
-///     fn fragment_shader() -> ShaderRef {
+///     fn fragment_shader(&self) -> ShaderRef {
 ///         "shaders/custom_material.wgsl".into()
 ///     }
 /// }
@@ -93,13 +94,13 @@ use bevy_render::render_resource::{AsBindGroup, BindGroupLayout, RenderPipelineD
 pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
     /// vertex shader will be used.
-    fn vertex_shader() -> ShaderRef {
+    fn vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this materials fragment shader. If [`ShaderRef::Default`] is returned, the default
     /// UI fragment shader will be used.
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -108,10 +109,17 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
     fn specialize(descriptor: &mut RenderPipelineDescriptor, key: UiMaterialKey<Self>) {}
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UiMaterialShaders {
+    pub vertex: Option<Handle<Shader>>,
+    pub fragment: Option<Handle<Shader>>,
+}
+
 pub struct UiMaterialKey<M: UiMaterial> {
     pub hdr: bool,
     pub bind_group_data: M::Data,
     pub layout: BindGroupLayout,
+    pub shaders: UiMaterialShaders,
 }
 
 impl<M: UiMaterial> Eq for UiMaterialKey<M> where M::Data: PartialEq {}
@@ -121,7 +129,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.hdr == other.hdr && self.bind_group_data == other.bind_group_data
+        self.hdr == other.hdr && self.bind_group_data == other.bind_group_data && self.shaders == other.shaders
     }
 }
 
@@ -134,6 +142,7 @@ where
             hdr: self.hdr,
             bind_group_data: self.bind_group_data.clone(),
             layout: self.layout.clone(),
+            shaders: self.shaders.clone(),
         }
     }
 }
@@ -145,5 +154,6 @@ where
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.hdr.hash(state);
         self.bind_group_data.hash(state);
+        self.shaders.hash(state);
     }
 }
