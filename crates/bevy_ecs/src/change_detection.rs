@@ -433,15 +433,13 @@ macro_rules! impl_methods {
             ///
             /// As with `map_unchanged`, you should never modify the argument passed to the closure.
             pub fn filter_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<Mut<'w, U>> {
-                match f(self.value) {
-                    Some(value) => Some(Mut {
-                        value,
-                        ticks: self.ticks,
-                        #[cfg(feature = "track_change_detection")]
-                        changed_by: self.changed_by,
-                    }),
-                    None => None
-                }
+                let value = f(self.value);
+                value.map(|value| Mut {
+                    value,
+                    ticks: self.ticks,
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: self.changed_by,
+                })
             }
 
             /// Allows you access to the dereferenced value of this pointer without immediately
