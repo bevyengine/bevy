@@ -11,6 +11,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::Component,
+    query::DebugCheckedUnwrap,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
@@ -1002,7 +1003,10 @@ unsafe fn get_component(
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(components.get_data_unchecked(location.table_row))
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get(entity),
+        StorageType::SparseSet => world
+            .fetch_sparse_set(component_id)
+            .debug_checked_unwrap()
+            .get(entity),
     }
 }
 
@@ -1039,7 +1043,10 @@ unsafe fn get_component_and_ticks(
                 (),
             ))
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),
+        StorageType::SparseSet => world
+            .fetch_sparse_set(component_id)
+            .debug_checked_unwrap()
+            .get_with_ticks(entity),
     }
 }
 
@@ -1066,6 +1073,9 @@ unsafe fn get_ticks(
             // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
             Some(components.get_ticks_unchecked(location.table_row))
         }
-        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
+        StorageType::SparseSet => world
+            .fetch_sparse_set(component_id)
+            .debug_checked_unwrap()
+            .get_ticks(entity),
     }
 }
