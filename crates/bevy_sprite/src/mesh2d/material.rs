@@ -615,6 +615,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
             }
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
         }
     }
 }

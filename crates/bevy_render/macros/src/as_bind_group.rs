@@ -355,6 +355,20 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                     let fallback_image = get_fallback_image(&render_path, *dimension);
 
+                    let expected_samplers = match sampler_binding_type {
+                        SamplerBindingType::Filtering => {
+                            quote!( [#render_path::render_resource::TextureSampleType::Float { filterable: true }] )
+                        }
+                        SamplerBindingType::NonFiltering => quote!([
+                            #render_path::render_resource::TextureSampleType::Float { filterable: false },
+                            #render_path::render_resource::TextureSampleType::Sint,
+                            #render_path::render_resource::TextureSampleType::Uint,
+                        ]),
+                        SamplerBindingType::Comparison => {
+                            quote!( [#render_path::render_resource::TextureSampleType::Depth] )
+                        }
+                    };
+
                     // insert fallible texture-based entries at 0 so that if we fail here, we exit before allocating any buffers
                     binding_impls.insert(0, quote! {
                         (
@@ -362,7 +376,26 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #render_path::render_resource::OwnedBindingResource::Sampler({
                                 let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
                                 if let Some(handle) = handle {
-                                    images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
+                                    let image = images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?;
+
+                                    let Some(sample_type) = image.texture_format.sample_type(None, None) else {
+                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                            #binding_index,
+                                            "None".to_string(),
+                                            format!("{:?}", #expected_samplers),
+                                        ));
+                                    };
+
+                                    let valid = #expected_samplers.contains(&sample_type);
+
+                                    if !valid {
+                                        return Err(#render_path::render_resource::AsBindGroupError::InvalidSamplerType(
+                                            #binding_index,
+                                            format!("{:?}", sample_type),
+                                            format!("{:?}", #expected_samplers),
+                                        ));
+                                    }
+                                    image.sampler.clone()
                                 } else {
                                     #fallback_image.sampler.clone()
                                 }
