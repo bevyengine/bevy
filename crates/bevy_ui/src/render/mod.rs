@@ -119,9 +119,6 @@ pub fn build_ui_render(app: &mut App) {
                 queue_text_sections.in_set(RenderSet::Queue),
                 sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort),
                 prepare_uinodes.in_set(RenderSet::PrepareBindGroups),
-                prepare_text_sections
-                    .in_set(RenderSet::PrepareBindGroups)
-                    .after(prepare_uinodes),
             ),
         );
 
@@ -1353,7 +1350,6 @@ pub fn prepare_uinodes(
                                 )
                             });
                     } else {
-                        println!("no gpu image");
                         continue;
                     }
 
@@ -1400,6 +1396,21 @@ pub fn prepare_uinodes(
                             [Vec2::ZERO; 4]
                         };
 
+                        let positions_clipped = [
+                            positions[0] + positions_diff[0].extend(0.),
+                            positions[1] + positions_diff[1].extend(0.),
+                            positions[2] + positions_diff[2].extend(0.),
+                            positions[3] + positions_diff[3].extend(0.),
+                        ];
+
+                        // cull nodes that are completely clipped
+                        let transformed_rect_size = glyph.transform.transform_vector3(rect_size);
+                        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
+                        {
+                            continue;
+                        }
+
                         let uvs = [
                             Vec2::new(
                                 glyph.rect.min.x + positions_diff[0].x,
@@ -1422,7 +1433,7 @@ pub fn prepare_uinodes(
 
                         for i in 0..4 {
                             ui_meta.vertices.push(UiVertex {
-                                position: positions[i].into(),
+                                position: positions_clipped[i].into(),
                                 uv: uvs[i].into(),
                                 color,
                                 flags: shader_flags::TEXTURED,
