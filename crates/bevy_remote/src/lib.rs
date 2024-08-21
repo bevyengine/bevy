@@ -79,14 +79,14 @@
 
 use std::{
     net::{IpAddr, Ipv4Addr},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    system::{Commands, Res, Resource, SystemId},
+    system::{Commands, IntoSystem, Res, Resource, System, SystemId},
     world::World,
 };
 use bevy_reflect::Reflect;
@@ -130,6 +130,14 @@ pub struct RemotePlugin {
 
     /// The port that Bevy will listen on.
     pub port: u16,
+
+    /// The verbs that the server will recognize and respond to.
+    pub verbs: RwLock<
+        Vec<(
+            String,
+            Box<dyn System<In = Value, Out = AnyhowResult<Value>>>,
+        )>,
+    >,
 }
 
 /// A resource containing the IP address that Bevy will host on.
@@ -210,50 +218,91 @@ pub struct BrpMessage {
 #[derive(Resource, Deref, DerefMut)]
 pub struct BrpMailbox(Receiver<BrpMessage>);
 
-impl Default for RemotePlugin {
-    fn default() -> Self {
-        RemotePlugin {
+impl RemotePlugin {
+    /// Create a [`RemotePlugin`] with the default address and port but without
+    /// any associated verbs.
+    fn empty() -> Self {
+        Self {
             address: DEFAULT_ADDR,
             port: DEFAULT_PORT,
+            verbs: RwLock::new(vec![]),
         }
+    }
+
+    /// Set the IP address that the server will use.
+    #[must_use]
+    pub fn with_address(mut self, address: IpAddr) -> Self {
+        self.address = address;
+        self
+    }
+
+    /// Set the remote port that the server will listen on.
+    #[must_use]
+    pub fn with_port(mut self, port: u16) -> Self {
+        self.port = port;
+        self
+    }
+
+    /// Add a remote verb to the plugin using the given `name` and `handler`.
+    #[must_use]
+    pub fn with_verb<M>(
+        mut self,
+        name: String,
+        handler: impl IntoSystem<Value, AnyhowResult<Value>, M>,
+    ) -> Self {
+        self.verbs
+            .get_mut()
+            .unwrap()
+            .push((name, Box::new(IntoSystem::into_system(handler))));
+        self
+    }
+}
+
+impl Default for RemotePlugin {
+    fn default() -> Self {
+        Self::empty()
+            .with_verb("GET".to_owned(), builtin_verbs::process_remote_get_request)
+            .with_verb(
+                "QUERY".to_owned(),
+                builtin_verbs::process_remote_query_request,
+            )
+            .with_verb(
+                "SPAWN".to_owned(),
+                builtin_verbs::process_remote_spawn_request,
+            )
+            .with_verb(
+                "INSERT".to_owned(),
+                builtin_verbs::process_remote_insert_request,
+            )
+            .with_verb(
+                "REMOVE".to_owned(),
+                builtin_verbs::process_remote_remove_request,
+            )
+            .with_verb(
+                "DESTROY".to_owned(),
+                builtin_verbs::process_remote_destroy_request,
+            )
+            .with_verb(
+                "REPARENT".to_owned(),
+                builtin_verbs::process_remote_reparent_request,
+            )
+            .with_verb(
+                "LIST".to_owned(),
+                builtin_verbs::process_remote_list_request,
+            )
     }
 }
 
 impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
         let mut remote_verbs = RemoteVerbs::new();
-        remote_verbs.insert(
-            "GET".to_owned(),
-            app.register_system(builtin_verbs::process_remote_get_request),
-        );
-        remote_verbs.insert(
-            "QUERY".to_owned(),
-            app.register_system(builtin_verbs::process_remote_query_request),
-        );
-        remote_verbs.insert(
-            "SPAWN".to_owned(),
-            app.register_system(builtin_verbs::process_remote_spawn_request),
-        );
-        remote_verbs.insert(
-            "INSERT".to_owned(),
-            app.register_system(builtin_verbs::process_remote_insert_request),
-        );
-        remote_verbs.insert(
-            "REMOVE".to_owned(),
-            app.register_system(builtin_verbs::process_remote_remove_request),
-        );
-        remote_verbs.insert(
-            "DESTROY".to_owned(),
-            app.register_system(builtin_verbs::process_remote_destroy_request),
-        );
-        remote_verbs.insert(
-            "REPARENT".to_owned(),
-            app.register_system(builtin_verbs::process_remote_reparent_request),
-        );
-        remote_verbs.insert(
-            "LIST".to_owned(),
-            app.register_system(builtin_verbs::process_remote_list_request),
-        );
+        let plugin_verbs = &mut *self.verbs.write().unwrap();
+        for (name, system) in plugin_verbs.drain(..) {
+            remote_verbs.insert(
+                name.clone(),
+                app.main_mut().world_mut().register_boxed_system(system),
+            );
+        }
 
         app.insert_resource(HostAddress(self.address))
             .insert_resource(RemotePort(self.port))
