@@ -225,7 +225,7 @@ impl AnimationGraph {
     ) -> impl Iterator<Item = AnimationNodeIndex> + 'a
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,
-        <I as std::iter::IntoIterator>::IntoIter: 'a,
+        <I as IntoIterator>::IntoIter: 'a,
     {
         clips
             .into_iter()

@@ -108,7 +108,7 @@ pub enum GltfError {
     CircularChildren(String),
     /// Failed to load a file.
     #[error("failed to load file: {0}")]
-    Io(#[from] std::io::Error),
+    Io(#[from] Error),
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
@@ -777,7 +777,7 @@ async fn load_gltf<'a, 'b, 'c>(
     })
 }
 
-fn get_gltf_extras(extras: &gltf::json::Extras) -> Option<GltfExtras> {
+fn get_gltf_extras(extras: &json::Extras) -> Option<GltfExtras> {
     extras.as_ref().map(|extras| GltfExtras {
         value: extras.get().to_string(),
     })
@@ -799,9 +799,9 @@ fn node_transform(node: &Node) -> Transform {
             rotation,
             scale,
         } => Transform {
-            translation: bevy_math::Vec3::from(translation),
+            translation: Vec3::from(translation),
             rotation: bevy_math::Quat::from_array(rotation),
-            scale: bevy_math::Vec3::from(scale),
+            scale: Vec3::from(scale),
         },
     }
 }
@@ -849,7 +849,7 @@ async fn load_image<'a, 'b>(
         .name()
         .map_or("Unknown GLTF Texture".to_string(), ToString::to_string);
     match gltf_texture.source().source() {
-        gltf::image::Source::View { view, mime_type } => {
+        Source::View { view, mime_type } => {
             let start = view.offset();
             let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
@@ -868,7 +868,7 @@ async fn load_image<'a, 'b>(
                 label: GltfAssetLabel::Texture(gltf_texture.index()),
             })
         }
-        gltf::image::Source::Uri { uri, mime_type } => {
+        Source::Uri { uri, mime_type } => {
             let uri = percent_encoding::percent_decode_str(uri)
                 .decode_utf8()
                 .unwrap();
@@ -1697,7 +1697,7 @@ async fn load_buffers(
 /// It resolves a Gltf tree and allows for a safe Gltf nodes iteration,
 /// putting dependant nodes before dependencies.
 struct GltfTreeIterator<'a> {
-    nodes: Vec<gltf::Node<'a>>,
+    nodes: Vec<Node<'a>>,
 }
 
 impl<'a> GltfTreeIterator<'a> {
@@ -1784,7 +1784,7 @@ impl<'a> GltfTreeIterator<'a> {
 }
 
 impl<'a> Iterator for GltfTreeIterator<'a> {
-    type Item = gltf::Node<'a>;
+    type Item = Node<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.nodes.pop()

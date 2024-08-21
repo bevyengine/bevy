@@ -496,12 +496,10 @@ pub fn check_visibility<QF>(
 
 #[cfg(test)]
 mod test {
-    use bevy_app::prelude::*;
-    use bevy_ecs::prelude::*;
-
     use super::*;
-
+    use bevy_app::prelude::*;
     use bevy_hierarchy::BuildChildren;
+    use std::mem::size_of;
 
     fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
         VisibilityBundle {
@@ -763,8 +761,7 @@ mod test {
 
     #[test]
     fn ensure_visibility_enum_size() {
-        use std::mem;
-        assert_eq!(1, mem::size_of::<Visibility>());
-        assert_eq!(1, mem::size_of::<Option<Visibility>>());
+        assert_eq!(1, size_of::<Visibility>());
+        assert_eq!(1, size_of::<Option<Visibility>>());
     }
 }

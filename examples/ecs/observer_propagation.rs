@@ -107,7 +107,7 @@ fn take_damage(
     trigger: Trigger<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
-    mut app_exit: EventWriter<bevy::app::AppExit>,
+    mut app_exit: EventWriter<AppExit>,
 ) {
     let attack = trigger.event();
     let (mut hp, name) = hp.get_mut(trigger.entity()).unwrap();
@@ -118,7 +118,7 @@ fn take_damage(
     } else {
         warn!("💀 {} has died a gruesome death", name);
         commands.entity(trigger.entity()).despawn_recursive();
-        app_exit.send(bevy::app::AppExit::Success);
+        app_exit.send(AppExit::Success);
     }
 
     info!("(propagation reached root)\n");

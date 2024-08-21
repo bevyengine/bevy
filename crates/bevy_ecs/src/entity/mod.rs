@@ -385,7 +385,7 @@ impl<'de> Deserialize<'de> for Entity {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error;
-        let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
+        let id: u64 = Deserialize::deserialize(deserializer)?;
         Entity::try_from_bits(id).map_err(D::Error::custom)
     }
 }
@@ -1004,13 +1004,11 @@ impl EntityLocation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::mem::size_of;
 
     #[test]
     fn entity_niche_optimization() {
-        assert_eq!(
-            std::mem::size_of::<Entity>(),
-            std::mem::size_of::<Option<Entity>>()
-        );
+        assert_eq!(size_of::<Entity>(), size_of::<Option<Entity>>());
     }
 
     #[test]

@@ -405,7 +405,7 @@ impl Window {
     ///
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
-    pub fn physical_size(&self) -> bevy_math::UVec2 {
+    pub fn physical_size(&self) -> UVec2 {
         self.resolution.physical_size()
     }
 
