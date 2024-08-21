@@ -27,14 +27,14 @@ struct ResolutionSettings {
 }
 
 // Spawns the camera that draws UI
-fn setup_camera(mut cmd: Commands) {
-    cmd.spawn(Camera2dBundle::default());
+fn setup_camera(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
 }
 
 // Spawns the UI
-fn setup_ui(mut cmd: Commands) {
+fn setup_ui(mut commands: Commands) {
     // Node that fills entire background
-    cmd.spawn(NodeBundle {
+    commands.spawn(NodeBundle {
         style: Style {
             width: Val::Percent(100.),
             ..default()
