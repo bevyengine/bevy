@@ -83,18 +83,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 
 /// Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_help_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands
+        .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
             bottom: Val::Px(10.0),
             left: Val::Px(10.0),
             ..default()
-        }),
-    );
+        }))
+        .with_child(app_status.create_help_text());
 }
 
 /// For each material, creates a version with the anisotropy removed.
@@ -223,7 +219,7 @@ fn handle_input(
 }
 
 /// A system that updates the help text based on the current app status.
-fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
+fn update_help_text(mut text_query: Query<&mut TextSection>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
         *text = app_status.create_help_text();
     }
@@ -276,7 +272,7 @@ fn spawn_point_light(commands: &mut Commands) {
 
 impl AppStatus {
     /// Creates the help text as appropriate for the current app status.
-    fn create_help_text(&self) -> Text {
+    fn create_help_text(&self) -> TextSection {
         // Choose the appropriate help text for the anisotropy toggle.
         let material_variant_help_text = if self.anisotropy_enabled {
             "Press Enter to disable anisotropy"
@@ -292,7 +288,7 @@ impl AppStatus {
         };
 
         // Build the `Text` object.
-        Text::from_section(
+        TextSection::new(
             format!("{}\n{}", material_variant_help_text, light_help_text),
             TextStyle::default(),
         )
