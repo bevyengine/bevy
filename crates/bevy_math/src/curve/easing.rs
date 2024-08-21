@@ -154,7 +154,7 @@ impl CubicBezierCurve {
 ///   between there are `n - 1` segments of length `1 / n`
 ///
 /// [unit domain]: `Interval::UNIT`
-/// [`constant_curve(Interval::UNIT, 0.0)`]: `constant_curve`
+/// [`constant_curve(Interval::UNIT, 0.0)`]: `crate::curve::constant_curve`
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
