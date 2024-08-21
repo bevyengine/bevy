@@ -763,7 +763,7 @@ mod tests {
     fn rhombus() {
         let rhombus = Rhombus::new(2.0, 1.0);
         let translation = Vec2::new(2.0, 1.0);
-        let rotation = Rot2::radians(std::f32::consts::FRAC_PI_4);
+        let rotation = Rot2::radians(FRAC_PI_4);
         let isometry = Isometry2d::new(translation, rotation);
 
         let aabb = rhombus.aabb_2d(isometry);
@@ -912,10 +912,7 @@ mod tests {
         let rectangle = Rectangle::new(2.0, 1.0);
         let translation = Vec2::new(2.0, 1.0);
 
-        let aabb = rectangle.aabb_2d(Isometry2d::new(
-            translation,
-            Rot2::radians(std::f32::consts::FRAC_PI_4),
-        ));
+        let aabb = rectangle.aabb_2d(Isometry2d::new(translation, Rot2::radians(FRAC_PI_4)));
         let expected_half_size = Vec2::splat(1.0606601);
         assert_eq!(aabb.min, translation - expected_half_size);
         assert_eq!(aabb.max, translation + expected_half_size);

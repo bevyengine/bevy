@@ -310,7 +310,7 @@ mod tests {
     fn rectangle() {
         let extrusion = Extrusion::new(Rectangle::new(2.0, 1.0), 4.0);
         let translation = Vec3::new(3., 4., 5.);
-        let rotation = Quat::from_rotation_z(std::f32::consts::FRAC_PI_4);
+        let rotation = Quat::from_rotation_z(FRAC_PI_4);
         let isometry = Isometry3d::new(translation, rotation);
 
         let aabb = extrusion.aabb_3d(isometry);

@@ -54,11 +54,11 @@ unsafe impl SystemParam for WorldId {
 
     type Item<'world, 'state> = WorldId;
 
-    fn init_state(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {}
+    fn init_state(_: &mut World, _: &mut SystemMeta) -> Self::State {}
 
     unsafe fn get_param<'world, 'state>(
         _: &'state mut Self::State,
-        _: &crate::system::SystemMeta,
+        _: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         _: Tick,
     ) -> Self::Item<'world, 'state> {
