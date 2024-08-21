@@ -15,8 +15,8 @@ To capture a wgpu trace:
 
 1. Create a new folder in which to store your wgpu trace
 2. Pass the folder path to `bevy_render::RenderPlugin`, using the `render_creation` field.
-   - If you're manually creating the renderer resources, pass the path to wgpu when creating the `RenderDevice` and `RenderQueue`.
-   - Otherwise, pass the path to Bevy via the `trace_path` field in `bevy_render::settings::WgpuSettings`.
+   * If you're manually creating the renderer resources, pass the path to wgpu when creating the `RenderDevice` and `RenderQueue`.
+   * Otherwise, pass the path to Bevy via the `trace_path` field in `bevy_render::settings::WgpuSettings`.
 3. Enable wgpu's trace feature and run your application
    1. Add `wgpu = "*"` to your Cargo.toml
    2. Execute `cargo run --features wgpu/trace`
