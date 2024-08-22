@@ -168,7 +168,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut CosmicBuffer,
     )>,
-    section_query: Query<Ref<TextSection>, With<Parent>>,
+    text_section_query: Query<Option<Ref<TextSection>>, With<Parent>>,
 ) {
     // We need to consume the entire iterator, hence `last`
     let factor_changed = scale_factor_changed.read().last().is_some();
@@ -181,20 +181,29 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
+    let mut sections = Vec::new();
+
     for (entity, text, bounds, children, mut text_layout_info, mut buffer) in &mut text_query {
+        sections.clear();
+
         let mut children_changed = false;
-        let sections = if let Some(children) = children {
+        if let Some(children) = children {
             children_changed = children.is_changed();
-            section_query.iter_many(children.iter()).collect()
-        } else {
-            vec![]
-        };
+            sections.extend(
+                text_section_query
+                    .iter_many(children.iter())
+                    .enumerate()
+                    .filter_map(|(index, maybe_section)| {
+                        maybe_section.map(|section| (index, section))
+                    }),
+            );
+        }
 
         if factor_changed
             || text.is_changed()
             || bounds.is_changed()
             || children_changed
-            || sections.iter().any(DetectChanges::is_changed)
+            || sections.iter().any(|(_, section)| section.is_changed())
             || queue.remove(&entity)
         {
             let text_bounds = TextBounds {

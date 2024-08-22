@@ -61,7 +61,7 @@ impl TextPipeline {
     pub fn update_buffer(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[Ref<TextSection>],
+        sections: &[(usize, Ref<TextSection>)],
         linebreak_behavior: BreakLineOn,
         bounds: TextBounds,
         scale_factor: f64,
@@ -72,7 +72,7 @@ impl TextPipeline {
 
         // return early if the fonts are not loaded yet
         let mut font_size = 0.;
-        for section in sections {
+        for (_, section) in sections {
             if section.style.font_size > font_size {
                 font_size = section.style.font_size;
             }
@@ -85,7 +85,7 @@ impl TextPipeline {
 
         // Load Bevy fonts into cosmic-text's font system.
         // This is done as as separate pre-pass to avoid borrow checker issues
-        for section in sections {
+        for (_, section) in sections {
             load_font_to_fontdb(section, font_system, &mut self.map_handle_to_font_id, fonts);
         }
 
@@ -97,14 +97,13 @@ impl TextPipeline {
         // in cosmic-text.
         let spans: Vec<(&str, Attrs)> = sections
             .iter()
-            .enumerate()
             .filter(|(_section_index, section)| section.style.font_size > 0.0)
             .map(|(section_index, section)| {
                 (
                     &section.value[..],
                     get_attrs(
                         section,
-                        section_index,
+                        *section_index,
                         font_system,
                         &self.map_handle_to_font_id,
                         scale_factor,
@@ -146,7 +145,7 @@ impl TextPipeline {
     pub fn queue_text(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[Ref<TextSection>],
+        sections: &[(usize, Ref<TextSection>)],
         scale_factor: f64,
         text_alignment: JustifyText,
         linebreak_behavior: BreakLineOn,
@@ -185,7 +184,7 @@ impl TextPipeline {
             .map(|(layout_glyph, line_y)| {
                 let section_index = layout_glyph.metadata;
 
-                let font_handle = sections[section_index].style.font.clone_weak();
+                let font_handle = sections[section_index].1.style.font.clone_weak();
                 let font_atlas_set = font_atlas_sets.sets.entry(font_handle.id()).or_default();
 
                 let physical_glyph = layout_glyph.physical((0., 0.), 1.);
@@ -242,7 +241,7 @@ impl TextPipeline {
     pub fn create_text_measure(
         &mut self,
         fonts: &Assets<Font>,
-        sections: &[Ref<TextSection>],
+        sections: &[(usize, Ref<TextSection>)],
         scale_factor: f64,
         linebreak_behavior: BreakLineOn,
         buffer: &mut CosmicBuffer,

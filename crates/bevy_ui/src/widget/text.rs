@@ -90,7 +90,7 @@ fn create_text_measure(
     fonts: &Assets<Font>,
     scale_factor: f64,
     text: Ref<Text>,
-    sections: &[Ref<TextSection>],
+    sections: &[(usize, Ref<TextSection>)],
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextFlags>,
@@ -154,11 +154,15 @@ pub fn measure_text_system(
         With<Node>,
     >,
     mut text_pipeline: ResMut<TextPipeline>,
-    text2d_section_query: Query<Ref<TextSection>, With<Parent>>,
+    text2d_section_query: Query<Option<Ref<TextSection>>, With<Parent>>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
+    let mut sections = Vec::new();
+
     for (text, content_size, text_flags, camera, mut buffer, children) in &mut text_query {
+        sections.clear();
+
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -176,20 +180,25 @@ pub fn measure_text_system(
         };
 
         let mut children_changed = false;
-        let sections = if let Some(children) = children {
+        if let Some(children) = children {
             children_changed = children.is_changed();
 
-            text2d_section_query.iter_many(&children).collect()
-        } else {
-            vec![]
-        };
+            sections.extend(
+                text2d_section_query
+                    .iter_many(children.iter())
+                    .enumerate()
+                    .filter_map(|(index, maybe_section)| {
+                        maybe_section.map(|section| (index, section))
+                    }),
+            );
+        }
 
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || text.is_changed()
             || text_flags.needs_new_measure_func
             || content_size.is_added()
             || children_changed
-            || sections.iter().any(DetectChanges::is_changed)
+            || sections.iter().any(|(_, section)| section.is_changed())
         {
             let text_alignment = text.justify;
             create_text_measure(
@@ -219,7 +228,7 @@ fn queue_text(
     scale_factor: f32,
     inverse_scale_factor: f32,
     text: &Text,
-    sections: &[Ref<TextSection>],
+    sections: &[(usize, Ref<TextSection>)],
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
     mut text_layout_info: Mut<TextLayoutInfo>,
@@ -296,12 +305,16 @@ pub fn text_system(
         &mut CosmicBuffer,
         Option<Ref<Children>>,
     )>,
-    text_section_query: Query<Ref<TextSection>, With<Parent>>,
+    text_section_query: Query<Option<Ref<TextSection>>, With<Parent>>,
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
+    let mut sections = Vec::new();
+
     for (node, text, text_layout_info, text_flags, camera, mut buffer, children) in &mut text_query
     {
+        sections.clear();
+
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -320,17 +333,23 @@ pub fn text_system(
         let inverse_scale_factor = scale_factor.recip();
 
         let mut children_changed = false;
-        let sections = if let Some(children) = children {
+        if let Some(children) = children {
             children_changed = children.is_changed();
-            text_section_query.iter_many(&children).collect()
-        } else {
-            vec![]
-        };
+
+            sections.extend(
+                text_section_query
+                    .iter_many(children.iter())
+                    .enumerate()
+                    .filter_map(|(index, maybe_section)| {
+                        maybe_section.map(|section| (index, section))
+                    }),
+            );
+        }
 
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || node.is_changed()
             || children_changed
-            || sections.iter().any(DetectChanges::is_changed)
+            || sections.iter().any(|(_, section)| section.is_changed())
             || text_flags.needs_recompute
         {
             queue_text(
