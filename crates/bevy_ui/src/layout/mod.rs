@@ -11,6 +11,7 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_text::Text;
 #[cfg(feature = "bevy_text")]
 use bevy_text::TextPipeline;
 use bevy_transform::components::Transform;
@@ -91,8 +92,8 @@ pub fn ui_layout_system(
         ),
         With<Node>,
     >,
-    children_query: Query<(Entity, Ref<Children>), With<Node>>,
-    just_children_query: Query<&Children>,
+    children_query: Query<(Entity, Ref<Children>), (With<Node>, Without<Text>)>,
+    just_children_query: Query<&Children, Without<Text>>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
@@ -255,7 +256,7 @@ pub fn ui_layout_system(
         entity: Entity,
         ui_surface: &UiSurface,
         node_transform_query: &mut Query<(&mut Node, &mut Transform)>,
-        children_query: &Query<&Children>,
+        children_query: &Query<&Children, Without<Text>>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         mut absolute_location: Vec2,
