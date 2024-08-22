@@ -229,10 +229,7 @@ pub struct BrpQueryRow {
 }
 
 /// Handles a `GET` request coming from a client.
-pub fn process_remote_get_request(
-    In(request): In<Value>,
-    world: &mut World,
-) -> AnyhowResult<Value> {
+pub fn process_remote_get_request(In(request): In<Value>, world: &World) -> AnyhowResult<Value> {
     let BrpGetRequest { entity, components } = serde_json::from_value(request)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
@@ -414,23 +411,20 @@ pub fn process_remote_reparent_request(
         parent: maybe_parent,
     } = serde_json::from_value(request)?;
 
-    match maybe_parent {
-        // If `Some`, reparent the entities.
-        Some(parent) => {
-            let mut parent_commands = get_entity_mut(world, parent)?;
-            for entity in entities {
-                if entity == parent {
-                    return Err(anyhow!("Can't parent an object to itself"));
-                }
-                parent_commands.add_child(entity);
+    // If `Some`, reparent the entities.
+    if let Some(parent) = maybe_parent {
+        let mut parent_commands = get_entity_mut(world, parent)?;
+        for entity in entities {
+            if entity == parent {
+                return Err(anyhow!("Can't parent an object to itself"));
             }
+            parent_commands.add_child(entity);
         }
-
-        // If `None`, remove the entities from their parents.
-        None => {
-            for entity in entities {
-                get_entity_mut(world, entity)?.remove_parent();
-            }
+    }
+    // If `None`, remove the entities' parents.
+    else {
+        for entity in entities {
+            get_entity_mut(world, entity)?.remove_parent();
         }
     }
 
@@ -438,10 +432,7 @@ pub fn process_remote_reparent_request(
 }
 
 /// Handles a `LIST` request (list all components) coming from a client.
-pub fn process_remote_list_request(
-    In(request): In<Value>,
-    world: &mut World,
-) -> AnyhowResult<Value> {
+pub fn process_remote_list_request(In(request): In<Value>, world: &World) -> AnyhowResult<Value> {
     let BrpListRequest { entity } = serde_json::from_value(request)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
@@ -449,22 +440,21 @@ pub fn process_remote_list_request(
 
     let mut result = vec![];
 
-    match entity {
-        Some(entity) => {
-            let entity = get_entity(world, entity)?;
-            for component_id in entity.archetype().components() {
-                let Some(component_info) = world.components().get_info(component_id) else {
-                    continue;
-                };
-                result.push(component_info.name().to_owned());
-            }
+    // If `Some`, return all components of the provided entity.
+    if let Some(entity) = entity {
+        let entity = get_entity(world, entity)?;
+        for component_id in entity.archetype().components() {
+            let Some(component_info) = world.components().get_info(component_id) else {
+                continue;
+            };
+            result.push(component_info.name().to_owned());
         }
-
-        None => {
-            for registered_type in type_registry.iter() {
-                if registered_type.data::<ReflectComponent>().is_some() {
-                    result.push(registered_type.type_info().type_path().to_owned());
-                }
+    }
+    // If `None`, list all registered components.
+    else {
+        for registered_type in type_registry.iter() {
+            if registered_type.data::<ReflectComponent>().is_some() {
+                result.push(registered_type.type_info().type_path().to_owned());
             }
         }
     }

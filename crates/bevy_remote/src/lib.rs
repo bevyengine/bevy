@@ -299,7 +299,7 @@ impl Plugin for RemotePlugin {
         let plugin_verbs = &mut *self.verbs.write().unwrap();
         for (name, system) in plugin_verbs.drain(..) {
             remote_verbs.insert(
-                name.clone(),
+                name,
                 app.main_mut().world_mut().register_boxed_system(system),
             );
         }
