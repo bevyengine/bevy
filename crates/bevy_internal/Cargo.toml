@@ -152,7 +152,11 @@ accesskit_unix = ["bevy_winit/accesskit_unix"]
 
 bevy_text = ["dep:bevy_text", "bevy_ui?/bevy_text"]
 
-bevy_render = ["dep:bevy_render", "bevy_scene?/bevy_render"]
+bevy_render = [
+  "dep:bevy_render",
+  "bevy_scene?/bevy_render",
+  "bevy_gizmos?/bevy_render",
+]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
@@ -187,7 +191,7 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
 # Provides a picking functionality
-bevy_picking = ["dep:bevy_picking"]
+bevy_picking = ["dep:bevy_picking", "bevy_ui?/bevy_picking"]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
@@ -199,7 +203,11 @@ bevy_state = ["dep:bevy_state"]
 track_change_detection = ["bevy_ecs/track_change_detection"]
 
 # Enable function reflection
-reflect_functions = ["bevy_reflect/functions"]
+reflect_functions = [
+  "bevy_reflect/functions",
+  "bevy_app/reflect_functions",
+  "bevy_ecs/reflect_functions",
+]
 
 [dependencies]
 # bevy

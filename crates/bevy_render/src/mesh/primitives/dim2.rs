@@ -487,7 +487,7 @@ impl MeshBuilder for EllipseMeshBuilder {
         let mut uvs = Vec::with_capacity(resolution);
 
         // Add pi/2 so that there is a vertex at the top (sin is 1.0 and cos is 0.0)
-        let start_angle = std::f32::consts::FRAC_PI_2;
+        let start_angle = FRAC_PI_2;
         let step = std::f32::consts::TAU / self.resolution as f32;
 
         for i in 0..self.resolution {
@@ -595,7 +595,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
         // the vertices at `start_angle` are duplicated for the purposes of UV
         // mapping. Here, each iteration places a pair of vertices at a fixed
         // angle from the center of the annulus.
-        let start_angle = std::f32::consts::FRAC_PI_2;
+        let start_angle = FRAC_PI_2;
         let step = std::f32::consts::TAU / self.resolution as f32;
         for i in 0..=self.resolution {
             let theta = start_angle + i as f32 * step;

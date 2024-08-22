@@ -940,7 +940,7 @@ pub struct MutUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
     pub(crate) ticks: TicksMut<'w>,
     #[cfg(feature = "track_change_detection")]
-    pub(crate) changed_by: &'w mut &'static core::panic::Location<'static>,
+    pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
 impl<'w> MutUntyped<'w> {

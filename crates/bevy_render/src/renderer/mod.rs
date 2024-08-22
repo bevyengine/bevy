@@ -210,7 +210,7 @@ pub async fn initialize_renderer(
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features();
-        if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
+        if adapter_info.device_type == DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
             // should not be automatically enabled in this case. It is however beneficial for
@@ -355,6 +355,7 @@ pub async fn initialize_renderer(
                 label: options.device_label.as_ref().map(AsRef::as_ref),
                 required_features: features,
                 required_limits: limits,
+                memory_hints: options.memory_hints.clone(),
             },
             trace_path,
         )
@@ -431,7 +432,7 @@ impl<'w> RenderContext<'w> {
     /// configured using the provided `descriptor`.
     pub fn begin_tracked_render_pass<'a>(
         &'a mut self,
-        descriptor: RenderPassDescriptor<'a, '_>,
+        descriptor: RenderPassDescriptor<'_>,
     ) -> TrackedRenderPass<'a> {
         // Cannot use command_encoder() as we need to split the borrow on self
         let command_encoder = self.command_encoder.get_or_insert_with(|| {

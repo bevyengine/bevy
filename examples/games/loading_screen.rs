@@ -332,7 +332,7 @@ mod pipelines_ready {
             // and then update the pipelines status from there.
             // Writing between these Apps can only be done through the
             // `ExtractSchedule`.
-            app.sub_app_mut(bevy::render::RenderApp)
+            app.sub_app_mut(RenderApp)
                 .add_systems(ExtractSchedule, update_pipelines_ready);
         }
     }

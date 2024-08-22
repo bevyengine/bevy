@@ -50,6 +50,78 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
+    /// Creates a new separate iterator yielding the same remaining items of the current one.
+    /// Advancing the new iterator will not advance the original one, which will resume at the
+    /// point it was left at.
+    ///
+    /// Differently from [`remaining_mut`](QueryIter::remaining_mut) the new iterator does not
+    /// borrow from the original one. However it can only be called from an iterator over read only
+    /// items.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn combinations(query: Query<&ComponentA>) {
+    ///     let mut iter = query.iter();
+    ///     while let Some(a) = iter.next() {
+    ///         for b in iter.remaining() {
+    ///             // Check every combination (a, b)
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn remaining(&self) -> QueryIter<'w, 's, D, F>
+    where
+        D: ReadOnlyQueryData,
+    {
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            query_state: self.query_state,
+            cursor: self.cursor.clone(),
+        }
+    }
+
+    /// Creates a new separate iterator yielding the same remaining items of the current one.
+    /// Advancing the new iterator will not advance the original one, which will resume at the
+    /// point it was left at.
+    ///
+    /// This method can be called on iterators over mutable items. However the original iterator
+    /// will be borrowed while the new iterator exists and will thus not be usable in that timespan.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn combinations(mut query: Query<&mut ComponentA>) {
+    ///     let mut iter = query.iter_mut();
+    ///     while let Some(a) = iter.next() {
+    ///         for b in iter.remaining_mut() {
+    ///             // Check every combination (a, b)
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn remaining_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            query_state: self.query_state,
+            cursor: self.cursor.reborrow(),
+        }
+    }
+
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
     /// from an table.
     ///
@@ -68,6 +140,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if table.is_empty() {
+            return accum;
+        }
         assert!(
             rows.end <= u32::MAX as usize,
             "TableRow is only valid up to u32::MAX"
@@ -120,6 +195,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if archetype.is_empty() {
+            return accum;
+        }
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         D::set_archetype(
             &mut self.cursor.fetch,
@@ -186,6 +264,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if archetype.is_empty() {
+            return accum;
+        }
         assert!(
             rows.end <= u32::MAX as usize,
             "TableRow is only valid up to u32::MAX"
@@ -362,9 +443,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -456,9 +535,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -558,9 +635,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -626,9 +701,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -757,9 +830,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -828,9 +899,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -900,9 +969,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 
         let world = self.world;
 
-        let query_lens_state = self
-            .query_state
-            .transmute_filtered::<(L, Entity), F>(world.components());
+        let query_lens_state = self.query_state.transmute_filtered::<(L, Entity), F>(world);
 
         // SAFETY:
         // `self.world` has permission to access the required components.
@@ -1450,6 +1517,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
+        assert!(K != 0, "K should not equal to zero");
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
@@ -1457,14 +1525,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         let ptr = array
             .as_mut_ptr()
             .cast::<QueryIterationCursor<'w, 's, D, F>>();
-        if K != 0 {
-            ptr.write(QueryIterationCursor::init(
-                world,
-                query_state,
-                last_run,
-                this_run,
-            ));
-        }
+        ptr.write(QueryIterationCursor::init(
+            world,
+            query_state,
+            last_run,
+            this_run,
+        ));
         for slot in (1..K).map(|offset| ptr.add(offset)) {
             slot.write(QueryIterationCursor::init_empty(
                 world,
@@ -1489,11 +1555,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
+    #[inline]
     unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[D::Item<'w>; K]> {
-        if K == 0 {
-            return None;
-        }
-
         // PERF: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
         // when D::IS_ARCHETYPAL && F::IS_ARCHETYPAL
         //
@@ -1674,6 +1737,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         }
     }
 
+    fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
+        QueryIterationCursor {
+            fetch: D::shrink_fetch(self.fetch.clone()),
+            filter: F::shrink_fetch(self.filter.clone()),
+            table_entities: self.table_entities,
+            archetype_entities: self.archetype_entities,
+            storage_id_iter: self.storage_id_iter.clone(),
+            current_len: self.current_len,
+            current_row: self.current_row,
+        }
+    }
+
     /// retrieve item returned from most recent `next` call again.
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
@@ -1734,6 +1809,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 if self.current_row == self.current_len {
                     let table_id = self.storage_id_iter.next()?.table_id;
                     let table = tables.get(table_id).debug_checked_unwrap();
+                    if table.is_empty() {
+                        continue;
+                    }
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
@@ -1743,7 +1821,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
-                    continue;
                 }
 
                 // SAFETY: set_table was called prior.
@@ -1770,6 +1847,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 if self.current_row == self.current_len {
                     let archetype_id = self.storage_id_iter.next()?.archetype_id;
                     let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
+                    if archetype.is_empty() {
+                        continue;
+                    }
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -1790,7 +1870,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
-                    continue;
                 }
 
                 // SAFETY: set_archetype was called prior.

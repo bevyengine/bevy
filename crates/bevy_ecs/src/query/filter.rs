@@ -142,6 +142,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
+
     #[inline]
     unsafe fn init_fetch(
         _world: UnsafeWorldCell,
@@ -249,6 +251,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
     #[inline]
     unsafe fn init_fetch(
@@ -386,6 +390,16 @@ macro_rules! impl_or_query_filter {
                 item
             }
 
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                let ($($filter,)*) = fetch;
+                ($(
+                    OrFetch {
+                        fetch: $filter::shrink_fetch($filter.fetch),
+                        matches: $filter.matches
+                    },
+                )*)
+            }
+
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
             #[inline]
@@ -493,11 +507,11 @@ macro_rules! impl_or_query_filter {
 }
 
 macro_rules! impl_tuple_query_filter {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
-
+        $(#[$meta])*
         impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
@@ -516,7 +530,13 @@ macro_rules! impl_tuple_query_filter {
     };
 }
 
-all_tuples!(impl_tuple_query_filter, 0, 15, F);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_query_filter,
+    0,
+    15,
+    F
+);
 all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
 /// A filter on a component that only retains results the first time after they have been added.
@@ -608,6 +628,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         item
     }
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -688,10 +712,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        if access.access().has_write(id) {
+        if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
-        access.add_read(id);
+        access.add_component_read(id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -819,6 +843,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         item
     }
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -899,10 +927,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        if access.access().has_write(id) {
+        if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
-        access.add_read(id);
+        access.add_component_read(id);
     }
 
     fn init_state(world: &mut World) -> ComponentId {
@@ -958,11 +986,24 @@ impl<T: Component> ArchetypeFilter for With<T> {}
 impl<T: Component> ArchetypeFilter for Without<T> {}
 
 macro_rules! impl_archetype_filter_tuple {
-    ($($filter: ident),*) => {
+    ($(#[$meta:meta])* $($filter: ident),*) => {
+        $(#[$meta])*
         impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for ($($filter,)*) {}
+    };
+}
 
+macro_rules! impl_archetype_or_filter_tuple {
+    ($($filter: ident),*) => {
         impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> {}
     };
 }
 
-all_tuples!(impl_archetype_filter_tuple, 0, 15, F);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_archetype_filter_tuple,
+    0,
+    15,
+    F
+);
+
+all_tuples!(impl_archetype_or_filter_tuple, 0, 15, F);

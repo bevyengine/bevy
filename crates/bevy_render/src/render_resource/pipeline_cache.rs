@@ -32,8 +32,8 @@ use wgpu::{
 
 use crate::render_resource::resource_macros::*;
 
-render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
-render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
+render_resource_wrapper!(ErasedShaderModule, ShaderModule);
+render_resource_wrapper!(ErasedPipelineLayout, PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -173,7 +173,7 @@ impl ShaderDefVal {
 
 impl ShaderCache {
     fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
-        let (capabilities, subgroup_stages) = get_capabilities(
+        let capabilities = get_capabilities(
             render_device.features(),
             render_adapter.get_downlevel_capabilities().flags,
         );
@@ -183,7 +183,7 @@ impl ShaderCache {
         #[cfg(not(debug_assertions))]
         let composer = naga_oil::compose::Composer::non_validating();
 
-        let composer = composer.with_capabilities(capabilities, subgroup_stages);
+        let composer = composer.with_capabilities(capabilities);
 
         Self {
             composer,
@@ -316,7 +316,7 @@ impl ShaderCache {
                             },
                         )?;
 
-                        wgpu::ShaderSource::Naga(Cow::Owned(naga))
+                        ShaderSource::Naga(Cow::Owned(naga))
                     }
                 };
 
@@ -742,6 +742,7 @@ impl PipelineCache {
                 let compilation_options = PipelineCompilationOptions {
                     constants: &std::collections::HashMap::new(),
                     zero_initialize_workgroup_memory: false,
+                    vertex_pulling_transform: Default::default(),
                 };
 
                 let descriptor = RawRenderPipelineDescriptor {
@@ -767,6 +768,7 @@ impl PipelineCache {
                             // TODO: Should this be the same as the vertex compilation options?
                             compilation_options,
                         }),
+                    cache: None,
                 };
 
                 Ok(Pipeline::RenderPipeline(
@@ -822,7 +824,9 @@ impl PipelineCache {
                     compilation_options: PipelineCompilationOptions {
                         constants: &std::collections::HashMap::new(),
                         zero_initialize_workgroup_memory: false,
+                        vertex_pulling_transform: Default::default(),
                     },
+                    cache: None,
                 };
 
                 Ok(Pipeline::ComputePipeline(
@@ -992,14 +996,9 @@ pub enum PipelineCacheError {
 
 // TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
 // https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
-// We use a modified version of the `create_validator` function because `naga_oil`'s composer stores the capabilities
-// and subgroup shader stages instead of a `Validator`.
-// We also can't use that function because `wgpu-core` isn't included in WebGPU builds.
-/// Get the device capabilities and subgroup support for use in `naga_oil`.
-fn get_capabilities(
-    features: Features,
-    downlevel: DownlevelFlags,
-) -> (Capabilities, naga::valid::ShaderStages) {
+// We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core` isn't included in WebGPU builds.
+/// Get the device's capabilities for use in `naga_oil`.
+fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
     let mut capabilities = Capabilities::empty();
     capabilities.set(
         Capabilities::PUSH_CONSTANT,
@@ -1043,6 +1042,16 @@ fn get_capabilities(
         features.contains(Features::SHADER_INT64),
     );
     capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_MIN_MAX,
+        features.intersects(
+            Features::SHADER_INT64_ATOMIC_MIN_MAX | Features::SHADER_INT64_ATOMIC_ALL_OPS,
+        ),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_ALL_OPS,
+        features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
+    );
+    capabilities.set(
         Capabilities::MULTISAMPLED_SHADING,
         downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
     );
@@ -1062,16 +1071,10 @@ fn get_capabilities(
         Capabilities::SUBGROUP_BARRIER,
         features.intersects(Features::SUBGROUP_BARRIER),
     );
-
-    let mut subgroup_stages = naga::valid::ShaderStages::empty();
-    subgroup_stages.set(
-        naga::valid::ShaderStages::COMPUTE | naga::valid::ShaderStages::FRAGMENT,
-        features.contains(Features::SUBGROUP),
-    );
-    subgroup_stages.set(
-        naga::valid::ShaderStages::VERTEX,
+    capabilities.set(
+        Capabilities::SUBGROUP_VERTEX_STAGE,
         features.contains(Features::SUBGROUP_VERTEX),
     );
 
-    (capabilities, subgroup_stages)
+    capabilities
 }

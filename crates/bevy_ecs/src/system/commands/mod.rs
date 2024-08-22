@@ -5,7 +5,7 @@ use core::panic::Location;
 use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource};
 use crate::{
     self as bevy_ecs,
-    bundle::Bundle,
+    bundle::{Bundle, InsertMode},
     component::{ComponentId, ComponentInfo},
     entity::{Entities, Entity},
     event::Event,
@@ -76,6 +76,12 @@ pub struct Commands<'w, 's> {
     entities: &'w Entities,
 }
 
+// SAFETY: All commands [`Command`] implement [`Send`]
+unsafe impl Send for Commands<'_, '_> {}
+
+// SAFETY: `Commands` never gives access to the inner commands.
+unsafe impl Sync for Commands<'_, '_> {}
+
 const _: () = {
     type __StructFieldsAlias<'w, 's> = (Deferred<'s, CommandQueue>, &'w Entities);
     #[doc(hidden)]
@@ -87,7 +93,7 @@ const _: () = {
         type State = FetchState;
         type Item<'w, 's> = Commands<'w, 's>;
         fn init_state(
-            world: &mut bevy_ecs::world::World,
+            world: &mut World,
             system_meta: &mut bevy_ecs::system::SystemMeta,
         ) -> Self::State {
             FetchState {
@@ -114,7 +120,7 @@ const _: () = {
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
-            world: &mut bevy_ecs::world::World,
+            world: &mut World,
         ) {
             <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
                 &mut state.state,
@@ -777,7 +783,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.add(TriggerEvent { event, targets });
     }
 
-    /// Spawn an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.  
+    /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated with the entity that stores the observer.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -895,6 +901,7 @@ impl EntityCommands<'_> {
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
+    /// See [`EntityCommands::insert_if_new`] to keep the old value instead.
     ///
     /// # Panics
     ///
@@ -945,7 +952,24 @@ impl EntityCommands<'_> {
     /// ```
     #[track_caller]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.add(insert(bundle))
+        self.add(insert(bundle, InsertMode::Replace))
+    }
+
+    /// Adds a [`Bundle`] of components to the entity without overwriting.
+    ///
+    /// This is the same as [`EntityCommands::insert`], but in case of duplicate
+    /// components will leave the old values instead of replacing them with new
+    /// ones.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not
+    /// exist.
+    ///
+    /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`]
+    /// instead.
+    pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.add(insert(bundle, InsertMode::Keep))
     }
 
     /// Adds a dynamic component to an entity.
@@ -1044,7 +1068,20 @@ impl EntityCommands<'_> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.add(try_insert(bundle))
+        self.add(try_insert(bundle, InsertMode::Replace))
+    }
+
+    /// Tries to add a [`Bundle`] of components to the entity without overwriting.
+    ///
+    /// This is the same as [`EntityCommands::try_insert`], but in case of duplicate
+    /// components will leave the old values instead of replacing them with new
+    /// ones.
+    ///
+    /// # Note
+    ///
+    /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
+    pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.add(try_insert(bundle, InsertMode::Keep))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1210,6 +1247,15 @@ impl EntityCommands<'_> {
         self.commands.reborrow()
     }
 
+    /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that
+    /// watches this entity.
+    ///
+    /// [`Trigger`]: crate::observer::Trigger
+    pub fn trigger(&mut self, event: impl Event) -> &mut Self {
+        self.commands.trigger_targets(event, self.entity);
+        self
+    }
+
     /// Creates an [`Observer`] listening for a trigger of type `T` that targets this entity.
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
@@ -1279,7 +1325,7 @@ where
     B: Bundle,
 {
     #[cfg(feature = "track_change_detection")]
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |world: &mut World| {
         if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
             bundles_iter,
@@ -1312,12 +1358,13 @@ fn despawn() -> impl EntityCommand {
 
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
-fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
-    let caller = core::panic::Location::caller();
+fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
+    let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
+                mode,
                 #[cfg(feature = "track_change_detection")]
                 caller,
             );
@@ -1328,14 +1375,16 @@ fn insert<T: Bundle>(bundle: T) -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that attempts to add the components in a [`Bundle`] to an entity.
+/// Does nothing if the entity does not exist.
 #[track_caller]
-fn try_insert(bundle: impl Bundle) -> impl EntityCommand {
+fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     #[cfg(feature = "track_change_detection")]
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
                 bundle,
+                mode,
                 #[cfg(feature = "track_change_detection")]
                 caller,
             );
@@ -1669,6 +1718,15 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    fn is_send<T: Send>() {}
+    fn is_sync<T: Sync>() {}
+
+    #[test]
+    fn test_commands_are_send_and_sync() {
+        is_send::<Commands>();
+        is_sync::<Commands>();
     }
 
     #[test]

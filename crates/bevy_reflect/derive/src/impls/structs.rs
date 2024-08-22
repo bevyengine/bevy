@@ -1,7 +1,7 @@
-use crate::impls::{impl_type_path, impl_typed};
-use crate::utility::ident_or_index;
+use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
+use crate::struct_utility::FieldAccessors;
 use crate::ReflectStruct;
-use bevy_macro_utils::fq_std::{FQAny, FQBox, FQDefault, FQOption, FQResult};
+use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption, FQResult};
 use quote::{quote, ToTokens};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
@@ -22,28 +22,14 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 .unwrap_or_else(|| field.declaration_index.to_string())
         })
         .collect::<Vec<String>>();
-    let field_idents = reflect_struct
-        .active_fields()
-        .map(|field| ident_or_index(field.data.ident.as_ref(), field.declaration_index))
-        .collect::<Vec<_>>();
-    let field_count = field_idents.len();
-    let field_indices = (0..field_count).collect::<Vec<usize>>();
 
-    let hash_fn = reflect_struct
-        .meta()
-        .attrs()
-        .get_hash_impl(bevy_reflect_path);
-    let debug_fn = reflect_struct.meta().attrs().get_debug_impl();
-    let partial_eq_fn = reflect_struct.meta()
-        .attrs()
-        .get_partial_eq_impl(bevy_reflect_path)
-        .unwrap_or_else(|| {
-            quote! {
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
-                    #bevy_reflect_path::struct_partial_eq(self, value)
-                }
-            }
-        });
+    let FieldAccessors {
+        fields_ref,
+        fields_mut,
+        field_indices,
+        field_count,
+        ..
+    } = FieldAccessors::new(reflect_struct);
 
     let where_clause_options = reflect_struct.where_clause_options();
     let typed_impl = impl_typed(
@@ -53,6 +39,12 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
     );
 
     let type_path_impl = impl_type_path(reflect_struct.meta());
+    let full_reflect_impl = impl_full_reflect(reflect_struct.meta(), &where_clause_options);
+    let common_methods = common_partial_reflect_methods(
+        reflect_struct.meta(),
+        || Some(quote!(#bevy_reflect_path::struct_partial_eq)),
+        || None,
+    );
 
     #[cfg(not(feature = "functions"))]
     let function_impls = None::<proc_macro2::TokenStream>;
@@ -77,33 +69,35 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
 
         #type_path_impl
 
+        #full_reflect_impl
+
         #function_impls
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_path #ty_generics #where_reflect_clause {
-            fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
+            fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
                 match name {
-                    #(#field_names => #fqoption::Some(&self.#field_idents),)*
+                    #(#field_names => #fqoption::Some(#fields_ref),)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_mut(&mut self, name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_mut(&mut self, name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
                 match name {
-                    #(#field_names => #fqoption::Some(&mut self.#field_idents),)*
+                    #(#field_names => #fqoption::Some(#fields_mut),)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
+            fn field_at(&self, index: usize) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {
                 match index {
-                    #(#field_indices => #fqoption::Some(&self.#field_idents),)*
+                    #(#field_indices => #fqoption::Some(#fields_ref),)*
                     _ => #FQOption::None,
                 }
             }
 
-            fn field_at_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_at_mut(&mut self, index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::PartialReflect> {
                 match index {
-                    #(#field_indices => #fqoption::Some(&mut self.#field_idents),)*
+                    #(#field_indices => #fqoption::Some(#fields_mut),)*
                     _ => #FQOption::None,
                 }
             }
@@ -125,72 +119,40 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicStruct = #FQDefault::default();
-                dynamic.set_represented_type(#bevy_reflect_path::Reflect::get_represented_type_info(self));
-                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
+                dynamic.set_represented_type(#bevy_reflect_path::PartialReflect::get_represented_type_info(self));
+                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::PartialReflect::clone_value(#fields_ref));)*
                 dynamic
             }
         }
 
-        impl #impl_generics #bevy_reflect_path::Reflect for #struct_path #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect_path::PartialReflect for #struct_path #ty_generics #where_reflect_clause {
             #[inline]
             fn get_represented_type_info(&self) -> #FQOption<&'static #bevy_reflect_path::TypeInfo> {
                 #FQOption::Some(<Self as #bevy_reflect_path::Typed>::type_info())
             }
 
             #[inline]
-            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
-                self
-            }
-
-            #[inline]
-            fn as_any(&self) -> &dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
-                self
-            }
-
-            #[inline]
-            fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
-                self
-            }
-
-            #[inline]
-            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::Reflect {
-                self
-            }
-
-            #[inline]
-            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
+            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
                 #FQBox::new(#bevy_reflect_path::Struct::clone_dynamic(self))
             }
 
             #[inline]
-            fn set(&mut self, value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
-                *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
-                #FQResult::Ok(())
-            }
-
-            #[inline]
-            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
-                if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
+            fn try_apply(
+                &mut self,
+                value: &dyn #bevy_reflect_path::PartialReflect
+            ) -> #FQResult<(), #bevy_reflect_path::ApplyError> {
+                if let #bevy_reflect_path::ReflectRef::Struct(struct_value)
+                    = #bevy_reflect_path::PartialReflect::reflect_ref(value) {
                     for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
                         let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
                         if let #FQOption::Some(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
-                           #bevy_reflect_path::Reflect::try_apply(v, value)?;
+                           #bevy_reflect_path::PartialReflect::try_apply(v, value)?;
                         }
                     }
                 } else {
                     return #FQResult::Err(
                         #bevy_reflect_path::ApplyError::MismatchedKinds {
-                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(value),
+                            from_kind: #bevy_reflect_path::PartialReflect::reflect_kind(value),
                             to_kind: #bevy_reflect_path::ReflectKind::Struct
                         }
                     );
@@ -214,11 +176,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
                 #bevy_reflect_path::ReflectOwned::Struct(self)
             }
 
-            #hash_fn
-
-            #partial_eq_fn
-
-            #debug_fn
+            #common_methods
         }
     }
 }

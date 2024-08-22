@@ -91,6 +91,10 @@ impl AssetProcessor {
         Self { server, data }
     }
 
+    pub fn data(&self) -> &Arc<AssetProcessorData> {
+        &self.data
+    }
+
     /// The "internal" [`AssetServer`] used by the [`AssetProcessor`]. This is _separate_ from the asset processor used by
     /// the main App. It has different processor-specific configuration and a different ID space.
     pub fn server(&self) -> &AssetServer {

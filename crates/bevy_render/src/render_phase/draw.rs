@@ -228,7 +228,8 @@ pub enum RenderCommandResult {
 }
 
 macro_rules! render_command_tuple_impl {
-    ($(($name: ident, $view: ident, $entity: ident)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $view: ident, $entity: ident)),*) => {
+        $(#[$meta])*
         impl<P: PhaseItem, $($name: RenderCommand<P>),*> RenderCommand<P> for ($($name,)*) {
             type Param = ($($name::Param,)*);
             type ViewQuery = ($($name::ViewQuery,)*);
@@ -268,7 +269,15 @@ macro_rules! render_command_tuple_impl {
     };
 }
 
-all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
+all_tuples!(
+    #[doc(fake_variadic)]
+    render_command_tuple_impl,
+    0,
+    15,
+    C,
+    V,
+    E
+);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
 ///

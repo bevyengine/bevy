@@ -31,14 +31,14 @@ members = [
 ]
 
 [workspace.lints.clippy]
-type_complexity = "allow"
 doc_markdown = "warn"
 manual_let_else = "warn"
-undocumented_unsafe_blocks = "warn"
-redundant_else = "warn"
 match_same_arms = "warn"
-semicolon_if_nothing_returned = "warn"
 redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 
 ptr_as_ptr = "warn"
@@ -46,9 +46,11 @@ ptr_cast_constness = "warn"
 ref_as_ptr = "warn"
 
 [workspace.lints.rust]
-unsafe_op_in_unsafe_fn = "warn"
 missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
 
 [lints]
 workspace = true
@@ -593,6 +595,17 @@ doc-scrape-examples = true
 [package.metadata.example.transparency_2d]
 name = "Transparency in 2D"
 description = "Demonstrates transparency in 2d"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "mesh2d_alpha_mode"
+path = "examples/2d/mesh2d_alpha_mode.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_alpha_mode]
+name = "Mesh2d Alpha Mode"
+description = "Used to test alpha modes with mesh2d"
 category = "2D Rendering"
 wasm = true
 
@@ -1589,6 +1602,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_diagnostic]
 name = "Custom Diagnostic"
 description = "Shows how to create a custom diagnostic"
+category = "Diagnostics"
+wasm = true
+
+[[example]]
+name = "enabling_disabling_diagnostic"
+path = "examples/diagnostics/enabling_disabling_diagnostic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.enabling_disabling_diagnostic]
+name = "Enabling/disabling diagnostic"
+description = "Shows how to disable/re-enable a Diagnostic during runtime"
 category = "Diagnostics"
 wasm = true
 
@@ -3340,6 +3364,18 @@ description = "Demonstrates how to rotate the skybox and the environment map sim
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "simple_picking"
+path = "examples/picking/simple_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_picking"]
+
+[package.metadata.example.simple_picking]
+name = "Showcases simple picking events and usage"
+description = "Demonstrates how to use picking events to spawn simple objects"
+category = "Picking"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -3352,6 +3388,22 @@ lto = "fat"
 panic = "abort"
 
 [package.metadata.docs.rs]
+# This cfg is needed so that #[doc(fake_variadic)] is correctly propagated for
+# impls for re-exported traits. See https://github.com/rust-lang/cargo/issues/8811
+# for details on why this is needed. Since dependencies don't expect to be built
+# with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
+rustc-args = ["--cfg", "docsrs_dep"]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+
+[[example]]
+name = "monitor_info"
+path = "examples/window/monitor_info.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.monitor_info]
+name = "Monitor info"
+description = "Displays information about available monitors (displays)."
+category = "Window"
+wasm = false

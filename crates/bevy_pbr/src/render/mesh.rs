@@ -1,4 +1,4 @@
-use std::mem;
+use std::mem::{self, size_of};
 
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId};
@@ -1027,8 +1027,7 @@ pub fn extract_meshes_for_gpu_building(
                 no_automatic_batching,
             );
 
-            let lightmap_uv_rect =
-                lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
+            let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
 
             let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
 
@@ -2376,7 +2375,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     return RenderCommandResult::Skip;
                 }
                 Some(buffer) => Some((
-                    index as u64 * mem::size_of::<IndirectParameters>() as u64,
+                    index as u64 * size_of::<IndirectParameters>() as u64,
                     buffer,
                 )),
             },

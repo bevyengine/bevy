@@ -1,24 +1,26 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_2d::Transparent2d,
+    core_2d::{AlphaMask2d, AlphaMask2dBinKey, Opaque2d, Opaque2dBinKey, Transparent2d},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::{
+    entity::EntityHashMap,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_math::FloatOrd;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
-        RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
+        AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+        RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+        ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout,
@@ -32,8 +34,7 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
-use std::hash::Hash;
-use std::marker::PhantomData;
+use std::{hash::Hash, marker::PhantomData};
 
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
@@ -121,6 +122,10 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
         0.0
     }
 
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Opaque
+    }
+
     /// Customizes the default [`RenderPipelineDescriptor`].
     #[allow(unused_variables)]
     #[inline]
@@ -131,6 +136,32 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
+}
+
+/// Sets how a 2d material's base color alpha channel is used for transparency.
+/// Currently, this only works with [`Mesh2d`](crate::mesh2d::Mesh2d). Sprites are always transparent.
+///
+/// This is very similar to [`AlphaMode`](bevy_render::alpha::AlphaMode) but this only applies to 2d meshes.
+/// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
+#[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
+#[reflect(Default, Debug)]
+pub enum AlphaMode2d {
+    /// Base color alpha values are overridden to be fully opaque (1.0).
+    #[default]
+    Opaque,
+    /// Reduce transparency to fully opaque or fully transparent
+    /// based on a threshold.
+    ///
+    /// Compares the base color alpha value to the specified threshold.
+    /// If the value is below the threshold,
+    /// considers the color to be fully transparent (alpha is set to 0.0).
+    /// If it is equal to or above the threshold,
+    /// considers the color to be fully opaque (alpha is set to 1.0).
+    Mask(f32),
+    /// The base color alpha value defines the opacity of the color.
+    /// Standard alpha-blending is used to blend the fragment's color
+    /// with the color behind it.
+    Blend,
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material2d`]
@@ -153,6 +184,8 @@ where
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
+                .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
@@ -348,6 +381,14 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
     }
 }
 
+pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode2d) -> Mesh2dPipelineKey {
+    match alpha_mode {
+        AlphaMode2d::Blend => Mesh2dPipelineKey::BLEND_ALPHA,
+        AlphaMode2d::Mask(_) => Mesh2dPipelineKey::MAY_DISCARD,
+        _ => Mesh2dPipelineKey::NONE,
+    }
+}
+
 pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelineKey {
     match tonemapping {
         Tonemapping::None => Mesh2dPipelineKey::TONEMAP_METHOD_NONE,
@@ -365,6 +406,8 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material2d_meshes<M: Material2d>(
+    opaque_draw_functions: Res<DrawFunctions<Opaque2d>>,
+    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask2d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
@@ -374,6 +417,8 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
+    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
     mut views: Query<(
         Entity,
         &ExtractedView,
@@ -393,8 +438,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
+        let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+        let Some(alpha_mask_phase) = alpha_mask_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
 
         let draw_transparent_2d = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
+        let draw_opaque_2d = opaque_draw_functions.read().id::<DrawMaterial2d<M>>();
+        let draw_alpha_mask_2d = alpha_mask_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
@@ -421,8 +474,9 @@ pub fn queue_material2d_meshes<M: Material2d>(
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
-            let mesh_key =
-                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
+            let mesh_key = view_key
+                | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology())
+                | material_2d.properties.mesh_pipeline_key_bits;
 
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
@@ -443,21 +497,51 @@ pub fn queue_material2d_meshes<M: Material2d>(
             };
 
             mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
-
             let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
-            transparent_phase.add(Transparent2d {
-                entity: *visible_entity,
-                draw_function: draw_transparent_2d,
-                pipeline: pipeline_id,
-                // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                // lowest sort key and getting closer should increase. As we have
-                // -z in front of the camera, the largest distance is -far with values increasing toward the
-                // camera. As such we can just use mesh_z as the distance
-                sort_key: FloatOrd(mesh_z + material_2d.depth_bias),
-                // Batching is done in batch_and_prepare_render_phase
-                batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
-            });
+
+            match material_2d.properties.alpha_mode {
+                AlphaMode2d::Opaque => {
+                    let bin_key = Opaque2dBinKey {
+                        pipeline: pipeline_id,
+                        draw_function: draw_opaque_2d,
+                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                    };
+                    opaque_phase.add(
+                        bin_key,
+                        *visible_entity,
+                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                    );
+                }
+                AlphaMode2d::Mask(_) => {
+                    let bin_key = AlphaMask2dBinKey {
+                        pipeline: pipeline_id,
+                        draw_function: draw_alpha_mask_2d,
+                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                    };
+                    alpha_mask_phase.add(
+                        bin_key,
+                        *visible_entity,
+                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                    );
+                }
+                AlphaMode2d::Blend => {
+                    transparent_phase.add(Transparent2d {
+                        entity: *visible_entity,
+                        draw_function: draw_transparent_2d,
+                        pipeline: pipeline_id,
+                        // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                        // lowest sort key and getting closer should increase. As we have
+                        // -z in front of the camera, the largest distance is -far with values increasing toward the
+                        // camera. As such we can just use mesh_z as the distance
+                        sort_key: FloatOrd(mesh_z + material_2d.properties.depth_bias),
+                        // Batching is done in batch_and_prepare_render_phase
+                        batch_range: 0..1,
+                        extra_index: PhaseItemExtraIndex::NONE,
+                    });
+                }
+            }
         }
     }
 }
@@ -465,12 +549,27 @@ pub fn queue_material2d_meshes<M: Material2d>(
 #[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
 pub struct Material2dBindGroupId(pub Option<BindGroupId>);
 
+/// Common [`Material2d`] properties, calculated for a specific material instance.
+pub struct Material2dProperties {
+    /// The [`AlphaMode2d`] of this material.
+    pub alpha_mode: AlphaMode2d,
+    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
+    /// for meshes with equal depth, to avoid z-fighting.
+    /// The bias is in depth-texture units so large values may
+    pub depth_bias: f32,
+    /// The bits in the [`Mesh2dPipelineKey`] for this material.
+    ///
+    /// These are precalculated so that we can just "or" them together in
+    /// [`queue_material2d_meshes`].
+    pub mesh_pipeline_key_bits: Mesh2dPipelineKey,
+}
+
 /// Data prepared for a [`Material2d`] instance.
 pub struct PreparedMaterial2d<T: Material2d> {
     pub bindings: Vec<(u32, OwnedBindingResource)>,
     pub bind_group: BindGroup,
     pub key: T::Data,
-    pub depth_bias: f32,
+    pub properties: Material2dProperties,
 }
 
 impl<T: Material2d> PreparedMaterial2d<T> {
@@ -492,22 +591,31 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     fn prepare_asset(
         material: Self::SourceAsset,
         (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self, bevy_render::render_asset::PrepareAssetError<Self::SourceAsset>> {
+    ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(
             &pipeline.material2d_layout,
             render_device,
             images,
             fallback_image,
         ) {
-            Ok(prepared) => Ok(PreparedMaterial2d {
-                bindings: prepared.bindings,
-                bind_group: prepared.bind_group,
-                key: prepared.data,
-                depth_bias: material.depth_bias(),
-            }),
+            Ok(prepared) => {
+                let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
+                mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));
+                Ok(PreparedMaterial2d {
+                    bindings: prepared.bindings,
+                    bind_group: prepared.bind_group,
+                    key: prepared.data,
+                    properties: Material2dProperties {
+                        depth_bias: material.depth_bias(),
+                        alpha_mode: material.alpha_mode(),
+                        mesh_pipeline_key_bits,
+                    },
+                })
+            }
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
             }
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
         }
     }
 }

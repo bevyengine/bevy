@@ -9,7 +9,7 @@ use crate::{
     system::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 use super::from_reflect_with_fallback;
 
@@ -43,11 +43,11 @@ pub struct ReflectResource(ReflectResourceFns);
 #[derive(Clone)]
 pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::insert()`].
-    pub insert: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    pub insert: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::apply()`].
-    pub apply: fn(&mut World, &dyn Reflect),
+    pub apply: fn(&mut World, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectResource::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut World, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectResource::remove()`].
     pub remove: fn(&mut World),
     /// Function pointer implementing [`ReflectResource::reflect()`].
@@ -67,14 +67,19 @@ impl ReflectResourceFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Resource + FromReflect>() -> Self {
+    pub fn new<T: Resource + FromReflect + TypePath>() -> Self {
         <ReflectResource as FromType<T>>::from_type().0
     }
 }
 
 impl ReflectResource {
     /// Insert a reflected [`Resource`] into the world like [`insert()`](World::insert_resource).
-    pub fn insert(&self, world: &mut World, resource: &dyn Reflect, registry: &TypeRegistry) {
+    pub fn insert(
+        &self,
+        world: &mut World,
+        resource: &dyn PartialReflect,
+        registry: &TypeRegistry,
+    ) {
         (self.0.insert)(world, resource, registry);
     }
 
@@ -83,7 +88,7 @@ impl ReflectResource {
     /// # Panics
     ///
     /// Panics if there is no [`Resource`] of the given type.
-    pub fn apply(&self, world: &mut World, resource: &dyn Reflect) {
+    pub fn apply(&self, world: &mut World, resource: &dyn PartialReflect) {
         (self.0.apply)(world, resource);
     }
 
@@ -91,7 +96,7 @@ impl ReflectResource {
     pub fn apply_or_insert(
         &self,
         world: &mut World,
-        resource: &dyn Reflect,
+        resource: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(world, resource, registry);
@@ -176,7 +181,7 @@ impl ReflectResource {
     }
 }
 
-impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
+impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
     fn from_type() -> Self {
         ReflectResource(ReflectResourceFns {
             insert: |world, reflected_resource, registry| {
@@ -203,14 +208,8 @@ impl<R: Resource + FromReflect> FromType<R> for ReflectResource {
             reflect_unchecked_mut: |world| {
                 // SAFETY: all usages of `reflect_unchecked_mut` guarantee that there is either a single mutable
                 // reference or multiple immutable ones alive at any given point
-                unsafe {
-                    world.get_resource_mut::<R>().map(|res| Mut {
-                        value: res.value as &mut dyn Reflect,
-                        ticks: res.ticks,
-                        #[cfg(feature = "track_change_detection")]
-                        changed_by: res.changed_by,
-                    })
-                }
+                let res = unsafe { world.get_resource_mut::<R>() };
+                res.map(|res| res.map_unchanged(|value| value as &mut dyn Reflect))
             },
             copy: |source_world, destination_world, registry| {
                 let source_resource = source_world.resource::<R>();
