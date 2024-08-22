@@ -206,7 +206,7 @@ pub struct DragEntry {
 /// + The sequence `Over`, `DragEnter`
 /// + Any number of any of the following:
 ///   + For each movement: The sequence `Move`, `DragStart`, `Drag`, `DragOver`
-///   + For each button press: Either `Down`, or the sequence `Up`, `Click`, `DragEnd`, `Drop`, `DragLeave`
+///   + For each button press: Either `Down`, or the sequence `Up`, `Click`, `Drop`, `DragEnd`, `DragLeave`
 /// + Finally the sequence `DragLeave`, `Out`
 ///
 /// Additionally, the following are guaranteed to be received in the order by each listener:
@@ -367,23 +367,11 @@ pub fn pointer_events(
                         continue;
                     };
                     for (drag_target, drag) in drag_list {
-                        // Emit DragEnd
-                        commands.trigger_targets(
-                            Pointer::new(
-                                pointer_id,
-                                location.clone(),
-                                DragEnd {
-                                    button,
-                                    distance: drag.latest_pos - drag.start_pos,
-                                },
-                            ),
-                            drag_target,
-                        );
-                        // Emit Drop and DragLeave
                         let Some(drag_over_set) = drag_over_map.get_mut(&(pointer_id, button))
                         else {
                             continue;
                         };
+                        // Emit Drop
                         for (dragged_over, hit) in drag_over_set.drain() {
                             commands.trigger_targets(
                                 Pointer::new(
@@ -397,6 +385,21 @@ pub fn pointer_events(
                                 ),
                                 dragged_over,
                             );
+                        }
+                        // Emit DragEnd
+                        commands.trigger_targets(
+                            Pointer::new(
+                                pointer_id,
+                                location.clone(),
+                                DragEnd {
+                                    button,
+                                    distance: drag.latest_pos - drag.start_pos,
+                                },
+                            ),
+                            drag_target,
+                        );
+                        // Emit DragLeave
+                        for (dragged_over, hit) in drag_over_set.drain() {
                             commands.trigger_targets(
                                 Pointer::new(
                                     pointer_id,
