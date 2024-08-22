@@ -34,26 +34,27 @@ fn setup_camera(mut commands: Commands) {
 // Spawns the UI
 fn setup_ui(mut commands: Commands) {
     // Node that fills entire background
-    commands.spawn(NodeBundle {
-        style: Style {
-            width: Val::Percent(100.),
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.),
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    })
-    .with_children(|root| {
-        // Text where we display current resolution
-        root.spawn((
-            TextBundle::from_section(
-                "Resolution",
-                TextStyle {
-                    font_size: 50.0,
-                    ..default()
-                },
-            ),
-            ResolutionText,
-        ));
-    });
+        })
+        .with_children(|root| {
+            // Text where we display current resolution
+            root.spawn((
+                TextBundle::from_section(
+                    "Resolution",
+                    TextStyle {
+                        font_size: 50.0,
+                        ..default()
+                    },
+                ),
+                ResolutionText,
+            ));
+        });
 }
 
 /// This system shows how to request the window to a new resolution
