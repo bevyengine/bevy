@@ -249,7 +249,7 @@ pub struct PointerInput {
 impl PointerInput {
     /// Creates a new pointer input event.
     ///
-    /// Note that `location` refers to the position of the pointer *after* the event occured.
+    /// Note that `location` refers to the position of the pointer *after* the event occurred.
     pub fn new(pointer_id: PointerId, location: Location, action: PointerAction) -> PointerInput {
         PointerInput {
             pointer_id,

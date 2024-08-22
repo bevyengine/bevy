@@ -203,17 +203,18 @@ pub struct DragEntry {
 /// Dispatches interaction events to entities.
 ///
 /// Events will be dispatched in the following order:
-/// + The sequence Over, DragEnter
+/// + The sequence `Over`, `DragEnter`
 /// + Any number of any of the following:
-///   + For each movement: The sequence Move, DragStart, Drag, DragOver
-///   + For each button press: Either Down, or the sequence Up, Click, DragEnd, Drop, DragLeave
-/// + Finally the sequence DragLeave, Out
+///   + For each movement: The sequence `Move`, `DragStart`, `Drag`, `DragOver`
+///   + For each button press: Either `Down`, or the sequence `Up`, `Click`, `DragEnd`, `Drop`, `DragLeave`
+/// + Finally the sequence `DragLeave`, `Out`
 ///
 /// Additionally, the following are guaranteed to be received in the order by each listener:
-/// + When a pointer moves over the target: Over, Move, Out,
-/// + When a pointer presses buttons on the target: Down, Up, Click
-/// + When a pointer drags the target: DragStart, Drag, DragEnd
-/// + When a pointer drags something over the target: DragEnter, DragOver, Drop, DragLeave
+/// + When a pointer moves over the target: `Over`, `Move`, `Out`
+/// + When a pointer presses buttons on the target: `Down`, `Up`, `Click`
+/// + When a pointer drags the target: `DragStart`, `Drag`, `DragEnd`
+/// + When a pointer drags something over the target: `DragEnter`, `DragOver`, `Drop`, `DragLeave`
+#[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
     mut input_events: EventReader<PointerInput>,
@@ -352,7 +353,7 @@ pub fn pointer_events(
                                         },
                                     ),
                                     hovered_entity,
-                                )
+                                );
                             }
                         }
                     };
