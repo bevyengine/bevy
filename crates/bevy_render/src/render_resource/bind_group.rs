@@ -352,6 +352,8 @@ pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
     #[error("The bind group could not be generated")]
     RetryNextUpdate,
+    #[error("At binding index{0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`.")]
+    InvalidSamplerType(u32, String, String),
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].

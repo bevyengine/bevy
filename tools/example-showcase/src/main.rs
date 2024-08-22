@@ -284,7 +284,7 @@ fn main() {
 
             let reports_path = "example-showcase-reports";
             if report_details {
-                std::fs::create_dir(reports_path)
+                fs::create_dir(reports_path)
                     .expect("Failed to create example-showcase-reports directory");
             }
 

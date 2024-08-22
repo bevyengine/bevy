@@ -3,10 +3,10 @@ use crate::func::Return;
 use alloc::borrow::Cow;
 use thiserror::Error;
 
-/// An error that occurs when calling a [`DynamicFunction`] or [`DynamicClosure`].
+/// An error that occurs when calling a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Error, PartialEq)]
 pub enum FunctionError {
     /// An error occurred while converting an argument.
@@ -17,13 +17,13 @@ pub enum FunctionError {
     ArgCountMismatch { expected: usize, received: usize },
 }
 
-/// The result of calling a dynamic [`DynamicFunction`] or [`DynamicClosure`].
+/// The result of calling a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// Returns `Ok(value)` if the function was called successfully,
 /// where `value` is the [`Return`] value of the function.
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 
 /// An error that occurs when registering a function into a [`FunctionRegistry`].

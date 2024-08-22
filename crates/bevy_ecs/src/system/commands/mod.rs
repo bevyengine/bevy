@@ -76,6 +76,12 @@ pub struct Commands<'w, 's> {
     entities: &'w Entities,
 }
 
+// SAFETY: All commands [`Command`] implement [`Send`]
+unsafe impl Send for Commands<'_, '_> {}
+
+// SAFETY: `Commands` never gives access to the inner commands.
+unsafe impl Sync for Commands<'_, '_> {}
+
 const _: () = {
     type __StructFieldsAlias<'w, 's> = (Deferred<'s, CommandQueue>, &'w Entities);
     #[doc(hidden)]
@@ -87,7 +93,7 @@ const _: () = {
         type State = FetchState;
         type Item<'w, 's> = Commands<'w, 's>;
         fn init_state(
-            world: &mut bevy_ecs::world::World,
+            world: &mut World,
             system_meta: &mut bevy_ecs::system::SystemMeta,
         ) -> Self::State {
             FetchState {
@@ -114,7 +120,7 @@ const _: () = {
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
-            world: &mut bevy_ecs::world::World,
+            world: &mut World,
         ) {
             <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
                 &mut state.state,
@@ -960,7 +966,7 @@ impl EntityCommands<'_> {
     /// The command will panic when applied if the associated entity does not
     /// exist.
     ///
-    /// To avoid a panic in this case, use the command [`Self::try_insert`]
+    /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`]
     /// instead.
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(insert(bundle, InsertMode::Keep))
@@ -1063,6 +1069,19 @@ impl EntityCommands<'_> {
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
         self.add(try_insert(bundle, InsertMode::Replace))
+    }
+
+    /// Tries to add a [`Bundle`] of components to the entity without overwriting.
+    ///
+    /// This is the same as [`EntityCommands::try_insert`], but in case of duplicate
+    /// components will leave the old values instead of replacing them with new
+    /// ones.
+    ///
+    /// # Note
+    ///
+    /// Unlike [`Self::insert_if_new`], this will not panic if the associated entity does not exist.
+    pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.add(try_insert(bundle, InsertMode::Keep))
     }
 
     /// Removes a [`Bundle`] of components from the entity.
@@ -1306,7 +1325,7 @@ where
     B: Bundle,
 {
     #[cfg(feature = "track_change_detection")]
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |world: &mut World| {
         if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
             bundles_iter,
@@ -1340,7 +1359,7 @@ fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
 fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
@@ -1360,7 +1379,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
 #[track_caller]
 fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     #[cfg(feature = "track_change_detection")]
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
@@ -1699,6 +1718,15 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    fn is_send<T: Send>() {}
+    fn is_sync<T: Sync>() {}
+
+    #[test]
+    fn test_commands_are_send_and_sync() {
+        is_send::<Commands>();
+        is_sync::<Commands>();
     }
 
     #[test]

@@ -137,7 +137,7 @@ impl AsyncRead for TransactionLockedReader<'_> {
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
         buf: &mut [u8],
-    ) -> std::task::Poll<futures_io::Result<usize>> {
+    ) -> Poll<futures_io::Result<usize>> {
         Pin::new(&mut self.reader).poll_read(cx, buf)
     }
 }

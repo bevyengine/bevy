@@ -13,7 +13,7 @@ use bevy_time::{Real, Time};
 pub struct FrameTimeDiagnosticsPlugin;
 
 impl Plugin for FrameTimeDiagnosticsPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         app.register_diagnostic(Diagnostic::new(Self::FRAME_TIME).with_suffix("ms"))
             .register_diagnostic(Diagnostic::new(Self::FPS))
             .register_diagnostic(Diagnostic::new(Self::FRAME_COUNT).with_smoothing_factor(0.0))
