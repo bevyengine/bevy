@@ -436,10 +436,9 @@ pub enum RunFixedMainLoopSystem {
     /// Runs after the fixed update logic.
     ///
     /// A good example of a system that fits here
-    /// is a system that interpolates the [`Transform`] of an entity between the last and current fixed update.
+    /// is a system that interpolates the transform of an entity between the last and current fixed update.
     /// See the [fixed timestep example] for more details.
     ///
-    /// [`Transform`]: https://docs.rs/bevy/latest/bevy/prelude/struct.Transform.html
     /// [fixed timestep example]: https://github.com/bevyengine/bevy/blob/main/examples/movement/physics_in_fixed_timestep.rs
     ///
     /// # Example
