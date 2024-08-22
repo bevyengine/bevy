@@ -35,6 +35,9 @@ pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(404252
 // This should probably be done by adding an enum to this component
 #[derive(Component, Clone, Copy, ExtractComponent)]
 pub struct OrderIndependentTransparencySettings {
+    /// Controls how many layers will be used to compute the blending.
+    /// The more layers you use the more memory it will use but it will also give better results.
+    /// 8 is generally recommended, going above 16 is probably not worth it in the vast majority of cases
     pub layer_count: u8,
 }
 
