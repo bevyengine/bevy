@@ -235,8 +235,8 @@ impl Default for Fixed {
 /// Runs [`FixedMain`] zero or more times based on delta of
 /// [`Time<Virtual>`](Virtual) and [`Time::overstep`].
 /// You can order your systems relative to this by using
-/// [`AroundFixedMainLoopSystem`](bevy_app::prelude::AroundFixedMainLoopSystem).
-pub fn run_fixed_main_schedule(world: &mut World) {
+/// [`RunFixedMainLoopSystem`](bevy_app::prelude::RunFixedMainLoopSystem).
+pub(super) fn run_fixed_main_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
 

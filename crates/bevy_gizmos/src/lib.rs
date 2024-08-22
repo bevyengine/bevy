@@ -235,14 +235,14 @@ impl AppGizmoBuilder for App {
             .add_systems(
                 RunFixedMainLoop,
                 start_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::AroundFixedMainLoopSystem::Before),
+                    .in_set(bevy_app::RunFixedMainLoopSystem::BeforeFixedMainLoop),
             )
             .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
             .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
             .add_systems(
                 RunFixedMainLoop,
                 end_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::AroundFixedMainLoopSystem::After),
+                    .in_set(bevy_app::RunFixedMainLoopSystem::AfterFixedMainLoop),
             )
             .add_systems(
                 Last,

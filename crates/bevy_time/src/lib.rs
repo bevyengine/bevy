@@ -72,9 +72,7 @@ impl Plugin for TimePlugin {
         )
         .add_systems(
             RunFixedMainLoop,
-            run_fixed_main_schedule
-                .after(AroundFixedMainLoopSystem::Before)
-                .before(AroundFixedMainLoopSystem::After),
+            run_fixed_main_schedule.in_set(RunFixedMainLoopSystem::FixedMainLoop),
         );
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them
