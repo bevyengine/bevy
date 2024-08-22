@@ -86,6 +86,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (spawn_text, spawn_player))
+        // Advance the physics simulation using a fixed timestep.
         .add_systems(FixedUpdate, advance_physics)
         .add_systems(
             // The `RunFixedMainLoop` schedule allows us to schedule systems to run before and after the fixed timestep loop.
@@ -96,8 +97,8 @@ fn main() {
                 // If we ran this in `FixedUpdate`, it would sometimes not register player input, as that schedule may run zero times per frame.
                 handle_input.in_set(RunFixedMainLoopSystem::BeforeFixedMainLoop),
                 // The player's visual representation needs to be updated after the physics simulation has been advanced.
-                // This could be run in `Update`, but if we run it here instead, the other systems in `Update`
-                // will we working with the `Transform` that will actually be shown on screen.
+                // This could be run in `Update`, but if we run it here instead, the systems in `Update`
+                // will be working with the `Transform` that will actually be shown on screen.
                 update_rendered_transform.in_set(RunFixedMainLoopSystem::AfterFixedMainLoop),
             ),
         )
@@ -223,7 +224,7 @@ fn advance_physics(
         current_physical_translation.0 += velocity.0 * fixed_time.delta_seconds();
 
         // Reset the input accumulator, as we are currently consuming all input that happened since the last fixed timestep.
-        *input = AccumulatedInput::default();
+        input.0 = Vec2::ZERO;
     }
 }
 
