@@ -234,13 +234,13 @@ impl AppGizmoBuilder for App {
             .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
             .add_systems(
                 RunFixedMainLoop,
-                start_gizmo_context::<Config, Fixed>.before(bevy_time::run_fixed_main_schedule),
+                start_gizmo_context::<Config, Fixed>.in_set(bevy_app::AroundFixedMainLoopSystem::Before),
             )
             .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
             .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
             .add_systems(
                 RunFixedMainLoop,
-                end_gizmo_context::<Config, Fixed>.after(bevy_time::run_fixed_main_schedule),
+                end_gizmo_context::<Config, Fixed>.in_set(bevy_app::AroundFixedMainLoopSystem::After),
             )
             .add_systems(
                 Last,

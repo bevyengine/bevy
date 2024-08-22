@@ -33,8 +33,9 @@ pub mod prelude {
     pub use crate::{
         app::{App, AppExit},
         main_schedule::{
-            First, FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, Last, Main,
-            PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup, Update,
+            AroundFixedMainLoopSystem, First, FixedFirst, FixedLast, FixedPostUpdate,
+            FixedPreUpdate, FixedUpdate, Last, Main, PostStartup, PostUpdate, PreStartup,
+            PreUpdate, RunFixedMainLoop, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
         Plugin, PluginGroup,

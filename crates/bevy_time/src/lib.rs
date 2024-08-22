@@ -70,7 +70,12 @@ impl Plugin for TimePlugin {
                 .in_set(TimeSystem)
                 .ambiguous_with(event_update_system),
         )
-        .add_systems(RunFixedMainLoop, run_fixed_main_schedule);
+        .add_systems(
+            RunFixedMainLoop,
+            run_fixed_main_schedule
+                .after(AroundFixedMainLoopSystem::Before)
+                .before(AroundFixedMainLoopSystem::After),
+        );
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);
