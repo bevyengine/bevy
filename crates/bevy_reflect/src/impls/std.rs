@@ -107,6 +107,7 @@ impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeTo<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFull());
+impl_reflect_value!(::std::ops::Bound<T: Clone + Send + Sync>());
 impl_reflect_value!(::bevy_utils::Duration(
     Debug,
     Hash,
