@@ -239,7 +239,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         G: Any + ?Sized,
         F: FnOnce() -> T::Stored,
     {
-        self.get_or_insert_by_type_id(f, TypeId::of::<G>())
+        self.get_or_insert_by_type_id(TypeId::of::<G>(), f)
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell, if any.
@@ -257,17 +257,17 @@ impl<T: TypedProperty> GenericTypeCell<T> {
     ///
     /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
     /// If there is no entry found, a new one will be generated from the given function.
-    fn get_or_insert_by_type_id<F>(&self, f: F, type_id: TypeId) -> &T::Stored
+    fn get_or_insert_by_type_id<F>(&self, type_id: TypeId, f: F) -> &T::Stored
     where
         F: FnOnce() -> T::Stored,
     {
         match self.get_by_type_id(type_id) {
             Some(info) => info,
-            None => self.insert_by_type_id(f(), type_id),
+            None => self.insert_by_type_id(type_id, f()),
         }
     }
 
-    fn insert_by_type_id(&self, value: T::Stored, type_id: TypeId) -> &T::Stored {
+    fn insert_by_type_id(&self, type_id: TypeId, value: T::Stored) -> &T::Stored {
         self.0
             .write()
             .unwrap_or_else(PoisonError::into_inner)
