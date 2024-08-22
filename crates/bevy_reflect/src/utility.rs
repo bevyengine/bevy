@@ -239,22 +239,35 @@ impl<T: TypedProperty> GenericTypeCell<T> {
         G: Any + ?Sized,
         F: FnOnce() -> T::Stored,
     {
-        let type_id = TypeId::of::<G>();
+        self.get_or_insert_by_type_id(f, TypeId::of::<G>())
+    }
 
-        // Put in a separate scope, so `mapping` is dropped before `f`,
-        // since `f` might want to call `get_or_insert` recursively
-        // and we don't want a deadlock!
-        {
-            let mapping = self.0.read().unwrap_or_else(PoisonError::into_inner);
-            if let Some(info) = mapping.get(&type_id) {
-                return info;
-            }
+    /// Returns a reference to the [`TypedProperty`] stored in the cell, if any.
+    ///
+    /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
+    fn get_by_type_id(&self, type_id: TypeId) -> Option<&T::Stored> {
+        self.0
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&type_id)
+            .copied()
+    }
+
+    /// Returns a reference to the [`TypedProperty`] stored in the cell.
+    ///
+    /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
+    /// If there is no entry found, a new one will be generated from the given function.
+    fn get_or_insert_by_type_id(&self, f: impl FnOnce() -> T::Stored, type_id: TypeId) -> &T::Stored {
+        match self.get_by_type_id(type_id) {
+            Some(info) => info,
+            None => self.insert_by_type_id(f(), type_id),
         }
+    }
 
-        let value = f();
-
-        let mut mapping = self.0.write().unwrap_or_else(PoisonError::into_inner);
-        mapping
+    fn insert_by_type_id(&self, value: T::Stored, type_id: TypeId) -> &T::Stored {
+        self.0
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
             .entry(type_id)
             .insert({
                 // We leak here in order to obtain a `&'static` reference.
