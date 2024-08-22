@@ -391,6 +391,7 @@ pub enum RunFixedMainLoopSystem {
     /// # Example
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// App::new()
     ///   .add_systems(
     ///     RunFixedMainLoop,
@@ -414,6 +415,7 @@ pub enum RunFixedMainLoopSystem {
     /// # Example
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// App::new()
     ///   .add_systems(FixedMain, update_physics)
     ///   .add_systems(
@@ -443,6 +445,7 @@ pub enum RunFixedMainLoopSystem {
     /// # Example
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// App::new()
     ///   .add_systems(FixedMain, update_physics)
     ///   .add_systems(
