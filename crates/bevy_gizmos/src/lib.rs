@@ -120,7 +120,7 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11627807
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         #[cfg(feature = "bevy_render")]
         {
             use bevy_asset::load_internal_asset;
@@ -175,7 +175,7 @@ impl Plugin for GizmoPlugin {
     }
 
     #[cfg(feature = "bevy_render")]
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };

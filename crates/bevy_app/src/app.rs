@@ -1074,7 +1074,7 @@ impl From<u8> for AppExit {
 }
 
 impl Termination for AppExit {
-    fn report(self) -> std::process::ExitCode {
+    fn report(self) -> ExitCode {
         match self {
             AppExit::Success => ExitCode::SUCCESS,
             // We leave logging an error to our users
@@ -1085,7 +1085,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter, marker::PhantomData, mem, sync::Mutex};
+    use std::{iter, marker::PhantomData, mem::size_of, sync::Mutex};
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
@@ -1411,7 +1411,7 @@ mod tests {
     fn app_exit_size() {
         // There wont be many of them so the size isn't a issue but
         // it's nice they're so small let's keep it that way.
-        assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
+        assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }
 
     #[test]

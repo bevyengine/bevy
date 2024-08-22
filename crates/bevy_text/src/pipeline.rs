@@ -304,7 +304,7 @@ pub struct TextMeasureInfo {
     pub min: Vec2,
     /// Maximum size for a text area in pixels, to be used when laying out widgets with taffy
     pub max: Vec2,
-    buffer: cosmic_text::Buffer,
+    buffer: Buffer,
 }
 
 impl std::fmt::Debug for TextMeasureInfo {

@@ -286,7 +286,7 @@ pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::PhysicalKey)
     }
 }
 
-pub fn convert_logical_key(logical_key_code: &winit::keyboard::Key) -> bevy_input::keyboard::Key {
+pub fn convert_logical_key(logical_key_code: &Key) -> bevy_input::keyboard::Key {
     match logical_key_code {
         Key::Character(s) => bevy_input::keyboard::Key::Character(s.clone()),
         Key::Unidentified(nk) => bevy_input::keyboard::Key::Unidentified(convert_native_key(nk)),

@@ -11,7 +11,7 @@ use bevy_hierarchy::Children;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use std::{iter, mem};
+use std::{iter, mem::size_of};
 use thiserror::Error;
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
@@ -84,7 +84,7 @@ impl MorphTargetImage {
         };
         let data = targets
             .flat_map(|mut attributes| {
-                let layer_byte_count = (padding + component_count) as usize * mem::size_of::<f32>();
+                let layer_byte_count = (padding + component_count) as usize * size_of::<f32>();
                 let mut buffer = Vec::with_capacity(layer_byte_count);
                 for _ in 0..vertex_count {
                     let Some(to_add) = attributes.next() else {
@@ -93,7 +93,7 @@ impl MorphTargetImage {
                     buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
                 }
                 // Pad each layer so that they fit width * height
-                buffer.extend(iter::repeat(0).take(padding as usize * mem::size_of::<f32>()));
+                buffer.extend(iter::repeat(0).take(padding as usize * size_of::<f32>()));
                 debug_assert_eq!(buffer.len(), layer_byte_count);
                 buffer
             })

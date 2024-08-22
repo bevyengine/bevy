@@ -19,7 +19,7 @@ use crate::{
 struct QueryDataAttributes {
     pub is_mutable: bool,
 
-    pub derive_args: Punctuated<Meta, syn::token::Comma>,
+    pub derive_args: Punctuated<Meta, Comma>,
 }
 
 static MUTABLE_ATTRIBUTE_NAME: &str = "mutable";
@@ -48,7 +48,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         }
 
         attr.parse_args_with(|input: ParseStream| {
-            let meta = input.parse_terminated(syn::Meta::parse, Comma)?;
+            let meta = input.parse_terminated(Meta::parse, Comma)?;
             for meta in meta {
                 let ident = meta.path().get_ident().unwrap_or_else(|| {
                     panic!(
