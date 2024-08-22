@@ -21,6 +21,8 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
+use std::ops::Not;
+
 use super::NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
@@ -45,6 +47,38 @@ pub enum Visibility {
     /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
     /// [`Parent`] entity is hidden.
     Visible,
+}
+
+/// Converts `Visibility` to the opposite (`Visible` -> `Hidden`, `Hidden` -> `Visible`), does nothing to  `Visibility::Inherited`
+impl Not for Visibility {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Visibility::Inherited => Visibility::Inherited,
+            Visibility::Visible => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Visible,
+        }
+    }
+}
+
+impl Visibility {
+    /// Changes `Visibility` to the opposite (`Visible` -> `Hidden`, `Hidden` -> `Visible`), does nothing to `Visibility::Inherited`
+    pub fn toggle(&mut self) {
+        match self {
+            Visibility::Inherited => *self = Visibility::Inherited,
+            Visibility::Visible => *self = Visibility::Hidden,
+            Visibility::Hidden => *self = Visibility::Visible,
+        };
+    }
+
+    /// Changes `Visibility` to the opposite (`Visible` -> `Hidden`, `Hidden` -> `Visible`), changes `Visibility::Inherited` to `Visibility::Hidden`
+    pub fn toggle_inherited(&mut self) {
+        match self {
+            Visibility::Inherited | Visibility::Visible => *self = Visibility::Hidden,
+            Visibility::Hidden => *self = Visibility::Visible,
+        };
+    }
 }
 
 // Allows `&Visibility == Visibility`
