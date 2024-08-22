@@ -256,7 +256,7 @@ pub fn process_remote_get_request(In(request): In<Value>, world: &World) -> Anyh
         let reflect_serializer = ReflectSerializer::new(reflected, &type_registry);
         let Value::Object(serialized_object) = serde_json::to_value(&reflect_serializer)? else {
             return Err(anyhow!(
-                "Component didn't serialize into a JSON object: `{}`",
+                "Component `{}` could not be serialized",
                 component_path
             ));
         };
@@ -416,7 +416,7 @@ pub fn process_remote_reparent_request(
         let mut parent_commands = get_entity_mut(world, parent)?;
         for entity in entities {
             if entity == parent {
-                return Err(anyhow!("Can't parent an object to itself"));
+                return Err(anyhow!("Attempted to parent Entity {:?} to itself", entity));
             }
             parent_commands.add_child(entity);
         }
@@ -545,10 +545,7 @@ fn serialize_components(
 
         let reflect_serializer = ReflectSerializer::new(reflected, type_registry);
         let Value::Object(serialized_object) = serde_json::to_value(&reflect_serializer)? else {
-            return Err(anyhow!(
-                "Component didn't serialize into a JSON object: `{}`",
-                type_path
-            ));
+            return Err(anyhow!("Component `{}` could not be serialized", type_path));
         };
 
         serialized_components_map.extend(serialized_object.into_iter());
@@ -595,19 +592,15 @@ fn insert_reflected_components(
 
 /// Given a component's type path, return the associated [`ReflectComponent`] from the given
 /// `type_registry` if possible.
-fn get_reflect_component<'a>(
-    type_registry: &'a TypeRegistry,
+fn get_reflect_component<'r>(
+    type_registry: &'r TypeRegistry,
     component_path: &str,
-) -> AnyhowResult<&'a ReflectComponent> {
+) -> AnyhowResult<&'r ReflectComponent> {
     let component_registration = get_component_type_registration(type_registry, component_path)?;
-    let Some(reflect_component) = component_registration.data::<ReflectComponent>() else {
-        return Err(anyhow!(
-            "Type isn't a reflectable component: `{}`",
-            component_path
-        ));
-    };
 
-    Ok(reflect_component)
+    component_registration
+        .data::<ReflectComponent>()
+        .ok_or_else(|| anyhow!("Component `{}` isn't reflectable", component_path))
 }
 
 /// Given a component's type path, return the associated [`TypeRegistration`] from the given
@@ -616,8 +609,7 @@ fn get_component_type_registration<'r>(
     type_registry: &'r TypeRegistry,
     component_path: &str,
 ) -> AnyhowResult<&'r TypeRegistration> {
-    match type_registry.get_with_type_path(component_path) {
-        Some(component_registration) => Ok(component_registration),
-        None => Err(anyhow!("Unknown component type: `{}`", component_path)),
-    }
+    type_registry
+        .get_with_type_path(component_path)
+        .ok_or_else(|| anyhow!("Unknown component type: `{}`", component_path))
 }
