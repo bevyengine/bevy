@@ -417,6 +417,7 @@ mod libm_ops {
     pub(crate) fn tanh(x: f32) -> f32 {
         libm::tanhf(x)
     }
+
     /// Inverse hyperbolic sine function.
     ///
     /// Specified or Unspecified Precision is determined by whether the `libm` feature is enabled.
