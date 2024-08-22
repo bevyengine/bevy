@@ -1,10 +1,10 @@
-//! Showcases a FogVolume's density texture being scrolled over time to create
+//! Showcases a `FogVolume`'s density texture being scrolled over time to create
 //! the effect of fog moving in the wind.
 //!
-//! The density texture is a repeating 3d noise texture and the density_texture_offset
+//! The density texture is a repeating 3d noise texture and the `density_texture_offset`
 //! is moved every frame to achieve this.
 //!
-//! The example also utilizes the jitter option of VolumetricFogSettings in tandem
+//! The example also utilizes the jitter option of `VolumetricFogSettings` in tandem
 //! with temporal anti-aliasing to improve the visual quality of the effect.
 //!
 //! The camera is looking at a pillar with the sun peaking behind it. The light
