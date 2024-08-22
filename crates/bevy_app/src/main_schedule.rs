@@ -396,7 +396,7 @@ pub enum RunFixedMainLoopSystem {
     ///   .add_systems(
     ///     RunFixedMainLoop,
     ///     update_camera_rotation.in_set(RunFixedMainLoopSystem::BeforeFixedMainLoop))
-    ///   .add_systems(FixedMain, update_physics);
+    ///   .add_systems(FixedUpdate, update_physics);
     ///
     /// # fn update_camera_rotation() {}
     /// # fn update_physics() {}
@@ -417,7 +417,7 @@ pub enum RunFixedMainLoopSystem {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// App::new()
-    ///   .add_systems(FixedMain, update_physics)
+    ///   .add_systems(FixedUpdate, update_physics)
     ///   .add_systems(
     ///     RunFixedMainLoop,
     ///     (
@@ -447,7 +447,7 @@ pub enum RunFixedMainLoopSystem {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// App::new()
-    ///   .add_systems(FixedMain, update_physics)
+    ///   .add_systems(FixedUpdate, update_physics)
     ///   .add_systems(
     ///     RunFixedMainLoop,
     ///     interpolate_transforms.in_set(RunFixedMainLoopSystem::AfterFixedMainLoop));
