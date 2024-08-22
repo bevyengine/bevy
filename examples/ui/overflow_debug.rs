@@ -79,8 +79,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // OverflowText
 
-    let text_style = TextStyle::default();
-
     commands
         .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
@@ -91,10 +89,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             parent.spawn(TextSection::new(
                 "Next Overflow Setting (O)\nNext Container Size (S)\nToggle Animation (space)\n\n",
-                text_style.clone(),
+                default(),
             ));
             parent.spawn((
-                TextSection::new(format!("{:?}", Overflow::clip()), text_style.clone()),
+                TextSection::new(format!("{:?}", Overflow::clip()), default()),
                 OverflowText,
             ));
         });

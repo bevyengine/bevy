@@ -134,8 +134,6 @@ fn setup(
         ..default()
     });
 
-    let style = TextStyle::default();
-
     commands
         .spawn(TextBundle {
             style: Style {
@@ -158,47 +156,41 @@ fn setup(
                 5/6   - change direction light depth bias\n\
                 7/8   - change direction light normal bias\n\
                 left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0)",
-                style.clone(),
+                default(),
             ));
 
             c.spawn((
-                TextSection::new("Current Lights: [DirectionalLight]", style.clone()),
+                TextSection::new("Current Lights: [DirectionalLight]", default()),
                 LightTypeText,
             ));
 
             c.spawn((
-                TextSection::new(
-                    "Current Directional Light Filter: [Hardware2x2]",
-                    style.clone(),
-                ),
+                TextSection::new("Current Directional Light Filter: [Hardware2x2]", default()),
                 LightFilterText,
             ));
 
             c.spawn((
-                TextSection::new("Current Point Light Depth Bias: [0.00]", style.clone()),
+                TextSection::new("Current Point Light Depth Bias: [0.00]", default()),
                 PointLightDepthBiasText,
             ));
 
             c.spawn((
-                TextSection::new("Current Point Light Normal Bias: [0.0]", style.clone()),
+                TextSection::new("Current Point Light Normal Bias: [0.0]", default()),
                 PointLightNormalBiasText,
             ));
 
             c.spawn((
-                TextSection::new("Current Directional Light Depth Bias: [0.0]", style.clone()),
+                TextSection::new("Current Directional Light Depth Bias: [0.0]", default()),
                 DirectionalLightDepthBiasText,
             ));
 
             c.spawn((
-                TextSection::new(
-                    "Current Directional Light Normal Bias: [0.0]",
-                    style.clone(),
-                ),
+                TextSection::new("Current Directional Light Normal Bias: [0.0]", default()),
                 DirectionalLightNormalBiasText,
             ));
 
             c.spawn((
-                TextSection::new("Current Light Position: [0, 0, 0]", style.clone()),
+                TextSection::new("Current Light Position: [0, 0, 0]", default()),
                 LightPositionText,
             ));
         });

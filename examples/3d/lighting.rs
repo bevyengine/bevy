@@ -240,7 +240,6 @@ fn setup(
     });
 
     // example instructions
-    let style = TextStyle::default();
 
     commands
         .spawn(TextBundle {
@@ -256,7 +255,7 @@ fn setup(
             root.spawn((
                 TextSection::new(
                     format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops),
-                    style.clone(),
+                    default(),
                 ),
                 ApertureText,
             ));
@@ -267,7 +266,7 @@ fn setup(
                         "Shutter speed: 1/{:.0}s\n",
                         1.0 / parameters.shutter_speed_s
                     ),
-                    style.clone(),
+                    default(),
                 ),
                 ShutterSpeedText,
             ));
@@ -275,7 +274,7 @@ fn setup(
             root.spawn((
                 TextSection::new(
                     format!("Sensitivity: ISO {:.0}\n", parameters.sensitivity_iso),
-                    style.clone(),
+                    default(),
                 ),
                 SensitivityText,
             ));
@@ -290,7 +289,7 @@ fn setup(
                     5/6 - Decrease/Increase sensitivity\n\
                     R - Reset exposure"]
                 .join("\n"),
-                style.clone(),
+                default(),
             ));
         });
 

@@ -15,8 +15,6 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
-    let text_style = TextStyle::default();
-
     let image = asset_server.load("branding/icon.png");
 
     commands
@@ -63,7 +61,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             .with_children(|parent| {
                                 parent
                                     .spawn(TextBundle::default())
-                                    .with_child(TextSection::new(label, text_style.clone()));
+                                    .with_child(TextSection::new(label, default()));
                             });
                         parent
                             .spawn(NodeBundle {

@@ -258,8 +258,6 @@ fn spawn_trees(
 }
 
 fn setup_ui(mut commands: Commands) {
-    let style = TextStyle::default();
-
     commands
         .spawn(TextBundle {
             style: Style {
@@ -271,18 +269,15 @@ fn setup_ui(mut commands: Commands) {
             ..default()
         })
         .with_children(|root| {
-            root.spawn((
-                TextSection::new(String::new(), style.clone()),
-                ShutterAngleText,
-            ));
+            root.spawn((TextSection::default(), ShutterAngleText));
 
-            root.spawn((TextSection::new(String::new(), style.clone()), SamplesText));
+            root.spawn((TextSection::default(), SamplesText));
 
             root.spawn(TextSection::new(
                 "1/2: -/+ shutter angle (blur amount)\n\
                     3/4: -/+ sample count (blur quality)\n\
                     Spacebar: cycle camera",
-                style,
+                default(),
             ));
         });
 }
