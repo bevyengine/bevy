@@ -3174,6 +3174,11 @@ mod tests {
     }
 
     #[test]
+    fn has_unit() {
+        World::new().get_resource::<()>().unwrap();
+    }
+
+    #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
         world.insert_resource(TestResource(42));
