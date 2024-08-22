@@ -68,10 +68,6 @@ impl Plugin for InputPlugin {
                 (
                     mouse::mouse_pick_events.run_if(InputPlugin::is_mouse_enabled),
                     touch::touch_pick_events.run_if(InputPlugin::is_touch_enabled),
-                    // IMPORTANT: the commands must be flushed after `touch_pick_events` is run
-                    // because we need pointer spawning to happen immediately to prevent issues with
-                    // missed events during drag and drop.
-                    apply_deferred,
                 )
                     .chain()
                     .in_set(PickSet::Input),

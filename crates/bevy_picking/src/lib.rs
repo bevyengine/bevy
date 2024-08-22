@@ -204,16 +204,14 @@ impl Plugin for PickingPlugin {
         app.init_resource::<PickingPluginsSettings>()
             .init_resource::<pointer::PointerMap>()
             .init_resource::<backend::ray::RayMap>()
-            .add_event::<pointer::InputPress>()
-            .add_event::<pointer::InputMove>()
+            .add_event::<pointer::PointerInput>()
             .add_event::<backend::PointerHits>()
             .add_systems(
                 PreUpdate,
                 (
                     pointer::update_pointer_map,
-                    pointer::InputMove::receive,
-                    pointer::InputPress::receive,
-                    backend::ray::RayMap::repopulate.after(pointer::InputMove::receive),
+                    pointer::PointerInput::receive,
+                    backend::ray::RayMap::repopulate.after(pointer::PointerInput::receive),
                 )
                     .in_set(PickSet::ProcessInput),
             )
@@ -259,8 +257,6 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
-            .init_resource::<DragMap>()
-            .add_event::<PointerCancel>()
             .add_event::<Pointer<Down>>()
             .add_event::<Pointer<Up>>()
             .add_event::<Pointer<Move>>()
@@ -269,13 +265,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<DragEnd>>()
             .add_systems(
                 PreUpdate,
-                (
-                    update_focus,
-                    pointer_events,
-                    update_interactions,
-                    send_click_and_drag_events,
-                    send_drag_over_events,
-                )
+                (update_focus, pointer_events, update_interactions)
                     .chain()
                     .in_set(PickSet::Focus),
             );
