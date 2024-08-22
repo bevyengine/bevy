@@ -3157,6 +3157,8 @@ mod tests {
 
         let mut iter = world.iter_resources();
 
+        let (info, _ptr) = iter.next().unwrap();
+        assert_eq!(info.name(), std::any::type_name::<()>());
         let (info, ptr) = iter.next().unwrap();
         assert_eq!(info.name(), std::any::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
@@ -3188,6 +3190,8 @@ mod tests {
 
         let mut iter = world.iter_resources_mut();
 
+        let (info, _ptr) = iter.next().unwrap();
+        assert_eq!(info.name(), std::any::type_name::<()>());
         let (info, mut mut_untyped) = iter.next().unwrap();
         assert_eq!(info.name(), std::any::type_name::<TestResource>());
         // SAFETY: We know that the resource is of type `TestResource`
