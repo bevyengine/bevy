@@ -3330,6 +3330,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "scrolling_fog"
+path = "examples/3d/scrolling_fog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrolling_fog]
+name = "Scrolling fog"
+description = "Demonstrates how to create the effect of fog moving in the wind"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "physics_in_fixed_timestep"
 path = "examples/movement/physics_in_fixed_timestep.rs"
 doc-scrape-examples = true
