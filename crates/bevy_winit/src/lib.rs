@@ -159,7 +159,7 @@ pub struct WakeUp;
 ///
 /// Use `Res<EventLoopProxy>` to receive this resource.
 #[derive(Resource, Deref)]
-pub struct EventLoopProxyWrapper<T: 'static>(winit::event_loop::EventLoopProxy<T>);
+pub struct EventLoopProxyWrapper<T: 'static>(EventLoopProxy<T>);
 
 trait AppSendEvent {
     fn send(&mut self, event: impl Into<WinitEvent>);
