@@ -113,7 +113,7 @@ impl Plugin for TextPlugin {
                         .in_set(VisibilitySystems::CalculateBounds)
                         .after(update_text2d_layout),
                     update_text2d_layout
-                        .after(font_atlas_set::remove_dropped_font_atlas_sets)
+                        .after(remove_dropped_font_atlas_sets)
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`

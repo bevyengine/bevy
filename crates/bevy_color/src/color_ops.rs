@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_gray() {
-        verify_gray::<crate::Hsla>();
+        verify_gray::<Hsla>();
         verify_gray::<crate::Hsva>();
         verify_gray::<crate::Hwba>();
         verify_gray::<crate::Laba>();

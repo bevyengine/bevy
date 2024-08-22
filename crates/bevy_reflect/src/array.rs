@@ -536,7 +536,7 @@ pub fn array_partial_eq<A: Array + ?Sized>(
 /// // ]
 /// ```
 #[inline]
-pub fn array_debug(dyn_array: &dyn Array, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn array_debug(dyn_array: &dyn Array, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut debug = f.debug_list();
     for item in dyn_array.iter() {
         debug.entry(&item as &dyn Debug);

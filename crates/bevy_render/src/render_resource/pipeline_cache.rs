@@ -32,8 +32,8 @@ use wgpu::{
 
 use crate::render_resource::resource_macros::*;
 
-render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
-render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
+render_resource_wrapper!(ErasedShaderModule, ShaderModule);
+render_resource_wrapper!(ErasedPipelineLayout, PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -316,7 +316,7 @@ impl ShaderCache {
                             },
                         )?;
 
-                        wgpu::ShaderSource::Naga(Cow::Owned(naga))
+                        ShaderSource::Naga(Cow::Owned(naga))
                     }
                 };
 
