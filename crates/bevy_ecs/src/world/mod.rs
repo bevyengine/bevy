@@ -174,6 +174,7 @@ impl World {
         assert_eq!(ON_INSERT, self.init_component::<OnInsert>());
         assert_eq!(ON_REPLACE, self.init_component::<OnReplace>());
         assert_eq!(ON_REMOVE, self.init_component::<OnRemove>());
+        assert_eq!(UNIT, self.init_resource::<()>());
     }
     /// Creates a new empty [`World`].
     ///

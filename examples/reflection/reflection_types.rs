@@ -116,6 +116,7 @@ fn setup() {
         // implementation. Value is implemented for core types like i32, usize, f32, and
         // String.
         ReflectRef::Value(_) => {}
+        ReflectRef::Unit(_) => {}
     }
 
     let mut dynamic_list = DynamicList::default();

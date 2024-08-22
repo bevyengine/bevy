@@ -27,6 +27,7 @@ macro_rules! impl_reflect_enum {
                     Self::Set(_) => ReflectKind::Set,
                     Self::Enum(_) => ReflectKind::Enum,
                     Self::Value(_) => ReflectKind::Value,
+                    Self::Unit(_) => ReflectKind::Unit,
                 }
             }
         }
@@ -43,6 +44,7 @@ macro_rules! impl_reflect_enum {
                     $name::Set(_) => Self::Set,
                     $name::Enum(_) => Self::Enum,
                     $name::Value(_) => Self::Value,
+                    $name::Unit(_) => Self::Unit,
                 }
             }
         }
@@ -65,6 +67,7 @@ pub enum ReflectRef<'a> {
     Set(&'a dyn Set),
     Enum(&'a dyn Enum),
     Value(&'a dyn PartialReflect),
+    Unit(&'a ()),
 }
 impl_reflect_enum!(ReflectRef<'_>);
 
@@ -84,6 +87,7 @@ pub enum ReflectMut<'a> {
     Set(&'a mut dyn Set),
     Enum(&'a mut dyn Enum),
     Value(&'a mut dyn PartialReflect),
+    Unit(&'a ()),
 }
 impl_reflect_enum!(ReflectMut<'_>);
 
@@ -103,6 +107,7 @@ pub enum ReflectOwned {
     Set(Box<dyn Set>),
     Enum(Box<dyn Enum>),
     Value(Box<dyn PartialReflect>),
+    Unit(Box<()>),
 }
 impl_reflect_enum!(ReflectOwned);
 
@@ -157,6 +162,7 @@ pub enum ReflectKind {
     Set,
     Enum,
     Value,
+    Unit,
 }
 
 impl std::fmt::Display for ReflectKind {
@@ -171,6 +177,7 @@ impl std::fmt::Display for ReflectKind {
             ReflectKind::Set => f.pad("set"),
             ReflectKind::Enum => f.pad("enum"),
             ReflectKind::Value => f.pad("value"),
+            ReflectKind::Unit => f.pad("unit"),
         }
     }
 }

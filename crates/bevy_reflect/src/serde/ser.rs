@@ -240,6 +240,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             }
             .serialize(serializer),
             ReflectRef::Value(_) => Err(serializable.err().unwrap()),
+            ReflectRef::Unit(_) => TupleSerializer {
+                tuple: &(),
+                registry: self.registry,
+            }
+            .serialize(serializer),
         }
     }
 }
