@@ -25,9 +25,10 @@ fn calc_name(
     children: &Children,
 ) -> Option<Box<str>> {
     let mut name = None;
+    let mut sections = Vec::new();
     for child in children {
         if let Ok(maybe_children) = texts.get(*child) {
-            let mut sections = Vec::new();
+            sections.clear();
 
             if let Ok(section) = text_sections.get(*child) {
                 sections.push(section);
@@ -39,14 +40,22 @@ fn calc_name(
                 }
             }
 
-            let values = sections
-                .iter()
-                .map(|v| v.value.to_string())
-                .collect::<Vec<String>>();
-            name = Some(values.join(" "));
+            let iterator = sections.iter().map(|v| v.value.as_ref());
+            name = Some(join_strs(iterator, " "));
         }
     }
     name.map(String::into_boxed_str)
+}
+
+fn join_strs<'a>(values: impl Iterator<Item = &'a str>, sep: &str) -> String {
+    let mut s = String::new();
+    for (i, value) in values.enumerate() {
+        if i > 0 {
+            s.push_str(sep);
+        }
+        s.push_str(value);
+    }
+    s
 }
 
 fn calc_bounds(
