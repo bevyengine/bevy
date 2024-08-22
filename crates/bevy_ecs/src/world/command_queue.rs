@@ -2,7 +2,7 @@ use crate::system::{SystemBuffer, SystemMeta};
 
 use std::{
     fmt::Debug,
-    mem::MaybeUninit,
+    mem::{size_of, MaybeUninit},
     panic::{self, AssertUnwindSafe},
     ptr::{addr_of_mut, NonNull},
 };
@@ -169,7 +169,7 @@ impl RawCommandQueue {
 
         let meta = CommandMeta {
             consume_command_and_get_size: |command, world, cursor| {
-                *cursor += std::mem::size_of::<C>();
+                *cursor += size_of::<C>();
 
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
@@ -197,7 +197,7 @@ impl RawCommandQueue {
         let old_len = bytes.len();
 
         // Reserve enough bytes for both the metadata and the command itself.
-        bytes.reserve(std::mem::size_of::<Packed<C>>());
+        bytes.reserve(size_of::<Packed<C>>());
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
@@ -217,7 +217,7 @@ impl RawCommandQueue {
         // SAFETY: The new length is guaranteed to fit in the vector's capacity,
         // due to the call to `.reserve()` above.
         unsafe {
-            bytes.set_len(old_len + std::mem::size_of::<Packed<C>>());
+            bytes.set_len(old_len + size_of::<Packed<C>>());
         }
     }
 
@@ -252,13 +252,13 @@ impl RawCommandQueue {
             };
 
             // Advance to the bytes just after `meta`, which represent a type-erased command.
-            local_cursor += std::mem::size_of::<CommandMeta>();
+            local_cursor += size_of::<CommandMeta>();
             // Construct an owned pointer to the command.
             // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the increment of `cursor` above
             // guarantees that nothing stored in the buffer will get observed after this function ends.
             // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe {
-                OwningPtr::<Unaligned>::new(std::ptr::NonNull::new_unchecked(
+                OwningPtr::<Unaligned>::new(NonNull::new_unchecked(
                     self.bytes.as_mut().as_mut_ptr().add(local_cursor).cast(),
                 ))
             };
@@ -445,7 +445,7 @@ mod test {
 
     #[test]
     fn test_command_queue_inner_panic_safe() {
-        std::panic::set_hook(Box::new(|_| {}));
+        panic::set_hook(Box::new(|_| {}));
 
         let mut queue = CommandQueue::default();
 
@@ -454,7 +454,7 @@ mod test {
 
         let mut world = World::new();
 
-        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        let _ = panic::catch_unwind(AssertUnwindSafe(|| {
             queue.apply(&mut world);
         }));
 
@@ -468,7 +468,7 @@ mod test {
 
     #[test]
     fn test_command_queue_inner_nested_panic_safe() {
-        std::panic::set_hook(Box::new(|_| {}));
+        panic::set_hook(Box::new(|_| {}));
 
         #[derive(Resource, Default)]
         struct Order(Vec<usize>);
@@ -488,7 +488,7 @@ mod test {
         });
         world.commands().add(add_index(4));
 
-        let _ = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        let _ = panic::catch_unwind(AssertUnwindSafe(|| {
             world.flush_commands();
         }));
 

@@ -27,7 +27,7 @@ mod sealed {
 ///
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
-pub trait StateSet: sealed::StateSetSealed {
+pub trait StateSet: StateSetSealed {
     /// The total [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
     /// the states that are part of this [`StateSet`], added together.
     ///

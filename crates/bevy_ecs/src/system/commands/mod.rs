@@ -76,6 +76,12 @@ pub struct Commands<'w, 's> {
     entities: &'w Entities,
 }
 
+// SAFETY: All commands [`Command`] implement [`Send`]
+unsafe impl Send for Commands<'_, '_> {}
+
+// SAFETY: `Commands` never gives access to the inner commands.
+unsafe impl Sync for Commands<'_, '_> {}
+
 const _: () = {
     type __StructFieldsAlias<'w, 's> = (Deferred<'s, CommandQueue>, &'w Entities);
     #[doc(hidden)]
@@ -87,7 +93,7 @@ const _: () = {
         type State = FetchState;
         type Item<'w, 's> = Commands<'w, 's>;
         fn init_state(
-            world: &mut bevy_ecs::world::World,
+            world: &mut World,
             system_meta: &mut bevy_ecs::system::SystemMeta,
         ) -> Self::State {
             FetchState {
@@ -114,7 +120,7 @@ const _: () = {
         fn apply(
             state: &mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
-            world: &mut bevy_ecs::world::World,
+            world: &mut World,
         ) {
             <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::apply(
                 &mut state.state,
@@ -1319,7 +1325,7 @@ where
     B: Bundle,
 {
     #[cfg(feature = "track_change_detection")]
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |world: &mut World| {
         if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
             bundles_iter,
@@ -1353,7 +1359,7 @@ fn despawn() -> impl EntityCommand {
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
 fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |entity: Entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
@@ -1373,7 +1379,7 @@ fn insert<T: Bundle>(bundle: T, mode: InsertMode) -> impl EntityCommand {
 #[track_caller]
 fn try_insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     #[cfg(feature = "track_change_detection")]
-    let caller = core::panic::Location::caller();
+    let caller = Location::caller();
     move |entity, world: &mut World| {
         if let Some(mut entity) = world.get_entity_mut(entity) {
             entity.insert_with_caller(
@@ -1712,6 +1718,15 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    fn is_send<T: Send>() {}
+    fn is_sync<T: Sync>() {}
+
+    #[test]
+    fn test_commands_are_send_and_sync() {
+        is_send::<Commands>();
+        is_sync::<Commands>();
     }
 
     #[test]

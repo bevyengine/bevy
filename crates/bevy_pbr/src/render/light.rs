@@ -637,7 +637,7 @@ pub fn prepare_lights(
     //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1, _), (entity_2, light_2, _)| {
-        crate::cluster::clusterable_object_order(
+        clusterable_object_order(
             (
                 entity_1,
                 &light_1.shadows_enabled,

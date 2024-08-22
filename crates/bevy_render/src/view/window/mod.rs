@@ -457,7 +457,7 @@ pub fn create_surfaces(
                     }
                 }
 
-                let configuration = wgpu::SurfaceConfiguration {
+                let configuration = SurfaceConfiguration {
                     format,
                     width: window.physical_width,
                     height: window.physical_height,

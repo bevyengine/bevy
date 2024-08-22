@@ -4,13 +4,14 @@ use bevy_math::Mat4;
 use bevy_render::{
     mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice, texture::GpuImage,
 };
+use std::mem::size_of;
 
 use crate::render::skin::MAX_JOINTS;
 
-const MORPH_WEIGHT_SIZE: usize = std::mem::size_of::<f32>();
+const MORPH_WEIGHT_SIZE: usize = size_of::<f32>();
 pub const MORPH_BUFFER_SIZE: usize = MAX_MORPH_WEIGHTS * MORPH_WEIGHT_SIZE;
 
-const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
+const JOINT_SIZE: usize = size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 /// Individual layout entries.

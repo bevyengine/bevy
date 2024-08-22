@@ -605,16 +605,16 @@ impl App {
 
     /// Registers the given function into the [`AppFunctionRegistry`] resource.
     ///
-    /// The given function will internally be stored as a [`DynamicClosure`]
+    /// The given function will internally be stored as a [`DynamicFunction`]
     /// and mapped according to its [name].
     ///
     /// Because the function must have a name,
     /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
-    /// be registered using [`register_function_with_name`] or converted to a [`DynamicClosure`]
-    /// and named using [`DynamicClosure::with_name`].
+    /// be registered using [`register_function_with_name`] or converted to a [`DynamicFunction`]
+    /// and named using [`DynamicFunction::with_name`].
     /// Failure to do so will result in a panic.
     ///
-    /// Only types that implement [`IntoClosure`] may be registered via this method.
+    /// Only types that implement [`IntoFunction`] may be registered via this method.
     ///
     /// See [`FunctionRegistry::register`] for more information.
     ///
@@ -650,7 +650,7 @@ impl App {
     ///     .register_function(add);
     /// ```
     ///
-    /// Anonymous functions and closures should be registered using [`register_function_with_name`] or given a name using [`DynamicClosure::with_name`].
+    /// Anonymous functions and closures should be registered using [`register_function_with_name`] or given a name using [`DynamicFunction::with_name`].
     ///
     /// ```should_panic
     /// use bevy_app::App;
@@ -660,15 +660,15 @@ impl App {
     /// ```
     ///
     /// [`register_function_with_name`]: Self::register_function_with_name
-    /// [`DynamicClosure`]: bevy_reflect::func::DynamicClosure
+    /// [`DynamicFunction`]: bevy_reflect::func::DynamicFunction
     /// [name]: bevy_reflect::func::FunctionInfo::name
-    /// [`DynamicClosure::with_name`]: bevy_reflect::func::DynamicClosure::with_name
-    /// [`IntoClosure`]: bevy_reflect::func::IntoClosure
+    /// [`DynamicFunction::with_name`]: bevy_reflect::func::DynamicFunction::with_name
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
     /// [`FunctionRegistry::register`]: bevy_reflect::func::FunctionRegistry::register
     #[cfg(feature = "reflect_functions")]
     pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
     where
-        F: bevy_reflect::func::IntoClosure<'static, Marker> + 'static,
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
     {
         self.main_mut().register_function(function);
         self
@@ -689,7 +689,7 @@ impl App {
     /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
     /// it's recommended to use [`register_function`] instead as the generated name is guaranteed to be unique.
     ///
-    /// Only types that implement [`IntoClosure`] may be registered via this method.
+    /// Only types that implement [`IntoFunction`] may be registered via this method.
     ///
     /// See [`FunctionRegistry::register_with_name`] for more information.
     ///
@@ -738,7 +738,7 @@ impl App {
     ///
     /// [type name]: std::any::type_name
     /// [`register_function`]: Self::register_function
-    /// [`IntoClosure`]: bevy_reflect::func::IntoClosure
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
     /// [`FunctionRegistry::register_with_name`]: bevy_reflect::func::FunctionRegistry::register_with_name
     #[cfg(feature = "reflect_functions")]
     pub fn register_function_with_name<F, Marker>(
@@ -747,7 +747,7 @@ impl App {
         function: F,
     ) -> &mut Self
     where
-        F: bevy_reflect::func::IntoClosure<'static, Marker> + 'static,
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
     {
         self.main_mut().register_function_with_name(name, function);
         self
@@ -1074,7 +1074,7 @@ impl From<u8> for AppExit {
 }
 
 impl Termination for AppExit {
-    fn report(self) -> std::process::ExitCode {
+    fn report(self) -> ExitCode {
         match self {
             AppExit::Success => ExitCode::SUCCESS,
             // We leave logging an error to our users
@@ -1085,7 +1085,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter, marker::PhantomData, mem, sync::Mutex};
+    use std::{iter, marker::PhantomData, mem::size_of, sync::Mutex};
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
@@ -1411,7 +1411,7 @@ mod tests {
     fn app_exit_size() {
         // There wont be many of them so the size isn't a issue but
         // it's nice they're so small let's keep it that way.
-        assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
+        assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }
 
     #[test]
