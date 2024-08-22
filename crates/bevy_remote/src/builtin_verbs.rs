@@ -470,7 +470,7 @@ pub fn process_remote_list_request(
     }
 
     // Sort both for cleanliness and to reduce the risk that clients start
-    // accidentally start depending on the order.
+    // accidentally depending on the order.
     result.sort();
 
     Ok(serde_json::to_value(BrpListResponse {
@@ -522,6 +522,8 @@ fn get_component_ids(
     Ok(component_ids)
 }
 
+/// Given an entity (`entity_ref`) and a list of component type IDs (`component_type_ids`),
+/// return a map which associates each component to its serialized value from the entity.
 fn serialize_components(
     entity_ref: FilteredEntityRef,
     component_type_ids: impl Iterator<Item = TypeId>,
@@ -565,6 +567,8 @@ fn serialize_components(
     Ok(serialized_components_map)
 }
 
+/// Given a collection of component paths and their associated serialized values (`components`),
+/// return the associated collection of deserialized reflected values.
 fn deserialize_components(
     type_registry: &TypeRegistry,
     components: HashMap<String, Value>,
@@ -584,6 +588,8 @@ fn deserialize_components(
     Ok(reflect_components)
 }
 
+/// Given a collection `reflect_components` of reflected component values, insert them into
+/// the given entity (`entity_world_mut`).
 fn insert_reflected_components(
     type_registry: &TypeRegistry,
     mut entity_world_mut: EntityWorldMut,
@@ -597,6 +603,8 @@ fn insert_reflected_components(
     Ok(())
 }
 
+/// Given a component's type path, return the associated [`ReflectComponent`] from the given
+/// `type_registry` if possible.
 fn get_reflect_component<'a>(
     type_registry: &'a TypeRegistry,
     component_path: &str,
@@ -612,6 +620,8 @@ fn get_reflect_component<'a>(
     Ok(reflect_component)
 }
 
+/// Given a component's type path, return the associated [`TypeRegistration`] from the given
+/// `type_registry` if possible.
 fn get_component_type_registration<'r>(
     type_registry: &'r TypeRegistry,
     component_path: &str,
