@@ -157,10 +157,13 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
         components: &mut Components,
         storages: &mut Storages,
         ids: &mut impl FnMut(ComponentId),
-    );
+    ) where
+        Self: Sized;
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>))
+    where
+        Self: Sized;
 
     /// Calls `func`, which should return data for each component in the bundle, in the order of
     /// this bundle's [`Component`]s
@@ -185,7 +188,9 @@ pub trait DynamicBundle {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>))
+    where
+        Self: Sized;
 }
 
 // SAFETY:
