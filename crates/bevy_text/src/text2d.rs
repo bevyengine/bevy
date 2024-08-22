@@ -290,7 +290,7 @@ mod tests {
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::{event::Events, schedule::IntoSystemConfigs};
-    use bevy_hierarchy::{BuildChildren, ChildBuild as _};
+    use bevy_hierarchy::BuildChildren;
     use bevy_utils::default;
 
     use super::*;
@@ -322,22 +322,15 @@ mod tests {
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 
-        let mut text_entity = Entity::from_raw(0);
+        let text_entity = app
+            .world_mut()
+            .spawn(TextSection::new(FIRST_TEXT, default()))
+            .id();
 
         let entity = app
             .world_mut()
-            .spawn((Text2dBundle {
-                text: Text::default(),
-                ..default()
-            },))
-            .with_children(|c| {
-                text_entity = c
-                    .spawn(TextSection {
-                        value: FIRST_TEXT.to_string(),
-                        style: default(),
-                    })
-                    .id();
-            })
+            .spawn(Text2dBundle::default())
+            .add_child(text_entity)
             .id();
 
         (app, entity, text_entity)
@@ -391,10 +384,7 @@ mod tests {
             .expect("Could not find entity");
         *entity_ref
             .get_mut::<TextSection>()
-            .expect("Missing Text on entity") = TextSection {
-            value: SECOND_TEXT.to_string(),
-            style: default(),
-        };
+            .expect("Missing Text on entity") = TextSection::new(SECOND_TEXT, default());
 
         // Recomputes the AABB.
         app.update();
