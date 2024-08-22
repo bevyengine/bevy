@@ -30,7 +30,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         reset_indices(screen_index);
 
         // Manually do depth testing.
-        // This is necesary because early z doesn't seem to trigger in the transparent pass.
+        // This is necessary because early z doesn't seem to trigger in the transparent pass.
         // Once we have a per pixel linked list it should be done much earlier
         let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
         if d > result.depth {
