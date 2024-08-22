@@ -120,11 +120,12 @@ fn rasterize_cluster(
             let min_x2 = select(vec3(0.0), cross_x, open_edge);
             let max_x2 = select(cross_x, max_x_diff, open_edge);
             var x0 = u32(ceil(max3(min_x2[0], min_x2[1], min_x2[2])));
-            let x1 = u32(min3(max_x2[0], max_x2[1], max_x2[2])) + min_x;
+            var x1 = u32(min3(max_x2[0], max_x2[1], max_x2[2]));
 
             var w = w_row + w_x * f32(x0);
             var z = z_row + z_x * f32(x0);
             x0 += min_x;
+            x1 += min_x;
 
             // Iterate scanline X interval
             for (var x = x0; x <= x1; x++) {
