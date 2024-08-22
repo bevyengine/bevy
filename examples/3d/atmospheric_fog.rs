@@ -102,7 +102,7 @@ fn setup_instructions(mut commands: Commands) {
         ..default()
     })).with_child(TextSection::new(
         "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
-        TextStyle::default(),
+        default(),
     ));
 }
 

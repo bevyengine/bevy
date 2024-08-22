@@ -354,7 +354,7 @@ impl AppStatus {
                 rotation_help_text,
                 switch_mesh_help_text
             ),
-            TextStyle::default(),
+            default(),
         )
     }
 }

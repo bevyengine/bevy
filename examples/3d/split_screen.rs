@@ -108,7 +108,7 @@ fn setup(
                         left: Val::Px(12.),
                         ..default()
                     }))
-                    .with_child(TextSection::new(*camera_name, TextStyle::default()));
+                    .with_child(TextSection::new(*camera_name, default()));
                 buttons_panel(parent);
             });
     }
@@ -156,7 +156,7 @@ fn setup(
             .with_children(|parent| {
                 parent
                     .spawn(TextBundle::default())
-                    .with_child(TextSection::new(caption, TextStyle::default()));
+                    .with_child(TextSection::new(caption, default()));
             });
     }
 }

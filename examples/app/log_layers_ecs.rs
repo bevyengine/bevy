@@ -142,7 +142,7 @@ fn print_logs(
 
     commands.entity(root_entity).with_children(|child| {
         for event in events.read() {
-            child.spawn(TextSection::new(&event.message, TextStyle::default()));
+            child.spawn(TextSection::new(&event.message, default()));
         }
     });
 }

@@ -63,10 +63,7 @@ fn setup(
                 first.style.color = BLUE.into();
             },
         )
-        .with_child(TextSection::new(
-            "Click Me to get a box",
-            TextStyle::default(),
-        ));
+        .with_child(TextSection::new("Click Me to get a box", default()));
     // circular base
     commands
         .spawn((

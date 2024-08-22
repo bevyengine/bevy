@@ -68,7 +68,7 @@ fn setup_instructions(mut commands: Commands) {
         }))
         .with_child(TextSection::new(
             "Move the light with WASD.\nThe camera will smoothly track the light.",
-            TextStyle::default(),
+            default(),
         ));
 }
 

@@ -290,7 +290,7 @@ impl AppStatus {
         // Build the `Text` object.
         TextSection::new(
             format!("{}\n{}", material_variant_help_text, light_help_text),
-            TextStyle::default(),
+            default(),
         )
     }
 }

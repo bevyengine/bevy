@@ -118,7 +118,7 @@ fn setup(
         Press 'T' to align the ship to those directions.\n\
         Click and drag the mouse to rotate the camera.\n\
         Press 'H' to hide/show these instructions.",
-            TextStyle::default(),
+            default(),
         ));
 
     commands.insert_resource(MousePressed(false));

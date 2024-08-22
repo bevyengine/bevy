@@ -70,6 +70,6 @@ fn setup(
         }))
         .with_child(TextSection::new(
             "Press <spacebar> to save a screenshot to disk",
-            TextStyle::default(),
+            default(),
         ));
 }

@@ -150,7 +150,7 @@ fn setup(
         }))
         .with_child(TextSection::new(
             "Press space to toggle wireframes",
-            TextStyle::default(),
+            default(),
         ));
 }
 

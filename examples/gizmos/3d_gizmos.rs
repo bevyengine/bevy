@@ -72,7 +72,7 @@ fn setup(
         Press 'B' to show all AABB boxes\n\
         Press 'U' or 'I' to cycle through line styles for straight or round gizmos\n\
         Press 'J' or 'K' to cycle through line joins for straight or round gizmos",
-            TextStyle::default(),
+            default(),
         ));
 }
 

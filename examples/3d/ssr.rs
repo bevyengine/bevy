@@ -281,7 +281,7 @@ fn create_text(app_settings: &AppSettings) -> TextSection {
             },
             MOVE_CAMERA_HELP_TEXT
         ),
-        TextStyle::default(),
+        default(),
     )
 }
 

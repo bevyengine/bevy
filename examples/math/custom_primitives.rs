@@ -180,7 +180,7 @@ fn setup(
     ).with_child(TextSection::new(
         "Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
         Press 'Space' to switch between 3D and 2D",
-        TextStyle::default(),
+        default(),
     ));
 }
 

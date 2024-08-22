@@ -159,7 +159,7 @@ fn create_help_text(app_settings: &AppSettings) -> TextSection {
             "Chromatic aberration intensity: {} (Press Left or Right to change)",
             app_settings.chromatic_aberration_intensity
         ),
-        TextStyle::default(),
+        default(),
     )
 }
 

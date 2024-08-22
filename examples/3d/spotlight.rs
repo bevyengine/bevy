@@ -143,7 +143,7 @@ fn setup(
             left: Val::Px(12.0),
             ..default()
         }))
-        .with_child(TextSection::new(INSTRUCTIONS, TextStyle::default()));
+        .with_child(TextSection::new(INSTRUCTIONS, default()));
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {

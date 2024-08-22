@@ -263,7 +263,7 @@ fn setup_help_text(commands: &mut Commands) {
             },
             ..default()
         })
-        .with_child(TextSection::new(HELP_TEXT, TextStyle::default()));
+        .with_child(TextSection::new(HELP_TEXT, default()));
 }
 
 /// Initializes the node UI widgets.
