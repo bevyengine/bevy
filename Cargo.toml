@@ -3250,7 +3250,7 @@ doc-scrape-examples = true
 name = "Volumetric fog"
 description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
-wasm = false
+wasm = true
 
 [[example]]
 name = "client"
