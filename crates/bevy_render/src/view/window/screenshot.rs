@@ -270,7 +270,10 @@ fn prepare_screenshots(
         match target {
             NormalizedRenderTarget::Window(window) => {
                 let window = window.entity();
-                let surface_data = window_surfaces.surfaces.get(&window).unwrap();
+                let Some(surface_data) = window_surfaces.surfaces.get(&window) else {
+                    warn!("Unknown window for screenshot, skipping: {:?}", window);
+                    continue;
+                };
                 let format = surface_data.configuration.format.add_srgb_suffix();
                 let size = Extent3d {
                     width: surface_data.configuration.width,
@@ -292,7 +295,10 @@ fn prepare_screenshots(
                 );
             }
             NormalizedRenderTarget::Image(image) => {
-                let gpu_image = images.get(image).unwrap();
+                let Some(gpu_image) = images.get(image) else {
+                    warn!("Unknown image for screenshot, skipping: {:?}", image);
+                    continue;
+                };
                 let format = gpu_image.texture_format;
                 let size = Extent3d {
                     width: gpu_image.size.x,
@@ -314,7 +320,13 @@ fn prepare_screenshots(
                 );
             }
             NormalizedRenderTarget::TextureView(texture_view) => {
-                let manual_texture_view = manual_texture_views.get(texture_view).unwrap();
+                let Some(manual_texture_view) = manual_texture_views.get(texture_view) else {
+                    warn!(
+                        "Unknown manual texture view for screenshot, skipping: {:?}",
+                        texture_view
+                    );
+                    continue;
+                };
                 let format = manual_texture_view.format;
                 let size = Extent3d {
                     width: manual_texture_view.size.x,
@@ -397,7 +409,9 @@ impl Plugin for ScreenshotPlugin {
                 .after(event_update_system)
                 .before(apply_deferred),
         )
-        .add_systems(Update, trigger_screenshots);
+        .add_systems(Update, trigger_screenshots)
+        .register_type::<Screenshot>()
+        .register_type::<ScreenshotCaptured>();
 
         load_internal_asset!(
             app,
@@ -517,16 +531,18 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
         match render_target {
             NormalizedRenderTarget::Window(window) => {
                 let window = window.entity();
-                let window = windows.get(&window).unwrap();
+                let Some(window) = windows.get(&window) else {
+                    continue;
+                };
                 let width = window.physical_width;
                 let height = window.physical_height;
-                let texture_format = window.swap_chain_texture_format.unwrap();
-                let texture_view = window
-                    .swap_chain_texture
-                    .as_ref()
-                    .unwrap()
-                    .texture
-                    .create_view(&Default::default());
+                let Some(texture_format) = window.swap_chain_texture_format else {
+                    continue;
+                };
+                let Some(swap_chain_texture) = window.swap_chain_texture.as_ref() else {
+                    continue;
+                };
+                let texture_view = swap_chain_texture.texture.create_view(&Default::default());
                 render_screenshot(
                     encoder,
                     prepared,
@@ -559,7 +575,13 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                 );
             }
             NormalizedRenderTarget::TextureView(texture_view) => {
-                let texture_view = manual_texture_views.get(texture_view).unwrap();
+                let Some(texture_view) = manual_texture_views.get(texture_view) else {
+                    warn!(
+                        "Unknown manual texture view for screenshot, skipping: {:?}",
+                        texture_view
+                    );
+                    continue;
+                };
                 let width = texture_view.size.x;
                 let height = texture_view.size.y;
                 let texture_format = texture_view.format;
