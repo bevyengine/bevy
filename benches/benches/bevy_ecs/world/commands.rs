@@ -47,15 +47,15 @@ pub fn spawn_commands(criterion: &mut Criterion) {
                     let mut entity = commands.spawn_empty();
 
                     if black_box(i % 2 == 0) {
-                        entity.insert(A);
+                        entity = entity.insert(A);
                     }
 
                     if black_box(i % 3 == 0) {
-                        entity.insert(B);
+                        entity = entity.insert(B);
                     }
 
                     if black_box(i % 4 == 0) {
-                        entity.insert(C);
+                        entity = entity.insert(C);
                     }
 
                     if black_box(i % 5 == 0) {
