@@ -201,7 +201,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -257,7 +256,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -313,7 +311,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
