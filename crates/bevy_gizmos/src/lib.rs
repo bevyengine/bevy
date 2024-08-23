@@ -9,7 +9,6 @@
 //! # Example
 //! ```
 //! # use bevy_gizmos::prelude::*;
-//! # use bevy_render::prelude::*;
 //! # use bevy_math::prelude::*;
 //! # use bevy_color::palettes::basic::GREEN;
 //! fn system(mut gizmos: Gizmos) {
@@ -70,20 +69,31 @@ pub mod prelude {
     pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
+#[cfg(feature = "bevy_render")]
+use bevy_ecs::{
+    query::ROQueryItem,
+    system::{
+        lifetimeless::{Read, SRes},
+        Commands, SystemParamItem,
+    },
+};
+
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
+#[cfg(feature = "bevy_render")]
+use bevy_ecs::component::Component;
 use bevy_ecs::{
-    component::Component,
-    query::ROQueryItem,
     schedule::{IntoSystemConfigs, SystemSet},
-    system::{
-        lifetimeless::{Read, SRes},
-        Commands, Res, ResMut, Resource, SystemParamItem,
-    },
+    system::{Res, ResMut, Resource},
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite"),
+))]
+use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
 #[cfg(feature = "bevy_render")]
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -92,19 +102,21 @@ use bevy_render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
-        ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
+        ShaderType, VertexFormat,
     },
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
+#[cfg(feature = "bevy_render")]
 use bytemuck::cast_slice;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
 };
 use gizmos::{GizmoStorage, Swap};
-#[cfg(feature = "bevy_pbr")]
+#[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
 
@@ -145,7 +157,7 @@ impl Plugin for GizmoPlugin {
             .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
 
-        #[cfg(feature = "bevy_pbr")]
+        #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
         app.add_plugins(LightGizmoPlugin);
 
         #[cfg(feature = "bevy_render")]
@@ -436,6 +448,7 @@ fn extract_gizmo_data(
                 _padding: Default::default(),
             },
             (*handle).clone_weak(),
+            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             config::GizmoMeshConfig::from(config),
         ));
     }
@@ -676,7 +689,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     }
 }
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
@@ -731,7 +747,10 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     }
 }
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
