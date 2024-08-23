@@ -743,7 +743,7 @@ mod menu {
                                     button_text_style.clone(),
                                 ));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
-                                    let mut entity = parent.spawn((
+                                    let entity = parent.spawn((
                                         ButtonBundle {
                                             style: Style {
                                                 width: Val::Px(30.0),

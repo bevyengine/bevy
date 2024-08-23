@@ -125,25 +125,25 @@ fn update(
 
     let mut commands = commands.entity(camera_entity);
     if keycode.just_pressed(KeyCode::Digit1) {
-        commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
+        commands = commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
     }
     if keycode.just_pressed(KeyCode::Digit2) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+        commands = commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
         });
     }
     if keycode.just_pressed(KeyCode::Digit3) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+        commands = commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
         });
     }
     if keycode.just_pressed(KeyCode::Digit4) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+        commands = commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
         });
     }
     if keycode.just_pressed(KeyCode::Digit5) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings {
+        commands = commands.insert(ScreenSpaceAmbientOcclusionSettings {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
         });
     }

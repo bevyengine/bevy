@@ -172,7 +172,7 @@ fn setup(
                     ..default()
                 });
                 if args.no_frustum_culling {
-                    cube.insert(NoFrustumCulling);
+                    cube = cube.insert(NoFrustumCulling);
                 }
                 if args.no_automatic_batching {
                     cube.insert(NoAutomaticBatching);
@@ -182,7 +182,7 @@ fn setup(
             // camera
             let mut camera = commands.spawn(Camera3dBundle::default());
             if args.gpu_culling {
-                camera.insert(GpuCulling);
+                camera = camera.insert(GpuCulling);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);

@@ -587,13 +587,13 @@ pub fn extract_camera_prepass_phase(
         let mut entity = commands.get_or_spawn(entity);
 
         if depth_prepass {
-            entity.insert(DepthPrepass);
+            entity = entity.insert(DepthPrepass);
         }
         if normal_prepass {
-            entity.insert(NormalPrepass);
+            entity = entity.insert(NormalPrepass);
         }
         if motion_vector_prepass {
-            entity.insert(MotionVectorPrepass);
+            entity = entity.insert(MotionVectorPrepass);
         }
         if deferred_prepass {
             entity.insert(DeferredPrepass);

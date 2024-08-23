@@ -154,7 +154,7 @@ fn spawn_cars(
             Moves(i as f32 * 2.0),
         ));
         if i == 0 {
-            entity.insert(CameraTracked);
+            entity = entity.insert(CameraTracked);
         }
         entity.with_children(|parent| {
             parent.spawn(PbrBundle {

@@ -413,7 +413,7 @@ fn spawn_tree(
                 && (depth >= update_filter.min_depth && depth <= update_filter.max_depth);
 
             if update {
-                cmd.insert(UpdateValue(sep));
+                cmd = cmd.insert(UpdateValue(sep));
                 result.active_nodes += 1;
             }
 
@@ -426,7 +426,7 @@ fn spawn_tree(
             };
 
             // only insert the components necessary for the transform propagation
-            cmd.insert(TransformBundle::from(transform));
+            cmd = cmd.insert(TransformBundle::from(transform));
 
             cmd.id()
         };
