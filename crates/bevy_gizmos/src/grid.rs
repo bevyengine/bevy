@@ -4,7 +4,7 @@
 //! and assorted support items.
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
-use bevy_color::LinearRgba;
+use bevy_color::Color;
 use bevy_math::{Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
 
 /// A builder returned by [`Gizmos::grid_3d`]
@@ -20,7 +20,7 @@ where
     cell_count: UVec3,
     skew: Vec3,
     outer_edges: [bool; 3],
-    color: LinearRgba,
+    color: Color,
 }
 /// A builder returned by [`Gizmos::grid`] and [`Gizmos::grid_2d`]
 pub struct GridBuilder2d<'a, 'w, 's, Config, Clear>
@@ -35,7 +35,7 @@ where
     cell_count: UVec2,
     skew: Vec2,
     outer_edges: [bool; 2],
-    color: LinearRgba,
+    color: Color,
 }
 
 impl<Config, Clear> GridBuilder3d<'_, '_, '_, Config, Clear>
@@ -201,7 +201,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -223,7 +222,7 @@ where
         rotation: Quat,
         cell_count: UVec2,
         spacing: Vec2,
-        color: impl Into<LinearRgba>,
+        color: impl Into<Color>,
     ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
@@ -257,7 +256,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -279,7 +277,7 @@ where
         rotation: Quat,
         cell_count: UVec3,
         spacing: Vec3,
-        color: impl Into<LinearRgba>,
+        color: impl Into<Color>,
     ) -> GridBuilder3d<'_, 'w, 's, Config, Clear> {
         GridBuilder3d {
             gizmos: self,
@@ -313,7 +311,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
@@ -335,7 +332,7 @@ where
         rotation: f32,
         cell_count: UVec2,
         spacing: Vec2,
-        color: impl Into<LinearRgba>,
+        color: impl Into<Color>,
     ) -> GridBuilder2d<'_, 'w, 's, Config, Clear> {
         GridBuilder2d {
             gizmos: self,
@@ -359,7 +356,7 @@ fn draw_grid<Config, Clear>(
     cell_count: UVec3,
     skew: Vec3,
     outer_edges: [bool; 3],
-    color: LinearRgba,
+    color: Color,
 ) where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

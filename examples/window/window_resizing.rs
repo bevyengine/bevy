@@ -27,33 +27,34 @@ struct ResolutionSettings {
 }
 
 // Spawns the camera that draws UI
-fn setup_camera(mut cmd: Commands) {
-    cmd.spawn(Camera2dBundle::default());
+fn setup_camera(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
 }
 
 // Spawns the UI
-fn setup_ui(mut cmd: Commands) {
+fn setup_ui(mut commands: Commands) {
     // Node that fills entire background
-    cmd.spawn(NodeBundle {
-        style: Style {
-            width: Val::Percent(100.),
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.),
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    })
-    .with_children(|root| {
-        // Text where we display current resolution
-        root.spawn((
-            TextBundle::from_section(
-                "Resolution",
-                TextStyle {
-                    font_size: 50.0,
-                    ..default()
-                },
-            ),
-            ResolutionText,
-        ));
-    });
+        })
+        .with_children(|root| {
+            // Text where we display current resolution
+            root.spawn((
+                TextBundle::from_section(
+                    "Resolution",
+                    TextStyle {
+                        font_size: 50.0,
+                        ..default()
+                    },
+                ),
+                ResolutionText,
+            ));
+        });
 }
 
 /// This system shows how to request the window to a new resolution

@@ -36,6 +36,7 @@ pub use common_traits::*;
 pub use direction::*;
 pub use float_ord::*;
 pub use isometry::{Isometry2d, Isometry3d};
+pub use ops::*;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rot2;

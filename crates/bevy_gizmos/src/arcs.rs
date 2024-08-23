@@ -31,7 +31,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
@@ -168,7 +167,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::css::ORANGE;
@@ -225,7 +223,6 @@ where
     /// # Examples
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
@@ -272,7 +269,6 @@ where
     /// # Examples
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
