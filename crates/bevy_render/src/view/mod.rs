@@ -814,15 +814,15 @@ pub fn prepare_view_attachments(
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
     cameras: Query<&ExtractedCamera>,
-    mut view_target_textures: ResMut<ViewTargetAttachments>,
+    mut view_target_attachments: ResMut<ViewTargetAttachments>,
 ) {
-    view_target_textures.clear();
+    view_target_attachments.clear();
     for camera in cameras.iter() {
         let Some(target) = &camera.target else {
             continue;
         };
 
-        match view_target_textures.entry(target.clone()) {
+        match view_target_attachments.entry(target.clone()) {
             Entry::Occupied(_) => {}
             Entry::Vacant(entry) => {
                 let Some(attachment) = target
@@ -862,7 +862,7 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let Some(out_texture) = view_target_attachments.get(target) else {
+        let Some(out_attachment) = view_target_attachments.get(target) else {
             continue;
         };
 
@@ -949,7 +949,7 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
-            out_texture: out_texture.clone(),
+            out_texture: out_attachment.clone(),
         });
     }
 }
