@@ -1251,7 +1251,7 @@ impl RequiredComponentConstructor {
     /// Calling it _anywhere else_ should be considered unsafe.
     ///
     /// `table_row` and `entity` must correspond to a valid entity that currently needs a component initialized via the constructor stored
-    /// on this [`RequiredComponent`]. The stored [`RequiredComponent::constructor`] must correspond to a component on `entity` that needs initialization.
+    /// on this [`RequiredComponentConstructor`]. The stored constructor must correspond to a component on `entity` that needs initialization.
     /// `table` and `sparse_sets` must correspond to storages on a world where `entity` needs this required component initialized.
     ///
     /// Again, don't call this anywhere but [`BundleInfo::write_components`].

@@ -561,7 +561,7 @@ impl BundleInfo {
     }
 
     /// Internal method to initialize a required component from an [`OwningPtr`]. This should ultimately be called
-    /// in the context of [`BundleInfo::write_components`], via [`RequiredComponent::initialize`].
+    /// in the context of [`BundleInfo::write_components`], via [`RequiredComponentConstructor::initialize`].
     ///
     /// # Safety
     ///
