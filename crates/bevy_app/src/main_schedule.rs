@@ -381,7 +381,7 @@ impl FixedMain {
 ///
 /// Note that in contrast to most other Bevy schedules, systems added directly to
 /// [`RunFixedMainLoop`] will *not* be parallelized between each other.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, SystemSet)]
 pub enum RunFixedMainLoopSystem {
     /// Runs before the fixed update logic.
     ///
