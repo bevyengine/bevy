@@ -477,6 +477,11 @@ mod tests {
     #[derive(Event)]
     struct EventA;
 
+    #[derive(Event)]
+    struct EventWithData {
+        counter: usize,
+    }
+
     #[derive(Resource, Default)]
     struct R(usize);
 
@@ -607,6 +612,39 @@ mod tests {
         assert!(!entity.contains::<A>());
         assert!(!entity.contains::<B>());
         assert_eq!(4, world.resource::<R>().0);
+    }
+
+    #[test]
+    fn observer_trigger_ref() {
+        let mut world = World::new();
+
+        world.observe(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 1);
+        world.observe(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 2);
+        world.observe(|mut trigger: Trigger<EventWithData>| trigger.event_mut().counter += 4);
+        // This flush is required for the last observer to be called when triggering the event,
+        // due to `World::observe` returning `WorldEntityMut`.
+        world.flush();
+
+        let mut event = EventWithData { counter: 0 };
+        world.trigger_ref(&mut event);
+        assert_eq!(7, event.counter);
+    }
+
+    #[test]
+    fn observer_trigger_targets_ref() {
+        let mut world = World::new();
+
+        world.observe(|mut trigger: Trigger<EventWithData, A>| trigger.event_mut().counter += 1);
+        world.observe(|mut trigger: Trigger<EventWithData, B>| trigger.event_mut().counter += 2);
+        world.observe(|mut trigger: Trigger<EventWithData, A>| trigger.event_mut().counter += 4);
+        // This flush is required for the last observer to be called when triggering the event,
+        // due to `World::observe` returning `WorldEntityMut`.
+        world.flush();
+
+        let mut event = EventWithData { counter: 0 };
+        let component_a = world.init_component::<A>();
+        world.trigger_targets_ref(&mut event, component_a);
+        assert_eq!(5, event.counter);
     }
 
     #[test]
