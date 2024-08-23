@@ -174,7 +174,6 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # use bevy_sprite::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::*;
-    /// # use bevy_render::prelude::*;
     ///
     /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
     ///     // Declare your builder
