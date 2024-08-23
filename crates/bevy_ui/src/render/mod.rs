@@ -1286,16 +1286,11 @@ pub fn prepare_uinodes(
 
                             vertices_index += 6;
                             indices_index += 4;
-
-                            existing_batch.unwrap().1.range.end = vertices_index;
-                            ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                         }
                         ExtractedUiItem::Glyphs {
                             atlas_scaling,
                             range,
                         } => {
-                            let start_index = vertices_index;
-
                             let image = gpu_images
                                 .get(extracted_uinode.image)
                                 .expect("Image was checked during batching and should still exist");
@@ -1394,19 +1389,10 @@ pub fn prepare_uinodes(
                                 vertices_index += 6;
                                 indices_index += 4;
                             }
-
-                            batches.push((
-                                item.entity,
-                                UiBatch {
-                                    range: start_index..vertices_index,
-                                    image: extracted_uinode.image,
-                                    camera: extracted_uinode.camera_entity,
-                                },
-                            ));
-
-                            ui_phase.items[item_index].batch_range_mut().end = 1;
                         }
                     }
+                    existing_batch.unwrap().1.range.end = vertices_index;
+                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
                     batch_image_handle = AssetId::invalid();
                 }
