@@ -1276,31 +1276,19 @@ impl RequiredComponentConstructor {
     }
 }
 
-/// A component that another component must when it is inserted. This contains a context-less constructor that
-/// can be called to construct a new instance of a component.
-#[derive(Clone)]
-pub(crate) struct RequiredComponent {
-    // TODO: this is stored on BundleInfo now ... we can remove this I think
-    pub(crate) component_id: ComponentId,
-    /// # Safety
-    /// Calling this constructor is unsafe. It should only be called in the context of [`BundleInfo::write_components`], where the
-    /// inputs are already validated. This _should not_ have its module visibility increased.
-    pub(crate) constructor: RequiredComponentConstructor,
-}
-
-impl Debug for RequiredComponent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RequiredComponent")
-            .field("component_id", &self.component_id)
-            .finish()
-    }
-}
-
 /// The collection of metadata for components that are required for a given component.
 ///
 /// For more information, see the "Required Components" section of [`Component`].
-#[derive(Default, Debug)]
-pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponent>);
+#[derive(Default)]
+pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponentConstructor>);
+
+impl Debug for RequiredComponents {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RequiredComponents")
+            .field(&self.0.keys())
+            .finish()
+    }
+}
 
 impl RequiredComponents {
     /// Registers a required component. If the component is already registered, the new registration
@@ -1317,10 +1305,7 @@ impl RequiredComponents {
         component_id: ComponentId,
         constructor: RequiredComponentConstructor,
     ) {
-        self.0.entry(component_id).or_insert(RequiredComponent {
-            component_id,
-            constructor,
-        });
+        self.0.entry(component_id).or_insert(constructor);
     }
 
     /// Registers a required component. If the component is already registered, the new registration

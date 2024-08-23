@@ -10,8 +10,8 @@ use crate::{
         SpawnBundleStatus,
     },
     component::{
-        Component, ComponentId, Components, RequiredComponent, RequiredComponentConstructor,
-        RequiredComponents, StorageType, Tick,
+        Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
+        StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -353,7 +353,7 @@ pub struct BundleInfo {
     /// and the range (0..`explicit_components_len`) must be in the same order as the source bundle
     /// type writes its components in.
     component_ids: Vec<ComponentId>,
-    required_components: Vec<RequiredComponent>,
+    required_components: Vec<RequiredComponentConstructor>,
     explicit_components_len: usize,
 }
 
@@ -369,7 +369,7 @@ impl BundleInfo {
         bundle_type_name: &'static str,
         components: &Components,
         component_ids: Vec<ComponentId>,
-        required_components: Vec<RequiredComponent>,
+        required_components: Vec<RequiredComponentConstructor>,
         id: BundleId,
         explicit_components_len: usize,
     ) -> BundleInfo {
@@ -425,6 +425,13 @@ impl BundleInfo {
         &self.component_ids[0..self.explicit_components_len]
     }
 
+    /// Returns the [ID](ComponentId) of each Required Component needed by this bundle. This _does not include_ Required Components that are
+    /// explicitly provided by the bundle.
+    #[inline]
+    pub fn required_components(&self) -> &[ComponentId] {
+        &self.component_ids[self.explicit_components_len..]
+    }
+
     /// Returns the [ID](ComponentId) of each component contributed by this bundle. This includes Required Components.
     ///
     /// For only components explicitly defined in this bundle, see [`BundleInfo::explicit_components`]
@@ -447,6 +454,12 @@ impl BundleInfo {
     #[inline]
     pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.component_ids.iter().copied()
+    }
+
+    /// Returns an iterator over the [ID](ComponentId) of each Required Component needed by this bundle. This _does not include_ Required Components that are
+    /// explicitly provided by the bundle.
+    pub fn iter_required_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.required_components().iter().copied()
     }
 
     /// This writes components from a given [`Bundle`] to the given entity.
@@ -643,19 +656,18 @@ impl BundleInfo {
             }
         }
 
-        for required_component in self.required_components.iter() {
-            if !current_archetype.contains(required_component.component_id) {
-                added_required_components.push(required_component.constructor.clone());
-                added.push(required_component.component_id);
+        for (index, component_id) in self.iter_required_components().enumerate() {
+            if !current_archetype.contains(component_id) {
+                added_required_components.push(self.required_components[index].clone());
+                added.push(component_id);
                 // SAFETY: component_id exists
-                let component_info =
-                    unsafe { components.get_info_unchecked(required_component.component_id) };
+                let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
                     StorageType::Table => {
-                        new_table_components.push(required_component.component_id);
+                        new_table_components.push(component_id);
                     }
                     StorageType::SparseSet => {
-                        new_sparse_set_components.push(required_component.component_id);
+                        new_sparse_set_components.push(component_id);
                     }
                 }
             }
@@ -1177,10 +1189,7 @@ impl<'w> BundleSpawner<'w> {
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
-                bundle_info
-                    .required_components
-                    .iter()
-                    .map(|r| &r.constructor),
+                bundle_info.required_components.iter(),
                 entity,
                 table_row,
                 self.change_tick,
@@ -1312,10 +1321,10 @@ impl Bundles {
             let mut required_components = RequiredComponents::default();
             T::register_required_components(components, storages, &mut required_components);
             required_components.remove_explicit_components(&component_ids);
-            let required_components = required_components.0.into_iter().map(|(_, v)| {
+            let required_components = required_components.0.into_iter().map(|(component_id, v)| {
                 // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
                 // components. This ordering is important!
-                component_ids.push(v.component_id);
+                component_ids.push(component_id);
                 v
             }).collect();
             let bundle_info =
