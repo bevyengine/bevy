@@ -667,7 +667,7 @@ pub struct ComponentDescriptor {
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
-impl std::fmt::Debug for ComponentDescriptor {
+impl Debug for ComponentDescriptor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
