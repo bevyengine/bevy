@@ -148,13 +148,13 @@ fn rotate_ship(mut ship: Query<(&mut Ship, &mut Transform)>, time: Res<Time>) {
         return;
     }
 
-    let end = ship.target_transform.rotation;
+    let target_rotation = ship.target_transform.rotation;
 
     ship_transform
         .rotation
-        .smooth_nudge(&end, 3.0, time.delta_seconds());
+        .smooth_nudge(&target_rotation, 3.0, time.delta_seconds());
 
-    if ship_transform.rotation.angle_between(end) <= f32::EPSILON {
+    if ship_transform.rotation.angle_between(target_rotation) <= f32::EPSILON {
         ship.in_motion = false;
     }
 }
