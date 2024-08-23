@@ -1665,9 +1665,6 @@ mod tests {
     #[derive(Component, Resource)]
     struct W<T>(T);
 
-    #[derive(Component)]
-    struct TestComp;
-
     fn simple_command(world: &mut World) {
         world.spawn((W(0u32), W(42u64)));
     }
