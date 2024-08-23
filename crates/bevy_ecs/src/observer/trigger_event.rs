@@ -21,6 +21,13 @@ impl<E: Event, Targets: TriggerTargets> TriggerEvent<E, Targets> {
     }
 }
 
+impl<E: Event, Targets: TriggerTargets> TriggerEvent<&mut E, Targets> {
+    pub(super) fn trigger_ref(self, world: &mut World) {
+        let event_type = world.init_component::<E>();
+        trigger_event(world, event_type, self.event, self.targets);
+    }
+}
+
 impl<E: Event, Targets: TriggerTargets + Send + Sync + 'static> Command
     for TriggerEvent<E, Targets>
 {

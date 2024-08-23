@@ -311,14 +311,37 @@ impl World {
         self.spawn(Observer::new(system))
     }
 
-    /// Triggers the given `event`, which will run any observers watching for it.
+    /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
+    ///
+    /// This method consumes the event, so it cannot be used after this method is called.
+    /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     pub fn trigger(&mut self, event: impl Event) {
         TriggerEvent { event, targets: () }.trigger(self);
     }
 
-    /// Triggers the given `event` for the given `targets`, which will run any observers watching for it.
+    /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
+    ///
+    /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
+    /// or use the event after it has been modified by observers.
+    pub fn trigger_ref(&mut self, event: &mut impl Event) {
+        TriggerEvent { event, targets: () }.trigger_ref(self);
+    }
+
+    /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
+    ///
+    /// This method consumes the event, so it cannot be used after this method is called.
+    /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
         TriggerEvent { event, targets }.trigger(self);
+    }
+
+    /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
+    /// which will run any [`Observer`]s watching for it.
+    ///
+    /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
+    /// or use the event after it has been modified by observers.
+    pub fn trigger_targets_ref(&mut self, event: &mut impl Event, targets: impl TriggerTargets) {
+        TriggerEvent { event, targets }.trigger_ref(self);
     }
 
     /// Register an observer to the cache, called when an observer is created
