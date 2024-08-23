@@ -953,6 +953,73 @@ impl EntityCommands<'_> {
         self.add(insert(bundle, InsertMode::Replace))
     }
 
+    /// Adds a [`Bundle`] of components to the entity, only if the given condition evaluates to true.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Panics
+    ///
+    /// The command will panic when applied if the associated entity does not exist.
+    ///
+    /// To avoid a panic in this case, use the command [`Self::try_insert_if`] instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// # impl PlayerEntity { fn is_spawned(&self) -> bool { true } }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         // You can insert individual components:
+    ///         .insert_if(Defense(10), || player.is_spawned())
+    ///         // You can also insert pre-defined bundles of components:
+    ///         .insert_if(CombatBundle {
+    ///                 health: Health(100),
+    ///                 strength: Strength(40),
+    ///             },
+    ///             || player.is_spawned()
+    ///         )
+    ///         // You can also insert tuples of components and bundles.
+    ///         // This is equivalent to the calls above:
+    ///         .insert_if((
+    ///             Defense(10),
+    ///             CombatBundle {
+    ///                 health: Health(100),
+    ///                 strength: Strength(40),
+    ///             }),
+    ///             || player.is_spawned()
+    ///         );
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
+    /// ```
+    #[track_caller]
+    pub fn insert_if<F>(self, bundle: impl Bundle, condition: F) -> Self
+    where
+        F: FnOnce() -> bool,
+    {
+        if condition() {
+            self.add(insert(bundle, InsertMode::Replace))
+        } else {
+            self
+        }
+    }
+
     /// Adds a [`Bundle`] of components to the entity without overwriting.
     ///
     /// This is the same as [`EntityCommands::insert`], but in case of duplicate
@@ -1065,6 +1132,69 @@ impl EntityCommands<'_> {
     #[track_caller]
     pub fn try_insert(self, bundle: impl Bundle) -> Self {
         self.add(try_insert(bundle, InsertMode::Replace))
+    }
+
+    /// Tries to add a [`Bundle`] of components to the entity, only if the given condition evaluates to true.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Note
+    ///
+    /// Unlike [`Self::insert_if`], this will not panic if the associated entity does not exist.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// # impl PlayerEntity { fn is_spawned(&self) -> bool { true } }
+    /// #[derive(Component)]
+    /// struct Health(u32);
+    /// #[derive(Component)]
+    /// struct Strength(u32);
+    /// #[derive(Component)]
+    /// struct Defense(u32);
+    ///
+    /// #[derive(Bundle)]
+    /// struct CombatBundle {
+    ///     health: Health,
+    ///     strength: Strength,
+    /// }
+    ///
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///   commands.entity(player.entity)
+    ///    // You can try_insert_if individual components:
+    ///     .try_insert_if(Defense(10), || player.is_spawned())
+    ///
+    ///    // You can also insert tuples of components:
+    ///     .try_insert_if(CombatBundle {
+    ///             health: Health(100),
+    ///             strength: Strength(40),
+    ///         },
+    ///         || player.is_spawned()
+    ///     );
+    ///
+    ///    // Suppose this occurs in a parallel adjacent system or process
+    ///    commands.entity(player.entity)
+    ///      .despawn();
+    ///
+    ///    commands.entity(player.entity)
+    ///    // This will not panic nor will it add the component
+    ///      .try_insert_if(Defense(5), || player.is_spawned());
+    /// }
+    /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
+    /// ```
+    #[track_caller]
+    pub fn try_insert_if<F>(self, bundle: impl Bundle, condition: F) -> Self
+    where
+        F: FnOnce() -> bool,
+    {
+        if condition() {
+            self.add(try_insert(bundle, InsertMode::Replace))
+        } else {
+            self
+        }
     }
 
     /// Tries to add a [`Bundle`] of components to the entity without overwriting.
@@ -1534,6 +1664,9 @@ mod tests {
 
     #[derive(Component, Resource)]
     struct W<T>(T);
+
+    #[derive(Component)]
+    struct TestComp;
 
     fn simple_command(world: &mut World) {
         world.spawn((W(0u32), W(42u64)));
