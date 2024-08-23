@@ -74,7 +74,7 @@ fn setup(
         }))
         .with_child(TextSection::new(
             "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement",
-            TextStyle::default(),
+            default(),
         ));
 
     // camera

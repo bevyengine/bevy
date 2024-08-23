@@ -107,8 +107,6 @@ fn setup(
 
     // Example instructions and gizmo config.
     {
-        let text_style = TextStyle::default();
-
         commands
             .spawn(TextBundle::default().with_style(Style {
                 position_type: PositionType::Absolute,
@@ -121,7 +119,7 @@ fn setup(
         Hold 'Left' or 'Right' to change the line width of the gizmos\n\
         Press 'A' to toggle drawing of the light gizmos\n\
         Press 'C' to cycle between the light gizmos coloring modes",
-                text_style.clone(),
+                default(),
             ));
 
         let (_, light_config) = config_store.config_mut::<LightGizmoConfigGroup>();
@@ -136,11 +134,11 @@ fn setup(
                 ..default()
             }),))
             .with_children(|parent| {
-                parent.spawn(TextSection::new("Gizmo color mode: ", text_style.clone()));
+                parent.spawn(TextSection::new("Gizmo color mode: ", default()));
 
                 parent.spawn((
                     GizmoColorText,
-                    TextSection::new(gizmo_color_text(light_config), text_style),
+                    TextSection::new(gizmo_color_text(light_config), default()),
                 ));
             });
     }

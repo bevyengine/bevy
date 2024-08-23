@@ -422,8 +422,6 @@ fn setup_triggers(
 }
 
 fn setup_connected(mut commands: Commands) {
-    let text_style = TextStyle::default();
-
     commands
         .spawn(TextBundle {
             style: Style {
@@ -435,17 +433,8 @@ fn setup_connected(mut commands: Commands) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextSection {
-                value: "Connected Gamepads:\n".to_string(),
-                style: text_style.clone(),
-            });
-            parent.spawn((
-                TextSection {
-                    value: "None".to_string(),
-                    style: text_style,
-                },
-                ConnectedGamepadsText,
-            ));
+            parent.spawn(TextSection::new("Connected Gamepads:\n", default()));
+            parent.spawn((TextSection::new("None", default()), ConnectedGamepadsText));
         });
 }
 

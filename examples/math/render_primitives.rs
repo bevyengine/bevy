@@ -373,7 +373,6 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         .iter()
         .find_map(|(entity, camera)| camera.is_active.then_some(entity))
         .expect("run condition ensures existence");
-    let style = TextStyle::default();
 
     commands
         .spawn((
@@ -392,12 +391,12 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             parent
                 .spawn(TextBundle::default().with_text_justify(JustifyText::Center))
                 .with_children(|parent| {
-                    parent.spawn(TextSection::new("Primitive: ", style.clone()));
+                    parent.spawn(TextSection::new("Primitive: ", default()));
 
                     parent.spawn((
                         TextSection::new(
                             format!("{text}", text = PrimitiveSelected::default()),
-                            style.clone(),
+                            default(),
                         ),
                         PrimitiveText,
                     ));
@@ -407,7 +406,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
                         Press 'C' to switch between 2D and 3D mode\n\
                         Press 'Up' or 'Down' to switch to the next/previous primitive\n\n\
                         (If nothing is displayed, there's no rendering support yet)",
-                        style.clone(),
+                        default(),
                     ));
                 });
         });

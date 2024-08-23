@@ -148,6 +148,6 @@ fn setup(
         }))
         .with_child(TextSection::new(
             "Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite",
-            TextStyle::default(),
+            default(),
         ));
 }

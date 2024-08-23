@@ -126,7 +126,7 @@ fn setup(
         S: Add one random sample.\n\
         D: Add 100 random samples.\n\
         Rotate camera by holding left mouse and panning left/right.",
-            TextStyle::default(),
+            default(),
         ));
 
     // The mode starts with interior points.

@@ -402,7 +402,7 @@ fn setup(
         Zoom camera by scrolling via mouse or +/-.\n\
         Move camera by L/R arrow keys.\n\
         Tab: Toggle this text",
-            TextStyle::default(),
+            default(),
         ));
 
     // No points are scheduled to spawn initially.

@@ -324,7 +324,7 @@ Press WASD or use the mouse wheel to move the camera",
                     ' '
                 },
             ),
-            TextStyle::default(),
+            default(),
         )
     }
 }

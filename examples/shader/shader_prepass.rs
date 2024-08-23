@@ -139,8 +139,6 @@ fn setup(
         ..default()
     });
 
-    let style = TextStyle::default();
-
     commands
         .spawn(TextBundle::default().with_style(Style {
             position_type: PositionType::Absolute,
@@ -150,7 +148,7 @@ fn setup(
         }))
         .with_children(|parent| {
             parent.spawn((
-                TextSection::new("Prepass Output: transparent\n", style.clone()),
+                TextSection::new("Prepass Output: transparent\n", default()),
                 OutputText,
             ));
 
@@ -159,7 +157,7 @@ fn setup(
                 Controls\n\
                 ---------------\n\
                 Space - Change output\n",
-                style,
+                default(),
             ));
         });
 }

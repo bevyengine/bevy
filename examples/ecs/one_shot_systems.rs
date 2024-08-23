@@ -114,7 +114,7 @@ fn setup_ui(mut commands: Commands) {
                 .with_child(TextSection::new(
                     "Press A or B to trigger a one-shot system\n\n\
     Last Triggered: ",
-                    TextStyle::default(),
+                    default(),
                 ));
 
             root.spawn(TextBundle::default()).with_child((

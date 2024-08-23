@@ -333,7 +333,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     Text::default(),
                                 ))
-                                .with_child(TextSection::new("Bevy logo", TextStyle::default()));
+                                .with_child(TextSection::new("Bevy logo", default()));
                         });
                 });
         });

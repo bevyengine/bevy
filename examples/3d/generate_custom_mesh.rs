@@ -73,7 +73,7 @@ fn setup(
         }))
         .with_child(TextSection::new(
             "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
-            TextStyle::default(),
+            default(),
         ));
 }
 

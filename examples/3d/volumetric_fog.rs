@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }))
         .with_child(TextSection::new(
             "Press WASD or the arrow keys to change the light direction",
-            TextStyle::default(),
+            default(),
         ));
 }
 

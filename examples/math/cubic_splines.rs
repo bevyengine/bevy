@@ -75,7 +75,6 @@ fn setup(mut commands: Commands) {
         C: Toggle cyclic curve construction";
     let spline_mode_text = format!("Spline: {}", spline_mode);
     let cycling_mode_text = format!("{}", cycling_mode);
-    let style = TextStyle::default();
 
     commands
         .spawn(NodeBundle {
@@ -91,14 +90,14 @@ fn setup(mut commands: Commands) {
         })
         .with_children(|parent| {
             parent.spawn(TextBundle::default()).with_children(|parent| {
-                parent.spawn(TextSection::new(instructions_text, style.clone()));
+                parent.spawn(TextSection::new(instructions_text, default()));
                 parent.spawn((
                     SplineModeText,
-                    TextSection::new(spline_mode_text, style.clone()),
+                    TextSection::new(spline_mode_text, default()),
                 ));
                 parent.spawn((
                     CyclingModeText,
-                    TextSection::new(cycling_mode_text, style.clone()),
+                    TextSection::new(cycling_mode_text, default()),
                 ));
             });
         });

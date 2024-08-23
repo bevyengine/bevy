@@ -310,8 +310,6 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., 45.)));
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
-    let style = TextStyle::default();
-
     // example instructions
     commands
         .spawn(TextBundle {
@@ -327,21 +325,18 @@ fn setup(
             root.spawn((
                 TextSection::new(
                     format!("Parallax depth scale: {parallax_depth_scale:.5}"),
-                    style.clone(),
+                    default(),
                 ),
                 ParallaxDepthText,
             ));
 
             root.spawn((
-                TextSection::new(
-                    format!("Layers: {max_parallax_layer_count:.0}"),
-                    style.clone(),
-                ),
+                TextSection::new(format!("Layers: {max_parallax_layer_count:.0}"), default()),
                 ParallaxLayersText,
             ));
 
             root.spawn((
-                TextSection::new(format!("{parallax_mapping_method}"), style.clone()),
+                TextSection::new(format!("{parallax_mapping_method}"), default()),
                 ParallaxMethodText,
             ));
 
@@ -355,7 +350,7 @@ fn setup(
                     "Space - Switch parallaxing algorithm",
                 ]
                 .join("\n"),
-                style.clone(),
+                default(),
             ));
         });
 }

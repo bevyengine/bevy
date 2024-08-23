@@ -33,7 +33,7 @@ fn setup(mut commands: Commands) {
     Press '1' / '2' to toggle the visibility of straight / round gizmos\n\
     Press 'U' / 'I' to cycle through line styles\n\
     Press 'J' / 'K' to cycle through line joins",
-            TextStyle::default(),
+            default(),
         ));
 }
 

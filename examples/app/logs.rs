@@ -30,7 +30,7 @@ fn setup(mut commands: Commands) {
             },
             ..default()
         })
-        .with_child(TextSection::new("Press P to panic", TextStyle::default()));
+        .with_child(TextSection::new("Press P to panic", default()));
 }
 
 fn panic_on_p(keys: Res<ButtonInput<KeyCode>>) {

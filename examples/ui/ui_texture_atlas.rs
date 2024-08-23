@@ -25,8 +25,6 @@ fn setup(
     // Camera
     commands.spawn(Camera2dBundle::default());
 
-    let text_style = TextStyle::default();
-
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
@@ -40,7 +38,7 @@ fn setup(
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                row_gap: Val::Px(text_style.font_size * 2.),
+                row_gap: Val::Px(TextStyle::default().font_size * 2.),
                 ..default()
             },
             ..default()
@@ -61,18 +59,15 @@ fn setup(
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));
             parent.spawn(TextBundle::default()).with_children(|parent| {
-                parent.spawn(TextSection::new("press ".to_string(), text_style.clone()));
+                parent.spawn(TextSection::new("press ", default()));
                 parent.spawn(TextSection::new(
-                    "space".to_string(),
+                    "space",
                     TextStyle {
                         color: YELLOW.into(),
-                        ..text_style.clone()
+                        ..default()
                     },
                 ));
-                parent.spawn(TextSection::new(
-                    " to advance frames".to_string(),
-                    text_style,
-                ));
+                parent.spawn(TextSection::new(" to advance frames", default()));
             });
         });
 }

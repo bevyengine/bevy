@@ -132,8 +132,6 @@ fn setup(
         ..default()
     });
 
-    let text_style = TextStyle::default();
-
     commands.spawn(TextBundle::default().with_style(Style {
         position_type: PositionType::Absolute,
         top: Val::Px(12.0),
@@ -141,7 +139,7 @@ fn setup(
         ..default()
     })).with_child(TextSection::new(
         "Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask",
-        text_style.clone(),
+        default(),
     ));
 
     commands
@@ -151,7 +149,7 @@ fn setup(
             right: Val::Px(10.0),
             ..default()
         }))
-        .with_child((TextSection::from_style(text_style), ExampleDisplay));
+        .with_child((TextSection::default(), ExampleDisplay));
 }
 
 #[derive(Component)]
