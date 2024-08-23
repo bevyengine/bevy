@@ -60,10 +60,10 @@ impl ComputedTextureSlices {
                 color: image.color.into(),
                 rect,
                 image: image.texture.id(),
-                atlas_scaling: Some(scale),
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
                 item: ExtractedUiItem::Node {
+                    atlas_scaling: Some(scale),
                     flip_x,
                     flip_y,
                     transform: transform.compute_matrix(),

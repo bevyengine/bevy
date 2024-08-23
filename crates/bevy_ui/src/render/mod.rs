@@ -154,7 +154,6 @@ pub struct ExtractedUiNode {
     pub color: LinearRgba,
     pub rect: Rect,
     pub image: AssetId<Image>,
-    pub atlas_scaling: Option<Vec2>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
     // it is defaulted to a single camera if only one exists.
@@ -173,6 +172,7 @@ pub enum NodeType {
 
 pub enum ExtractedUiItem {
     Node {
+        atlas_scaling: Option<Vec2>,
         flip_x: bool,
         flip_y: bool,
         /// Border radius of the UI node.
@@ -185,6 +185,7 @@ pub enum ExtractedUiItem {
         transform: Mat4,
     },
     Glyphs {
+        atlas_scaling: Vec2,
         range: Range<usize>,
     },
 }
@@ -292,9 +293,9 @@ pub fn extract_uinode_background_colors(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-                atlas_scaling: None,
                 camera_entity,
                 item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
                     transform: transform.compute_matrix(),
                     flip_x: false,
                     flip_y: false,
@@ -434,9 +435,9 @@ pub fn extract_uinode_images(
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
-                atlas_scaling,
                 camera_entity,
                 item: ExtractedUiItem::Node {
+                    atlas_scaling,
                     transform: transform.compute_matrix(),
                     flip_x: image.flip_x,
                     flip_y: image.flip_y,
@@ -614,10 +615,10 @@ pub fn extract_uinode_borders(
                     ..Default::default()
                 },
                 image,
-                atlas_scaling: None,
                 clip: clip.map(|clip| clip.clip),
                 camera_entity,
                 item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
                     transform,
                     flip_x: false,
                     flip_y: false,
@@ -708,10 +709,10 @@ pub fn extract_uinode_outlines(
                             ..Default::default()
                         },
                         image,
-                        atlas_scaling: None,
                         clip: maybe_clip.map(|clip| clip.clip),
                         camera_entity,
                         item: ExtractedUiItem::Node {
+                            atlas_scaling: None,
                             transform: world_from_local
                                 * Mat4::from_translation(edge.center().extend(0.)),
                             flip_x: false,
@@ -906,11 +907,13 @@ pub fn extract_text_sections(
                         stack_index: uinode.stack_index,
                         color: LinearRgba::from(text.sections[*section_index].style.color),
                         image: atlas_info.texture.id(),
-                        atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
                         clip: clip.map(|clip| clip.clip),
                         camera_entity,
                         rect,
-                        item: ExtractedUiItem::Glyphs { range: start..end },
+                        item: ExtractedUiItem::Glyphs {
+                            atlas_scaling: Vec2::splat(inverse_scale_factor),
+                            range: start..end,
+                        },
                     },
                 );
                 start = end;
@@ -1079,18 +1082,6 @@ pub fn prepare_uinodes(
                 if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(&item.entity) {
                     let mut existing_batch = batches.last_mut();
 
-                    let ExtractedUiItem::Node {
-                        flip_x,
-                        flip_y,
-                        border_radius,
-                        border,
-                        node_type,
-                        transform,
-                    } = extracted_uinode.item
-                    else {
-                        continue;
-                    };
-
                     if batch_image_handle == AssetId::invalid()
                         || existing_batch.is_none()
                         || (batch_image_handle != AssetId::default()
@@ -1127,7 +1118,7 @@ pub fn prepare_uinodes(
 
                             existing_batch = batches.last_mut();
                         } else {
-                            continue;
+                            return;
                         }
                     } else if batch_image_handle == AssetId::default()
                         && extracted_uinode.image != AssetId::default()
@@ -1150,285 +1141,277 @@ pub fn prepare_uinodes(
                                     )
                                 });
                         } else {
-                            continue;
+                            return;
                         }
                     }
-
-                    let mut flags = if extracted_uinode.image != AssetId::default() {
-                        shader_flags::TEXTURED
-                    } else {
-                        shader_flags::UNTEXTURED
-                    };
-
-                    let mut uinode_rect = extracted_uinode.rect;
-
-                    let rect_size = uinode_rect.size().extend(1.0);
-
-                    // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (transform * (pos * rect_size).extend(1.)).xyz());
-
-                    // Calculate the effect of clipping
-                    // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
-                        [
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[0].x, 0.),
-                                f32::max(clip.min.y - positions[0].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[1].x, 0.),
-                                f32::max(clip.min.y - positions[1].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[2].x, 0.),
-                                f32::min(clip.max.y - positions[2].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[3].x, 0.),
-                                f32::min(clip.max.y - positions[3].y, 0.),
-                            ),
-                        ]
-                    } else {
-                        [Vec2::ZERO; 4]
-                    };
-
-                    let positions_clipped = [
-                        positions[0] + positions_diff[0].extend(0.),
-                        positions[1] + positions_diff[1].extend(0.),
-                        positions[2] + positions_diff[2].extend(0.),
-                        positions[3] + positions_diff[3].extend(0.),
-                    ];
-
-                    let transformed_rect_size = transform.transform_vector3(rect_size);
-
-                    // Don't try to cull nodes that have a rotation
-                    // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                    // In those two cases, the culling check can proceed normally as corners will be on
-                    // horizontal / vertical lines
-                    // For all other angles, bypass the culling check
-                    // This does not properly handles all rotations on all axis
-                    if transform.x_axis[1] == 0.0 {
-                        // Cull nodes that are completely clipped
-                        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-                        {
-                            continue;
-                        }
-                    }
-                    let uvs = if flags == shader_flags::UNTEXTURED {
-                        [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-                    } else {
-                        let image = gpu_images
-                            .get(extracted_uinode.image)
-                            .expect("Image was checked during batching and should still exist");
-                        // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
-                        let atlas_extent = extracted_uinode
-                            .atlas_scaling
-                            .map(|scaling| image.size.as_vec2() * scaling)
-                            .unwrap_or(uinode_rect.max);
-                        if flip_x {
-                            std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-                            positions_diff[0].x *= -1.;
-                            positions_diff[1].x *= -1.;
-                            positions_diff[2].x *= -1.;
-                            positions_diff[3].x *= -1.;
-                        }
-                        if flip_y {
-                            std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                            positions_diff[0].y *= -1.;
-                            positions_diff[1].y *= -1.;
-                            positions_diff[2].y *= -1.;
-                            positions_diff[3].y *= -1.;
-                        }
-                        [
-                            Vec2::new(
-                                uinode_rect.min.x + positions_diff[0].x,
-                                uinode_rect.min.y + positions_diff[0].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.max.x + positions_diff[1].x,
-                                uinode_rect.min.y + positions_diff[1].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.max.x + positions_diff[2].x,
-                                uinode_rect.max.y + positions_diff[2].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.min.x + positions_diff[3].x,
-                                uinode_rect.max.y + positions_diff[3].y,
-                            ),
-                        ]
-                        .map(|pos| pos / atlas_extent)
-                    };
-
-                    let color = extracted_uinode.color.to_f32_array();
-                    if node_type == NodeType::Border {
-                        flags |= shader_flags::BORDER;
-                    }
-
-                    for i in 0..4 {
-                        ui_meta.vertices.push(UiVertex {
-                            position: positions_clipped[i].into(),
-                            uv: uvs[i].into(),
-                            color,
-                            flags: flags | shader_flags::CORNERS[i],
-                            radius: border_radius,
+                    match &extracted_uinode.item {
+                        ExtractedUiItem::Node {
+                            atlas_scaling,
+                            flip_x,
+                            flip_y,
+                            border_radius,
                             border,
-                            size: rect_size.xy().into(),
-                        });
+                            node_type,
+                            transform,
+                        } => {
+                            let mut flags = if extracted_uinode.image != AssetId::default() {
+                                shader_flags::TEXTURED
+                            } else {
+                                shader_flags::UNTEXTURED
+                            };
+
+                            let mut uinode_rect = extracted_uinode.rect;
+
+                            let rect_size = uinode_rect.size().extend(1.0);
+
+                            // Specify the corners of the node
+                            let positions = QUAD_VERTEX_POSITIONS
+                                .map(|pos| (*transform * (pos * rect_size).extend(1.)).xyz());
+
+                            // Calculate the effect of clipping
+                            // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
+                            let mut positions_diff = if let Some(clip) = extracted_uinode.clip {
+                                [
+                                    Vec2::new(
+                                        f32::max(clip.min.x - positions[0].x, 0.),
+                                        f32::max(clip.min.y - positions[0].y, 0.),
+                                    ),
+                                    Vec2::new(
+                                        f32::min(clip.max.x - positions[1].x, 0.),
+                                        f32::max(clip.min.y - positions[1].y, 0.),
+                                    ),
+                                    Vec2::new(
+                                        f32::min(clip.max.x - positions[2].x, 0.),
+                                        f32::min(clip.max.y - positions[2].y, 0.),
+                                    ),
+                                    Vec2::new(
+                                        f32::max(clip.min.x - positions[3].x, 0.),
+                                        f32::min(clip.max.y - positions[3].y, 0.),
+                                    ),
+                                ]
+                            } else {
+                                [Vec2::ZERO; 4]
+                            };
+
+                            let positions_clipped = [
+                                positions[0] + positions_diff[0].extend(0.),
+                                positions[1] + positions_diff[1].extend(0.),
+                                positions[2] + positions_diff[2].extend(0.),
+                                positions[3] + positions_diff[3].extend(0.),
+                            ];
+
+                            let transformed_rect_size = transform.transform_vector3(rect_size);
+
+                            // Don't try to cull nodes that have a rotation
+                            // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
+                            // In those two cases, the culling check can proceed normally as corners will be on
+                            // horizontal / vertical lines
+                            // For all other angles, bypass the culling check
+                            // This does not properly handles all rotations on all axis
+                            if transform.x_axis[1] == 0.0 {
+                                // Cull nodes that are completely clipped
+                                if positions_diff[0].x - positions_diff[1].x
+                                    >= transformed_rect_size.x
+                                    || positions_diff[1].y - positions_diff[2].y
+                                        >= transformed_rect_size.y
+                                {
+                                    return;
+                                }
+                            }
+                            let uvs = if flags == shader_flags::UNTEXTURED {
+                                [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+                            } else {
+                                let image = gpu_images.get(extracted_uinode.image).expect(
+                                    "Image was checked during batching and should still exist",
+                                );
+                                // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
+                                let atlas_extent = atlas_scaling
+                                    .map(|scaling| image.size.as_vec2() * scaling)
+                                    .unwrap_or(uinode_rect.max);
+                                if *flip_x {
+                                    std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                                    positions_diff[0].x *= -1.;
+                                    positions_diff[1].x *= -1.;
+                                    positions_diff[2].x *= -1.;
+                                    positions_diff[3].x *= -1.;
+                                }
+                                if *flip_y {
+                                    std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
+                                    positions_diff[0].y *= -1.;
+                                    positions_diff[1].y *= -1.;
+                                    positions_diff[2].y *= -1.;
+                                    positions_diff[3].y *= -1.;
+                                }
+                                [
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[0].x,
+                                        uinode_rect.min.y + positions_diff[0].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[1].x,
+                                        uinode_rect.min.y + positions_diff[1].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[2].x,
+                                        uinode_rect.max.y + positions_diff[2].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[3].x,
+                                        uinode_rect.max.y + positions_diff[3].y,
+                                    ),
+                                ]
+                                .map(|pos| pos / atlas_extent)
+                            };
+
+                            let color = extracted_uinode.color.to_f32_array();
+                            if *node_type == NodeType::Border {
+                                flags |= shader_flags::BORDER;
+                            }
+
+                            for i in 0..4 {
+                                ui_meta.vertices.push(UiVertex {
+                                    position: positions_clipped[i].into(),
+                                    uv: uvs[i].into(),
+                                    color,
+                                    flags: flags | shader_flags::CORNERS[i],
+                                    radius: *border_radius,
+                                    border: *border,
+                                    size: rect_size.xy().into(),
+                                });
+                            }
+
+                            for &i in &QUAD_INDICES {
+                                ui_meta.indices.push(indices_index + i as u32);
+                            }
+
+                            vertices_index += 6;
+                            indices_index += 4;
+
+                            existing_batch.unwrap().1.range.end = vertices_index;
+                            ui_phase.items[batch_item_index].batch_range_mut().end += 1;
+                        }
+                        ExtractedUiItem::Glyphs {
+                            atlas_scaling,
+                            range,
+                        } => {
+                            let start_index = vertices_index;
+
+                            let image = gpu_images
+                                .get(extracted_uinode.image)
+                                .expect("Image was checked during batching and should still exist");
+
+                            let atlas_extent = image.size.as_vec2() * *atlas_scaling;
+
+                            let color = extracted_uinode.color.to_f32_array();
+                            for glyph in &extracted_uinodes.glyphs[range.clone()] {
+                                let glyph_rect = glyph.rect;
+                                let size = glyph.rect.size();
+
+                                let rect_size = glyph_rect.size().extend(1.0);
+
+                                // Specify the corners of the glyph
+                                let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                                    (glyph.transform * (pos * rect_size).extend(1.)).xyz()
+                                });
+
+                                let positions_diff = if let Some(clip) = extracted_uinode.clip {
+                                    [
+                                        Vec2::new(
+                                            f32::max(clip.min.x - positions[0].x, 0.),
+                                            f32::max(clip.min.y - positions[0].y, 0.),
+                                        ),
+                                        Vec2::new(
+                                            f32::min(clip.max.x - positions[1].x, 0.),
+                                            f32::max(clip.min.y - positions[1].y, 0.),
+                                        ),
+                                        Vec2::new(
+                                            f32::min(clip.max.x - positions[2].x, 0.),
+                                            f32::min(clip.max.y - positions[2].y, 0.),
+                                        ),
+                                        Vec2::new(
+                                            f32::max(clip.min.x - positions[3].x, 0.),
+                                            f32::min(clip.max.y - positions[3].y, 0.),
+                                        ),
+                                    ]
+                                } else {
+                                    [Vec2::ZERO; 4]
+                                };
+
+                                let positions_clipped = [
+                                    positions[0] + positions_diff[0].extend(0.),
+                                    positions[1] + positions_diff[1].extend(0.),
+                                    positions[2] + positions_diff[2].extend(0.),
+                                    positions[3] + positions_diff[3].extend(0.),
+                                ];
+
+                                // cull nodes that are completely clipped
+                                let transformed_rect_size =
+                                    glyph.transform.transform_vector3(rect_size);
+                                if positions_diff[0].x - positions_diff[1].x
+                                    >= transformed_rect_size.x
+                                    || positions_diff[1].y - positions_diff[2].y
+                                        >= transformed_rect_size.y
+                                {
+                                    continue;
+                                }
+
+                                let uvs = [
+                                    Vec2::new(
+                                        glyph.rect.min.x + positions_diff[0].x,
+                                        glyph.rect.min.y + positions_diff[0].y,
+                                    ),
+                                    Vec2::new(
+                                        glyph.rect.max.x + positions_diff[1].x,
+                                        glyph.rect.min.y + positions_diff[1].y,
+                                    ),
+                                    Vec2::new(
+                                        glyph.rect.max.x + positions_diff[2].x,
+                                        glyph.rect.max.y + positions_diff[2].y,
+                                    ),
+                                    Vec2::new(
+                                        glyph.rect.min.x + positions_diff[3].x,
+                                        glyph.rect.max.y + positions_diff[3].y,
+                                    ),
+                                ]
+                                .map(|pos| pos / atlas_extent);
+
+                                for i in 0..4 {
+                                    ui_meta.vertices.push(UiVertex {
+                                        position: positions_clipped[i].into(),
+                                        uv: uvs[i].into(),
+                                        color,
+                                        flags: shader_flags::TEXTURED,
+                                        radius: [0.0; 4],
+                                        border: [0.0; 4],
+                                        size: size.into(),
+                                    });
+                                }
+
+                                for &i in &QUAD_INDICES {
+                                    ui_meta.indices.push(indices_index + i as u32);
+                                }
+
+                                vertices_index += 6;
+                                indices_index += 4;
+                            }
+
+                            batches.push((
+                                item.entity,
+                                UiBatch {
+                                    range: start_index..vertices_index,
+                                    image: extracted_uinode.image,
+                                    camera: extracted_uinode.camera_entity,
+                                },
+                            ));
+
+                            ui_phase.items[item_index].batch_range_mut().end = 1;
+                        }
                     }
-
-                    for &i in &QUAD_INDICES {
-                        ui_meta.indices.push(indices_index + i as u32);
-                    }
-
-                    vertices_index += 6;
-                    indices_index += 4;
-
-                    existing_batch.unwrap().1.range.end = vertices_index;
-                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
                 } else {
                     batch_image_handle = AssetId::invalid();
                 }
             }
         }
-
-        // for ui_phase in phases.values_mut() {
-        //     for item_index in 0..ui_phase.items.len() {
-        //         let item = &mut ui_phase.items[item_index];
-        //         if let Some(extracted_text_section) =
-        //             extracted_text_sections.batches.get(&item.entity)
-        //         {
-        //             if let Some(gpu_image) = gpu_images.get(extracted_text_section.image) {
-        //                 image_bind_groups
-        //                     .values
-        //                     .entry(extracted_text_section.image)
-        //                     .or_insert_with(|| {
-        //                         render_device.create_bind_group(
-        //                             "ui_material_bind_group",
-        //                             &ui_pipeline.image_layout,
-        //                             &BindGroupEntries::sequential((
-        //                                 &gpu_image.texture_view,
-        //                                 &gpu_image.sampler,
-        //                             )),
-        //                         )
-        //                     });
-        //             } else {
-        //                 continue;
-        //             }
-
-        //             let start_index = vertices_index;
-
-        //             let image = gpu_images
-        //                 .get(extracted_text_section.image)
-        //                 .expect("Image was checked during batching and should still exist");
-        //             let atlas_extent = image.size.as_vec2() * extracted_text_section.atlas_scaling;
-
-        //             let color = extracted_text_section.color.to_f32_array();
-        //             for glyph in
-        //                 &extracted_text_sections.glyphs[extracted_text_section.range.clone()]
-        //             {
-        //                 let glyph_rect = glyph.rect;
-        //                 let size = glyph.rect.size();
-
-        //                 let rect_size = glyph_rect.size().extend(1.0);
-
-        //                 // Specify the corners of the glyph
-        //                 let positions = QUAD_VERTEX_POSITIONS
-        //                     .map(|pos| (glyph.transform * (pos * rect_size).extend(1.)).xyz());
-
-        //                 let positions_diff = if let Some(clip) = extracted_text_section.clip {
-        //                     [
-        //                         Vec2::new(
-        //                             f32::max(clip.min.x - positions[0].x, 0.),
-        //                             f32::max(clip.min.y - positions[0].y, 0.),
-        //                         ),
-        //                         Vec2::new(
-        //                             f32::min(clip.max.x - positions[1].x, 0.),
-        //                             f32::max(clip.min.y - positions[1].y, 0.),
-        //                         ),
-        //                         Vec2::new(
-        //                             f32::min(clip.max.x - positions[2].x, 0.),
-        //                             f32::min(clip.max.y - positions[2].y, 0.),
-        //                         ),
-        //                         Vec2::new(
-        //                             f32::max(clip.min.x - positions[3].x, 0.),
-        //                             f32::min(clip.max.y - positions[3].y, 0.),
-        //                         ),
-        //                     ]
-        //                 } else {
-        //                     [Vec2::ZERO; 4]
-        //                 };
-
-        //                 let positions_clipped = [
-        //                     positions[0] + positions_diff[0].extend(0.),
-        //                     positions[1] + positions_diff[1].extend(0.),
-        //                     positions[2] + positions_diff[2].extend(0.),
-        //                     positions[3] + positions_diff[3].extend(0.),
-        //                 ];
-
-        //                 // cull nodes that are completely clipped
-        //                 let transformed_rect_size = glyph.transform.transform_vector3(rect_size);
-        //                 if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-        //                     || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-        //                 {
-        //                     continue;
-        //                 }
-
-        //                 let uvs = [
-        //                     Vec2::new(
-        //                         glyph.rect.min.x + positions_diff[0].x,
-        //                         glyph.rect.min.y + positions_diff[0].y,
-        //                     ),
-        //                     Vec2::new(
-        //                         glyph.rect.max.x + positions_diff[1].x,
-        //                         glyph.rect.min.y + positions_diff[1].y,
-        //                     ),
-        //                     Vec2::new(
-        //                         glyph.rect.max.x + positions_diff[2].x,
-        //                         glyph.rect.max.y + positions_diff[2].y,
-        //                     ),
-        //                     Vec2::new(
-        //                         glyph.rect.min.x + positions_diff[3].x,
-        //                         glyph.rect.max.y + positions_diff[3].y,
-        //                     ),
-        //                 ]
-        //                 .map(|pos| pos / atlas_extent);
-
-        //                 for i in 0..4 {
-        //                     ui_meta.vertices.push(UiVertex {
-        //                         position: positions_clipped[i].into(),
-        //                         uv: uvs[i].into(),
-        //                         color,
-        //                         flags: shader_flags::TEXTURED,
-        //                         radius: [0.0; 4],
-        //                         border: [0.0; 4],
-        //                         size: size.into(),
-        //                     });
-        //                 }
-
-        //                 for &i in &QUAD_INDICES {
-        //                     ui_meta.indices.push(indices_index + i as u32);
-        //                 }
-
-        //                 vertices_index += 6;
-        //                 indices_index += 4;
-        //             }
-
-        //             batches.push((
-        //                 item.entity,
-        //                 UiBatch {
-        //                     range: start_index..vertices_index,
-        //                     image: extracted_text_section.image,
-        //                     camera: extracted_text_section.camera_entity,
-        //                 },
-        //             ));
-
-        //             ui_phase.items[item_index].batch_range_mut().end = 1;
-        //         }
-        //     }
-        // }
 
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
         ui_meta.indices.write_buffer(&render_device, &render_queue);
