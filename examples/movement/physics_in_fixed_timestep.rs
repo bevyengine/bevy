@@ -65,7 +65,7 @@
 //!    - Advance the physics simulation by one fixed timestep in the `advance_physics` system.
 //!        Accumulated input is consumed here.
 //!        This is run in the `FixedUpdate` schedule, which runs zero or multiple times per frame.
-//!    - Update the player's visual representation in the `update_rendered_transform` system.
+//!    - Update the player's visual representation in the `interpolate_rendered_transform` system.
 //!        This interpolates between the player's previous and current position in the physics simulation.
 //!        It is run in the `RunFixedMainLoop` schedule, ordered in `RunFixedMainLoopSystem::AfterFixedMainLoop`,
 //!        which runs after the fixed timestep loop. This is run every frame.
@@ -99,7 +99,7 @@ fn main() {
                 // The player's visual representation needs to be updated after the physics simulation has been advanced.
                 // This could be run in `Update`, but if we run it here instead, the systems in `Update`
                 // will be working with the `Transform` that will actually be shown on screen.
-                update_rendered_transform.in_set(RunFixedMainLoopSystem::AfterFixedMainLoop),
+                interpolate_rendered_transform.in_set(RunFixedMainLoopSystem::AfterFixedMainLoop),
             ),
         )
         .run();
@@ -124,7 +124,7 @@ struct Velocity(Vec3);
 struct PhysicalTranslation(Vec3);
 
 /// The value [`PhysicalTranslation`] had in the last fixed timestep.
-/// Used for interpolation in the `update_rendered_transform` system.
+/// Used for interpolation in the `interpolate_rendered_transform` system.
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
 struct PreviousPhysicalTranslation(Vec3);
 
@@ -228,7 +228,7 @@ fn advance_physics(
     }
 }
 
-fn update_rendered_transform(
+fn interpolate_rendered_transform(
     fixed_time: Res<Time<Fixed>>,
     mut query: Query<(
         &mut Transform,
