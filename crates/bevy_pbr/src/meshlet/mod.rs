@@ -327,7 +327,7 @@ fn configure_meshlet_views(
 ) {
     for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
         if *msaa != Msaa::Off {
-            panic!("MeshletPlugin can't be used. MSAA is not supported.");
+            panic!("MeshletPlugin can't be used with MSAA. Add Msaa:Off to your camera.");
         }
 
         if !(normal_prepass || motion_vector_prepass || deferred_prepass) {
