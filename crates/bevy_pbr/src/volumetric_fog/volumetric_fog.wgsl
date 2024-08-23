@@ -238,11 +238,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             // case.
             let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
             if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
-                // Add density texture offset and wrap values exceeding the (0, 0, 0) to (1, 1, 1) range.
-                var uvw = P_uvw + density_texture_offset;
-                uvw -= floor(uvw);
-
-                density *= textureSample(density_texture, density_sampler, uvw).r;
+                density *= textureSample(density_texture, density_sampler, P_uvw + density_texture_offset).r;
             } else {
                 density = 0.0;
             }
