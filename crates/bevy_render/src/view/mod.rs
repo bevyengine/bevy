@@ -32,7 +32,7 @@ use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizz
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
+use bevy_utils::{hashbrown::hash_map::Entry, HashMap};
 use std::{
     ops::Range,
     sync::{
@@ -121,7 +121,7 @@ impl Plugin for ViewPlugin {
             render_app.add_systems(
                 Render,
                 (
-                    prepare_view_textures
+                    prepare_view_attachments
                         .in_set(RenderSet::ManageViews)
                         .before(prepare_view_targets),
                     prepare_view_targets
@@ -139,7 +139,7 @@ impl Plugin for ViewPlugin {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ViewUniforms>()
-                .init_resource::<ViewTargetTextures>();
+                .init_resource::<ViewTargetAttachments>();
         }
     }
 }
@@ -465,10 +465,12 @@ pub struct ViewTarget {
     out_texture: OutputColorAttachment,
 }
 
+/// Contains [`OutputColorAttachment`] used for each target present on any view in the current
+/// frame, after being prepared by [`prepare_view_attachments`]. Users that want to override
+/// the default output color attachment for a specific target can do so by adding a
+/// [`OutputColorAttachment`] to this resource before [`prepare_view_targets`] is called.
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct ViewTargetTextures(
-    HashMap<NormalizedRenderTarget, Option<(TextureView, TextureFormat)>>,
-);
+pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAttachment>);
 
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
@@ -806,12 +808,13 @@ struct MainTargetTextures {
     main_texture: Arc<AtomicUsize>,
 }
 
-pub fn prepare_view_textures(
+/// Prepares the view target [`OutputColorAttachment`] for each view in the current frame.
+pub fn prepare_view_attachments(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
     cameras: Query<&ExtractedCamera>,
-    mut view_target_textures: ResMut<ViewTargetTextures>,
+    mut view_target_textures: ResMut<ViewTargetAttachments>,
 ) {
     view_target_textures.clear();
     for camera in cameras.iter() {
@@ -819,14 +822,22 @@ pub fn prepare_view_textures(
             continue;
         };
 
-        view_target_textures
-            .entry(target.clone())
-            .or_insert_with(|| {
-                target
+        match view_target_textures.entry(target.clone()) {
+            Entry::Occupied(_) => {}
+            Entry::Vacant(entry) => {
+                let Some(attachment) = target
                     .get_texture_view(&windows, &images, &manual_texture_views)
                     .cloned()
                     .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-            });
+                    .map(|(view, format)| {
+                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
+                    })
+                else {
+                    continue;
+                };
+                entry.insert(attachment);
+            }
+        };
     }
 }
 
@@ -842,7 +853,7 @@ pub fn prepare_view_targets(
         &CameraMainTextureUsages,
         &Msaa,
     )>,
-    view_target_textures: Res<ViewTargetTextures>,
+    view_target_attachments: Res<ViewTargetAttachments>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
@@ -851,14 +862,7 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let Some(out_texture) = view_target_textures
-            .get(target)
-            .expect("Something went wrong with prepare_view_textures")
-            .as_ref()
-            .map(|(view, format)| {
-                OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-            })
-        else {
+        let Some(out_texture) = view_target_attachments.get(target) else {
             continue;
         };
 

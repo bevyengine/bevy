@@ -4,9 +4,9 @@ use crate::camera::{
 };
 use crate::render_asset::RenderAssets;
 use crate::render_resource::{BindGroupEntries, BufferUsages, TextureUsages, TextureView};
-use crate::texture::GpuImage;
+use crate::texture::{GpuImage, OutputColorAttachment};
 use crate::view::{
-    prepare_view_targets, prepare_view_textures, ViewTargetTextures, WindowSurfaces,
+    prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces,
 };
 use crate::{
     prelude::{Image, Shader},
@@ -263,7 +263,7 @@ fn prepare_screenshots(
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     images: Res<RenderAssets<GpuImage>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut view_target_textures: ResMut<ViewTargetTextures>,
+    mut view_target_attachments: ResMut<ViewTargetAttachments>,
 ) {
     prepared.clear();
     for (entity, target) in targets.iter() {
@@ -286,7 +286,10 @@ fn prepare_screenshots(
                     &mut pipelines,
                 );
                 prepared.insert(*entity, state);
-                view_target_textures.insert(target.clone(), Some((texture_view, format)));
+                view_target_attachments.insert(
+                    target.clone(),
+                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                );
             }
             NormalizedRenderTarget::Image(image) => {
                 let gpu_image = images.get(image).unwrap();
@@ -305,7 +308,10 @@ fn prepare_screenshots(
                     &mut pipelines,
                 );
                 prepared.insert(*entity, state);
-                view_target_textures.insert(target.clone(), Some((texture_view, format)));
+                view_target_attachments.insert(
+                    target.clone(),
+                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                );
             }
             NormalizedRenderTarget::TextureView(texture_view) => {
                 let manual_texture_view = manual_texture_views.get(texture_view).unwrap();
@@ -324,7 +330,10 @@ fn prepare_screenshots(
                     &mut pipelines,
                 );
                 prepared.insert(*entity, state);
-                view_target_textures.insert(target.clone(), Some((texture_view, format)));
+                view_target_attachments.insert(
+                    target.clone(),
+                    OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
+                );
             }
         }
     }
@@ -412,7 +421,7 @@ impl Plugin for ScreenshotPlugin {
                 .add_systems(
                     Render,
                     prepare_screenshots
-                        .after(prepare_view_textures)
+                        .after(prepare_view_attachments)
                         .before(prepare_view_targets)
                         .in_set(RenderSet::ManageViews),
                 );
