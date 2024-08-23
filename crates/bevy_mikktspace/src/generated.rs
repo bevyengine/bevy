@@ -1030,7 +1030,7 @@ unsafe fn InitTriInfo<I: Geometry>(
         }
         f += 1
     }
-    while t < iNrTrianglesIn - 1 {
+    while t + 1 < iNrTrianglesIn {
         let iFO_a: i32 = (*pTriInfos.offset(t as isize)).iOrgFaceNumber;
         let iFO_b: i32 = (*pTriInfos.offset((t + 1) as isize)).iOrgFaceNumber;
         if iFO_a == iFO_b {
