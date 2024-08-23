@@ -313,7 +313,8 @@ impl World {
 
     /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
     ///
-    /// This method consumes the event, so it cannot be used after this method is called.
+    /// While event types commonly implement [`Copy`],
+    /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     pub fn trigger(&mut self, event: impl Event) {
         TriggerEvent { event, targets: () }.trigger(self);
@@ -329,7 +330,8 @@ impl World {
 
     /// Triggers the given [`Event`] for the given `targets`, which will run any [`Observer`]s watching for it.
     ///
-    /// This method consumes the event, so it cannot be used after this method is called.
+    /// /// While event types commonly implement [`Copy`],
+    /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     pub fn trigger_targets(&mut self, event: impl Event, targets: impl TriggerTargets) {
         TriggerEvent { event, targets }.trigger(self);
