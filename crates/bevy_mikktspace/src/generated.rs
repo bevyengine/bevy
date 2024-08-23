@@ -335,7 +335,8 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         f += 1
     }
 
-    return true;
+    // TODO: Find a better place to return
+    return iNrTrianglesIn > 0;
 }
 unsafe fn DegenEpilogue<I: Geometry>(
     mut psTspace: *mut STSpace,
