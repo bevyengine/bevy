@@ -414,7 +414,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
     }
 }
 
-#[cfg(all(feature = "bevy_render"))]
+#[cfg(feature = "bevy_render")]
 fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<LineGizmoHandles>>,
