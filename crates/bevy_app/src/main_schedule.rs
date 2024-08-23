@@ -81,6 +81,9 @@ pub struct PreUpdate;
 /// If you need to order your variable timestep systems
 /// before or after the fixed update logic, use the [`RunFixedMainLoopSystem`] system set.
 ///
+/// Note that in contrast to most other Bevy schedules, systems added directly to
+/// [`RunFixedMainLoop`] will *not* be parallelized between each other.
+///
 /// See the [`Main`] schedule for some details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RunFixedMainLoop;
@@ -375,6 +378,9 @@ impl FixedMain {
 /// This is useful for handling things that need to run every frame, but
 /// also need to be read by the fixed update logic. See the individual variants
 /// for examples of what kind of systems should be placed in each.
+///
+/// Note that in contrast to most other Bevy schedules, systems added directly to
+/// [`RunFixedMainLoop`] will *not* be parallelized between each other.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RunFixedMainLoopSystem {
     /// Runs before the fixed update logic.
