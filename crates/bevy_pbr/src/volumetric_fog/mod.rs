@@ -153,11 +153,11 @@ pub struct FogVolume {
     /// Optional 3D voxel density texture for the fog.
     pub density_texture: Option<Handle<Image>>,
 
-    /// Configurable offset of the density texture in UVW coordinates. Values 1.0 or higher
-    /// will be wrapped into the (0.0..1.0) range.
+    /// Configurable offset of the density texture in UVW coordinates.
     ///
     /// This can be used to scroll a repeating density texture in a direction over time
-    /// to create effects like fog moving in the wind.
+    /// to create effects like fog moving in the wind. Make sure to configure the texture
+    /// to use `ImageAddressMode::Repeat` if this is your intention.
     ///
     /// Has no effect when no density texture is present.
     ///
