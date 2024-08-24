@@ -149,34 +149,19 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
     type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
 
-    fn unprepared_bind_group(
+    fn unprepared_bind_group<'w>(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<GpuImage>,
-        fallback_image: &FallbackImage,
-        buffers: &RenderAssets<GpuStorageBuffer>,
+        (base_param, extended_param): &mut SystemParamItem<'w, '_, Self::Param>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
             mut bindings,
             data: base_data,
-        } = B::unprepared_bind_group(
-            &self.base,
-            layout,
-            render_device,
-            images,
-            fallback_image,
-            buffers,
-        )?;
-        let extended_bindgroup = E::unprepared_bind_group(
-            &self.extension,
-            layout,
-            render_device,
-            images,
-            fallback_image,
-            buffers,
-        )?;
+        } = B::unprepared_bind_group(&self.base, layout, render_device, base_param)?;
+        let extended_bindgroup =
+            E::unprepared_bind_group(&self.extension, layout, render_device, extended_param)?;
 
         bindings.extend(extended_bindgroup.bindings);
 

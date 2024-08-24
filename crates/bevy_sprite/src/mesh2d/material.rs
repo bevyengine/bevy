@@ -581,27 +581,13 @@ impl<T: Material2d> PreparedMaterial2d<T> {
 impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     type SourceAsset = M;
 
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderAssets<GpuImage>>,
-        SRes<FallbackImage>,
-        SRes<Material2dPipeline<M>>,
-        SRes<RenderAssets<GpuStorageBuffer>>,
-    );
+    type Param = (SRes<RenderDevice>, SRes<Material2dPipeline<M>>, M::Param);
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline, buffers): &mut SystemParamItem<
-            Self::Param,
-        >,
+        (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(
-            &pipeline.material2d_layout,
-            render_device,
-            images,
-            fallback_image,
-            buffers,
-        ) {
+        match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
                 mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));

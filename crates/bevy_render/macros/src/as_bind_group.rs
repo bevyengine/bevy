@@ -509,13 +509,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 Some(#struct_name_literal)
             }
 
-            fn unprepared_bind_group(
+            fn unprepared_bind_group<'w>(
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
-                images: &#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>,
-                fallback_image: &#render_path::texture::FallbackImage,
-                buffers: &#render_path::render_asset::RenderAssets<#render_path::storage::GpuStorageBuffer>,
+                (images, fallback_image): &mut #ecs_path::system::SystemParamItem<'w, '_, Self::Param>,
             ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 

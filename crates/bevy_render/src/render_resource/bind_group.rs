@@ -3,8 +3,14 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
+<<<<<<< HEAD
     storage::GpuStorageBuffer,
     texture::{FallbackImage, GpuImage},
+||||||| parent of b501d5ebb (Refactor `AsBindGroup` to use a associated `SystemParam`.)
+    texture::{FallbackImage, GpuImage},
+=======
+    texture::GpuImage,
+>>>>>>> b501d5ebb (Refactor `AsBindGroup` to use a associated `SystemParam`.)
 };
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
@@ -294,22 +300,14 @@ pub trait AsBindGroup {
     }
 
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
-    fn as_bind_group(
+    fn as_bind_group<'w>(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<GpuImage>,
-        fallback_image: &FallbackImage,
-        buffers: &RenderAssets<GpuStorageBuffer>,
+        param: &mut SystemParamItem<'w, '_, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
-        let UnpreparedBindGroup { bindings, data } = Self::unprepared_bind_group(
-            self,
-            layout,
-            render_device,
-            images,
-            fallback_image,
-            buffers,
-        )?;
+        let UnpreparedBindGroup { bindings, data } =
+            Self::unprepared_bind_group(self, layout, render_device, param)?;
 
         let entries = bindings
             .iter()
@@ -332,13 +330,11 @@ pub trait AsBindGroup {
     /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
     /// an implementor may define `as_bind_group` directly. This may prevent certain features
     /// from working correctly.
-    fn unprepared_bind_group(
+    fn unprepared_bind_group<'w>(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<GpuImage>,
-        fallback_image: &FallbackImage,
-        buffers: &RenderAssets<GpuStorageBuffer>,
+        param: &mut SystemParamItem<'w, '_, Self::Param>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
