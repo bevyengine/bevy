@@ -1,6 +1,7 @@
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
+pub mod ui_slicer_pipeline;
 
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
@@ -19,6 +20,7 @@ use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
+use ui_slicer_pipeline::UiSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
@@ -140,6 +142,8 @@ pub fn build_ui_render(app: &mut App) {
         graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
         graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
     }
+
+    app.add_plugins(UiSlicerPlugin);
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
