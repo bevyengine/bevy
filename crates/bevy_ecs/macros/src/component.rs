@@ -1,11 +1,13 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
+use std::collections::HashSet;
 use syn::{
     parenthesized,
     parse::Parse,
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
+    spanned::Spanned,
     token::{Comma, Paren},
     DeriveInput, ExprPath, Ident, LitStr, Path, Result,
 };
@@ -164,6 +166,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         requires: None,
     };
 
+    let mut require_paths = HashSet::new();
     for attr in ast.attrs.iter() {
         if attr.path().is_ident(COMPONENT) {
             attr.parse_nested_meta(|nested| {
@@ -197,6 +200,14 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         } else if attr.path().is_ident(REQUIRE) {
             let punctuated =
                 attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
+            for require in punctuated.iter() {
+                if !require_paths.insert(require.path.clone()) {
+                    return Err(syn::Error::new(
+                        require.path.span(),
+                        "Duplicate required components are not allowed.",
+                    ));
+                }
+            }
             if let Some(current) = &mut attrs.requires {
                 current.extend(punctuated);
             } else {
