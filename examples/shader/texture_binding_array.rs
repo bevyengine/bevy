@@ -102,11 +102,11 @@ impl AsBindGroup for BindlessMaterial {
 
     type Param = (SRes<RenderAssets<GpuImage>>, SRes<FallbackImage>);
 
-    fn as_bind_group<'w>(
+    fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        (image_assets, fallback_image): &mut SystemParamItem<'w, '_, Self::Param>,
+        (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
         let mut images = vec![];
