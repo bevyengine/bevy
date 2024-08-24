@@ -1,7 +1,7 @@
 use super::GlobalTransform;
 #[cfg(feature = "bevy-support")]
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Dir2, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 #[cfg(feature = "bevy-support")]
 use bevy_reflect::{prelude::*, Reflect};
 use std::ops::Mul;
@@ -381,6 +381,20 @@ impl Transform {
     pub fn rotate_around(&mut self, point: Vec3, rotation: Quat) {
         self.translate_around(point, rotation);
         self.rotate(rotation);
+    }
+
+    /// Flips the scale of this [`Transform`] based on which axes are not zero in the given `Dir3`.
+    #[inline]
+    pub fn flip(&mut self, dir: Dir3) {
+        if dir.x != 0.0 {
+            self.scale.x *= -1.0
+        }
+        if dir.y != 0.0 {
+            self.scale.y *= -1.0
+        }
+        if dir.z != 0.0 {
+            self.scale.z *= -1.0
+        }
     }
 
     /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target` position,
