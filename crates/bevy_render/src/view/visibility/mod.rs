@@ -50,48 +50,50 @@ pub enum Visibility {
 impl Visibility {
     /// Returns `Visibility::Inherited` if true, else returns `Visibility::Hidden`.
     #[inline]
-    pub fn from_bool_inherited(value: bool) -> Self {
+    pub fn inherited_if(value: bool) -> Self {
         if value {
             Visibility::Inherited
         } else {
             Visibility::Hidden
         }
-    }
-    /// Returns `true` if `self` is `Visibility::Visible` or `Visibility::Inherited`, else returns `false`.
-    #[inline]
-    pub fn to_bool_inherited(self) -> bool {
-        self != Visibility::Hidden
-    }
-    /// If `self` is `Visibility::Hidden`, sets it to `Visibility::Inherited`. Otherwise, sets it to `Visibility::Hidden`.
-    #[inline]
-    pub fn toggle_inherited(&mut self) {
-        *self = if *self == Visibility::Hidden {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
     }
     /// Returns `Visibility::Visible` if true, else returns `Visibility::Hidden`.
     #[inline]
-    pub fn from_bool_unconditional(value: bool) -> Self {
+    pub fn visible_if(value: bool) -> Self {
         if value {
             Visibility::Visible
         } else {
             Visibility::Hidden
         }
     }
-    /// Returns `true` if `self` is `Visibility::Visible`, else returns `false`.
+    /// Toggles between `Visibility::Inherited` and `Visibility::Visible`.
+    /// If the value is `Visibility::Hidden`, it remains unaffected.
     #[inline]
-    pub fn to_bool_unconditional(self) -> bool {
-        self == Visibility::Visible
+    pub fn toggle_inherited_visible(&mut self) {
+        *self = match *self {
+            Visibility::Inherited => Visibility::Visible,
+            Visibility::Visible => Visibility::Inherited,
+            _ => *self,
+        };
     }
-    /// If self is `Visibility::Visible`, sets it to `Visibility::Hidden`. Otherwise, sets it to `Visibility::Visible`.
+    /// Toggles between `Visibility::Inherited` and `Visibility::Hidden`.
+    /// If the value is `Visibility::Visible`, it remains unaffected.
     #[inline]
-    pub fn toggle_unconditional(&mut self) {
-        *self = if *self == Visibility::Visible {
-            Visibility::Hidden
-        } else {
-            Visibility::Visible
+    pub fn toggle_inherited_hidden(&mut self) {
+        *self = match *self {
+            Visibility::Inherited => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Inherited,
+            _ => *self,
+        };
+    }
+    /// Toggles between `Visibility::Visible` and `Visibility::Hidden`.
+    /// If the value is `Visibility::Inherited`, it remains unaffected.
+    #[inline]
+    pub fn toggle_visible_hidden(&mut self) {
+        *self = match *self {
+            Visibility::Visible => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Visible,
+            _ => *self,
         };
     }
 }
