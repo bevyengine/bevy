@@ -505,6 +505,7 @@ pub struct ComponentInfo {
     id: ComponentId,
     descriptor: ComponentDescriptor,
     hooks: ComponentHooks,
+    required_components: RequiredComponents,
 }
 
 impl ComponentInfo {
@@ -563,7 +564,8 @@ impl ComponentInfo {
         ComponentInfo {
             id,
             descriptor,
-            hooks: ComponentHooks::default(),
+            hooks: Default::default(),
+            required_components: Default::default(),
         }
     }
 
@@ -587,6 +589,12 @@ impl ComponentInfo {
     /// Provides a reference to the collection of hooks associated with this [`Component`]
     pub fn hooks(&self) -> &ComponentHooks {
         &self.hooks
+    }
+
+    /// Retrieves the [`RequiredComponents`] collection, which contains all required components (and their constructors)
+    /// needed by this component. This includes _recursive_ required components.
+    pub fn required_components(&self) -> &RequiredComponents {
+        &self.required_components
     }
 }
 
@@ -789,22 +797,32 @@ impl Components {
     /// * [`Components::init_component_with_descriptor()`]
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
-        let type_id = TypeId::of::<T>();
-
-        let Components {
-            indices,
-            components,
-            ..
-        } = self;
-        *indices.entry(type_id).or_insert_with(|| {
-            let index = Components::init_component_inner(
+        let mut registered = false;
+        let id = {
+            let Components {
+                indices,
                 components,
-                storages,
-                ComponentDescriptor::new::<T>(),
-            );
-            T::register_component_hooks(&mut components[index.index()].hooks);
-            index
-        })
+                ..
+            } = self;
+            let type_id = TypeId::of::<T>();
+            *indices.entry(type_id).or_insert_with(|| {
+                let id = Components::init_component_inner(
+                    components,
+                    storages,
+                    ComponentDescriptor::new::<T>(),
+                );
+                registered = true;
+                id
+            })
+        };
+        if registered {
+            let mut required_components = RequiredComponents::default();
+            T::register_required_components(self, storages, &mut required_components);
+            let info = &mut self.components[id.index()];
+            T::register_component_hooks(&mut info.hooks);
+            info.required_components = required_components;
+        }
+        id
     }
 
     /// Initializes a component described by `descriptor`.
@@ -1279,7 +1297,7 @@ impl RequiredComponentConstructor {
 /// The collection of metadata for components that are required for a given component.
 ///
 /// For more information, see the "Required Components" section of [`Component`].
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct RequiredComponents(pub(crate) HashMap<ComponentId, RequiredComponentConstructor>);
 
 impl Debug for RequiredComponents {
@@ -1354,13 +1372,26 @@ impl RequiredComponents {
         unsafe { self.register_dynamic(component_id, erased) };
     }
 
+    /// Iterates the ids of all required components. This includes recursive required components.
+    pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.0.keys().copied()
+    }
+
     /// Removes components that are explicitly provided in a given [`Bundle`]. These components should
     /// be logically treated as normal components, not "required components".
     ///
     /// [`Bundle`]: crate::bundle::Bundle
-    pub fn remove_explicit_components(&mut self, components: &[ComponentId]) {
+    pub(crate) fn remove_explicit_components(&mut self, components: &[ComponentId]) {
         for component in components {
             self.0.remove(component);
+        }
+    }
+
+    // Merges `required_components` into this collection. This only inserts a required component
+    // if it _did not already exist_.
+    pub(crate) fn merge(&mut self, required_components: &RequiredComponents) {
+        for (id, constructor) in &required_components.0 {
+            self.0.entry(*id).or_insert_with(|| constructor.clone());
         }
     }
 }

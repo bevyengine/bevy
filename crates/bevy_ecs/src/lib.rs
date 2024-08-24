@@ -2000,6 +2000,28 @@ mod tests {
         );
     }
 
+    #[test]
+    fn dynamic_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        let x_id = world.init_component::<X>();
+
+        let mut e = world.spawn_empty();
+
+        // SAFETY: x_id is a valid component id
+        bevy_ptr::OwningPtr::make(X, |ptr| unsafe {
+            e.insert_by_id(x_id, ptr);
+        });
+
+        assert!(e.contains::<Y>());
+    }
+
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]

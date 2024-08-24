@@ -368,10 +368,8 @@ impl BundleInfo {
     unsafe fn new(
         bundle_type_name: &'static str,
         components: &Components,
-        component_ids: Vec<ComponentId>,
-        required_components: Vec<RequiredComponentConstructor>,
+        mut component_ids: Vec<ComponentId>,
         id: BundleId,
-        explicit_components_len: usize,
     ) -> BundleInfo {
         let mut deduped = component_ids.clone();
         deduped.sort_unstable();
@@ -398,6 +396,25 @@ impl BundleInfo {
 
             panic!("Bundle {bundle_type_name} has duplicate components: {names}");
         }
+
+        let explicit_components_len = component_ids.len();
+        let mut required_components = RequiredComponents::default();
+        for component_id in component_ids.iter().copied() {
+            // SAFETY: caller has verified that all ids are valid
+            let info = unsafe { components.get_info_unchecked(component_id) };
+            required_components.merge(info.required_components());
+        }
+        required_components.remove_explicit_components(&component_ids);
+        let required_components = required_components
+            .0
+            .into_iter()
+            .map(|(component_id, v)| {
+                // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
+                // components. This ordering is important!
+                component_ids.push(component_id);
+                v
+            })
+            .collect();
 
         // SAFETY: The caller ensures that component_ids:
         // - is valid for the associated world
@@ -1314,25 +1331,15 @@ impl Bundles {
     ) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
         let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let mut component_ids = Vec::new();
+            let mut component_ids= Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
-            let explicit_component_len = component_ids.len();
-            let mut required_components = RequiredComponents::default();
-            T::register_required_components(components, storages, &mut required_components);
-            required_components.remove_explicit_components(&component_ids);
-            let required_components = required_components.0.into_iter().map(|(component_id, v)| {
-                // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
-                // components. This ordering is important!
-                component_ids.push(component_id);
-                v
-            }).collect();
             let bundle_info =
                 // SAFETY: T::component_id ensures:
                 // - its info was created
                 // - appropriate storage for it has been initialized.
                 // - it was created in the same order as the components in T
-                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, required_components, id, explicit_component_len) };
+                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -1427,10 +1434,9 @@ fn initialize_dynamic_bundle(
     }).collect();
 
     let id = BundleId(bundle_infos.len());
-    let explicit_component_len = component_ids.len();
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
-        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, Vec::new(), id, explicit_component_len) };
+        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, id) };
     bundle_infos.push(bundle_info);
 
     (id, storage_types)
