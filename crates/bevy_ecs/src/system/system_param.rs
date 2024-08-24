@@ -1815,7 +1815,7 @@ trait DynParamState: Sync + Send {
     fn queue(&mut self, system_meta: &SystemMeta, world: DeferredWorld);
 }
 
-/// A wrapper around a [`SystemParam::State`] that can be used a a trait object in a [`DynSystemParam`].
+/// A wrapper around a [`SystemParam::State`] that can be used as a trait object in a [`DynSystemParam`].
 struct ParamState<T: SystemParam>(T::State);
 
 impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
