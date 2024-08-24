@@ -954,6 +954,7 @@ impl EntityCommands<'_> {
     }
 
     /// Similar to [`Self::insert`] but will only insert if the predicate returns true.
+    /// This is useful for chaining method calls.
     ///
     /// # Panics
     ///
@@ -967,13 +968,17 @@ impl EntityCommands<'_> {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
-    /// # impl PlayerEntity { fn is_spawned(&self) -> bool { true } }
+    /// # impl PlayerEntity { fn is_spectator(&self) -> bool { true } }
+    /// #[derive(Component)]
+    /// struct StillLoadingStats;
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
     /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///     commands.entity(player.entity)
-    ///         .insert_if(Health(10), || player.is_spawned());
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .insert_if(Health(10), || !player.is_spectator())
+    ///         .remove::<StillLoadingStats>();
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
@@ -1104,6 +1109,7 @@ impl EntityCommands<'_> {
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
+    /// This is useful for chaining method calls.
     ///
     /// # Example
     ///
@@ -1111,17 +1117,20 @@ impl EntityCommands<'_> {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource)]
     /// # struct PlayerEntity { entity: Entity }
-    /// # impl PlayerEntity { fn is_spawned(&self) -> bool { true } }
+    /// # impl PlayerEntity { fn is_spectator(&self) -> bool { true } }
+    /// #[derive(Component)]
+    /// struct StillLoadingStats;
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
     /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
     ///   commands.entity(player.entity)
-    ///     .try_insert_if(Health(10), || player.is_spawned());
+    ///     .try_insert_if(Health(10), || !player.is_spectator())
+    ///     .remove::<StillLoadingStats>();
     ///
     ///    commands.entity(player.entity)
     ///    // This will not panic nor will it add the component
-    ///      .try_insert_if(Health(5), || player.is_spawned());
+    ///      .try_insert_if(Health(5), || !player.is_spectator());
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
