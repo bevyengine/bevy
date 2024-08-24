@@ -7,36 +7,36 @@
 //! entity-component system. Clients are expected to `POST` JSON requests to the
 //! root URL; see the `client` example for a trivial example of use.
 //!
-//! ## Requests
+//! The Bevy Remote Protocol is based on JSON-RPC 2.0 protocol.
+//!
+//! ## Request objects
 //!
 //! A typical client request might look like this:
 //!
 //! ```json
 //! {
-//!     "request": "GET",
+//!     "method": "bevy/get",
 //!     "id": 0,
 //!     "params": {
-//!         "data": {
-//!             "entity": 4294967298,
-//!             "components": [
-//!                 "bevy_transform::components::transform::Transform"
-//!             ]
-//!         }
+//!         "entity": 4294967298,
+//!         "components": [
+//!             "bevy_transform::components::transform::Transform"
+//!         ]
 //!     }
 //! }
 //! ```
 //!
-//! The `id`, `request`, and `params` fields are all required:
+//! The `id` and `method` fields are required. The `param` field may be omitted
+//! for certain methods:
 //!
 //! * `id` is arbitrary JSON data. The server completely ignores its contents,
-//!   and the client may use it for any purpose.  It will be copied via
+//!   and the client may use it for any purpose. It will be copied via
 //!   serialization and deserialization (so object property order, etc. can't be
 //!   relied upon to be identical) and sent back to the client as part of the
 //!   response.
 //!
-//! * `request` is a string that specifies one of the possible [`BrpRequest`]
-//!   variants: `QUERY`, `GET`, `INSERT`, etc. It's case-sensitive and must be in
-//!   all caps.
+//! * `method` is a string that specifies one of the possible [`BrpRequest`]
+//!   variants: `bevy/query`, `bevy/get`, `bevy/insert`, etc. It's case-sensitive.
 //!
 //! * `params` is parameter data specific to the request.
 //!
@@ -45,33 +45,57 @@
 //! documentation] may be useful to clarify the correspondence between the Rust
 //! structure and the JSON format.
 //!
-//! ## Responses
+//! ## Response objects
 //!
 //! A response from the server to the client might look like this:
 //!
 //! ```json
 //! {
-//!     "status": "OK",
+//!     "jsonrpc": "2.0",
 //!     "id": 0,
-//!     "components": {
+//!     "result": {
 //!         "bevy_transform::components::transform::Transform": {
 //!             "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 },
 //!             "scale": { "x": 1.0, "y": 1.0, "z": 1.0 },
 //!             "translation": { "x": 0.0, "y": 0.5, "z": 0.0 }
 //!         }
-//!     },
-//!     "entity": 4294967298
+//!     }
 //! }
 //! ```
 //!
-//! The `status` and `id` fields will always be present:
+//! The `id` field will always be present. The `result` field will be present if the
+//! request was successful. Otherwise, an `error` field will replace it.
 //!
 //! * `id` is the arbitrary JSON data that was sent as part of the request. It
 //!   will be identical to the `id` data sent during the request, modulo
-//!   serialization and deserialization.
+//!   serialization and deserialization. If there's an error reading the `id` field,
+//!   it will be `null`.
 //!
-//! * `status` will be either the string `"OK"` or `"ERROR"`, reflecting whether
-//!   the request succeeded.
+//! * `result` will be present if the request succeeded and will contain the response
+//!   specific to the request.
+//!
+//! * `error` will be present if the request failed and will contain an error object
+//!   with more information about the cause of failure.
+//!
+//! ## Error objects
+//!
+//! An error object might look like this:
+//!
+//! ```json
+//! {
+//!     "code": -32602,
+//!     "message": "Missing \"entity\" field"
+//! }
+//! ```
+//!
+//! The `code` and `message` fields will always be present. There may also be a `data` field.
+//!
+//! * `code` is an integer representing the kind of an error that happened. Error codes documented
+//!   in the [`error_codes`] module.
+//!
+//! * `message` is a short, one-sentence human-readable description of the error.
+//!
+//! * `data` is an optional field of arbitrary type containing additional information about the error.
 //!
 //! TODO: Fill in more here.
 //!
@@ -79,13 +103,14 @@
 
 use std::{
     net::{IpAddr, Ipv4Addr},
-    sync::{Arc, Mutex, RwLock},
+    sync::RwLock,
 };
 
-use anyhow::{anyhow, Result as AnyhowResult};
+use anyhow::Result as AnyhowResult;
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    entity::Entity,
     system::{Commands, IntoSystem, Res, Resource, System, SystemId},
     world::World,
 };
@@ -99,7 +124,7 @@ use hyper::{
     service, Request, Response,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{value, Map, Value};
+use serde_json::Value;
 use smol::{
     channel::{self, Receiver, Sender},
     Async,
@@ -107,7 +132,7 @@ use smol::{
 use smol_hyper::rt::{FuturesIo, SmolTimer};
 use std::net::{TcpListener, TcpStream};
 
-pub mod builtin_verbs;
+pub mod builtin_methods;
 
 /// The default port that Bevy will listen on.
 ///
@@ -132,12 +157,7 @@ pub struct RemotePlugin {
     pub port: u16,
 
     /// The verbs that the server will recognize and respond to.
-    pub verbs: RwLock<
-        Vec<(
-            String,
-            Box<dyn System<In = Value, Out = AnyhowResult<Value>>>,
-        )>,
-    >,
+    pub methods: RwLock<Vec<(String, Box<dyn System<In = Option<Value>, Out = BrpResult>>)>>,
 }
 
 /// A resource containing the IP address that Bevy will host on.
@@ -146,22 +166,22 @@ pub struct HostAddress(pub IpAddr);
 
 /// A resource containing the port number that Bevy will listen on.
 #[derive(Resource, Reflect)]
-pub struct RemotePort(pub u16);
+pub struct HostPort(pub u16);
 
-/// The type of a function that implements a remote verb (`GET`, `QUERY`, etc.)
+/// The type of a function that implements a remote method (`bevy/get`, `bevy/query`, etc.)
 ///
 /// The first parameter is the JSON value of the `params`. Typically, an
 /// implementation will deserialize these as the first thing they do.
 ///
 /// The returned JSON value will be returned as the response. Bevy will
-/// automatically populate the `status` and `id` fields before sending.
-pub type RemoteVerb = SystemId<Value, AnyhowResult<Value>>;
+/// automatically populate the `id` field before sending.
+pub type RemoteMethod = SystemId<Option<Value>, BrpResult>;
 
-/// Holds all implementations of verbs known to the server.
+/// Holds all implementations of methods known to the server.
 ///
-/// You can add your own custom verbs to this list.
+/// You can add custom methods to this list.
 #[derive(Resource, Default)]
-pub struct RemoteVerbs(HashMap<String, RemoteVerb>);
+pub struct RemoteMethods(HashMap<String, RemoteMethod>);
 
 /// A single request from a Bevy Remote Protocol client to the server,
 /// serialized in JSON.
@@ -170,31 +190,181 @@ pub struct RemoteVerbs(HashMap<String, RemoteVerb>);
 ///
 /// ```json
 /// {
-///     "request": "GET",
+///     "method": "bevy/get",
 ///     "id": 0,
 ///     "params": {
-///         "data": {
-///             "entity": 4294967298,
-///             "components": [
-///                 "bevy_transform::components::transform::Transform"
-///             ]
-///         }
+///         "entity": 4294967298,
+///         "components": [
+///             "bevy_transform::components::transform::Transform"
+///         ]
 ///     }
 /// }
 /// ```
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpRequest {
-    /// The verb: i.e. the action to be performed.
-    pub request: String,
+    /// The action to be performed. Parsing is deferred for the sake of error reporting.
+    pub method: Option<Value>,
 
     /// Arbitrary data that will be returned verbatim to the client as part of
     /// the response.
-    pub id: Value,
+    pub id: Option<Value>,
 
     /// The parameters, specific to each verb.
     ///
-    /// These are passed as the first argument to the verb handler.
-    pub params: Value,
+    /// These are passed as the first argument to the method handler.
+    /// Sometimes params can be omitted.
+    pub params: Option<Value>,
+}
+
+/// A response according to BRP.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpResponse {
+    /// This field is mandatory and must be set to `"2.0"`.
+    pub jsonrpc: &'static str,
+    /// The id of the original request.
+    pub id: Option<Value>,
+    /// The actual response payload.
+    #[serde(flatten)]
+    pub payload: BrpPayload,
+}
+
+impl BrpResponse {
+    /// Generates a [`BrpResponse`] from an id and a `Result`.
+    #[must_use]
+    pub fn new(id: Option<Value>, result: BrpResult) -> Self {
+        Self {
+            jsonrpc: "2.0",
+            id,
+            payload: BrpPayload::from(result),
+        }
+    }
+}
+
+/// A result/error payload present in every response.
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum BrpPayload {
+    /// `Ok` variant
+    Result(Value),
+    /// `Err` variant
+    Error(BrpError),
+}
+
+impl From<BrpResult> for BrpPayload {
+    fn from(value: BrpResult) -> Self {
+        match value {
+            Ok(v) => Self::Result(v),
+            Err(err) => Self::Error(err),
+        }
+    }
+}
+
+/// An error a request might return.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BrpError {
+    /// Defines the general type of the error.
+    pub code: i16,
+    /// Short, human-readable description of the error.
+    pub message: String,
+    /// Optional additional error data.
+    pub data: Option<Value>,
+}
+
+impl BrpError {
+    /// Entity wasn't found.
+    #[must_use]
+    pub fn entity_not_found(entity: Entity) -> Self {
+        Self {
+            code: error_codes::ENTITY_NOT_FOUND,
+            message: format!("Entity {entity} not found"),
+            data: None,
+        }
+    }
+
+    /// Component wasn't found in an entity.
+    #[must_use]
+    pub fn component_not_present(component: &str, entity: Entity) -> Self {
+        Self {
+            code: error_codes::COMPONENT_NOT_PRESENT,
+            message: format!("Component `{component}` not present in Entity {entity}"),
+            data: None,
+        }
+    }
+
+    /// An arbitrary component error. Possibly related to reflection.
+    #[must_use]
+    pub fn component_error(error: anyhow::Error) -> Self {
+        Self {
+            code: error_codes::COMPONENT_ERROR,
+            message: error.to_string(),
+            data: None,
+        }
+    }
+
+    /// An arbitrary internal error.
+    #[must_use]
+    pub fn internal<E: ToString>(error: E) -> Self {
+        Self {
+            code: error_codes::INTERNAL_ERROR,
+            message: error.to_string(),
+            data: None,
+        }
+    }
+
+    /// Attempt to reparent an entity to itself.
+    pub fn self_reparent(entity: Entity) -> Self {
+        Self {
+            code: error_codes::SELF_REPARENT,
+            message: format!("Cannot reparent Entity {entity} to itself"),
+            data: None,
+        }
+    }
+}
+
+/// Error codes used by BRP.
+pub mod error_codes {
+    /// Invalid JSON.
+    pub const PARSE_ERROR: i16 = -32700;
+
+    /// JSON sent is not a valid request object.
+    pub const INVALID_REQUEST: i16 = -32600;
+
+    /// The method does not exist / is not available.
+    pub const METHOD_NOT_FOUND: i16 = -32601;
+
+    /// Invalid method parameter(s).
+    pub const INVALID_PARAMS: i16 = -32602;
+
+    /// Internal error.
+    pub const INTERNAL_ERROR: i16 = -32603;
+
+    // Bevy errors
+
+    /// Entity not found.
+    pub const ENTITY_NOT_FOUND: i16 = -23401;
+
+    /// Could not reflect or find component.
+    pub const COMPONENT_ERROR: i16 = -23402;
+
+    /// Could not find component in entity.
+    pub const COMPONENT_NOT_PRESENT: i16 = -23403;
+
+    /// Cannot reparent an entity to itself.
+    pub const SELF_REPARENT: i16 = -23404;
+}
+
+/// The result of a request.
+pub type BrpResult = Result<Value, BrpError>;
+
+/// The requests may occur on their own or in batches.
+/// Actual parsing is deferred for the sake of proper
+/// error reporting.
+#[derive(Clone, Serialize, Deserialize)]
+pub enum BrpBatch {
+    /// A single request with deferred parsing.
+    Single(Value),
+    /// Multiple requests with deferred parsing.
+    Batch(Vec<Value>),
 }
 
 /// A message from the Bevy Remote Protocol server thread to the main world.
@@ -202,13 +372,16 @@ pub struct BrpRequest {
 /// This is placed in the [`BrpMailbox`].
 #[derive(Clone)]
 pub struct BrpMessage {
-    /// The deserialized request from the client.
-    request: BrpRequest,
+    /// The request method.
+    pub method: String,
+
+    /// The request params.
+    pub params: Option<Value>,
 
     /// The channel on which the response is to be sent.
     ///
     /// The value sent here is serialized and sent back to the client.
-    sender: Arc<Mutex<Option<Sender<AnyhowResult<Value>>>>>,
+    pub sender: Sender<BrpResult>,
 }
 
 /// A resource that receives messages sent by Bevy Remote Protocol clients.
@@ -220,12 +393,12 @@ pub struct BrpMailbox(Receiver<BrpMessage>);
 
 impl RemotePlugin {
     /// Create a [`RemotePlugin`] with the default address and port but without
-    /// any associated verbs.
+    /// any associated methods.
     fn empty() -> Self {
         Self {
             address: DEFAULT_ADDR,
             port: DEFAULT_PORT,
-            verbs: RwLock::new(vec![]),
+            methods: RwLock::new(vec![]),
         }
     }
 
@@ -243,14 +416,14 @@ impl RemotePlugin {
         self
     }
 
-    /// Add a remote verb to the plugin using the given `name` and `handler`.
+    /// Add a remote method to the plugin using the given `name` and `handler`.
     #[must_use]
-    pub fn with_verb<M>(
+    pub fn with_method<M>(
         mut self,
         name: String,
-        handler: impl IntoSystem<Value, AnyhowResult<Value>, M>,
+        handler: impl IntoSystem<Option<Value>, BrpResult, M>,
     ) -> Self {
-        self.verbs
+        self.methods
             .get_mut()
             .unwrap()
             .push((name, Box::new(IntoSystem::into_system(handler))));
@@ -261,77 +434,80 @@ impl RemotePlugin {
 impl Default for RemotePlugin {
     fn default() -> Self {
         Self::empty()
-            .with_verb("GET".to_owned(), builtin_verbs::process_remote_get_request)
-            .with_verb(
-                "QUERY".to_owned(),
-                builtin_verbs::process_remote_query_request,
+            .with_method(
+                "bevy/get".to_owned(),
+                builtin_methods::process_remote_get_request,
             )
-            .with_verb(
-                "SPAWN".to_owned(),
-                builtin_verbs::process_remote_spawn_request,
+            .with_method(
+                "bevy/query".to_owned(),
+                builtin_methods::process_remote_query_request,
             )
-            .with_verb(
-                "INSERT".to_owned(),
-                builtin_verbs::process_remote_insert_request,
+            .with_method(
+                "bevy/spawn".to_owned(),
+                builtin_methods::process_remote_spawn_request,
             )
-            .with_verb(
-                "REMOVE".to_owned(),
-                builtin_verbs::process_remote_remove_request,
+            .with_method(
+                "bevy/insert".to_owned(),
+                builtin_methods::process_remote_insert_request,
             )
-            .with_verb(
-                "DESTROY".to_owned(),
-                builtin_verbs::process_remote_destroy_request,
+            .with_method(
+                "bevy/remove".to_owned(),
+                builtin_methods::process_remote_remove_request,
             )
-            .with_verb(
-                "REPARENT".to_owned(),
-                builtin_verbs::process_remote_reparent_request,
+            .with_method(
+                "bevy/destroy".to_owned(),
+                builtin_methods::process_remote_destroy_request,
             )
-            .with_verb(
-                "LIST".to_owned(),
-                builtin_verbs::process_remote_list_request,
+            .with_method(
+                "bevy/reparent".to_owned(),
+                builtin_methods::process_remote_reparent_request,
+            )
+            .with_method(
+                "bevy/list".to_owned(),
+                builtin_methods::process_remote_list_request,
             )
     }
 }
 
 impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
-        let mut remote_verbs = RemoteVerbs::new();
-        let plugin_verbs = &mut *self.verbs.write().unwrap();
-        for (name, system) in plugin_verbs.drain(..) {
-            remote_verbs.insert(
+        let mut remote_methods = RemoteMethods::new();
+        let plugin_methods = &mut *self.methods.write().unwrap();
+        for (name, system) in plugin_methods.drain(..) {
+            remote_methods.insert(
                 name,
                 app.main_mut().world_mut().register_boxed_system(system),
             );
         }
 
         app.insert_resource(HostAddress(self.address))
-            .insert_resource(RemotePort(self.port))
-            .insert_resource(remote_verbs)
+            .insert_resource(HostPort(self.port))
+            .insert_resource(remote_methods)
             .add_systems(Startup, start_server)
             .add_systems(Update, process_remote_requests);
     }
 }
 
-impl RemoteVerbs {
-    /// Creates a new [`RemoteVerbs`] resource with no verbs registered in it.
+impl RemoteMethods {
+    /// Creates a new [`RemoteMethods`] resource with no methods registered in it.
     pub fn new() -> Self {
         default()
     }
 
-    /// Adds a new verb, replacing any existing verb with that name.
+    /// Adds a new method, replacing any existing method with that name.
     ///
-    /// If there was an existing verb with that name, returns its handler.
+    /// If there was an existing method with that name, returns its handler.
     pub fn insert(
         &mut self,
-        verb_name: impl Into<String>,
-        handler: RemoteVerb,
-    ) -> Option<RemoteVerb> {
-        self.0.insert(verb_name.into(), handler)
+        method_name: impl Into<String>,
+        handler: RemoteMethod,
+    ) -> Option<RemoteMethod> {
+        self.0.insert(method_name.into(), handler)
     }
 }
 
 /// A system that starts up the Bevy Remote Protocol server.
-fn start_server(mut commands: Commands, address: Res<HostAddress>, remote_port: Res<RemotePort>) {
+fn start_server(mut commands: Commands, address: Res<HostAddress>, remote_port: Res<HostPort>) {
     // Create the channel and the mailbox.
     let (request_sender, request_receiver) = channel::bounded(CHANNEL_SIZE);
     commands.insert_resource(BrpMailbox(request_receiver));
@@ -342,7 +518,7 @@ fn start_server(mut commands: Commands, address: Res<HostAddress>, remote_port: 
 }
 
 /// A system that receives requests placed in the [`BrpMailbox`] and processes
-/// them, using the [`RemoteVerbs`] resource to map each request to its handler.
+/// them, using the [`RemoteMethods`] resource to map each request to its handler.
 ///
 /// This needs exclusive access to the [`World`] because clients can manipulate
 /// anything in the ECS.
@@ -352,119 +528,180 @@ fn process_remote_requests(world: &mut World) {
     }
 
     while let Ok(message) = world.resource_mut::<BrpMailbox>().try_recv() {
-        let Ok(mut sender) = message.sender.lock() else {
-            continue;
-        };
-        let Some(sender) = sender.take() else {
-            continue;
-        };
-
-        // Fetch the handler for the verb. If there's no such handler
+        // Fetch the handler for the method. If there's no such handler
         // registered, return an error.
-        let verbs = world.resource::<RemoteVerbs>();
-        let Some(handler) = verbs.0.get(&message.request.request) else {
-            let _ =
-                sender.send_blocking(Err(anyhow!("Unknown verb: `{}`", message.request.request)));
+        let methods = world.resource::<RemoteMethods>();
+
+        let Some(handler) = methods.0.get(&message.method) else {
+            let _ = message.sender.send_blocking(Err(BrpError {
+                code: error_codes::METHOD_NOT_FOUND,
+                message: format!("Method `{}` not found", message.method),
+                data: None,
+            }));
             continue;
         };
 
         // Execute the handler, and send the result back to the client.
-        let result = match world.run_system_with_input(*handler, message.request.params) {
+        let result = match world.run_system_with_input(*handler, message.params) {
             Ok(result) => result,
             Err(error) => {
-                let _ = sender.send_blocking(Err(anyhow!("Failed to run handler: {}", error)));
+                let _ = message.sender.send_blocking(Err(BrpError {
+                    code: error_codes::INTERNAL_ERROR,
+                    message: format!("Failed to run method handler: {error}"),
+                    data: None,
+                }));
                 continue;
             }
         };
 
-        let _ = sender.send_blocking(result);
+        let _ = message.sender.send_blocking(result);
     }
 }
 
 /// The Bevy Remote Protocol server main loop.
-async fn server_main(address: IpAddr, port: u16, sender: Sender<BrpMessage>) -> AnyhowResult<()> {
-    listen(Async::<TcpListener>::bind((address, port))?, sender).await?;
-    Ok(())
+async fn server_main(
+    address: IpAddr,
+    port: u16,
+    request_sender: Sender<BrpMessage>,
+) -> AnyhowResult<()> {
+    listen(
+        Async::<TcpListener>::bind((address, port))?,
+        &request_sender,
+    )
+    .await
 }
 
-async fn listen(listener: Async<TcpListener>, sender: Sender<BrpMessage>) -> AnyhowResult<()> {
+async fn listen(
+    listener: Async<TcpListener>,
+    request_sender: &Sender<BrpMessage>,
+) -> AnyhowResult<()> {
     loop {
         let (client, _) = listener.accept().await?;
 
-        let sender = sender.clone();
+        let request_sender = request_sender.clone();
         IoTaskPool::get()
             .spawn(async move {
-                let _ = handle_client(client, sender).await;
+                let _ = handle_client(client, request_sender).await;
             })
             .detach();
     }
 }
 
-async fn handle_client(client: Async<TcpStream>, sender: Sender<BrpMessage>) -> AnyhowResult<()> {
+async fn handle_client(
+    client: Async<TcpStream>,
+    request_sender: Sender<BrpMessage>,
+) -> AnyhowResult<()> {
     http1::Builder::new()
         .timer(SmolTimer::new())
         .serve_connection(
             FuturesIo::new(client),
-            service::service_fn(|request| process_request(request, sender.clone())),
+            service::service_fn(|request| process_request_batch(request, &request_sender)),
         )
         .await?;
 
     Ok(())
 }
 
-/// A helper function for the Bevy Remote Protocol server that handles a single
-/// request coming from a client.
-async fn process_request(
+/// A helper function for the Bevy Remote Protocol server that handles a batch
+/// of requests coming from a client.
+async fn process_request_batch(
     request: Request<Incoming>,
-    sender: Sender<BrpMessage>,
+    request_sender: &Sender<BrpMessage>,
 ) -> AnyhowResult<Response<Full<Bytes>>> {
-    let request_bytes = request.into_body().collect().await?.to_bytes();
-    let request: BrpRequest = serde_json::from_slice(&request_bytes)?;
+    let batch_bytes = request.into_body().collect().await?.to_bytes();
+    let batch: Result<BrpBatch, _> = serde_json::from_slice(&batch_bytes);
 
-    // Save the `id` field so we can echo it back.
-    let id = request.id.clone();
+    let serialized = match batch {
+        Ok(batch) => match batch {
+            BrpBatch::Single(request) => {
+                serde_json::to_string(&process_single_request(request, request_sender).await?)?
+            }
+            BrpBatch::Batch(requests) => {
+                let mut responses = Vec::new();
 
-    let mut value = match process_request_body(request, &sender).await {
-        Ok(mut value) => {
-            value.insert("status".to_owned(), "OK".into());
-            value
-        }
+                for request in requests {
+                    responses.push(process_single_request(request, &request_sender).await?);
+                }
+
+                serde_json::to_string(&responses)?
+            }
+        },
         Err(err) => {
-            let mut response = Map::new();
-            response.insert("status".to_owned(), "ERROR".into());
-            response.insert("message".to_owned(), err.to_string().into());
-            response
+            let err = BrpResponse::new(
+                None,
+                Err(BrpError {
+                    code: error_codes::INVALID_REQUEST,
+                    message: err.to_string(),
+                    data: None,
+                }),
+            );
+
+            serde_json::to_string(&err)?
         }
     };
 
-    // Echo the same `id` value back to the client.
-    value.insert("id".to_owned(), id);
-
-    // Serialize and return the JSON as a response.
-    let string = serde_json::to_string(&value)?;
     Ok(Response::new(Full::new(Bytes::from(
-        string.as_bytes().to_owned(),
+        serialized.as_bytes().to_owned(),
     ))))
 }
 
-/// A helper function for the Bevy Remote Protocol server that parses a single
-/// request coming from a client and places it in the [`BrpMailbox`].
-async fn process_request_body(
-    request: BrpRequest,
-    sender: &Sender<BrpMessage>,
-) -> AnyhowResult<Map<String, Value>> {
-    let (response_sender, response_receiver) = channel::bounded(1);
+/// A helper function for the Bevy Remote Protocol server that processes a single
+/// request coming from a client.
+async fn process_single_request(
+    request: Value,
+    request_sender: &Sender<BrpMessage>,
+) -> AnyhowResult<BrpResponse> {
+    let request: BrpRequest = match serde_json::from_value(request) {
+        Ok(v) => v,
+        Err(err) => {
+            return Ok(BrpResponse::new(
+                None,
+                Err(BrpError {
+                    code: error_codes::INVALID_REQUEST,
+                    message: err.to_string(),
+                    data: None,
+                }),
+            ));
+        }
+    };
 
-    let _ = sender
+    // Having parsed the request, we can parse the method.
+    let method = match request.method {
+        Some(method) => match serde_json::from_value(method) {
+            Ok(v) => v,
+            Err(err) => {
+                return Ok(BrpResponse::new(
+                    request.id,
+                    Err(BrpError {
+                        code: error_codes::INVALID_REQUEST,
+                        message: err.to_string(),
+                        data: None,
+                    }),
+                ));
+            }
+        },
+        None => {
+            return Ok(BrpResponse::new(
+                request.id,
+                Err(BrpError {
+                    code: error_codes::INVALID_REQUEST,
+                    message: String::from("Field \"method\" not found"),
+                    data: None,
+                }),
+            ));
+        }
+    };
+
+    let (result_sender, result_receiver) = channel::bounded(1);
+
+    let _ = request_sender
         .send(BrpMessage {
-            request,
-            sender: Arc::new(Mutex::new(Some(response_sender))),
+            method,
+            params: request.params,
+            sender: result_sender,
         })
         .await;
 
-    let response = response_receiver.recv().await??;
-    match value::to_value(response)? {
-        Value::Object(map) => Ok(map),
-        _ => Err(anyhow!("Response wasn't an object")),
-    }
+    let result = result_receiver.recv().await?;
+    Ok(BrpResponse::new(request.id, result))
 }
