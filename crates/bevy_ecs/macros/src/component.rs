@@ -214,7 +214,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
             let punctuated =
                 attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
             for require in punctuated.iter() {
-                if !require_paths.insert(require.path.clone()) {
+                if !require_paths.insert(require.path.to_token_stream().to_string()) {
                     return Err(syn::Error::new(
                         require.path.span(),
                         "Duplicate required components are not allowed.",
