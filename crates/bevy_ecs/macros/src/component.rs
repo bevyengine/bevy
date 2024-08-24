@@ -101,7 +101,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let required_component_docs = attrs.requires.map(|r| {
         let paths = r
             .iter()
-            .map(|r| format!("[`{}`]", r.path.to_token_stream().to_string()))
+            .map(|r| format!("[`{}`]", r.path.to_token_stream()))
             .collect::<Vec<_>>()
             .join(", ");
         let doc = format!("Required Components: {paths}. \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively.");
