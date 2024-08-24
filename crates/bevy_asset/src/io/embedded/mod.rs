@@ -52,6 +52,12 @@ impl EmbeddedAssetRegistry {
         self.dir.insert_meta(asset_path, value);
     }
 
+    /// Removes an asset stored using `full_path` (the full path as [`file`] would return for that file, if it was capable of
+    /// running in a non-rust file). If no asset is stored with that name its a no-op.
+    pub fn remove_asset(&self, full_path: &Path) {
+        self.dir.remove_asset(full_path);
+    }
+
     /// Registers a `embedded` [`AssetSource`] that uses this [`EmbeddedAssetRegistry`].
     // NOTE: unused_mut because embedded_watcher feature is the only mutable consumer of `let mut source`
     #[allow(unused_mut)]
