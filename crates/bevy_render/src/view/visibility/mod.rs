@@ -48,24 +48,6 @@ pub enum Visibility {
 }
 
 impl Visibility {
-    /// Returns `Visibility::Inherited` if true, else returns `Visibility::Hidden`.
-    #[inline]
-    pub fn inherited_if(value: bool) -> Self {
-        if value {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        }
-    }
-    /// Returns `Visibility::Visible` if true, else returns `Visibility::Hidden`.
-    #[inline]
-    pub fn visible_if(value: bool) -> Self {
-        if value {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        }
-    }
     /// Toggles between `Visibility::Inherited` and `Visibility::Visible`.
     /// If the value is `Visibility::Hidden`, it remains unaffected.
     #[inline]
