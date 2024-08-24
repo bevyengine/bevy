@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::quote;
+use quote::{quote, ToTokens};
 use std::collections::HashSet;
 use syn::{
     parenthesized,
@@ -98,9 +98,22 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let required_component_docs = attrs.requires.map(|r| {
+        let paths = r
+            .iter()
+            .map(|r| format!("[`{}`]", r.path.to_token_stream().to_string()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let doc = format!("Required Components: {paths}. \n\n A component's Required Components are inserted whenever it is inserted. Note that this will also insert the required components _of_ the required components, recursively.");
+        quote! {
+            #[doc = #doc]
+        }
+    });
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
+        #required_component_docs
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             fn register_required_components(
