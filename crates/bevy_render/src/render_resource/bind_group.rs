@@ -300,11 +300,11 @@ pub trait AsBindGroup {
     }
 
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
-    fn as_bind_group<'w>(
+    fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        param: &mut SystemParamItem<'w, '_, Self::Param>,
+        param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let UnpreparedBindGroup { bindings, data } =
             Self::unprepared_bind_group(self, layout, render_device, param)?;
@@ -330,11 +330,11 @@ pub trait AsBindGroup {
     /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
     /// an implementor may define `as_bind_group` directly. This may prevent certain features
     /// from working correctly.
-    fn unprepared_bind_group<'w>(
+    fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        param: &mut SystemParamItem<'w, '_, Self::Param>,
+        param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
