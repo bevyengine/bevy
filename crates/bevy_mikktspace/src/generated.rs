@@ -253,6 +253,10 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         t += 1
     }
     iNrTrianglesIn = iTotTris - iDegenTriangles;
+
+    if iNrTrianglesIn <= 0 {
+        return false;
+    }
     DegenPrologue(
         pTriInfos.as_mut_ptr(),
         piTriListIn.as_mut_ptr(),
@@ -335,8 +339,7 @@ pub unsafe fn genTangSpace<I: Geometry>(geometry: &mut I, fAngularThreshold: f32
         f += 1
     }
 
-    // TODO: Find a better place to return
-    return iNrTrianglesIn > 0;
+    return true;
 }
 unsafe fn DegenEpilogue<I: Geometry>(
     mut psTspace: *mut STSpace,
