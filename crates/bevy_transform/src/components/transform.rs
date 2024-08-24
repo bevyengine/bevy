@@ -1,7 +1,7 @@
 use super::GlobalTransform;
 #[cfg(feature = "bevy-support")]
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Dir2, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 #[cfg(feature = "bevy-support")]
 use bevy_reflect::{prelude::*, Reflect};
 use std::ops::Mul;
