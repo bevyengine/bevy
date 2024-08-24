@@ -182,6 +182,9 @@ use std::{cell::UnsafeCell, fmt::Debug};
 /// world.spawn(A);
 /// ```
 ///
+/// Note that cycles in the "component require tree" will result in stack overflows when attempting to
+/// insert a component.
+///
 /// # Adding component's hooks
 ///
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.
