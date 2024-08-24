@@ -58,7 +58,7 @@ impl Deref for BindGroup {
 ///
 /// This is an opinionated trait that is intended to make it easy to generically
 /// convert a type into a [`BindGroup`]. It provides access to specific render resources,
-/// such as [`RenderAssets<GpuImage>`] and [`FallbackImage`]. If a type has a [`Handle<Image>`](bevy_asset::Handle),
+/// such as [`RenderAssets<GpuImage>`] and [`crate::texture::FallbackImage`]. If a type has a [`Handle<Image>`](bevy_asset::Handle),
 /// these can be used to retrieve the corresponding [`Texture`](crate::render_resource::Texture) resource.
 ///
 /// [`AsBindGroup::as_bind_group`] is intended to be called once, then the result cached somewhere. It is generally
@@ -116,7 +116,7 @@ impl Deref for BindGroup {
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
 ///         GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///         [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
+///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
 ///         (with a different binding index) if a binding of the sampler for the [`Image`](crate::texture::Image) is also required.
 ///
 /// | Arguments             | Values                                                                  | Default              |
@@ -131,7 +131,7 @@ impl Deref for BindGroup {
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
 ///         GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///         [`None`], the [`FallbackImage`] resource will be used instead.
+///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead.
 ///
 /// | Arguments              | Values                                                                                     | Default       |
 /// |------------------------|--------------------------------------------------------------------------------------------|---------------|
@@ -144,7 +144,7 @@ impl Deref for BindGroup {
 ///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
 ///         resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///         [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
+///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
 ///         (with a different binding index) if a binding of the texture for the [`Image`](crate::texture::Image) is also required.
 ///
 /// | Arguments              | Values                                                                  | Default                |
@@ -188,7 +188,7 @@ impl Deref for BindGroup {
 ///     color_texture: Option<Handle<Image>>,
 /// }
 /// ```
-/// This is useful if you want a texture to be optional. When the value is [`None`], the [`FallbackImage`] will be used for the binding instead, which defaults
+/// This is useful if you want a texture to be optional. When the value is [`None`], the [`crate::texture::FallbackImage`] will be used for the binding instead, which defaults
 /// to "pure white".
 ///
 /// Field uniforms with the same index will be combined into a single binding:
