@@ -1109,7 +1109,6 @@ pub mod common_conditions {
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
-    ///
     /// ```
     pub fn condition_changed<Marker, CIn, C: Condition<Marker, CIn>>(
         condition: C,
@@ -1164,7 +1163,6 @@ pub mod common_conditions {
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
-    ///
     /// ```
     pub fn condition_became_true<Marker, CIn, C: Condition<Marker, CIn>>(
         condition: C,
