@@ -29,7 +29,7 @@ pub use terminal_ctrl_c_handler::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
-    #[cfg(feature = "fixed_update")]
+    #[cfg(feature = "fixed_time")]
     pub use crate::main_schedule::{
         FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, RunFixedMainLoop,
     };

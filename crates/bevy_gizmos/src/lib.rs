@@ -69,8 +69,8 @@ pub mod prelude {
     pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-use bevy_app::{App, Last, Plugin};
-#[cfg(feature = "fixed_update")]
+use bevy_app::{App, First, Last, Plugin};
+#[cfg(feature = "fixed_time")]
 use bevy_app::{FixedFirst, FixedLast, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
@@ -242,28 +242,47 @@ impl AppGizmoBuilder for App {
         handles.list.insert(TypeId::of::<Config>(), None);
         handles.strip.insert(TypeId::of::<Config>(), None);
 
-        self.init_resource::<GizmoStorage<Config, ()>>()
-            .init_resource::<GizmoStorage<Config, Fixed>>()
-            .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
-            .add_systems(
-                RunFixedMainLoop,
-                start_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystem::BeforeFixedMainLoop),
-            )
-            .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
-            .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
-            .add_systems(
-                RunFixedMainLoop,
-                end_gizmo_context::<Config, Fixed>
-                    .in_set(bevy_app::RunFixedMainLoopSystem::AfterFixedMainLoop),
-            )
-            .add_systems(
-                Last,
-                (
-                    propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),
-                    update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes),
-                ),
-            );
+        #[cfg(feature = "fixed_time")]
+        {
+            self.init_resource::<GizmoStorage<Config, ()>>()
+                .init_resource::<GizmoStorage<Config, Fixed>>()
+                .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
+                .add_systems(
+                    RunFixedMainLoop,
+                    start_gizmo_context::<Config, Fixed>
+                        .in_set(bevy_app::RunFixedMainLoopSystem::BeforeFixedMainLoop),
+                )
+                .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
+                .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
+                .add_systems(
+                    RunFixedMainLoop,
+                    end_gizmo_context::<Config, Fixed>
+                        .in_set(bevy_app::RunFixedMainLoopSystem::AfterFixedMainLoop),
+                )
+                .add_systems(
+                    Last,
+                    (
+                        propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),
+                        update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes),
+                    ),
+                );
+        }
+        #[cfg(not(feature = "fixed_time"))]
+        {
+            self.init_resource::<GizmoStorage<Config, ()>>()
+                .init_resource::<GizmoStorage<Config, ()>>()
+                .init_resource::<GizmoStorage<Config, Fixed>>()
+                .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
+                .add_systems(First, clear_gizmo_context::<Config, Fixed>)
+                .add_systems(
+                    Last,
+                    (
+                        collect_requested_gizmos::<Config, Fixed>,
+                        propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),
+                        update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes),
+                    ),
+                );
+        }
 
         self
     }

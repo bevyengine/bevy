@@ -11,14 +11,14 @@ keywords = ["bevy"]
 [features]
 trace = []
 bevy_debug_stepping = []
-default = ["bevy_reflect"]
+default = ["bevy_reflect", "fixed_time"]
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
 reflect_functions = [
-  "bevy_reflect",
-  "bevy_reflect/functions",
-  "bevy_ecs/reflect_functions",
+    "bevy_reflect",
+    "bevy_reflect/functions",
+    "bevy_ecs/reflect_functions",
 ]
-fixed_update = []
+fixed_time = []
 
 [dependencies]
 # bevy

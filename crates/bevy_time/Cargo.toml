@@ -9,18 +9,18 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["bevy_reflect"]
+default = ["bevy_reflect", "fixed_time"]
 serialize = ["serde"]
-fixed_update = ["bevy_app/fixed_update"]
+fixed_time = ["bevy_app/fixed_time"]
 
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", features = [
-  "bevy_reflect",
+    "bevy_reflect",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", features = [
-  "bevy",
+    "bevy",
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 

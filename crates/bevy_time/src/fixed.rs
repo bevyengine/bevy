@@ -1,20 +1,20 @@
-#[cfg(feature = "fixed_update")]
+#[cfg(feature = "fixed_time")]
 use bevy_app::FixedMain;
-#[cfg(feature = "fixed_update")]
+#[cfg(feature = "fixed_time")]
 use bevy_ecs::world::World;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
 use crate::time::Time;
-#[cfg(feature = "fixed_update")]
+#[cfg(feature = "fixed_time")]
 use crate::virt::Virtual;
 
 /// The fixed timestep game clock following virtual time.
 ///
 /// A specialization of the [`Time`] structure. **For method documentation, see
 /// [`Time<Fixed>#impl-Time<Fixed>`].**
-///     
+///
 /// It is automatically inserted as a resource by
 /// [`TimePlugin`](crate::TimePlugin) and updated based on
 /// [`Time<Virtual>`](Virtual). The fixed clock is automatically set as the
@@ -209,12 +209,12 @@ impl Time<Fixed> {
         self.context().overstep.as_secs_f64() / self.context().timestep.as_secs_f64()
     }
 
-    #[cfg(feature = "fixed_update")]
+    #[cfg(feature = "fixed_time")]
     fn accumulate(&mut self, delta: Duration) {
         self.context_mut().overstep += delta;
     }
 
-    #[cfg(feature = "fixed_update")]
+    #[cfg(feature = "fixed_time")]
     fn expend(&mut self) -> bool {
         let timestep = self.timestep();
         if let Some(new_value) = self.context_mut().overstep.checked_sub(timestep) {
@@ -242,7 +242,7 @@ impl Default for Fixed {
 /// [`Time<Virtual>`](Virtual) and [`Time::overstep`].
 /// You can order your systems relative to this by using
 /// [`RunFixedMainLoopSystem`](bevy_app::prelude::RunFixedMainLoopSystem).
-#[cfg(feature = "fixed_update")]
+#[cfg(feature = "fixed_time")]
 pub(super) fn run_fixed_main_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
@@ -258,7 +258,7 @@ pub(super) fn run_fixed_main_schedule(world: &mut World) {
     *world.resource_mut::<Time>() = world.resource::<Time<Virtual>>().as_generic();
 }
 
-#[cfg(feature = "fixed_update")]
+#[cfg(feature = "fixed_time")]
 #[cfg(test)]
 mod test {
     use super::*;

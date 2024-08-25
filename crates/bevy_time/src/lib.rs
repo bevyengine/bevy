@@ -30,9 +30,9 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-#[cfg(feature = "fixed_update")]
+#[cfg(feature = "fixed_time")]
 use bevy_app::RunFixedMainLoop;
-#[cfg(feature = "fixed_update")]
+#[cfg(feature = "fixed_time")]
 use bevy_ecs::event::signal_event_update_system;
 use bevy_ecs::event::{event_update_system, EventRegistry, ShouldUpdateEvents};
 use bevy_ecs::prelude::*;
@@ -72,7 +72,7 @@ impl Plugin for TimePlugin {
                 .in_set(TimeSystem)
                 .ambiguous_with(event_update_system),
         );
-        #[cfg(feature = "fixed_update")]
+        #[cfg(feature = "fixed_time")]
         {
             app.add_systems(
                 RunFixedMainLoop,
@@ -160,7 +160,7 @@ pub fn time_system(
 #[cfg(test)]
 mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
-    #[cfg(feature = "fixed_update")]
+    #[cfg(feature = "fixed_time")]
     use bevy_app::FixedUpdate;
     use bevy_app::{App, Startup, Update};
     use bevy_ecs::{
@@ -189,7 +189,7 @@ mod tests {
     #[derive(Resource, Default)]
     struct FixedUpdateCounter(u8);
 
-    #[cfg(feature = "fixed_update")]
+    #[cfg(feature = "fixed_time")]
     fn count_fixed_updates(mut counter: ResMut<FixedUpdateCounter>) {
         counter.0 += 1;
     }
@@ -222,7 +222,7 @@ mod tests {
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
         let mut app = App::new();
-        #[cfg(feature = "fixed_update")]
+        #[cfg(feature = "fixed_time")]
         app.add_systems(FixedUpdate, count_fixed_updates);
 
         app.add_plugins(TimePlugin)
@@ -325,7 +325,7 @@ mod tests {
         }
 
         let mut app = App::new();
-        #[cfg(feature = "fixed_update")]
+        #[cfg(feature = "fixed_time")]
         app.add_systems(FixedUpdate, count_fixed_updates);
 
         app.add_plugins(TimePlugin)

@@ -9,9 +9,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+default = ["fixed_time"]
 webgl = []
 webgpu = []
-fixed_update = ["bevy_app/fixed_update"]
+fixed_time = ["bevy_app/fixed_time"]
 bevy_render = ["dep:bevy_render", "bevy_core_pipeline"]
 
 [dependencies]
