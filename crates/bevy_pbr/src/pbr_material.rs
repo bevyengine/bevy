@@ -1248,7 +1248,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
 }
 
 impl Material for StandardMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         PBR_SHADER_HANDLE.into()
     }
 
@@ -1284,27 +1284,27 @@ impl Material for StandardMaterial {
         self.specular_transmission > 0.0
     }
 
-    fn prepass_fragment_shader() -> ShaderRef {
+    fn prepass_fragment_shader(&self) -> ShaderRef {
         PBR_PREPASS_SHADER_HANDLE.into()
     }
 
-    fn deferred_fragment_shader() -> ShaderRef {
+    fn deferred_fragment_shader(&self) -> ShaderRef {
         PBR_SHADER_HANDLE.into()
     }
 
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_fragment_shader() -> ShaderRef {
+    fn meshlet_mesh_fragment_shader(&self) -> ShaderRef {
         Self::fragment_shader()
     }
 
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
-        Self::prepass_fragment_shader()
+    fn meshlet_mesh_prepass_fragment_shader(&self) -> ShaderRef {
+        Self::prepass_fragment_shader(&self)
     }
 
     #[cfg(feature = "meshlet")]
-    fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
-        Self::deferred_fragment_shader()
+    fn meshlet_mesh_deferred_fragment_shader(&self) -> ShaderRef {
+        Self::deferred_fragment_shader(&self)
     }
 
     fn specialize(

@@ -220,7 +220,7 @@ pub struct WireframeMaterial {
 }
 
 impl Material for WireframeMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         WIREFRAME_SHADER_HANDLE.into()
     }
 

@@ -1,3 +1,4 @@
+use crate::render_resource::resource_macros::*;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
@@ -14,6 +15,7 @@ use bevy_utils::{
     HashMap, HashSet,
 };
 use naga::valid::Capabilities;
+use naga::Module;
 use std::{
     borrow::Cow,
     future::Future,
@@ -29,8 +31,6 @@ use wgpu::{
     DownlevelFlags, Features, PipelineCompilationOptions,
     VertexBufferLayout as RawVertexBufferLayout,
 };
-
-use crate::render_resource::resource_macros::*;
 
 render_resource_wrapper!(ErasedShaderModule, ShaderModule);
 render_resource_wrapper!(ErasedPipelineLayout, PipelineLayout);
@@ -136,6 +136,7 @@ struct ShaderData {
 
 struct ShaderCache {
     data: HashMap<AssetId<Shader>, ShaderData>,
+    modules: HashMap<AssetId<Shader>, HashMap<Box<[ShaderDefVal]>, Module>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
@@ -188,6 +189,7 @@ impl ShaderCache {
         Self {
             composer,
             data: Default::default(),
+            modules: Default::default(),
             shaders: Default::default(),
             import_path_shaders: Default::default(),
             waiting_on_import: Default::default(),
@@ -219,6 +221,74 @@ impl ShaderCache {
         }
 
         Ok(())
+    }
+
+    fn get_module(
+        &mut self,
+        render_device: &RenderDevice,
+        id: AssetId<Shader>,
+        shader_defs: &[ShaderDefVal],
+    ) -> Result<Module, PipelineCacheError> {
+        let shader = self
+            .shaders
+            .get(&id)
+            .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
+        let modules = self.modules.entry(id).or_default();
+
+        Ok(match modules.entry_ref(shader_defs) {
+            EntryRef::Occupied(entry) => entry.get().clone(),
+            EntryRef::Vacant(entry) => {
+                let mut shader_defs = shader_defs.to_vec();
+                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+                {
+                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+                }
+
+                if cfg!(feature = "ios_simulator") {
+                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
+                }
+
+                shader_defs.push(ShaderDefVal::UInt(
+                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+                    render_device.limits().max_storage_buffers_per_shader_stage,
+                ));
+
+                debug!(
+                    "processing shader {:?}, with shader defs {:?}",
+                    id, shader_defs
+                );
+                for import in shader.imports() {
+                    Self::add_import_to_composer(
+                        &mut self.composer,
+                        &self.import_path_shaders,
+                        &self.shaders,
+                        import,
+                    )?;
+                }
+
+                let shader_defs = shader_defs
+                    .into_iter()
+                    .chain(shader.shader_defs.iter().cloned())
+                    .map(|def| match def {
+                        ShaderDefVal::Bool(k, v) => (k, naga_oil::compose::ShaderDefValue::Bool(v)),
+                        ShaderDefVal::Int(k, v) => (k, naga_oil::compose::ShaderDefValue::Int(v)),
+                        ShaderDefVal::UInt(k, v) => (k, naga_oil::compose::ShaderDefValue::UInt(v)),
+                    })
+                    .collect::<std::collections::HashMap<_, _>>();
+
+                let module = self.composer.make_naga_module(
+                    naga_oil::compose::NagaModuleDescriptor {
+                        shader_defs,
+                        ..shader.into()
+                    },
+                )?;
+
+                entry.insert(module.clone());
+                module
+            }
+        })
     }
 
     #[allow(clippy::result_large_err)]
@@ -349,6 +419,7 @@ impl ShaderCache {
     }
 
     fn clear(&mut self, id: AssetId<Shader>) -> Vec<CachedPipelineId> {
+        self.modules.remove(&id);
         let mut shaders_to_clear = vec![id];
         let mut pipelines_to_queue = Vec::new();
         while let Some(handle) = shaders_to_clear.pop() {
@@ -494,6 +565,19 @@ impl PipelineCache {
             pipelines: default(),
             synchronous_pipeline_compilation,
         }
+    }
+
+    pub fn get_shader_module(
+        &self,
+        render_device: &RenderDevice,
+        id: AssetId<Shader>,
+        shader_defs: &[ShaderDefVal],
+    ) -> Option<Module> {
+        self.shader_cache
+            .lock()
+            .unwrap()
+            .get_module(render_device, id, shader_defs)
+            .ok()
     }
 
     /// Get the state of a cached render pipeline.

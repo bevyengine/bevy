@@ -330,18 +330,18 @@ pub trait AsBindGroup {
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    fn bind_group_layout(&self, render_device: &RenderDevice) -> BindGroupLayout
     where
         Self: Sized,
     {
         render_device.create_bind_group_layout(
             Self::label(),
-            &Self::bind_group_layout_entries(render_device),
+            &self.bind_group_layout_entries(render_device),
         )
     }
 
     /// Returns a vec of bind group layout entries
-    fn bind_group_layout_entries(render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    fn bind_group_layout_entries(&self, render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized;
 }

@@ -74,7 +74,7 @@ struct LineMaterial {
 }
 
 impl Material for LineMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
 

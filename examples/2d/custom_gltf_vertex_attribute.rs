@@ -70,10 +70,10 @@ fn setup(
 struct CustomMaterial {}
 
 impl Material2d for CustomMaterial {
-    fn vertex_shader() -> ShaderRef {
+    fn vertex_shader(&self) -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
 

@@ -5,7 +5,7 @@ use bevy_render::render_resource::binding_types::uniform_buffer;
 use bevy_render::view::WithMesh;
 pub use prepass_bindings::*;
 
-use bevy_asset::{load_internal_asset, AssetServer};
+use bevy_asset::load_internal_asset;
 use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, prelude::Camera3d};
 use bevy_core_pipeline::{deferred::*, prepass::*};
 use bevy_ecs::{
@@ -241,11 +241,6 @@ pub struct PrepassPipeline<M: Material> {
     pub view_layout_motion_vectors: BindGroupLayout,
     pub view_layout_no_motion_vectors: BindGroupLayout,
     pub mesh_layouts: MeshLayouts,
-    pub material_layout: BindGroupLayout,
-    pub prepass_material_vertex_shader: Option<Handle<Shader>>,
-    pub prepass_material_fragment_shader: Option<Handle<Shader>>,
-    pub deferred_material_vertex_shader: Option<Handle<Shader>>,
-    pub deferred_material_fragment_shader: Option<Handle<Shader>>,
     pub material_pipeline: MaterialPipeline<M>,
     _marker: PhantomData<M>,
 }
@@ -253,7 +248,6 @@ pub struct PrepassPipeline<M: Material> {
 impl<M: Material> FromWorld for PrepassPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let asset_server = world.resource::<AssetServer>();
 
         let view_layout_motion_vectors = render_device.create_bind_group_layout(
             "prepass_view_layout_motion_vectors",
@@ -289,27 +283,6 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
             view_layout_motion_vectors,
             view_layout_no_motion_vectors,
             mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
-            prepass_material_vertex_shader: match M::prepass_vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            prepass_material_fragment_shader: match M::prepass_fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            deferred_material_vertex_shader: match M::deferred_vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            deferred_material_fragment_shader: match M::deferred_fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            material_layout: M::bind_group_layout(render_device),
             material_pipeline: world.resource::<MaterialPipeline<M>>().clone(),
             _marker: PhantomData,
         }
@@ -345,7 +318,7 @@ where
 
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
-        bind_group_layouts.push(self.material_layout.clone());
+        bind_group_layouts.push(key.bind_group_layout.clone());
 
         #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
         shader_defs.push("WEBGL2".into());
@@ -485,17 +458,17 @@ where
         let fragment_required = !targets.is_empty()
             || key.mesh_key.contains(MeshPipelineKey::DEPTH_CLAMP_ORTHO)
             || (key.mesh_key.contains(MeshPipelineKey::MAY_DISCARD)
-                && self.prepass_material_fragment_shader.is_some());
+                && key.shaders.prepass_fragment.is_some());
 
         let fragment = fragment_required.then(|| {
             // Use the fragment shader from the material
             let frag_shader_handle = if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-                match self.deferred_material_fragment_shader.clone() {
+                match key.shaders.deferred_fragment.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
                     _ => PREPASS_SHADER_HANDLE,
                 }
             } else {
-                match self.prepass_material_fragment_shader.clone() {
+                match key.shaders.prepass_fragment.clone() {
                     Some(frag_shader_handle) => frag_shader_handle,
                     _ => PREPASS_SHADER_HANDLE,
                 }
@@ -511,12 +484,12 @@ where
 
         // Use the vertex shader from the material if present
         let vert_shader_handle = if key.mesh_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
-            if let Some(handle) = &self.deferred_material_vertex_shader {
+            if let Some(handle) = &key.shaders.deferred_vertex {
                 handle.clone()
             } else {
                 PREPASS_SHADER_HANDLE
             }
-        } else if let Some(handle) = &self.prepass_material_vertex_shader {
+        } else if let Some(handle) = &key.shaders.prepass_vertex {
             handle.clone()
         } else {
             PREPASS_SHADER_HANDLE
@@ -841,6 +814,8 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 MaterialPipelineKey {
                     mesh_key,
                     bind_group_data: material.key.clone(),
+                    bind_group_layout: material.bind_group_layout.clone(),
+                    shaders: material.shaders.clone(),
                 },
                 &mesh.layout,
             );

@@ -64,11 +64,11 @@ struct CustomMaterial {
 /// You only need to implement functions for features that need non-default behavior. See the Material api docs for details!
 /// When using the GLSL shading language for your shader, the specialize method must be overridden.
 impl Material for CustomMaterial {
-    fn vertex_shader() -> ShaderRef {
+    fn vertex_shader(&self) -> ShaderRef {
         VERTEX_SHADER_ASSET_PATH.into()
     }
 
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         FRAGMENT_SHADER_ASSET_PATH.into()
     }
 

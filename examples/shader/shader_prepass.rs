@@ -169,7 +169,7 @@ struct CustomMaterial {
 /// Not shown in this example, but if you need to specialize your material, the specialize
 /// function will also be used by the prepass
 impl Material for CustomMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         MATERIAL_SHADER_ASSET_PATH.into()
     }
 
@@ -179,7 +179,7 @@ impl Material for CustomMaterial {
 
     // You can override the default shaders used in the prepass if your material does
     // anything not supported by the default prepass
-    // fn prepass_fragment_shader() -> ShaderRef {
+    // fn prepass_fragment_shader(&self) -> ShaderRef {
     //     "shaders/custom_material.wgsl".into()
     // }
 }
@@ -211,7 +211,7 @@ struct PrepassOutputMaterial {
 }
 
 impl Material for PrepassOutputMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         PREPASS_SHADER_ASSET_PATH.into()
     }
 
