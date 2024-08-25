@@ -69,7 +69,9 @@ pub mod prelude {
     pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-use bevy_app::{App, First, Last, Plugin};
+#[cfg(not(feature = "fixed_time"))]
+use bevy_app::First;
+use bevy_app::{App, Last, Plugin};
 #[cfg(feature = "fixed_time")]
 use bevy_app::{FixedFirst, FixedLast, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
