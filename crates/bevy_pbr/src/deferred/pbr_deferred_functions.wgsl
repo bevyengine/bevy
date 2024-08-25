@@ -96,7 +96,6 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
         pbr.material.emissive = vec4(emissive, 0.0);
     }
-
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
