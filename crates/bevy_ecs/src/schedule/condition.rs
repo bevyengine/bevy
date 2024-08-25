@@ -490,13 +490,13 @@ mod sealed {
 
 /// A collection of [run conditions](Condition) that may be useful in any bevy app.
 pub mod common_conditions {
-    use super::NotSystem;
+    use super::{Condition, NotSystem};
     use crate::{
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        system::{IntoSystem, Local, Res, Resource, System},
+        system::{In, IntoSystem, Local, Res, Resource, System},
     };
 
     /// A [`Condition`](super::Condition)-satisfying system that returns `true`
@@ -1071,6 +1071,31 @@ pub mod common_conditions {
         let name = format!("!{}", condition.name());
         NotSystem::new(super::NotMarker, condition, name.into())
     }
+
+    /// Generates a [`Condition`](super::Condition) that returns true when the passed one changes.
+    /// The first time this is called, the passed condition is assumed to have been previously false.
+    pub fn condition_changed<Marker, CIn, C: Condition<Marker, CIn>>(
+        condition: C,
+    ) -> impl Condition<(), CIn> {
+        condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
+            let changed = *prev != new;
+            *prev = new;
+            changed
+        })
+    }
+
+    /// Generates a [`Condition`](super::Condition) that returns true when the result of
+    /// the passed one went from false to true since the last time this was called.
+    /// The first time this is called, the passed condition is assumed to have been previously false.
+    pub fn condition_became_true<Marker, CIn, C: Condition<Marker, CIn>>(
+        c: C,
+    ) -> impl Condition<(), CIn> {
+        c.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
+            let now_true = *prev != new && new;
+            *prev = new;
+            now_true
+        })
+    }
 }
 
 /// Invokes [`Not`] with the output of another system.
@@ -1386,5 +1411,28 @@ mod tests {
                 .distributive_run_if(any_with_component::<TestComponent>)
                 .distributive_run_if(not(run_once)),
         );
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn run_condition_result_changed() {
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(
+            (
+                double_counter.run_if(condition_became_true(every_other_time)), // Run every time
+                increment_counter.run_if(condition_changed(every_other_time)),  // Run every time
+            )
+                .chain(),
+        );
+
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<Counter>().0, 1);
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<Counter>().0, 2);
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<Counter>().0, 5);
     }
 }
