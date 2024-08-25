@@ -687,7 +687,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     if let Some(system) = *local_system {
     ///         commands.run_system(system);
     ///     } else {
-    ///         *local_system = Some(commands.register_one_shot_system(increment_counter));
+    ///         *local_system = Some(commands.register_system(increment_counter));
     ///     }
     /// }
     ///
@@ -700,7 +700,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # let mut queue_1 = CommandQueue::default();
     /// # let systemid = {
     /// #   let mut commands = Commands::new(&mut queue_1, &world);
-    /// #   commands.register_one_shot_system(increment_counter)
+    /// #   commands.register_system(increment_counter)
     /// # };
     /// # let mut queue_2 = CommandQueue::default();
     /// # {
@@ -712,7 +712,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # assert_eq!(1, world.resource::<Counter>().0);
     /// # bevy_ecs::system::assert_is_system(register_system);
     /// ```
-    pub fn register_one_shot_system<
+    pub fn register_system<
         I: 'static + Send,
         O: 'static + Send,
         M,
