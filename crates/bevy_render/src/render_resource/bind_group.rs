@@ -84,7 +84,7 @@ impl Deref for BindGroup {
 /// # use bevy_render::{render_resource::*, texture::Image};
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
-/// # use bevy_render::storage::Storage;
+/// # use bevy_render::storage::ShaderStorageBuffer;
 ///
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -94,8 +94,10 @@ impl Deref for BindGroup {
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
 ///     #[storage(3, read_only)]
-///     values: Handle<Storage>,
-///     #[storage_texture(4)]
+///     storage_buffer: Handle<ShaderStorageBuffer>,
+///     #[storage(4, read_only, buffer)]
+///     raw_buffer: Buffer,
+///     #[storage_texture(5)]
 ///     storage_texture: Handle<Image>,
 /// }
 /// ```
@@ -106,7 +108,8 @@ impl Deref for BindGroup {
 /// @group(2) @binding(0) var<uniform> color: vec4<f32>;
 /// @group(2) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(2) @binding(2) var color_sampler: sampler;
-/// @group(2) @binding(3) var<storage> values: array<f32>;
+/// @group(2) @binding(3) var<storage> storage_buffer: array<f32>;
+/// @group(2) @binding(4) var<storage> raw_buffer: array<f32>;
 /// @group(2) @binding(4) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
@@ -158,15 +161,17 @@ impl Deref for BindGroup {
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
 /// | `sampler_type` = "..." | `"filtering"`, `"non_filtering"`, `"comparison"`.                       |  `"filtering"`         |
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` |   `vertex`, `fragment` |
-///
 /// * `storage(BINDING_INDEX, arguments)`
-///     * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which will be bound as a storage buffer in shaders.
+///     * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which
+///       will be bound as a storage buffer in shaders. If the `storage` attribute is used, the field is expected a raw
+///       buffer, and the buffer will be bound as a storage buffer in shaders.
 ///     * It supports and optional `read_only` parameter. Defaults to false if not present.
 ///
 /// | Arguments              | Values                                                                  | Default              |
 /// |------------------------|-------------------------------------------------------------------------|----------------------|
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
 /// | `read_only`            | if present then value is true, otherwise false                          | `false`              |
+/// | `buffer`               | if present then the field will be assumed to be a raw wgpu buffer       |                      |
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```

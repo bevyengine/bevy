@@ -10,23 +10,23 @@ use bevy_reflect::Reflect;
 use bevy_utils::default;
 use wgpu::util::BufferInitDescriptor;
 
-/// Adds [`Storage`] as an asset that is extracted and uploaded to the GPU.
+/// Adds [`ShaderStorageBuffer`] as an asset that is extracted and uploaded to the GPU.
 #[derive(Default)]
 pub struct StoragePlugin;
 
 impl Plugin for StoragePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RenderAssetPlugin::<GpuStorageBuffer>::default())
-            .register_type::<Storage>()
-            .init_asset::<Storage>()
-            .register_asset_reflect::<Storage>();
+        app.add_plugins(RenderAssetPlugin::<GpuShaderStorageBuffer>::default())
+            .register_type::<ShaderStorageBuffer>()
+            .init_asset::<ShaderStorageBuffer>()
+            .register_asset_reflect::<ShaderStorageBuffer>();
     }
 }
 
 /// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
 #[derive(Asset, Reflect, Debug, Clone)]
 #[reflect_value(Default)]
-pub struct Storage {
+pub struct ShaderStorageBuffer {
     /// Optional data used to initialize the buffer.
     pub data: Option<Vec<u8>>,
     /// The buffer description used to create the buffer.
@@ -35,7 +35,7 @@ pub struct Storage {
     pub asset_usage: RenderAssetUsages,
 }
 
-impl Default for Storage {
+impl Default for ShaderStorageBuffer {
     fn default() -> Self {
         Self {
             data: None,
@@ -50,10 +50,10 @@ impl Default for Storage {
     }
 }
 
-impl Storage {
+impl ShaderStorageBuffer {
     /// Creates a new storage buffer with the given data and asset usage.
     pub fn new(data: &[u8], asset_usage: RenderAssetUsages) -> Self {
-        let mut storage = Storage {
+        let mut storage = ShaderStorageBuffer {
             data: Some(data.to_vec()),
             ..default()
         };
@@ -63,24 +63,24 @@ impl Storage {
 
     /// Creates a new storage buffer with the given size and asset usage.
     pub fn with_size(size: usize, asset_usage: RenderAssetUsages) -> Self {
-        let mut storage = Storage {
+        let mut storage = ShaderStorageBuffer {
             data: None,
             ..default()
         };
         storage.buffer_description.size = size as u64;
-        storage.buffer_description.mapped_at_creation = true;
+        storage.buffer_description.mapped_at_creation = false;
         storage.asset_usage = asset_usage;
         storage
     }
 }
 
 /// A storage buffer that is prepared as a [`RenderAsset`] and uploaded to the GPU.
-pub struct GpuStorageBuffer {
+pub struct GpuShaderStorageBuffer {
     pub buffer: Buffer,
 }
 
-impl RenderAsset for GpuStorageBuffer {
-    type SourceAsset = Storage;
+impl RenderAsset for GpuShaderStorageBuffer {
+    type SourceAsset = ShaderStorageBuffer;
     type Param = SRes<RenderDevice>;
 
     fn asset_usage(source_asset: &Self::SourceAsset) -> RenderAssetUsages {
@@ -98,11 +98,11 @@ impl RenderAsset for GpuStorageBuffer {
                     contents: &data,
                     usage: source_asset.buffer_description.usage,
                 });
-                Ok(GpuStorageBuffer { buffer })
+                Ok(GpuShaderStorageBuffer { buffer })
             }
             None => {
                 let buffer = render_device.create_buffer(&source_asset.buffer_description);
-                Ok(GpuStorageBuffer { buffer })
+                Ok(GpuShaderStorageBuffer { buffer })
             }
         }
     }

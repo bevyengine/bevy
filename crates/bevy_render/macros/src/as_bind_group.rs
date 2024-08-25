@@ -206,22 +206,33 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let StorageAttrs {
                         visibility,
                         read_only,
+                        buffer,
                     } = get_storage_binding_attr(nested_meta_items)?;
                     let visibility =
                         visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
                     let field_name = field.ident.as_ref().unwrap();
-                    let min_binding_size = quote! {None};
 
-                    binding_impls.push(quote! {
+                    if buffer {
+                        binding_impls.push(quote! {
+                            (
+                                #binding_index,
+                                #render_path::render_resource::OwnedBindingResource::Buffer({
+                                    self.#field_name.clone()
+                                })
+                            )
+                        });
+                    } else {
+                        binding_impls.push(quote! {
                         (
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Buffer({
-                                let handle: &#asset_path::Handle<#render_path::storage::Storage> = (&self.#field_name);
-                                buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
+                                let handle: &#asset_path::Handle<#render_path::storage::ShaderStorageBuffer> = (&self.#field_name);
+                                storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
                             })
                         )
-                    });
+                        });
+                    }
 
                     binding_layouts.push(quote! {
                         #render_path::render_resource::BindGroupLayoutEntry {
@@ -230,7 +241,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             ty: #render_path::render_resource::BindingType::Buffer {
                                 ty: #render_path::render_resource::BufferBindingType::Storage { read_only: #read_only },
                                 has_dynamic_offset: false,
-                                min_binding_size: #min_binding_size,
+                                min_binding_size: None,
                             },
                             count: None,
                         }
@@ -503,6 +514,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             type Param = (
                 #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>>,
                 #ecs_path::system::lifetimeless::SRes<#render_path::texture::FallbackImage>,
+                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::storage::GpuShaderStorageBuffer>>,
             );
 
             fn label() -> Option<&'static str> {
@@ -513,7 +525,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
-                (images, fallback_image): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
+                (images, fallback_image, storage_buffers): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
             ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 
@@ -1085,13 +1097,16 @@ fn get_sampler_binding_type_value(lit_str: &LitStr) -> Result<SamplerBindingType
 struct StorageAttrs {
     visibility: ShaderStageVisibility,
     read_only: bool,
+    buffer: bool,
 }
 
 const READ_ONLY: Symbol = Symbol("read_only");
+const BUFFER: Symbol = Symbol("buffer");
 
 fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
     let mut visibility = ShaderStageVisibility::vertex_fragment();
     let mut read_only = false;
+    let mut buffer = false;
 
     for meta in metas {
         use syn::{Meta::List, Meta::Path};
@@ -1102,6 +1117,9 @@ fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
             }
             Path(path) if path == READ_ONLY => {
                 read_only = true;
+            }
+            Path(path) if path == BUFFER => {
+                buffer = true;
             }
             _ => {
                 return Err(Error::new_spanned(
@@ -1115,5 +1133,6 @@ fn get_storage_binding_attr(metas: Vec<Meta>) -> Result<StorageAttrs> {
     Ok(StorageAttrs {
         visibility,
         read_only,
+        buffer,
     })
 }

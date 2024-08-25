@@ -9,7 +9,6 @@ use bevy_ecs::{
     system::*,
 };
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
-use bevy_render::storage::GpuStorageBuffer;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},

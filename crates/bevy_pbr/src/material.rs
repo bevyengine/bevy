@@ -21,7 +21,6 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_reflect::Reflect;
-use bevy_render::storage::GpuStorageBuffer;
 use bevy_render::{
     camera::TemporalJitter,
     extract_instances::{ExtractInstancesPlugin, ExtractedInstances},

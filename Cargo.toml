@@ -2417,7 +2417,7 @@ wasm = false
 
 [[example]]
 name = "storage"
-path = "examples/shader/storage.rs"
+path = "examples/shader/storage_buffer.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.storage]

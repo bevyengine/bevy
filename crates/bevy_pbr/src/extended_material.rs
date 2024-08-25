@@ -1,7 +1,6 @@
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::system::SystemParamItem;
 use bevy_reflect::{impl_type_path, Reflect};
-use bevy_render::storage::GpuStorageBuffer;
 use bevy_render::{
     mesh::MeshVertexBufferLayoutRef,
     render_resource::{

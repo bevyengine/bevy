@@ -17,7 +17,7 @@ use bevy::{
         RenderApp,
     },
 };
-use bevy_render::storage::GpuStorageBuffer;
+use bevy_render::storage::GpuShaderStorageBuffer;
 use std::{num::NonZeroU32, process::exit};
 
 /// This example uses a shader source file from the assets subdirectory

@@ -5,9 +5,9 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 use bevy_render::render_asset::RenderAssetUsages;
-use bevy_render::storage::Storage;
+use bevy_render::storage::ShaderStorageBuffer;
 
-const SHADER_ASSET_PATH: &str = "shaders/storage.wgsl";
+const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
 
 fn main() {
     App::new()
@@ -21,7 +21,7 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut buffers: ResMut<Assets<Storage>>,
+    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // Example data for the storage buffer
@@ -33,7 +33,7 @@ fn setup(
         [0.0, 1.0, 1.0, 1.0],
     ];
 
-    let colors = buffers.add(Storage::new(
+    let colors = buffers.add(ShaderStorageBuffer::new(
         bytemuck::cast_slice(color_data.as_slice()),
         RenderAssetUsages::default(),
     ));
@@ -68,10 +68,11 @@ fn update(
     time: Res<Time>,
     material_handle: Res<CustomMaterialHandle>,
     mut materials: ResMut<Assets<CustomMaterial>>,
-    mut buffers: ResMut<Assets<Storage>>,
+    mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
     let material = materials.get_mut(&material_handle.0).unwrap();
-    material.colors = buffers.add(Storage::new(
+    let buffer = buffers.get_mut(&material.colors).unwrap();
+    buffer.data = Some(
         bytemuck::cast_slice(
             (0..5)
                 .map(|i| {
@@ -85,9 +86,9 @@ fn update(
                 })
                 .collect::<Vec<[f32; 4]>>()
                 .as_slice(),
-        ),
-        RenderAssetUsages::default(),
-    ));
+        )
+        .to_vec(),
+    );
 }
 
 // Holds a handle to the custom material
@@ -98,7 +99,7 @@ struct CustomMaterialHandle(Handle<CustomMaterial>);
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 struct CustomMaterial {
     #[storage(0, read_only)]
-    colors: Handle<Storage>,
+    colors: Handle<ShaderStorageBuffer>,
 }
 
 impl Material for CustomMaterial {
