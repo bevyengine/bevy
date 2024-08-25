@@ -53,9 +53,10 @@ impl EmbeddedAssetRegistry {
     }
 
     /// Removes an asset stored using `full_path` (the full path as [`file`] would return for that file, if it was capable of
-    /// running in a non-rust file). If no asset is stored with that name its a no-op.
-    pub fn remove_asset(&self, full_path: &Path) {
-        self.dir.remove_asset(full_path);
+    /// running in a non-rust file). If no asset is stored with at `full_path` its a no-op.
+    /// It returning `Option` contains the originally stored `Data` or `None`.
+    pub fn remove_asset(&self, full_path: &Path) -> Option<super::memory::Data> {
+        self.dir.remove_asset(full_path)
     }
 
     /// Registers a `embedded` [`AssetSource`] that uses this [`EmbeddedAssetRegistry`].
@@ -306,7 +307,7 @@ macro_rules! load_internal_binary_asset {
 
 #[cfg(test)]
 mod tests {
-    use super::_embedded_asset_path;
+    use super::{EmbeddedAssetRegistry, _embedded_asset_path};
     use std::path::Path;
 
     // Relative paths show up if this macro is being invoked by a local crate.
@@ -409,5 +410,14 @@ mod tests {
         );
         // Really, should be "my_crate/src/the/asset.png"
         assert_eq!(asset_path, Path::new("my_crate/the/asset.png"));
+    }
+
+    #[test]
+    fn remove_embedded_asset() {
+        let reg = EmbeddedAssetRegistry::default();
+        let path = std::path::PathBuf::from("a/b/asset.png");
+        reg.insert_asset(path.clone().into(), &path, &[]);
+        assert!(reg.remove_asset(&path).is_some());
+        assert!(reg.remove_asset(&path).is_none());
     }
 }

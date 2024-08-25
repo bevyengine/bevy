@@ -55,13 +55,14 @@ impl Dir {
         );
     }
 
-    pub fn remove_asset(&self, path: &Path) {
+    pub fn remove_asset(&self, path: &Path) -> Option<Data> {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
         }
         let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
-        dir.0.write().assets.remove(&key);
+        let data = dir.0.write().assets.remove(&key);
+        data
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
