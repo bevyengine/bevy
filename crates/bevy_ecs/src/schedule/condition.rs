@@ -1088,9 +1088,9 @@ pub mod common_conditions {
     /// the passed one went from false to true since the last time this was called.
     /// The first time this is called, the passed condition is assumed to have been previously false.
     pub fn condition_became_true<Marker, CIn, C: Condition<Marker, CIn>>(
-        c: C,
+        condition: C,
     ) -> impl Condition<(), CIn> {
-        c.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
+        condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
             let now_true = *prev != new && new;
             *prev = new;
             now_true
