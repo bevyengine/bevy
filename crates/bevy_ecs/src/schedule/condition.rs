@@ -1275,7 +1275,7 @@ mod tests {
     use bevy_ecs_macros::Event;
     use bevy_ecs_macros::Resource;
 
-    #[derive(Resource, Default)]
+    #[derive(Resource, PartialEq, Default)]
     struct Counter(usize);
 
     fn increment_counter(mut counter: ResMut<Counter>) {
@@ -1422,8 +1422,10 @@ mod tests {
 
         schedule.add_systems(
             (
-                double_counter.run_if(condition_became_true(every_other_time)), // Run every time
-                increment_counter.run_if(condition_changed(every_other_time)),  // Run every time
+                // Run every time
+                increment_counter.run_if(condition_changed(every_other_time)),
+                // Run when the counter reaches 2
+                double_counter.run_if(condition_became_true(resource_equals(Counter(2)))),
             )
                 .chain(),
         );
@@ -1431,7 +1433,7 @@ mod tests {
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 1);
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 2);
+        assert_eq!(world.resource::<Counter>().0, 4);
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 5);
     }
