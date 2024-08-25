@@ -110,12 +110,13 @@ use std::{cell::UnsafeCell, fmt::Debug};
 /// #[require(B)]
 /// struct A;
 ///
-/// #[derive(Component, Default)]
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
 /// struct B(usize);
 ///
 /// # let mut world = World::default();
 /// // This will implicitly also insert B with the Default constructor
-/// world.spawn(A);
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
 ///
 /// // This will _not_ implicitly insert B, because it was already provided
 /// world.spawn((A, B(11)));
@@ -129,16 +130,18 @@ use std::{cell::UnsafeCell, fmt::Debug};
 /// #[require(B, C)]
 /// struct A;
 ///
-/// #[derive(Component, Default)]
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
 /// #[require(C)]
 /// struct B(usize);
 ///
-/// #[derive(Component, Default)]
-/// struct C(f32);
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
+/// struct C(u32);
 ///
 /// # let mut world = World::default();
 /// // This will implicitly also insert B and C with their Default constructors
-/// world.spawn(A);
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
 /// You can also define a custom constructor:
@@ -149,7 +152,7 @@ use std::{cell::UnsafeCell, fmt::Debug};
 /// #[require(B(init_b))]
 /// struct A;
 ///
-/// #[derive(Component)]
+/// #[derive(Component, PartialEq, Eq, Debug)]
 /// struct B(usize);
 ///
 /// fn init_b() -> B {
@@ -158,7 +161,8 @@ use std::{cell::UnsafeCell, fmt::Debug};
 ///
 /// # let mut world = World::default();
 /// // This will implicitly also insert B with the init_b() constructor
-/// world.spawn(A);
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(10), world.entity(id).get::<B>().unwrap());
 /// ```
 ///
 /// Required components are _recursive_. This means, if a Required Component has required components,
@@ -170,16 +174,18 @@ use std::{cell::UnsafeCell, fmt::Debug};
 /// #[require(B)]
 /// struct A;
 ///
-/// #[derive(Component, Default)]
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
 /// #[require(C)]
 /// struct B(usize);
 ///
-/// #[derive(Component, Default)]
-/// struct C(f32);
+/// #[derive(Component, Default, PartialEq, Eq, Debug)]
+/// struct C(u32);
 ///
 /// # let mut world = World::default();
 /// // This will implicitly also insert B and C with their Default constructors
-/// world.spawn(A);
+/// let id = world.spawn(A).id();
+/// assert_eq!(&B(0), world.entity(id).get::<B>().unwrap());
+/// assert_eq!(&C(0), world.entity(id).get::<C>().unwrap());
 /// ```
 ///
 /// Note that cycles in the "component require tree" will result in stack overflows when attempting to
