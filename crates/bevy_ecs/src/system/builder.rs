@@ -212,7 +212,7 @@ all_tuples!(impl_system_param_builder_tuple, 0, 16, P, B);
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
 /// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
 /// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
-pub struct ParamSetBuilder<T>(T);
+pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
     ($(($param: ident, $builder: ident, $meta: ident)),*) => {

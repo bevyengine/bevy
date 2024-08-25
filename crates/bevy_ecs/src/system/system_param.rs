@@ -390,6 +390,46 @@ fn assert_component_access_compatibility(
 /// }
 /// # bevy_ecs::system::assert_is_system(event_system);
 /// ```
+///
+/// If you want to use `ParamSet` with a [`SystemParamBuilder`](crate::system::SystemParamBuilder), use [`ParamSetBuilder`](crate::system::ParamSetBuilder) and pass a builder for each param.
+/// ```
+/// # use bevy_ecs::{prelude::*, system::*};
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct Ally;
+/// #
+/// let mut world = World::new();
+///
+/// let system = (ParamSetBuilder((
+///     QueryParamBuilder::new(|builder| {
+///         builder.with::<Enemy>();
+///     }),
+///     QueryParamBuilder::new(|builder| {
+///         builder.with::<Ally>();
+///     }),
+///     ParamBuilder,
+/// )),)
+///     .build_state(&mut world)
+///     .build_system(buildable_system);
+///world.run_system_once(system);
+///
+/// fn buildable_system(mut set: ParamSet<(Query<&mut Health>, Query<&mut Health>, &World)>) {
+///     // The first parameter is built from the first builder,
+///     // so this will iterate over enemies.
+///     for mut health in set.p0().iter_mut() {}
+///     // And the second parameter is built from the second builder,
+///     // so this will iterate over allies.
+///     for mut health in set.p1().iter_mut() {}
+///     // Parameters that don't need special building can use `ParamBuilder`.
+///     let entities = set.p2().entities();
+/// }
+/// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
     world: UnsafeWorldCell<'w>,
