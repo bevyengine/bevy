@@ -55,6 +55,9 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     }
 #ifdef LIGHTMAP
     if (any(in.lightmap_light > vec3(0.0f))) {
+        // Utilize the emissive channel to transmit the lightmap data. To ensure
+        // it matches the output in forward shading, pre-multiply it with the 
+        // calculated diffuse color.
         let base_color = in.material.base_color.rgb;
         let metallic = in.material.metallic;
         let specular_transmission = in.material.specular_transmission;
