@@ -46,7 +46,7 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
             // Same struct fields?
             for field in a.iter_fields() {
                 let field_name = field.name().unwrap();
-                if let Some(field_value) = b.field(field_name) {
+                if let Ok(field_value) = b.field(field_name) {
                     if let Some(false) | None = field_value.reflect_partial_eq(field.value()) {
                         // Fields failed comparison
                         return Some(false);
@@ -61,7 +61,7 @@ pub fn enum_partial_eq<TEnum: Enum + ?Sized>(a: &TEnum, b: &dyn PartialReflect) 
         VariantType::Tuple => {
             // Same tuple fields?
             for (i, field) in a.iter_fields().enumerate() {
-                if let Some(field_value) = b.field_at(i) {
+                if let Ok(field_value) = b.field_at(i) {
                     if let Some(false) | None = field_value.reflect_partial_eq(field.value()) {
                         // Fields failed comparison
                         return Some(false);

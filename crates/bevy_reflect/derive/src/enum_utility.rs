@@ -1,7 +1,7 @@
 use crate::derive_data::StructField;
 use crate::field_attributes::DefaultBehavior;
 use crate::{derive_data::ReflectEnum, utility::ident_or_index};
-use bevy_macro_utils::fq_std::{FQDefault, FQOption};
+use bevy_macro_utils::fq_std::{FQDefault, FQResult};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
@@ -88,14 +88,14 @@ pub(crate) trait VariantBuilder: Sized {
 
         let construction = match &field.field.attrs.default {
             DefaultBehavior::Func(path) => quote! {
-                if let #FQOption::Some(#alias) = #field_accessor {
+                if let #FQResult::Ok(#alias) = #field_accessor {
                     #field_constructor
                 } else {
                     #path()
                 }
             },
             DefaultBehavior::Default => quote! {
-                if let #FQOption::Some(#alias) = #field_accessor {
+                if let #FQResult::Ok(#alias) = #field_accessor {
                     #field_constructor
                 } else {
                     #FQDefault::default()
@@ -106,7 +106,7 @@ pub(crate) trait VariantBuilder: Sized {
 
                 quote! {{
                     // `#alias` is used by both the unwrapper and constructor
-                    let #alias = #field_accessor;
+                    let #alias = #field_accessor.ok();
                     let #alias = #field_unwrapper;
                     #field_constructor
                 }}

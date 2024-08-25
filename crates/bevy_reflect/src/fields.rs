@@ -1,7 +1,55 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
 use crate::{MaybeTyped, PartialReflect, TypeInfo, TypePath, TypePathTable};
+use alloc::borrow::Cow;
+use core::fmt::{Display, Formatter};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
+
+/// A general-purpose identifier for named or unnamed fields in structs or enum variants.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum FieldId<'a> {
+    /// A named field.
+    ///
+    /// This includes fields of structs and enum struct variants.
+    Named(Cow<'a, str>),
+    /// An unnamed field.
+    ///
+    /// This includes fields of tuples and tuple struct variants.
+    Unnamed(usize),
+}
+
+impl Display for FieldId<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            FieldId::Named(name) => write!(f, "{}", name),
+            FieldId::Unnamed(index) => write!(f, "{}", index),
+        }
+    }
+}
+
+impl From<usize> for FieldId<'static> {
+    fn from(value: usize) -> Self {
+        Self::Unnamed(value)
+    }
+}
+
+impl<'a> From<&'a str> for FieldId<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::Named(Cow::Borrowed(value))
+    }
+}
+
+impl From<String> for FieldId<'static> {
+    fn from(value: String) -> Self {
+        Self::Named(Cow::Owned(value))
+    }
+}
+
+impl<'a> From<Cow<'a, str>> for FieldId<'a> {
+    fn from(value: Cow<'a, str>) -> Self {
+        Self::Named(value)
+    }
+}
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
@@ -10,6 +58,7 @@ pub struct NamedField {
     type_info: fn() -> Option<&'static TypeInfo>,
     type_path: TypePathTable,
     type_id: TypeId,
+    readonly: bool,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -23,6 +72,7 @@ impl NamedField {
             type_info: T::maybe_type_info,
             type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
+            readonly: false,
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -33,6 +83,11 @@ impl NamedField {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Set the readonly status of this field.
+    pub fn with_readonly(self, readonly: bool) -> Self {
+        Self { readonly, ..self }
     }
 
     /// Sets the custom attributes for this field.
@@ -90,6 +145,11 @@ impl NamedField {
         self.docs
     }
 
+    /// Returns `true` if the field is readonly.
+    pub fn readonly(&self) -> bool {
+        self.readonly
+    }
+
     impl_custom_attribute_methods!(self.custom_attributes, "field");
 }
 
@@ -100,6 +160,7 @@ pub struct UnnamedField {
     type_info: fn() -> Option<&'static TypeInfo>,
     type_path: TypePathTable,
     type_id: TypeId,
+    readonly: bool,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -112,6 +173,7 @@ impl UnnamedField {
             type_info: T::maybe_type_info,
             type_path: TypePathTable::of::<T>(),
             type_id: TypeId::of::<T>(),
+            readonly: false,
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -122,6 +184,11 @@ impl UnnamedField {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// Set the readonly status of this field.
+    pub fn with_readonly(self, readonly: bool) -> Self {
+        Self { readonly, ..self }
     }
 
     /// Sets the custom attributes for this field.
@@ -177,6 +244,11 @@ impl UnnamedField {
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
+    }
+
+    /// Returns `true` if the field is readonly.
+    pub fn readonly(&self) -> bool {
+        self.readonly
     }
 
     impl_custom_attribute_methods!(self.custom_attributes, "field");

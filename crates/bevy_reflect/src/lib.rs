@@ -560,6 +560,7 @@ mod impls {
 
 pub mod attributes;
 mod enums;
+pub mod error;
 pub mod serde;
 pub mod std_traits;
 pub mod utility;
@@ -579,6 +580,7 @@ pub mod prelude {
 
 pub use array::*;
 pub use enums::*;
+pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use list::*;
@@ -903,6 +905,106 @@ mod tests {
             .map(|value| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
+    }
+
+    #[test]
+    fn should_mark_fields_readonly() {
+        #[derive(Reflect)]
+        struct MyStruct {
+            is_not_readonly: u32,
+            #[reflect(readonly)]
+            is_readonly: u32,
+        }
+
+        let TypeInfo::Struct(info) = MyStruct::type_info() else {
+            panic!("Expected a struct.");
+        };
+
+        assert!(
+            !info.field("is_not_readonly").unwrap().readonly(),
+            "field should not be readonly"
+        );
+        assert!(
+            info.field("is_readonly").unwrap().readonly(),
+            "field should be readonly"
+        );
+    }
+
+    #[test]
+    fn should_respect_readonly_struct_fields() {
+        #[derive(Reflect)]
+        struct MyStruct {
+            #[reflect(readonly)]
+            value: u32,
+        }
+
+        let mut my_struct: Box<dyn Struct> = Box::new(MyStruct { value: 123 });
+        assert!(
+            my_struct.field("value").is_ok(),
+            "immutable access should satisfy readonly fields"
+        );
+
+        let result = my_struct.field_mut("value");
+        assert!(
+            matches!(result, Err(ReflectFieldError::Readonly { .. })),
+            "mutable access should not satisfy readonly fields"
+        );
+    }
+
+    #[test]
+    fn should_respect_readonly_tuple_struct_fields() {
+        #[derive(Reflect)]
+        struct MyStruct(#[reflect(readonly)] u32);
+
+        let mut my_struct: Box<dyn TupleStruct> = Box::new(MyStruct(123));
+        assert!(
+            my_struct.field(0).is_ok(),
+            "immutable access should satisfy readonly fields"
+        );
+
+        let result = my_struct.field_mut(0);
+        assert!(
+            matches!(result, Err(ReflectFieldError::Readonly { .. })),
+            "mutable access should not satisfy readonly fields"
+        );
+    }
+
+    #[test]
+    fn should_respect_readonly_enum_variant_fields() {
+        #[derive(Reflect)]
+        enum MyEnum {
+            Tuple(#[reflect(readonly)] u32),
+            Struct {
+                #[reflect(readonly)]
+                value: u32,
+            },
+        }
+
+        let mut my_enum: Box<dyn Enum> = Box::new(MyEnum::Tuple(123));
+
+        assert!(
+            my_enum.field_at(0).is_ok(),
+            "immutable access should satisfy readonly fields"
+        );
+
+        let result = my_enum.field_at_mut(0);
+        assert!(
+            matches!(result, Err(ReflectFieldError::Readonly { .. })),
+            "mutable access should not satisfy readonly fields"
+        );
+
+        let mut my_enum: Box<dyn Enum> = Box::new(MyEnum::Struct { value: 123 });
+
+        assert!(
+            my_enum.field("value").is_ok(),
+            "immutable access should satisfy readonly fields"
+        );
+
+        let result = my_enum.field_mut("value");
+        assert!(
+            matches!(result, Err(ReflectFieldError::Readonly { .. })),
+            "mutable access should not satisfy readonly fields"
+        );
     }
 
     #[test]

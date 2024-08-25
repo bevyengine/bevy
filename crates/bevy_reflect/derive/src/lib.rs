@@ -363,6 +363,17 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// }
 /// ```
 ///
+/// ## `#[reflect(readonly)]`
+///
+/// This attribute marks a field as being readonly.
+///
+/// Readonly fields will return an error when attempting to access them mutably,
+/// such as via `Struct::field_mut`, `Enum::field_at_mut`, etc.
+///
+/// This also has the effect of preventing the field from being modified via `PartialReflect::apply`.
+///
+/// Note that this does not prevent the field from being modified outside the realm of reflection.
+///
 /// [`reflect_trait`]: macro@reflect_trait
 #[proc_macro_derive(Reflect, attributes(reflect, reflect_value, type_path, type_name))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {

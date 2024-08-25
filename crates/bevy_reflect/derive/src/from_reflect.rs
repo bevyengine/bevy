@@ -4,7 +4,7 @@ use crate::enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, Vari
 use crate::field_attributes::DefaultBehavior;
 use crate::utility::{ident_or_index, WhereClauseOptions};
 use crate::{ReflectMeta, ReflectStruct};
-use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
+use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption, FQResult};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
@@ -272,7 +272,7 @@ fn get_active_fields(
                         });
                         quote! {
                             (||
-                                if let #FQOption::Some(field) = #get_field {
+                                if let #FQResult::Ok(field) = #get_field {
                                     #value
                                 } else {
                                     #FQOption::Some(#path())
@@ -286,7 +286,7 @@ fn get_active_fields(
                         });
                         quote! {
                             (||
-                                if let #FQOption::Some(field) = #get_field {
+                                if let #FQResult::Ok(field) = #get_field {
                                     #value
                                 } else {
                                     #FQOption::Some(#FQDefault::default())
@@ -296,7 +296,7 @@ fn get_active_fields(
                     }
                     DefaultBehavior::Required => {
                         let value = into_remote(quote! {
-                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)
+                            <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field.ok()?)
                         });
                         quote! {
                             (|| #value)

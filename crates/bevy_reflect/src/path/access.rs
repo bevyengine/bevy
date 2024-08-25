@@ -69,14 +69,14 @@ impl<'a> Access<'a> {
             |expected, actual| AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual };
 
         match (self, base.reflect_ref()) {
-            (Self::Field(field), Struct(struct_ref)) => Ok(struct_ref.field(field.as_ref())),
+            (Self::Field(field), Struct(struct_ref)) => Ok(struct_ref.field(field.as_ref()).ok()),
             (Self::Field(field), Enum(enum_ref)) => match enum_ref.variant_type() {
-                VariantType::Struct => Ok(enum_ref.field(field.as_ref())),
+                VariantType::Struct => Ok(enum_ref.field(field.as_ref()).ok()),
                 actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
-            (&Self::FieldIndex(index), Struct(struct_ref)) => Ok(struct_ref.field_at(index)),
+            (&Self::FieldIndex(index), Struct(struct_ref)) => Ok(struct_ref.field_at(index).ok()),
             (&Self::FieldIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
-                VariantType::Struct => Ok(enum_ref.field_at(index)),
+                VariantType::Struct => Ok(enum_ref.field_at(index).ok()),
                 actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
             (Self::Field(_) | Self::FieldIndex(_), actual) => {
@@ -86,10 +86,10 @@ impl<'a> Access<'a> {
                 })
             }
 
-            (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field(index)),
+            (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field(index).ok()),
             (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field(index)),
             (&Self::TupleIndex(index), Enum(enum_ref)) => match enum_ref.variant_type() {
-                VariantType::Tuple => Ok(enum_ref.field_at(index)),
+                VariantType::Tuple => Ok(enum_ref.field_at(index).ok()),
                 actual => Err(invalid_variant(VariantType::Tuple, actual)),
             },
             (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
@@ -128,14 +128,18 @@ impl<'a> Access<'a> {
             |expected, actual| AccessErrorKind::IncompatibleEnumVariantTypes { expected, actual };
 
         match (self, base.reflect_mut()) {
-            (Self::Field(field), Struct(struct_mut)) => Ok(struct_mut.field_mut(field.as_ref())),
+            (Self::Field(field), Struct(struct_mut)) => {
+                Ok(struct_mut.field_mut(field.as_ref()).ok())
+            }
             (Self::Field(field), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Struct => Ok(enum_mut.field_mut(field.as_ref())),
+                VariantType::Struct => Ok(enum_mut.field_mut(field.as_ref()).ok()),
                 actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
-            (&Self::FieldIndex(index), Struct(struct_mut)) => Ok(struct_mut.field_at_mut(index)),
+            (&Self::FieldIndex(index), Struct(struct_mut)) => {
+                Ok(struct_mut.field_at_mut(index).ok())
+            }
             (&Self::FieldIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Struct => Ok(enum_mut.field_at_mut(index)),
+                VariantType::Struct => Ok(enum_mut.field_at_mut(index).ok()),
                 actual => Err(invalid_variant(VariantType::Struct, actual)),
             },
             (Self::Field(_) | Self::FieldIndex(_), actual) => {
@@ -145,10 +149,10 @@ impl<'a> Access<'a> {
                 })
             }
 
-            (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field_mut(index)),
+            (&Self::TupleIndex(index), TupleStruct(tuple)) => Ok(tuple.field_mut(index).ok()),
             (&Self::TupleIndex(index), Tuple(tuple)) => Ok(tuple.field_mut(index)),
             (&Self::TupleIndex(index), Enum(enum_mut)) => match enum_mut.variant_type() {
-                VariantType::Tuple => Ok(enum_mut.field_at_mut(index)),
+                VariantType::Tuple => Ok(enum_mut.field_at_mut(index).ok()),
                 actual => Err(invalid_variant(VariantType::Tuple, actual)),
             },
             (Self::TupleIndex(_), actual) => Err(AccessErrorKind::IncompatibleTypes {
