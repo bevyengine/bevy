@@ -3,14 +3,8 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
-<<<<<<< HEAD
     storage::GpuStorageBuffer,
     texture::{FallbackImage, GpuImage},
-||||||| parent of b501d5ebb (Refactor `AsBindGroup` to use a associated `SystemParam`.)
-    texture::{FallbackImage, GpuImage},
-=======
-    texture::GpuImage,
->>>>>>> b501d5ebb (Refactor `AsBindGroup` to use a associated `SystemParam`.)
 };
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
