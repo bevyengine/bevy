@@ -29,7 +29,6 @@ zstd = ["ruzstd"]
 
 trace = ["profiling"]
 tracing-tracy = []
-wgpu_trace = []
 ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
