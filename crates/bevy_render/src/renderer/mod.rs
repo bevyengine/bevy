@@ -195,22 +195,12 @@ pub async fn initialize_renderer(
         );
     }
 
-    #[cfg(feature = "wgpu_trace")]
-    let trace_path = {
-        let path = std::path::Path::new("wgpu_trace");
-        // ignore potential error, wgpu will log it
-        let _ = std::fs::create_dir(path);
-        Some(path)
-    };
-    #[cfg(not(feature = "wgpu_trace"))]
-    let trace_path = None;
-
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features();
-        if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
+        if adapter_info.device_type == DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
             // should not be automatically enabled in this case. It is however beneficial for
@@ -357,7 +347,7 @@ pub async fn initialize_renderer(
                 required_limits: limits,
                 memory_hints: options.memory_hints.clone(),
             },
-            trace_path,
+            options.trace_path.as_deref(),
         )
         .await
         .unwrap();

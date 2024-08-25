@@ -17,6 +17,7 @@ use bevy::{
     },
 };
 use crossbeam_channel::{Receiver, Sender};
+use std::mem::size_of;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
@@ -129,7 +130,7 @@ impl FromWorld for Buffers {
         // copy the buffer modified by the GPU into a mappable, CPU-accessible buffer
         let cpu_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("readback_buffer"),
-            size: (BUFFER_LEN * std::mem::size_of::<u32>()) as u64,
+            size: (BUFFER_LEN * size_of::<u32>()) as u64,
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -250,7 +251,7 @@ fn map_and_read_buffer(
     {
         let buffer_view = buffer_slice.get_mapped_range();
         let data = buffer_view
-            .chunks(std::mem::size_of::<u32>())
+            .chunks(size_of::<u32>())
             .map(|chunk| u32::from_ne_bytes(chunk.try_into().expect("should be a u32")))
             .collect::<Vec<u32>>();
         sender
@@ -306,7 +307,7 @@ impl render_graph::Node for ComputeNode {
             0,
             &buffers.cpu_buffer,
             0,
-            (BUFFER_LEN * std::mem::size_of::<u32>()) as u64,
+            (BUFFER_LEN * size_of::<u32>()) as u64,
         );
 
         Ok(())

@@ -1,9 +1,6 @@
 use crate::{
-    render_resource::{
-        BindGroupEntries, PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView,
-    },
+    render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
-    texture::TextureFormatPixelInfo,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Last, Plugin};
@@ -18,21 +15,16 @@ use bevy_winit::CustomCursorCache;
 use std::{
     num::NonZeroU32,
     ops::{Deref, DerefMut},
-    sync::PoisonError,
 };
 use wgpu::{
-    BufferUsages, SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages,
-    TextureViewDescriptor,
+    SurfaceConfiguration, SurfaceTargetUnsafe, TextureFormat, TextureUsages, TextureViewDescriptor,
 };
 
 pub mod cursor;
 pub mod screenshot;
 
-use screenshot::{
-    ScreenshotManager, ScreenshotPlugin, ScreenshotPreparedState, ScreenshotToScreenPipeline,
-};
-
 use self::cursor::update_cursors;
+use screenshot::{ScreenshotPlugin, ScreenshotToScreenPipeline};
 
 pub struct WindowRenderPlugin;
 
@@ -78,11 +70,9 @@ pub struct ExtractedWindow {
     pub swap_chain_texture_view: Option<TextureView>,
     pub swap_chain_texture: Option<SurfaceTexture>,
     pub swap_chain_texture_format: Option<TextureFormat>,
-    pub screenshot_memory: Option<ScreenshotPreparedState>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
-    pub screenshot_func: Option<screenshot::ScreenshotFn>,
 }
 
 impl ExtractedWindow {
@@ -120,7 +110,6 @@ impl DerefMut for ExtractedWindows {
 
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
-    screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closing: Extract<EventReader<WindowClosing>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
@@ -149,8 +138,6 @@ fn extract_windows(
             swap_chain_texture_format: None,
             present_mode_changed: false,
             alpha_mode: window.composite_alpha_mode,
-            screenshot_func: None,
-            screenshot_memory: None,
         });
 
         // NOTE: Drop the swap chain frame here
@@ -188,20 +175,6 @@ fn extract_windows(
     for removed_window in removed.read() {
         extracted_windows.remove(&removed_window);
         window_surfaces.remove(&removed_window);
-    }
-    // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
-    // Even if a user had multiple copies of this system, since the system has a mutable resource access the two systems would never run
-    // at the same time
-    // TODO: since this is guaranteed, should the lock be replaced with an UnsafeCell to remove the overhead, or is it minor enough to be ignored?
-    for (window, screenshot_func) in screenshot_manager
-        .callbacks
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .drain()
-    {
-        if let Some(window) = extracted_windows.get_mut(&window) {
-            window.screenshot_func = Some(screenshot_func);
-        }
     }
 }
 
@@ -254,9 +227,6 @@ pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
-    screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
-    pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
@@ -340,53 +310,6 @@ pub fn prepare_windows(
             }
         };
         window.swap_chain_texture_format = Some(surface_data.configuration.format);
-
-        if window.screenshot_func.is_some() {
-            let texture = render_device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("screenshot-capture-rendertarget"),
-                size: wgpu::Extent3d {
-                    width: surface_data.configuration.width,
-                    height: surface_data.configuration.height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: surface_data.configuration.format.add_srgb_suffix(),
-                usage: TextureUsages::RENDER_ATTACHMENT
-                    | TextureUsages::COPY_SRC
-                    | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            });
-            let texture_view = texture.create_view(&Default::default());
-            let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("screenshot-transfer-buffer"),
-                size: screenshot::get_aligned_size(
-                    window.physical_width,
-                    window.physical_height,
-                    surface_data.configuration.format.pixel_size() as u32,
-                ) as u64,
-                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            let bind_group = render_device.create_bind_group(
-                "screenshot-to-screen-bind-group",
-                &screenshot_pipeline.bind_group_layout,
-                &BindGroupEntries::single(&texture_view),
-            );
-            let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
-                &screenshot_pipeline,
-                surface_data.configuration.format,
-            );
-            window.swap_chain_texture_view = Some(texture_view);
-            window.screenshot_memory = Some(ScreenshotPreparedState {
-                texture,
-                buffer,
-                bind_group,
-                pipeline_id,
-            });
-        }
     }
 }
 
@@ -457,7 +380,7 @@ pub fn create_surfaces(
                     }
                 }
 
-                let configuration = wgpu::SurfaceConfiguration {
+                let configuration = SurfaceConfiguration {
                     format,
                     width: window.physical_width,
                     height: window.physical_height,

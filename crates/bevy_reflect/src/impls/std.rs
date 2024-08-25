@@ -1,3 +1,6 @@
+// Temporary workaround for impl_reflect!(Option/Result false-positive
+#![allow(unused_qualifications)]
+
 use crate::std_traits::ReflectDefault;
 use crate::utility::{
     reflect_hasher, GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell,
@@ -104,6 +107,7 @@ impl_reflect_value!(::core::ops::RangeFrom<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeTo<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFull());
+impl_reflect_value!(::std::ops::Bound<T: Clone + Send + Sync>());
 impl_reflect_value!(::bevy_utils::Duration(
     Debug,
     Hash,
@@ -1557,14 +1561,14 @@ impl PartialReflect for Cow<'static, str> {
 
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
-        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(&Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
+            Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
@@ -1608,7 +1612,7 @@ impl GetTypeRegistration for Cow<'static, str> {
 }
 
 impl FromReflect for Cow<'static, str> {
-    fn from_reflect(reflect: &dyn crate::PartialReflect) -> Option<Self> {
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         Some(reflect.try_downcast_ref::<Cow<'static, str>>()?.clone())
     }
 }
@@ -1855,14 +1859,14 @@ impl PartialReflect for &'static str {
 
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
-        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(&Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
+            Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
@@ -1993,14 +1997,14 @@ impl PartialReflect for &'static Path {
 
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
-        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(&Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
+            Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
@@ -2126,14 +2130,14 @@ impl PartialReflect for Cow<'static, Path> {
 
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = reflect_hasher();
-        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(&Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
     }
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         if let Some(value) = value.try_downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
+            Some(PartialEq::eq(self, value))
         } else {
             Some(false)
         }
@@ -2443,7 +2447,7 @@ mod tests {
         let a: &dyn PartialReflect = &std::num::NonZeroUsize::new(42).unwrap();
         let b: &dyn PartialReflect = &std::num::NonZeroUsize::new(42).unwrap();
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
-        let forty_two: std::num::NonZeroUsize = crate::FromReflect::from_reflect(a).unwrap();
+        let forty_two: std::num::NonZeroUsize = FromReflect::from_reflect(a).unwrap();
         assert_eq!(forty_two, std::num::NonZeroUsize::new(42).unwrap());
     }
 

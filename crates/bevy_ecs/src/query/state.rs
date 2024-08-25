@@ -373,7 +373,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         .map(|index| index.keys())
                 })
                 // select the component with the fewest archetypes
-                .min_by_key(std::iter::ExactSizeIterator::len);
+                .min_by_key(ExactSizeIterator::len);
             if let Some(archetypes) = potential_archetypes {
                 for archetype_id in archetypes {
                     // exclude archetypes that have already been processed

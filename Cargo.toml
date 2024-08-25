@@ -31,14 +31,14 @@ members = [
 ]
 
 [workspace.lints.clippy]
-type_complexity = "allow"
 doc_markdown = "warn"
 manual_let_else = "warn"
-undocumented_unsafe_blocks = "warn"
-redundant_else = "warn"
 match_same_arms = "warn"
-semicolon_if_nothing_returned = "warn"
 redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 
 ptr_as_ptr = "warn"
@@ -46,10 +46,11 @@ ptr_cast_constness = "warn"
 ref_as_ptr = "warn"
 
 [workspace.lints.rust]
-unsafe_op_in_unsafe_fn = "warn"
 missing_docs = "warn"
-unsafe_code = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
 
 [lints]
 workspace = true
@@ -178,9 +179,6 @@ trace_tracy_memory = [
 
 # Tracing support
 trace = ["bevy_internal/trace"]
-
-# Save a trace of all wgpu calls
-wgpu_trace = ["bevy_internal/wgpu_trace"]
 
 # EXR image format support
 exr = ["bevy_internal/exr"]
@@ -1601,6 +1599,17 @@ doc-scrape-examples = true
 [package.metadata.example.custom_diagnostic]
 name = "Custom Diagnostic"
 description = "Shows how to create a custom diagnostic"
+category = "Diagnostics"
+wasm = true
+
+[[example]]
+name = "enabling_disabling_diagnostic"
+path = "examples/diagnostics/enabling_disabling_diagnostic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.enabling_disabling_diagnostic]
+name = "Enabling/disabling diagnostic"
+description = "Shows how to disable/re-enable a Diagnostic during runtime"
 category = "Diagnostics"
 wasm = true
 
@@ -3319,6 +3328,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "scrolling_fog"
+path = "examples/3d/scrolling_fog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrolling_fog]
+name = "Scrolling fog"
+description = "Demonstrates how to create the effect of fog moving in the wind"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "physics_in_fixed_timestep"
 path = "examples/movement/physics_in_fixed_timestep.rs"
 doc-scrape-examples = true
@@ -3352,6 +3372,18 @@ description = "Demonstrates how to rotate the skybox and the environment map sim
 category = "3D Rendering"
 wasm = false
 
+[[example]]
+name = "simple_picking"
+path = "examples/picking/simple_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_picking"]
+
+[package.metadata.example.simple_picking]
+name = "Showcases simple picking events and usage"
+description = "Demonstrates how to use picking events to spawn simple objects"
+category = "Picking"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -3368,7 +3400,7 @@ panic = "abort"
 # impls for re-exported traits. See https://github.com/rust-lang/cargo/issues/8811
 # for details on why this is needed. Since dependencies don't expect to be built
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
-rustc-args = ["--cfg docsrs_dep"]
+rustc-args = ["--cfg", "docsrs_dep"]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]

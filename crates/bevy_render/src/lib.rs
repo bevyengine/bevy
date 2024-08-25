@@ -107,7 +107,6 @@ pub struct RenderPlugin {
 
 /// The systems sets of the default [`App`] rendering schedule.
 ///
-/// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
@@ -141,6 +140,10 @@ pub enum RenderSet {
     Render,
     /// Cleanup render resources here.
     Cleanup,
+    /// Final cleanup occurs: all entities will be despawned.
+    ///
+    /// Runs after [`Cleanup`](RenderSet::Cleanup).
+    PostCleanup,
 }
 
 /// The main render schedule.
@@ -165,6 +168,7 @@ impl Render {
                 Prepare,
                 Render,
                 Cleanup,
+                PostCleanup,
             )
                 .chain(),
         );
@@ -474,7 +478,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-                despawn_fly_entity.in_set(RenderSet::Cleanup),
+                World::clear_entities.in_set(RenderSet::PostCleanup),
             ),
         );
 

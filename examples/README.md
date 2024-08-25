@@ -54,6 +54,7 @@ git checkout v0.4.0
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
+  - [Picking](#picking)
   - [Reflection](#reflection)
   - [Scene](#scene)
   - [Shaders](#shaders)
@@ -161,6 +162,7 @@ Example | Description
 [Rotate Environment Map](../examples/3d/rotate_environment_map.rs) | Demonstrates how to rotate the skybox and the environment map simultaneously
 [Screen Space Ambient Occlusion](../examples/3d/ssao.rs) | A scene showcasing screen space ambient occlusion
 [Screen Space Reflections](../examples/3d/ssr.rs) | Demonstrates screen space reflections with water ripples
+[Scrolling fog](../examples/3d/scrolling_fog.rs) | Demonstrates how to create the effect of fog moving in the wind
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 [Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
@@ -264,6 +266,7 @@ Example | Description
 Example | Description
 --- | ---
 [Custom Diagnostic](../examples/diagnostics/custom_diagnostic.rs) | Shows how to create a custom diagnostic
+[Enabling/disabling diagnostic](../examples/diagnostics/enabling_disabling_diagnostic.rs) | Shows how to disable/re-enable a Diagnostic during runtime
 [Log Diagnostics](../examples/diagnostics/log_diagnostics.rs) | Add a plugin that logs diagnostics, like frames per second (FPS), to the console
 
 ## ECS (Entity Component System)
@@ -349,6 +352,12 @@ Example | Description
 Example | Description
 --- | ---
 [Run physics in a fixed timestep](../examples/movement/physics_in_fixed_timestep.rs) | Handles input, physics, and rendering in an industry-standard way by using a fixed timestep
+
+## Picking
+
+Example | Description
+--- | ---
+[Showcases simple picking events and usage](../examples/picking/simple_picking.rs) | Demonstrates how to use picking events to spawn simple objects
 
 ## Reflection
 

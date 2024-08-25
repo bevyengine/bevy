@@ -1,4 +1,4 @@
-use std::{iter, marker::PhantomData};
+use std::{iter, marker::PhantomData, mem::size_of};
 
 use crate::{
     render_resource::Buffer,
@@ -53,7 +53,7 @@ impl<T: NoUninit> RawBufferVec<T> {
             values: Vec::new(),
             buffer: None,
             capacity: 0,
-            item_size: std::mem::size_of::<T>(),
+            item_size: size_of::<T>(),
             buffer_usage,
             label: None,
             changed: false,
@@ -387,7 +387,7 @@ where
             len: 0,
             buffer: None,
             capacity: 0,
-            item_size: std::mem::size_of::<T>(),
+            item_size: size_of::<T>(),
             buffer_usage,
             label: None,
             label_changed: false,
@@ -444,7 +444,7 @@ where
         let size = self.item_size * capacity;
         self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
             label: self.label.as_deref(),
-            size: size as wgpu::BufferAddress,
+            size: size as BufferAddress,
             usage: BufferUsages::COPY_DST | self.buffer_usage,
             mapped_at_creation: false,
         }));

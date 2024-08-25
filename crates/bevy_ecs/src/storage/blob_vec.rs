@@ -437,6 +437,14 @@ impl BlobVec {
             }
         }
     }
+
+    /// Get the `drop` argument that was passed to `BlobVec::new`.
+    ///
+    /// Callers can use this if they have a type-erased pointer of the correct
+    /// type to add to this [`BlobVec`], which they just want to drop instead.
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.drop
+    }
 }
 
 impl Drop for BlobVec {
@@ -513,7 +521,7 @@ mod tests {
     use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;
-    use std::{alloc::Layout, cell::RefCell, mem, rc::Rc};
+    use std::{alloc::Layout, cell::RefCell, mem::align_of, rc::Rc};
 
     unsafe fn drop_ptr<T>(x: OwningPtr<'_>) {
         // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
@@ -714,7 +722,7 @@ mod tests {
         for zst in q.iter(&world) {
             // Ensure that the references returned are properly aligned.
             assert_eq!(
-                std::ptr::from_ref::<Zst>(zst) as usize % mem::align_of::<Zst>(),
+                std::ptr::from_ref::<Zst>(zst) as usize % align_of::<Zst>(),
                 0
             );
             count += 1;

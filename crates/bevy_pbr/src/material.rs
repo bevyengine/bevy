@@ -30,7 +30,6 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    texture::FallbackImage,
     view::{ExtractedView, Msaa, RenderVisibilityRanges, VisibleEntities, WithMesh},
 };
 use bevy_utils::tracing::error;
@@ -908,22 +907,16 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     type Param = (
         SRes<RenderDevice>,
-        SRes<RenderAssets<GpuImage>>,
-        SRes<FallbackImage>,
         SRes<MaterialPipeline<M>>,
         SRes<DefaultOpaqueRendererMethod>,
+        M::Param,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline, default_opaque_render_method): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, default_opaque_render_method, ref mut material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(
-            &pipeline.material_layout,
-            render_device,
-            images,
-            fallback_image,
-        ) {
+        match material.as_bind_group(&pipeline.material_layout, render_device, material_param) {
             Ok(prepared) => {
                 let method = match material.opaque_render_method() {
                     OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
@@ -953,6 +946,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
             }
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
         }
     }
 }

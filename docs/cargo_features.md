@@ -94,5 +94,4 @@ The default feature set enables most of the expected features of a game engine, 
 |wayland|Wayland display server support|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
-|wgpu_trace|Save a trace of all wgpu calls|
 |zlib|For KTX2 supercompression|

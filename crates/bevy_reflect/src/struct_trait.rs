@@ -1,17 +1,14 @@
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::type_info::impl_type_methods;
 use crate::{
     self as bevy_reflect, ApplyError, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypePathTable,
+    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
-use std::{
-    any::{Any, TypeId},
-    borrow::Cow,
-    slice::Iter,
-};
+use std::{borrow::Cow, slice::Iter};
 
 /// A trait used to power [struct-like] operations via [reflection].
 ///
@@ -78,8 +75,7 @@ pub trait Struct: PartialReflect {
 /// A container for compile-time named struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     fields: Box<[NamedField]>,
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
@@ -105,8 +101,7 @@ impl StructInfo {
         let field_names = fields.iter().map(NamedField::name).collect();
 
         Self {
-            type_path: TypePathTable::of::<T>(),
-            type_id: TypeId::of::<T>(),
+            ty: Type::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
             field_indices,
@@ -162,32 +157,7 @@ impl StructInfo {
         self.fields.len()
     }
 
-    /// A representation of the type path of the struct.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the struct.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the struct.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the struct type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this struct, if any.
     #[cfg(feature = "documentation")]

@@ -12,6 +12,15 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 
+/// common exports for picking interaction
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        events::*, input::InputPlugin, pointer::PointerButton, DefaultPickingPlugins,
+        InteractionPlugin, Pickable, PickingPlugin, PickingPluginsSettings,
+    };
+}
+
 /// Used to globally toggle picking features at runtime.
 #[derive(Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default)]
@@ -167,8 +176,27 @@ pub enum PickSet {
     Last,
 }
 
+/// One plugin that contains the [`input::InputPlugin`], [`PickingPlugin`] and the [`InteractionPlugin`],
+/// this is probably the plugin that will be most used.
+/// Note: for any of these plugins to work, they require a picking backend to be active,
+/// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
+/// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::Trigger`]s.
+#[derive(Default)]
+pub struct DefaultPickingPlugins;
+
+impl Plugin for DefaultPickingPlugins {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            input::InputPlugin::default(),
+            PickingPlugin,
+            InteractionPlugin,
+        ));
+    }
+}
+
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
+#[derive(Default)]
 pub struct PickingPlugin;
 
 impl Plugin for PickingPlugin {
@@ -185,11 +213,18 @@ impl Plugin for PickingPlugin {
                     pointer::update_pointer_map,
                     pointer::InputMove::receive,
                     pointer::InputPress::receive,
-                    backend::ray::RayMap::repopulate,
+                    backend::ray::RayMap::repopulate.after(pointer::InputMove::receive),
                 )
                     .in_set(PickSet::ProcessInput),
             )
-            .configure_sets(First, (PickSet::Input, PickSet::PostInput).chain())
+            .configure_sets(
+                First,
+                (PickSet::Input, PickSet::PostInput)
+                    .after(bevy_time::TimeSystem)
+                    .ambiguous_with(bevy_asset::handle_internal_asset_events)
+                    .after(bevy_ecs::event::EventUpdates)
+                    .chain(),
+            )
             .configure_sets(
                 PreUpdate,
                 (
@@ -200,6 +235,7 @@ impl Plugin for PickingPlugin {
                     // Eventually events will need to be dispatched here
                     PickSet::Last,
                 )
+                    .ambiguous_with(bevy_asset::handle_internal_asset_events)
                     .chain(),
             )
             .register_type::<pointer::PointerId>()
@@ -213,6 +249,7 @@ impl Plugin for PickingPlugin {
 }
 
 /// Generates [`Pointer`](events::Pointer) events and handles event bubbling.
+#[derive(Default)]
 pub struct InteractionPlugin;
 
 impl Plugin for InteractionPlugin {
@@ -224,6 +261,12 @@ impl Plugin for InteractionPlugin {
             .init_resource::<focus::PreviousHoverMap>()
             .init_resource::<DragMap>()
             .add_event::<PointerCancel>()
+            .add_event::<Pointer<Down>>()
+            .add_event::<Pointer<Up>>()
+            .add_event::<Pointer<Move>>()
+            .add_event::<Pointer<Over>>()
+            .add_event::<Pointer<Out>>()
+            .add_event::<Pointer<DragEnd>>()
             .add_systems(
                 PreUpdate,
                 (

@@ -69,9 +69,9 @@ struct Armor(u16);
 
 /// A normal bevy system that attacks a piece of the goblin's armor on a timer.
 fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
-    let mut rng = rand::thread_rng();
+    let mut rng = thread_rng();
     if let Some(target) = entities.iter().choose(&mut rng) {
-        let damage = thread_rng().gen_range(1..20);
+        let damage = rng.gen_range(1..20);
         commands.trigger_targets(Attack { damage }, target);
         info!("⚔️  Attack for {} damage", damage);
     }
@@ -107,7 +107,7 @@ fn take_damage(
     trigger: Trigger<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
-    mut app_exit: EventWriter<bevy::app::AppExit>,
+    mut app_exit: EventWriter<AppExit>,
 ) {
     let attack = trigger.event();
     let (mut hp, name) = hp.get_mut(trigger.entity()).unwrap();
@@ -118,7 +118,7 @@ fn take_damage(
     } else {
         warn!("💀 {} has died a gruesome death", name);
         commands.entity(trigger.entity()).despawn_recursive();
-        app_exit.send(bevy::app::AppExit::Success);
+        app_exit.send(AppExit::Success);
     }
 
     info!("(propagation reached root)\n");

@@ -1,9 +1,11 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, AssetId, Handle};
 
-use bevy_core_pipeline::core_2d::{Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT};
-use bevy_core_pipeline::tonemapping::{
-    get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+use bevy_core_pipeline::{
+    core_2d::{AlphaMask2d, Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
+    tonemapping::{
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+    },
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -113,6 +115,8 @@ impl Plugin for Mesh2dRenderPlugin {
                     Render,
                     (
                         batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
+                            .in_set(RenderSet::PrepareResources),
+                        batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
                         batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
                             .in_set(RenderSet::PrepareResources),
@@ -467,6 +471,7 @@ bitflags::bitflags! {
         const TONEMAP_IN_SHADER                 = 1 << 1;
         const DEBAND_DITHER                     = 1 << 2;
         const BLEND_ALPHA                       = 1 << 3;
+        const MAY_DISCARD                       = 1 << 4;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -609,6 +614,10 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
             }
+        }
+
+        if key.contains(Mesh2dPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".into());
         }
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
