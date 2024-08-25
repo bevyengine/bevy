@@ -69,6 +69,13 @@ pub mod prelude {
     pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
+use bevy_app::{App, Last, Plugin};
+#[cfg(feature = "fixed_update")]
+use bevy_app::{FixedFirst, FixedLast, RunFixedMainLoop};
+use bevy_asset::{Asset, AssetApp, Assets, Handle};
+use bevy_color::LinearRgba;
+#[cfg(feature = "bevy_render")]
+use bevy_ecs::component::Component;
 #[cfg(feature = "bevy_render")]
 use bevy_ecs::{
     query::ROQueryItem,
@@ -77,12 +84,6 @@ use bevy_ecs::{
         Commands, SystemParamItem,
     },
 };
-
-use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{Asset, AssetApp, Assets, Handle};
-use bevy_color::LinearRgba;
-#[cfg(feature = "bevy_render")]
-use bevy_ecs::component::Component;
 use bevy_ecs::{
     schedule::{IntoSystemConfigs, SystemSet},
     system::{Res, ResMut, Resource},

@@ -1,11 +1,14 @@
 #[cfg(feature = "fixed_update")]
 use bevy_app::FixedMain;
+#[cfg(feature = "fixed_update")]
 use bevy_ecs::world::World;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::Duration;
 
-use crate::{time::Time, virt::Virtual};
+use crate::time::Time;
+#[cfg(feature = "fixed_update")]
+use crate::virt::Virtual;
 
 /// The fixed timestep game clock following virtual time.
 ///
@@ -206,10 +209,12 @@ impl Time<Fixed> {
         self.context().overstep.as_secs_f64() / self.context().timestep.as_secs_f64()
     }
 
+    #[cfg(feature = "fixed_update")]
     fn accumulate(&mut self, delta: Duration) {
         self.context_mut().overstep += delta;
     }
 
+    #[cfg(feature = "fixed_update")]
     fn expend(&mut self) -> bool {
         let timestep = self.timestep();
         if let Some(new_value) = self.context_mut().overstep.checked_sub(timestep) {
@@ -253,6 +258,7 @@ pub(super) fn run_fixed_main_schedule(world: &mut World) {
     *world.resource_mut::<Time>() = world.resource::<Time<Virtual>>().as_generic();
 }
 
+#[cfg(feature = "fixed_update")]
 #[cfg(test)]
 mod test {
     use super::*;

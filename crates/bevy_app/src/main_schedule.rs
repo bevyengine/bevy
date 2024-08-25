@@ -291,19 +291,17 @@ impl Plugin for MainSchedulePlugin {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new(Main);
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+
+        app.add_schedule(main_schedule)
+            .init_resource::<MainScheduleOrder>()
+            .add_systems(Main, Main::run_main);
+
         #[cfg(feature = "fixed_update")]
         {
             let mut fixed_main_schedule = Schedule::new(FixedMain);
             fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
             let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
             fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-        }
-
-        app.add_schedule(main_schedule)
-            .init_resource::<MainScheduleOrder>()
-            .add_systems(Main, Main::run_main);
-        #[cfg(feature = "fixed_update")]
-        {
             app.add_schedule(fixed_main_schedule)
                 .add_schedule(fixed_main_loop_schedule)
                 .init_resource::<FixedMainScheduleOrder>()
