@@ -8,6 +8,7 @@ use bevy::{
     color::palettes::basic::LIME,
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
+    ui::UiSlicer,
     winit::WinitSettings,
 };
 
@@ -316,6 +317,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ..default()
                             },
                             UiImage::new(asset_server.load("branding/bevy_logo_dark_big.png")),
+                            UiSlicer,
                         ))
                         .with_children(|parent| {
                             // alt text

@@ -23,6 +23,7 @@ pub use ui_material_pipeline::*;
 use ui_slicer_pipeline::UiSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
+use crate::texture_slice::UiSlicer;
 use crate::{
     texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, BorderRadius,
     CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage,
@@ -303,19 +304,22 @@ pub fn extract_uinode_images(
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<(
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-            &UiImage,
-            Option<&TextureAtlas>,
-            Option<&ComputedTextureSlices>,
-            Option<&BorderRadius>,
-            Option<&Parent>,
-            &Style,
-        )>,
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+                &UiImage,
+                Option<&TextureAtlas>,
+                Option<&ComputedTextureSlices>,
+                Option<&BorderRadius>,
+                Option<&Parent>,
+                &Style,
+            ),
+            Without<UiSlicer>,
+        >,
     >,
     node_query: Extract<Query<&Node>>,
 ) {

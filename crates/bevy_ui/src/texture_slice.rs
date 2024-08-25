@@ -211,3 +211,6 @@ pub(crate) fn compute_slices_on_image_change(
         }
     }
 }
+
+#[derive(Component)]
+pub struct UiSlicer;
