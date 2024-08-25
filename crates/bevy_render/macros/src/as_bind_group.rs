@@ -42,6 +42,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
     let render_path = manifest.get_path("bevy_render");
     let asset_path = manifest.get_path("bevy_asset");
+    let ecs_path = manifest.get_path("bevy_ecs");
 
     let mut binding_states: Vec<BindingState> = Vec::new();
     let mut binding_impls = Vec::new();
@@ -62,7 +63,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 binding_impls.push(quote! {{
                     use #render_path::render_resource::AsBindGroupShaderType;
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
-                    let converted: #converted_shader_type = self.as_bind_group_shader_type(images);
+                    let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
                     buffer.write(&converted).unwrap();
                     (
                         #binding_index,
@@ -523,6 +524,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
         impl #impl_generics #render_path::render_resource::AsBindGroup for #struct_name #ty_generics #where_clause {
             type Data = #prepared_data;
 
+            type Param = (
+                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>>,
+                #ecs_path::system::lifetimeless::SRes<#render_path::texture::FallbackImage>,
+            );
+
             fn label() -> Option<&'static str> {
                 Some(#struct_name_literal)
             }
@@ -531,8 +537,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
-                images: &#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>,
-                fallback_image: &#render_path::texture::FallbackImage,
+                (images, fallback_image): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
             ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 
