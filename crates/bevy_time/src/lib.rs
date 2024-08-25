@@ -29,10 +29,12 @@ pub mod prelude {
     pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
-use bevy_app::{prelude::*, RunFixedMainLoop};
-use bevy_ecs::event::{
-    event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents,
-};
+use bevy_app::prelude::*;
+#[cfg(feature = "fixed_update")]
+use bevy_app::RunFixedMainLoop;
+#[cfg(feature = "fixed_update")]
+use bevy_ecs::event::signal_event_update_system;
+use bevy_ecs::event::{event_update_system, EventRegistry, ShouldUpdateEvents};
 use bevy_ecs::prelude::*;
 use bevy_utils::{tracing::warn, Duration, Instant};
 pub use crossbeam_channel::TrySendError;
@@ -69,14 +71,17 @@ impl Plugin for TimePlugin {
             time_system
                 .in_set(TimeSystem)
                 .ambiguous_with(event_update_system),
-        )
-        .add_systems(
-            RunFixedMainLoop,
-            run_fixed_main_schedule.in_set(RunFixedMainLoopSystem::FixedMainLoop),
         );
+        #[cfg(feature = "fixed_update")]
+        {
+            app.add_systems(
+                RunFixedMainLoop,
+                run_fixed_main_schedule.in_set(RunFixedMainLoopSystem::FixedMainLoop),
+            );
+            // Ensure the events are not dropped until `FixedMain` systems can observe them
+            app.add_systems(FixedPostUpdate, signal_event_update_system);
+        }
 
-        // Ensure the events are not dropped until `FixedMain` systems can observe them
-        app.add_systems(FixedPostUpdate, signal_event_update_system);
         let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
         // We need to start in a waiting state so that the events are not updated until the first fixed update
         event_registry.should_update = ShouldUpdateEvents::Waiting;
@@ -155,7 +160,9 @@ pub fn time_system(
 #[cfg(test)]
 mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
-    use bevy_app::{App, FixedUpdate, Startup, Update};
+    #[cfg(feature = "fixed_update")]
+    use bevy_app::FixedUpdate;
+    use bevy_app::{App, Startup, Update};
     use bevy_ecs::{
         event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
         system::{Local, Res, ResMut, Resource},
@@ -182,6 +189,7 @@ mod tests {
     #[derive(Resource, Default)]
     struct FixedUpdateCounter(u8);
 
+    #[cfg(feature = "fixed_update")]
     fn count_fixed_updates(mut counter: ResMut<FixedUpdateCounter>) {
         counter.0 += 1;
     }
@@ -214,8 +222,10 @@ mod tests {
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
         let mut app = App::new();
+        #[cfg(feature = "fixed_update")]
+        app.add_systems(FixedUpdate, count_fixed_updates);
+
         app.add_plugins(TimePlugin)
-            .add_systems(FixedUpdate, count_fixed_updates)
             .add_systems(Update, report_time)
             .init_resource::<FixedUpdateCounter>()
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
@@ -315,11 +325,13 @@ mod tests {
         }
 
         let mut app = App::new();
+        #[cfg(feature = "fixed_update")]
+        app.add_systems(FixedUpdate, count_fixed_updates);
+
         app.add_plugins(TimePlugin)
             .add_event::<DummyEvent>()
             .init_resource::<FixedUpdateCounter>()
             .add_systems(Startup, send_event)
-            .add_systems(FixedUpdate, count_fixed_updates)
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
         for frame in 0..10 {

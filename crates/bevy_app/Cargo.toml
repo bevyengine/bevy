@@ -18,6 +18,7 @@ reflect_functions = [
   "bevy_reflect/functions",
   "bevy_ecs/reflect_functions",
 ]
+fixed_update = []
 
 [dependencies]
 # bevy

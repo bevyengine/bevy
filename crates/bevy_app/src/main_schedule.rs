@@ -1,13 +1,11 @@
 use crate::{App, Plugin};
+#[cfg(feature = "fixed_update")]
+use bevy_ecs::schedule::IntoSystemSetConfigs;
 use bevy_ecs::{
-    schedule::{
-        ExecutorKind, InternedScheduleLabel, IntoSystemSetConfigs, Schedule, ScheduleLabel,
-        SystemSet,
-    },
+    schedule::{ExecutorKind, InternedScheduleLabel, Schedule, ScheduleLabel, SystemSet},
     system::{Local, Resource},
     world::{Mut, World},
 };
-
 /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
 ///
 /// By default, it will run the following schedules in the given order:
@@ -85,6 +83,7 @@ pub struct PreUpdate;
 /// [`RunFixedMainLoop`] will *not* be parallelized between each other.
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
+#[cfg(feature = "fixed_update")]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RunFixedMainLoop;
 
@@ -92,6 +91,7 @@ pub struct RunFixedMainLoop;
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
+#[cfg(feature = "fixed_update")]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedFirst;
 
@@ -99,6 +99,7 @@ pub struct FixedFirst;
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
+#[cfg(feature = "fixed_update")]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedPreUpdate;
 
@@ -114,6 +115,7 @@ pub struct FixedPreUpdate;
 /// See the [`Update`] schedule for examples of systems that *should not* use this schedule.
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
+#[cfg(feature = "fixed_update")]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedUpdate;
 
@@ -122,6 +124,7 @@ pub struct FixedUpdate;
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
+#[cfg(feature = "fixed_update")]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedPostUpdate;
 
@@ -129,6 +132,7 @@ pub struct FixedPostUpdate;
 ///
 /// See the [`FixedMain`] schedule for details on how fixed updates work.
 /// See the [`Main`] schedule for some details about how schedules are run.
+#[cfg(feature = "fixed_update")]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedLast;
 
@@ -141,6 +145,7 @@ pub struct FixedLast;
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
 ///
 /// See the [`Main`] schedule for some details about how schedules are run.
+#[cfg(feature = "fixed_update")]
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FixedMain;
 
@@ -196,6 +201,7 @@ impl Default for MainScheduleOrder {
             labels: vec![
                 First.intern(),
                 PreUpdate.intern(),
+                #[cfg(feature = "fixed_update")]
                 RunFixedMainLoop.intern(),
                 Update.intern(),
                 SpawnScene.intern(),
@@ -285,28 +291,33 @@ impl Plugin for MainSchedulePlugin {
         // simple "facilitator" schedules benefit from simpler single threaded scheduling
         let mut main_schedule = Schedule::new(Main);
         main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-        let mut fixed_main_schedule = Schedule::new(FixedMain);
-        fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
-        let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
-        fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        #[cfg(feature = "fixed_update")]
+        {
+            let mut fixed_main_schedule = Schedule::new(FixedMain);
+            fixed_main_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+            let mut fixed_main_loop_schedule = Schedule::new(RunFixedMainLoop);
+            fixed_main_loop_schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        }
 
         app.add_schedule(main_schedule)
-            .add_schedule(fixed_main_schedule)
-            .add_schedule(fixed_main_loop_schedule)
             .init_resource::<MainScheduleOrder>()
-            .init_resource::<FixedMainScheduleOrder>()
-            .add_systems(Main, Main::run_main)
-            .add_systems(FixedMain, FixedMain::run_fixed_main)
-            .configure_sets(
-                RunFixedMainLoop,
-                (
-                    RunFixedMainLoopSystem::BeforeFixedMainLoop,
-                    RunFixedMainLoopSystem::FixedMainLoop,
-                    RunFixedMainLoopSystem::AfterFixedMainLoop,
-                )
-                    .chain(),
-            );
-
+            .add_systems(Main, Main::run_main);
+        #[cfg(feature = "fixed_update")]
+        {
+            app.add_schedule(fixed_main_schedule)
+                .add_schedule(fixed_main_loop_schedule)
+                .init_resource::<FixedMainScheduleOrder>()
+                .add_systems(FixedMain, FixedMain::run_fixed_main)
+                .configure_sets(
+                    RunFixedMainLoop,
+                    (
+                        RunFixedMainLoopSystem::BeforeFixedMainLoop,
+                        RunFixedMainLoopSystem::FixedMainLoop,
+                        RunFixedMainLoopSystem::AfterFixedMainLoop,
+                    )
+                        .chain(),
+                );
+        }
         #[cfg(feature = "bevy_debug_stepping")]
         {
             use bevy_ecs::schedule::{IntoSystemConfigs, Stepping};
@@ -317,12 +328,14 @@ impl Plugin for MainSchedulePlugin {
 
 /// Defines the schedules to be run for the [`FixedMain`] schedule, including
 /// their order.
+#[cfg(feature = "fixed_update")]
 #[derive(Resource, Debug)]
 pub struct FixedMainScheduleOrder {
     /// The labels to run for the [`FixedMain`] schedule (in the order they will be run).
     pub labels: Vec<InternedScheduleLabel>,
 }
 
+#[cfg(feature = "fixed_update")]
 impl Default for FixedMainScheduleOrder {
     fn default() -> Self {
         Self {
@@ -337,6 +350,7 @@ impl Default for FixedMainScheduleOrder {
     }
 }
 
+#[cfg(feature = "fixed_update")]
 impl FixedMainScheduleOrder {
     /// Adds the given `schedule` after the `after` schedule
     pub fn insert_after(&mut self, after: impl ScheduleLabel, schedule: impl ScheduleLabel) {
@@ -359,6 +373,7 @@ impl FixedMainScheduleOrder {
     }
 }
 
+#[cfg(feature = "fixed_update")]
 impl FixedMain {
     /// A system that runs the fixed timestep's "main schedule"
     pub fn run_fixed_main(world: &mut World) {

@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 default = ["bevy_reflect"]
 serialize = ["serde"]
+fixed_update = ["bevy_app/fixed_update"]
 
 [dependencies]
 # bevy

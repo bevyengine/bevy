@@ -29,12 +29,15 @@ pub use terminal_ctrl_c_handler::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
+    #[cfg(feature = "fixed_update")]
+    pub use crate::main_schedule::{
+        FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, RunFixedMainLoop,
+    };
     #[doc(hidden)]
     pub use crate::{
         app::{App, AppExit},
         main_schedule::{
-            First, FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, Last, Main,
-            PostStartup, PostUpdate, PreStartup, PreUpdate, RunFixedMainLoop,
+            First, Last, Main, PostStartup, PostUpdate, PreStartup, PreUpdate,
             RunFixedMainLoopSystem, SpawnScene, Startup, Update,
         },
         sub_app::SubApp,
