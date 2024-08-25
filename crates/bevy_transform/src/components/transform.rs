@@ -387,13 +387,13 @@ impl Transform {
     #[inline]
     pub fn flip(&mut self, dir: Dir3) {
         if dir.x != 0.0 {
-            self.scale.x *= -1.0
+            self.scale.x *= -1.0;
         }
         if dir.y != 0.0 {
-            self.scale.y *= -1.0
+            self.scale.y *= -1.0;
         }
         if dir.z != 0.0 {
-            self.scale.z *= -1.0
+            self.scale.z *= -1.0;
         }
     }
 
