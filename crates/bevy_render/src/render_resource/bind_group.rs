@@ -103,7 +103,7 @@ impl Deref for BindGroup {
 /// @group(2) @binding(2) var color_sampler: sampler;
 /// @group(2) @binding(3) var<storage> storage_buffer: array<f32>;
 /// @group(2) @binding(4) var<storage> raw_buffer: array<f32>;
-/// @group(2) @binding(4) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
+/// @group(2) @binding(5) var storage_texture: texture_storage_2d<rgba8unorm, read_write>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 2.
