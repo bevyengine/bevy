@@ -669,11 +669,24 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
         };
 
         let instances = {
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(..));
+            let item_size = VertexFormat::Float32x3.size();
+            // position_a
+            let buffer_size_a = line_gizmo.position_buffer.size() - item_size * 2;
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size_a));
+            // position_b
+            let buffer_size_b = line_gizmo.position_buffer.size() - item_size;
+            pass.set_vertex_buffer(
+                1,
+                line_gizmo.position_buffer.slice(item_size..buffer_size_b),
+            );
+            // position_c
+            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(item_size * 2..));
 
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(..));
+            // color
+            let item_size = VertexFormat::Float32x4.size();
+            let buffer_size = line_gizmo.color_buffer.size() - item_size;
+            // This corresponds to the color of position_b, hence starts from `item_size`
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..buffer_size));
 
             u32::max(line_gizmo.vertex_count, 2) - 2
         };
@@ -770,7 +783,7 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         step_mode: VertexStepMode::Instance,
         attributes: vec![VertexAttribute {
             format: Float32x4,
-            offset: Float32x4.size(),
+            offset: 0,
             shader_location: 3,
         }],
     };
@@ -779,12 +792,10 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         position_layout.clone(),
         {
             position_layout.attributes[0].shader_location = 1;
-            position_layout.attributes[0].offset = Float32x3.size();
             position_layout.clone()
         },
         {
             position_layout.attributes[0].shader_location = 2;
-            position_layout.attributes[0].offset = 2 * Float32x3.size();
             position_layout
         },
         color_layout.clone(),

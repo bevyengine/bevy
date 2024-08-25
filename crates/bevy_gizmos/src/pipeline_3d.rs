@@ -53,7 +53,9 @@ impl Plugin for LineGizmo3dPlugin {
             )
             .add_systems(
                 Render,
+                // FIXME: added `chain()` to workaround vertex buffer being not updated when sliced size changed
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
+                    .chain()
                     .in_set(GizmoRenderSystem::QueueLineGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
