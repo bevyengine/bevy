@@ -1073,7 +1073,44 @@ pub mod common_conditions {
     }
 
     /// Generates a [`Condition`](super::Condition) that returns true when the passed one changes.
+    ///
     /// The first time this is called, the passed condition is assumed to have been previously false.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(condition_changed(resource_exists::<MyResource>)),
+    /// );
+    ///
+    /// #[derive(Resource)]
+    /// struct MyResource;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `MyResource` is initially there, the inner condition is true, the system runs once
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We remove `MyResource`, the inner condition is now false, the system runs one more time.
+    /// world.remove_resource::<MyResource>();
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    ///
+    /// ```
     pub fn condition_changed<Marker, CIn, C: Condition<Marker, CIn>>(
         condition: C,
     ) -> impl Condition<(), CIn> {
@@ -1086,7 +1123,49 @@ pub mod common_conditions {
 
     /// Generates a [`Condition`](super::Condition) that returns true when the result of
     /// the passed one went from false to true since the last time this was called.
+    ///
     /// The first time this is called, the passed condition is assumed to have been previously false.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, Default)]
+    /// # struct Counter(u8);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # world.init_resource::<Counter>();
+    /// app.add_systems(
+    ///     my_system.run_if(condition_became_true(resource_exists::<MyResource>)),
+    /// );
+    ///
+    /// #[derive(Resource)]
+    /// struct MyResource;
+    ///
+    /// fn my_system(mut counter: ResMut<Counter>) {
+    ///     counter.0 += 1;
+    /// }
+    ///
+    /// // `MyResource` is initially there, the inner condition is true, the system runs once
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We remove `MyResource`, the inner condition is now false, the system doesn't run.
+    /// world.remove_resource::<MyResource>();
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // We reinsert `MyResource` again, so the system will run one more time
+    /// world.insert_resource(MyResource);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    /// app.run(&mut world);
+    /// assert_eq!(world.resource::<Counter>().0, 2);
+    ///
+    /// ```
     pub fn condition_became_true<Marker, CIn, C: Condition<Marker, CIn>>(
         condition: C,
     ) -> impl Condition<(), CIn> {
@@ -1275,7 +1354,7 @@ mod tests {
     use bevy_ecs_macros::Event;
     use bevy_ecs_macros::Resource;
 
-    #[derive(Resource, PartialEq, Default)]
+    #[derive(Resource, Default)]
     struct Counter(usize);
 
     fn increment_counter(mut counter: ResMut<Counter>) {
@@ -1411,30 +1490,5 @@ mod tests {
                 .distributive_run_if(any_with_component::<TestComponent>)
                 .distributive_run_if(not(run_once)),
         );
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn run_condition_result_changed() {
-        let mut world = World::new();
-        world.init_resource::<Counter>();
-        let mut schedule = Schedule::default();
-
-        schedule.add_systems(
-            (
-                // Run every time
-                increment_counter.run_if(condition_changed(every_other_time)),
-                // Run when the counter reaches 2
-                double_counter.run_if(condition_became_true(resource_equals(Counter(2)))),
-            )
-                .chain(),
-        );
-
-        schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 1);
-        schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 4);
-        schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 5);
     }
 }
