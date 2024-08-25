@@ -529,7 +529,10 @@ impl ActiveAnimation {
     }
 }
 
-/// Animation controls
+/// Animation controls.
+///
+/// Automatically added to any root animations of a `SceneBundle` when it is
+/// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
