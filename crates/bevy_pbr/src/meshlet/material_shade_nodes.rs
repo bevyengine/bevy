@@ -202,7 +202,6 @@ impl ViewNode for MeshletPrepassNode {
             // Use None in place of Deferred attachments
             None,
             None,
-            None,
         ];
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -327,10 +326,6 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
                 .deferred
                 .as_ref()
                 .map(|deferred_texture| deferred_texture.get_attachment()),
-            view_prepass_textures
-                .deferred_extended
-                .as_ref()
-                .map(|deferred_extended_texture| deferred_extended_texture.get_attachment()),
             view_prepass_textures
                 .deferred_lighting_pass_id
                 .as_ref()
