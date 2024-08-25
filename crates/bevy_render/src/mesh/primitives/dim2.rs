@@ -1013,7 +1013,7 @@ mod tests {
     fn count_distinct_positions(points: &[[f32; 3]]) -> usize {
         let mut map = HashSet::new();
         for point in points {
-            map.insert(point.map(|f| FloatOrd(f)));
+            map.insert(point.map(FloatOrd));
         }
         map.len()
     }
