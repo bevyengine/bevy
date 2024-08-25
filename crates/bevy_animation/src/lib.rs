@@ -442,8 +442,9 @@ impl ActiveAnimation {
     }
 
     /// Sets the weight of this animation.
-    pub fn set_weight(&mut self, weight: f32) {
+    pub fn set_weight(&mut self, weight: f32) -> &mut Self {
         self.weight = weight;
+        self
     }
 
     /// Pause the animation.
