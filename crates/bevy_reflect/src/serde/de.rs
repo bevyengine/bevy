@@ -730,7 +730,7 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
     {
         let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or_default());
         let registration = get_registration(
-            self.array_info.item_ty().type_id(),
+            self.array_info.item_ty().id(),
             self.array_info.item_ty().path(),
             self.registry,
         )?;
@@ -770,7 +770,7 @@ impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
     {
         let mut list = DynamicList::default();
         let registration = get_registration(
-            self.list_info.item_ty().type_id(),
+            self.list_info.item_ty().id(),
             self.list_info.item_ty().path(),
             self.registry,
         )?;
@@ -802,12 +802,12 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
     {
         let mut dynamic_map = DynamicMap::default();
         let key_registration = get_registration(
-            self.map_info.key_ty().type_id(),
+            self.map_info.key_ty().id(),
             self.map_info.key_ty().path(),
             self.registry,
         )?;
         let value_registration = get_registration(
-            self.map_info.value_ty().type_id(),
+            self.map_info.value_ty().id(),
             self.map_info.value_ty().path(),
             self.registry,
         )?;
@@ -844,7 +844,7 @@ impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
     {
         let mut dynamic_set = DynamicSet::default();
         let value_registration = get_registration(
-            self.set_info.value_ty().type_id(),
+            self.set_info.value_ty().id(),
             self.set_info.value_ty().path(),
             self.registry,
         )?;

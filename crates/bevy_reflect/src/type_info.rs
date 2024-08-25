@@ -199,7 +199,7 @@ impl TypeInfo {
 
     /// The [`TypeId`] of the underlying type.
     pub fn type_id(&self) -> TypeId {
-        self.ty().type_id()
+        self.ty().id()
     }
 
     /// A representation of the type path of the underlying type.
@@ -350,7 +350,7 @@ impl Type {
     }
 
     /// Returns the [`TypeId`] of the type.
-    pub fn type_id(&self) -> TypeId {
+    pub fn id(&self) -> TypeId {
         self.type_id
     }
 
@@ -399,7 +399,7 @@ impl Type {
 /// This implementation will only output the [type path] of the type.
 ///
 /// If you need to include the [`TypeId`] in the output,
-/// you can access it through [`Type::type_id`].
+/// you can access it through [`Type::id`].
 ///
 /// [type path]: TypePath
 impl Debug for Type {
@@ -445,7 +445,7 @@ macro_rules! impl_type_methods {
         ///
         /// [`TypeId`]: std::any::TypeId
         pub fn type_id(&self) -> ::std::any::TypeId {
-            self.$field.type_id()
+            self.$field.id()
         }
 
         /// The [stable, full type path] of this type.
