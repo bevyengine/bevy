@@ -27,7 +27,7 @@ struct DrawState {
 
 impl DrawState {
     /// Marks the `pipeline` as bound.
-    pub fn set_pipeline(&mut self, pipeline: RenderPipelineId) {
+    fn set_pipeline(&mut self, pipeline: RenderPipelineId) {
         // TODO: do these need to be cleared?
         // self.bind_groups.clear();
         // self.vertex_buffers.clear();
@@ -36,12 +36,12 @@ impl DrawState {
     }
 
     /// Checks, whether the `pipeline` is already bound.
-    pub fn is_pipeline_set(&self, pipeline: RenderPipelineId) -> bool {
+    fn is_pipeline_set(&self, pipeline: RenderPipelineId) -> bool {
         self.pipeline == Some(pipeline)
     }
 
     /// Marks the `bind_group` as bound to the `index`.
-    pub fn set_bind_group(
+    fn set_bind_group(
         &mut self,
         index: usize,
         bind_group: BindGroupId,
@@ -54,7 +54,7 @@ impl DrawState {
     }
 
     /// Checks, whether the `bind_group` is already bound to the `index`.
-    pub fn is_bind_group_set(
+    fn is_bind_group_set(
         &self,
         index: usize,
         bind_group: BindGroupId,
@@ -68,12 +68,12 @@ impl DrawState {
     }
 
     /// Marks the vertex `buffer` as bound to the `index`.
-    pub fn set_vertex_buffer(&mut self, index: usize, buffer: BufferId, offset: u64) {
+    fn set_vertex_buffer(&mut self, index: usize, buffer: BufferId, offset: u64) {
         self.vertex_buffers[index] = Some((buffer, offset));
     }
 
     /// Checks, whether the vertex `buffer` is already bound to the `index`.
-    pub fn is_vertex_buffer_set(&self, index: usize, buffer: BufferId, offset: u64) -> bool {
+    fn is_vertex_buffer_set(&self, index: usize, buffer: BufferId, offset: u64) -> bool {
         if let Some(current) = self.vertex_buffers.get(index) {
             *current == Some((buffer, offset))
         } else {
@@ -82,12 +82,12 @@ impl DrawState {
     }
 
     /// Marks the index `buffer` as bound.
-    pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
+    fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
         self.index_buffer = Some((buffer, offset, index_format));
     }
 
     /// Checks, whether the index `buffer` is already bound.
-    pub fn is_index_buffer_set(
+    fn is_index_buffer_set(
         &self,
         buffer: BufferId,
         offset: u64,
