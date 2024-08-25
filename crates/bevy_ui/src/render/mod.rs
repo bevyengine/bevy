@@ -234,7 +234,7 @@ pub fn extract_uinode_background_colors(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(bevy_render::camera::Camera::logical_viewport_size)
+            .and_then(Camera::logical_viewport_size)
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -351,7 +351,7 @@ pub fn extract_uinode_images(
         let ui_logical_viewport_size = camera_query
         .get(camera_entity)
         .ok()
-        .and_then(bevy_render::camera::Camera::logical_viewport_size)
+        .and_then(Camera::logical_viewport_size)
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -557,7 +557,7 @@ pub fn extract_uinode_borders(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(bevy_render::camera::Camera::logical_viewport_size)
+            .and_then(Camera::logical_viewport_size)
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -848,7 +848,7 @@ pub fn extract_uinode_text(
         let scale_factor = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(bevy_render::camera::Camera::target_scaling_factor)
+            .and_then(Camera::target_scaling_factor)
             .unwrap_or(1.0)
             * ui_scale.0;
         let inverse_scale_factor = scale_factor.recip();

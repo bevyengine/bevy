@@ -90,7 +90,7 @@ pub(crate) fn despawn_fly_entity(
 ) {
     let query = state.get(world);
 
-    query.iter().for_each(|e| local.push(e));
+    local.extend(query.iter());
 
     // ensure next frame allocation keeps order
     local.sort_unstable_by_key(|e| e.index());

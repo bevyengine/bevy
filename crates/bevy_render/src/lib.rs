@@ -478,7 +478,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-                World::clear_entities.in_set(RenderSet::PostCleanup),
+                despawn_fly_entity.in_set(RenderSet::PostCleanup),
             ),
         );
 
