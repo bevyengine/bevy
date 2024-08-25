@@ -3,8 +3,7 @@ use crate::{
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
-    storage::GpuStorageBuffer,
-    texture::{FallbackImage, GpuImage},
+    texture::GpuImage,
 };
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
