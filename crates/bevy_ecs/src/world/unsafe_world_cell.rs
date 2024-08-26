@@ -961,9 +961,12 @@ impl<'w> UnsafeWorldCell<'w> {
         location: EntityLocation,
         component_id: ComponentId,
     ) -> Option<&'w Column> {
-        // SAFETY: caller ensures returned data is not misused and we have not created any borrows
-        // of component/resource data
-        unsafe { self.storages() }.tables[location.table_id].get_column(component_id)
+        let column_index = self.archetypes().component_index().get_column_index(component_id, location.archetype_id);
+        column_index.and_then(|index| {
+            // SAFETY: caller ensures returned data is not misused and we have not created any borrows
+            // of component/resource data
+            unsafe { self.storages() }.tables[location.table_id].get_column(index)
+        })
     }
 
     #[inline]

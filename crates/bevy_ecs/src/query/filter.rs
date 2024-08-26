@@ -171,7 +171,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
+    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _archetype_id: ArchetypeId, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -281,7 +281,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
+    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _archetype_id: ArchetypeId, _table: &Table) {}
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -650,6 +650,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
+            component_index: world.archetypes().component_index(),
             table_ticks: None,
             sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
@@ -868,6 +869,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
+            component_index: world.archetypes().component_index(),
             table_ticks: None,
             sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),

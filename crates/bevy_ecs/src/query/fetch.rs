@@ -1918,8 +1918,8 @@ macro_rules! impl_anytuple_fetch {
 
             #[inline]
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
-                let index = world.archetypes().component_index();
+            unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
+                let index = _world.archetypes().component_index();
                 let ($($name,)*) = state;
                  // SAFETY: The invariants are uphold by the caller.
                 (index, ($(( unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) }, false),)*))

@@ -737,6 +737,11 @@ pub struct ComponentIndex {
 }
 
 impl ComponentIndex {
+
+    pub(crate) fn get(&self, component_id: &ComponentId) -> Option<&HashMap<ArchetypeId, ArchetypeRecord>> {
+        self.index.get(component_id)
+    }
+
     /// Retrieve the [`Column`] index for the [`ComponentId`] in the [`Table`] corresponding to the [`ArchetypeId`]
     ///
     /// [`Column`]: crate::storage::Column
