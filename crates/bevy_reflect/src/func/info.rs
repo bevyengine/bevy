@@ -3,7 +3,8 @@ use alloc::borrow::Cow;
 use bevy_utils::all_tuples;
 
 use crate::func::args::{ArgInfo, GetOwnership, Ownership};
-use crate::TypePath;
+use crate::type_info::impl_type_methods;
+use crate::{Type, TypePath};
 
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
@@ -140,7 +141,7 @@ impl FunctionInfo {
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
-    type_path: &'static str,
+    ty: Type,
     ownership: Ownership,
 }
 
@@ -148,17 +149,14 @@ impl ReturnInfo {
     /// Create a new [`ReturnInfo`] representing the given type, `T`.
     pub fn new<T: TypePath + GetOwnership>() -> Self {
         Self {
-            type_path: T::type_path(),
+            ty: Type::of::<T>(),
             ownership: T::ownership(),
         }
     }
 
-    /// The type path of the return type.
-    pub fn type_path(&self) -> &'static str {
-        self.type_path
-    }
+    impl_type_methods!(ty);
 
-    /// The ownership of the return type.
+    /// The ownership of this type.
     pub fn ownership(&self) -> Ownership {
         self.ownership
     }

@@ -24,7 +24,6 @@ trace = [
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
-wgpu_trace = ["bevy_render/wgpu_trace"]
 detailed_trace = ["bevy_utils/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]

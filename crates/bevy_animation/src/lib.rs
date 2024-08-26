@@ -442,8 +442,9 @@ impl ActiveAnimation {
     }
 
     /// Sets the weight of this animation.
-    pub fn set_weight(&mut self, weight: f32) {
+    pub fn set_weight(&mut self, weight: f32) -> &mut Self {
         self.weight = weight;
+        self
     }
 
     /// Pause the animation.
@@ -528,7 +529,10 @@ impl ActiveAnimation {
     }
 }
 
-/// Animation controls
+/// Animation controls.
+///
+/// Automatically added to any root animations of a `SceneBundle` when it is
+/// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
