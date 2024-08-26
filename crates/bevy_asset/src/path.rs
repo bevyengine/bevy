@@ -218,7 +218,7 @@ impl<'a> AssetPath<'a> {
         Ok((source, path, label))
     }
 
-    /// Creates a new [`AssetPath`] from a [`Path`].
+    /// Creates a new [`AssetPath`] from a [`Path`]. If you need an AssetPath<'static>, try [`From<PathBuf>`]
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
         AssetPath {

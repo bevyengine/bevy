@@ -3,11 +3,15 @@ use crate::{
     loader_builders::NestedLoader,
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
+    transformer::TransformedAsset,
     Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
     UntypedHandle,
 };
 use bevy_ecs::world::World;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap, HashSet};
+use bevy_utils::{
+    hashbrown::{HashMap, HashSet},
+    BoxedFuture, ConditionalSendFuture, CowArc,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
@@ -210,6 +214,18 @@ impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
             loader_dependencies: asset.loader_dependencies,
             labeled_assets: asset.labeled_assets,
             meta: asset.meta,
+        }
+    }
+}
+
+impl<A: Asset> From<TransformedAsset<A>> for ErasedLoadedAsset {
+    fn from(asset: TransformedAsset<A>) -> Self {
+        ErasedLoadedAsset {
+            value: Box::new(asset.value),
+            dependencies: HashSet::new(),
+            loader_dependencies: HashMap::new(),
+            labeled_assets: asset.labeled_assets,
+            meta: None,
         }
     }
 }
