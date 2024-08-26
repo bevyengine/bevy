@@ -1526,7 +1526,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                             let id = storage_id.table_id;
                             let table = world.storages().tables.get(id).debug_checked_unwrap();
                             self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_table_range(accum, &mut func, storage_id.archetype_id, table, batch);
+                                .fold_over_table_range(
+                                    accum,
+                                    &mut func,
+                                    storage_id.archetype_id,
+                                    table,
+                                    batch,
+                                );
                         } else {
                             let id = storage_id.archetype_id;
                             let archetype = world.archetypes().get(id).debug_checked_unwrap();
