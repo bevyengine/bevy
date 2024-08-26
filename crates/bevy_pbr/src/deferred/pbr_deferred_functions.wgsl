@@ -54,24 +54,21 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
         base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
     }
 
-#ifdef LIGHTMAP
-    if (any(in.lightmap_light > vec3(0.0f))) {
-        // Utilize the emissive channel to transmit the lightmap data. To ensure
-        // it matches the output in forward shading, pre-multiply it with the 
-        // calculated diffuse color.
-        let base_color = in.material.base_color.rgb;
-        let metallic = in.material.metallic;
-        let specular_transmission = in.material.specular_transmission;
-        let diffuse_transmission = in.material.diffuse_transmission;
-        let diffuse_color = pbr_functions::calculate_diffuse_color(
-            base_color,
-            metallic,
-            specular_transmission,
-            diffuse_transmission
-        );
-        emissive = in.lightmap_light * diffuse_color;
-    }
-#endif
+    // Utilize the emissive channel to transmit the lightmap data. To ensure
+    // it matches the output in forward shading, pre-multiply it with the 
+    // calculated diffuse color.
+    let base_color = in.material.base_color.rgb;
+    let metallic = in.material.metallic;
+    let specular_transmission = in.material.specular_transmission;
+    let diffuse_transmission = in.material.diffuse_transmission;
+    let diffuse_color = pbr_functions::calculate_diffuse_color(
+        base_color,
+        metallic,
+        specular_transmission,
+        diffuse_transmission
+    );
+    emissive += in.lightmap_light * diffuse_color;
+
     let deferred = vec4(
         deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
         rgb9e5::vec3_to_rgb9e5_(emissive),
