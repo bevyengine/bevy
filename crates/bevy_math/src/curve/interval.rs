@@ -65,6 +65,12 @@ impl Interval {
         }
     }
 
+    /// The unit interval covering the range between `0.0` and `1.0`.
+    pub const UNIT: Self = Self {
+        start: 0.0,
+        end: 1.0,
+    };
+
     /// An interval which stretches across the entire real line from negative infinity to infinity.
     pub const EVERYWHERE: Self = Self {
         start: f32::NEG_INFINITY,
@@ -255,16 +261,12 @@ mod tests {
         let ivl5 = interval(f32::NEG_INFINITY, 0.0).unwrap();
         let ivl6 = Interval::EVERYWHERE;
 
-        assert!(ivl1
-            .intersect(ivl2)
-            .is_ok_and(|ivl| ivl == interval(0.0, 1.0).unwrap()));
+        assert!(ivl1.intersect(ivl2).is_ok_and(|ivl| ivl == Interval::UNIT));
         assert!(ivl1
             .intersect(ivl3)
             .is_ok_and(|ivl| ivl == interval(-1.0, 0.0).unwrap()));
         assert!(ivl2.intersect(ivl3).is_err());
-        assert!(ivl1
-            .intersect(ivl4)
-            .is_ok_and(|ivl| ivl == interval(0.0, 1.0).unwrap()));
+        assert!(ivl1.intersect(ivl4).is_ok_and(|ivl| ivl == Interval::UNIT));
         assert!(ivl1
             .intersect(ivl5)
             .is_ok_and(|ivl| ivl == interval(-1.0, 0.0).unwrap()));
@@ -276,7 +278,7 @@ mod tests {
 
     #[test]
     fn containment() {
-        let ivl = interval(0.0, 1.0).unwrap();
+        let ivl = Interval::UNIT;
         assert!(ivl.contains(0.0));
         assert!(ivl.contains(1.0));
         assert!(ivl.contains(0.5));
@@ -295,7 +297,7 @@ mod tests {
 
     #[test]
     fn interval_containment() {
-        let ivl = interval(0.0, 1.0).unwrap();
+        let ivl = Interval::UNIT;
         assert!(ivl.contains_interval(interval(-0.0, 0.5).unwrap()));
         assert!(ivl.contains_interval(interval(0.5, 1.0).unwrap()));
         assert!(ivl.contains_interval(interval(0.25, 0.75).unwrap()));
@@ -323,18 +325,18 @@ mod tests {
     #[test]
     fn linear_maps() {
         let ivl1 = interval(-3.0, 5.0).unwrap();
-        let ivl2 = interval(0.0, 1.0).unwrap();
+        let ivl2 = Interval::UNIT;
         let map = ivl1.linear_map_to(ivl2);
         assert!(map.is_ok_and(|f| f(-3.0).abs_diff_eq(&0.0, f32::EPSILON)
             && f(5.0).abs_diff_eq(&1.0, f32::EPSILON)
             && f(1.0).abs_diff_eq(&0.5, f32::EPSILON)));
 
-        let ivl1 = interval(0.0, 1.0).unwrap();
+        let ivl1 = Interval::UNIT;
         let ivl2 = Interval::EVERYWHERE;
         assert!(ivl1.linear_map_to(ivl2).is_err());
 
         let ivl1 = interval(f32::NEG_INFINITY, -4.0).unwrap();
-        let ivl2 = interval(0.0, 1.0).unwrap();
+        let ivl2 = Interval::UNIT;
         assert!(ivl1.linear_map_to(ivl2).is_err());
     }
 
