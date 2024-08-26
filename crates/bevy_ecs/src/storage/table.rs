@@ -801,8 +801,8 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
-        self.columns.get(component_id)
+    pub fn get_column(&self, column_index: usize) -> Option<&Column> {
+        self.columns.get(column_index)
     }
 
     /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
@@ -812,8 +812,8 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
-        self.columns.get_mut(component_id)
+    pub(crate) fn get_column_mut(&mut self, column_index: usize) -> Option<&mut Column> {
+        self.columns.get_mut(column_index)
     }
 
     /// Checks if the table contains a [`Column`] for a given [`Component`].
@@ -822,8 +822,8 @@ impl Table {
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn has_column(&self, component_id: ComponentId) -> bool {
-        self.columns.contains(component_id)
+    pub fn has_column(&self, column_index: usize) -> bool {
+        column_index < self.columns.len()
     }
 
     /// Reserves `additional` elements worth of capacity within the table.

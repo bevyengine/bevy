@@ -378,6 +378,7 @@ impl Archetype {
             // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
             // component in the `table_components` vector
             component_index
+                .index
                 .entry(component_id)
                 .or_insert_with(HashMap::new)
                 .insert(id, ArchetypeRecord { column: Some(idx) });
@@ -396,6 +397,7 @@ impl Archetype {
                 },
             );
             component_index
+                .index
                 .entry(component_id)
                 .or_insert_with(HashMap::new)
                 .insert(id, ArchetypeRecord { column: None });
@@ -729,7 +731,22 @@ impl SparseSetIndex for ArchetypeComponentId {
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
 /// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
-pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
+#[derive(Default, Debug)]
+pub struct ComponentIndex {
+    index: HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>
+}
+
+impl ComponentIndex {
+    /// Retrieve the [`Column`] index for the [`ComponentId`] in the [`Table`] corresponding to the [`ArchetypeId`]
+    ///
+    /// [`Column`]: crate::storage::Column
+    /// [`Table`]: crate::storage::Table
+    pub(crate) fn get_column_index(&self, component_id: ComponentId, archetype_id: ArchetypeId) -> Option<usize> {
+        self.index.get(&component_id)
+            .and_then(|data| data.get(&archetype_id))
+            .and_then(|record| record.column)
+    }
+}
 
 /// The backing store of all [`Archetype`]s within a [`World`].
 ///
@@ -747,6 +764,7 @@ pub struct Archetypes {
 }
 
 /// Metadata about how a component is stored in an [`Archetype`].
+#[derive(Debug)]
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
