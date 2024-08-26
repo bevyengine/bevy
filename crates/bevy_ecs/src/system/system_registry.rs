@@ -2,7 +2,7 @@ use crate::entity::Entity;
 use crate::system::{BoxedSystem, IntoSystem};
 use crate::world::{Command, World};
 use crate::{self as bevy_ecs};
-use bevy_ecs_macros::Component;
+use bevy_ecs_macros::{Component, Resource};
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
@@ -102,10 +102,33 @@ impl<I, O> std::fmt::Debug for SystemId<I, O> {
     }
 }
 
+/// A cached [`SystemId`] distinguished by the unique function type of its system.
+///
+/// This resource is inserted as part of [`World::register_system_cached`] and
+/// [`Commands::register_system_cached`].
+#[derive(Resource)]
+pub struct CachedSystemId<S, I = (), O = ()> {
+    /// The cached `SystemId`.
+    pub id: SystemId<I, O>,
+    _marker: std::marker::PhantomData<fn() -> S>,
+}
+
+impl<S, I, O> CachedSystemId<S, I, O> {
+    /// Creates a new `CachedSystemId` struct given a `SystemId`.
+    pub fn new(id: SystemId<I, O>) -> Self {
+        Self {
+            id,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
-    /// It's possible to register the same systems more than once, they'll be stored separately.
+    /// It's possible to register the same system multiple times, which will create multiple
+    /// registered systems. To avoid this behavior, consider using
+    /// [`World::register_system_cached`] instead.
     ///
     /// This is different from adding systems to a [`Schedule`](crate::schedule::Schedule),
     /// because the [`SystemId`] that is returned can be used anywhere in the [`World`] to run the associated system.
@@ -320,6 +343,46 @@ impl World {
         }
         Ok(result)
     }
+
+    /// Registers a system and caches its [`SystemId`].
+    ///
+    /// The first time this is called for a particular system, it will register that system and
+    /// store its [`SystemId`] in a [`CachedSystemId`] resource. Every subsequent call will
+    /// retrieve the cached ID instead of creating a new registered system.
+    ///
+    /// If you don't need to cache the `SystemId`, use [`World::register_system`] instead.
+    pub fn register_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+        &mut self,
+        system: S,
+    ) -> SystemId<I, O> {
+        match self.get_resource::<CachedSystemId<S, I, O>>() {
+            Some(cached) => cached.id,
+            None => {
+                let id = self.register_system(system);
+                self.insert_resource(CachedSystemId::<S, I, O>::new(id));
+                id
+            }
+        }
+    }
+
+    /// Runs a system, registering it and caching its [`SystemId`] if necessary.
+    pub fn run_system_cached<O: 'static, M, S: IntoSystem<(), O, M> + 'static>(
+        &mut self,
+        system: S,
+    ) -> Result<O, RegisteredSystemError<(), O>> {
+        self.run_system_cached_with((), system)
+    }
+
+    /// Runs a system with an input, registering the system and caching its [`SystemId`] if
+    /// necessary.
+    pub fn run_system_cached_with<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+        &mut self,
+        input: I,
+        system: S,
+    ) -> Result<O, RegisteredSystemError<I, O>> {
+        let id = self.register_system_cached(system);
+        self.run_system_with_input(id, input)
+    }
 }
 
 /// The [`Command`] type for [`World::run_system`] or [`World::run_system_with_input`].
@@ -353,7 +416,7 @@ pub struct RunSystemWithInput<I: 'static> {
 pub type RunSystem = RunSystemWithInput<()>;
 
 impl RunSystem {
-    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
     pub fn new(system_id: SystemId) -> Self {
         Self::new_with_input(system_id, ())
     }
@@ -374,16 +437,16 @@ impl<I: 'static + Send> Command for RunSystemWithInput<I> {
     }
 }
 
-/// The [`Command`] type for registering one shot systems from [Commands](crate::system::Commands).
+/// The [`Command`] type for registering one shot systems from [`Commands`](crate::system::Commands).
 ///
-/// This command needs an already boxed system to register, and an already spawned entity
+/// This command needs an already boxed system to register, and an already spawned entity.
 pub struct RegisterSystem<I: 'static, O: 'static> {
     system: BoxedSystem<I, O>,
     entity: Entity,
 }
 
 impl<I: 'static, O: 'static> RegisterSystem<I, O> {
-    /// Creates a new [Command] struct, which can be added to [Commands](crate::system::Commands)
+    /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands).
     pub fn new<M, S: IntoSystem<I, O, M> + 'static>(system: S, entity: Entity) -> Self {
         Self {
             system: Box::new(IntoSystem::into_system(system)),
@@ -394,12 +457,60 @@ impl<I: 'static, O: 'static> RegisterSystem<I, O> {
 
 impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
     fn apply(self, world: &mut World) {
-        let _ = world.get_entity_mut(self.entity).map(|mut entity| {
-            entity.insert(RegisteredSystem {
-                initialized: false,
-                system: self.system,
-            });
-        });
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert((
+                RegisteredSystem {
+                    initialized: false,
+                    system: self.system,
+                },
+                SystemIdMarker,
+            ));
+        }
+    }
+}
+
+/// The [`Command`] type for registering and caching one shot systems from
+/// [`Commands`](crate::system::Commands).
+///
+/// This command needs an already boxed system to register, and an already spawned entity.
+pub struct RegisterSystemCached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> {
+    system: BoxedSystem<I, O>,
+    entity: Entity,
+    _marker: std::marker::PhantomData<fn() -> (M, S)>,
+}
+
+impl<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> RegisterSystemCached<I, O, M, S> {
+    /// Creates a new [`Command`] struct, which can be added to
+    /// [`Commands`](crate::system::Commands).
+    pub fn new(system: S, entity: Entity) -> Self {
+        Self {
+            system: Box::new(IntoSystem::into_system(system)),
+            entity,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<I: 'static, O: 'static, M: 'static, S: IntoSystem<I, O, M> + 'static> Command
+    for RegisterSystemCached<I, O, M, S>
+{
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.entity) {
+            entity.insert_if_new((
+                RegisteredSystem {
+                    initialized: false,
+                    system: self.system,
+                },
+                SystemIdMarker,
+            ));
+        } else {
+            return;
+        }
+
+        if !world.contains_resource::<CachedSystemId<S, I, O>>() {
+            let system_id = SystemId::from_entity(self.entity);
+            world.insert_resource(CachedSystemId::<S, I, O>::new(system_id));
+        }
     }
 }
 
