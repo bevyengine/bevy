@@ -88,6 +88,7 @@ unsafe impl<E: Event> EventData for E {
 ///
 /// ```
 /// # use crate::prelude::*;
+/// # use bevy_ecs_macros::Component;
 /// #
 /// /// The component type to listen for on add and remove events.
 /// #[derive(Component)]
@@ -142,5 +143,44 @@ unsafe impl EventData for DynamicEvent {
         item: &'short Self::Item<'long>,
     ) -> Self::ReadOnlyItem<'short> {
         item.as_ref()
+    }
+}
+
+pub struct ReflectEvent;
+
+unsafe impl EventData for ReflectEvent {
+    type Item<'trigger> = &'trigger mut dyn bevy_reflect::Reflect;
+    type ReadOnlyItem<'trigger> = &'trigger dyn bevy_reflect::Reflect;
+
+    unsafe fn cast<'trigger>(
+        world: &World,
+        observer_trigger: &ObserverTrigger,
+        ptr: PtrMut<'trigger>,
+    ) -> Self::Item<'trigger> {
+        let type_id = world
+            .components()
+            .get_info(observer_trigger.event_type)
+            .unwrap()
+            .type_id()
+            .unwrap();
+        let type_registry = world.resource::<crate::reflect::AppTypeRegistry>().read();
+        let reflect_from_ptr = type_registry
+            .get_type_data::<bevy_reflect::ReflectFromPtr>(type_id)
+            .unwrap();
+
+        // SAFETY: The ReflectFromPtr data was fetched based on the observed event type's type id.
+        unsafe { reflect_from_ptr.as_reflect_mut(ptr) }
+    }
+
+    fn init_components(world: &mut World, ids: impl FnMut(ComponentId)) {}
+
+    fn shrink<'long: 'short, 'short>(item: &'short mut Self::Item<'long>) -> Self::Item<'short> {
+        *item
+    }
+
+    fn shrink_readonly<'long: 'short, 'short>(
+        item: &'short Self::Item<'long>,
+    ) -> Self::ReadOnlyItem<'short> {
+        *item
     }
 }
