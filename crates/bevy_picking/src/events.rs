@@ -26,7 +26,7 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     pub pointer_id: PointerId,
     /// The location of the pointer during this event
     pub pointer_location: Location,
-    /// Additional event-specific data. [`Drop`] for example, has an additional field to describe
+    /// Additional event-specific data. [`DragDrop`] for example, has an additional field to describe
     /// the `Entity` that is being dropped on the target.
     pub event: E,
 }
@@ -193,7 +193,7 @@ pub struct DragLeave {
 
 /// Fires when a pointer drops the `dropped` entity onto the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
-pub struct Drop {
+pub struct DragDrop {
     /// Pointer button lifted to drop.
     pub button: PointerButton,
     /// The entity that was dropped onto the `target` entity.
@@ -517,7 +517,7 @@ pub fn send_drag_over_events(
     //  - Pointer<DragEnter>,
     //  - Pointer<DragOver>,
     //  - Pointer<DragLeave>,
-    //  - Pointer<Drop>,
+    //  - Pointer<DragDrop>,
     mut commands: Commands,
     // Input
     drag_map: Res<DragMap>,
@@ -626,7 +626,7 @@ pub fn send_drag_over_events(
                 pointer_id,
                 pointer_location.clone(),
                 target,
-                Drop {
+                DragDrop {
                     button,
                     dropped: target,
                     hit: hit.clone(),
