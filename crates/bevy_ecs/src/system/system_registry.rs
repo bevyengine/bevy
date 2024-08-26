@@ -370,15 +370,15 @@ impl World {
         &mut self,
         system: S,
     ) -> Result<O, RegisteredSystemError<(), O>> {
-        self.run_system_cached_with((), system)
+        self.run_system_cached_with(system, ())
     }
 
     /// Runs a system with an input, registering the system and caching its [`SystemId`] if
     /// necessary.
     pub fn run_system_cached_with<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
         &mut self,
-        input: I,
         system: S,
+        input: I,
     ) -> Result<O, RegisteredSystemError<I, O>> {
         let id = self.register_system_cached(system);
         self.run_system_with_input(id, input)
