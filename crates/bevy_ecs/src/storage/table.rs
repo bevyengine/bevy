@@ -687,7 +687,7 @@ impl Table {
     /// # Safety
     /// `row` must be in-bounds
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
-        for column in self.columns.values_mut() {
+        for column in self.columns.iter_mut() {
             column.swap_remove_unchecked(row);
         }
         let is_last = row.as_usize() == self.entities.len() - 1;
@@ -715,6 +715,7 @@ impl Table {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
+        // TODO: figure this part out
         for (component_id, column) in self.columns.iter_mut() {
             if let Some(new_column) = new_table.get_column_mut(*component_id) {
                 new_column.initialize_from_unchecked(column, row, new_row);

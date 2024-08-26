@@ -1568,6 +1568,7 @@ unsafe impl<'__w, T: Component> QueryData for Mut<'__w, T> {
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
+    component_index: &'w ComponentIndex,
     fetch: T::Fetch<'w>,
     matches: bool,
 }
@@ -1575,6 +1576,7 @@ pub struct OptionFetch<'w, T: WorldQuery> {
 impl<T: WorldQuery> Clone for OptionFetch<'_, T> {
     fn clone(&self) -> Self {
         Self {
+            component_index: self.component_index,
             fetch: self.fetch.clone(),
             matches: self.matches,
         }
@@ -1596,6 +1598,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         OptionFetch {
+            component_index: fetch.component_index,
             fetch: T::shrink_fetch(fetch.fetch),
             matches: fetch.matches,
         }
@@ -1609,6 +1612,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         this_run: Tick,
     ) -> OptionFetch<'w, T> {
         OptionFetch {
+            component_index: world.archetypes().component_index(),
             // SAFETY: The invariants are uphold by the caller.
             fetch: unsafe { T::init_fetch(world, state, last_run, this_run) },
             matches: false,
@@ -1635,8 +1639,11 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     #[inline]
     unsafe fn set_table<'w>(fetch: &mut OptionFetch<'w, T>, state: &T::State, archetype_id: ArchetypeId, table: &'w Table) {
-        // TODO: how to do this?
-        fetch.matches = T::matches_component_set(state, &|id| table.has_column(id));
+        fetch.matches = T::matches_component_set(state, &|id| {
+            fetch.component_index.get_column_index(id, archetype_id).is_some_and(
+                |column_index| table.has_column(column_index)
+            )
+        });
         if fetch.matches {
             // SAFETY: The invariants are uphold by the caller.
             unsafe {
@@ -1892,7 +1899,7 @@ macro_rules! impl_anytuple_fetch {
         /// `update_component_access` replaces the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for AnyOf<($($name,)*)> {
-            type Fetch<'w> = ($(($name::Fetch<'w>, bool),)*);
+            type Fetch<'w> = (&'w ComponentIndex, ($(($name::Fetch<'w>, bool),)*));
             type Item<'w> = ($(Option<$name::Item<'w>>,)*);
             type State = ($($name::State,)*);
 
@@ -1903,18 +1910,19 @@ macro_rules! impl_anytuple_fetch {
                 )*)
             }
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($name,)*) = fetch;
-                ($(
+                let (index, ($($name,)*)) = fetch;
+                (index, ($(
                     ($name::shrink_fetch($name.0), $name.1),
-                )*)
+                )*))
             }
 
             #[inline]
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
+                let index = world.archetypes().component_index();
                 let ($($name,)*) = state;
                  // SAFETY: The invariants are uphold by the caller.
-                ($(( unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) }, false),)*)
+                (index, ($(( unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) }, false),)*))
             }
 
             const IS_DENSE: bool = true $(&& $name::IS_DENSE)*;
@@ -1926,7 +1934,7 @@ macro_rules! impl_anytuple_fetch {
                 _archetype: &'w Archetype,
                 _table: &'w Table
             ) {
-                let ($($name,)*) = _fetch;
+                let (_, ($($name,)*)) = _fetch;
                 let ($($state,)*) = _state;
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
@@ -1939,14 +1947,17 @@ macro_rules! impl_anytuple_fetch {
 
             #[inline]
             unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, archetype_id: ArchetypeId, _table: &'w Table) {
-                let ($($name,)*) = _fetch;
+                let (index, ($($name,)*)) = _fetch;
                 let ($($state,)*) = _state;
-                // TODO: how to do this?
                 $(
-                    $name.1 = $name::matches_component_set($state, &|id| _table.has_column(id));
+                    $name.1 = $name::matches_component_set($state, &|id| {
+                        index.get_column_index(id, archetype_id).is_some_and(
+                            |column_index| _table.has_column(column_index)
+                        )
+                    };
                     if $name.1 {
                          // SAFETY: The invariants are required to be upheld by the caller.
-                        unsafe { $name::set_table(&mut $name.0, $state, _table); }
+                        unsafe { $name::set_table(&mut $name.0, $state, archetype_id, _table); }
                     }
                 )*
             }
@@ -1958,7 +1969,7 @@ macro_rules! impl_anytuple_fetch {
                 _entity: Entity,
                 _table_row: TableRow
             ) -> Self::Item<'w> {
-                let ($($name,)*) = _fetch;
+                let (_, ($($name,)*)) = _fetch;
                 ($(
                     // SAFETY: The invariants are required to be upheld by the caller.
                     $name.1.then(|| unsafe { $name::fetch(&mut $name.0, _entity, _table_row) }),
