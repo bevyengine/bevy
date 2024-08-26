@@ -148,3 +148,8 @@ struct ScreenSpaceReflectionsSettings {
     bisection_steps: u32,
     use_secant: u32,
 };
+
+struct EnvironmentMapUniform {
+    // Transformation matrix for the environment cubemaps in world space.
+    transform: mat4x4<f32>,
+};

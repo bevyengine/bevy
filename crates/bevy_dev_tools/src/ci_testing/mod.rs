@@ -6,6 +6,8 @@ mod systems;
 pub use self::config::*;
 
 use bevy_app::prelude::*;
+use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_render::view::screenshot::trigger_screenshots;
 use bevy_time::TimeUpdateStrategy;
 use std::time::Duration;
 
@@ -46,9 +48,13 @@ impl Plugin for CiTestingPlugin {
                 fixed_frame_time,
             )));
         }
-
         app.add_event::<CiTestingCustomEvent>()
             .insert_resource(config)
-            .add_systems(Update, systems::send_events);
+            .add_systems(
+                Update,
+                systems::send_events
+                    .before(trigger_screenshots)
+                    .before(bevy_window::close_when_requested),
+            );
     }
 }

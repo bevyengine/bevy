@@ -245,10 +245,9 @@ fn prepare_skybox_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
-    msaa: Res<Msaa>,
-    views: Query<(Entity, &ExtractedView), With<Skybox>>,
+    views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
 ) {
-    for (entity, view) in &views {
+    for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,

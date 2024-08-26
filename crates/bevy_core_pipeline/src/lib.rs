@@ -52,7 +52,7 @@ pub mod prelude {
 use crate::{
     blit::BlitPlugin,
     bloom::BloomPlugin,
-    contrast_adaptive_sharpening::CASPlugin,
+    contrast_adaptive_sharpening::CasPlugin,
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
@@ -97,7 +97,7 @@ impl Plugin for CorePipelinePlugin {
                 UpscalingPlugin,
                 BloomPlugin,
                 FxaaPlugin,
-                CASPlugin,
+                CasPlugin,
                 MotionBlurPlugin,
                 DepthOfFieldPlugin,
                 SmaaPlugin,

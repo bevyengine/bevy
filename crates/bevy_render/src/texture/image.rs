@@ -27,43 +27,66 @@ pub const SAMPLER_ASSET_INDEX: u64 = 1;
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ImageFormat {
     Avif,
+    #[cfg(feature = "basis-universal")]
     Basis,
+    #[cfg(feature = "bmp")]
     Bmp,
+    #[cfg(feature = "dds")]
     Dds,
     Farbfeld,
     Gif,
+    #[cfg(feature = "exr")]
     OpenExr,
+    #[cfg(feature = "hdr")]
     Hdr,
     Ico,
+    #[cfg(feature = "jpeg")]
     Jpeg,
+    #[cfg(feature = "ktx2")]
     Ktx2,
+    #[cfg(feature = "png")]
     Png,
+    #[cfg(feature = "pnm")]
     Pnm,
+    #[cfg(feature = "tga")]
     Tga,
     Tiff,
+    #[cfg(feature = "webp")]
     WebP,
+}
+
+macro_rules! feature_gate {
+    ($feature: tt, $value: ident) => {{
+        #[cfg(not(feature = $feature))]
+        {
+            bevy_utils::tracing::warn!("feature \"{}\" is not enabled", $feature);
+            return None;
+        }
+        #[cfg(feature = $feature)]
+        ImageFormat::$value
+    }};
 }
 
 impl ImageFormat {
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
         Some(match mime_type.to_ascii_lowercase().as_str() {
             "image/avif" => ImageFormat::Avif,
-            "image/bmp" | "image/x-bmp" => ImageFormat::Bmp,
-            "image/vnd-ms.dds" => ImageFormat::Dds,
-            "image/vnd.radiance" => ImageFormat::Hdr,
+            "image/bmp" | "image/x-bmp" => feature_gate!("bmp", Bmp),
+            "image/vnd-ms.dds" => feature_gate!("dds", Dds),
+            "image/vnd.radiance" => feature_gate!("hdr", Hdr),
             "image/gif" => ImageFormat::Gif,
             "image/x-icon" => ImageFormat::Ico,
-            "image/jpeg" => ImageFormat::Jpeg,
-            "image/ktx2" => ImageFormat::Ktx2,
-            "image/png" => ImageFormat::Png,
-            "image/x-exr" => ImageFormat::OpenExr,
+            "image/jpeg" => feature_gate!("jpeg", Jpeg),
+            "image/ktx2" => feature_gate!("ktx2", Ktx2),
+            "image/png" => feature_gate!("png", Png),
+            "image/x-exr" => feature_gate!("exr", OpenExr),
             "image/x-portable-bitmap"
             | "image/x-portable-graymap"
             | "image/x-portable-pixmap"
-            | "image/x-portable-anymap" => ImageFormat::Pnm,
-            "image/x-targa" | "image/x-tga" => ImageFormat::Tga,
+            | "image/x-portable-anymap" => feature_gate!("pnm", Pnm),
+            "image/x-targa" | "image/x-tga" => feature_gate!("tga", Tga),
             "image/tiff" => ImageFormat::Tiff,
-            "image/webp" => ImageFormat::WebP,
+            "image/webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
     }
@@ -71,21 +94,21 @@ impl ImageFormat {
     pub fn from_extension(extension: &str) -> Option<Self> {
         Some(match extension.to_ascii_lowercase().as_str() {
             "avif" => ImageFormat::Avif,
-            "basis" => ImageFormat::Basis,
-            "bmp" => ImageFormat::Bmp,
-            "dds" => ImageFormat::Dds,
+            "basis" => feature_gate!("basis-universal", Basis),
+            "bmp" => feature_gate!("bmp", Bmp),
+            "dds" => feature_gate!("dds", Dds),
             "ff" | "farbfeld" => ImageFormat::Farbfeld,
             "gif" => ImageFormat::Gif,
-            "exr" => ImageFormat::OpenExr,
-            "hdr" => ImageFormat::Hdr,
+            "exr" => feature_gate!("exr", OpenExr),
+            "hdr" => feature_gate!("hdr", Hdr),
             "ico" => ImageFormat::Ico,
-            "jpg" | "jpeg" => ImageFormat::Jpeg,
-            "ktx2" => ImageFormat::Ktx2,
-            "pbm" | "pam" | "ppm" | "pgm" => ImageFormat::Pnm,
-            "png" => ImageFormat::Png,
-            "tga" => ImageFormat::Tga,
+            "jpg" | "jpeg" => feature_gate!("jpeg", Jpeg),
+            "ktx2" => feature_gate!("ktx2", Ktx2),
+            "pbm" | "pam" | "ppm" | "pgm" => feature_gate!("pnm", Pnm),
+            "png" => feature_gate!("png", Png),
+            "tga" => feature_gate!("tga", Tga),
             "tif" | "tiff" => ImageFormat::Tiff,
-            "webp" => ImageFormat::WebP,
+            "webp" => feature_gate!("webp", WebP),
             _ => return None,
         })
     }
@@ -93,39 +116,51 @@ impl ImageFormat {
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
         Some(match self {
             ImageFormat::Avif => image::ImageFormat::Avif,
+            #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
+            #[cfg(feature = "dds")]
             ImageFormat::Dds => image::ImageFormat::Dds,
             ImageFormat::Farbfeld => image::ImageFormat::Farbfeld,
             ImageFormat::Gif => image::ImageFormat::Gif,
+            #[cfg(feature = "exr")]
             ImageFormat::OpenExr => image::ImageFormat::OpenExr,
+            #[cfg(feature = "hdr")]
             ImageFormat::Hdr => image::ImageFormat::Hdr,
             ImageFormat::Ico => image::ImageFormat::Ico,
+            #[cfg(feature = "jpeg")]
             ImageFormat::Jpeg => image::ImageFormat::Jpeg,
+            #[cfg(feature = "png")]
             ImageFormat::Png => image::ImageFormat::Png,
+            #[cfg(feature = "pnm")]
             ImageFormat::Pnm => image::ImageFormat::Pnm,
+            #[cfg(feature = "tga")]
             ImageFormat::Tga => image::ImageFormat::Tga,
             ImageFormat::Tiff => image::ImageFormat::Tiff,
+            #[cfg(feature = "webp")]
             ImageFormat::WebP => image::ImageFormat::WebP,
-            ImageFormat::Basis | ImageFormat::Ktx2 => return None,
+            #[cfg(feature = "basis-universal")]
+            ImageFormat::Basis => return None,
+            #[cfg(feature = "ktx2")]
+            ImageFormat::Ktx2 => return None,
         })
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
         Some(match format {
             image::ImageFormat::Avif => ImageFormat::Avif,
-            image::ImageFormat::Bmp => ImageFormat::Bmp,
-            image::ImageFormat::Dds => ImageFormat::Dds,
+            image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
+            image::ImageFormat::Dds => feature_gate!("dds", Dds),
             image::ImageFormat::Farbfeld => ImageFormat::Farbfeld,
             image::ImageFormat::Gif => ImageFormat::Gif,
-            image::ImageFormat::OpenExr => ImageFormat::OpenExr,
-            image::ImageFormat::Hdr => ImageFormat::Hdr,
+            image::ImageFormat::OpenExr => feature_gate!("exr", OpenExr),
+            image::ImageFormat::Hdr => feature_gate!("hdr", Hdr),
             image::ImageFormat::Ico => ImageFormat::Ico,
-            image::ImageFormat::Jpeg => ImageFormat::Jpeg,
-            image::ImageFormat::Png => ImageFormat::Png,
-            image::ImageFormat::Pnm => ImageFormat::Pnm,
-            image::ImageFormat::Tga => ImageFormat::Tga,
+            image::ImageFormat::Jpeg => feature_gate!("jpeg", Jpeg),
+            image::ImageFormat::Png => feature_gate!("png", Png),
+            image::ImageFormat::Pnm => feature_gate!("pnm", Pnm),
+            image::ImageFormat::Tga => feature_gate!("tga", Tga),
             image::ImageFormat::Tiff => ImageFormat::Tiff,
-            image::ImageFormat::WebP => ImageFormat::WebP,
+            image::ImageFormat::WebP => feature_gate!("webp", WebP),
             _ => return None,
         })
     }
@@ -744,7 +779,7 @@ impl Image {
                 let image_crate_format = format
                     .as_image_crate_format()
                     .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
-                let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
+                let mut reader = image::ImageReader::new(std::io::Cursor::new(buffer));
                 reader.set_format(image_crate_format);
                 reader.no_limits();
                 let dyn_img = reader.decode()?;

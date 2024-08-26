@@ -3,9 +3,14 @@
 use crate as bevy_gizmos;
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
-use bevy_ecs::{component::Component, reflect::ReflectResource, system::Resource};
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
+use bevy_ecs::component::Component;
+
+use bevy_ecs::{reflect::ReflectResource, system::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
-use bevy_render::view::RenderLayers;
 use bevy_utils::TypeIdMap;
 use core::panic;
 use std::{
@@ -164,7 +169,8 @@ pub struct GizmoConfig {
     /// Describes which rendering layers gizmos will be rendered to.
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
-    pub render_layers: RenderLayers,
+    #[cfg(feature = "bevy_render")]
+    pub render_layers: bevy_render::view::RenderLayers,
 
     /// Describe how lines should join
     pub line_joints: GizmoLineJoint,
@@ -178,6 +184,7 @@ impl Default for GizmoConfig {
             line_perspective: false,
             line_style: GizmoLineStyle::Solid,
             depth_bias: 0.,
+            #[cfg(feature = "bevy_render")]
             render_layers: Default::default(),
 
             line_joints: GizmoLineJoint::None,
@@ -185,13 +192,21 @@ impl Default for GizmoConfig {
     }
 }
 
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
     pub line_style: GizmoLineStyle,
-    pub render_layers: RenderLayers,
+    pub render_layers: bevy_render::view::RenderLayers,
 }
 
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 impl From<&GizmoConfig> for GizmoMeshConfig {
     fn from(item: &GizmoConfig) -> Self {
         GizmoMeshConfig {

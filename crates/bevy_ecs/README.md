@@ -109,8 +109,6 @@ fn print_time(time: Res<Time>) {
 }
 ```
 
-The [`resources.rs`](examples/resources.rs) example illustrates how to read and write a Counter resource from Systems.
-
 ### Schedules
 
 Schedules run a set of Systems according to some execution strategy.
@@ -224,8 +222,6 @@ fn system(time: Res<Time>) {
 }
 ```
 
-The [`change_detection.rs`](examples/change_detection.rs) example shows how to query only for updated entities and react on changes in resources.
-
 ### Component Storage
 
 Bevy ECS supports multiple component storage types.
@@ -304,8 +300,6 @@ fn reader(mut reader: EventReader<MyEvent>) {
     }
 }
 ```
-
-A minimal set up using events can be seen in [`events.rs`](examples/events.rs).
 
 ### Observers
 

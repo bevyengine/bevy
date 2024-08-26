@@ -1,6 +1,3 @@
-use bevy_text::TextPipeline;
-use thiserror::Error;
-
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -14,10 +11,13 @@ use bevy_ecs::{
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
+#[cfg(feature = "bevy_text")]
+use bevy_text::TextPipeline;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
+use thiserror::Error;
 use ui_surface::UiSurface;
 
 mod convert;
@@ -222,6 +222,13 @@ pub fn ui_layout_system(
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
 
+    // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
+    children_query.iter().for_each(|(entity, children)| {
+        if children.is_changed() {
+            ui_surface.update_children(entity, &children);
+        }
+    });
+
     for (camera_id, camera) in &camera_layout_info {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
@@ -257,10 +264,16 @@ pub fn ui_layout_system(
             let Ok(layout) = ui_surface.get_layout(entity) else {
                 return;
             };
-            let layout_size =
-                inverse_target_scale_factor * Vec2::new(layout.size.width, layout.size.height);
-            let layout_location =
-                inverse_target_scale_factor * Vec2::new(layout.location.x, layout.location.y);
+            let layout_size = inverse_target_scale_factor
+                * Vec2::new(
+                    layout.size.width - layout.padding.left - layout.padding.right,
+                    layout.size.height - layout.padding.top - layout.padding.bottom,
+                );
+            let layout_location = inverse_target_scale_factor
+                * Vec2::new(
+                    layout.location.x + layout.padding.left,
+                    layout.location.y + layout.padding.top,
+                );
 
             absolute_location += layout_location;
 

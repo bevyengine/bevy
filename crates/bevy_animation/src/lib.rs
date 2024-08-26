@@ -155,6 +155,29 @@ impl VariableCurve {
 
         Some(step_start)
     }
+
+    /// Find the index of the keyframe at or before the current time.
+    ///
+    /// Returns the first keyframe if the `seek_time` is before the first keyframe, and
+    /// the second-to-last keyframe if the `seek_time` is after the last keyframe.
+    /// Panics if there are less than 2 keyframes.
+    pub fn find_interpolation_start_keyframe(&self, seek_time: f32) -> usize {
+        // An Ok(keyframe_index) result means an exact result was found by binary search
+        // An Err result means the keyframe was not found, and the index is the keyframe
+        // PERF: finding the current keyframe can be optimised
+        let search_result = self
+            .keyframe_timestamps
+            .binary_search_by(|probe| probe.partial_cmp(&seek_time).unwrap());
+
+        // We want to find the index of the keyframe before the current time
+        // If the keyframe is past the second-to-last keyframe, the animation cannot be interpolated.
+        match search_result {
+            // An exact match was found
+            Ok(i) => i.clamp(0, self.keyframe_timestamps.len() - 2),
+            // No exact match was found, so return the previous keyframe to interpolate from.
+            Err(i) => (i.saturating_sub(1)).clamp(0, self.keyframe_timestamps.len() - 2),
+        }
+    }
 }
 
 /// Interpolation method to use between keyframes.
@@ -419,8 +442,9 @@ impl ActiveAnimation {
     }
 
     /// Sets the weight of this animation.
-    pub fn set_weight(&mut self, weight: f32) {
+    pub fn set_weight(&mut self, weight: f32) -> &mut Self {
         self.weight = weight;
+        self
     }
 
     /// Pause the animation.
@@ -505,7 +529,10 @@ impl ActiveAnimation {
     }
 }
 
-/// Animation controls
+/// Animation controls.
+///
+/// Automatically added to any root animations of a `SceneBundle` when it is
+/// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
@@ -564,14 +591,14 @@ thread_local! {
 impl AnimationPlayer {
     /// Start playing an animation, restarting it if necessary.
     pub fn start(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        self.active_animations.entry(animation).or_default()
+        let playing_animation = self.active_animations.entry(animation).or_default();
+        playing_animation.replay();
+        playing_animation
     }
 
     /// Start playing an animation, unless the requested animation is already playing.
     pub fn play(&mut self, animation: AnimationNodeIndex) -> &mut ActiveAnimation {
-        let playing_animation = self.active_animations.entry(animation).or_default();
-        playing_animation.weight = 1.0;
-        playing_animation
+        self.active_animations.entry(animation).or_default()
     }
 
     /// Stops playing the given animation, removing it from the list of playing
@@ -603,6 +630,7 @@ impl AnimationPlayer {
         self.active_animations.iter_mut()
     }
 
+    #[deprecated = "Use `animation_is_playing` instead"]
     /// Check if the given animation node is being played.
     pub fn is_playing_animation(&self, animation: AnimationNodeIndex) -> bool {
         self.active_animations.contains_key(&animation)
@@ -874,18 +902,16 @@ impl AnimationTargetContext<'_> {
             // Some curves have only one keyframe used to set a transform
             if curve.keyframe_timestamps.len() == 1 {
                 self.apply_single_keyframe(curve, weight);
-                return;
+                continue;
             }
 
-            // Find the current keyframe
-            let Some(step_start) = curve.find_current_keyframe(seek_time) else {
-                return;
-            };
+            // Find the best keyframe to interpolate from
+            let step_start = curve.find_interpolation_start_keyframe(seek_time);
 
             let timestamp_start = curve.keyframe_timestamps[step_start];
             let timestamp_end = curve.keyframe_timestamps[step_start + 1];
             // Compute how far we are through the keyframe, normalized to [0, 1]
-            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, seek_time);
+            let lerp = f32::inverse_lerp(timestamp_start, timestamp_end, seek_time).clamp(0.0, 1.0);
 
             self.apply_tweened_keyframe(
                 curve,

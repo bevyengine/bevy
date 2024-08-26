@@ -7,11 +7,10 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
+        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
 };
+use bevy_render::render_asset::RenderAssetUsages;
 
 fn main() {
     App::new()
@@ -38,24 +37,16 @@ fn setup(
     };
 
     // This is the texture that will be rendered to.
-    let mut image = Image {
-        texture_descriptor: TextureDescriptor {
-            label: None,
-            size,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        },
-        ..default()
-    };
-
-    // fill image.data with zeroes
-    image.resize(size);
+    let mut image = Image::new_fill(
+        size,
+        TextureDimension::D2,
+        &[0, 0, 0, 0],
+        TextureFormat::Bgra8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    // You need to set these texture usage flags in order to use the image as a render target
+    image.texture_descriptor.usage =
+        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
 
     let image_handle = images.add(image);
 
@@ -65,8 +56,6 @@ fn setup(
     let texture_camera = commands
         .spawn(Camera2dBundle {
             camera: Camera {
-                // render before the "main pass" camera
-                order: -1,
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },

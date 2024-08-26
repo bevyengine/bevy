@@ -58,8 +58,22 @@ jobs:
       - name: Build docs
         env:
           # needs to be in sync with [package.metadata.docs.rs]
-          RUSTDOCFLAGS:  -Zunstable-options --cfg=docsrs
-        run: cargo doc --all-features --no-deps -p bevy -Zunstable-options -Zrustdoc-scrape-examples
+          RUSTFLAGS: --cfg docsrs_dep
+          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition
+        run: |
+          cargo doc \
+            -Zunstable-options \
+            -Zrustdoc-scrape-examples \
+            --all-features \
+            --workspace \
+            --no-deps \
+            --document-private-items \
+            --exclude ci \
+            --exclude errors \
+            --exclude bevy_mobile_example \
+            --exclude build-wasm-example \
+            --exclude build-templated-pages \
+            --exclude example-showcase
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation

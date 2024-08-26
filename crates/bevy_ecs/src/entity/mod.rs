@@ -142,7 +142,7 @@ type IdCursor = isize;
 /// [`Query::get`]: crate::system::Query::get
 /// [`World`]: crate::world::World
 /// [SemVer]: https://semver.org/
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect_value(Hash, PartialEq))]
 #[cfg_attr(
@@ -385,11 +385,47 @@ impl<'de> Deserialize<'de> for Entity {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error;
-        let id: u64 = serde::de::Deserialize::deserialize(deserializer)?;
+        let id: u64 = Deserialize::deserialize(deserializer)?;
         Entity::try_from_bits(id).map_err(D::Error::custom)
     }
 }
 
+/// Outputs the full entity identifier, including the index, generation, and the raw bits.
+///
+/// This takes the format: `{index}v{generation}#{bits}`.
+///
+/// # Usage
+///
+/// Prefer to use this format for debugging and logging purposes. Because the output contains
+/// the raw bits, it is easy to check it against serialized scene data.
+///
+/// Example serialized scene data:
+/// ```text
+/// (
+///   ...
+///   entities: {
+///     4294967297: (  <--- Raw Bits
+///       components: {
+///         ...
+///       ),
+///   ...
+/// )
+/// ```
+impl fmt::Debug for Entity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}v{}#{}",
+            self.index(),
+            self.generation(),
+            self.to_bits()
+        )
+    }
+}
+
+/// Outputs the short entity identifier, including the index and generation.
+///
+/// This takes the format: `{index}v{generation}`.
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}v{}", self.index(), self.generation())
@@ -968,13 +1004,11 @@ impl EntityLocation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::mem::size_of;
 
     #[test]
     fn entity_niche_optimization() {
-        assert_eq!(
-            std::mem::size_of::<Entity>(),
-            std::mem::size_of::<Option<Entity>>()
-        );
+        assert_eq!(size_of::<Entity>(), size_of::<Option<Entity>>());
     }
 
     #[test]
@@ -1150,6 +1184,15 @@ mod tests {
             let hash = hash.hash_one(Entity::from_raw(id)) >> 57;
             assert_ne!(hash, first_hash);
         }
+    }
+
+    #[test]
+    fn entity_debug() {
+        let entity = Entity::from_raw(42);
+        let string = format!("{:?}", entity);
+        assert!(string.contains("42"));
+        assert!(string.contains("v1"));
+        assert!(string.contains(format!("#{}", entity.to_bits()).as_str()));
     }
 
     #[test]

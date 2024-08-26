@@ -4,7 +4,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::{DynamicList, ReflectRef},
+    reflect::{DynamicList, PartialReflect, ReflectRef},
     utils::HashMap,
 };
 use serde::{Deserialize, Serialize};
@@ -34,6 +34,7 @@ pub struct C(usize);
 
 /// Deriving reflect on an enum will implement the `Reflect` and `Enum` traits
 #[derive(Reflect)]
+#[allow(dead_code)]
 enum D {
     A,
     B(usize),
@@ -41,8 +42,9 @@ enum D {
 }
 
 /// Reflect has "built in" support for some common traits like `PartialEq`, `Hash`, and `Serialize`.
-/// These are exposed via methods like `Reflect::reflect_hash()`, `Reflect::reflect_partial_eq()`, and
-/// `Reflect::serializable()`. You can force these implementations to use the actual trait
+/// These are exposed via methods like `PartialReflect::reflect_hash()`,
+/// `PartialReflect::reflect_partial_eq()`, and `PartialReflect::serializable()`.
+/// You can force these implementations to use the actual trait
 /// implementations (instead of their defaults) like this:
 #[derive(Reflect, Hash, Serialize, PartialEq, Eq)]
 #[reflect(Hash, Serialize, PartialEq)]
@@ -57,6 +59,7 @@ pub struct E {
 /// that these values behave as expected when nested underneath Reflect-ed structs.
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect_value(PartialEq, Serialize, Deserialize)]
+#[allow(dead_code)]
 enum F {
     X,
     Y,
@@ -105,6 +108,10 @@ fn setup() {
         // This exposes "map" operations on your type, such as getting / inserting by key.
         // Map is automatically implemented for relevant core types like HashMap<K, V>
         ReflectRef::Map(_) => {}
+        // `Set` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "set" operations on your type, such as getting / inserting by value.
+        // Set is automatically implemented for relevant core types like HashSet<T>
+        ReflectRef::Set(_) => {}
         // `Value` types do not implement any of the other traits above. They are simply a Reflect
         // implementation. Value is implemented for core types like i32, usize, f32, and
         // String.

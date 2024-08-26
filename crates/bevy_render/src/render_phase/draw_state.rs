@@ -606,7 +606,7 @@ impl<'a> TrackedRenderPass<'a> {
 }
 
 impl WriteTimestamp for TrackedRenderPass<'_> {
-    fn write_timestamp(&mut self, query_set: &wgpu::QuerySet, index: u32) {
+    fn write_timestamp(&mut self, query_set: &QuerySet, index: u32) {
         self.pass.write_timestamp(query_set, index);
     }
 }

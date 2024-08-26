@@ -17,6 +17,9 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+#[cfg(feature = "bevy_picking")]
+pub mod picking_backend;
+
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
@@ -54,6 +57,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::{
+    camera::CameraUpdateSystem,
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
@@ -146,6 +150,7 @@ impl Plugin for UiPlugin {
             .configure_sets(
                 PostUpdate,
                 (
+                    CameraUpdateSystem,
                     UiSystem::Prepare.before(UiSystem::Stack),
                     UiSystem::Layout,
                     (UiSystem::PostLayout, UiSystem::Outlines),
@@ -161,9 +166,7 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
-                (update_target_camera_system, apply_deferred)
-                    .chain()
-                    .in_set(UiSystem::Prepare),
+                update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
@@ -200,6 +203,9 @@ impl Plugin for UiPlugin {
         build_text_interop(app);
 
         build_ui_render(app);
+
+        #[cfg(feature = "bevy_picking")]
+        app.add_plugins(picking_backend::UiPickingBackend);
     }
 
     fn finish(&self, app: &mut App) {
@@ -225,11 +231,6 @@ fn build_text_interop(app: &mut App) {
         (
             widget::measure_text_system
                 .in_set(UiSystem::Prepare)
-                // Potential conflict: `Assets<Image>`
-                // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::measure_text_system`
-                // will never modify a pre-existing `Image` asset.
-                .ambiguous_with(bevy_render::camera::CameraUpdateSystem)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.

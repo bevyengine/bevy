@@ -53,8 +53,8 @@ fn setup(
         },
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            brightness: bevy::pbr::light_consts::lux::DIRECT_SUNLIGHT,
-            ..Default::default()
+            brightness: light_consts::lux::DIRECT_SUNLIGHT,
+            ..default()
         },
     ));
 

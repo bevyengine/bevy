@@ -1,4 +1,4 @@
-use std::mem;
+use std::mem::{self, size_of};
 
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId};
@@ -186,8 +186,8 @@ impl Plugin for MeshRenderPlugin {
 
             if use_gpu_instance_buffer_builder {
                 render_app
-                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>(
-                    )
+                    .init_resource::<gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>()
+                    .init_resource::<RenderMeshInstanceGpuQueues>()
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
@@ -200,6 +200,9 @@ impl Plugin for MeshRenderPlugin {
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
                                 .in_set(RenderSet::ManageViews)
                                 .after(prepare_view_targets),
+                            collect_meshes_for_gpu_building
+                                .in_set(RenderSet::PrepareAssets)
+                                .after(allocator::allocate_and_free_meshes),
                         ),
                     );
             } else {
@@ -275,6 +278,18 @@ pub struct MeshUniform {
     //
     // (MSB: most significant bit; LSB: least significant bit.)
     pub lightmap_uv_rect: UVec2,
+    /// The index of this mesh's first vertex in the vertex buffer.
+    ///
+    /// Multiple meshes can be packed into a single vertex buffer (see
+    /// [`MeshAllocator`]). This value stores the offset of the first vertex in
+    /// this mesh in that buffer.
+    pub first_vertex_index: u32,
+    /// Padding.
+    pub pad_a: u32,
+    /// Padding.
+    pub pad_b: u32,
+    /// Padding.
+    pub pad_c: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -305,6 +320,18 @@ pub struct MeshInputUniform {
     ///
     /// This is used for TAA. If not present, this will be `u32::MAX`.
     pub previous_input_index: u32,
+    /// The index of this mesh's first vertex in the vertex buffer.
+    ///
+    /// Multiple meshes can be packed into a single vertex buffer (see
+    /// [`MeshAllocator`]). This value stores the offset of the first vertex in
+    /// this mesh in that buffer.
+    pub first_vertex_index: u32,
+    /// Padding.
+    pub pad_a: u32,
+    /// Padding.
+    pub pad_b: u32,
+    /// Padding.
+    pub pad_c: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -331,7 +358,11 @@ pub struct MeshCullingData {
 pub struct MeshCullingDataBuffer(RawBufferVec<MeshCullingData>);
 
 impl MeshUniform {
-    pub fn new(mesh_transforms: &MeshTransforms, maybe_lightmap_uv_rect: Option<Rect>) -> Self {
+    pub fn new(
+        mesh_transforms: &MeshTransforms,
+        first_vertex_index: u32,
+        maybe_lightmap_uv_rect: Option<Rect>,
+    ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
         Self {
@@ -341,6 +372,10 @@ impl MeshUniform {
             local_from_world_transpose_a,
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
+            first_vertex_index,
+            pad_a: 0,
+            pad_b: 0,
+            pad_c: 0,
         }
     }
 }
@@ -514,6 +549,14 @@ pub enum RenderMeshInstanceGpuQueue {
     /// enabled.
     GpuCulling(Vec<(Entity, RenderMeshInstanceGpuBuilder, MeshCullingData)>),
 }
+
+/// The per-thread queues containing mesh instances, populated during the
+/// extract phase.
+///
+/// These are filled in [`extract_meshes_for_gpu_building`] and consumed in
+/// [`collect_meshes_for_gpu_building`].
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 
 impl RenderMeshInstanceShared {
     fn from_components(
@@ -719,7 +762,14 @@ impl RenderMeshInstanceGpuBuilder {
         entity: Entity,
         render_mesh_instances: &mut EntityHashMap<RenderMeshInstanceGpu>,
         current_input_buffer: &mut RawBufferVec<MeshInputUniform>,
+        mesh_allocator: &MeshAllocator,
     ) -> usize {
+        let first_vertex_index = match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id)
+        {
+            Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+            None => 0,
+        };
+
         // Push the mesh input uniform.
         let current_uniform_index = current_input_buffer.push(MeshInputUniform {
             world_from_local: self.world_from_local.to_transpose(),
@@ -729,6 +779,10 @@ impl RenderMeshInstanceGpuBuilder {
                 Some(previous_input_index) => previous_input_index.into(),
                 None => u32::MAX,
             },
+            first_vertex_index,
+            pad_a: 0,
+            pad_b: 0,
+            pad_c: 0,
         });
 
         // Record the [`RenderMeshInstance`].
@@ -900,11 +954,7 @@ pub fn extract_meshes_for_cpu_building(
 pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    mut batched_instance_buffers: ResMut<
-        gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
-    >,
-    mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
-    mut render_mesh_instance_queues: Local<Parallel<RenderMeshInstanceGpuQueue>>,
+    mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     meshes_query: Extract<
         Query<(
             Entity,
@@ -977,8 +1027,7 @@ pub fn extract_meshes_for_gpu_building(
                 no_automatic_batching,
             );
 
-            let lightmap_uv_rect =
-                lightmap::pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
+            let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
 
             let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
 
@@ -1003,13 +1052,6 @@ pub fn extract_meshes_for_gpu_building(
 
             queue.push(entity, gpu_mesh_instance_builder, gpu_mesh_culling_data);
         },
-    );
-
-    collect_meshes_for_gpu_building(
-        render_mesh_instances,
-        &mut batched_instance_buffers,
-        &mut mesh_culling_data_buffer,
-        &mut render_mesh_instance_queues,
     );
 }
 
@@ -1044,22 +1086,28 @@ fn set_mesh_motion_vector_flags(
 
 /// Creates the [`RenderMeshInstanceGpu`]s and [`MeshInputUniform`]s when GPU
 /// mesh uniforms are built.
-fn collect_meshes_for_gpu_building(
-    render_mesh_instances: &mut RenderMeshInstancesGpu,
-    batched_instance_buffers: &mut gpu_preprocessing::BatchedInstanceBuffers<
-        MeshUniform,
-        MeshInputUniform,
+pub fn collect_meshes_for_gpu_building(
+    render_mesh_instances: ResMut<RenderMeshInstances>,
+    batched_instance_buffers: ResMut<
+        gpu_preprocessing::BatchedInstanceBuffers<MeshUniform, MeshInputUniform>,
     >,
-    mesh_culling_data_buffer: &mut MeshCullingDataBuffer,
-    render_mesh_instance_queues: &mut Parallel<RenderMeshInstanceGpuQueue>,
+    mut mesh_culling_data_buffer: ResMut<MeshCullingDataBuffer>,
+    mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
+    mesh_allocator: Res<MeshAllocator>,
 ) {
+    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
+        render_mesh_instances.into_inner()
+    else {
+        return;
+    };
+
     // Collect render mesh instances. Build up the uniform buffer.
 
     let gpu_preprocessing::BatchedInstanceBuffers {
         ref mut current_input_buffer,
         ref mut previous_input_buffer,
         ..
-    } = batched_instance_buffers;
+    } = batched_instance_buffers.into_inner();
 
     // Swap buffers.
     mem::swap(current_input_buffer, previous_input_buffer);
@@ -1076,8 +1124,9 @@ fn collect_meshes_for_gpu_building(
                 for (entity, mesh_instance_builder) in queue.drain(..) {
                     mesh_instance_builder.add_to(
                         entity,
-                        render_mesh_instances,
+                        &mut *render_mesh_instances,
                         current_input_buffer,
+                        &mesh_allocator,
                     );
                 }
             }
@@ -1085,10 +1134,12 @@ fn collect_meshes_for_gpu_building(
                 for (entity, mesh_instance_builder, mesh_culling_builder) in queue.drain(..) {
                     let instance_data_index = mesh_instance_builder.add_to(
                         entity,
-                        render_mesh_instances,
+                        &mut *render_mesh_instances,
                         current_input_buffer,
+                        &mesh_allocator,
                     );
-                    let culling_data_index = mesh_culling_builder.add_to(mesh_culling_data_buffer);
+                    let culling_data_index =
+                        mesh_culling_builder.add_to(&mut mesh_culling_data_buffer);
                     debug_assert_eq!(instance_data_index, culling_data_index);
                 }
             }
@@ -1220,7 +1271,7 @@ impl GetBatchData for MeshPipeline {
     type BufferData = MeshUniform;
 
     fn get_batch_data(
-        (mesh_instances, lightmaps, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1231,11 +1282,17 @@ impl GetBatchData for MeshPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&entity)?;
+        let first_vertex_index =
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+                None => 0,
+            };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
 
         Some((
             MeshUniform::new(
                 &mesh_instance.transforms,
+                first_vertex_index,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
             ),
             mesh_instance.should_batch().then_some((
@@ -1277,7 +1334,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn get_binned_batch_data(
-        (mesh_instances, lightmaps, _, _): &SystemParamItem<Self::Param>,
+        (mesh_instances, lightmaps, _, mesh_allocator): &SystemParamItem<Self::Param>,
         entity: Entity,
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -1287,10 +1344,16 @@ impl GetFullBatchData for MeshPipeline {
             return None;
         };
         let mesh_instance = mesh_instances.get(&entity)?;
+        let first_vertex_index =
+            match mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id) {
+                Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
+                None => 0,
+            };
         let maybe_lightmap = lightmaps.render_lightmaps.get(&entity);
 
         Some(MeshUniform::new(
             &mesh_instance.transforms,
+            first_vertex_index,
             maybe_lightmap.map(|lightmap| lightmap.uv_rect),
         ))
     }
@@ -1774,11 +1837,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("TONEMAP_IN_SHADER".into());
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
-                20,
+                21,
             ));
             shader_defs.push(ShaderDefVal::UInt(
                 "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
-                21,
+                22,
             ));
 
             let method = key.intersection(MeshPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
@@ -2105,6 +2168,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewFogUniformOffset>,
         Read<ViewLightProbesUniformOffset>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
     );
     type ItemQuery = ();
@@ -2112,10 +2176,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, view_lights, view_fog, view_light_probes, view_ssr, mesh_view_bind_group): ROQueryItem<
-            'w,
-            Self::ViewQuery,
-        >,
+        (
+            view_uniform,
+            view_lights,
+            view_fog,
+            view_light_probes,
+            view_ssr,
+            view_environment_map,
+            mesh_view_bind_group,
+        ): ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -2129,6 +2198,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
                 view_fog.offset,
                 **view_light_probes,
                 **view_ssr,
+                **view_environment_map,
             ],
         );
 
@@ -2190,12 +2260,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             is_morphed,
             has_motion_vector_prepass,
         ) else {
-            error!(
+            return RenderCommandResult::Failure(
                 "The MeshBindGroups resource wasn't set in the render phase. \
                 It should be set by the prepare_mesh_bind_group system.\n\
-                This is a bevy bug! Please open an issue."
+                This is a bevy bug! Please open an issue.",
             );
-            return RenderCommandResult::Failure;
         };
 
         let mut dynamic_offsets: [u32; 3] = Default::default();
@@ -2278,7 +2347,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             if !has_preprocess_bind_group
                 || !preprocess_pipelines.pipelines_are_loaded(&pipeline_cache)
             {
-                return RenderCommandResult::Failure;
+                return RenderCommandResult::Skip;
             }
         }
 
@@ -2288,13 +2357,13 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         let mesh_allocator = mesh_allocator.into_inner();
 
         let Some(mesh_asset_id) = mesh_instances.mesh_asset_id(item.entity()) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(gpu_mesh) = meshes.get(mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         // Calculate the indirect offset, and look up the buffer.
@@ -2303,10 +2372,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             Some(index) => match indirect_parameters_buffer.buffer() {
                 None => {
                     warn!("Not rendering mesh because indirect parameters buffer wasn't present");
-                    return RenderCommandResult::Failure;
+                    return RenderCommandResult::Skip;
                 }
                 Some(buffer) => Some((
-                    index as u64 * mem::size_of::<IndirectParameters>() as u64,
+                    index as u64 * size_of::<IndirectParameters>() as u64,
                     buffer,
                 )),
             },
@@ -2324,7 +2393,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             } => {
                 let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(&mesh_asset_id)
                 else {
-                    return RenderCommandResult::Failure;
+                    return RenderCommandResult::Skip;
                 };
 
                 pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
@@ -2347,7 +2416,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
             }
             RenderMeshBufferInfo::NonIndexed => match indirect_parameters {
                 None => {
-                    pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+                    pass.draw(vertex_buffer_slice.range, batch_range.clone());
                 }
                 Some((indirect_parameters_offset, indirect_parameters_buffer)) => {
                     pass.draw_indirect(indirect_parameters_buffer, indirect_parameters_offset);
