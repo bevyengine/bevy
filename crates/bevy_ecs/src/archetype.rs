@@ -731,8 +731,6 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
 pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
 
-
-
 /// The backing store of all [`Archetype`]s within a [`World`].
 ///
 /// For more information, see the *[module level documentation]*.
@@ -749,7 +747,6 @@ pub struct Archetypes {
 }
 
 /// Metadata about how a component is stored in an [`Archetype`].
-#[derive(Copy)]
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
@@ -958,10 +955,6 @@ impl Archetypes {
         }
     }
 
-    pub(crate) fn get_archetype_record(&self, component_id: ComponentId, archetype_id: ArchetypeId) -> Option<ArchetypeRecord> {
-        self.by_component.get()
-
-    }
 }
 
 impl Index<RangeFrom<ArchetypeGeneration>> for Archetypes {
