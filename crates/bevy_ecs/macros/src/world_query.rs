@@ -154,9 +154,10 @@ pub(crate) fn world_query_impl(
             unsafe fn set_table<'__w>(
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _state: &Self::State,
+                _archetype_id: ArchetypeId,
                 _table: &'__w #path::storage::Table
             ) {
-                #(<#field_types>::set_table(&mut _fetch.#named_field_idents, &_state.#named_field_idents, _table);)*
+                #(<#field_types>::set_table(&mut _fetch.#named_field_idents, &_state.#named_field_idents, _archetype_id, _table);)*
             }
 
             /// SAFETY: we call `fetch` for each member that implements `Fetch`.

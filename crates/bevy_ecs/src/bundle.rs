@@ -25,6 +25,7 @@ use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
 use std::panic::Location;
 use std::ptr::NonNull;
+use crate::archetype::ComponentIndex;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -414,6 +415,8 @@ impl BundleInfo {
         &self,
         table: &mut Table,
         sparse_sets: &mut SparseSets,
+        archetype_id: ArchetypeId,
+        component_index: &ComponentIndex,
         bundle_component_status: &S,
         entity: Entity,
         table_row: TableRow,
@@ -429,10 +432,12 @@ impl BundleInfo {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
             match storage_type {
                 StorageType::Table => {
+                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                    // the target table contains the component.
+                    let column_index = component_index.get_column_index(component_id, archetype_id).debug_checked_unwrap();
                     let column =
-                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
-                        // the target table contains the component.
-                        unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
+                        // SAFETY: If the component_id is present in the ComponentIndex, then the table has a column for that column_index
+                        unsafe { table.get_column_mut(column_index).debug_checked_unwrap() };
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
                     match (status, insert_mode) {
@@ -746,6 +751,8 @@ impl<'w> BundleInserter<'w> {
                 bundle_info.write_components(
                     table,
                     sparse_sets,
+                    archetype.id(),
+                    self.world.archetypes().component_index(),
                     add_bundle,
                     entity,
                     location.table_row,
@@ -787,6 +794,8 @@ impl<'w> BundleInserter<'w> {
                 bundle_info.write_components(
                     table,
                     sparse_sets,
+                    archetype.id(),
+                    self.world.archetypes().component_index(),
                     add_bundle,
                     entity,
                     result.table_row,
@@ -833,7 +842,7 @@ impl<'w> BundleInserter<'w> {
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let move_result = table.move_to_superset_unchecked(result.table_row, new_table);
+                let move_result = table.move_to_superset_unchecked(result.table_row, new_table, self.world.archetypes().component_index(), new_archetype.id());
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.set(entity.index(), new_location);
 
@@ -869,6 +878,8 @@ impl<'w> BundleInserter<'w> {
                 bundle_info.write_components(
                     new_table,
                     sparse_sets,
+                    new_archetype.id(),
+                    self.world.archetypes().component_index(),
                     add_bundle,
                     entity,
                     move_result.new_row,
@@ -1016,6 +1027,8 @@ impl<'w> BundleSpawner<'w> {
             bundle_info.write_components(
                 table,
                 sparse_sets,
+                archetype.id(),
+                self.world.archetypes().component_index(),
                 &SpawnBundleStatus,
                 entity,
                 table_row,

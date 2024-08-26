@@ -1037,20 +1037,21 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = if old_table_id == new_archetype.table_id() {
             new_archetype.allocate(entity, old_table_row)
         } else {
+            let new_table_id = new_archetype.table_id();
             let (old_table, new_table) = storages
                 .tables
-                .get_2_mut(old_table_id, new_archetype.table_id());
+                .get_2_mut(old_table_id, new_table_id);
 
             let move_result = if DROP {
                 // SAFETY: old_table_row exists
-                unsafe { old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table) }
+                unsafe { old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table, archetypes.component_index(), new_archetype_id) }
             } else {
                 // SAFETY: old_table_row exists
-                unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table) }
+                unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table, archetypes.component_index(), new_archetype_id) }
             };
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
+            let new_location = unsafe { archetypes[new_archetype_id].allocate(entity, move_result.new_row) };
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {

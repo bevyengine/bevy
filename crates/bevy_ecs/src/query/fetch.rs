@@ -1946,18 +1946,18 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, archetype_id: ArchetypeId, _table: &'w Table) {
-                let (index, ($($name,)*)) = _fetch;
+            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _archetype_id: ArchetypeId, _table: &'w Table) {
+                let (_index, ($($name,)*)) = _fetch;
                 let ($($state,)*) = _state;
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| {
-                        index.get_column_index(id, archetype_id).is_some_and(
+                        _index.get_column_index(id, _archetype_id).is_some_and(
                             |column_index| _table.has_column(column_index)
                         )
-                    };
+                    });
                     if $name.1 {
                          // SAFETY: The invariants are required to be upheld by the caller.
-                        unsafe { $name::set_table(&mut $name.0, $state, archetype_id, _table); }
+                        unsafe { $name::set_table(&mut $name.0, $state, _archetype_id, _table); }
                     }
                 )*
             }

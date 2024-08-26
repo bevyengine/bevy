@@ -14,6 +14,7 @@ use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
 };
+use crate::archetype::{ArchetypeId, ComponentIndex};
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
 ///
@@ -617,14 +618,16 @@ impl Column {
 /// A builder type for constructing [`Table`]s.
 ///
 ///  - Use [`with_capacity`] to initialize the builder.
-///  - Repeatedly call [`add_column`] to add columns for components.
+///  - Repeatedly call [`add_column`] to add columns for components. The columns will be added in the same
+///    order as the calls to [`add_column`]
 ///  - Finalize with [`build`] to get the constructed [`Table`].
 ///
 /// [`with_capacity`]: Self::with_capacity
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, Column>,
+    columns: Vec<Column>,
+    components: Vec<ComponentId>,
     capacity: usize,
 }
 
@@ -633,24 +636,24 @@ impl TableBuilder {
     /// with the capacity to hold `capacity` entities worth of components each.
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
-            columns: SparseSet::with_capacity(column_capacity),
+            columns: Vec::with_capacity(column_capacity),
+            components: Vec::with_capacity(column_capacity),
             capacity,
         }
     }
 
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        self.columns.insert(
-            component_info.id(),
-            Column::with_capacity(component_info, self.capacity),
-        );
+        self.columns.push(Column::with_capacity(component_info, self.capacity));
+        self.components.push(component_info.id());
         self
     }
 
     #[must_use]
     pub fn build(self) -> Table {
         Table {
-            columns: self.columns.into_immutable(),
+            columns: self.columns,
+            components: self.components,
             entities: Vec::with_capacity(self.capacity),
         }
     }
@@ -669,8 +672,8 @@ impl TableBuilder {
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    // columns: ImmutableSparseSet<ComponentId, Column>,
     columns: Vec<Column>,
+    components: Vec<ComponentId>,
     entities: Vec<Entity>,
 }
 
@@ -711,13 +714,16 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        component_index: &ComponentIndex,
+        new_archetype_id: ArchetypeId,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
-        // TODO: figure this part out
-        for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+        for (component_id, column) in self.components.iter().zip(self.columns.iter_mut()) {
+            if let Some(column_index) = component_index.get_column_index(*component_id, new_archetype_id) {
+                // SAFETY: the ComponentIndex guarantees that the table contains a column at `column_index`
+                let new_column = new_table.get_column_mut(column_index).debug_checked_unwrap();
                 new_column.initialize_from_unchecked(column, row, new_row);
             } else {
                 // It's the caller's responsibility to drop these cases.
@@ -744,12 +750,16 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        component_index: &ComponentIndex,
+        new_archetype_id: ArchetypeId,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
-        for (component_id, column) in self.columns.iter_mut() {
-            if let Some(new_column) = new_table.get_column_mut(*component_id) {
+        for (component_id, column) in self.components.iter().zip(self.columns.iter_mut()) {
+            if let Some(column_index) = component_index.get_column_index(*component_id, new_archetype_id) {
+                // SAFETY: the ComponentIndex guarantees that the table contains a column at `column_index`
+                let new_column = new_table.get_column_mut(column_index).debug_checked_unwrap();
                 new_column.initialize_from_unchecked(column, row, new_row);
             } else {
                 column.swap_remove_unchecked(row);
@@ -775,13 +785,16 @@ impl Table {
         &mut self,
         row: TableRow,
         new_table: &mut Table,
+        component_index: &ComponentIndex,
+        new_archetype_id: ArchetypeId,
     ) -> TableMoveResult {
         debug_assert!(row.as_usize() < self.entity_count());
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
-        for (component_id, column) in self.columns.iter_mut() {
+        for (component_id, column) in self.components.iter().zip(self.columns.iter_mut()) {
+            let column_index = component_index.get_column_index(*component_id, new_archetype_id).debug_checked_unwrap();
             new_table
-                .get_column_mut(*component_id)
+                .get_column_mut(column_index)
                 .debug_checked_unwrap()
                 .initialize_from_unchecked(column, row, new_row);
         }
@@ -835,7 +848,7 @@ impl Table {
             // use entities vector capacity as driving capacity for all related allocations
             let new_capacity = self.entities.capacity();
 
-            for column in self.columns.values_mut() {
+            for column in self.columns.iter_mut() {
                 column.reserve_exact(new_capacity - column.len());
             }
         }
@@ -849,7 +862,7 @@ impl Table {
         self.reserve(1);
         let index = self.entities.len();
         self.entities.push(entity);
-        for column in self.columns.values_mut() {
+        for column in self.columns.iter_mut() {
             column.data.set_len(self.entities.len());
             column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
             column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
@@ -887,20 +900,20 @@ impl Table {
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        for column in self.columns.values_mut() {
+        for column in self.columns.iter_mut() {
             column.check_change_ticks(change_tick);
         }
     }
 
     /// Iterates over the [`Column`]s of the [`Table`].
     pub fn iter(&self) -> impl Iterator<Item = &Column> {
-        self.columns.values()
+        self.columns.iter()
     }
 
     /// Clears all of the stored components in the [`Table`].
     pub(crate) fn clear(&mut self) {
         self.entities.clear();
-        for column in self.columns.values_mut() {
+        for column in self.columns.iter_mut() {
             column.clear();
         }
     }
@@ -1061,7 +1074,7 @@ mod tests {
                 let row = table.allocate(*entity);
                 let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
-                    table.get_column_mut(component_id).unwrap().initialize(
+                    table.get_column_mut(0).unwrap().initialize(
                         row,
                         value_ptr,
                         Tick::new(0),

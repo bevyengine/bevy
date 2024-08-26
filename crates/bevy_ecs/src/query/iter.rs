@@ -14,7 +14,7 @@ use std::{
     mem::MaybeUninit,
     ops::Range,
 };
-
+use crate::archetype::ArchetypeId;
 use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
@@ -134,6 +134,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         &mut self,
         mut accum: B,
         func: &mut Func,
+        archetype_id: ArchetypeId,
         table: &'w Table,
         rows: Range<usize>,
     ) -> B
@@ -148,10 +149,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             "TableRow is only valid up to u32::MAX"
         );
 
-        D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
+        D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, archetype_id, table);
         F::set_table(
             &mut self.cursor.filter,
             &self.query_state.filter_state,
+            archetype_id,
             table,
         );
 
@@ -1040,7 +1042,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                     // - The fetched table matches both D and F
                     // - The provided range is equivalent to [0, table.entity_count)
                     // - The if block ensures that D::IS_DENSE and F::IS_DENSE are both true
-                    unsafe { self.fold_over_table_range(accum, &mut func, table, 0..table.entity_count()) };
+                    unsafe { self.fold_over_table_range(accum, &mut func, id.archetype_id, table, 0..table.entity_count()) };
             } else {
                 let archetype =
                     // SAFETY: Matched archetype IDs are guaranteed to still exist.
@@ -1807,7 +1809,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
-                    let table_id = self.storage_id_iter.next()?.table_id;
+                    let storage_id = self.storage_id_iter.next()?;
+                    let table_id = storage_id.table_id;
+                    let archetype_id = storage_id.archetype_id;
                     let table = tables.get(table_id).debug_checked_unwrap();
                     if table.is_empty() {
                         continue;
@@ -1815,8 +1819,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
-                        D::set_table(&mut self.fetch, &query_state.fetch_state, table);
-                        F::set_table(&mut self.filter, &query_state.filter_state, table);
+                        D::set_table(&mut self.fetch, &query_state.fetch_state, archetype_id, table);
+                        F::set_table(&mut self.filter, &query_state.filter_state, archetype_id, table);
                     }
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();

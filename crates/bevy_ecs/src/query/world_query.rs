@@ -201,11 +201,11 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _archetype_id: ArchetypeId, _table: &'w Table) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
                 // SAFETY: The invariants are uphold by the caller.
-                $(unsafe { $name::set_table($name, $state, _table); })*
+                $(unsafe { $name::set_table($name, $state, _archetype_id, _table); })*
             }
 
             #[inline(always)]
