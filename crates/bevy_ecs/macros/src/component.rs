@@ -1,8 +1,31 @@
-use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
-use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
+use quote::quote;
+use syn::{parse_macro_input, parse_quote, DeriveInput, ExprPath, Ident, LitStr, Path, Result};
+
+pub fn derive_event(input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    ast.generics
+        .make_where_clause()
+        .predicates
+        .push(parse_quote! { Self: Send + Sync + 'static });
+
+    let struct_name = &ast.ident;
+    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
+            type Traversal = #bevy_ecs_path::traversal::TraverseNone;
+            const AUTO_PROPAGATE: bool = false;
+        }
+
+        impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #bevy_ecs_path::component::StorageType::SparseSet;
+        }
+    })
+}
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -33,6 +56,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
+    let on_add = hook_register_function_call(quote! {on_add}, attrs.on_add);
+    let on_insert = hook_register_function_call(quote! {on_insert}, attrs.on_insert);
+    let on_replace = hook_register_function_call(quote! {on_replace}, attrs.on_replace);
+    let on_remove = hook_register_function_call(quote! {on_remove}, attrs.on_remove);
+
     ast.generics
         .make_where_clause()
         .predicates
@@ -43,16 +71,32 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-            type Storage = #storage;
+            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+
+            #[allow(unused_variables)]
+            fn register_component_hooks(hooks: &mut #bevy_ecs_path::component::ComponentHooks) {
+                #on_add
+                #on_insert
+                #on_replace
+                #on_remove
+            }
         }
     })
 }
 
-pub const COMPONENT: Symbol = Symbol("component");
-pub const STORAGE: Symbol = Symbol("storage");
+pub const COMPONENT: &str = "component";
+pub const STORAGE: &str = "storage";
+pub const ON_ADD: &str = "on_add";
+pub const ON_INSERT: &str = "on_insert";
+pub const ON_REPLACE: &str = "on_replace";
+pub const ON_REMOVE: &str = "on_remove";
 
 struct Attrs {
     storage: StorageTy,
+    on_add: Option<ExprPath>,
+    on_insert: Option<ExprPath>,
+    on_replace: Option<ExprPath>,
+    on_remove: Option<ExprPath>,
 }
 
 #[derive(Clone, Copy)]
@@ -66,58 +110,60 @@ const TABLE: &str = "Table";
 const SPARSE_SET: &str = "SparseSet";
 
 fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
-    let meta_items = bevy_macro_utils::parse_attrs(ast, COMPONENT)?;
-
     let mut attrs = Attrs {
         storage: StorageTy::Table,
+        on_add: None,
+        on_insert: None,
+        on_replace: None,
+        on_remove: None,
     };
 
-    for meta in meta_items {
-        use syn::{
-            Meta::NameValue,
-            NestedMeta::{Lit, Meta},
-        };
-        match meta {
-            Meta(NameValue(m)) if m.path == STORAGE => {
-                attrs.storage = match get_lit_str(STORAGE, &m.lit)?.value().as_str() {
-                    TABLE => StorageTy::Table,
-                    SPARSE_SET => StorageTy::SparseSet,
+    for meta in ast.attrs.iter().filter(|a| a.path().is_ident(COMPONENT)) {
+        meta.parse_nested_meta(|nested| {
+            if nested.path.is_ident(STORAGE) {
+                attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
+                    s if s == TABLE => StorageTy::Table,
+                    s if s == SPARSE_SET => StorageTy::SparseSet,
                     s => {
-                        return Err(Error::new_spanned(
-                            m.lit,
-                            format!(
-                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
-                            ),
-                        ))
+                        return Err(nested.error(format!(
+                            "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
+                        )));
                     }
                 };
+                Ok(())
+            } else if nested.path.is_ident(ON_ADD) {
+                attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
+                Ok(())
+            } else if nested.path.is_ident(ON_INSERT) {
+                attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
+                Ok(())
+            } else if nested.path.is_ident(ON_REPLACE) {
+                attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
+                Ok(())
+            } else if nested.path.is_ident(ON_REMOVE) {
+                attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
+                Ok(())
+            } else {
+                Err(nested.error("Unsupported attribute"))
             }
-            Meta(meta_item) => {
-                return Err(Error::new_spanned(
-                    meta_item.path(),
-                    format!(
-                        "unknown component attribute `{}`",
-                        meta_item.path().into_token_stream()
-                    ),
-                ));
-            }
-            Lit(lit) => {
-                return Err(Error::new_spanned(
-                    lit,
-                    "unexpected literal in component attribute",
-                ))
-            }
-        }
+        })?;
     }
 
     Ok(attrs)
 }
 
 fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
-    let typename = match ty {
-        StorageTy::Table => Ident::new("TableStorage", Span::call_site()),
-        StorageTy::SparseSet => Ident::new("SparseStorage", Span::call_site()),
+    let storage_type = match ty {
+        StorageTy::Table => Ident::new("Table", Span::call_site()),
+        StorageTy::SparseSet => Ident::new("SparseSet", Span::call_site()),
     };
 
-    quote! { #bevy_ecs_path::component::#typename }
+    quote! { #bevy_ecs_path::component::StorageType::#storage_type }
+}
+
+fn hook_register_function_call(
+    hook: TokenStream2,
+    function: Option<ExprPath>,
+) -> Option<TokenStream2> {
+    function.map(|meta| quote! { hooks. #hook (#meta); })
 }

@@ -1,0 +1,16 @@
+diff --git a/crates/bevy_window/src/window.rs b/crates/bevy_window/src/window.rs
+index ccc861a78..0cae580cd 100644
+--- a/crates/bevy_window/src/window.rs
++++ b/crates/bevy_window/src/window.rs
+@@ -293,9 +293,9 @@ impl Default for Window {
+             transparent: false,
+             focused: true,
+             window_level: Default::default(),
+-            fit_canvas_to_parent: false,
++            fit_canvas_to_parent: true,
+             prevent_default_event_handling: true,
+-            canvas: None,
++            canvas: Some("#bevy".to_string()),
+             window_theme: None,
+             visible: true,
+             skip_taskbar: false,

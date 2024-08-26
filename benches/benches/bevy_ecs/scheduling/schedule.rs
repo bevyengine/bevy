@@ -15,19 +15,19 @@ pub fn schedule(c: &mut Criterion) {
     struct E(f32);
 
     fn ab(mut query: Query<(&mut A, &mut B)>) {
-        query.for_each_mut(|(mut a, mut b)| {
+        query.iter_mut().for_each(|(mut a, mut b)| {
             std::mem::swap(&mut a.0, &mut b.0);
         });
     }
 
     fn cd(mut query: Query<(&mut C, &mut D)>) {
-        query.for_each_mut(|(mut c, mut d)| {
+        query.iter_mut().for_each(|(mut c, mut d)| {
             std::mem::swap(&mut c.0, &mut d.0);
         });
     }
 
     fn ce(mut query: Query<(&mut C, &mut E)>) {
-        query.for_each_mut(|(mut c, mut e)| {
+        query.iter_mut().for_each(|(mut c, mut e)| {
             std::mem::swap(&mut c.0, &mut e.0);
         });
     }
@@ -46,7 +46,7 @@ pub fn schedule(c: &mut Criterion) {
 
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0), E(0.0))));
 
-        let mut schedule = Schedule::new();
+        let mut schedule = Schedule::default();
         schedule.add_systems((ab, cd, ce));
         schedule.run(&mut world);
 
@@ -116,5 +116,30 @@ pub fn build_schedule(criterion: &mut Criterion) {
         });
     }
 
+    group.finish();
+}
+
+pub fn empty_schedule_run(criterion: &mut Criterion) {
+    let mut app = bevy_app::App::default();
+
+    let mut group = criterion.benchmark_group("run_empty_schedule");
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+    group.bench_function("SingleThreaded", |bencher| {
+        bencher.iter(|| schedule.run(app.world_mut()));
+    });
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
+    group.bench_function("MultiThreaded", |bencher| {
+        bencher.iter(|| schedule.run(app.world_mut()));
+    });
+
+    let mut schedule = Schedule::default();
+    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::Simple);
+    group.bench_function("Simple", |bencher| {
+        bencher.iter(|| schedule.run(app.world_mut()));
+    });
     group.finish();
 }

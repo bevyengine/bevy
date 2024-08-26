@@ -25,7 +25,15 @@ mod tests {
         let info = MyEnum::type_info();
         if let TypeInfo::Enum(info) = info {
             assert!(info.is::<MyEnum>(), "expected type to be `MyEnum`");
-            assert_eq!(std::any::type_name::<MyEnum>(), info.type_name());
+            assert_eq!(MyEnum::type_path(), info.type_path());
+            assert_eq!(MyEnum::type_path(), info.type_path_table().path());
+            assert_eq!(MyEnum::type_ident(), info.type_path_table().ident());
+            assert_eq!(MyEnum::module_path(), info.type_path_table().module_path());
+            assert_eq!(MyEnum::crate_name(), info.type_path_table().crate_name());
+            assert_eq!(
+                MyEnum::short_type_path(),
+                info.type_path_table().short_path()
+            );
 
             // === MyEnum::A === //
             assert_eq!("A", info.variant_at(0).unwrap().name());
@@ -42,6 +50,18 @@ mod tests {
             if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<usize>());
                 assert!(variant.field_at(1).unwrap().is::<i32>());
+                assert!(variant
+                    .field_at(0)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<usize>());
+                assert!(variant
+                    .field_at(1)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<i32>());
             } else {
                 panic!("Expected `VariantInfo::Tuple`");
             }
@@ -52,6 +72,12 @@ mod tests {
             if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<f32>());
                 assert!(variant.field("foo").unwrap().is::<f32>());
+                assert!(variant
+                    .field("foo")
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<f32>());
             } else {
                 panic!("Expected `VariantInfo::Struct`");
             }
@@ -186,6 +212,12 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_enum_should_return_is_dynamic() {
+        let dyn_enum = DynamicEnum::from(MyEnum::B(123, 321));
+        assert!(dyn_enum.is_dynamic());
+    }
+
+    #[test]
     fn enum_should_iterate_fields() {
         // === Unit === //
         let value: &dyn Enum = &MyEnum::A;
@@ -275,12 +307,46 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "`((usize, i32))` is not an enum")]
+    #[should_panic(
+        expected = "called `Result::unwrap()` on an `Err` value: MismatchedKinds { from_kind: Tuple, to_kind: Enum }"
+    )]
     fn applying_non_enum_should_panic() {
         let mut value = MyEnum::B(0, 0);
         let mut dyn_tuple = DynamicTuple::default();
         dyn_tuple.insert((123_usize, 321_i32));
         value.apply(&dyn_tuple);
+    }
+
+    #[test]
+    fn enum_try_apply_should_detect_type_mismatch() {
+        #[derive(Reflect, Debug, PartialEq)]
+        enum MyEnumAnalogue {
+            A(u32),
+            B(usize, usize),
+            C { foo: f32, bar: u8 },
+        }
+
+        let mut target = MyEnumAnalogue::A(0);
+
+        // === Tuple === //
+        let result = target.try_apply(&MyEnum::B(0, 1));
+        assert!(
+            matches!(result, Err(ApplyError::MismatchedTypes { .. })),
+            "`result` was {result:?}"
+        );
+
+        // === Struct === //
+        target = MyEnumAnalogue::C { foo: 0.0, bar: 1 };
+        let result = target.try_apply(&MyEnum::C {
+            foo: 1.0,
+            bar: true,
+        });
+        assert!(
+            matches!(result, Err(ApplyError::MismatchedTypes { .. })),
+            "`result` was {result:?}"
+        );
+        // Type mismatch should occur after partial application.
+        assert_eq!(target, MyEnumAnalogue::C { foo: 1.0, bar: 1 });
     }
 
     #[test]
@@ -342,14 +408,14 @@ mod tests {
         // === Tuple === //
         let mut data = DynamicTuple::default();
         data.insert(1.23_f32);
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum<f32>>(), "B", data);
+        let dyn_enum = DynamicEnum::new("B", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::B(1.23), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", 1.23_f32);
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum<f32>>(), "C", data);
+        let dyn_enum = DynamicEnum::new("C", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::C { value: 1.23 }, value);
     }
@@ -363,7 +429,7 @@ mod tests {
             C { value: TestStruct },
         }
 
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         struct TestStruct(usize);
 
         let mut value = TestEnum::A;
@@ -371,14 +437,14 @@ mod tests {
         // === Tuple === //
         let mut data = DynamicTuple::default();
         data.insert(TestStruct(123));
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "B", data);
+        let dyn_enum = DynamicEnum::new("B", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::B(TestStruct(123)), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", TestStruct(123));
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "C", data);
+        let dyn_enum = DynamicEnum::new("C", data);
         value.apply(&dyn_enum);
         assert_eq!(
             TestEnum::C {
@@ -397,7 +463,7 @@ mod tests {
             C { value: OtherEnum },
         }
 
-        #[derive(Reflect, FromReflect, Debug, PartialEq)]
+        #[derive(Reflect, Debug, PartialEq)]
         enum OtherEnum {
             A,
             B(usize),
@@ -409,14 +475,14 @@ mod tests {
         // === Tuple === //
         let mut data = DynamicTuple::default();
         data.insert(OtherEnum::B(123));
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "B", data);
+        let dyn_enum = DynamicEnum::new("B", data);
         value.apply(&dyn_enum);
         assert_eq!(TestEnum::B(OtherEnum::B(123)), value);
 
         // === Struct === //
         let mut data = DynamicStruct::default();
         data.insert("value", OtherEnum::C { value: 1.23 });
-        let dyn_enum = DynamicEnum::new(std::any::type_name::<TestEnum>(), "C", data);
+        let dyn_enum = DynamicEnum::new("C", data);
         value.apply(&dyn_enum);
         assert_eq!(
             TestEnum::C {
@@ -554,71 +620,71 @@ mod tests {
             C2 { value: f32 },
         }
 
-        let a: &dyn Reflect = &TestEnum::A;
-        let b: &dyn Reflect = &TestEnum::A;
+        let a: &dyn PartialReflect = &TestEnum::A;
+        let b: &dyn PartialReflect = &TestEnum::A;
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::A == TestEnum::A"
         );
 
-        let a: &dyn Reflect = &TestEnum::A;
-        let b: &dyn Reflect = &TestEnum::A1;
+        let a: &dyn PartialReflect = &TestEnum::A;
+        let b: &dyn PartialReflect = &TestEnum::A1;
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::A != TestEnum::A1"
         );
 
-        let a: &dyn Reflect = &TestEnum::B(123);
-        let b: &dyn Reflect = &TestEnum::B(123);
+        let a: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn PartialReflect = &TestEnum::B(123);
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) == TestEnum::B(123)"
         );
 
-        let a: &dyn Reflect = &TestEnum::B(123);
-        let b: &dyn Reflect = &TestEnum::B(321);
+        let a: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn PartialReflect = &TestEnum::B(321);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B(321)"
         );
 
-        let a: &dyn Reflect = &TestEnum::B(123);
-        let b: &dyn Reflect = &TestEnum::B1(123);
+        let a: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn PartialReflect = &TestEnum::B1(123);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B1(123)"
         );
 
-        let a: &dyn Reflect = &TestEnum::B(123);
-        let b: &dyn Reflect = &TestEnum::B2(123, 123);
+        let a: &dyn PartialReflect = &TestEnum::B(123);
+        let b: &dyn PartialReflect = &TestEnum::B2(123, 123);
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::B(123) != TestEnum::B2(123, 123)"
         );
 
-        let a: &dyn Reflect = &TestEnum::C { value: 123 };
-        let b: &dyn Reflect = &TestEnum::C { value: 123 };
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let b: &dyn PartialReflect = &TestEnum::C { value: 123 };
         assert!(
             a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} == TestEnum::C{{value: 123}}"
         );
 
-        let a: &dyn Reflect = &TestEnum::C { value: 123 };
-        let b: &dyn Reflect = &TestEnum::C { value: 321 };
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let b: &dyn PartialReflect = &TestEnum::C { value: 321 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C{{value: 321}}"
         );
 
-        let a: &dyn Reflect = &TestEnum::C { value: 123 };
-        let b: &dyn Reflect = &TestEnum::C1 { value: 123 };
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let b: &dyn PartialReflect = &TestEnum::C1 { value: 123 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C1{{value: 123}}"
         );
 
-        let a: &dyn Reflect = &TestEnum::C { value: 123 };
-        let b: &dyn Reflect = &TestEnum::C2 { value: 1.23 };
+        let a: &dyn PartialReflect = &TestEnum::C { value: 123 };
+        let b: &dyn PartialReflect = &TestEnum::C2 { value: 1.23 };
         assert!(
             !a.reflect_partial_eq(b).unwrap_or_default(),
             "expected TestEnum::C{{value: 123}} != TestEnum::C2{{value: 1.23}}"

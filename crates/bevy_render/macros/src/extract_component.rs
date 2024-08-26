@@ -20,7 +20,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let filter = if let Some(attr) = ast
         .attrs
         .iter()
-        .find(|a| a.path.is_ident("extract_component_filter"))
+        .find(|a| a.path().is_ident("extract_component_filter"))
     {
         let filter = match attr.parse_args::<syn::Type>() {
             Ok(filter) => filter,
@@ -38,12 +38,12 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_render_path::extract_component::ExtractComponent for #struct_name #type_generics #where_clause {
-            type Query = &'static Self;
+            type QueryData = &'static Self;
 
-            type Filter = #filter;
+            type QueryFilter = #filter;
             type Out = Self;
 
-            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
                 Some(item.clone())
             }
         }

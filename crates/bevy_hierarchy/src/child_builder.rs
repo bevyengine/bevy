@@ -3,10 +3,10 @@ use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
     prelude::Events,
-    system::{Command, Commands, EntityCommands},
-    world::{EntityMut, World},
+    system::{Commands, EntityCommands},
+    world::{Command, EntityWorldMut, World},
 };
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 
 // Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
 // even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
@@ -16,15 +16,19 @@ fn push_events(world: &mut World, events: impl IntoIterator<Item = HierarchyEven
     }
 }
 
+/// Adds `child` to `parent`'s [`Children`], without checking if it is already present there.
+///
+/// This might cause unexpected results when removing duplicate children.
 fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
     if let Some(mut children) = parent.get_mut::<Children>() {
         children.0.push(child);
     } else {
-        parent.insert(Children(smallvec::smallvec![child]));
+        parent.insert(Children(smallvec![child]));
     }
 }
 
+/// Sets [`Parent`] of the `child` to `new_parent`. Inserts [`Parent`] if `child` doesn't have one.
 fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option<Entity> {
     let mut child = world.entity_mut(child);
     if let Some(mut parent) = child.get_mut::<Parent>() {
@@ -41,12 +45,15 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
 ///
 /// Removes the [`Children`] component from the parent if it's empty.
 fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
-    let mut parent = world.entity_mut(parent);
-    if let Some(mut children) = parent.get_mut::<Children>() {
-        children.0.retain(|x| *x != child);
-        if children.is_empty() {
-            parent.remove::<Children>();
-        }
+    let Some(mut parent) = world.get_entity_mut(parent) else {
+        return;
+    };
+    let Some(mut children) = parent.get_mut::<Children>() else {
+        return;
+    };
+    children.0.retain(|x| *x != child);
+    if children.is_empty() {
+        parent.remove::<Children>();
     }
 }
 
@@ -110,6 +117,8 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
     push_events(world, events);
 }
 
+/// Removes entities in `children` from `parent`'s [`Children`], removing the component if it ends up empty.
+/// Also removes [`Parent`] component from `children`.
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
     if let Some(parent_children) = world.get::<Children>(parent) {
@@ -140,6 +149,8 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     }
 }
 
+/// Removes all children from `parent` by removing its [`Children`] component, as well as removing
+/// [`Parent`] component from its children.
 fn clear_children(parent: Entity, world: &mut World) {
     if let Some(children) = world.entity_mut(parent).take::<Children>() {
         for &child in &children.0 {
@@ -148,22 +159,22 @@ fn clear_children(parent: Entity, world: &mut World) {
     }
 }
 
-/// Command that adds a child to an entity
+/// Command that adds a child to an entity.
 #[derive(Debug)]
-pub struct AddChild {
-    /// Parent entity to add the child to
+pub struct PushChild {
+    /// Parent entity to add the child to.
     pub parent: Entity,
-    /// Child entity to add
+    /// Child entity to add.
     pub child: Entity,
 }
 
-impl Command for AddChild {
-    fn write(self, world: &mut World) {
+impl Command for PushChild {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).add_child(self.child);
     }
 }
 
-/// Command that inserts a child at a given index of a parent's children, shifting following children back
+/// Command that inserts a child at a given index of a parent's children, shifting following children back.
 #[derive(Debug)]
 pub struct InsertChildren {
     parent: Entity,
@@ -172,7 +183,7 @@ pub struct InsertChildren {
 }
 
 impl Command for InsertChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world
             .entity_mut(self.parent)
             .insert_children(self.index, &self.children);
@@ -187,42 +198,43 @@ pub struct PushChildren {
 }
 
 impl Command for PushChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.parent).push_children(&self.children);
     }
 }
 
-/// Command that removes children from an entity, and removes that child's parent.
+/// Command that removes children from an entity, and removes these children's parent.
 pub struct RemoveChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
 }
 
 impl Command for RemoveChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         remove_children(self.parent, &self.children, world);
     }
 }
 
-/// Command that clear all children from an entity.
+/// Command that clears all children from an entity and removes [`Parent`] component from those
+/// children.
 pub struct ClearChildren {
     parent: Entity,
 }
 
 impl Command for ClearChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         clear_children(self.parent, world);
     }
 }
 
-/// Command that clear all children from an entity. And replace with the given children.
+/// Command that clear all children from an entity, replacing them with the given children.
 pub struct ReplaceChildren {
     parent: Entity,
     children: SmallVec<[Entity; 8]>,
 }
 
 impl Command for ReplaceChildren {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         clear_children(self.parent, world);
         world.entity_mut(self.parent).push_children(&self.children);
     }
@@ -235,83 +247,184 @@ pub struct RemoveParent {
 }
 
 impl Command for RemoveParent {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world.entity_mut(self.child).remove_parent();
     }
 }
 
-/// Struct for building children onto an entity
-pub struct ChildBuilder<'w, 's, 'a> {
-    commands: &'a mut Commands<'w, 's>,
+/// Struct for building children entities and adding them to a parent entity.
+///
+/// # Example
+///
+/// This example creates three entities, a parent and two children.
+///
+/// ```
+/// # use bevy_ecs::bundle::Bundle;
+/// # use bevy_ecs::system::Commands;
+/// # use bevy_hierarchy::{ChildBuild, BuildChildren};
+/// # #[derive(Bundle)]
+/// # struct MyBundle {}
+/// # #[derive(Bundle)]
+/// # struct MyChildBundle {}
+/// #
+/// # fn test(mut commands: Commands) {
+/// commands.spawn(MyBundle {}).with_children(|child_builder| {
+///     child_builder.spawn(MyChildBundle {});
+///     child_builder.spawn(MyChildBundle {});
+/// });
+/// # }
+/// ```
+pub struct ChildBuilder<'a> {
+    commands: Commands<'a, 'a>,
     push_children: PushChildren,
 }
 
-impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
-    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`ChildBuilder`]
-    pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
+/// Trait for building children entities and adding them to a parent entity. This is used in
+/// implementations of [`BuildChildren`] as a bound on the [`Builder`](BuildChildren::Builder)
+/// associated type. The closure passed to [`BuildChildren::with_children`] accepts an
+/// implementation of `ChildBuild` so that children can be spawned via [`ChildBuild::spawn`].
+pub trait ChildBuild {
+    /// Spawn output type. Both [`spawn`](Self::spawn) and [`spawn_empty`](Self::spawn_empty) return
+    /// an implementation of this type so that children can be operated on via method-chaining.
+    /// Implementations of `ChildBuild` reborrow `self` when spawning entities (see
+    /// [`Commands::spawn_empty`] and [`World::get_entity_mut`]). Lifetime `'a` corresponds to this
+    /// reborrowed self, and `Self` outlives it.
+    type SpawnOutput<'a>: BuildChildren
+    where
+        Self: 'a;
+
+    /// Spawns an entity with the given bundle and inserts it into the parent entity's [`Children`].
+    /// Also adds [`Parent`] component to the created entity.
+    fn spawn(&mut self, bundle: impl Bundle) -> Self::SpawnOutput<'_>;
+
+    /// Spawns an [`Entity`] with no components and inserts it into the parent entity's [`Children`].
+    /// Also adds [`Parent`] component to the created entity.
+    fn spawn_empty(&mut self) -> Self::SpawnOutput<'_>;
+
+    /// Returns the parent entity.
+    fn parent_entity(&self) -> Entity;
+
+    /// Adds a command to be executed, like [`Commands::add`].
+    fn add_command<C: Command>(&mut self, command: C) -> &mut Self;
+}
+
+impl ChildBuild for ChildBuilder<'_> {
+    type SpawnOutput<'a> = EntityCommands<'a> where Self: 'a;
+
+    fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands {
         let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
         e
     }
 
-    /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`ChildBuilder`] which adds the [`Parent`] component to it.
-    pub fn spawn_empty(&mut self) -> EntityCommands<'w, 's, '_> {
+    fn spawn_empty(&mut self) -> EntityCommands {
         let e = self.commands.spawn_empty();
         self.push_children.children.push(e.id());
         e
     }
 
-    /// Returns the parent entity of this [`ChildBuilder`]
-    pub fn parent_entity(&self) -> Entity {
+    fn parent_entity(&self) -> Entity {
         self.push_children.parent
     }
 
-    /// Adds a command to this [`ChildBuilder`]
-    pub fn add_command<C: Command + 'static>(&mut self, command: C) -> &mut Self {
+    fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
         self.commands.add(command);
         self
     }
 }
 
-/// Trait defining how to build children
+/// Trait for removing, adding and replacing children and parents of an entity.
 pub trait BuildChildren {
-    /// Creates a [`ChildBuilder`] with the given children built in the given closure
-    fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
+    /// Child builder type.
+    type Builder<'a>: ChildBuild;
+
+    /// Takes a closure which builds children for this entity using [`ChildBuild`].
+    ///
+    /// For convenient spawning of a single child, you can use [`with_child`].
+    ///
+    /// [`with_child`]: BuildChildren::with_child
+    fn with_children(&mut self, f: impl FnOnce(&mut Self::Builder<'_>)) -> &mut Self;
+
+    /// Spawns the passed bundle and adds it to this entity as a child.
+    ///
+    /// For efficient spawning of multiple children, use [`with_children`].
+    ///
+    /// [`with_children`]: BuildChildren::with_children
+    fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self;
+
     /// Pushes children to the back of the builder's children. For any entities that are
     /// already a child of this one, this method does nothing.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn push_children(&mut self, children: &[Entity]) -> &mut Self;
-    /// Inserts children at the given index
+
+    /// Inserts children at the given index.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
+
     /// Removes the given children
     ///
     /// Removing all children from a parent causes its [`Children`] component to be removed from the entity.
     fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
-    /// Adds a single child
+
+    /// Adds a single child.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the child is the same as the parent.
     fn add_child(&mut self, child: Entity) -> &mut Self;
+
     /// Removes all children from this entity. The [`Children`] component will be removed if it exists, otherwise this does nothing.
     fn clear_children(&mut self) -> &mut Self;
+
     /// Removes all current children from this entity, replacing them with the specified list of entities.
+    ///
+    /// The removed children will have their [`Parent`] component removed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the children are the same as the parent.
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self;
+
     /// Sets the parent of this entity.
+    ///
+    /// If this entity already had a parent, the parent's [`Children`] component will have this
+    /// child removed from its list. Removing all children from a parent causes its [`Children`]
+    /// component to be removed from the entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the parent is the same as the child.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
-    /// Removes the parent of this entity.
+
+    /// Removes the [`Parent`] of this entity.
+    ///
+    /// Also removes this entity from its parent's [`Children`] component. Removing all children from a parent causes
+    /// its [`Children`] component to be removed from the entity.
     fn remove_parent(&mut self) -> &mut Self;
 }
 
-impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
-    fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
+impl BuildChildren for EntityCommands<'_> {
+    type Builder<'a> = ChildBuilder<'a>;
+
+    fn with_children(&mut self, spawn_children: impl FnOnce(&mut Self::Builder<'_>)) -> &mut Self {
         let parent = self.id();
         let mut builder = ChildBuilder {
             commands: self.commands(),
@@ -323,12 +436,25 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
         spawn_children(&mut builder);
         let children = builder.push_children;
+        if children.children.contains(&parent) {
+            panic!("Entity cannot be a child of itself.");
+        }
         self.commands().add(children);
+        self
+    }
+
+    fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
+        let parent = self.id();
+        let child = self.commands().spawn(bundle).id();
+        self.commands().add(PushChild { parent, child });
         self
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot push entity as a child of itself.");
+        }
         self.commands().add(PushChildren {
             children: SmallVec::from(children),
             parent,
@@ -338,6 +464,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot insert entity as a child of itself.");
+        }
         self.commands().add(InsertChildren {
             children: SmallVec::from(children),
             index,
@@ -357,7 +486,10 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
-        self.commands().add(AddChild { child, parent });
+        if child == parent {
+            panic!("Cannot add entity as a child of itself.");
+        }
+        self.commands().add(PushChild { child, parent });
         self
     }
 
@@ -369,6 +501,9 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot replace entity as a child of itself.");
+        }
         self.commands().add(ReplaceChildren {
             children: SmallVec::from(children),
             parent,
@@ -378,7 +513,10 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
 
     fn set_parent(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChild { child, parent });
+        if child == parent {
+            panic!("Cannot set parent to itself");
+        }
+        self.commands().add(PushChild { child, parent });
         self
     }
 
@@ -389,16 +527,17 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     }
 }
 
-/// Struct for adding children to an entity directly through the [`World`] for use in exclusive systems
+/// Struct for adding children to an entity directly through the [`World`] for use in exclusive systems.
 #[derive(Debug)]
 pub struct WorldChildBuilder<'w> {
     world: &'w mut World,
     parent: Entity,
 }
 
-impl<'w> WorldChildBuilder<'w> {
-    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
-    pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
+impl ChildBuild for WorldChildBuilder<'_> {
+    type SpawnOutput<'a> = EntityWorldMut<'a> where Self: 'a;
+
+    fn spawn(&mut self, bundle: impl Bundle) -> EntityWorldMut {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -411,8 +550,7 @@ impl<'w> WorldChildBuilder<'w> {
         self.world.entity_mut(entity)
     }
 
-    /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`WorldChildBuilder`] which adds the [`Parent`] component to it.
-    pub fn spawn_empty(&mut self) -> EntityMut<'_> {
+    fn spawn_empty(&mut self) -> EntityWorldMut {
         let entity = self.world.spawn(Parent(self.parent)).id();
         push_child_unchecked(self.world, self.parent, entity);
         push_events(
@@ -425,41 +563,19 @@ impl<'w> WorldChildBuilder<'w> {
         self.world.entity_mut(entity)
     }
 
-    /// Returns the parent entity of this [`WorldChildBuilder`]
-    pub fn parent_entity(&self) -> Entity {
+    fn parent_entity(&self) -> Entity {
         self.parent
+    }
+
+    fn add_command<C: Command>(&mut self, command: C) -> &mut Self {
+        command.apply(self.world);
+        self
     }
 }
 
-/// Trait that defines adding children to an entity directly through the [`World`]
-pub trait BuildWorldChildren {
-    /// Creates a [`WorldChildBuilder`] with the given children built in the given closure
-    fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
+impl BuildChildren for EntityWorldMut<'_> {
+    type Builder<'a> = WorldChildBuilder<'a>;
 
-    /// Adds a single child
-    ///
-    /// If the children were previously children of another parent, that parent's [`Children`] component
-    /// will have those children removed from its list. Removing all children from a parent causes its
-    /// [`Children`] component to be removed from the entity.
-    fn add_child(&mut self, child: Entity) -> &mut Self;
-
-    /// Pushes children to the back of the builder's children
-    fn push_children(&mut self, children: &[Entity]) -> &mut Self;
-    /// Inserts children at the given index
-    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self;
-    /// Removes the given children
-    fn remove_children(&mut self, children: &[Entity]) -> &mut Self;
-
-    /// Set the `parent` of this entity. This entity will be added to the end of the `parent`'s list of children.
-    ///
-    /// If this entity already had a parent it will be removed from it.
-    fn set_parent(&mut self, parent: Entity) -> &mut Self;
-
-    /// Remove the parent from this entity.
-    fn remove_parent(&mut self) -> &mut Self;
-}
-
-impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {
@@ -468,8 +584,22 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
         self
     }
 
+    fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
+        let child = self.world_scope(|world| world.spawn(bundle).id());
+        if let Some(mut children_component) = self.get_mut::<Children>() {
+            children_component.0.retain(|value| child != *value);
+            children_component.0.push(child);
+        } else {
+            self.insert(Children::from_entities(&[child]));
+        }
+        self
+    }
+
     fn add_child(&mut self, child: Entity) -> &mut Self {
         let parent = self.id();
+        if child == parent {
+            panic!("Cannot add entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parent(world, child, parent);
         });
@@ -483,7 +613,14 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
+        if children.is_empty() {
+            return self;
+        }
+
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot push entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parents(world, parent, children);
         });
@@ -500,6 +637,9 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 
     fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
         let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot insert entity as a child of itself.");
+        }
         self.world_scope(|world| {
             update_old_parents(world, parent, children);
         });
@@ -540,11 +680,23 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
         }
         self
     }
+
+    fn clear_children(&mut self) -> &mut Self {
+        let parent = self.id();
+        self.world_scope(|world| {
+            clear_children(parent, world);
+        });
+        self
+    }
+
+    fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
+        self.clear_children().push_children(children)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{BuildChildren, BuildWorldChildren};
+    use super::{BuildChildren, ChildBuild};
     use crate::{
         components::{Children, Parent},
         HierarchyEvent::{self, ChildAdded, ChildMoved, ChildRemoved},
@@ -555,18 +707,26 @@ mod tests {
         component::Component,
         entity::Entity,
         event::Events,
-        system::{CommandQueue, Commands},
-        world::World,
+        system::Commands,
+        world::{CommandQueue, World},
     };
 
     /// Assert the (non)existence and state of the child's [`Parent`] component.
-    fn assert_parent(world: &mut World, child: Entity, parent: Option<Entity>) {
-        assert_eq!(world.get::<Parent>(child).map(|p| p.get()), parent);
+    fn assert_parent(world: &World, child: Entity, parent: Option<Entity>) {
+        assert_eq!(world.get::<Parent>(child).map(Parent::get), parent);
     }
 
     /// Assert the (non)existence and state of the parent's [`Children`] component.
-    fn assert_children(world: &mut World, parent: Entity, children: Option<&[Entity]>) {
+    fn assert_children(world: &World, parent: Entity, children: Option<&[Entity]>) {
         assert_eq!(world.get::<Children>(parent).map(|c| &**c), children);
+    }
+
+    /// Assert the number of children in the parent's [`Children`] component if it exists.
+    fn assert_num_children(world: &World, parent: Entity, num_children: usize) {
+        assert_eq!(
+            world.get::<Children>(parent).map(|c| c.len()).unwrap_or(0),
+            num_children
+        );
     }
 
     /// Used to omit a number of events that are not relevant to a particular test.
@@ -653,6 +813,23 @@ mod tests {
         );
     }
 
+    // regression test for https://github.com/bevyengine/bevy/pull/8346
+    #[test]
+    fn set_parent_of_orphan() {
+        let world = &mut World::new();
+
+        let [a, b, c] = std::array::from_fn(|_| world.spawn_empty().id());
+        world.entity_mut(a).set_parent(b);
+        assert_parent(world, a, Some(b));
+        assert_children(world, b, Some(&[a]));
+
+        world.entity_mut(b).despawn();
+        world.entity_mut(a).set_parent(c);
+
+        assert_parent(world, a, Some(c));
+        assert_children(world, c, Some(&[a]));
+    }
+
     #[test]
     fn remove_parent() {
         let world = &mut World::new();
@@ -687,6 +864,7 @@ mod tests {
         );
     }
 
+    #[allow(dead_code)]
     #[derive(Component)]
     struct C(u32);
 
@@ -716,6 +894,19 @@ mod tests {
 
         assert_eq!(*world.get::<Parent>(children[0]).unwrap(), Parent(parent));
         assert_eq!(*world.get::<Parent>(children[1]).unwrap(), Parent(parent));
+    }
+
+    #[test]
+    fn build_child() {
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+
+        let parent = commands.spawn(C(1)).id();
+        commands.entity(parent).with_child(C(2));
+
+        queue.apply(&mut world);
+        assert_eq!(world.get::<Children>(parent).unwrap().0.len(), 1);
     }
 
     #[test]
@@ -783,7 +974,7 @@ mod tests {
     fn push_and_clear_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -821,7 +1012,7 @@ mod tests {
     fn push_and_replace_children_commands() {
         let mut world = World::default();
         let entities = world
-            .spawn_batch(vec![(C(1),), (C(2),), (C(3),), (C(4),), (C(5),)])
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
             .collect::<Vec<Entity>>();
 
         let mut queue = CommandQueue::default();
@@ -902,6 +1093,68 @@ mod tests {
         );
         assert!(world.get::<Parent>(child1).is_none());
         assert!(world.get::<Parent>(child4).is_none());
+    }
+
+    #[test]
+    fn push_and_insert_and_clear_children_world() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![C(1), C(2), C(3)])
+            .collect::<Vec<Entity>>();
+
+        world.entity_mut(entities[0]).push_children(&entities[1..3]);
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        world.entity_mut(parent).clear_children();
+        assert!(world.get::<Children>(parent).is_none());
+        assert!(world.get::<Parent>(child1).is_none());
+        assert!(world.get::<Parent>(child2).is_none());
+    }
+
+    #[test]
+    fn push_and_replace_children_world() {
+        let mut world = World::default();
+        let entities = world
+            .spawn_batch(vec![C(1), C(2), C(3), C(4), C(5)])
+            .collect::<Vec<Entity>>();
+
+        world.entity_mut(entities[0]).push_children(&entities[1..3]);
+
+        let parent = entities[0];
+        let child1 = entities[1];
+        let child2 = entities[2];
+        let child3 = entities[3];
+        let child4 = entities[4];
+
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child1, child2];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert_eq!(*world.get::<Parent>(child1).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+
+        world.entity_mut(parent).replace_children(&entities[2..]);
+        let expected_children: SmallVec<[Entity; 8]> = smallvec![child2, child3, child4];
+        assert_eq!(
+            world.get::<Children>(parent).unwrap().0.clone(),
+            expected_children
+        );
+        assert!(world.get::<Parent>(child1).is_none());
+        assert_eq!(*world.get::<Parent>(child2).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child3).unwrap(), Parent(parent));
+        assert_eq!(*world.get::<Parent>(child4).unwrap(), Parent(parent));
     }
 
     /// Tests what happens when all children are removed from a parent using world functions
@@ -1014,5 +1267,34 @@ mod tests {
         let mut query = world.query::<&Children>();
         let children = query.get(&world, parent).unwrap();
         assert_eq!(**children, [child]);
+    }
+
+    #[test]
+    fn push_children_does_not_insert_empty_children() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().push_children(&[]).id();
+
+        let mut query = world.query::<&Children>();
+        let children = query.get(&world, parent);
+        assert!(children.is_err());
+    }
+
+    #[test]
+    fn with_child() {
+        let world = &mut World::new();
+        world.insert_resource(Events::<HierarchyEvent>::default());
+
+        let a = world.spawn_empty().id();
+        let b = ();
+        let c = ();
+        let d = ();
+
+        world.entity_mut(a).with_child(b);
+
+        assert_num_children(world, a, 1);
+
+        world.entity_mut(a).with_child(c).with_child(d);
+
+        assert_num_children(world, a, 3);
     }
 }

@@ -1,13 +1,29 @@
 //! Shows how to render simple primitive shapes with a single color.
+//!
+//! You can toggle wireframes with the space bar except on wasm. Wasm does not support
+//! `POLYGON_MODE_LINE` on the gpu.
 
-use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
+use bevy::{
+    prelude::*,
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+};
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .run();
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins,
+        #[cfg(not(target_arch = "wasm32"))]
+        Wireframe2dPlugin,
+    ))
+    .add_systems(Startup, setup);
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_systems(Update, toggle_wireframe);
+    app.run();
 }
+
+const X_EXTENT: f32 = 900.;
 
 fn setup(
     mut commands: Commands,
@@ -16,40 +32,59 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    // Circle
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Circle::new(50.).into()).into(),
-        material: materials.add(ColorMaterial::from(Color::PURPLE)),
-        transform: Transform::from_translation(Vec3::new(-150., 0., 0.)),
-        ..default()
-    });
+    let shapes = [
+        Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
+        Mesh2dHandle(meshes.add(CircularSector::new(50.0, 1.0))),
+        Mesh2dHandle(meshes.add(CircularSegment::new(50.0, 1.25))),
+        Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
+        Mesh2dHandle(meshes.add(Annulus::new(25.0, 50.0))),
+        Mesh2dHandle(meshes.add(Capsule2d::new(25.0, 50.0))),
+        Mesh2dHandle(meshes.add(Rhombus::new(75.0, 100.0))),
+        Mesh2dHandle(meshes.add(Rectangle::new(50.0, 100.0))),
+        Mesh2dHandle(meshes.add(RegularPolygon::new(50.0, 6))),
+        Mesh2dHandle(meshes.add(Triangle2d::new(
+            Vec2::Y * 50.0,
+            Vec2::new(-50.0, -50.0),
+            Vec2::new(50.0, -50.0),
+        ))),
+    ];
+    let num_shapes = shapes.len();
 
-    // Rectangle
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(50.0, 100.0)),
+    for (i, shape) in shapes.into_iter().enumerate() {
+        // Distribute colors evenly across the rainbow.
+        let color = Color::hsl(360. * i as f32 / num_shapes as f32, 0.95, 0.7);
+
+        commands.spawn(MaterialMesh2dBundle {
+            mesh: shape,
+            material: materials.add(color),
+            transform: Transform::from_xyz(
+                // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
+                -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
+                0.0,
+                0.0,
+            ),
             ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(-50., 0., 0.)),
-        ..default()
-    });
+        });
+    }
 
-    // Quad
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes
-            .add(shape::Quad::new(Vec2::new(50., 100.)).into())
-            .into(),
-        material: materials.add(ColorMaterial::from(Color::LIME_GREEN)),
-        transform: Transform::from_translation(Vec3::new(50., 0., 0.)),
-        ..default()
-    });
+    #[cfg(not(target_arch = "wasm32"))]
+    commands.spawn(
+        TextBundle::from_section("Press space to toggle wireframes", TextStyle::default())
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            }),
+    );
+}
 
-    // Hexagon
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(shape::RegularPolygon::new(50., 6).into()).into(),
-        material: materials.add(ColorMaterial::from(Color::TURQUOISE)),
-        transform: Transform::from_translation(Vec3::new(150., 0., 0.)),
-        ..default()
-    });
+#[cfg(not(target_arch = "wasm32"))]
+fn toggle_wireframe(
+    mut wireframe_config: ResMut<Wireframe2dConfig>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        wireframe_config.global = !wireframe_config.global;
+    }
 }

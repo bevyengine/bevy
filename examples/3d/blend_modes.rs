@@ -10,7 +10,7 @@
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
-use bevy::prelude::*;
+use bevy::{color::palettes::css::ORANGE, prelude::*};
 use rand::random;
 
 fn main() {
@@ -21,7 +21,7 @@ fn main() {
         .add_systems(Update, example_control_system);
 
     // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
-    // Since this example uses HDR, we must disable MSAA for WASM builds, at least
+    // Since this example uses HDR, we must disable MSAA for Wasm builds, at least
     // until WebGPU is ready and no longer behind a feature flag in Web browsers.
     #[cfg(target_arch = "wasm32")]
     app.insert_resource(Msaa::Off);
@@ -36,14 +36,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let base_color = Color::rgba(0.9, 0.2, 0.3, 1.0);
-    let icosphere_mesh = meshes.add(
-        Mesh::try_from(shape::Icosphere {
-            radius: 0.9,
-            subdivisions: 7,
-        })
-        .unwrap(),
-    );
+    let base_color = Color::srgb(0.9, 0.2, 0.3);
+    let icosphere_mesh = meshes.add(Sphere::new(0.9).mesh().ico(7).unwrap());
 
     // Opaque
     let opaque = commands
@@ -146,10 +140,10 @@ fn setup(
         .id();
 
     // Chessboard Plane
-    let black_material = materials.add(Color::BLACK.into());
-    let white_material = materials.add(Color::WHITE.into());
+    let black_material = materials.add(Color::BLACK);
+    let white_material = materials.add(Color::WHITE);
 
-    let plane_mesh = meshes.add(shape::Plane::from_size(2.0).into());
+    let plane_mesh = meshes.add(Plane3d::default().mesh().size(2.0, 2.0));
 
     for x in -3..4 {
         for z in -3..4 {
@@ -185,16 +179,19 @@ fn setup(
     });
 
     // Controls Text
+
+    // We need the full version of this font so we can use box drawing characters.
+    let font = asset_server.load("fonts/FiraMono-Medium.ttf");
+
     let text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 18.0,
-        color: Color::BLACK,
+        font: font.clone(),
+        ..default()
     };
 
     let label_text_style = TextStyle {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        font_size: 25.0,
-        color: Color::ORANGE,
+        font,
+        color: ORANGE.into(),
+        ..default()
     };
 
     commands.spawn(
@@ -204,8 +201,8 @@ fn setup(
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -213,58 +210,43 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
+            top: Val::Px(12.0),
+            right: Val::Px(12.0),
             ..default()
         }),
         ExampleDisplay,
     ));
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Opaque\n│\n│\n│\n│", label_text_style.clone()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                ..default()
-            },
-        ),
-        ExampleLabel { entity: opaque },
-    ));
+    let mut label = |entity: Entity, label: &str| {
+        commands
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        ..default()
+                    },
+                    ..default()
+                },
+                ExampleLabel { entity },
+            ))
+            .with_children(|parent| {
+                parent.spawn(
+                    TextBundle::from_section(label, label_text_style.clone())
+                        .with_style(Style {
+                            position_type: PositionType::Absolute,
+                            bottom: Val::ZERO,
+                            ..default()
+                        })
+                        .with_no_wrap(),
+                );
+            });
+    };
 
-    commands.spawn((
-        TextBundle::from_section("┌─ Blend\n│\n│\n│", label_text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: blend },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Premultiplied\n│\n│", label_text_style.clone()).with_style(
-            Style {
-                position_type: PositionType::Absolute,
-                ..default()
-            },
-        ),
-        ExampleLabel {
-            entity: premultiplied,
-        },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Add\n│", label_text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: add },
-    ));
-
-    commands.spawn((
-        TextBundle::from_section("┌─ Multiply", label_text_style).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
-        ExampleLabel { entity: multiply },
-    ));
+    label(opaque, "┌─ Opaque\n│\n│\n│\n│");
+    label(blend, "┌─ Blend\n│\n│\n│");
+    label(premultiplied, "┌─ Premultiplied\n│\n│");
+    label(add, "┌─ Add\n│");
+    label(multiply, "┌─ Multiply");
 }
 
 #[derive(Component)]
@@ -305,11 +287,11 @@ fn example_control_system(
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
 ) {
-    if input.pressed(KeyCode::Up) {
+    if input.pressed(KeyCode::ArrowUp) {
         state.alpha = (state.alpha + time.delta_seconds()).min(1.0);
-    } else if input.pressed(KeyCode::Down) {
+    } else if input.pressed(KeyCode::ArrowDown) {
         state.alpha = (state.alpha - time.delta_seconds()).max(0.0);
     }
 
@@ -317,17 +299,23 @@ fn example_control_system(
         state.unlit = !state.unlit;
     }
 
-    let randomize_colors = input.just_pressed(KeyCode::C);
+    let randomize_colors = input.just_pressed(KeyCode::KeyC);
 
     for (material_handle, controls) in &controllable {
-        let mut material = materials.get_mut(material_handle).unwrap();
-        material.base_color.set_a(state.alpha);
+        let material = materials.get_mut(material_handle).unwrap();
 
         if controls.color && randomize_colors {
-            material.base_color.set_r(random());
-            material.base_color.set_g(random());
-            material.base_color.set_b(random());
+            material.base_color = Srgba {
+                red: random(),
+                green: random(),
+                blue: random(),
+                alpha: state.alpha,
+            }
+            .into();
+        } else {
+            material.base_color.set_alpha(state.alpha);
         }
+
         if controls.unlit {
             material.unlit = state.unlit;
         }
@@ -335,32 +323,28 @@ fn example_control_system(
 
     let (mut camera, mut camera_transform, camera_global_transform) = camera.single_mut();
 
-    if input.just_pressed(KeyCode::H) {
+    if input.just_pressed(KeyCode::KeyH) {
         camera.hdr = !camera.hdr;
     }
 
-    let rotation = if input.pressed(KeyCode::Left) {
+    let rotation = if input.pressed(KeyCode::ArrowLeft) {
         time.delta_seconds()
-    } else if input.pressed(KeyCode::Right) {
+    } else if input.pressed(KeyCode::ArrowRight) {
         -time.delta_seconds()
     } else {
         0.0
     };
 
-    camera_transform.rotate_around(
-        Vec3::ZERO,
-        Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
-    );
+    camera_transform.rotate_around(Vec3::ZERO, Quat::from_rotation_y(rotation));
 
     for (mut style, label) in &mut labels {
-        let world_position =
-            labelled.get(label.entity).unwrap().translation() + Vec3::new(0.0, 1.0, 0.0);
+        let world_position = labelled.get(label.entity).unwrap().translation() + Vec3::Y;
 
         let viewport_position = camera
             .world_to_viewport(camera_global_transform, world_position)
             .unwrap();
 
-        style.bottom = Val::Px(viewport_position.y);
+        style.top = Val::Px(viewport_position.y);
         style.left = Val::Px(viewport_position.x);
     }
 

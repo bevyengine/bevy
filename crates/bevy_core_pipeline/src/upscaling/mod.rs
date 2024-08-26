@@ -4,6 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::camera::{CameraOutputMode, ExtractedCamera};
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, Render, RenderApp, RenderSet};
+use bevy_utils::HashSet;
 
 mod node;
 
@@ -13,10 +14,17 @@ pub struct UpscalingPlugin;
 
 impl Plugin for UpscalingPlugin {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                queue_view_upscaling_pipelines.in_set(RenderSet::Queue),
+                // This system should probably technically be run *after* all of the other systems
+                // that might modify `PipelineCache` via interior mutability, but for now,
+                // we've chosen to simply ignore the ambiguities out of a desire for a better refactor
+                // and aversion to extensive and intrusive system ordering.
+                // See https://github.com/bevyengine/bevy/issues/14770 for more context.
+                prepare_view_upscaling_pipelines
+                    .in_set(RenderSet::Prepare)
+                    .ambiguous_with_all(),
             );
         }
     }
@@ -25,29 +33,48 @@ impl Plugin for UpscalingPlugin {
 #[derive(Component)]
 pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
-fn queue_view_upscaling_pipelines(
+fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
-    pipeline_cache: Res<PipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
 ) {
+    let mut output_textures = HashSet::new();
     for (entity, view_target, camera) in view_targets.iter() {
+        let out_texture_id = view_target.out_texture().id();
         let blend_state = if let Some(ExtractedCamera {
             output_mode: CameraOutputMode::Write { blend_state, .. },
             ..
         }) = camera
         {
-            *blend_state
+            match *blend_state {
+                None => {
+                    // If we've already seen this output for a camera and it doesn't have a output blend
+                    // mode configured, default to alpha blend so that we don't accidentally overwrite
+                    // the output texture
+                    if output_textures.contains(&out_texture_id) {
+                        Some(BlendState::ALPHA_BLENDING)
+                    } else {
+                        None
+                    }
+                }
+                _ => *blend_state,
+            }
         } else {
             None
         };
+        output_textures.insert(out_texture_id);
+
         let key = BlitPipelineKey {
             texture_format: view_target.out_texture_format(),
             blend_state,
             samples: 1,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
+
+        // Ensure the pipeline is loaded before continuing the frame to prevent frames without any GPU work submitted
+        pipeline_cache.block_on_render_pipeline(pipeline);
 
         commands
             .entity(entity)

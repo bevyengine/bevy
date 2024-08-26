@@ -1,0 +1,25 @@
+(
+    meta_format_version: "1.0",
+    asset: Load(
+        loader: "bevy_render::texture::image_loader::ImageLoader",
+        settings: (
+            format: FromExtension,
+            is_srgb: true,
+            sampler: Descriptor (ImageSamplerDescriptor(
+                address_mode_u: ClampToEdge,
+                address_mode_v: ClampToEdge,
+                address_mode_w: ClampToEdge,
+                mag_filter: Nearest,
+                min_filter: Nearest,
+                mipmap_filter: Nearest,
+                lod_min_clamp: 0,
+                lod_max_clamp: 32.0,
+                compare: None,
+                anisotropy_clamp: 1,
+                border_color: None,
+                label: None,
+            )),
+            asset_usage: RenderAssetUsages("RENDER_WORLD | MAIN_WORLD"),
+        ),
+    ),
+)

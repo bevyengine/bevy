@@ -192,7 +192,7 @@ where
     // TODO: Investigate optimizations for less copying
     fn collect<C>(mut self, pool: &TaskPool) -> C
     where
-        C: std::iter::FromIterator<BatchIter::Item>,
+        C: FromIterator<BatchIter::Item>,
         BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {

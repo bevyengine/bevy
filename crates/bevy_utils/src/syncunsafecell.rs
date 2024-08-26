@@ -3,6 +3,7 @@
 //! [`std::cell::SyncUnsafeCell`]: https://doc.rust-lang.org/nightly/std/cell/struct.SyncUnsafeCell.html
 
 pub use core::cell::UnsafeCell;
+use core::ptr;
 
 /// [`UnsafeCell`], but [`Sync`].
 ///
@@ -12,7 +13,7 @@ pub use core::cell::UnsafeCell;
 /// This is just an `UnsafeCell`, except it implements `Sync`
 /// if `T` implements `Sync`.
 ///
-/// `UnsafeCell` doesn't implement `Sync`, to prevent accidental mis-use.
+/// `UnsafeCell` doesn't implement `Sync`, to prevent accidental misuse.
 /// You can use `SyncUnsafeCell` instead of `UnsafeCell` to allow it to be
 /// shared between threads, if that's intentional.
 /// Providing proper synchronization is still the task of the user,
@@ -72,15 +73,17 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
         // We can just cast the pointer from `SyncUnsafeCell<T>` to `T` because
         // of #[repr(transparent)] on both SyncUnsafeCell and UnsafeCell.
         // See UnsafeCell::raw_get.
-        this as *const T as *mut T
+        (this as *const T).cast_mut()
     }
 
     #[inline]
-    /// Returns a `&SyncUnsafeCell<T>` from a `&mut T`.
-    pub fn from_mut(t: &mut T) -> &SyncUnsafeCell<T> {
-        // SAFETY: `&mut` ensures unique access, and `UnsafeCell<T>` and `SyncUnsafeCell<T>`
-        // have #[repr(transparent)]
-        unsafe { &*(t as *mut T as *const SyncUnsafeCell<T>) }
+    /// Returns a `&mut SyncUnsafeCell<T>` from a `&mut T`.
+    pub fn from_mut(t: &mut T) -> &mut SyncUnsafeCell<T> {
+        let ptr = ptr::from_mut(t) as *mut SyncUnsafeCell<T>;
+        // SAFETY: `ptr` must be safe to mutably dereference, since it was originally
+        // obtained from a mutable reference. `SyncUnsafeCell` has the same representation
+        // as the original type `T`, since the former is annotated with #[repr(transparent)].
+        unsafe { &mut *ptr }
     }
 }
 
@@ -98,12 +101,14 @@ impl<T> SyncUnsafeCell<[T]> {
     /// assert_eq!(slice_cell.len(), 3);
     /// ```
     pub fn as_slice_of_cells(&self) -> &[SyncUnsafeCell<T>] {
+        let self_ptr: *const SyncUnsafeCell<[T]> = ptr::from_ref(self);
+        let slice_ptr = self_ptr as *const [SyncUnsafeCell<T>];
         // SAFETY: `UnsafeCell<T>` and `SyncUnsafeCell<T>` have #[repr(transparent)]
         // therefore:
         // - `SyncUnsafeCell<T>` has the same layout as `T`
         // - `SyncUnsafeCell<[T]>` has the same layout as `[T]`
         // - `SyncUnsafeCell<[T]>` has the same layout as `[SyncUnsafeCell<T>]`
-        unsafe { &*(self as *const SyncUnsafeCell<[T]> as *const [SyncUnsafeCell<T>]) }
+        unsafe { &*slice_ptr }
     }
 }
 

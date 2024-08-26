@@ -1,3 +1,9 @@
 (
-    exit_after: Some(300)
+    setup: (
+        frame_time: Some(0.03),
+    ),
+    events: [
+        (100, Screenshot),
+        (300, AppExit),
+    ]
 )

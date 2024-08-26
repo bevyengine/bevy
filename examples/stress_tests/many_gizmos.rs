@@ -1,31 +1,37 @@
+//! Test rendering of many gizmos.
+
 use std::f32::consts::TAU;
 
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowResolution},
+    winit::{UpdateMode, WinitSettings},
 };
 
 const SYSTEM_COUNT: u32 = 10;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "Many Debug Lines".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Many Debug Lines".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
+                ..default()
+            }),
             ..default()
         }),
-        ..default()
-    }))
-    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        FrameTimeDiagnosticsPlugin,
+    ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
     .insert_resource(Config {
         line_count: 50_000,
         fancy: false,
-    })
-    .insert_resource(GizmoConfig {
-        on_top: false,
-        ..default()
     })
     .add_systems(Startup, setup)
     .add_systems(Update, (input, ui_system));
@@ -43,11 +49,11 @@ struct Config {
     fancy: bool,
 }
 
-fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::Up) {
+fn input(mut config: ResMut<Config>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::ArrowUp) {
         config.line_count += 10_000;
     }
-    if input.just_pressed(KeyCode::Down) {
+    if input.just_pressed(KeyCode::ArrowDown) {
         config.line_count = config.line_count.saturating_sub(10_000);
     }
     if input.just_pressed(KeyCode::Space) {
@@ -65,15 +71,15 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
             let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
-            let start_color = Color::rgb(vector.x, vector.z, 0.5);
-            let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
+            let start_color = LinearRgba::rgb(vector.x, vector.z, 0.5);
+            let end_color = LinearRgba::rgb(-vector.z, -vector.y, 0.5);
 
             draw.line_gradient(vector, -vector, start_color, end_color);
         }
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn(Camera3dBundle {
@@ -81,20 +87,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
 
-    commands.spawn(TextBundle::from_section(
-        "",
-        TextStyle {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 30.,
+    commands.spawn(
+        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
-        },
-    ));
+        }),
+    );
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnostics>) {
+fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let mut text = query.single_mut();
 
-    let Some(fps) = diag.get(FrameTimeDiagnosticsPlugin::FPS).and_then(|fps| fps.smoothed()) else {
+    let Some(fps) = diag
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(Diagnostic::smoothed)
+    else {
         return;
     };
 

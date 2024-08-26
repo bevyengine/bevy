@@ -1,4 +1,4 @@
-use crate::{FromType, Reflect};
+use crate::{FromType, PartialReflect, Reflect};
 
 /// A trait that enables types to be dynamically constructed from reflected data.
 ///
@@ -14,16 +14,20 @@ use crate::{FromType, Reflect};
 /// Additionally, some complex types like `Vec<T>` require that their element types
 /// implement this trait.
 /// The reason for such requirements is that some operations require new data to be constructed,
-/// such as swapping to a new variant or pushing data to a homogenous list.
+/// such as swapping to a new variant or pushing data to a homogeneous list.
 ///
 /// See the [crate-level documentation] to see how this trait can be used.
 ///
 /// [derive macro]: bevy_reflect_derive::FromReflect
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be created through reflection",
+    note = "consider annotating `{Self}` with `#[derive(FromReflect)]`"
+)]
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self>;
 
     /// Attempts to downcast the given value to `Self` using,
     /// constructing the value using [`from_reflect`] if that fails.
@@ -35,8 +39,10 @@ pub trait FromReflect: Reflect + Sized {
     /// [`from_reflect`]: Self::from_reflect
     /// [`DynamicStruct`]: crate::DynamicStruct
     /// [`DynamicList`]: crate::DynamicList
-    fn take_from_reflect(reflect: Box<dyn Reflect>) -> Result<Self, Box<dyn Reflect>> {
-        match reflect.take::<Self>() {
+    fn take_from_reflect(
+        reflect: Box<dyn PartialReflect>,
+    ) -> Result<Self, Box<dyn PartialReflect>> {
+        match reflect.try_take::<Self>() {
             Ok(value) => Ok(value),
             Err(value) => match Self::from_reflect(value.as_ref()) {
                 None => Err(value),
@@ -56,7 +62,7 @@ pub trait FromReflect: Reflect + Sized {
 ///
 /// ```
 /// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect};
-/// #[derive(Reflect, FromReflect, PartialEq, Eq, Debug)]
+/// #[derive(Reflect, PartialEq, Eq, Debug)]
 /// struct Foo(#[reflect(default = "default_value")] usize);
 ///
 /// fn default_value() -> usize { 123 }
@@ -75,18 +81,17 @@ pub trait FromReflect: Reflect + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect, ReflectFromReflect, TypeRegistry};
-/// # #[derive(Reflect, FromReflect, PartialEq, Eq, Debug)]
-/// # #[reflect(FromReflect)]
+/// # use bevy_reflect::{DynamicTupleStruct, Reflect, ReflectFromReflect, Typed, TypeRegistry, TypePath};
+/// # #[derive(Reflect, PartialEq, Eq, Debug)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
 /// # fn default_value() -> usize { 123 }
 /// # let mut registry = TypeRegistry::new();
 /// # registry.register::<Foo>();
 ///
 /// let mut reflected = DynamicTupleStruct::default();
-/// reflected.set_name(std::any::type_name::<Foo>().to_string());
+/// reflected.set_represented_type(Some(<Foo as Typed>::type_info()));
 ///
-/// let registration = registry.get_with_name(reflected.type_name()).unwrap();
+/// let registration = registry.get_with_type_path(<Foo as TypePath>::type_path()).unwrap();
 /// let rfr = registration.data::<ReflectFromReflect>().unwrap();
 ///
 /// let concrete: Box<dyn Reflect> = rfr.from_reflect(&reflected).unwrap();
@@ -98,7 +103,7 @@ pub trait FromReflect: Reflect + Sized {
 /// [`DynamicEnum`]: crate::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {
-    from_reflect: fn(&dyn Reflect) -> Option<Box<dyn Reflect>>,
+    from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn Reflect>>,
 }
 
 impl ReflectFromReflect {
@@ -107,7 +112,7 @@ impl ReflectFromReflect {
     /// This will convert the object to a concrete type if it wasn't already, and return
     /// the value as `Box<dyn Reflect>`.
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_reflect(&self, reflect_value: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+    pub fn from_reflect(&self, reflect_value: &dyn PartialReflect) -> Option<Box<dyn Reflect>> {
         (self.from_reflect)(reflect_value)
     }
 }

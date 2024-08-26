@@ -2,7 +2,6 @@
 
 use std::f32::consts::PI;
 
-use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 
 // Define a component to keep information for the scaled object.
@@ -43,8 +42,8 @@ fn setup(
     // Spawn a cube to scale.
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::WHITE.into()),
+            mesh: meshes.add(Cuboid::default()),
+            material: materials.add(Color::WHITE),
             transform: Transform::from_rotation(Quat::from_rotation_y(PI / 4.0)),
             ..default()
         },
@@ -58,8 +57,8 @@ fn setup(
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_translation(Vec3::ONE * 3.0),
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_xyz(3.0, 3.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 }

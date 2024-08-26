@@ -48,7 +48,7 @@ for arch in $ARCHS; do
         # Hardware iOS targets
         cargo rustc --crate-type staticlib --lib $RELFLAG --target aarch64-apple-ios
       else
-        # M1 iOS simulator -- currently in Nightly only and requires to build `libstd`
+        # M1 iOS simulator
         cargo rustc --crate-type staticlib --lib $RELFLAG --target aarch64-apple-ios-sim
       fi
   esac

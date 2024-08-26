@@ -7,7 +7,7 @@ If you don't see your distro present in the list, feel free to add the instructi
 ## [Ubuntu](https://ubuntu.com/)
 
 ```bash
-sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
+sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
 ```
 
 if using Wayland, you will also need to install
@@ -21,10 +21,17 @@ Depending on your graphics card, you may have to install one of the following:
 
 Compiling with clang is also possible - replace the `g++` package with `clang`.
 
-### Windows Subsystem for Linux (WSL 2)
+## Windows Subsystem for Linux (WSL 2)
 
-Graphics and audio need to be configured for them to work with WSL 2 backend.
-Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio.
+Up-to-date WSL Installs for Windows 10 & 11 include WSLg, which provides
+necessary servers for passing graphics and audio between Windows and the WSL instance.
+With WSLg, a user's WSL instance can use X11 as well as Wayland.
+For more information, see WSLg [documentation](https://github.com/microsoft/wslg#wslg-architecture-overview).
+
+Prior to the release of [WSL Gui (WSLg)](https://en.wikipedia.org/wiki/Windows_Subsystem_for_Linux#WSLg)
+around 4/20/2021, users had to [manually set up servers](https://wiki.ubuntu.com/WSL#Advanced_Topics) on windows for graphic and audio.
+Make note of the date for documentation found across the internet.
+Following advice from before WSLg's release can lead to additional conflicts.
 
 ## [Fedora](https://getfedora.org/)
 
@@ -183,3 +190,18 @@ If you have issues with `winit` such as `Failed to initialize backend!` or simil
 [build]
 rustflags = ["-C", "target-feature=-crt-static"]
 ```
+
+## [Solus](https://getsol.us)
+
+```sh
+sudo eopkg it -c system.devel
+sudo eopkg it g++ libx11-devel alsa-lib-devel
+```
+
+If using Wayland, you may also need to install
+
+```sh
+sudo eopkg it wayland-devel libxkbcommon-devel
+```
+
+Compiling with clang is also possible - replace the `g++` package with `llvm-clang`

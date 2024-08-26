@@ -1,9 +1,10 @@
+//! In this example we add a counter resource and increase its value in one system,
+//! while a different system prints the current count to the console.
+
 use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
 
-// In this example we add a counter resource and increase it's value in one system,
-// while a different system prints the current count to the console.
 fn main() {
     // Create a world
     let mut world = World::new();
@@ -11,7 +12,7 @@ fn main() {
     // Add the counter resource
     world.insert_resource(Counter { value: 0 });
 
-    // Create a schedule and a stage
+    // Create a schedule
     let mut schedule = Schedule::default();
 
     // Add systems to increase the counter and to print out the current value

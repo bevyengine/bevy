@@ -1,15 +1,29 @@
-#![warn(clippy::undocumented_unsafe_blocks)]
+// FIXME(11590): remove this once the lint is fixed
+#![allow(unsafe_op_in_unsafe_fn)]
 #![doc = include_str!("../README.md")]
+// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![allow(unsafe_code)]
+#![doc(
+    html_logo_url = "https://bevyengine.org/assets/icon.png",
+    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+)]
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
 pub mod archetype;
+pub mod batching;
 pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod identifier;
+pub mod intern;
+pub mod label;
+pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
@@ -17,60 +31,64 @@ pub mod removal_detection;
 pub mod schedule;
 pub mod storage;
 pub mod system;
+pub mod traversal;
 pub mod world;
-
-use std::any::TypeId;
 
 pub use bevy_ptr as ptr;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[doc(hidden)]
+    #[cfg(feature = "reflect_functions")]
+    pub use crate::reflect::AppFunctionRegistry;
+    #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
-    pub use crate::reflect::{ReflectComponent, ReflectResource};
+    pub use crate::reflect::{
+        AppTypeRegistry, ReflectComponent, ReflectFromWorld, ReflectResource,
+    };
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::Component,
-        entity::Entity,
-        event::{Event, EventReader, EventWriter, Events},
-        query::{Added, AnyOf, Changed, Or, QueryState, With, Without},
+        entity::{Entity, EntityMapper},
+        event::{Event, EventMutator, EventReader, EventWriter, Events},
+        observer::{Observer, Trigger},
+        query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         schedule::{
-            apply_state_transition, apply_system_buffers, common_conditions::*, Condition,
-            IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfig, IntoSystemSetConfigs, NextState,
-            OnEnter, OnExit, OnTransition, OnUpdate, Schedule, Schedules, State, States, SystemSet,
+            apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
+            IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            adapter as system_adapter,
-            adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, Deferred, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut,
-            ParallelCommands, ParamSet, Query, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, EntityCommand, EntityCommands, In, IntoSystem, Local, NonSend,
+            NonSendMut, ParallelCommands, ParamSet, Query, ReadOnlySystem, Res, ResMut, Resource,
+            System, SystemParamBuilder, SystemParamFunction,
         },
-        world::{FromWorld, World},
+        world::{
+            Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
+            OnReplace, World,
+        },
     };
 }
-
-pub use bevy_utils::all_tuples;
-
-/// A specialized hashmap type with Key of `TypeId`
-type TypeIdMap<V> = rustc_hash::FxHashMap<TypeId, V>;
 
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::world::EntityMut;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
-        query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
+        query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
-        world::{Mut, World},
+        world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_utils::HashSet;
+    use std::num::NonZeroU32;
     use std::{
         any::TypeId,
         marker::PhantomData,
@@ -80,13 +98,14 @@ mod tests {
         },
     };
 
-    #[derive(Component, Resource, Debug, PartialEq, Eq, Clone, Copy)]
+    #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
-    #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
+    #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
+    #[allow(dead_code)]
     #[derive(Default)]
     struct NonSendA(usize, PhantomData<*mut ()>);
 
@@ -105,6 +124,8 @@ mod tests {
         }
     }
 
+    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
+    #[allow(dead_code)]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
     struct DropCkSparse(DropCk);
@@ -112,7 +133,7 @@ mod tests {
     #[derive(Component, Copy, Clone, PartialEq, Eq, Debug)]
     #[component(storage = "Table")]
     struct TableStored(&'static str);
-    #[derive(Component, Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Component, Copy, Clone, PartialEq, Eq, Hash, Debug)]
     #[component(storage = "SparseSet")]
     struct SparseStored(u32);
 
@@ -345,7 +366,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query::<(Entity, &A, &TableStored)>()
-            .for_each(&world, |(e, &i, &s)| results.push((e, i, s)));
+            .iter(&world)
+            .for_each(|(e, &i, &s)| results.push((e, i, s)));
         assert_eq!(
             results,
             &[
@@ -364,8 +386,9 @@ mod tests {
             .query::<(Entity, &A)>()
             .iter(&world)
             .map(|(e, &i)| (e, i))
-            .collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, A(123)), (f, A(456))]);
+            .collect::<HashSet<_>>();
+        assert!(ents.contains(&(e, A(123))));
+        assert!(ents.contains(&(f, A(456))));
     }
 
     #[test]
@@ -387,16 +410,20 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn((TableStored("abc"), A(123))).id();
         let f = world.spawn((TableStored("def"), A(456), B(1))).id();
-        let mut results = Vec::new();
+        let mut results = HashSet::new();
         world
             .query::<(Entity, &A)>()
-            .for_each(&world, |(e, &i)| results.push((e, i)));
-        assert_eq!(results, &[(e, A(123)), (f, A(456))]);
+            .iter(&world)
+            .for_each(|(e, &i)| {
+                results.insert((e, i));
+            });
+        assert!(results.contains(&(e, A(123))));
+        assert!(results.contains(&(f, A(456))));
     }
 
     #[test]
     fn par_for_each_dense() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         let e1 = world.spawn(A(1)).id();
         let e2 = world.spawn(A(2)).id();
@@ -419,7 +446,7 @@ mod tests {
 
     #[test]
     fn par_for_each_sparse() {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
         let mut world = World::new();
         let e1 = world.spawn(SparseStored(1)).id();
         let e2 = world.spawn(SparseStored(2)).id();
@@ -481,7 +508,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&A, With<B>>()
-            .for_each(&world, |i| results.push(*i));
+            .iter(&world)
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![A(123)]);
     }
 
@@ -508,7 +536,8 @@ mod tests {
         let mut results = Vec::new();
         world
             .query_filtered::<&A, With<SparseStored>>()
-            .for_each(&world, |i| results.push(*i));
+            .iter(&world)
+            .for_each(|i| results.push(*i));
         assert_eq!(results, vec![A(123)]);
     }
 
@@ -536,8 +565,9 @@ mod tests {
             .query::<(Entity, Option<&B>, &A)>()
             .iter(&world)
             .map(|(e, b, &i)| (e, b.copied(), i))
-            .collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, None, A(123)), (f, Some(B(1)), A(456))]);
+            .collect::<HashSet<_>>();
+        assert!(ents.contains(&(e, None, A(123))));
+        assert!(ents.contains(&(f, Some(B(1)), A(456))));
     }
 
     #[test]
@@ -554,10 +584,10 @@ mod tests {
             .query::<(Entity, Option<&SparseStored>, &A)>()
             .iter(&world)
             .map(|(e, b, &i)| (e, b.copied(), i))
-            .collect::<Vec<_>>();
+            .collect::<HashSet<_>>();
         assert_eq!(
             ents,
-            &[(e, None, A(123)), (f, Some(SparseStored(1)), A(456))]
+            HashSet::from([(e, None, A(123)), (f, Some(SparseStored(1)), A(456))])
         );
     }
 
@@ -588,8 +618,8 @@ mod tests {
                 .query::<(Entity, &A, &B)>()
                 .iter(&world)
                 .map(|(e, &i, &b)| (e, i, b))
-                .collect::<Vec<_>>(),
-            &[(e1, A(1), B(3)), (e2, A(2), B(4))]
+                .collect::<HashSet<_>>(),
+            HashSet::from([(e1, A(1), B(3)), (e2, A(2), B(4))])
         );
 
         assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
@@ -606,8 +636,8 @@ mod tests {
                 .query::<(Entity, &B, &TableStored)>()
                 .iter(&world)
                 .map(|(e, &B(b), &TableStored(s))| (e, b, s))
-                .collect::<Vec<_>>(),
-            &[(e2, 4, "xyz"), (e1, 3, "abc")]
+                .collect::<HashSet<_>>(),
+            HashSet::from([(e2, 4, "xyz"), (e1, 3, "abc")])
         );
         world.entity_mut(e1).insert(A(43));
         assert_eq!(
@@ -615,8 +645,8 @@ mod tests {
                 .query::<(Entity, &A, &B)>()
                 .iter(&world)
                 .map(|(e, &i, &b)| (e, i, b))
-                .collect::<Vec<_>>(),
-            &[(e2, A(2), B(4)), (e1, A(43), B(3))]
+                .collect::<HashSet<_>>(),
+            HashSet::from([(e2, A(2), B(4)), (e1, A(43), B(3))])
         );
         world.entity_mut(e1).insert(C);
         assert_eq!(
@@ -905,25 +935,33 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> HashSet<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
-                .collect::<Vec<Entity>>()
+                .collect::<HashSet<Entity>>()
         }
 
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e1, e3]);
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            HashSet::from([e1, e3])
+        );
 
         // ensure changing an entity's archetypes also moves its changed state
         world.entity_mut(e1).insert(C);
 
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            HashSet::from([e3, e1]),
+            "changed entities list should not change"
+        );
 
         // spawning a new A entity should not change existing changed state
         world.entity_mut(e1).insert((A(0), B(0)));
+
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            vec![e3, e1],
+            HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
 
@@ -931,7 +969,7 @@ mod tests {
         assert!(world.despawn(e2));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            vec![e3, e1],
+            HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
 
@@ -939,7 +977,7 @@ mod tests {
         assert!(world.despawn(e1));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            vec![e3],
+            HashSet::from([e3]),
             "e1 should no longer be returned"
         );
 
@@ -950,11 +988,11 @@ mod tests {
         let e4 = world.spawn_empty().id();
 
         world.entity_mut(e4).insert(A(0));
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e4]);
-        assert_eq!(get_filtered::<Added<A>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
+        assert_eq!(get_filtered::<Added<A>>(&mut world), HashSet::from([e4]));
 
         world.entity_mut(e4).insert(A(1));
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
 
         world.clear_trackers();
 
@@ -963,9 +1001,9 @@ mod tests {
         world.entity_mut(e4).insert((A(0), B(0)));
 
         assert!(get_filtered::<Added<A>>(&mut world).is_empty());
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), vec![e4]);
-        assert_eq!(get_filtered::<Added<B>>(&mut world), vec![e4]);
-        assert_eq!(get_filtered::<Changed<B>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
+        assert_eq!(get_filtered::<Added<B>>(&mut world), HashSet::from([e4]));
+        assert_eq!(get_filtered::<Changed<B>>(&mut world), HashSet::from([e4]));
     }
 
     #[test]
@@ -988,28 +1026,28 @@ mod tests {
             }
         }
 
-        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+        fn get_filtered<F: QueryFilter>(world: &mut World) -> HashSet<Entity> {
             world
                 .query_filtered::<Entity, F>()
                 .iter(world)
-                .collect::<Vec<Entity>>()
+                .collect::<HashSet<Entity>>()
         }
 
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            vec![e1, e3]
+            HashSet::from([e1, e3])
         );
 
         // ensure changing an entity's archetypes also moves its changed state
         world.entity_mut(e1).insert(C);
 
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), HashSet::from([e3, e1]), "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new SparseStored entity should not change existing changed state
         world.entity_mut(e1).insert(SparseStored(0));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            vec![e3, e1],
+            HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
 
@@ -1017,7 +1055,7 @@ mod tests {
         assert!(world.despawn(e2));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            vec![e3, e1],
+            HashSet::from([e3, e1]),
             "changed entities list should not change"
         );
 
@@ -1025,7 +1063,7 @@ mod tests {
         assert!(world.despawn(e1));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            vec![e3],
+            HashSet::from([e3]),
             "e1 should no longer be returned"
         );
 
@@ -1036,11 +1074,20 @@ mod tests {
         let e4 = world.spawn_empty().id();
 
         world.entity_mut(e4).insert(SparseStored(0));
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
-        assert_eq!(get_filtered::<Added<SparseStored>>(&mut world), vec![e4]);
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
+        assert_eq!(
+            get_filtered::<Added<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
 
         world.entity_mut(e4).insert(A(1));
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
 
         world.clear_trackers();
 
@@ -1049,7 +1096,10 @@ mod tests {
         world.entity_mut(e4).insert(SparseStored(0));
 
         assert!(get_filtered::<Added<SparseStored>>(&mut world).is_empty());
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            HashSet::from([e4])
+        );
     }
 
     #[test]
@@ -1065,7 +1115,7 @@ mod tests {
     fn reserve_and_spawn() {
         let mut world = World::default();
         let e = world.entities().reserve_entity();
-        world.flush();
+        world.flush_entities();
         let mut e_mut = world.entity_mut(e);
         e_mut.insert(A(0));
         assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
@@ -1231,8 +1281,8 @@ mod tests {
         let results = query
             .iter(&world)
             .map(|(a, b)| (a.0, b.0))
-            .collect::<Vec<_>>();
-        assert_eq!(results, vec![(1, "1"), (2, "2"), (3, "3"),]);
+            .collect::<HashSet<_>>();
+        assert_eq!(results, HashSet::from([(1, "1"), (2, "2"), (3, "3"),]));
 
         let removed_bundle = world.entity_mut(e2).take::<(B, TableStored)>().unwrap();
         assert_eq!(removed_bundle, (B(2), TableStored("2")));
@@ -1240,12 +1290,12 @@ mod tests {
         let results = query
             .iter(&world)
             .map(|(a, b)| (a.0, b.0))
-            .collect::<Vec<_>>();
-        assert_eq!(results, vec![(1, "1"), (3, "3"),]);
+            .collect::<HashSet<_>>();
+        assert_eq!(results, HashSet::from([(1, "1"), (3, "3"),]));
 
         let mut a_query = world.query::<&A>();
-        let results = a_query.iter(&world).map(|a| a.0).collect::<Vec<_>>();
-        assert_eq!(results, vec![1, 3, 2]);
+        let results = a_query.iter(&world).map(|a| a.0).collect::<HashSet<_>>();
+        assert_eq!(results, HashSet::from([1, 3, 2]));
 
         let entity_ref = world.entity(e2);
         assert_eq!(
@@ -1323,9 +1373,43 @@ mod tests {
 
     #[test]
     #[should_panic]
+    fn entity_ref_and_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityRef, &mut A)>();
+    }
+
+    #[test]
+    #[should_panic]
     fn mut_and_ref_query_panic() {
         let mut world = World::new();
         world.query::<(&mut A, &A)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn mut_and_entity_ref_query_panic() {
+        let mut world = World::new();
+        world.query::<(&mut A, EntityRef)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn entity_ref_and_entity_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityRef, EntityMut)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn entity_mut_and_entity_mut_query_panic() {
+        let mut world = World::new();
+        world.query::<(EntityMut, EntityMut)>();
+    }
+
+    #[test]
+    fn entity_ref_and_entity_ref_query_no_panic() {
+        let mut world = World::new();
+        world.query::<(EntityRef, EntityRef)>();
     }
 
     #[test]
@@ -1359,8 +1443,8 @@ mod tests {
         let mut expected = FilteredAccess::<ComponentId>::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
         let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
-        expected.add_write(a_id);
-        expected.add_read(b_id);
+        expected.add_component_write(a_id);
+        expected.add_component_read(b_id);
         assert!(
             query.component_access.eq(&expected),
             "ComponentId access from query fetch and query filter should be combined"
@@ -1383,8 +1467,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        query.for_each(&world_a, |_| {});
-        query.for_each(&world_b, |_| {});
+        query.iter(&world_a).for_each(|_| {});
+        query.iter(&world_b).for_each(|_| {});
     }
 
     #[test]
@@ -1511,19 +1595,19 @@ mod tests {
         world.spawn((B(1), C));
         world.spawn(A(1));
         world.spawn(C);
-        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)],);
-        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>],);
-        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)],);
-        assert_eq!(1, query_min_size![(&A, &B), With<C>],);
+        assert_eq!(2, query_min_size![(), (With<A>, Without<B>)]);
+        assert_eq!(3, query_min_size![&B, Or<(With<A>, With<C>)>]);
+        assert_eq!(1, query_min_size![&B, (With<A>, With<C>)]);
+        assert_eq!(1, query_min_size![(&A, &B), With<C>]);
         assert_eq!(4, query_min_size![&A, ()], "Simple Archetypal");
-        assert_eq!(4, query_min_size![Ref<A>, ()],);
+        assert_eq!(4, query_min_size![Ref<A>, ()]);
         // All the following should set minimum size to 0, as it's impossible to predict
         // how many entities the filters will trim.
         assert_eq!(0, query_min_size![(), Added<A>], "Simple Added");
         assert_eq!(0, query_min_size![(), Changed<A>], "Simple Changed");
-        assert_eq!(0, query_min_size![(&A, &B), Changed<A>],);
-        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)],);
-        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>],);
+        assert_eq!(0, query_min_size![(&A, &B), Changed<A>]);
+        assert_eq!(0, query_min_size![&A, (Changed<A>, With<B>)]);
+        assert_eq!(0, query_min_size![(&A, &B), Or<(Changed<A>, Changed<B>)>]);
     }
 
     #[test]
@@ -1534,7 +1618,7 @@ mod tests {
         let e1 = world_a.spawn(A(1)).id();
         let e2 = world_a.spawn(A(2)).id();
         let e3 = world_a.entities().reserve_entity();
-        world_a.flush();
+        world_a.flush_entities();
 
         let world_a_max_entities = world_a.entities().len();
         world_b.entities.reserve_entities(world_a_max_entities);
@@ -1543,7 +1627,7 @@ mod tests {
         let e4 = world_b.spawn(A(4)).id();
         assert_eq!(
             e4,
-            Entity::new(3, 0),
+            Entity::from_raw(3),
             "new entity is created immediately after world_a's max entity"
         );
         assert!(world_b.get::<A>(e1).is_none());
@@ -1574,7 +1658,8 @@ mod tests {
             "spawning into existing `world_b` entities works"
         );
 
-        let e4_mismatched_generation = Entity::new(3, 1);
+        let e4_mismatched_generation =
+            Entity::from_raw_and_generation(3, NonZeroU32::new(2).unwrap());
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1590,7 +1675,7 @@ mod tests {
             "failed mismatched spawn doesn't change existing entity"
         );
 
-        let high_non_existent_entity = Entity::new(6, 0);
+        let high_non_existent_entity = Entity::from_raw(6);
         world_b
             .get_or_spawn(high_non_existent_entity)
             .unwrap()
@@ -1601,7 +1686,7 @@ mod tests {
             "inserting into newly allocated high / non-continuous entity id works"
         );
 
-        let high_non_existent_but_reserved_entity = Entity::new(5, 0);
+        let high_non_existent_but_reserved_entity = Entity::from_raw(5);
         assert!(
             world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
             "entities between high-newly allocated entity and continuous block of existing entities don't exist"
@@ -1617,10 +1702,10 @@ mod tests {
         assert_eq!(
             reserved_entities,
             vec![
-                Entity::new(5, 0),
-                Entity::new(4, 0),
-                Entity::new(7, 0),
-                Entity::new(8, 0),
+                Entity::from_raw(5),
+                Entity::from_raw(4),
+                Entity::from_raw(7),
+                Entity::from_raw(8),
             ],
             "space between original entities and high entities is used for new entity ids"
         );
@@ -1669,7 +1754,7 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::new(e2.index(), 1);
+        let invalid_e2 = Entity::from_raw_and_generation(e2.index(), NonZeroU32::new(2).unwrap());
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 
@@ -1706,5 +1791,30 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    // These structs are primarily compilation tests to test the derive macros. Because they are
+    // never constructed, we have to manually silence the `dead_code` lint.
+    #[allow(dead_code)]
+    #[derive(Component)]
+    struct ComponentA(u32);
+
+    #[allow(dead_code)]
+    #[derive(Component)]
+    struct ComponentB(u32);
+
+    #[allow(dead_code)]
+    #[derive(Bundle)]
+    struct Simple(ComponentA);
+
+    #[allow(dead_code)]
+    #[derive(Bundle)]
+    struct Tuple(Simple, ComponentB);
+
+    #[allow(dead_code)]
+    #[derive(Bundle)]
+    struct Record {
+        field0: Simple,
+        field1: ComponentB,
     }
 }

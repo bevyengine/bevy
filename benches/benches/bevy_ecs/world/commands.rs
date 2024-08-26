@@ -1,8 +1,9 @@
+use std::mem::size_of;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{Command, CommandQueue, Commands},
-    world::World,
+    system::Commands,
+    world::{Command, CommandQueue, World},
 };
 use criterion::{black_box, Criterion};
 
@@ -125,14 +126,14 @@ struct FakeCommandA;
 struct FakeCommandB(u64);
 
 impl Command for FakeCommandA {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);
     }
 }
 
 impl Command for FakeCommandB {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);
     }
@@ -169,7 +170,7 @@ pub fn fake_commands(criterion: &mut Criterion) {
 struct SizedCommand<T: Default + Send + Sync + 'static>(T);
 
 impl<T: Default + Send + Sync + 'static> Command for SizedCommand<T> {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         black_box(self);
         black_box(world);
     }
@@ -184,8 +185,7 @@ impl Default for LargeStruct {
 }
 
 pub fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
-    let mut group =
-        criterion.benchmark_group(format!("sized_commands_{}_bytes", std::mem::size_of::<T>()));
+    let mut group = criterion.benchmark_group(format!("sized_commands_{}_bytes", size_of::<T>()));
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 
