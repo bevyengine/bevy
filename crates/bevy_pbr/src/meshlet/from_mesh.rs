@@ -49,11 +49,6 @@ impl MeshletMesh {
                 },
             })
             .collect::<Vec<_>>();
-        let worst_case_meshlet_triangles = meshlets
-            .meshlets
-            .iter()
-            .map(|m| m.triangle_count as u64)
-            .sum();
         let mesh_scale = simplify_scale(&vertices);
 
         // Build further LODs
@@ -87,7 +82,7 @@ impl MeshletMesh {
 
                 // Add the maximum child error to the parent error to make parent error cumulative from LOD 0
                 // (we're currently building the parent from its children)
-                group_error += group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
+                group_error += group_meshlets.iter().fold(0.0f32, |acc, meshlet_id| {
                     acc.max(bounding_spheres[*meshlet_id].self_lod.radius)
                 });
 
@@ -140,12 +135,12 @@ impl MeshletMesh {
             .map(|m| Meshlet {
                 start_vertex_id: m.vertex_offset,
                 start_index_id: m.triangle_offset,
+                vertex_count: m.vertex_count,
                 triangle_count: m.triangle_count,
             })
             .collect();
 
         Ok(Self {
-            worst_case_meshlet_triangles,
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshlets.vertices.into(),
             indices: meshlets.triangles.into(),
@@ -294,6 +289,7 @@ fn simplify_meshlet_groups(
     let target_error = target_error_relative * mesh_scale;
 
     // Simplify the group to ~50% triangle count
+    // TODO: Simplify using vertex attributes
     let mut error = 0.0;
     let simplified_group_indices = simplify(
         &group_indices,

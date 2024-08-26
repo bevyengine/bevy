@@ -195,16 +195,6 @@ pub async fn initialize_renderer(
         );
     }
 
-    #[cfg(feature = "wgpu_trace")]
-    let trace_path = {
-        let path = std::path::Path::new("wgpu_trace");
-        // ignore potential error, wgpu will log it
-        let _ = std::fs::create_dir(path);
-        Some(path)
-    };
-    #[cfg(not(feature = "wgpu_trace"))]
-    let trace_path = None;
-
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
@@ -357,7 +347,7 @@ pub async fn initialize_renderer(
                 required_limits: limits,
                 memory_hints: options.memory_hints.clone(),
             },
-            trace_path,
+            options.trace_path.as_deref(),
         )
         .await
         .unwrap();

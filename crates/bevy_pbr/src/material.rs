@@ -1,7 +1,7 @@
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
-    MeshletGpuScene,
+    InstanceManager,
 };
 use crate::*;
 use bevy_asset::{Asset, AssetId, AssetServer};
@@ -30,7 +30,6 @@ use bevy_render::{
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
-    texture::FallbackImage,
     view::{ExtractedView, Msaa, RenderVisibilityRanges, VisibleEntities, WithMesh},
 };
 use bevy_utils::tracing::error;
@@ -284,7 +283,7 @@ where
                 Render,
                 queue_material_meshlet_meshes::<M>
                     .in_set(RenderSet::QueueMeshes)
-                    .run_if(resource_exists::<MeshletGpuScene>),
+                    .run_if(resource_exists::<InstanceManager>),
             );
 
             #[cfg(feature = "meshlet")]
@@ -294,7 +293,7 @@ where
                     .in_set(RenderSet::QueueMeshes)
                     .after(prepare_assets::<PreparedMaterial<M>>)
                     .before(queue_material_meshlet_meshes::<M>)
-                    .run_if(resource_exists::<MeshletGpuScene>),
+                    .run_if(resource_exists::<InstanceManager>),
             );
         }
 
@@ -908,22 +907,16 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     type Param = (
         SRes<RenderDevice>,
-        SRes<RenderAssets<GpuImage>>,
-        SRes<FallbackImage>,
         SRes<MaterialPipeline<M>>,
         SRes<DefaultOpaqueRendererMethod>,
+        M::Param,
     );
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline, default_opaque_render_method): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, default_opaque_render_method, ref mut material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(
-            &pipeline.material_layout,
-            render_device,
-            images,
-            fallback_image,
-        ) {
+        match material.as_bind_group(&pipeline.material_layout, render_device, material_param) {
             Ok(prepared) => {
                 let method = match material.opaque_render_method() {
                     OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
