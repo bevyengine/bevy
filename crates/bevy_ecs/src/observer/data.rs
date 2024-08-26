@@ -87,7 +87,7 @@ unsafe impl<E: Event> EventData for E {
 /// ## Listen to [`OnAdd`] and [`OnRemove`] events in the same observer
 ///
 /// ```
-/// # use crate::prelude::*;
+/// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs_macros::Component;
 /// #
 /// /// The component type to listen for on add and remove events.
