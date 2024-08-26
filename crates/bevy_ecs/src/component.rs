@@ -191,6 +191,47 @@ use std::{cell::UnsafeCell, fmt::Debug};
 /// Note that cycles in the "component require tree" will result in stack overflows when attempting to
 /// insert a component.
 ///
+/// This "multiple inheritance" pattern does mean that it is possible to have duplicate requires for a given type
+/// at different levels of the inheritance tree:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// struct X(usize);
+///
+/// #[derive(Component, Default)]
+/// #[require(X(x1))]
+/// struct Y;
+///
+/// fn x1() -> X {
+///     X(1)
+/// }
+///
+/// #[derive(Component)]
+/// #[require(
+///     Y,
+///     X(x2),
+/// )]
+/// struct Z;
+///
+/// fn x2() -> X {
+///     X(2)
+/// }
+///
+/// # let mut world = World::default();
+/// // In this case, the x2 constructor is used for X
+/// let id = world.spawn(Z).id();
+/// assert_eq!(2, world.entity(id).get::<X>().unwrap().0);
+/// ```
+///
+/// In general, this shouldn't happen often, but when it does the algorithm is simple and predictable:
+/// 1. Use all of the constructors (including default constructors) directly defined in the spawned component's require list
+/// 2. In the order the requires are defined in #[require()], recursively visit the require list of each of the components in the list (this is a depth Depth First Search). When a constructor is found, it will only be used if one has not already been found.
+///
+/// From a user perspective, just think about this as the following:
+/// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
+/// 2. For cases where "multiple inheritance" results in constructor clashes, Components should be listed in "importance order". List a component earlier in the requirement list to initialize its inheritance tree earlier.
+///
 /// # Adding component's hooks
 ///
 /// See [`ComponentHooks`] for a detailed explanation of component's hooks.
