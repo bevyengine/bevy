@@ -69,12 +69,14 @@ use crate::virt::Virtual;
 /// frame. Any [`overstep()`](Time::overstep) present in the accumulator will be
 /// processed according to the new [`timestep()`](Time::timestep) value.
 #[derive(Debug, Copy, Clone)]
+#[cfg(feature = "fixed_time")]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Fixed {
     timestep: Duration,
     overstep: Duration,
 }
 
+#[cfg(feature = "fixed_time")]
 impl Time<Fixed> {
     /// Corresponds to 64 Hz.
     const DEFAULT_TIMESTEP: Duration = Duration::from_micros(15625);
@@ -229,6 +231,7 @@ impl Time<Fixed> {
     }
 }
 
+#[cfg(feature = "fixed_time")]
 impl Default for Fixed {
     fn default() -> Self {
         Self {

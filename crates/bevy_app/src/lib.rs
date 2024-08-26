@@ -32,13 +32,14 @@ pub mod prelude {
     #[cfg(feature = "fixed_time")]
     pub use crate::main_schedule::{
         FixedFirst, FixedLast, FixedPostUpdate, FixedPreUpdate, FixedUpdate, RunFixedMainLoop,
+        RunFixedMainLoopSystem,
     };
     #[doc(hidden)]
     pub use crate::{
         app::{App, AppExit},
         main_schedule::{
-            First, Last, Main, PostStartup, PostUpdate, PreStartup, PreUpdate,
-            RunFixedMainLoopSystem, SpawnScene, Startup, Update,
+            First, Last, Main, PostStartup, PostUpdate, PreStartup, PreUpdate, SpawnScene, Startup,
+            Update,
         },
         sub_app::SubApp,
         Plugin, PluginGroup,

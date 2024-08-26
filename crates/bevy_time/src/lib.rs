@@ -194,6 +194,7 @@ mod tests {
         counter.0 += 1;
     }
 
+    #[cfg(feature = "fixed_time")]
     fn report_time(
         mut frame_count: Local<u64>,
         virtual_time: Res<Time<Virtual>>,
@@ -214,6 +215,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fixed_time")]
     fn fixed_main_schedule_should_run_with_time_plugin_enabled() {
         // Set the time step to just over half the fixed update timestep
         // This way, it will have not accumulated enough time to run the fixed update after one update
@@ -222,7 +224,6 @@ mod tests {
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
         let mut app = App::new();
-        #[cfg(feature = "fixed_time")]
         app.add_systems(FixedUpdate, count_fixed_updates);
 
         app.add_plugins(TimePlugin)
@@ -272,6 +273,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fixed_time")]
     fn events_get_dropped_regression_test_11528() -> Result<(), impl Error> {
         let (tx1, rx1) = std::sync::mpsc::channel();
         let (tx2, rx2) = std::sync::mpsc::channel();
@@ -313,6 +315,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "fixed_time")]
     fn event_update_should_wait_for_fixed_main() {
         // Set the time step to just over half the fixed update timestep
         // This way, it will have not accumulated enough time to run the fixed update after one update
