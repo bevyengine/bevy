@@ -733,8 +733,8 @@ impl AssetServer {
         future: impl Future<Output = Result<A, E>> + Send + 'static,
     ) -> Handle<A> {
         let mut infos = self.data.infos.write();
-        let handle = infos
-            .create_loading_handle_untyped(TypeId::of::<A>(), std::any::type_name::<A>());
+        let handle =
+            infos.create_loading_handle_untyped(TypeId::of::<A>(), std::any::type_name::<A>());
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();
