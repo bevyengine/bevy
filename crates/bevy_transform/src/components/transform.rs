@@ -387,7 +387,7 @@ impl Transform {
     ///
     /// ```
     /// # use bevy_transform::components::Transform;
-    /// assert_eq!(Transform::IDENTITY.flip_x().scale.x, -1);
+    /// assert_eq!(Transform::IDENTITY.flip_x().scale.x, -1.0);
     /// ```
     #[inline]
     pub fn flip_x(&mut self) -> &mut Self {
@@ -399,7 +399,7 @@ impl Transform {
     ///
     /// ```
     /// # use bevy_transform::components::Transform;
-    /// assert_eq!(Transform::IDENTITY.flip_y().scale.y, -1);
+    /// assert_eq!(Transform::IDENTITY.flip_y().scale.y, -1.0);
     /// ```
     #[inline]
     pub fn flip_y(&mut self) -> &mut Self {
@@ -411,7 +411,7 @@ impl Transform {
     ///
     /// ```
     /// # use bevy_transform::components::Transform;
-    /// assert_eq!(Transform::IDENTITY.flip_z().scale.z, -1);
+    /// assert_eq!(Transform::IDENTITY.flip_z().scale.z, -1.0);
     /// ```
     #[inline]
     pub fn flip_z(&mut self) -> &mut Self {
