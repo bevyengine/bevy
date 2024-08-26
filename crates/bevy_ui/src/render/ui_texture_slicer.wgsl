@@ -14,7 +14,7 @@ struct UiVertexOutput {
     @location(1) color: vec4<f32>,
     @location(2) @interpolate(flat) slices: vec4<f32>,
     @location(3) @interpolate(flat) border: vec4<f32>,
-    @location(3) @interpolate(flat) repeat: vec4<f32>,
+    @location(4) @interpolate(flat) repeat: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 }
 
