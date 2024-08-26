@@ -499,7 +499,7 @@ pub mod common_conditions {
         system::{In, IntoSystem, Local, Res, Resource, System},
     };
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// on the first time the condition is run and false every time after.
     ///
     /// # Example
@@ -537,7 +537,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource exists.
     ///
     /// # Example
@@ -572,7 +572,7 @@ pub mod common_conditions {
         res.is_some()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource is equal to `value`.
     ///
     /// # Panics
@@ -612,7 +612,7 @@ pub mod common_conditions {
         move |res: Res<T>| *res == value
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource exists and is equal to `value`.
     ///
     /// The condition will return `false` if the resource does not exist.
@@ -657,7 +657,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has been added since the condition was last checked.
     ///
     /// # Example
@@ -698,7 +698,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -752,7 +752,7 @@ pub mod common_conditions {
         res.is_changed()
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -812,7 +812,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -889,7 +889,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if the resource of the given type has been removed since the condition was last checked.
     ///
     /// # Example
@@ -941,7 +941,7 @@ pub mod common_conditions {
         }
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if there are any new events of the given type since it was last called.
     ///
     /// # Example
@@ -985,7 +985,7 @@ pub mod common_conditions {
         reader.read().count() > 0
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if there are any entities with the given component type.
     ///
     /// # Example
@@ -1022,7 +1022,7 @@ pub mod common_conditions {
         !query.is_empty()
     }
 
-    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// A [`Condition`]-satisfying system that returns `true`
     /// if there are any entity with a component of the given type removed.
     pub fn any_component_removed<T: Component>(mut removals: RemovedComponents<T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
@@ -1033,7 +1033,7 @@ pub mod common_conditions {
         removals.read().count() > 0
     }
 
-    /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
+    /// Generates a [`Condition`] that inverses the result of passed one.
     ///
     /// # Example
     ///
@@ -1072,7 +1072,7 @@ pub mod common_conditions {
         NotSystem::new(super::NotMarker, condition, name.into())
     }
 
-    /// Generates a [`Condition`](super::Condition) that returns true when the passed one changes.
+    /// Generates a [`Condition`] that returns true when the passed one changes.
     ///
     /// The first time this is called, the passed condition is assumed to have been previously false.
     ///
@@ -1120,7 +1120,7 @@ pub mod common_conditions {
         })
     }
 
-    /// Generates a [`Condition`](super::Condition) that returns true when the result of
+    /// Generates a [`Condition`] that returns true when the result of
     /// the passed one went from false to true since the last time this was called.
     ///
     /// The first time this is called, the passed condition is assumed to have been previously false.
@@ -1135,7 +1135,7 @@ pub mod common_conditions {
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
-    ///     my_system.run_if(condition_became_true(resource_exists::<MyResource>)),
+    ///     my_system.run_if(condition_changed_to(true, resource_exists::<MyResource>)),
     /// );
     ///
     /// #[derive(Resource)]
@@ -1164,11 +1164,12 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 2);
     /// ```
-    pub fn condition_became_true<Marker, CIn, C: Condition<Marker, CIn>>(
+    pub fn condition_changed_to<Marker, CIn, C: Condition<Marker, CIn>>(
+        to: bool,
         condition: C,
     ) -> impl Condition<(), CIn> {
-        condition.pipe(|In(new): In<bool>, mut prev: Local<bool>| -> bool {
-            let now_true = *prev != new && new;
+        condition.pipe(move |In(new): In<bool>, mut prev: Local<bool>| -> bool {
+            let now_true = *prev != new && new == to;
             *prev = new;
             now_true
         })
