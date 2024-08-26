@@ -103,7 +103,7 @@ unsafe impl<E: Event> EventData for E {
 /// let on_remove = world.init_component::<OnRemove>();
 ///
 /// world.spawn(
-///     Observer::new(|trigger: Trigger<DynamicEvent, A>| {
+///     Observer::new(|mut trigger: Trigger<DynamicEvent, A>| {
 ///         // This observer function is called for both OnAdd and OnRemove events!
 ///         let ptr_mut = trigger.event_mut();
 ///         // do something with the PtrMut, if needed
