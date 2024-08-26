@@ -24,7 +24,6 @@ trace = [
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
 trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
-wgpu_trace = ["bevy_render/wgpu_trace"]
 detailed_trace = ["bevy_utils/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
@@ -191,7 +190,11 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
 # Provides a picking functionality
-bevy_picking = ["dep:bevy_picking", "bevy_ui?/bevy_picking"]
+bevy_picking = [
+  "dep:bevy_picking",
+  "bevy_ui?/bevy_picking",
+  "bevy_sprite?/bevy_picking",
+]
 
 # Enable support for the ios_simulator by downgrading some rendering capabilities
 ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]

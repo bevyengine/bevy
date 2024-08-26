@@ -51,6 +51,44 @@ pub trait Curve<T> {
         self.sample_unchecked(t)
     }
 
+    /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
+    /// returning `None` if the point is outside of the curve's domain.
+    ///
+    /// The samples are returned in the same order as the parameter values `t_n` were provided and
+    /// will include all results. This leaves the responsibility for things like filtering and
+    /// sorting to the user for maximum flexibility.
+    fn sample_iter(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = Option<T>> {
+        iter.into_iter().map(|t| self.sample(t))
+    }
+
+    /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
+    /// extracting the associated values. This is the unchecked version of sampling, which should
+    /// only be used if the sample times `t_n` are already known to lie within the curve's domain.
+    ///
+    /// Values sampled from outside of a curve's domain are generally considered invalid; data
+    /// which is nonsensical or otherwise useless may be returned in such a circumstance, and
+    /// extrapolation beyond a curve's domain should not be relied upon.
+    ///
+    /// The samples are returned in the same order as the parameter values `t_n` were provided and
+    /// will include all results. This leaves the responsibility for things like filtering and
+    /// sorting to the user for maximum flexibility.
+    fn sample_iter_unchecked(
+        &self,
+        iter: impl IntoIterator<Item = f32>,
+    ) -> impl Iterator<Item = T> {
+        iter.into_iter().map(|t| self.sample_unchecked(t))
+    }
+
+    /// Sample a collection of `n >= 0` points on this curve at the parameter values `t_n`,
+    /// clamping `t_n` to lie inside the domain of the curve.
+    ///
+    /// The samples are returned in the same order as the parameter values `t_n` were provided and
+    /// will include all results. This leaves the responsibility for things like filtering and
+    /// sorting to the user for maximum flexibility.
+    fn sample_iter_clamped(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T> {
+        iter.into_iter().map(|t| self.sample_clamped(t))
+    }
+
     /// Create a new curve by mapping the values of this curve via a function `f`; i.e., if the
     /// sample at time `t` for this curve is `x`, the value at time `t` on the new curve will be
     /// `f(x)`.
@@ -78,7 +116,7 @@ pub trait Curve<T> {
     /// factor rather than multiplying:
     /// ```
     /// # use bevy_math::curve::*;
-    /// let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
@@ -89,17 +127,17 @@ pub trait Curve<T> {
     /// // Reverse a curve:
     /// # use bevy_math::curve::*;
     /// # use bevy_math::vec2;
-    /// let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let domain = my_curve.domain();
     /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - t);
     ///
     /// // Take a segment of a curve:
-    /// # let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let curve_segment = my_curve.reparametrize(interval(0.0, 0.5).unwrap(), |t| 0.5 + t);
     ///
     /// // Reparametrize by an easing curve:
-    /// # let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
-    /// # let easing_curve = constant_curve(interval(0.0, 1.0).unwrap(), vec2(1.0, 1.0));
+    /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
+    /// # let easing_curve = constant_curve(Interval::UNIT, vec2(1.0, 1.0));
     /// let domain = my_curve.domain();
     /// let eased_curve = my_curve.reparametrize(domain, |t| easing_curve.sample_unchecked(t).y);
     /// ```
@@ -386,7 +424,7 @@ pub trait Curve<T> {
     /// # Example
     /// ```
     /// # use bevy_math::curve::*;
-    /// let my_curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * t + 1.0);
+    /// let my_curve = function_curve(Interval::UNIT, |t| t * t + 1.0);
     /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
     /// // ownership of its input.
     /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample_auto(100).unwrap();
@@ -980,7 +1018,7 @@ mod tests {
         let curve = constant_curve(Interval::EVERYWHERE, 5.0);
         assert!(curve.sample_unchecked(-35.0) == 5.0);
 
-        let curve = constant_curve(interval(0.0, 1.0).unwrap(), true);
+        let curve = constant_curve(Interval::UNIT, true);
         assert!(curve.sample_unchecked(2.0));
         assert!(curve.sample(2.0).is_none());
     }
@@ -1008,11 +1046,11 @@ mod tests {
         );
         assert_eq!(mapped_curve.domain(), Interval::EVERYWHERE);
 
-        let curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * TAU);
+        let curve = function_curve(Interval::UNIT, |t| t * TAU);
         let mapped_curve = curve.map(Quat::from_rotation_z);
         assert_eq!(mapped_curve.sample_unchecked(0.0), Quat::IDENTITY);
         assert!(mapped_curve.sample_unchecked(1.0).is_near_identity());
-        assert_eq!(mapped_curve.domain(), interval(0.0, 1.0).unwrap());
+        assert_eq!(mapped_curve.domain(), Interval::UNIT);
     }
 
     #[test]
@@ -1028,18 +1066,16 @@ mod tests {
             interval(0.0, f32::INFINITY).unwrap()
         );
 
-        let reparametrized_curve = curve
-            .by_ref()
-            .reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
+        let reparametrized_curve = curve.by_ref().reparametrize(Interval::UNIT, |t| t + 1.0);
         assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(0.0), 0.0);
         assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(1.0), 1.0);
-        assert_eq!(reparametrized_curve.domain(), interval(0.0, 1.0).unwrap());
+        assert_eq!(reparametrized_curve.domain(), Interval::UNIT);
     }
 
     #[test]
     fn multiple_maps() {
         // Make sure these actually happen in the right order.
-        let curve = function_curve(interval(0.0, 1.0).unwrap(), ops::exp2);
+        let curve = function_curve(Interval::UNIT, ops::exp2);
         let first_mapped = curve.map(ops::log2);
         let second_mapped = first_mapped.map(|x| x * -2.0);
         assert_abs_diff_eq!(second_mapped.sample_unchecked(0.0), 0.0);
@@ -1050,9 +1086,9 @@ mod tests {
     #[test]
     fn multiple_reparams() {
         // Make sure these happen in the right order too.
-        let curve = function_curve(interval(0.0, 1.0).unwrap(), ops::exp2);
+        let curve = function_curve(Interval::UNIT, ops::exp2);
         let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), ops::log2);
-        let second_reparam = first_reparam.reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
+        let second_reparam = first_reparam.reparametrize(Interval::UNIT, |t| t + 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.0), 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.5), 1.5);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(1.0), 2.0);
@@ -1123,5 +1159,39 @@ mod tests {
         }
         assert_abs_diff_eq!(resampled_curve.domain().start(), 1.0);
         assert_abs_diff_eq!(resampled_curve.domain().end(), 512.0);
+    }
+
+    #[test]
+    fn sample_iterators() {
+        let times = [-0.5, 0.0, 0.5, 1.0, 1.5];
+
+        let curve = function_curve(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
+        let samples = curve.sample_iter_unchecked(times).collect::<Vec<_>>();
+        let [y0, y1, y2, y3, y4] = samples.try_into().unwrap();
+
+        assert_eq!(y0, -0.5 * 3.0 + 1.0);
+        assert_eq!(y1, 0.0 * 3.0 + 1.0);
+        assert_eq!(y2, 0.5 * 3.0 + 1.0);
+        assert_eq!(y3, 1.0 * 3.0 + 1.0);
+        assert_eq!(y4, 1.5 * 3.0 + 1.0);
+
+        let finite_curve = function_curve(Interval::new(0.0, 1.0).unwrap(), |t| t * 3.0 + 1.0);
+        let samples = finite_curve.sample_iter(times).collect::<Vec<_>>();
+        let [y0, y1, y2, y3, y4] = samples.try_into().unwrap();
+
+        assert_eq!(y0, None);
+        assert_eq!(y1, Some(0.0 * 3.0 + 1.0));
+        assert_eq!(y2, Some(0.5 * 3.0 + 1.0));
+        assert_eq!(y3, Some(1.0 * 3.0 + 1.0));
+        assert_eq!(y4, None);
+
+        let samples = finite_curve.sample_iter_clamped(times).collect::<Vec<_>>();
+        let [y0, y1, y2, y3, y4] = samples.try_into().unwrap();
+
+        assert_eq!(y0, 0.0 * 3.0 + 1.0);
+        assert_eq!(y1, 0.0 * 3.0 + 1.0);
+        assert_eq!(y2, 0.5 * 3.0 + 1.0);
+        assert_eq!(y3, 1.0 * 3.0 + 1.0);
+        assert_eq!(y4, 1.0 * 3.0 + 1.0);
     }
 }

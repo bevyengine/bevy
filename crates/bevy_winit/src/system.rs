@@ -88,8 +88,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
         });
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-            let mut entity = commands.entity(entity);
-            entity.insert(handle_wrapper.clone());
+            commands.entity(entity).insert(handle_wrapper.clone());
             if let Some(handle_holder) = handle_holder {
                 *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
             }

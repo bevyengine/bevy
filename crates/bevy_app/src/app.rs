@@ -990,6 +990,36 @@ impl App {
     }
 
     /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_utils::default;
+    /// #
+    /// # let mut app = App::new();
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Party {
+    /// #   friends_allowed: bool,
+    /// # };
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Invite;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Friend;
+    /// #
+    /// // An observer system can be any system where the first parameter is a trigger
+    /// app.observe(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    ///     if trigger.event().friends_allowed {
+    ///         for friend in friends.iter() {
+    ///             commands.trigger_targets(Invite, friend);
+    ///         }
+    ///     }
+    /// });
+    /// ```
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
