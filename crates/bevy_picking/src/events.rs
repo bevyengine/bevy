@@ -517,7 +517,7 @@ pub fn send_drag_over_events(
     //  - Pointer<DragEnter>,
     //  - Pointer<DragOver>,
     //  - Pointer<DragLeave>,
-    //  - Pointer<Drop>,
+    //  - Pointer<DragDrop>,
     mut commands: Commands,
     // Input
     drag_map: Res<DragMap>,
