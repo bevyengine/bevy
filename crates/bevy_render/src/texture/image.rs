@@ -141,7 +141,7 @@ impl ImageSampler {
     ///
     /// Descriptor is typically initialized by Bevy when the image is loaded,
     /// so this is convenient shortcut for updating the descriptor.
-    pub fn init_descriptor(&mut self) -> &mut ImageSamplerDescriptor {
+    pub fn get_or_init_descriptor(&mut self) -> &mut ImageSamplerDescriptor {
         match self {
             ImageSampler::Default => {
                 *self = ImageSampler::Descriptor(ImageSamplerDescriptor::default());
