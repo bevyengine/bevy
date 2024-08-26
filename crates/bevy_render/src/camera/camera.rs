@@ -34,6 +34,7 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
+use naga_oil::derive;
 use std::ops::Range;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
@@ -247,35 +248,42 @@ impl Default for Camera {
 impl Camera {
     /// Converts a physical size in this `Camera` to a logical size.
     #[inline]
-    pub fn to_logical(&self, physical_size: UVec2) -> Option<Vec2> {
-        let scale = self.computed.target_info.as_ref()?.scale_factor;
-        Some(physical_size.as_vec2() / scale)
+    pub fn to_logical(&self, physical_size: UVec2) -> Result<Vec2, RenderTargetNotComputed> {
+        self.computed
+            .target_info
+            .as_ref()
+            .map(|t| physical_size.as_vec2() / t.scale_factor)
+            .ok_or(RenderTargetNotComputed)
     }
 
     /// The rendered physical bounds [`URect`] of the camera. If the `viewport` field is
     /// set to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to
     /// the full physical rect of the current [`RenderTarget`].
     #[inline]
-    pub fn physical_viewport_rect(&self) -> Option<URect> {
+    pub fn physical_viewport_rect(&self) -> Result<URect, RenderTargetNotComputed> {
         let min = self
             .viewport
             .as_ref()
             .map(|v| v.physical_position)
             .unwrap_or(UVec2::ZERO);
-        let max = min + self.physical_viewport_size()?;
-        Some(URect { min, max })
+        self.physical_viewport_size().map(move |size| {
+            let max = min + size;
+            URect { min, max }
+        })
     }
 
     /// The rendered logical bounds [`Rect`] of the camera. If the `viewport` field is set to
     /// [`Some`], this will be the rect of that custom viewport. Otherwise it will default to the
     /// full logical rect of the current [`RenderTarget`].
     #[inline]
-    pub fn logical_viewport_rect(&self) -> Option<Rect> {
-        let URect { min, max } = self.physical_viewport_rect()?;
-        Some(Rect {
-            min: self.to_logical(min)?,
-            max: self.to_logical(max)?,
-        })
+    pub fn logical_viewport_rect(&self) -> Result<Rect, RenderTargetNotComputed> {
+        self.physical_viewport_rect()
+            .and_then(|URect { min, max }| {
+                Ok(Rect {
+                    min: self.to_logical(min)?,
+                    max: self.to_logical(max)?,
+                })
+            })
     }
 
     /// The logical size of this camera's viewport. If the `viewport` field is set to [`Some`], this
@@ -292,11 +300,11 @@ impl Camera {
     ///   - it references an [`Image`](RenderTarget::Image) that doesn't exist (invalid handle),
     ///   - it references a [`TextureView`](RenderTarget::TextureView) that doesn't exist (invalid handle).
     #[inline]
-    pub fn logical_viewport_size(&self) -> Option<Vec2> {
+    pub fn logical_viewport_size(&self) -> Result<Vec2, RenderTargetNotComputed> {
         self.viewport
             .as_ref()
-            .and_then(|v| self.to_logical(v.physical_size))
-            .or_else(|| self.logical_target_size())
+            .map(|v| self.to_logical(v.physical_size))
+            .unwrap_or_else(|| self.logical_target_size())
     }
 
     /// The physical size of this camera's viewport (in physical pixels).
@@ -305,22 +313,23 @@ impl Camera {
     /// the current [`RenderTarget`].
     /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
     #[inline]
-    pub fn physical_viewport_size(&self) -> Option<UVec2> {
+    pub fn physical_viewport_size(&self) -> Result<UVec2, RenderTargetNotComputed> {
         self.viewport
             .as_ref()
-            .map(|v| v.physical_size)
-            .or_else(|| self.physical_target_size())
+            .map(|v| Ok(v.physical_size))
+            .unwrap_or_else(|| self.physical_target_size())
     }
 
     /// The full logical size of this camera's [`RenderTarget`], ignoring custom `viewport` configuration.
     /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
     /// For logic that requires the size of the actually rendered area, prefer [`Camera::logical_viewport_size`].
     #[inline]
-    pub fn logical_target_size(&self) -> Option<Vec2> {
+    pub fn logical_target_size(&self) -> Result<Vec2, RenderTargetNotComputed> {
         self.computed
             .target_info
             .as_ref()
-            .and_then(|t| self.to_logical(t.physical_size))
+            .map(|t| t.physical_size.as_vec2() / t.scale_factor)
+            .ok_or(RenderTargetNotComputed)
     }
 
     /// The full physical size of this camera's [`RenderTarget`] (in physical pixels),
@@ -328,8 +337,12 @@ impl Camera {
     /// Note that if the `viewport` field is [`Some`], this will not represent the size of the rendered area.
     /// For logic that requires the size of the actually rendered area, prefer [`Camera::physical_viewport_size`].
     #[inline]
-    pub fn physical_target_size(&self) -> Option<UVec2> {
-        self.computed.target_info.as_ref().map(|t| t.physical_size)
+    pub fn physical_target_size(&self) -> Result<UVec2, RenderTargetNotComputed> {
+        self.computed
+            .target_info
+            .as_ref()
+            .map(|t| t.physical_size)
+            .ok_or(RenderTargetNotComputed)
     }
 
     #[inline]
@@ -358,19 +371,19 @@ impl Camera {
         &self,
         camera_transform: &GlobalTransform,
         world_position: Vec3,
-    ) -> Option<Vec2> {
+    ) -> Result<Vec2, WorldToViewportError> {
         let target_size = self.logical_viewport_size()?;
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
-            return None;
+            return Err(WorldToViewportError::NDCOutOfRange(ndc_space_coords));
         }
 
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
         let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
         // Flip the Y co-ordinate origin from the bottom to the top.
         viewport_position.y = target_size.y - viewport_position.y;
-        Some(viewport_position)
+        Ok(viewport_position)
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates and depth.
@@ -388,12 +401,12 @@ impl Camera {
         &self,
         camera_transform: &GlobalTransform,
         world_position: Vec3,
-    ) -> Option<Vec3> {
+    ) -> Result<Vec3, WorldToViewportError> {
         let target_size = self.logical_viewport_size()?;
         let ndc_space_coords = self.world_to_ndc(camera_transform, world_position)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 || ndc_space_coords.z > 1.0 {
-            return None;
+            return Err(WorldToViewportError::NDCOutOfRange(ndc_space_coords));
         }
 
         // Stretching ndc depth to value via near plane and negating result to be in positive room again.
@@ -403,7 +416,7 @@ impl Camera {
         let mut viewport_position = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
         // Flip the Y co-ordinate origin from the bottom to the top.
         viewport_position.y = target_size.y - viewport_position.y;
-        Some(viewport_position.extend(depth))
+        Ok(viewport_position.extend(depth))
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -423,7 +436,7 @@ impl Camera {
         &self,
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
-    ) -> Option<Ray3d> {
+    ) -> Result<Ray3d, ViewportToWorldError> {
         let target_size = self.logical_viewport_size()?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
@@ -436,12 +449,12 @@ impl Camera {
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
         // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Dir3::new(world_far_plane - world_near_plane).map_or(None, |direction| {
-            Some(Ray3d {
+        Dir3::new(world_far_plane - world_near_plane)
+            .map(|direction| Ray3d {
                 origin: world_near_plane,
                 direction,
             })
-        })
+            .map_err(ViewportToWorldError::DirectionError)
     }
 
     /// Returns a 2D world position computed from a position on this [`Camera`]'s viewport.
@@ -459,7 +472,7 @@ impl Camera {
         &self,
         camera_transform: &GlobalTransform,
         mut viewport_position: Vec2,
-    ) -> Option<Vec2> {
+    ) -> Result<Vec2, ViewportToWorldError> {
         let target_size = self.logical_viewport_size()?;
         // Flip the Y co-ordinate origin from the top to the bottom.
         viewport_position.y = target_size.y - viewport_position.y;
@@ -467,7 +480,7 @@ impl Camera {
 
         let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
 
-        Some(world_near_plane.truncate())
+        Ok(world_near_plane.truncate())
     }
 
     /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
@@ -483,13 +496,15 @@ impl Camera {
         &self,
         camera_transform: &GlobalTransform,
         world_position: Vec3,
-    ) -> Option<Vec3> {
+    ) -> Result<Vec3, NDCCoordAreNaN> {
         // Build a transformation matrix to convert from world space to NDC using camera data
         let clip_from_world: Mat4 =
             self.computed.clip_from_view * camera_transform.compute_matrix().inverse();
         let ndc_space_coords: Vec3 = clip_from_world.project_point3(world_position);
 
-        (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
+        (!ndc_space_coords.is_nan())
+            .then_some(ndc_space_coords)
+            .ok_or(NDCCoordAreNaN)
     }
 
     /// Given a position in Normalized Device Coordinates,
@@ -502,14 +517,20 @@ impl Camera {
     ///
     /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
     /// Panics if the projection matrix is null and `glam_assert` is enabled.
-    pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
+    pub fn ndc_to_world(
+        &self,
+        camera_transform: &GlobalTransform,
+        ndc: Vec3,
+    ) -> Result<Vec3, NDCCoordAreNaN> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
             camera_transform.compute_matrix() * self.computed.clip_from_view.inverse();
 
         let world_space_coords = ndc_to_world.project_point3(ndc);
 
-        (!world_space_coords.is_nan()).then_some(world_space_coords)
+        (!world_space_coords.is_nan())
+            .then_some(world_space_coords)
+            .ok_or(NDCCoordAreNaN)
     }
 
     /// Converts the depth in Normalized Device Coordinates
@@ -529,6 +550,33 @@ impl Camera {
         -(self.clip_from_view().w_axis.z - ndc_depth) / self.clip_from_view().z_axis.z
         //                       [3][2]                                         [2][2]
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Projected normalized device coordinates are NaN at some coordinate")]
+pub struct NDCCoordAreNaN;
+
+#[derive(Debug, thiserror::Error)]
+#[error("The render target wasn't computed yet and the RenderTargetInfo is missing")]
+pub struct RenderTargetNotComputed;
+
+#[derive(Debug, thiserror::Error)]
+#[error("World-to-Viewport transformation failed")]
+pub enum WorldToViewportError {
+    NDCCoordError(#[from] NDCCoordAreNaN),
+    RenderTargetError(#[from] RenderTargetNotComputed),
+
+    #[error("Normalized device coordinates z value out of range: {0:?}")]
+    NDCOutOfRange(Vec3),
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Viewport-to-World transformation failed")]
+pub enum ViewportToWorldError {
+    NDCCoordError(#[from] NDCCoordAreNaN),
+    RenderTargetError(#[from] RenderTargetNotComputed),
+    #[error("Invalid direction resulting from: {0:?}")]
+    DirectionError(bevy_math::InvalidDirectionError),
 }
 
 /// Control how this camera outputs once rendering is completed.
@@ -833,7 +881,7 @@ pub fn camera_system<T: CameraProjection + Component>(
                     }
                 }
                 camera.computed.target_info = new_computed_target_info;
-                if let Some(size) = camera.logical_viewport_size() {
+                if let Ok(size) = camera.logical_viewport_size() {
                     camera_projection.update(size.x, size.y);
                     camera.computed.clip_from_view = camera_projection.get_clip_from_view();
                 }
@@ -920,12 +968,12 @@ pub fn extract_cameras(
         }
 
         if let (
-            Some(URect {
+            Ok(URect {
                 min: viewport_origin,
                 ..
             }),
-            Some(viewport_size),
-            Some(target_size),
+            Ok(viewport_size),
+            Ok(target_size),
         ) = (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
