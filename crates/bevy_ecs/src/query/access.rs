@@ -1,5 +1,6 @@
 use crate::storage::SparseSetIndex;
 use core::fmt;
+use std::cmp::Ordering;
 use smallvec::SmallVec;
 use std::marker::PhantomData;
 
@@ -147,7 +148,7 @@ impl<const N: usize> SortedSmallVec<N> {
 
     /// Empties the contents of the vector
     pub(crate) fn clear(&mut self) {
-        self.0.clear()
+        self.0.clear();
     }
 
     fn len(&self) -> usize {
@@ -159,14 +160,16 @@ impl<const N: usize> SortedSmallVec<N> {
         let mut i = 0;
         let mut j = 0;
         while i < self.len() && j < other.len() {
-            if self.0[i] < other.0[j] {
-                i += 1;
-            } else if self.0[i] > other.0[j] {
-                self.0.insert(i, other.0[j]);
-                j += 1;
-            } else {
-                i += 1;
-                j += 1;
+            match self.0[i].cmp(&other.0[j]) {
+                Ordering::Less => i += 1,
+                Ordering::Greater => {
+                    self.0.insert(i, other.0[j]);
+                    j += 1;
+                }
+                Ordering::Equal => {
+                    i += 1;
+                    j += 1;
+                }
             }
         }
         while j < other.len() {
@@ -213,14 +216,16 @@ impl<const N: usize> Extend<usize> for SortedSmallVec<N> {
         let mut other_val = other_iter.next();
         while i < self.len() && other_val.is_some() {
             let val_j = other_val.unwrap();
-            if self.0[i] < val_j {
-                i += 1;
-            } else if self.0[i] > val_j {
-                self.0.insert(i, val_j);
-                other_val = other_iter.next();
-            } else {
-                i += 1;
-                other_val = other_iter.next();
+            match self.0[i].cmp(&val_j) {
+                Ordering::Less => { i += 1;}
+                Ordering::Greater => {
+                    self.0.insert(i, val_j);
+                    other_val = other_iter.next();
+                }
+                Ordering::Equal => {
+                    i += 1;
+                    other_val = other_iter.next();
+                }
             }
         }
         while let Some(val_j) = other_val {
@@ -294,7 +299,7 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
             }
             self.i += 1;
         }
-        return res;
+        res
     }
 }
 
@@ -838,7 +843,7 @@ impl From<SortedSmallVec<ACCESS_SMALL_VEC_SIZE>> for AccessConflicts {
 
 impl<T: SparseSetIndex> From<Vec<T>> for AccessConflicts {
     fn from(value: Vec<T>) -> Self {
-        let indices = value.iter().map(|x| x.sparse_set_index()).collect();
+        let indices = value.iter().map(SparseSetIndex::sparse_set_index).collect();
         Self::Individual(SortedSmallVec(indices))
     }
 }
