@@ -1,3 +1,4 @@
+use crate::archetype::{ArchetypeId, ComponentIndex};
 use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
@@ -9,7 +10,6 @@ use crate::{
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
-use crate::archetype::{ArchetypeId, ComponentIndex};
 
 /// Types that filter the results of a [`Query`].
 ///
@@ -171,7 +171,13 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _archetype_id: ArchetypeId, _table: &Table) {}
+    unsafe fn set_table(
+        _fetch: &mut (),
+        _state: &ComponentId,
+        _archetype_id: ArchetypeId,
+        _table: &Table,
+    ) {
+    }
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -281,7 +287,13 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _archetype_id: ArchetypeId, _table: &Table) {}
+    unsafe fn set_table(
+        _fetch: &mut (),
+        _state: &Self::State,
+        _archetype_id: ArchetypeId,
+        _table: &Table,
+    ) {
+    }
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -688,7 +700,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         archetype_id: ArchetypeId,
         table: &'w Table,
     ) {
-        let column_index = fetch.component_index.get_column_index(component_id, archetype_id).debug_checked_unwrap();
+        let column_index = fetch
+            .component_index
+            .get_column_index(component_id, archetype_id)
+            .debug_checked_unwrap();
         fetch.table_ticks = Some(
             Column::get_added_ticks_slice(table.get_column(column_index).debug_checked_unwrap())
                 .into(),
@@ -907,7 +922,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         archetype_id: ArchetypeId,
         table: &'w Table,
     ) {
-        let column_index = fetch.component_index.get_column_index(component_id, archetype_id).debug_checked_unwrap();
+        let column_index = fetch
+            .component_index
+            .get_column_index(component_id, archetype_id)
+            .debug_checked_unwrap();
         fetch.table_ticks = Some(
             Column::get_changed_ticks_slice(table.get_column(column_index).debug_checked_unwrap())
                 .into(),

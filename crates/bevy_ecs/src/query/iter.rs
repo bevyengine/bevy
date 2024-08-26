@@ -1,3 +1,5 @@
+use super::{QueryData, QueryFilter, ReadOnlyQueryData};
+use crate::archetype::ArchetypeId;
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     component::Tick,
@@ -14,8 +16,6 @@ use std::{
     mem::MaybeUninit,
     ops::Range,
 };
-use crate::archetype::ArchetypeId;
-use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -149,7 +149,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             "TableRow is only valid up to u32::MAX"
         );
 
-        D::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, archetype_id, table);
+        D::set_table(
+            &mut self.cursor.fetch,
+            &self.query_state.fetch_state,
+            archetype_id,
+            table,
+        );
         F::set_table(
             &mut self.cursor.filter,
             &self.query_state.filter_state,
@@ -1819,8 +1824,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
-                        D::set_table(&mut self.fetch, &query_state.fetch_state, archetype_id, table);
-                        F::set_table(&mut self.filter, &query_state.filter_state, archetype_id, table);
+                        D::set_table(
+                            &mut self.fetch,
+                            &query_state.fetch_state,
+                            archetype_id,
+                            table,
+                        );
+                        F::set_table(
+                            &mut self.filter,
+                            &query_state.filter_state,
+                            archetype_id,
+                            table,
+                        );
                     }
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();

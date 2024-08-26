@@ -20,12 +20,12 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };
 
+use crate::archetype::ComponentIndex;
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
 #[cfg(feature = "track_change_detection")]
 use std::panic::Location;
 use std::ptr::NonNull;
-use crate::archetype::ComponentIndex;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -434,7 +434,9 @@ impl BundleInfo {
                 StorageType::Table => {
                     // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
                     // the target table contains the component.
-                    let column_index = component_index.get_column_index(component_id, archetype_id).debug_checked_unwrap();
+                    let column_index = component_index
+                        .get_column_index(component_id, archetype_id)
+                        .debug_checked_unwrap();
                     let column =
                         // SAFETY: If the component_id is present in the ComponentIndex, then the table has a column for that column_index
                         unsafe { table.get_column_mut(column_index).debug_checked_unwrap() };
@@ -842,7 +844,12 @@ impl<'w> BundleInserter<'w> {
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
-                let move_result = table.move_to_superset_unchecked(result.table_row, new_table, self.world.archetypes().component_index(), new_archetype.id());
+                let move_result = table.move_to_superset_unchecked(
+                    result.table_row,
+                    new_table,
+                    self.world.archetypes().component_index(),
+                    new_archetype.id(),
+                );
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.set(entity.index(), new_location);
 

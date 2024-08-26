@@ -1,3 +1,4 @@
+use crate::archetype::ArchetypeId;
 use crate::{
     archetype::Archetype,
     component::{ComponentId, Components, Tick},
@@ -7,7 +8,6 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_utils::all_tuples;
-use crate::archetype::ArchetypeId;
 
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`QueryData`] or [`QueryFilter`]
@@ -100,7 +100,12 @@ pub unsafe trait WorldQuery {
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, archetype_id: ArchetypeId, table: &'w Table);
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype_id: ArchetypeId,
+        table: &'w Table,
+    );
 
     /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).

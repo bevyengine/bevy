@@ -1,3 +1,4 @@
+use crate::archetype::{ArchetypeId, ComponentIndex};
 use crate::{
     change_detection::{MaybeLocation, MaybeUnsafeCellLocation},
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
@@ -14,7 +15,6 @@ use std::{
     cell::UnsafeCell,
     ops::{Index, IndexMut},
 };
-use crate::archetype::{ArchetypeId, ComponentIndex};
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
 ///
@@ -644,7 +644,8 @@ impl TableBuilder {
 
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
-        self.columns.push(Column::with_capacity(component_info, self.capacity));
+        self.columns
+            .push(Column::with_capacity(component_info, self.capacity));
         self.components.push(component_info.id());
         self
     }
@@ -721,9 +722,13 @@ impl Table {
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.components.iter().zip(self.columns.iter_mut()) {
-            if let Some(column_index) = component_index.get_column_index(*component_id, new_archetype_id) {
+            if let Some(column_index) =
+                component_index.get_column_index(*component_id, new_archetype_id)
+            {
                 // SAFETY: the ComponentIndex guarantees that the table contains a column at `column_index`
-                let new_column = new_table.get_column_mut(column_index).debug_checked_unwrap();
+                let new_column = new_table
+                    .get_column_mut(column_index)
+                    .debug_checked_unwrap();
                 new_column.initialize_from_unchecked(column, row, new_row);
             } else {
                 // It's the caller's responsibility to drop these cases.
@@ -757,9 +762,13 @@ impl Table {
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.components.iter().zip(self.columns.iter_mut()) {
-            if let Some(column_index) = component_index.get_column_index(*component_id, new_archetype_id) {
+            if let Some(column_index) =
+                component_index.get_column_index(*component_id, new_archetype_id)
+            {
                 // SAFETY: the ComponentIndex guarantees that the table contains a column at `column_index`
-                let new_column = new_table.get_column_mut(column_index).debug_checked_unwrap();
+                let new_column = new_table
+                    .get_column_mut(column_index)
+                    .debug_checked_unwrap();
                 new_column.initialize_from_unchecked(column, row, new_row);
             } else {
                 column.swap_remove_unchecked(row);
@@ -792,7 +801,9 @@ impl Table {
         let is_last = row.as_usize() == self.entities.len() - 1;
         let new_row = new_table.allocate(self.entities.swap_remove(row.as_usize()));
         for (component_id, column) in self.components.iter().zip(self.columns.iter_mut()) {
-            let column_index = component_index.get_column_index(*component_id, new_archetype_id).debug_checked_unwrap();
+            let column_index = component_index
+                .get_column_index(*component_id, new_archetype_id)
+                .debug_checked_unwrap();
             new_table
                 .get_column_mut(column_index)
                 .debug_checked_unwrap()

@@ -733,12 +733,14 @@ impl SparseSetIndex for ArchetypeComponentId {
 /// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
 #[derive(Default, Debug)]
 pub struct ComponentIndex {
-    index: HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>
+    index: HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>,
 }
 
 impl ComponentIndex {
-
-    pub(crate) fn get(&self, component_id: &ComponentId) -> Option<&HashMap<ArchetypeId, ArchetypeRecord>> {
+    pub(crate) fn get(
+        &self,
+        component_id: &ComponentId,
+    ) -> Option<&HashMap<ArchetypeId, ArchetypeRecord>> {
         self.index.get(component_id)
     }
 
@@ -746,8 +748,13 @@ impl ComponentIndex {
     ///
     /// [`Column`]: crate::storage::Column
     /// [`Table`]: crate::storage::Table
-    pub(crate) fn get_column_index(&self, component_id: ComponentId, archetype_id: ArchetypeId) -> Option<usize> {
-        self.index.get(&component_id)
+    pub(crate) fn get_column_index(
+        &self,
+        component_id: ComponentId,
+        archetype_id: ArchetypeId,
+    ) -> Option<usize> {
+        self.index
+            .get(&component_id)
             .and_then(|data| data.get(&archetype_id))
             .and_then(|record| record.column)
     }
@@ -773,7 +780,6 @@ pub struct Archetypes {
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
-    #[allow(dead_code)]
     pub(crate) column: Option<usize>,
 }
 
@@ -977,7 +983,6 @@ impl Archetypes {
             }
         }
     }
-
 }
 
 impl Index<RangeFrom<ArchetypeGeneration>> for Archetypes {
