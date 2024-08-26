@@ -77,6 +77,8 @@ struct UiSliceVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
+    pub slices: [f32; 4],
+    pub insets: [f32; 4],
 }
 
 #[derive(Component)]
@@ -156,6 +158,10 @@ impl SpecializedRenderPipeline for UiSlicerPipeline {
                 // uv
                 VertexFormat::Float32x2,
                 // color
+                VertexFormat::Float32x4,
+                // slices (left, top, right, bottom)
+                VertexFormat::Float32x4,
+                // insets (left, top, right, bottom)
                 VertexFormat::Float32x4,
             ],
         );
@@ -509,6 +515,8 @@ pub fn prepare_ui_slicers(
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
                             color,
+                            slices: [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
+                            insets: [1. / 6., 1. / 6., 1. / 2., 1. / 2.],
                         });
                     }
 

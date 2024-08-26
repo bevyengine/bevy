@@ -4,6 +4,7 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
+    ui::UiSlicer,
     winit::WinitSettings,
 };
 
@@ -84,7 +85,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             image: image.clone().into(),
                             ..default()
                         },
-                        ImageScaleMode::Sliced(slicer.clone()),
+                        //ImageScaleMode::Sliced(slicer.clone()),
+                        UiSlicer,
                     ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(
