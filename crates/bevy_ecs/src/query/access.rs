@@ -1,7 +1,7 @@
 use crate::storage::SparseSetIndex;
 use core::fmt;
-use std::cmp::Ordering;
 use smallvec::SmallVec;
+use std::cmp::Ordering;
 use std::marker::PhantomData;
 
 const ACCESS_SMALL_VEC_SIZE: usize = 8;
@@ -217,7 +217,9 @@ impl<const N: usize> Extend<usize> for SortedSmallVec<N> {
         while i < self.len() && other_val.is_some() {
             let val_j = other_val.unwrap();
             match self.0[i].cmp(&val_j) {
-                Ordering::Less => { i += 1;}
+                Ordering::Less => {
+                    i += 1;
+                }
                 Ordering::Greater => {
                     self.0.insert(i, val_j);
                     other_val = other_iter.next();
