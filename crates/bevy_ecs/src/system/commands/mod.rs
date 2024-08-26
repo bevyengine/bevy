@@ -2,7 +2,9 @@ mod parallel_scope;
 
 use core::panic::Location;
 
-use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCached};
+use super::{
+    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCachedWith,
+};
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
