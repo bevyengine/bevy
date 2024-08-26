@@ -386,6 +386,7 @@ impl Transform {
     /// Flips this [`Transform`]'s scale on the x axis
     ///
     /// ```
+    /// # use bevy_transform::components::Transform;
     /// assert_eq!(Transform::IDENTITY.flip_x().scale.x, -1);
     /// ```
     #[inline]
@@ -397,6 +398,7 @@ impl Transform {
     /// Flips this [`Transform`]'s scale on the y axis
     ///
     /// ```
+    /// # use bevy_transform::components::Transform;
     /// assert_eq!(Transform::IDENTITY.flip_y().scale.y, -1);
     /// ```
     #[inline]
@@ -408,6 +410,7 @@ impl Transform {
     /// Flips this [`Transform`]'s scale on the z axis
     ///
     /// ```
+    /// # use bevy_transform::components::Transform;
     /// assert_eq!(Transform::IDENTITY.flip_z().scale.z, -1);
     /// ```
     #[inline]
