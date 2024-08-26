@@ -49,14 +49,14 @@ where
     pub fn arc_2d(
         &mut self,
         isometry: Isometry2d,
-        arc_angle: Rot2,
+        arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
             isometry,
-            arc_angle: arc_angle.as_radians(),
+            arc_angle,
             radius,
             color: color.into(),
             resolution: None,

@@ -1,6 +1,6 @@
 //! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
 
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use super::helpers::*;
 
@@ -10,7 +10,7 @@ use bevy_math::primitives::{
     CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
     RegularPolygon, Rhombus, Segment2d, Triangle2d,
 };
-use bevy_math::{Dir2, Isometry2d, Vec2};
+use bevy_math::{Dir2, Isometry2d, Rot2, Vec2};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -380,13 +380,13 @@ where
         // draw arcs
         self.arc_2d(
             Isometry2d::new(top_center, Rot2::radians(start_angle_top)),
-            Rot2::PI,
+            PI,
             primitive.radius,
             polymorphic_color,
         );
         self.arc_2d(
             Isometry2d::new(bottom_center, Rot2::radians(start_angle_bottom)),
-            Rot2::PI,
+            PI,
             primitive.radius,
             polymorphic_color,
         );
