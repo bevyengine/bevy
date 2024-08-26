@@ -6,11 +6,12 @@ use crate::observer::ObserverTrigger;
 use crate::world::World;
 
 /// The event data that an [`Observer`] is triggered with.
+/// Ordinarily, this will be a mutable reference to an [`Event`] type.
 ///
 /// The provided implementations of this trait are:
 ///
 /// - All [`Event`] types.
-/// - [`DynamicEvent`], which matches any [`Event`]s dynamically added to the observer with [`Observer::with_event`] and does not reify the event data.
+/// - [`DynamicEvent`].
 ///
 /// # Safety
 ///
@@ -89,6 +90,7 @@ unsafe impl<E: Event> EventData for E {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs_macros::Component;
+/// # use bevy_ecs::observer::DynamicEvent;
 /// #
 /// /// The component type to listen for on add and remove events.
 /// #[derive(Component)]
