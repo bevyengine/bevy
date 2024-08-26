@@ -52,7 +52,7 @@ fn map_axis(
     ih: f32,
 ) -> f32 {
     if p < il {
-        return (p / tl) * th;
+        return (p / il) * tl;
     } else if ih < p {
         return th + ((p - ih) / (1 - ih)) * (1 - th);
     } else {

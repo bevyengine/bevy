@@ -551,8 +551,8 @@ pub fn prepare_ui_slicers(
                             uv: uvs[i].into(),
                             color,
                             slices: [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
-                            border: [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
-                            repeat: [2.; 4],
+                            border: [1. / 10., 1. / 10., 9. / 10., 9. / 10.],
+                            repeat: [1.; 4],
                         });
                     }
 
