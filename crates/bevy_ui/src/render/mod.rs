@@ -1,7 +1,7 @@
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
-pub mod ui_slicer_pipeline;
+pub mod ui_texture_slicer_pipeline;
 
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
@@ -20,7 +20,7 @@ use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
-use ui_slicer_pipeline::UiSlicerPlugin;
+use ui_texture_slicer_pipeline::UiSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::texture_slice::UiSlicer;
