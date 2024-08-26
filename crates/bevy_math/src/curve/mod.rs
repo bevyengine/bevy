@@ -78,7 +78,7 @@ pub trait Curve<T> {
     /// factor rather than multiplying:
     /// ```
     /// # use bevy_math::curve::*;
-    /// let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let scaled_curve = my_curve.reparametrize(interval(0.0, 2.0).unwrap(), |t| t / 2.0);
     /// ```
     /// This kind of linear remapping is provided by the convenience method
@@ -89,17 +89,17 @@ pub trait Curve<T> {
     /// // Reverse a curve:
     /// # use bevy_math::curve::*;
     /// # use bevy_math::vec2;
-    /// let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let domain = my_curve.domain();
     /// let reversed_curve = my_curve.reparametrize(domain, |t| domain.end() - t);
     ///
     /// // Take a segment of a curve:
-    /// # let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
+    /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
     /// let curve_segment = my_curve.reparametrize(interval(0.0, 0.5).unwrap(), |t| 0.5 + t);
     ///
     /// // Reparametrize by an easing curve:
-    /// # let my_curve = constant_curve(interval(0.0, 1.0).unwrap(), 1.0);
-    /// # let easing_curve = constant_curve(interval(0.0, 1.0).unwrap(), vec2(1.0, 1.0));
+    /// # let my_curve = constant_curve(Interval::UNIT, 1.0);
+    /// # let easing_curve = constant_curve(Interval::UNIT, vec2(1.0, 1.0));
     /// let domain = my_curve.domain();
     /// let eased_curve = my_curve.reparametrize(domain, |t| easing_curve.sample_unchecked(t).y);
     /// ```
@@ -386,7 +386,7 @@ pub trait Curve<T> {
     /// # Example
     /// ```
     /// # use bevy_math::curve::*;
-    /// let my_curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * t + 1.0);
+    /// let my_curve = function_curve(Interval::UNIT, |t| t * t + 1.0);
     /// // Borrow `my_curve` long enough to resample a mapped version. Note that `map` takes
     /// // ownership of its input.
     /// let samples = my_curve.by_ref().map(|x| x * 2.0).resample_auto(100).unwrap();
@@ -980,7 +980,7 @@ mod tests {
         let curve = constant_curve(Interval::EVERYWHERE, 5.0);
         assert!(curve.sample_unchecked(-35.0) == 5.0);
 
-        let curve = constant_curve(interval(0.0, 1.0).unwrap(), true);
+        let curve = constant_curve(Interval::UNIT, true);
         assert!(curve.sample_unchecked(2.0));
         assert!(curve.sample(2.0).is_none());
     }
@@ -1008,11 +1008,11 @@ mod tests {
         );
         assert_eq!(mapped_curve.domain(), Interval::EVERYWHERE);
 
-        let curve = function_curve(interval(0.0, 1.0).unwrap(), |t| t * TAU);
+        let curve = function_curve(Interval::UNIT, |t| t * TAU);
         let mapped_curve = curve.map(Quat::from_rotation_z);
         assert_eq!(mapped_curve.sample_unchecked(0.0), Quat::IDENTITY);
         assert!(mapped_curve.sample_unchecked(1.0).is_near_identity());
-        assert_eq!(mapped_curve.domain(), interval(0.0, 1.0).unwrap());
+        assert_eq!(mapped_curve.domain(), Interval::UNIT);
     }
 
     #[test]
@@ -1028,18 +1028,16 @@ mod tests {
             interval(0.0, f32::INFINITY).unwrap()
         );
 
-        let reparametrized_curve = curve
-            .by_ref()
-            .reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
+        let reparametrized_curve = curve.by_ref().reparametrize(Interval::UNIT, |t| t + 1.0);
         assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(0.0), 0.0);
         assert_abs_diff_eq!(reparametrized_curve.sample_unchecked(1.0), 1.0);
-        assert_eq!(reparametrized_curve.domain(), interval(0.0, 1.0).unwrap());
+        assert_eq!(reparametrized_curve.domain(), Interval::UNIT);
     }
 
     #[test]
     fn multiple_maps() {
         // Make sure these actually happen in the right order.
-        let curve = function_curve(interval(0.0, 1.0).unwrap(), ops::exp2);
+        let curve = function_curve(Interval::UNIT, ops::exp2);
         let first_mapped = curve.map(ops::log2);
         let second_mapped = first_mapped.map(|x| x * -2.0);
         assert_abs_diff_eq!(second_mapped.sample_unchecked(0.0), 0.0);
@@ -1050,9 +1048,9 @@ mod tests {
     #[test]
     fn multiple_reparams() {
         // Make sure these happen in the right order too.
-        let curve = function_curve(interval(0.0, 1.0).unwrap(), ops::exp2);
+        let curve = function_curve(Interval::UNIT, ops::exp2);
         let first_reparam = curve.reparametrize(interval(1.0, 2.0).unwrap(), ops::log2);
-        let second_reparam = first_reparam.reparametrize(interval(0.0, 1.0).unwrap(), |t| t + 1.0);
+        let second_reparam = first_reparam.reparametrize(Interval::UNIT, |t| t + 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.0), 1.0);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(0.5), 1.5);
         assert_abs_diff_eq!(second_reparam.sample_unchecked(1.0), 2.0);
