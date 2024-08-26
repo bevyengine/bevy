@@ -1,7 +1,7 @@
 use crate::storage::SparseSetIndex;
 use core::fmt;
-use std::marker::PhantomData;
 use smallvec::SmallVec;
+use std::marker::PhantomData;
 
 const ACCESS_SMALL_VEC_SIZE: usize = 8;
 
@@ -33,7 +33,7 @@ pub struct Access<T> {
     writes_all_resources: bool,
     // Components that are not accessed, but whose presence in an archetype affect query results.
     archetypal: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>,
-    marker: std::marker::PhantomData<T>,
+    marker: PhantomData<T>,
 }
 
 // This is needed since `#[derive(Clone)]` does not generate optimized `clone_from`.
@@ -90,17 +90,23 @@ impl<T: SparseSetIndex> Default for Access<T> {
     }
 }
 
+/// Stores a sorted list of indices with quick implementation for
+/// union, difference, intersection.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct SortedSmallVec<const N: usize>(SmallVec<[usize; N]>);
-
+pub struct SortedSmallVec<const N: usize>(SmallVec<[usize; N]>);
 
 impl<const N: usize> IntoIterator for SortedSmallVec<N> {
-
     type Item = usize;
     type IntoIter = <SmallVec<[usize; N]> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
+    }
+}
+
+impl<const N: usize> Default for SortedSmallVec<N> {
+    fn default() -> Self {
+        Self::new_const()
     }
 }
 
@@ -201,7 +207,7 @@ impl<const N: usize> SortedSmallVec<N> {
 }
 
 impl<const N: usize> Extend<usize> for SortedSmallVec<N> {
-    fn extend<T: IntoIterator<Item=usize>>(&mut self, other: T) {
+    fn extend<T: IntoIterator<Item = usize>>(&mut self, other: T) {
         let mut i = 0;
         let mut other_iter = other.into_iter();
         let mut other_val = other_iter.next();
@@ -238,7 +244,9 @@ impl<'a, const N: usize> Iterator for Intersection<'a, N> {
     fn next(&mut self) -> Option<Self::Item> {
         let mut res = None;
         while self.i < self.this.len() && self.j < self.other.len() {
-            if (self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1]) && self.this.0[self.i] == self.other.0[self.j] {
+            if (self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1])
+                && self.this.0[self.i] == self.other.0[self.j]
+            {
                 res = Some(self.this.0[self.i]);
                 self.i += 1;
                 self.j += 1;
@@ -270,7 +278,9 @@ impl<'a, const N: usize> Iterator for Difference<'a, N> {
             if self.this.0[self.i] == self.other.0[self.j] {
                 self.i += 1;
                 self.j += 1;
-            } else if (self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1]) && self.this.0[self.i] < self.other.0[self.j] {
+            } else if (self.i == 0 || self.this.0[self.i] != self.this.0[self.i - 1])
+                && self.this.0[self.i] < self.other.0[self.j]
+            {
                 res = Some(self.this.0[self.i]);
                 self.i += 1;
                 return res;
@@ -305,26 +315,29 @@ impl<T: SparseSetIndex> Access<T> {
         }
     }
 
-
     /// Adds access to the component given by `index`.
     pub fn add_component_read(&mut self, index: T) {
-        self.component_read_and_writes.insert(index.sparse_set_index());
+        self.component_read_and_writes
+            .insert(index.sparse_set_index());
     }
 
     /// Adds exclusive access to the component given by `index`.
     pub fn add_component_write(&mut self, index: T) {
-        self.component_read_and_writes.insert(index.sparse_set_index());
+        self.component_read_and_writes
+            .insert(index.sparse_set_index());
         self.component_writes.insert(index.sparse_set_index());
     }
 
     /// Adds access to the resource given by `index`.
     pub fn add_resource_read(&mut self, index: T) {
-        self.resource_read_and_writes.insert(index.sparse_set_index());
+        self.resource_read_and_writes
+            .insert(index.sparse_set_index());
     }
 
     /// Adds exclusive access to the resource given by `index`.
     pub fn add_resource_write(&mut self, index: T) {
-        self.resource_read_and_writes.insert(index.sparse_set_index());
+        self.resource_read_and_writes
+            .insert(index.sparse_set_index());
         self.resource_writes.insert(index.sparse_set_index());
     }
 
@@ -350,7 +363,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this can access any component.
     pub fn has_any_component_read(&self) -> bool {
-        self.reads_all_components || !self.component_read_and_writes.is_clear()
+        self.reads_all_components || !self.component_read_and_writes.is_empty()
     }
 
     /// Returns `true` if this can exclusively access the component given by `index`.
@@ -360,7 +373,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns `true` if this accesses any component mutably.
     pub fn has_any_component_write(&self) -> bool {
-        self.writes_all_components || !self.component_writes.is_clear()
+        self.writes_all_components || !self.component_writes.is_empty()
     }
 
     /// Returns `true` if this can access the resource given by `index`.
@@ -628,7 +641,7 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Returns a vector of elements that the access and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &Access<T>) -> AccessConflicts {
-        let mut conflicts = FixedBitSet::new();
+        let mut conflicts = SortedSmallVec::new_const();
         if self.reads_all_components {
             if other.writes_all_components {
                 return AccessConflicts::All;
@@ -788,7 +801,7 @@ pub enum AccessConflicts {
     /// Conflict is for all indices
     All,
     /// There is a conflict for a subset of indices
-    Individual(FixedBitSet),
+    Individual(SortedSmallVec<ACCESS_SMALL_VEC_SIZE>),
 }
 
 impl AccessConflicts {
@@ -798,7 +811,7 @@ impl AccessConflicts {
                 *s = AccessConflicts::All;
             }
             (AccessConflicts::Individual(this), AccessConflicts::Individual(other)) => {
-                this.extend(other.ones());
+                this.union_with(other);
             }
             _ => {}
         }
@@ -812,20 +825,21 @@ impl AccessConflicts {
     }
 
     /// An [`AccessConflicts`] which represents the absence of any conflict
-    pub(crate) fn empty() -> Self {
-        Self::Individual(FixedBitSet::new())
+    pub(crate) const fn empty() -> Self {
+        Self::Individual(SortedSmallVec::new_const())
     }
 }
 
-impl From<FixedBitSet> for AccessConflicts {
-    fn from(value: FixedBitSet) -> Self {
+impl From<SortedSmallVec<ACCESS_SMALL_VEC_SIZE>> for AccessConflicts {
+    fn from(value: SortedSmallVec<ACCESS_SMALL_VEC_SIZE>) -> Self {
         Self::Individual(value)
     }
 }
 
 impl<T: SparseSetIndex> From<Vec<T>> for AccessConflicts {
     fn from(value: Vec<T>) -> Self {
-        Self::Individual(value.iter().map(T::sparse_set_index).collect())
+        let indices = value.iter().map(|x| x.sparse_set_index()).collect();
+        Self::Individual(SortedSmallVec(indices))
     }
 }
 
@@ -1221,15 +1235,12 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
     }
 }
 
-
-
-
 #[cfg(test)]
 mod tests {
     use crate::query::access::{AccessFilters, SortedSmallVec};
     use crate::query::{Access, AccessConflicts, FilteredAccess, FilteredAccessSet};
+    use smallvec::{smallvec, SmallVec};
     use std::marker::PhantomData;
-    use smallvec::{SmallVec, smallvec};
 
     #[test]
     fn sorted_vec_union() {
@@ -1306,8 +1317,8 @@ mod tests {
     fn create_sample_access_filters() -> AccessFilters<usize> {
         let mut access_filters = AccessFilters::<usize>::default();
 
-        access_filters.with.grow_and_insert(3);
-        access_filters.without.grow_and_insert(5);
+        access_filters.with.extend(vec![3]);
+        access_filters.without.extend(vec![5]);
 
         access_filters
     }
@@ -1380,8 +1391,8 @@ mod tests {
         let original: AccessFilters<usize> = create_sample_access_filters();
         let mut cloned = AccessFilters::<usize>::default();
 
-        cloned.with.grow_and_insert(1);
-        cloned.without.grow_and_insert(2);
+        cloned.with.extend(vec![1]);
+        cloned.without.extend(vec![2]);
 
         cloned.clone_from(&original);
 
