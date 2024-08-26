@@ -29,8 +29,6 @@ pub use bevy_core_pipeline as core_pipeline;
 #[cfg(feature = "bevy_dev_tools")]
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
-#[cfg(feature = "bevy_dynamic_plugin")]
-pub use bevy_dynamic_plugin as dynamic_plugin;
 pub use bevy_ecs as ecs;
 #[cfg(feature = "bevy_gilrs")]
 pub use bevy_gilrs as gilrs;
@@ -44,6 +42,8 @@ pub use bevy_log as log;
 pub use bevy_math as math;
 #[cfg(feature = "bevy_pbr")]
 pub use bevy_pbr as pbr;
+#[cfg(feature = "bevy_picking")]
+pub use bevy_picking as picking;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_render")]

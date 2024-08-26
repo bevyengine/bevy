@@ -9,6 +9,7 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewDepthTexture, ViewUniformOffset},
 };
+use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
@@ -120,19 +121,28 @@ impl ViewNode for PrepassNode {
             }
 
             // Opaque draws
-            if !opaque_prepass_phase.batchable_keys.is_empty()
-                || !opaque_prepass_phase.unbatchable_keys.is_empty()
+            if !opaque_prepass_phase.batchable_mesh_keys.is_empty()
+                || !opaque_prepass_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_prepass").entered();
-                opaque_prepass_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) = opaque_prepass_phase.render(&mut render_pass, world, view_entity)
+                {
+                    error!("Error encountered while rendering the opaque prepass phase {err:?}");
+                }
             }
 
             // Alpha masked draws
             if !alpha_mask_prepass_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
-                alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) =
+                    alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity)
+                {
+                    error!(
+                        "Error encountered while rendering the alpha mask prepass phase {err:?}"
+                    );
+                }
             }
 
             // Skybox draw using a fullscreen triangle
@@ -162,7 +172,7 @@ impl ViewNode for PrepassNode {
             pass_span.end(&mut render_pass);
             drop(render_pass);
 
-            // Copy prepass depth to the main depth texture if deferred isn't going to
+            // After rendering to the view depth texture, copy it to the prepass depth texture if deferred isn't going to
             if deferred_prepass.is_none() {
                 if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                     command_encoder.copy_texture_to_texture(

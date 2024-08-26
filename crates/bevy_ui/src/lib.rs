@@ -17,6 +17,9 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+#[cfg(feature = "bevy_picking")]
+pub mod picking_backend;
+
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
@@ -54,6 +57,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_render::{
+    camera::CameraUpdateSystem,
     view::{check_visibility, VisibilitySystems},
     RenderApp,
 };
@@ -70,13 +74,27 @@ pub struct UiPlugin;
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum UiSystem {
-    /// After this label, the ui layout state has been updated
-    Layout,
-    /// After this label, input interactions with UI entities have been updated for this frame
+    /// After this label, input interactions with UI entities have been updated for this frame.
+    ///
+    /// Runs in [`PreUpdate`].
     Focus,
-    /// After this label, the [`UiStack`] resource has been updated
+    /// All UI systems in [`PostUpdate`] will run in or after this label.
+    Prepare,
+    /// After this label, the ui layout state has been updated.
+    ///
+    /// Runs in [`PostUpdate`].
+    Layout,
+    /// UI systems ordered after [`UiSystem::Layout`].
+    ///
+    /// Runs in [`PostUpdate`].
+    PostLayout,
+    /// After this label, the [`UiStack`] resource has been updated.
+    ///
+    /// Runs in [`PostUpdate`].
     Stack,
-    /// After this label, node outline widths have been updated
+    /// After this label, node outline widths have been updated.
+    ///
+    /// Runs in [`PostUpdate`].
     Outlines,
 }
 
@@ -129,6 +147,16 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Label>()
             .register_type::<ZIndex>()
             .register_type::<Outline>()
+            .configure_sets(
+                PostUpdate,
+                (
+                    CameraUpdateSystem,
+                    UiSystem::Prepare.before(UiSystem::Stack),
+                    UiSystem::Layout,
+                    (UiSystem::PostLayout, UiSystem::Outlines),
+                )
+                    .chain(),
+            )
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
@@ -138,16 +166,12 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
-                update_target_camera_system.before(UiSystem::Layout),
-                apply_deferred
-                    .after(update_target_camera_system)
-                    .before(UiSystem::Layout),
+                update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
                 resolve_outlines_system
                     .in_set(UiSystem::Outlines)
-                    .after(UiSystem::Layout)
                     // clipping doesn't care about outlines
                     .ambiguous_with(update_clipping_system)
                     .in_set(AmbiguousWithTextSystem),
@@ -164,14 +188,14 @@ impl Plugin for UiPlugin {
                 // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
-                    .before(UiSystem::Layout)
+                    .in_set(UiSystem::Prepare)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
                 (
                     texture_slice::compute_slices_on_asset_event,
                     texture_slice::compute_slices_on_image_change,
                 )
-                    .after(UiSystem::Layout),
+                    .in_set(UiSystem::PostLayout),
             ),
         );
 
@@ -179,6 +203,9 @@ impl Plugin for UiPlugin {
         build_text_interop(app);
 
         build_ui_render(app);
+
+        #[cfg(feature = "bevy_picking")]
+        app.add_plugins(picking_backend::UiPickingBackend);
     }
 
     fn finish(&self, app: &mut App) {
@@ -203,12 +230,7 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         (
             widget::measure_text_system
-                .before(UiSystem::Layout)
-                // Potential conflict: `Assets<Image>`
-                // In practice, they run independently since `bevy_render::camera_update_system`
-                // will only ever observe its own render target, and `widget::measure_text_system`
-                // will never modify a pre-existing `Image` asset.
-                .ambiguous_with(bevy_render::camera::CameraUpdateSystem)
+                .in_set(UiSystem::Prepare)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
@@ -217,7 +239,7 @@ fn build_text_interop(app: &mut App) {
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system
-                .after(UiSystem::Layout)
+                .in_set(UiSystem::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_text::update_text2d_layout),

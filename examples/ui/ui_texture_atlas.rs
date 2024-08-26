@@ -54,10 +54,10 @@ fn setup(
                         ..default()
                     },
                     image: UiImage::new(texture_handle),
+                    background_color: BackgroundColor(ANTIQUE_WHITE.into()),
                     ..default()
                 },
                 TextureAtlas::from(texture_atlas_handle),
-                BackgroundColor(ANTIQUE_WHITE.into()),
                 Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
             ));
             parent.spawn(TextBundle::from_sections([

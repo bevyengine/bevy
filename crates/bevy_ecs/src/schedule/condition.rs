@@ -72,6 +72,57 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # assert!(world.resource::<DidRun>().0);
 pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `and` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `and` will only be invoked if `self` returns `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```should_panic
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct R(u32);
+    ///
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn my_system() {}
+    /// app.add_systems(
+    ///     // The `resource_equals` run condition will panic since we don't initialize `R`,
+    ///     // just like if we used `Res<R>` in a system.
+    ///     my_system.run_if(resource_equals(R(0))),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Use `.and()` to avoid checking the condition.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource, PartialEq)]
+    /// # struct R(u32);
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn my_system() {}
+    /// app.add_systems(
+    ///     // `resource_equals` will only get run if the resource `R` exists.
+    ///     my_system.run_if(resource_exists::<R>.and(resource_equals(R(0)))),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
+    ///
+    /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
+    fn and<M, C: Condition<M, In>>(self, and: C) -> And<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(and);
+        let name = format!("{} && {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, Cow::Owned(name))
+    }
+
+    /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and_then` return `true`.
     ///
     /// The returned run condition is short-circuiting, meaning
@@ -115,18 +166,122 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// Note that in this case, it's better to just use the run condition [`resource_exists_and_equals`].
     ///
     /// [`resource_exists_and_equals`]: common_conditions::resource_exists_and_equals
-    fn and_then<M, C: Condition<M, In>>(self, and_then: C) -> AndThen<Self::System, C::System> {
+    #[deprecated(
+        note = "Users should use the `.and(condition)` method in lieu of `.and_then(condition)`"
+    )]
+    fn and_then<M, C: Condition<M, In>>(self, and_then: C) -> And<Self::System, C::System> {
+        self.and(and_then)
+    }
+
+    /// Returns a new run condition that only returns `false`
+    /// if both this one and the passed `nand` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `nand` will only be invoked if `self` returns `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// use bevy::prelude::*;
+    ///
+    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+    /// pub enum PlayerState {
+    ///     Alive,
+    ///     Dead,
+    /// }
+    ///
+    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+    /// pub enum EnemyState {
+    ///     Alive,
+    ///     Dead,
+    /// }
+    ///
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn game_over_credits() {}
+    /// app.add_systems(
+    ///     // The game_over_credits system will only execute if either the `in_state(PlayerState::Alive)`
+    ///     // run condition or `in_state(EnemyState::Alive)` run condition evaluates to `false`.
+    ///     game_over_credits.run_if(
+    ///         in_state(PlayerState::Alive).nand(in_state(EnemyState::Alive))
+    ///     ),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Equivalent logic can be achieved by using `not` in concert with `and`:
+    ///
+    /// ```compile_fail
+    /// app.add_systems(
+    ///     game_over_credits.run_if(
+    ///         not(in_state(PlayerState::Alive).and(in_state(EnemyState::Alive)))
+    ///     ),
+    /// );
+    /// ```
+    fn nand<M, C: Condition<M, In>>(self, nand: C) -> Nand<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(and_then);
-        let name = format!("{} && {}", a.name(), b.name());
+        let b = IntoSystem::into_system(nand);
+        let name = format!("!({} && {})", a.name(), b.name());
+        CombinatorSystem::new(a, b, Cow::Owned(name))
+    }
+
+    /// Returns a new run condition that only returns `true`
+    /// if both this one and the passed `nor` return `false`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `nor` will only be invoked if `self` returns `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// use bevy::prelude::*;
+    ///
+    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+    /// pub enum WeatherState {
+    ///     Sunny,
+    ///     Cloudy,
+    /// }
+    ///
+    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+    /// pub enum SoilState {
+    ///     Fertilized,
+    ///     NotFertilized,
+    /// }
+    ///
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn slow_plant_growth() {}
+    /// app.add_systems(
+    ///     // The slow_plant_growth system will only execute if both the `in_state(WeatherState::Sunny)`
+    ///     // run condition and `in_state(SoilState::Fertilized)` run condition evaluate to `false`.
+    ///     slow_plant_growth.run_if(
+    ///         in_state(WeatherState::Sunny).nor(in_state(SoilState::Fertilized))
+    ///     ),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Equivalent logic can be achieved by using `not` in concert with `or`:
+    ///
+    /// ```compile_fail
+    /// app.add_systems(
+    ///     slow_plant_growth.run_if(
+    ///         not(in_state(WeatherState::Sunny).or(in_state(SoilState::Fertilized)))
+    ///     ),
+    /// );
+    /// ```
+    fn nor<M, C: Condition<M, In>>(self, nor: C) -> Nor<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(nor);
+        let name = format!("!({} || {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
 
     /// Returns a new run condition that returns `true`
-    /// if either this one or the passed `or_else` return `true`.
+    /// if either this one or the passed `or` return `true`.
     ///
     /// The returned run condition is short-circuiting, meaning
-    /// `or_else` will only be invoked if `self` returns `false`.
+    /// `or` will only be invoked if `self` returns `false`.
     ///
     /// # Examples
     ///
@@ -145,7 +300,7 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
     /// app.add_systems(
     ///     // Only run the system if either `A` or `B` exist.
-    ///     my_system.run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
+    ///     my_system.run_if(resource_exists::<A>.or(resource_exists::<B>)),
     /// );
     /// #
     /// # world.insert_resource(C(false));
@@ -162,10 +317,151 @@ pub trait Condition<Marker, In = ()>: sealed::Condition<Marker, In> {
     /// # app.run(&mut world);
     /// # assert!(world.resource::<C>().0);
     /// ```
-    fn or_else<M, C: Condition<M, In>>(self, or_else: C) -> OrElse<Self::System, C::System> {
+    fn or<M, C: Condition<M, In>>(self, or: C) -> Or<Self::System, C::System> {
         let a = IntoSystem::into_system(self);
-        let b = IntoSystem::into_system(or_else);
+        let b = IntoSystem::into_system(or);
         let name = format!("{} || {}", a.name(), b.name());
+        CombinatorSystem::new(a, b, Cow::Owned(name))
+    }
+
+    /// Returns a new run condition that returns `true`
+    /// if either this one or the passed `or` return `true`.
+    ///
+    /// The returned run condition is short-circuiting, meaning
+    /// `or` will only be invoked if `self` returns `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct A(u32);
+    ///
+    /// #[derive(Resource, PartialEq)]
+    /// struct B(u32);
+    ///
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # #[derive(Resource)] struct C(bool);
+    /// # fn my_system(mut c: ResMut<C>) { c.0 = true; }
+    /// app.add_systems(
+    ///     // Only run the system if either `A` or `B` exist.
+    ///     my_system.run_if(resource_exists::<A>.or(resource_exists::<B>)),
+    /// );
+    /// #
+    /// # world.insert_resource(C(false));
+    /// # app.run(&mut world);
+    /// # assert!(!world.resource::<C>().0);
+    /// #
+    /// # world.insert_resource(A(0));
+    /// # app.run(&mut world);
+    /// # assert!(world.resource::<C>().0);
+    /// #
+    /// # world.remove_resource::<A>();
+    /// # world.insert_resource(B(0));
+    /// # world.insert_resource(C(false));
+    /// # app.run(&mut world);
+    /// # assert!(world.resource::<C>().0);
+    /// ```
+    #[deprecated(
+        note = "Users should use the `.or(condition)` method in lieu of `.or_else(condition)`"
+    )]
+    fn or_else<M, C: Condition<M, In>>(self, or_else: C) -> Or<Self::System, C::System> {
+        self.or(or_else)
+    }
+
+    /// Returns a new run condition that only returns `true`
+    /// if `self` and `xnor` **both** return `false` or **both** return `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// use bevy::prelude::*;
+    ///
+    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+    /// pub enum CoffeeMachineState {
+    ///     Heating,
+    ///     Brewing,
+    ///     Inactive,
+    /// }
+    ///
+    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+    /// pub enum TeaKettleState {
+    ///     Heating,
+    ///     Steeping,
+    ///     Inactive,
+    /// }
+    ///
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn take_drink_orders() {}
+    /// app.add_systems(
+    ///     // The take_drink_orders system will only execute if the `in_state(CoffeeMachineState::Inactive)`
+    ///     // run condition and `in_state(TeaKettleState::Inactive)` run conditions both evaluate to `false`,
+    ///     // or both evaluate to `true`.
+    ///     take_drink_orders.run_if(
+    ///         in_state(CoffeeMachineState::Inactive).xnor(in_state(TeaKettleState::Inactive))
+    ///     ),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    ///
+    /// Equivalent logic can be achieved by using `not` in concert with `xor`:
+    ///
+    /// ```compile_fail
+    /// app.add_systems(
+    ///     take_drink_orders.run_if(
+    ///         not(in_state(CoffeeMachineState::Inactive).xor(in_state(TeaKettleState::Inactive)))
+    ///     ),
+    /// );
+    /// ```
+    fn xnor<M, C: Condition<M, In>>(self, xnor: C) -> Xnor<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(xnor);
+        let name = format!("!({} ^ {})", a.name(), b.name());
+        CombinatorSystem::new(a, b, Cow::Owned(name))
+    }
+
+    /// Returns a new run condition that only returns `true`
+    /// if either `self` or `xor` return `true`, but not both.
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// use bevy::prelude::*;
+    ///
+    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+    /// pub enum CoffeeMachineState {
+    ///     Heating,
+    ///     Brewing,
+    ///     Inactive,
+    /// }
+    ///
+    /// #[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+    /// pub enum TeaKettleState {
+    ///     Heating,
+    ///     Steeping,
+    ///     Inactive,
+    /// }
+    ///
+    /// # let mut app = Schedule::default();
+    /// # let mut world = World::new();
+    /// # fn prepare_beverage() {}
+    /// app.add_systems(
+    ///     // The prepare_beverage system will only execute if either the `in_state(CoffeeMachineState::Inactive)`
+    ///     // run condition or `in_state(TeaKettleState::Inactive)` run condition evaluates to `true`,
+    ///     // but not both.
+    ///     prepare_beverage.run_if(
+    ///         in_state(CoffeeMachineState::Inactive).xor(in_state(TeaKettleState::Inactive))
+    ///     ),
+    /// );
+    /// # app.run(&mut world);
+    /// ```
+    fn xor<M, C: Condition<M, In>>(self, xor: C) -> Xor<Self::System, C::System> {
+        let a = IntoSystem::into_system(self);
+        let b = IntoSystem::into_system(xor);
+        let name = format!("({} ^ {})", a.name(), b.name());
         CombinatorSystem::new(a, b, Cow::Owned(name))
     }
 }
@@ -200,11 +496,11 @@ pub mod common_conditions {
         event::{Event, EventReader},
         prelude::{Component, Query, With},
         removal_detection::RemovedComponents,
-        system::{IntoSystem, Res, Resource, System},
+        system::{IntoSystem, Local, Res, Resource, System},
     };
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
-    /// if the first time the condition is run and false every time after
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
+    /// on the first time the condition is run and false every time after.
     ///
     /// # Example
     ///
@@ -217,7 +513,7 @@ pub mod common_conditions {
     /// # world.init_resource::<Counter>();
     /// app.add_systems(
     ///     // `run_once` will only return true the first time it's evaluated
-    ///     my_system.run_if(run_once()),
+    ///     my_system.run_if(run_once),
     /// );
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
@@ -232,15 +528,12 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn run_once() -> impl FnMut() -> bool + Clone {
-        let mut has_run = false;
-        move || {
-            if !has_run {
-                has_run = true;
-                true
-            } else {
-                false
-            }
+    pub fn run_once(mut has_run: Local<bool>) -> bool {
+        if !*has_run {
+            *has_run = true;
+            true
+        } else {
+            false
         }
     }
 
@@ -434,7 +727,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>))
+    ///         .and(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -487,7 +780,7 @@ pub mod common_conditions {
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>))
+    ///         .and(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -519,7 +812,7 @@ pub mod common_conditions {
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the resource of the given type has had its value changed since the condition
     /// was last checked.
     ///
@@ -545,11 +838,11 @@ pub mod common_conditions {
     ///     // `resource_changed_or_removed` will only return true if the
     ///     // given resource was just changed or removed (or added)
     ///     my_system.run_if(
-    ///         resource_changed_or_removed::<Counter>()
+    ///         resource_changed_or_removed::<Counter>
     ///         // By default detecting changes will also trigger if the resource was
     ///         // just added, this won't work with my example so I will add a second
     ///         // condition to make sure the resource wasn't just added
-    ///         .and_then(not(resource_added::<Counter>))
+    ///         .and(not(resource_added::<Counter>))
     ///     ),
     /// );
     ///
@@ -581,25 +874,22 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.contains_resource::<MyResource>(), true);
     /// ```
-    pub fn resource_changed_or_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
+    pub fn resource_changed_or_removed<T>(res: Option<Res<T>>, mut existed: Local<bool>) -> bool
     where
         T: Resource,
     {
-        let mut existed = false;
-        move |res: Option<Res<T>>| {
-            if let Some(value) = res {
-                existed = true;
-                value.is_changed()
-            } else if existed {
-                existed = false;
-                true
-            } else {
-                false
-            }
+        if let Some(value) = res {
+            *existed = true;
+            value.is_changed()
+        } else if *existed {
+            *existed = false;
+            true
+        } else {
+            false
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if the resource of the given type has been removed since the condition was last checked.
     ///
     /// # Example
@@ -614,7 +904,7 @@ pub mod common_conditions {
     /// app.add_systems(
     ///     // `resource_removed` will only return true if the
     ///     // given resource was just removed
-    ///     my_system.run_if(resource_removed::<MyResource>()),
+    ///     my_system.run_if(resource_removed::<MyResource>),
     /// );
     ///
     /// #[derive(Resource, Default)]
@@ -636,25 +926,22 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn resource_removed<T>() -> impl FnMut(Option<Res<T>>) -> bool + Clone
+    pub fn resource_removed<T>(res: Option<Res<T>>, mut existed: Local<bool>) -> bool
     where
         T: Resource,
     {
-        let mut existed = false;
-        move |res: Option<Res<T>>| {
-            if res.is_some() {
-                existed = true;
-                false
-            } else if existed {
-                existed = false;
-                true
-            } else {
-                false
-            }
+        if res.is_some() {
+            *existed = true;
+            false
+        } else if *existed {
+            *existed = false;
+            true
+        } else {
+            false
         }
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if there are any new events of the given type since it was last called.
     ///
     /// # Example
@@ -670,7 +957,7 @@ pub mod common_conditions {
     /// # app.add_systems(bevy_ecs::event::event_update_system.before(my_system));
     ///
     /// app.add_systems(
-    ///     my_system.run_if(on_event::<MyEvent>()),
+    ///     my_system.run_if(on_event::<MyEvent>),
     /// );
     ///
     /// #[derive(Event)]
@@ -690,12 +977,12 @@ pub mod common_conditions {
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: Event>() -> impl FnMut(EventReader<T>) -> bool + Clone {
+    pub fn on_event<T: Event>(mut reader: EventReader<T>) -> bool {
         // The events need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut reader: EventReader<T>| reader.read().count() > 0
+        reader.read().count() > 0
     }
 
     /// A [`Condition`](super::Condition)-satisfying system that returns `true`
@@ -735,15 +1022,15 @@ pub mod common_conditions {
         !query.is_empty()
     }
 
-    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
+    /// A [`Condition`](super::Condition)-satisfying system that returns `true`
     /// if there are any entity with a component of the given type removed.
-    pub fn any_component_removed<T: Component>() -> impl FnMut(RemovedComponents<T>) -> bool {
+    pub fn any_component_removed<T: Component>(mut removals: RemovedComponents<T>) -> bool {
         // `RemovedComponents` based on events and therefore events need to be consumed,
         // so that there are no false positives on subsequent calls of the run condition.
         // Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
         // due to Bevy having a specialized implementation for events.
-        move |mut removals: RemovedComponents<T>| removals.read().count() != 0
+        removals.read().count() > 0
     }
 
     /// Generates a [`Condition`](super::Condition) that inverses the result of passed one.
@@ -809,15 +1096,27 @@ where
 }
 
 /// Combines the outputs of two systems using the `&&` operator.
-pub type AndThen<A, B> = CombinatorSystem<AndThenMarker, A, B>;
+pub type And<A, B> = CombinatorSystem<AndMarker, A, B>;
+
+/// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
+pub type Nand<A, B> = CombinatorSystem<NandMarker, A, B>;
+
+/// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
+pub type Nor<A, B> = CombinatorSystem<NorMarker, A, B>;
 
 /// Combines the outputs of two systems using the `||` operator.
-pub type OrElse<A, B> = CombinatorSystem<OrElseMarker, A, B>;
+pub type Or<A, B> = CombinatorSystem<OrMarker, A, B>;
+
+/// Combines and inverts the outputs of two systems using the `^` and `!` operators.
+pub type Xnor<A, B> = CombinatorSystem<XnorMarker, A, B>;
+
+/// Combines the outputs of two systems using the `^` operator.
+pub type Xor<A, B> = CombinatorSystem<XorMarker, A, B>;
 
 #[doc(hidden)]
-pub struct AndThenMarker;
+pub struct AndMarker;
 
-impl<In, A, B> Combine<A, B> for AndThenMarker
+impl<In, A, B> Combine<A, B> for AndMarker
 where
     In: Copy,
     A: System<In = In, Out = bool>,
@@ -836,9 +1135,51 @@ where
 }
 
 #[doc(hidden)]
-pub struct OrElseMarker;
+pub struct NandMarker;
 
-impl<In, A, B> Combine<A, B> for OrElseMarker
+impl<In, A, B> Combine<A, B> for NandMarker
+where
+    In: Copy,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+    ) -> Self::Out {
+        !(a(input) && b(input))
+    }
+}
+
+#[doc(hidden)]
+pub struct NorMarker;
+
+impl<In, A, B> Combine<A, B> for NorMarker
+where
+    In: Copy,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+    ) -> Self::Out {
+        !(a(input) || b(input))
+    }
+}
+
+#[doc(hidden)]
+pub struct OrMarker;
+
+impl<In, A, B> Combine<A, B> for OrMarker
 where
     In: Copy,
     A: System<In = In, Out = bool>,
@@ -853,6 +1194,48 @@ where
         b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
     ) -> Self::Out {
         a(input) || b(input)
+    }
+}
+
+#[doc(hidden)]
+pub struct XnorMarker;
+
+impl<In, A, B> Combine<A, B> for XnorMarker
+where
+    In: Copy,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+    ) -> Self::Out {
+        !(a(input) ^ b(input))
+    }
+}
+
+#[doc(hidden)]
+pub struct XorMarker;
+
+impl<In, A, B> Combine<A, B> for XorMarker
+where
+    In: Copy,
+    A: System<In = In, Out = bool>,
+    B: System<In = In, Out = bool>,
+{
+    type In = In;
+    type Out = bool;
+
+    fn combine(
+        input: Self::In,
+        a: impl FnOnce(<A as System>::In) -> <A as System>::Out,
+        b: impl FnOnce(<B as System>::In) -> <B as System>::Out,
+    ) -> Self::Out {
+        a(input) ^ b(input)
     }
 }
 
@@ -872,6 +1255,10 @@ mod tests {
 
     fn increment_counter(mut counter: ResMut<Counter>) {
         counter.0 += 1;
+    }
+
+    fn double_counter(mut counter: ResMut<Counter>) {
+        counter.0 *= 2;
     }
 
     fn every_other_time(mut has_ran: Local<bool>) -> bool {
@@ -907,20 +1294,32 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn run_condition_combinators() {
         let mut world = World::new();
         world.init_resource::<Counter>();
         let mut schedule = Schedule::default();
 
-        // Always run
-        schedule.add_systems(increment_counter.run_if(every_other_time.or_else(|| true)));
-        // Run every other cycle
-        schedule.add_systems(increment_counter.run_if(every_other_time.and_then(|| true)));
+        schedule.add_systems(
+            (
+                increment_counter.run_if(every_other_time.and(|| true)), // Run every odd cycle.
+                increment_counter.run_if(every_other_time.and_then(|| true)), // Run every odd cycle.
+                increment_counter.run_if(every_other_time.nand(|| false)),    // Always run.
+                double_counter.run_if(every_other_time.nor(|| false)), // Run every even cycle.
+                increment_counter.run_if(every_other_time.or(|| true)), // Always run.
+                increment_counter.run_if(every_other_time.or_else(|| true)), // Always run.
+                increment_counter.run_if(every_other_time.xnor(|| true)), // Run every odd cycle.
+                double_counter.run_if(every_other_time.xnor(|| false)), // Run every even cycle.
+                increment_counter.run_if(every_other_time.xor(|| false)), // Run every odd cycle.
+                double_counter.run_if(every_other_time.xor(|| true)),  // Run every even cycle.
+            )
+                .chain(),
+        );
 
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 2);
+        assert_eq!(world.resource::<Counter>().0, 7);
         schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 3);
+        assert_eq!(world.resource::<Counter>().0, 72);
     }
 
     #[test]
@@ -976,16 +1375,16 @@ mod tests {
     fn distributive_run_if_compiles() {
         Schedule::default().add_systems(
             (test_system, test_system)
-                .distributive_run_if(run_once())
+                .distributive_run_if(run_once)
                 .distributive_run_if(resource_exists::<TestResource>)
                 .distributive_run_if(resource_added::<TestResource>)
                 .distributive_run_if(resource_changed::<TestResource>)
                 .distributive_run_if(resource_exists_and_changed::<TestResource>)
-                .distributive_run_if(resource_changed_or_removed::<TestResource>())
-                .distributive_run_if(resource_removed::<TestResource>())
-                .distributive_run_if(on_event::<TestEvent>())
+                .distributive_run_if(resource_changed_or_removed::<TestResource>)
+                .distributive_run_if(resource_removed::<TestResource>)
+                .distributive_run_if(on_event::<TestEvent>)
                 .distributive_run_if(any_with_component::<TestComponent>)
-                .distributive_run_if(not(run_once())),
+                .distributive_run_if(not(run_once)),
         );
     }
 }

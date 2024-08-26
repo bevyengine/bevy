@@ -1,14 +1,17 @@
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
+use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 
 use super::{Measured2d, Primitive2d, WindingOrder};
-use crate::{Dir2, Vec2};
+use crate::{
+    ops::{self, FloatPow},
+    Dir2, Vec2,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A circle primitive
+/// A circle primitive, representing the set of points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -54,7 +57,7 @@ impl Circle {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
 
-        if distance_squared <= self.radius.powi(2) {
+        if distance_squared <= self.radius.squared() {
             // The point is inside the circle.
             point
         } else {
@@ -70,7 +73,7 @@ impl Measured2d for Circle {
     /// Get the area of the circle
     #[inline(always)]
     fn area(&self) -> f32 {
-        PI * self.radius.powi(2)
+        PI * self.radius.squared()
     }
 
     /// Get the perimeter or circumference of the circle
@@ -200,7 +203,7 @@ impl Arc2d {
     /// Get half the distance between the endpoints (half the length of the chord)
     #[inline(always)]
     pub fn half_chord_length(&self) -> f32 {
-        self.radius * f32::sin(self.half_angle)
+        self.radius * ops::sin(self.half_angle)
     }
 
     /// Get the distance between the endpoints (the length of the chord)
@@ -226,7 +229,7 @@ impl Arc2d {
     // used by Wolfram MathWorld, which is the distance rather than the segment.
     pub fn apothem(&self) -> f32 {
         let sign = if self.is_minor() { 1.0 } else { -1.0 };
-        sign * f32::sqrt(self.radius.powi(2) - self.half_chord_length().powi(2))
+        sign * f32::sqrt(self.radius.squared() - self.half_chord_length().squared())
     }
 
     /// Get the length of the sagitta of this arc, that is,
@@ -388,7 +391,7 @@ impl CircularSector {
     /// Returns the area of this sector
     #[inline(always)]
     pub fn area(&self) -> f32 {
-        self.arc.radius.powi(2) * self.arc.half_angle
+        self.arc.radius.squared() * self.arc.half_angle
     }
 }
 
@@ -527,7 +530,7 @@ impl CircularSegment {
     /// Returns the area of this segment
     #[inline(always)]
     pub fn area(&self) -> f32 {
-        0.5 * self.arc.radius.powi(2) * (self.arc.angle() - self.arc.angle().sin())
+        0.5 * self.arc.radius.squared() * (self.arc.angle() - ops::sin(self.arc.angle()))
     }
 }
 
@@ -741,7 +744,7 @@ mod arc_tests {
     }
 }
 
-/// An ellipse primitive
+/// An ellipse primitive, which is like a circle, but the width and height can be different
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -882,11 +885,11 @@ impl Measured2d for Ellipse {
         // The algorithm used here is the Gauss-Kummer infinite series expansion of the elliptic integral expression for the perimeter of ellipses
         // For more information see https://www.wolframalpha.com/input/?i=gauss-kummer+series
         // We only use the terms up to `i == 20` for this approximation
-        let h = ((a - b) / (a + b)).powi(2);
+        let h = ((a - b) / (a + b)).squared();
 
         PI * (a + b)
             * (0..=20)
-                .map(|i| BINOMIAL_COEFFICIENTS[i] * h.powi(i as i32))
+                .map(|i| BINOMIAL_COEFFICIENTS[i] * ops::powf(h, i as f32))
                 .sum::<f32>()
     }
 }
@@ -953,8 +956,8 @@ impl Annulus {
     pub fn closest_point(&self, point: Vec2) -> Vec2 {
         let distance_squared = point.length_squared();
 
-        if self.inner_circle.radius.powi(2) <= distance_squared {
-            if distance_squared <= self.outer_circle.radius.powi(2) {
+        if self.inner_circle.radius.squared() <= distance_squared {
+            if distance_squared <= self.outer_circle.radius.squared() {
                 // The point is inside the annulus.
                 point
             } else {
@@ -976,7 +979,7 @@ impl Measured2d for Annulus {
     /// Get the area of the annulus
     #[inline(always)]
     fn area(&self) -> f32 {
-        PI * (self.outer_circle.radius.powi(2) - self.inner_circle.radius.powi(2))
+        PI * (self.outer_circle.radius.squared() - self.inner_circle.radius.squared())
     }
 
     /// Get the perimeter or circumference of the annulus,
@@ -989,6 +992,8 @@ impl Measured2d for Annulus {
 }
 
 /// A rhombus primitive, also known as a diamond shape.
+/// A four sided polygon, centered on the origin, where opposite sides are parallel but without
+/// requiring right angles.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1029,7 +1034,7 @@ impl Rhombus {
     #[inline(always)]
     pub fn from_side(side: f32) -> Self {
         Self {
-            half_diagonals: Vec2::splat(side.hypot(side) / 2.0),
+            half_diagonals: Vec2::splat(side * FRAC_1_SQRT_2),
         }
     }
 
@@ -1163,7 +1168,7 @@ impl Plane2d {
     }
 }
 
-/// An infinite line along a direction in 2D space.
+/// An infinite line going through the origin along a direction in 2D space.
 ///
 /// For a finite line: [`Segment2d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1180,7 +1185,7 @@ pub struct Line2d {
 }
 impl Primitive2d for Line2d {}
 
-/// A segment of a line along a direction in 2D space.
+/// A segment of a line going through the origin along a direction in 2D space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
@@ -1472,7 +1477,7 @@ impl Measured2d for Triangle2d {
     }
 }
 
-/// A rectangle primitive
+/// A rectangle primitive, which is like a square, except that the width and height can be different
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1626,7 +1631,7 @@ impl BoxedPolygon {
     }
 }
 
-/// A polygon where all vertices lie on a circle, equally far apart.
+/// A polygon centered on the origin where all vertices lie on a circle, equally far apart.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1642,7 +1647,7 @@ pub struct RegularPolygon {
     /// The circumcircle on which all vertices lie
     pub circumcircle: Circle,
     /// The number of sides
-    pub sides: usize,
+    pub sides: u32,
 }
 impl Primitive2d for RegularPolygon {}
 
@@ -1664,7 +1669,7 @@ impl RegularPolygon {
     ///
     /// Panics if `circumradius` is negative
     #[inline(always)]
-    pub fn new(circumradius: f32, sides: usize) -> Self {
+    pub fn new(circumradius: f32, sides: u32) -> Self {
         assert!(
             circumradius.is_sign_positive(),
             "polygon has a negative radius"
@@ -1692,13 +1697,13 @@ impl RegularPolygon {
     #[inline(always)]
     #[doc(alias = "apothem")]
     pub fn inradius(&self) -> f32 {
-        self.circumradius() * (PI / self.sides as f32).cos()
+        self.circumradius() * ops::cos(PI / self.sides as f32)
     }
 
     /// Get the length of one side of the regular polygon
     #[inline(always)]
     pub fn side_length(&self) -> f32 {
-        2.0 * self.circumradius() * (PI / self.sides as f32).sin()
+        2.0 * self.circumradius() * ops::sin(PI / self.sides as f32)
     }
 
     /// Get the internal angle of the regular polygon in degrees.
@@ -1743,12 +1748,12 @@ impl RegularPolygon {
     /// With a rotation of 0, a vertex will be placed at the top `(0.0, circumradius)`.
     pub fn vertices(self, rotation: f32) -> impl IntoIterator<Item = Vec2> {
         // Add pi/2 so that the polygon has a vertex at the top (sin is 1.0 and cos is 0.0)
-        let start_angle = rotation + std::f32::consts::FRAC_PI_2;
+        let start_angle = rotation + FRAC_PI_2;
         let step = std::f32::consts::TAU / self.sides as f32;
 
         (0..self.sides).map(move |i| {
             let theta = start_angle + i as f32 * step;
-            let (sin, cos) = theta.sin_cos();
+            let (sin, cos) = ops::sin_cos(theta);
             Vec2::new(cos, sin) * self.circumcircle.radius
         })
     }
@@ -1759,7 +1764,7 @@ impl Measured2d for RegularPolygon {
     #[inline(always)]
     fn area(&self) -> f32 {
         let angle: f32 = 2.0 * PI / (self.sides as f32);
-        (self.sides as f32) * self.circumradius().powi(2) * angle.sin() / 2.0
+        (self.sides as f32) * self.circumradius().squared() * ops::sin(angle) / 2.0
     }
 
     /// Get the perimeter of the regular polygon.
@@ -1865,7 +1870,7 @@ mod tests {
     // Reference values were computed by hand and/or with external tools
 
     use super::*;
-    use approx::assert_relative_eq;
+    use approx::{assert_abs_diff_eq, assert_relative_eq};
 
     #[test]
     fn rectangle_closest_point() {
@@ -1957,10 +1962,10 @@ mod tests {
         assert_eq!(rhombus.inradius(), 0.0, "incorrect inradius");
         assert_eq!(rhombus.circumradius(), 0.0, "incorrect circumradius");
         let rhombus = Rhombus::from_side(std::f32::consts::SQRT_2);
-        assert_eq!(rhombus, Rhombus::new(2.0, 2.0));
-        assert_eq!(
-            rhombus,
-            Rhombus::from_inradius(std::f32::consts::FRAC_1_SQRT_2)
+        assert_abs_diff_eq!(rhombus.half_diagonals, Vec2::new(1.0, 1.0));
+        assert_abs_diff_eq!(
+            rhombus.half_diagonals,
+            Rhombus::from_inradius(FRAC_1_SQRT_2).half_diagonals
         );
     }
 
@@ -2113,7 +2118,7 @@ mod tests {
         let mut rotated_vertices = polygon.vertices(std::f32::consts::FRAC_PI_4).into_iter();
 
         // Distance from the origin to the middle of a side, derived using Pythagorean theorem
-        let side_sistance = std::f32::consts::FRAC_1_SQRT_2;
+        let side_sistance = FRAC_1_SQRT_2;
         assert!(
             (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
                 < 1e-7,

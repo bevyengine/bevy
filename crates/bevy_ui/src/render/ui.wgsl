@@ -41,7 +41,7 @@ fn vertex(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-    out.position = view.view_proj * vec4(vertex_position, 1.0);
+    out.position = view.clip_from_world * vec4(vertex_position, 1.0);
     out.color = vertex_color;
     out.flags = flags;
     out.radius = radius;
@@ -123,7 +123,8 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
-    return clamp(0.0, 1.0, 0.5 - distance);
+    // This antialiases between the distance values of 0.25 and -0.25
+    return clamp(0.0, 1.0, 0.5 - 2.0 * distance);
 }
 
 fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
@@ -141,7 +142,7 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 
     // Signed distance from the border's internal edge (the signed distance is negative if the point 
     // is inside the rect but not on the border).
-    // If the border size is set to zero, this is the same as as the external distance.
+    // If the border size is set to zero, this is the same as the external distance.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
     // Signed distance from the border (the intersection of the rect with its border).

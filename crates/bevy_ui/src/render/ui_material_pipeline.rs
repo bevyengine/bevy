@@ -16,7 +16,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, FallbackImage, GpuImage},
+    texture::BevyDefault,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -292,10 +292,10 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(material_handle) = material_handle else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(material) = materials.into_inner().get(material_handle.material) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
@@ -317,7 +317,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
@@ -377,7 +377,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
-        .map(|window| window.size())
+        .map(Window::size)
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -604,18 +604,13 @@ pub struct PreparedUiMaterial<T: UiMaterial> {
 impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     type SourceAsset = M;
 
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderAssets<GpuImage>>,
-        SRes<FallbackImage>,
-        SRes<UiMaterialPipeline<M>>,
-    );
+    type Param = (SRes<RenderDevice>, SRes<UiMaterialPipeline<M>>, M::Param);
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, ref mut material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(&pipeline.ui_layout, render_device, images, fallback_image) {
+        match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
             Ok(prepared) => Ok(PreparedUiMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
@@ -624,6 +619,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
             }
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
         }
     }
 }

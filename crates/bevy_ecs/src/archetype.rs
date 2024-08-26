@@ -23,8 +23,10 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
+    observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
+use bevy_utils::HashMap;
 use std::{
     hash::Hash,
     ops::{Index, IndexMut, RangeFrom},
@@ -107,10 +109,12 @@ impl ArchetypeId {
     }
 }
 
+/// Used in [`AddBundle`] to track whether components in the bundle are newly
+/// added or already existed in the entity's archetype.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub(crate) enum ComponentStatus {
     Added,
-    Mutated,
+    Existing,
 }
 
 pub(crate) struct AddBundle {
@@ -119,6 +123,8 @@ pub(crate) struct AddBundle {
     /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
     /// indicate if the component is newly added to the target archetype or if it already existed
     pub bundle_status: Vec<ComponentStatus>,
+    pub added: Vec<ComponentId>,
+    pub existing: Vec<ComponentId>,
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
@@ -202,12 +208,16 @@ impl Edges {
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
         bundle_status: Vec<ComponentStatus>,
+        added: Vec<ComponentId>,
+        existing: Vec<ComponentId>,
     ) {
         self.add_bundle.insert(
             bundle_id,
             AddBundle {
                 archetype_id,
                 bundle_status,
+                added,
+                existing,
             },
         );
     }
@@ -313,7 +323,12 @@ bitflags::bitflags! {
     pub(crate) struct ArchetypeFlags: u32 {
         const ON_ADD_HOOK    = (1 << 0);
         const ON_INSERT_HOOK = (1 << 1);
-        const ON_REMOVE_HOOK = (1 << 2);
+        const ON_REPLACE_HOOK = (1 << 2);
+        const ON_REMOVE_HOOK = (1 << 3);
+        const ON_ADD_OBSERVER = (1 << 4);
+        const ON_INSERT_OBSERVER = (1 << 5);
+        const ON_REPLACE_OBSERVER = (1 << 6);
+        const ON_REMOVE_OBSERVER = (1 << 7);
     }
 }
 
@@ -333,8 +348,11 @@ pub struct Archetype {
 }
 
 impl Archetype {
+    /// `table_components` and `sparse_set_components` must be sorted
     pub(crate) fn new(
         components: &Components,
+        component_index: &mut ComponentIndex,
+        observers: &Observers,
         id: ArchetypeId,
         table_id: TableId,
         table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
@@ -344,10 +362,11 @@ impl Archetype {
         let (min_sparse, _) = sparse_set_components.size_hint();
         let mut flags = ArchetypeFlags::empty();
         let mut archetype_components = SparseSet::with_capacity(min_table + min_sparse);
-        for (component_id, archetype_component_id) in table_components {
+        for (idx, (component_id, archetype_component_id)) in table_components.enumerate() {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
+            observers.update_archetype_flags(component_id, &mut flags);
             archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
@@ -355,12 +374,20 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
+            // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
+            // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
+            // component in the `table_components` vector
+            component_index
+                .entry(component_id)
+                .or_insert_with(HashMap::new)
+                .insert(id, ArchetypeRecord { column: Some(idx) });
         }
 
         for (component_id, archetype_component_id) in sparse_set_components {
             // SAFETY: We are creating an archetype that includes this component so it must exist
             let info = unsafe { components.get_info_unchecked(component_id) };
             info.update_archetype_flags(&mut flags);
+            observers.update_archetype_flags(component_id, &mut flags);
             archetype_components.insert(
                 component_id,
                 ArchetypeComponentInfo {
@@ -368,6 +395,10 @@ impl Archetype {
                     archetype_component_id,
                 },
             );
+            component_index
+                .entry(component_id)
+                .or_insert_with(HashMap::new)
+                .insert(id, ArchetypeRecord { column: None });
         }
         Self {
             id,
@@ -445,7 +476,7 @@ impl Archetype {
         self.components.len()
     }
 
-    /// Fetches a immutable reference to the archetype's [`Edges`], a cache of
+    /// Fetches an immutable reference to the archetype's [`Edges`], a cache of
     /// archetypal relationships.
     #[inline]
     pub fn edges(&self) -> &Edges {
@@ -580,20 +611,58 @@ impl Archetype {
 
     /// Returns true if any of the components in this archetype have `on_add` hooks
     #[inline]
-    pub(crate) fn has_on_add(&self) -> bool {
+    pub fn has_add_hook(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_ADD_HOOK)
     }
 
     /// Returns true if any of the components in this archetype have `on_insert` hooks
     #[inline]
-    pub(crate) fn has_on_insert(&self) -> bool {
+    pub fn has_insert_hook(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_INSERT_HOOK)
+    }
+
+    /// Returns true if any of the components in this archetype have `on_replace` hooks
+    #[inline]
+    pub fn has_replace_hook(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_REPLACE_HOOK)
     }
 
     /// Returns true if any of the components in this archetype have `on_remove` hooks
     #[inline]
-    pub(crate) fn has_on_remove(&self) -> bool {
+    pub fn has_remove_hook(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK)
+    }
+
+    /// Returns true if any of the components in this archetype have at least one [`OnAdd`] observer
+    ///
+    /// [`OnAdd`]: crate::world::OnAdd
+    #[inline]
+    pub fn has_add_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_ADD_OBSERVER)
+    }
+
+    /// Returns true if any of the components in this archetype have at least one [`OnInsert`] observer
+    ///
+    /// [`OnInsert`]: crate::world::OnInsert
+    #[inline]
+    pub fn has_insert_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_INSERT_OBSERVER)
+    }
+
+    /// Returns true if any of the components in this archetype have at least one [`OnReplace`] observer
+    ///
+    /// [`OnReplace`]: crate::world::OnReplace
+    #[inline]
+    pub fn has_replace_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_REPLACE_OBSERVER)
+    }
+
+    /// Returns true if any of the components in this archetype have at least one [`OnRemove`] observer
+    ///
+    /// [`OnRemove`]: crate::world::OnRemove
+    #[inline]
+    pub fn has_remove_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
     }
 }
 
@@ -602,7 +671,7 @@ impl Archetype {
 /// This is used in archetype update methods to limit archetype updates to the
 /// ones added since the last time the method ran.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct ArchetypeGeneration(ArchetypeId);
+pub struct ArchetypeGeneration(pub(crate) ArchetypeId);
 
 impl ArchetypeGeneration {
     /// The first archetype.
@@ -658,6 +727,10 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 }
 
+/// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
+/// along with an [`ArchetypeRecord`] which contains some metadata about how the component is stored in the archetype.
+pub type ComponentIndex = HashMap<ComponentId, HashMap<ArchetypeId, ArchetypeRecord>>;
+
 /// The backing store of all [`Archetype`]s within a [`World`].
 ///
 /// For more information, see the *[module level documentation]*.
@@ -667,7 +740,18 @@ impl SparseSetIndex for ArchetypeComponentId {
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     archetype_component_count: usize,
-    by_components: bevy_utils::HashMap<ArchetypeComponents, ArchetypeId>,
+    /// find the archetype id by the archetype's components
+    by_components: HashMap<ArchetypeComponents, ArchetypeId>,
+    /// find all the archetypes that contain a component
+    by_component: ComponentIndex,
+}
+
+/// Metadata about how a component is stored in an [`Archetype`].
+pub struct ArchetypeRecord {
+    /// Index of the component in the archetype's [`Table`](crate::storage::Table),
+    /// or None if the component is a sparse set component.
+    #[allow(dead_code)]
+    pub(crate) column: Option<usize>,
 }
 
 impl Archetypes {
@@ -675,12 +759,14 @@ impl Archetypes {
         let mut archetypes = Archetypes {
             archetypes: Vec::new(),
             by_components: Default::default(),
+            by_component: Default::default(),
             archetype_component_count: 0,
         };
         // SAFETY: Empty archetype has no components
         unsafe {
             archetypes.get_id_or_insert(
                 &Components::default(),
+                &Observers::default(),
                 TableId::empty(),
                 Vec::new(),
                 Vec::new(),
@@ -716,7 +802,7 @@ impl Archetypes {
         unsafe { self.archetypes.get_unchecked(ArchetypeId::EMPTY.index()) }
     }
 
-    /// Fetches an mutable reference to the archetype without any components.
+    /// Fetches a mutable reference to the archetype without any components.
     #[inline]
     pub(crate) fn empty_mut(&mut self) -> &mut Archetype {
         // SAFETY: empty archetype always exists
@@ -782,21 +868,27 @@ impl Archetypes {
     pub(crate) unsafe fn get_id_or_insert(
         &mut self,
         components: &Components,
+        observers: &Observers,
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
     ) -> ArchetypeId {
         let archetype_identity = ArchetypeComponents {
-            sparse_set_components: sparse_set_components.clone().into_boxed_slice(),
-            table_components: table_components.clone().into_boxed_slice(),
+            sparse_set_components: sparse_set_components.into_boxed_slice(),
+            table_components: table_components.into_boxed_slice(),
         };
 
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
-        *self
+        let component_index = &mut self.by_component;
+        let archetype_id = *self
             .by_components
             .entry(archetype_identity)
-            .or_insert_with(move || {
+            .or_insert_with_key(move |identity| {
+                let ArchetypeComponents {
+                    table_components,
+                    sparse_set_components,
+                } = identity;
                 let id = ArchetypeId::new(archetypes.len());
                 let table_start = *archetype_component_count;
                 *archetype_component_count += table_components.len();
@@ -808,15 +900,22 @@ impl Archetypes {
                     (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
                 archetypes.push(Archetype::new(
                     components,
+                    component_index,
+                    observers,
                     id,
                     table_id,
-                    table_components.into_iter().zip(table_archetype_components),
+                    table_components
+                        .iter()
+                        .copied()
+                        .zip(table_archetype_components),
                     sparse_set_components
-                        .into_iter()
+                        .iter()
+                        .copied()
                         .zip(sparse_set_archetype_components),
                 ));
                 id
-            })
+            });
+        archetype_id
     }
 
     /// Returns the number of components that are stored in archetypes.
@@ -830,6 +929,29 @@ impl Archetypes {
     pub(crate) fn clear_entities(&mut self) {
         for archetype in &mut self.archetypes {
             archetype.clear_entities();
+        }
+    }
+
+    /// Get the component index
+    pub(crate) fn component_index(&self) -> &ComponentIndex {
+        &self.by_component
+    }
+
+    pub(crate) fn update_flags(
+        &mut self,
+        component_id: ComponentId,
+        flags: ArchetypeFlags,
+        set: bool,
+    ) {
+        if let Some(archetypes) = self.by_component.get(&component_id) {
+            for archetype_id in archetypes.keys() {
+                // SAFETY: the component index only contains valid archetype ids
+                self.archetypes
+                    .get_mut(archetype_id.index())
+                    .unwrap()
+                    .flags
+                    .set(flags, set);
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.14.0-dev"
+version = "0.15.0-dev"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,7 +10,7 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
-rust-version = "1.77.0"
+rust-version = "1.79.0"
 
 [workspace]
 exclude = [
@@ -31,22 +31,26 @@ members = [
 ]
 
 [workspace.lints.clippy]
-type_complexity = "allow"
 doc_markdown = "warn"
 manual_let_else = "warn"
-undocumented_unsafe_blocks = "warn"
-redundant_else = "warn"
 match_same_arms = "warn"
+redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
 semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
+unwrap_or_default = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
 ref_as_ptr = "warn"
 
 [workspace.lints.rust]
-unsafe_op_in_unsafe_fn = "warn"
 missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
 
 [lints]
 workspace = true
@@ -63,6 +67,7 @@ default = [
   "bevy_winit",
   "bevy_core_pipeline",
   "bevy_pbr",
+  "bevy_picking",
   "bevy_gltf",
   "bevy_render",
   "bevy_sprite",
@@ -76,6 +81,7 @@ default = [
   "bevy_gizmos",
   "android_shared_stdcxx",
   "tonemapping_luts",
+  "smaa_luts",
   "default_font",
   "webgl2",
   "sysinfo_plugin",
@@ -106,9 +112,6 @@ bevy_core_pipeline = [
   "bevy_render",
 ]
 
-# Plugin for dynamic loading (using [libloading](https://crates.io/crates/libloading))
-bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
-
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
@@ -122,6 +125,9 @@ bevy_pbr = [
   "bevy_render",
   "bevy_core_pipeline",
 ]
+
+# Provides picking functionality
+bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
 bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
@@ -173,9 +179,6 @@ trace_tracy_memory = [
 
 # Tracing support
 trace = ["bevy_internal/trace"]
-
-# Save a trace of all wgpu calls
-wgpu_trace = ["bevy_internal/wgpu_trace"]
 
 # EXR image format support
 exr = ["bevy_internal/exr"]
@@ -264,9 +267,6 @@ wayland = ["bevy_internal/wayland"]
 # X11 display server support
 x11 = ["bevy_internal/x11"]
 
-# Enable rendering of font glyphs using subpixel accuracy
-subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
-
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
@@ -281,6 +281,9 @@ detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method on your `Camera2dBundle` or `Camera3dBundle`.
 tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "zstd"]
+
+# Include SMAA Look Up Tables KTX2 Files
+smaa_luts = ["bevy_internal/smaa_luts"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
@@ -307,6 +310,9 @@ pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 pbr_multi_layer_material_textures = [
   "bevy_internal/pbr_multi_layer_material_textures",
 ]
+
+# Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
+pbr_anisotropy_texture = ["bevy_internal/pbr_anisotropy_texture"]
 
 # Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.
 webgl2 = ["bevy_internal/webgl"]
@@ -338,12 +344,18 @@ ios_simulator = ["bevy_internal/ios_simulator"]
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
-[dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.14.0-dev", default-features = false }
+# Enables source location tracking for change detection, which can assist with debugging
+track_change_detection = ["bevy_internal/track_change_detection"]
 
-# WASM does not support dynamic linking.
+# Enable function reflection
+reflect_functions = ["bevy_internal/reflect_functions"]
+
+[dependencies]
+bevy_internal = { path = "crates/bevy_internal", version = "0.15.0-dev", default-features = false }
+
+# Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.14.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.15.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
@@ -352,8 +364,10 @@ ron = "0.8.0"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
+bevy_render = { path = "crates/bevy_render", version = "0.15.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
+async-std = "1.12"
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "1.0"
@@ -582,6 +596,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "mesh2d_alpha_mode"
+path = "examples/2d/mesh2d_alpha_mode.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_alpha_mode]
+name = "Mesh2d Alpha Mode"
+description = "Used to test alpha modes with mesh2d"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
 doc-scrape-examples = true
@@ -745,7 +770,8 @@ doc-scrape-examples = true
 name = "Lines"
 description = "Create a custom material to draw 3d lines"
 category = "3D Rendering"
-wasm = true
+# Wasm does not support the `POLYGON_MODE_LINE` feature.
+wasm = false
 
 [[example]]
 name = "ssao"
@@ -1049,7 +1075,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/bd869887bc5c9c6e74e353f657d342bef84bacd8/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh",
   ],
 ]
 
@@ -1576,6 +1602,17 @@ description = "Shows how to create a custom diagnostic"
 category = "Diagnostics"
 wasm = true
 
+[[example]]
+name = "enabling_disabling_diagnostic"
+path = "examples/diagnostics/enabling_disabling_diagnostic.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.enabling_disabling_diagnostic]
+name = "Enabling/disabling diagnostic"
+description = "Shows how to disable/re-enable a Diagnostic during runtime"
+category = "Diagnostics"
+wasm = true
+
 # ECS (Entity Component System)
 [[example]]
 name = "ecs_guide"
@@ -1595,13 +1632,14 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "component_change_detection"
-path = "examples/ecs/component_change_detection.rs"
+name = "change_detection"
+path = "examples/ecs/change_detection.rs"
 doc-scrape-examples = true
+required-features = ["track_change_detection"]
 
-[package.metadata.example.component_change_detection]
-name = "Component Change Detection"
-description = "Change detection on components"
+[package.metadata.example.change_detection]
+name = "Change Detection"
+description = "Change detection on components and resources"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -1771,13 +1809,14 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "state"
-path = "examples/state/state.rs"
+name = "states"
+path = "examples/state/states.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
-[package.metadata.example.state]
-name = "State"
-description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state"
+[package.metadata.example.states]
+name = "States"
+description = "Illustrates how to use States to control transitioning from a Menu state to an InGame state."
 category = "State"
 wasm = false
 
@@ -1785,6 +1824,7 @@ wasm = false
 name = "sub_states"
 path = "examples/state/sub_states.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.sub_states]
 name = "Sub States"
@@ -1796,10 +1836,23 @@ wasm = false
 name = "computed_states"
 path = "examples/state/computed_states.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.computed_states]
 name = "Computed States"
-description = "Advanced state patterns using Computed States"
+description = "Advanced state patterns using Computed States."
+category = "State"
+wasm = false
+
+[[example]]
+name = "custom_transitions"
+path = "examples/state/custom_transitions.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.custom_transitions]
+name = "Custom State Transition Behavior"
+description = "Creating and working with custom state transition schedules."
 category = "State"
 wasm = false
 
@@ -2129,6 +2182,18 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "function_reflection"
+path = "examples/reflection/function_reflection.rs"
+doc-scrape-examples = true
+required-features = ["reflect_functions"]
+
+[package.metadata.example.function_reflection]
+name = "Function Reflection"
+description = "Demonstrates how functions can be called dynamically using reflection"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "generic_reflection"
 path = "examples/reflection/generic_reflection.rs"
 doc-scrape-examples = true
@@ -2151,13 +2216,13 @@ category = "Reflection"
 wasm = false
 
 [[example]]
-name = "trait_reflection"
-path = "examples/reflection/trait_reflection.rs"
+name = "type_data"
+path = "examples/reflection/type_data.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.trait_reflection]
-name = "Trait Reflection"
-description = "Allows reflection with trait objects"
+[package.metadata.example.type_data]
+name = "Type Data"
+description = "Demonstrates how to create and use type data"
 category = "Reflection"
 wasm = false
 
@@ -2196,11 +2261,11 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "post_processing"
-path = "examples/shader/post_processing.rs"
+name = "custom_post_processing"
+path = "examples/shader/custom_post_processing.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.post_processing]
+[package.metadata.example.custom_post_processing]
 name = "Post Processing - Custom Render Pass"
 description = "A custom post processing effect, using a custom render pass that runs after the main pass"
 category = "Shaders"
@@ -2349,6 +2414,17 @@ name = "Texture Binding Array (Bindless Textures)"
 description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
 category = "Shaders"
 wasm = false
+
+[[example]]
+name = "specialized_mesh_pipeline"
+path = "examples/shader/specialized_mesh_pipeline.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.specialized_mesh_pipeline]
+name = "Specialized Mesh Pipeline"
+description = "Demonstrates how to write a specialized mesh pipeline"
+category = "Shaders"
+wasm = true
 
 # Stress tests
 [[package.metadata.example_category]]
@@ -2519,6 +2595,28 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "observers"
+path = "examples/ecs/observers.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observers]
+name = "Observers"
+description = "Demonstrates observers that react to events (both built-in life-cycle events and custom events)"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
+name = "observer_propagation"
+path = "examples/ecs/observer_propagation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.observer_propagation]
+name = "Observer Propagation"
+description = "Demonstrates event propagation with observers"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"
 doc-scrape-examples = true
@@ -2582,17 +2680,6 @@ doc-scrape-examples = true
 [package.metadata.example.borders]
 name = "Borders"
 description = "Demonstrates how to create a node with a border"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "rounded_borders"
-path = "examples/ui/rounded_borders.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.rounded_borders]
-name = "Rounded Borders"
-description = "Demonstrates how to create a node with a rounded border"
 category = "UI (User Interface)"
 wasm = true
 
@@ -2929,6 +3016,14 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "ambiguity_detection"
+path = "tests/ecs/ambiguity_detection.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ambiguity_detection]
+hidden = true
+
+[[example]]
 name = "resizing"
 path = "tests/window/resizing.rs"
 doc-scrape-examples = true
@@ -2986,6 +3081,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "cubic_splines"
+path = "examples/math/cubic_splines.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.cubic_splines]
+name = "Cubic Splines"
+description = "Exhibits different modes of constructing cubic curves using splines"
+category = "Math"
+wasm = true
+
+[[example]]
 name = "render_primitives"
 path = "examples/math/render_primitives.rs"
 doc-scrape-examples = true
@@ -3009,6 +3115,17 @@ category = "Math"
 wasm = true
 
 [[example]]
+name = "custom_primitives"
+path = "examples/math/custom_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_primitives]
+name = "Custom Primitives"
+description = "Demonstrates how to add custom primitives and useful traits for them."
+category = "Math"
+wasm = true
+
+[[example]]
 name = "random_sampling"
 path = "examples/math/random_sampling.rs"
 doc-scrape-examples = true
@@ -3016,6 +3133,17 @@ doc-scrape-examples = true
 [package.metadata.example.random_sampling]
 name = "Random Sampling"
 description = "Demonstrates how to sample random points from mathematical primitives"
+category = "Math"
+wasm = true
+
+[[example]]
+name = "smooth_follow"
+path = "examples/movement/smooth_follow.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.smooth_follow]
+name = "Smooth Follow"
+description = "Demonstrates how to make an entity smoothly follow another using interpolation"
 category = "Math"
 wasm = true
 
@@ -3069,6 +3197,28 @@ name = "fps_overlay"
 path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
+
+[[example]]
+name = "2d_top_down_camera"
+path = "examples/camera/2d_top_down_camera.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.2d_top_down_camera]
+name = "2D top-down camera"
+description = "A 2D top-down camera smoothly following player movements"
+category = "Camera"
+wasm = true
+
+[[example]]
+name = "first_person_view_model"
+path = "examples/camera/first_person_view_model.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.first_person_view_model]
+name = "First person view model"
+description = "A first-person camera that uses a world model and a view model with different field of views (FOV)"
+category = "Camera"
+wasm = true
 
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
@@ -3143,6 +3293,97 @@ description = "Demonstrates volumetric fog and lighting"
 category = "3D Rendering"
 wasm = true
 
+[[example]]
+name = "anisotropy"
+path = "examples/3d/anisotropy.rs"
+doc-scrape-examples = true
+required-features = ["jpeg", "pbr_anisotropy_texture"]
+
+[package.metadata.example.anisotropy]
+name = "Anisotropy"
+description = "Displays an example model with anisotropy"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "custom_phase_item"
+path = "examples/shader/custom_phase_item.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_phase_item]
+name = "Custom phase item"
+description = "Demonstrates how to enqueue custom draw commands in a render phase"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "fog_volumes"
+path = "examples/3d/fog_volumes.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fog_volumes]
+name = "Fog volumes"
+description = "Demonstrates fog volumes"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "scrolling_fog"
+path = "examples/3d/scrolling_fog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrolling_fog]
+name = "Scrolling fog"
+description = "Demonstrates how to create the effect of fog moving in the wind"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "physics_in_fixed_timestep"
+path = "examples/movement/physics_in_fixed_timestep.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.physics_in_fixed_timestep]
+name = "Run physics in a fixed timestep"
+description = "Handles input, physics, and rendering in an industry-standard way by using a fixed timestep"
+category = "Movement"
+wasm = true
+
+[[example]]
+name = "post_processing"
+path = "examples/3d/post_processing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.post_processing]
+name = "Built-in postprocessing"
+description = "Demonstrates the built-in postprocessing features"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "rotate_environment_map"
+path = "examples/3d/rotate_environment_map.rs"
+doc-scrape-examples = true
+required-features = ["pbr_multi_layer_material_textures"]
+
+[package.metadata.example.rotate_environment_map]
+name = "Rotate Environment Map"
+description = "Demonstrates how to rotate the skybox and the environment map simultaneously"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "simple_picking"
+path = "examples/picking/simple_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_picking"]
+
+[package.metadata.example.simple_picking]
+name = "Showcases simple picking events and usage"
+description = "Demonstrates how to use picking events to spawn simple objects"
+category = "Picking"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
@@ -3155,6 +3396,22 @@ lto = "fat"
 panic = "abort"
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+# This cfg is needed so that #[doc(fake_variadic)] is correctly propagated for
+# impls for re-exported traits. See https://github.com/rust-lang/cargo/issues/8811
+# for details on why this is needed. Since dependencies don't expect to be built
+# with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
+rustc-args = ["--cfg", "docsrs_dep"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+
+[[example]]
+name = "monitor_info"
+path = "examples/window/monitor_info.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.monitor_info]
+name = "Monitor info"
+description = "Displays information about available monitors (displays)."
+category = "Window"
+wasm = false

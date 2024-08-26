@@ -54,7 +54,7 @@ use std::any::Any;
 ///     }
 /// }
 /// # fn damp_flickering() {}
-/// ````
+/// ```
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
@@ -119,16 +119,6 @@ pub(crate) struct PlaceholderPlugin;
 impl Plugin for PlaceholderPlugin {
     fn build(&self, _app: &mut App) {}
 }
-
-/// A type representing an unsafe function that returns a mutable pointer to a [`Plugin`].
-/// It is used for dynamically loading plugins.
-///
-/// See `bevy_dynamic_plugin/src/loader.rs#dynamically_load_plugin`.
-#[deprecated(
-    since = "0.14.0",
-    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
-)]
-pub type CreatePlugin = unsafe fn() -> *mut dyn Plugin;
 
 /// Types that represent a set of [`Plugin`]s.
 ///

@@ -6,7 +6,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    texture::Image,
+    texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
@@ -172,13 +172,6 @@ pub struct Style {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
-
-    /// Defines the text direction. For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-    ///
-    /// Note: the corresponding CSS property also affects box layout order, but this isn't yet implemented in Bevy.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/direction>
-    pub direction: Direction,
 
     /// The horizontal position of the left edge of the node.
     ///  - For relatively positioned nodes, this is relative to the node's position as computed during regular layout.
@@ -435,7 +428,6 @@ impl Style {
         right: Val::Auto,
         top: Val::Auto,
         bottom: Val::Auto,
-        direction: Direction::DEFAULT,
         flex_direction: FlexDirection::DEFAULT,
         flex_wrap: FlexWrap::DEFAULT,
         align_items: AlignItems::DEFAULT,
@@ -730,35 +722,6 @@ impl Default for JustifyContent {
     }
 }
 
-/// Defines the text direction.
-///
-/// For example, English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect)]
-#[reflect(Default, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum Direction {
-    /// Inherit from parent node.
-    Inherit,
-    /// Text is written left to right.
-    LeftToRight,
-    /// Text is written right to left.
-    RightToLeft,
-}
-
-impl Direction {
-    pub const DEFAULT: Self = Self::Inherit;
-}
-
-impl Default for Direction {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
-}
-
 /// Defines the layout model used by this node.
 ///
 /// Part of the [`Style`] component.
@@ -1007,12 +970,12 @@ impl Default for GridAutoFlow {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 pub enum MinTrackSizingFunction {
     /// Track minimum size should be a fixed pixel value
@@ -1024,6 +987,7 @@ pub enum MinTrackSizingFunction {
     /// Track minimum size should be content sized under a max-content constraint
     MaxContent,
     /// Track minimum size should be automatically sized
+    #[default]
     Auto,
     /// Track minimum size should be a percent of the viewport's smaller dimension.
     VMin(f32),
@@ -1035,12 +999,12 @@ pub enum MinTrackSizingFunction {
     Vw(f32),
 }
 
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect_value(PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
-    reflect_value(Serialize, Deserialize)
+    reflect(Serialize, Deserialize)
 )]
 pub enum MaxTrackSizingFunction {
     /// Track maximum size should be a fixed pixel value
@@ -1056,6 +1020,7 @@ pub enum MaxTrackSizingFunction {
     /// Track maximum size should be sized according to the fit-content formula with a percentage limit
     FitContentPercent(f32),
     /// Track maximum size should be automatically sized
+    #[default]
     Auto,
     /// The dimension as a fraction of the total available grid space (`fr` units in CSS)
     /// Specified value is the numerator of the fraction. Denominator is the sum of all fractions specified in that grid dimension.
@@ -1234,7 +1199,7 @@ impl Default for GridTrack {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1255,6 +1220,12 @@ pub enum GridTrackRepetition {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/repeat#auto-fit>
     AutoFit,
+}
+
+impl Default for GridTrackRepetition {
+    fn default() -> Self {
+        Self::Count(1)
+    }
 }
 
 impl From<u16> for GridTrackRepetition {
@@ -1289,7 +1260,7 @@ impl From<usize> for GridTrackRepetition {
 /// then all tracks (in and outside of the repetition) must be fixed size (px or percent). Integer repetitions are just shorthand for writing out
 /// N tracks longhand and are not subject to the same limitations.
 #[derive(Clone, PartialEq, Debug, Reflect)]
-#[reflect(PartialEq)]
+#[reflect(Default, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -1446,6 +1417,15 @@ impl RepeatedGridTrack {
     }
 }
 
+impl Default for RepeatedGridTrack {
+    fn default() -> Self {
+        Self {
+            repetition: Default::default(),
+            tracks: SmallVec::from_buf([GridTrack::default()]),
+        }
+    }
+}
+
 impl From<GridTrack> for RepeatedGridTrack {
     fn from(track: GridTrack) -> Self {
         Self {
@@ -1457,10 +1437,7 @@ impl From<GridTrack> for RepeatedGridTrack {
 
 impl From<GridTrack> for Vec<GridTrack> {
     fn from(track: GridTrack) -> Self {
-        vec![GridTrack {
-            min_sizing_function: track.min_sizing_function,
-            max_sizing_function: track.max_sizing_function,
-        }]
+        vec![track]
     }
 }
 
@@ -1693,7 +1670,8 @@ pub enum GridPlacementError {
 pub struct BackgroundColor(pub Color);
 
 impl BackgroundColor {
-    pub const DEFAULT: Self = Self(Color::WHITE);
+    /// Background color is transparent by default.
+    pub const DEFAULT: Self = Self(Color::NONE);
 }
 
 impl Default for BackgroundColor {
@@ -1725,7 +1703,8 @@ impl<T: Into<Color>> From<T> for BorderColor {
 }
 
 impl BorderColor {
-    pub const DEFAULT: Self = BorderColor(Color::WHITE);
+    /// Border color is transparent by default.
+    pub const DEFAULT: Self = BorderColor(Color::NONE);
 }
 
 impl Default for BorderColor {
@@ -1734,7 +1713,7 @@ impl Default for BorderColor {
     }
 }
 
-#[derive(Component, Copy, Clone, Default, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Default, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default)]
 #[cfg_attr(
     feature = "serialize",
@@ -1819,12 +1798,17 @@ impl Outline {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect, Default)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct UiImage {
-    /// The tint color used to draw the image
+    /// The tint color used to draw the image.
+    ///
+    /// This is multiplied by the color of each pixel in the image.
+    /// The field value defaults to solid white, which will pass the image through unmodified.
     pub color: Color,
-    /// Handle to the texture
+    /// Handle to the texture.
+    ///
+    /// This defaults to a [`TRANSPARENT_IMAGE_HANDLE`], which points to a fully transparent 1x1 texture.
     pub texture: Handle<Image>,
     /// Whether the image should be flipped along its x-axis
     pub flip_x: bool,
@@ -1832,11 +1816,46 @@ pub struct UiImage {
     pub flip_y: bool,
 }
 
+impl Default for UiImage {
+    /// A transparent 1x1 image with a solid white tint.
+    ///
+    /// # Warning
+    ///
+    /// This will be invisible by default.
+    /// To set this to a visible image, you need to set the `texture` field to a valid image handle,
+    /// or use [`Handle<Image>`]'s default 1x1 solid white texture (as is done in [`UiImage::solid_color`]).
+    fn default() -> Self {
+        UiImage {
+            // This should be white because the tint is multiplied with the image,
+            // so if you set an actual image with default tint you'd want its original colors
+            color: Color::WHITE,
+            // This texture needs to be transparent by default, to avoid covering the background color
+            texture: TRANSPARENT_IMAGE_HANDLE,
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+}
+
 impl UiImage {
+    /// Create a new [`UiImage`] with the given texture.
     pub fn new(texture: Handle<Image>) -> Self {
         Self {
             texture,
+            color: Color::WHITE,
             ..Default::default()
+        }
+    }
+
+    /// Create a solid color [`UiImage`].
+    ///
+    /// This is primarily useful for debugging / mocking the extents of your image.
+    pub fn solid_color(color: Color) -> Self {
+        Self {
+            texture: Handle::default(),
+            color,
+            flip_x: false,
+            flip_y: false,
         }
     }
 
@@ -1946,7 +1965,7 @@ impl Default for ZIndex {
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[reflect(Component, PartialEq, Default)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),

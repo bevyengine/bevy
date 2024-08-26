@@ -2,19 +2,20 @@ use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
 use bevy_ecs::change_detection::{DetectChanges, NonSendMut, Res};
 use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{EventWriter, ManualEventReader};
+use bevy_ecs::event::{EventCursor, EventWriter};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::FromWorld;
 use bevy_input::{
+    gestures::*,
+    keyboard::KeyboardFocusLost,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
-    touchpad::{TouchpadMagnify, TouchpadRotate},
 };
 use bevy_log::{error, trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use bevy_utils::Instant;
+use bevy_utils::{HashMap, Instant};
 use std::marker::PhantomData;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
@@ -34,10 +35,10 @@ use bevy_window::{
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
 
 use crate::accessibility::AccessKitAdapters;
-use crate::system::CachedWindow;
+use crate::system::{create_monitors, CachedWindow};
 use crate::{
-    converters, create_windows, AppSendEvent, CreateWindowParams, UpdateMode, WinitEvent,
-    WinitSettings, WinitWindows,
+    converters, create_windows, AppSendEvent, CreateMonitorParams, CreateWindowParams,
+    EventLoopProxyWrapper, UpdateMode, WinitEvent, WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -53,10 +54,12 @@ struct WinitAppRunnerState<T: Event> {
     window_event_received: bool,
     /// Is `true` if a new [`DeviceEvent`] event has been received since the last update.
     device_event_received: bool,
-    /// Is `true` if a new [`T`] event has been received since the last update.
+    /// Is `true` if a new `T` event has been received since the last update.
     user_event_received: bool,
     /// Is `true` if the app has requested a redraw since the last update.
     redraw_requested: bool,
+    /// Is `true` if the app has already updated since the last redraw.
+    ran_update_since_last_redraw: bool,
     /// Is `true` if enough time has elapsed since `last_update` to run another update.
     wait_elapsed: bool,
     /// Number of "forced" updates to trigger on application start
@@ -82,7 +85,7 @@ struct WinitAppRunnerState<T: Event> {
 
 impl<T: Event> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
-        app.add_event::<T>();
+        app.add_event::<T>().init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
@@ -103,6 +106,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             device_event_received: false,
             user_event_received: false,
             redraw_requested: false,
+            ran_update_since_last_redraw: false,
             wait_elapsed: false,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
@@ -126,6 +130,39 @@ impl<T: Event> WinitAppRunnerState<T> {
         self.app.world_mut()
     }
 }
+
+/// Identifiers for custom cursors used in caching.
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum CustomCursorCacheKey {
+    /// u64 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
+    AssetIndex(u64),
+    /// u128 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
+    AssetUuid(u128),
+    /// A URL to a cursor.
+    Url(String),
+}
+
+/// Caches custom cursors. On many platforms, creating custom cursors is expensive, especially on
+/// the web.
+#[derive(Debug, Clone, Default, Resource)]
+pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::CustomCursor>);
+
+/// A source for a cursor. Is created in `bevy_render` and consumed by the winit event loop.
+#[derive(Debug)]
+pub enum CursorSource {
+    /// A custom cursor was identified to be cached, no reason to recreate it.
+    CustomCached(CustomCursorCacheKey),
+    /// A custom cursor was not cached, so it needs to be created by the winit event loop.
+    Custom((CustomCursorCacheKey, winit::window::CustomCursorSource)),
+    /// A system cursor was requested.
+    System(winit::window::CursorIcon),
+}
+
+/// Component that indicates what cursor should be used for a window. Inserted
+/// automatically after changing `CursorIcon` and consumed by the winit event
+/// loop.
+#[derive(Component, Debug)]
+pub struct PendingCursor(pub Option<CursorSource>);
 
 impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
@@ -222,16 +259,27 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 );
             }
             WindowEvent::CloseRequested => self.winit_events.send(WindowCloseRequested { window }),
-            WindowEvent::KeyboardInput { ref event, .. } => {
-                if event.state.is_pressed() {
-                    if let Some(char) = &event.text {
-                        let char = char.clone();
-                        #[allow(deprecated)]
-                        self.winit_events.send(ReceivedCharacter { window, char });
+            WindowEvent::KeyboardInput {
+                ref event,
+                is_synthetic,
+                ..
+            } => {
+                // Winit sends "synthetic" key press events when the window gains focus. These
+                // should not be handled, so we only process key events if they are not synthetic
+                // key presses. "synthetic" key release events should still be handled though, for
+                // properly releasing keys when the window loses focus.
+                if !(is_synthetic && event.state.is_pressed()) {
+                    // Process the keyboard input event, as long as it's not a synthetic key press.
+                    if event.state.is_pressed() {
+                        if let Some(char) = &event.text {
+                            let char = char.clone();
+                            #[allow(deprecated)]
+                            self.winit_events.send(ReceivedCharacter { window, char });
+                        }
                     }
+                    self.winit_events
+                        .send(converters::convert_keyboard_input(event, window));
                 }
-                self.winit_events
-                    .send(converters::convert_keyboard_input(event, window));
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -264,10 +312,19 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 });
             }
             WindowEvent::PinchGesture { delta, .. } => {
-                self.winit_events.send(TouchpadMagnify(delta as f32));
+                self.winit_events.send(PinchGesture(delta as f32));
             }
             WindowEvent::RotationGesture { delta, .. } => {
-                self.winit_events.send(TouchpadRotate(delta));
+                self.winit_events.send(RotationGesture(delta));
+            }
+            WindowEvent::DoubleTapGesture { .. } => {
+                self.winit_events.send(DoubleTapGesture);
+            }
+            WindowEvent::PanGesture { delta, .. } => {
+                self.winit_events.send(PanGesture(Vec2 {
+                    x: delta.x,
+                    y: delta.y,
+                }));
             }
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 event::MouseScrollDelta::LineDelta(x, y) => {
@@ -297,6 +354,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::Focused(focused) => {
                 win.focused = focused;
                 self.winit_events.send(WindowFocused { window, focused });
+                if !focused {
+                    self.winit_events.send(KeyboardFocusLost);
+                }
             }
             WindowEvent::Occluded(occluded) => {
                 self.winit_events.send(WindowOccluded { window, occluded });
@@ -345,6 +405,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             WindowEvent::Destroyed => {
                 self.winit_events.send(WindowDestroyed { window });
             }
+            WindowEvent::RedrawRequested => {
+                self.ran_update_since_last_redraw = false;
+            }
             _ => {}
         }
 
@@ -371,14 +434,17 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let mut create_monitor = SystemState::<CreateMonitorParams>::from_world(self.world_mut());
         // create any new windows
         // (even if app did not update, some may have been created by plugin setup)
         let mut create_window =
             SystemState::<CreateWindowParams<Added<Window>>>::from_world(self.world_mut());
+        create_monitors(event_loop, create_monitor.get_mut(self.world_mut()));
+        create_monitor.apply(self.world_mut());
         create_windows(event_loop, create_window.get_mut(self.world_mut()));
         create_window.apply(self.world_mut());
 
-        let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
+        let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
@@ -445,6 +511,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                         mut adapters,
                         mut handlers,
                         accessibility_requested,
+                        monitors,
                     ) = create_window.get_mut(self.world_mut());
 
                     let winit_window = winit_windows.create_window(
@@ -454,6 +521,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                         &mut adapters,
                         &mut handlers,
                         &accessibility_requested,
+                        &monitors,
                     );
 
                     let wrapper = RawHandleWrapper::new(winit_window).unwrap();
@@ -474,13 +542,26 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         let begin_frame_time = Instant::now();
 
         if should_update {
+            let (_, windows) = focused_windows_state.get(self.world());
+            // If no windows exist, this will evaluate to `true`.
+            let all_invisible = windows.iter().all(|w| !w.1.visible);
+
             // Not redrawing, but the timeout elapsed.
-            self.run_app_update();
+            //
+            // Additional condition for Windows OS.
+            // If no windows are visible, redraw calls will never succeed, which results in no app update calls being performed.
+            // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
+            if !self.ran_update_since_last_redraw || all_invisible {
+                self.run_app_update();
+                self.update_cursors(event_loop);
+                self.ran_update_since_last_redraw = true;
+            } else {
+                self.redraw_requested = true;
+            }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
-
             update_mode = config.update_mode(focused);
         }
 
@@ -674,16 +755,25 @@ impl<T: Event> WinitAppRunnerState<T> {
                 WinitEvent::MouseWheel(e) => {
                     world.send_event(e);
                 }
-                WinitEvent::TouchpadMagnify(e) => {
+                WinitEvent::PinchGesture(e) => {
                     world.send_event(e);
                 }
-                WinitEvent::TouchpadRotate(e) => {
+                WinitEvent::RotationGesture(e) => {
+                    world.send_event(e);
+                }
+                WinitEvent::DoubleTapGesture(e) => {
+                    world.send_event(e);
+                }
+                WinitEvent::PanGesture(e) => {
                     world.send_event(e);
                 }
                 WinitEvent::TouchInput(e) => {
                     world.send_event(e);
                 }
                 WinitEvent::KeyboardInput(e) => {
+                    world.send_event(e);
+                }
+                WinitEvent::KeyboardFocusLost(e) => {
                     world.send_event(e);
                 }
             }
@@ -693,9 +783,45 @@ impl<T: Event> WinitAppRunnerState<T> {
             .resource_mut::<Events<WinitEvent>>()
             .send_batch(buffered_events);
     }
+
+    fn update_cursors(&mut self, event_loop: &ActiveEventLoop) {
+        let mut windows_state: SystemState<(
+            NonSendMut<WinitWindows>,
+            ResMut<CustomCursorCache>,
+            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
+        )> = SystemState::new(self.world_mut());
+        let (winit_windows, mut cursor_cache, mut windows) =
+            windows_state.get_mut(self.world_mut());
+
+        for (entity, mut pending_cursor) in windows.iter_mut() {
+            let Some(winit_window) = winit_windows.get_window(entity) else {
+                continue;
+            };
+            let Some(pending_cursor) = pending_cursor.0.take() else {
+                continue;
+            };
+
+            let final_cursor: winit::window::Cursor = match pending_cursor {
+                CursorSource::CustomCached(cache_key) => {
+                    let Some(cached_cursor) = cursor_cache.0.get(&cache_key) else {
+                        error!("Cursor should have been cached, but was not found");
+                        continue;
+                    };
+                    cached_cursor.clone().into()
+                }
+                CursorSource::Custom((cache_key, cursor)) => {
+                    let custom_cursor = event_loop.create_custom_cursor(cursor);
+                    cursor_cache.0.insert(cache_key, custom_cursor.clone());
+                    custom_cursor.into()
+                }
+                CursorSource::System(system_cursor) => system_cursor.into(),
+            };
+            winit_window.set_cursor(final_cursor);
+        }
+    }
 }
 
-/// The default [`App::runner`] for the [`WinitPlugin`] plugin.
+/// The default [`App::runner`] for the [`WinitPlugin`](crate::WinitPlugin) plugin.
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
@@ -711,12 +837,12 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
         .unwrap();
 
     app.world_mut()
-        .insert_non_send_resource(event_loop.create_proxy());
+        .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
 
     let mut runner_state = WinitAppRunnerState::new(app);
 
     trace!("starting winit event loop");
-    // TODO(clean): the winit docs mention using `spawn` instead of `run` on WASM.
+    // TODO(clean): the winit docs mention using `spawn` instead of `run` on Wasm.
     if let Err(err) = event_loop.run_app(&mut runner_state) {
         error!("winit event loop returned an error: {err}");
     }

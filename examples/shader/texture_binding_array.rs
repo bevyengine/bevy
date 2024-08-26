@@ -1,6 +1,8 @@
 //! A shader that binds several textures onto one
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
+use bevy::ecs::system::lifetimeless::SRes;
+use bevy::ecs::system::SystemParamItem;
 use bevy::{
     prelude::*,
     reflect::TypePath,
@@ -16,6 +18,9 @@ use bevy::{
     },
 };
 use std::{num::NonZeroU32, process::exit};
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wgsl";
 
 fn main() {
     let mut app = App::new();
@@ -94,12 +99,13 @@ struct BindlessMaterial {
 impl AsBindGroup for BindlessMaterial {
     type Data = ();
 
+    type Param = (SRes<RenderAssets<GpuImage>>, SRes<FallbackImage>);
+
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        image_assets: &RenderAssets<GpuImage>,
-        fallback_image: &FallbackImage,
+        (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         // retrieve the render resources from handles
         let mut images = vec![];
@@ -137,10 +143,9 @@ impl AsBindGroup for BindlessMaterial {
 
     fn unprepared_bind_group(
         &self,
-        _: &BindGroupLayout,
-        _: &RenderDevice,
-        _: &RenderAssets<GpuImage>,
-        _: &FallbackImage,
+        _layout: &BindGroupLayout,
+        _render_device: &RenderDevice,
+        _param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
         // we implement as_bind_group directly because
         panic!("bindless texture arrays can't be owned")
@@ -186,6 +191,6 @@ impl AsBindGroup for BindlessMaterial {
 
 impl Material for BindlessMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/texture_binding_array.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

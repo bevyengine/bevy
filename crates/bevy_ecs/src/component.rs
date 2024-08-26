@@ -21,7 +21,6 @@ use std::{
     borrow::Cow,
     marker::PhantomData,
     mem::needs_drop,
-    ops::Deref,
 };
 
 /// A data type that can be used to store data for an [entity].
@@ -94,6 +93,43 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Adding component's hooks
+///
+/// See [`ComponentHooks`] for a detailed explanation of component's hooks.
+///
+/// Alternatively to the example shown in [`ComponentHooks`]' documentation, hooks can be configured using following attributes:
+/// - `#[component(on_add = on_add_function)]`
+/// - `#[component(on_insert = on_insert_function)]`
+/// - `#[component(on_replace = on_replace_function)]`
+/// - `#[component(on_remove = on_remove_function)]`
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::world::DeferredWorld;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::component::ComponentId;
+/// #
+/// #[derive(Component)]
+/// #[component(on_add = my_on_add_hook)]
+/// #[component(on_insert = my_on_insert_hook)]
+/// // Another possible way of configuring hooks:
+/// // #[component(on_add = my_on_add_hook, on_insert = my_on_insert_hook)]
+/// //
+/// // We don't have a replace or remove hook, so we can leave them out:
+/// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
+/// struct ComponentA;
+///
+/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
+///     // ...
+/// }
+///
+/// // You can also omit writing some types using generics.
+/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+///     // ...
+/// }
+///
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
@@ -151,6 +187,11 @@ use std::{
 ///
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a `Component`",
+    label = "invalid `Component`",
+    note = "consider annotating `{Self}` with `#[derive(Component)]`"
+)]
 pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
@@ -195,7 +236,11 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 ///
 /// This information is stored in the [`ComponentInfo`] of the associated component.
 ///
-/// # Example
+/// There is two ways of configuring hooks for a component:
+/// 1. Defining the [`Component::register_component_hooks`] method (see [`Component`])
+/// 2. Using the [`World::register_component_hooks`] method
+///
+/// # Example 2
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
@@ -236,6 +281,7 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 pub struct ComponentHooks {
     pub(crate) on_add: Option<ComponentHook>,
     pub(crate) on_insert: Option<ComponentHook>,
+    pub(crate) on_replace: Option<ComponentHook>,
     pub(crate) on_remove: Option<ComponentHook>,
 }
 
@@ -268,6 +314,28 @@ impl ComponentHooks {
     pub fn on_insert(&mut self, hook: ComponentHook) -> &mut Self {
         self.try_on_insert(hook)
             .expect("Component id: {:?}, already has an on_insert hook")
+    }
+
+    /// Register a [`ComponentHook`] that will be run when this component is about to be dropped,
+    /// such as being replaced (with `.insert`) or removed.
+    ///
+    /// If this component is inserted onto an entity that already has it, this hook will run before the value is replaced,
+    /// allowing access to the previous data just before it is dropped.
+    /// This hook does *not* run if the entity did not already have this component.
+    ///
+    /// An `on_replace` hook always runs before any `on_remove` hooks (if the component is being removed from the entity).
+    ///
+    /// # Warning
+    ///
+    /// The hook won't run if the component is already present and is only mutated, such as in a system via a query.
+    /// As a result, this is *not* an appropriate mechanism for reliably updating indexes and other caches.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has an `on_replace` hook
+    pub fn on_replace(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_replace(hook)
+            .expect("Component id: {:?}, already has an on_replace hook")
     }
 
     /// Register a [`ComponentHook`] that will be run when this component is removed from an entity.
@@ -304,6 +372,19 @@ impl ComponentHooks {
             return None;
         }
         self.on_insert = Some(hook);
+        Some(self)
+    }
+
+    /// Attempt to register a [`ComponentHook`] that will be run when this component is replaced (with `.insert`) or removed
+    ///
+    /// This is a fallible version of [`Self::on_replace`].
+    ///
+    /// Returns `None` if the component already has an `on_replace` hook.
+    pub fn try_on_replace(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_replace.is_some() {
+            return None;
+        }
+        self.on_replace = Some(hook);
         Some(self)
     }
 
@@ -398,6 +479,9 @@ impl ComponentInfo {
         if self.hooks().on_insert.is_some() {
             flags.insert(ArchetypeFlags::ON_INSERT_HOOK);
         }
+        if self.hooks().on_replace.is_some() {
+            flags.insert(ArchetypeFlags::ON_REPLACE_HOOK);
+        }
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
         }
@@ -409,7 +493,7 @@ impl ComponentInfo {
     }
 }
 
-/// A value which uniquely identifies the type of a [`Component`] of [`Resource`] within a
+/// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
 /// [`World`].
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -685,7 +769,7 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_name(&self, id: ComponentId) -> Option<&str> {
-        self.get_info(id).map(|descriptor| descriptor.name())
+        self.get_info(id).map(ComponentInfo::name)
     }
 
     /// Gets the metadata associated with the given component.
@@ -830,75 +914,6 @@ impl Components {
     /// Gets an iterator over all components registered with this instance.
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
-    }
-}
-
-/// A wrapper over a mutable [`Components`] reference that allows for state initialization.
-/// This can be obtained with [`World::component_initializer`].
-pub struct ComponentInitializer<'w> {
-    pub(crate) components: &'w mut Components,
-    pub(crate) storages: &'w mut Storages,
-}
-
-impl<'w> Deref for ComponentInitializer<'w> {
-    type Target = Components;
-
-    fn deref(&self) -> &Components {
-        self.components
-    }
-}
-
-impl<'w> ComponentInitializer<'w> {
-    /// Initializes a component of type `T` with this instance.
-    /// If a component of this type has already been initialized, this will return
-    /// the ID of the pre-existing component.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::init_component_with_descriptor()`]
-    #[inline]
-    pub fn init_component<T: Component>(&mut self) -> ComponentId {
-        self.components.init_component::<T>(self.storages)
-    }
-
-    /// Initializes a component described by `descriptor`.
-    ///
-    /// ## Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct `ComponentId`
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::init_component()`]
-    pub fn init_component_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        self.components
-            .init_component_with_descriptor(self.storages, descriptor)
-    }
-
-    /// Initializes a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been initialized, this will return
-    /// the ID of the pre-existing resource.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    #[inline]
-    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
-        self.components.init_resource::<T>()
-    }
-
-    /// Initializes a [non-send resource](crate::system::NonSend) of type `T` with this instance.
-    /// If a resource of this type has already been initialized, this will return
-    /// the ID of the pre-existing resource.
-    #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
-        self.components.init_non_send::<T>()
     }
 }
 

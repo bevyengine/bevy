@@ -14,7 +14,7 @@ impl WinitSettings {
     /// Default settings for games.
     ///
     /// [`Continuous`](UpdateMode::Continuous) if windows have focus,
-    /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
+    /// [`reactive_low_power`](UpdateMode::reactive_low_power) otherwise.
     pub fn game() -> Self {
         WinitSettings {
             focused_mode: UpdateMode::Continuous,
@@ -25,7 +25,7 @@ impl WinitSettings {
     /// Default settings for desktop applications.
     ///
     /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
-    /// [`ReactiveLowPower`](UpdateMode::ReactiveLowPower) otherwise.
+    /// [`reactive_low_power`](UpdateMode::reactive_low_power) otherwise.
     ///
     /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
     pub fn desktop_app() -> Self {
@@ -67,7 +67,7 @@ pub enum UpdateMode {
     /// - `wait` time has elapsed since the previous update
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window](`winit::event::WindowEvent`), [raw input](`winit::event::DeviceEvent`), or custom
-    /// events have appeared
+    ///     events have appeared
     /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
         /// The approximate time from the start of one update to the next.
@@ -75,11 +75,11 @@ pub enum UpdateMode {
         /// **Note:** This has no upper limit.
         /// The [`App`](bevy_app::App) will wait indefinitely if you set this to [`Duration::MAX`].
         wait: Duration,
-        /// Reacts to device events, that will wake up the loop if it's in a wait wtate
+        /// Reacts to device events, that will wake up the loop if it's in a wait state
         react_to_device_events: bool,
-        /// Reacts to user events, that will wake up the loop if it's in a wait wtate
+        /// Reacts to user events, that will wake up the loop if it's in a wait state
         react_to_user_events: bool,
-        /// Reacts to window events, that will wake up the loop if it's in a wait wtate
+        /// Reacts to window events, that will wake up the loop if it's in a wait state
         react_to_window_events: bool,
     },
 }

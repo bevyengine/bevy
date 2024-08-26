@@ -228,8 +228,8 @@ where
     inner_radius: f32,
     outer_radius: f32,
     color: Color,
-    inner_resolution: usize,
-    outer_resolution: usize,
+    inner_resolution: u32,
+    outer_resolution: u32,
 }
 
 impl<Config, Clear> Annulus2dBuilder<'_, '_, '_, Config, Clear>
@@ -238,20 +238,20 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of line-segments for each circle of the annulus.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.outer_resolution = resolution;
         self.inner_resolution = resolution;
         self
     }
 
     /// Set the number of line-segments for the outer circle of the annulus.
-    pub fn outer_resolution(mut self, resolution: usize) -> Self {
+    pub fn outer_resolution(mut self, resolution: u32) -> Self {
         self.outer_resolution = resolution;
         self
     }
 
     /// Set the number of line-segments for the inner circle of the annulus.
-    pub fn inner_resolution(mut self, resolution: usize) -> Self {
+    pub fn inner_resolution(mut self, resolution: u32) -> Self {
         self.inner_resolution = resolution;
         self
     }

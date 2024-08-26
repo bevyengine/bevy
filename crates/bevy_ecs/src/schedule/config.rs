@@ -288,6 +288,10 @@ impl<T> NodeConfigs<T> {
 ///     )
 /// );
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not describe a valid system configuration",
+    label = "invalid system configuration"
+)]
 pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
@@ -517,7 +521,8 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 pub struct SystemConfigTupleMarker;
 
 macro_rules! impl_system_collection {
-    ($(($param: ident, $sys: ident)),*) => {
+    ($(#[$meta:meta])* $(($param: ident, $sys: ident)),*) => {
+        $(#[$meta])*
         impl<$($param, $sys),*> IntoSystemConfigs<(SystemConfigTupleMarker, $($param,)*)> for ($($sys,)*)
         where
             $($sys: IntoSystemConfigs<$param>),*
@@ -535,7 +540,14 @@ macro_rules! impl_system_collection {
     }
 }
 
-all_tuples!(impl_system_collection, 1, 20, P, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_collection,
+    1,
+    20,
+    P,
+    S
+);
 
 /// A [`SystemSet`] with scheduling metadata.
 pub type SystemSetConfig = NodeConfig<InternedSystemSet>;
@@ -562,6 +574,10 @@ impl SystemSetConfig {
 pub type SystemSetConfigs = NodeConfigs<InternedSystemSet>;
 
 /// Types that can convert into a [`SystemSetConfigs`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not describe a valid system set configuration",
+    label = "invalid system set configuration"
+)]
 pub trait IntoSystemSetConfigs
 where
     Self: Sized,
@@ -642,7 +658,7 @@ where
     /// Ordering constraints will be applied between the successive elements.
     ///
     /// Unlike [`chain`](Self::chain) this will **not** add [`apply_deferred`](crate::schedule::apply_deferred) on the edges.
-    fn chain_ignore_deferred(self) -> SystemConfigs {
+    fn chain_ignore_deferred(self) -> SystemSetConfigs {
         self.into_configs().chain_ignore_deferred()
     }
 }
@@ -713,6 +729,10 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     fn chain(self) -> Self {
         self.chain_inner()
     }
+
+    fn chain_ignore_deferred(self) -> Self {
+        self.chain_ignore_deferred_inner()
+    }
 }
 
 impl<S: SystemSet> IntoSystemSetConfigs for S {
@@ -728,7 +748,8 @@ impl IntoSystemSetConfigs for SystemSetConfig {
 }
 
 macro_rules! impl_system_set_collection {
-    ($($set: ident),*) => {
+    ($(#[$meta:meta])* $($set: ident),*) => {
+        $(#[$meta])*
         impl<$($set: IntoSystemSetConfigs),*> IntoSystemSetConfigs for ($($set,)*)
         {
             #[allow(non_snake_case)]
@@ -744,4 +765,10 @@ macro_rules! impl_system_set_collection {
     }
 }
 
-all_tuples!(impl_system_set_collection, 1, 20, S);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_set_collection,
+    1,
+    20,
+    S
+);

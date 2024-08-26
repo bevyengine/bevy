@@ -4,7 +4,8 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{
-    CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution, WindowWrapper,
+    CursorGrabMode, MonitorSelection, Window, WindowMode, WindowPosition, WindowResolution,
+    WindowWrapper,
 };
 
 use winit::{
@@ -14,6 +15,7 @@ use winit::{
     window::{CursorGrabMode as WinitCursorGrabMode, Fullscreen, Window as WinitWindow, WindowId},
 };
 
+use crate::winit_monitors::WinitMonitors;
 use crate::{
     accessibility::{
         prepare_accessibility_for_window, AccessKitAdapters, WinitActionRequestHandlers,
@@ -39,6 +41,7 @@ pub struct WinitWindows {
 
 impl WinitWindows {
     /// Creates a `winit` window and associates it with our entity.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_window(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -47,6 +50,7 @@ impl WinitWindows {
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionRequestHandlers,
         accessibility_requested: &AccessibilityRequested,
+        monitors: &WinitMonitors,
     ) -> &WindowWrapper<WinitWindow> {
         let mut winit_window_attributes = WinitWindow::default_attributes();
 
@@ -55,31 +59,49 @@ impl WinitWindows {
         winit_window_attributes = winit_window_attributes.with_visible(false);
 
         winit_window_attributes = match window.mode {
-            WindowMode::BorderlessFullscreen => winit_window_attributes
-                .with_fullscreen(Some(Fullscreen::Borderless(event_loop.primary_monitor()))),
-            mode @ (WindowMode::Fullscreen | WindowMode::SizedFullscreen) => {
-                if let Some(primary_monitor) = event_loop.primary_monitor() {
-                    let videomode = match mode {
-                        WindowMode::Fullscreen => get_best_videomode(&primary_monitor),
-                        WindowMode::SizedFullscreen => get_fitting_videomode(
-                            &primary_monitor,
-                            window.width() as u32,
-                            window.height() as u32,
-                        ),
-                        _ => unreachable!(),
-                    };
+            WindowMode::BorderlessFullscreen(monitor_selection) => winit_window_attributes
+                .with_fullscreen(Some(Fullscreen::Borderless(select_monitor(
+                    monitors,
+                    event_loop.primary_monitor(),
+                    None,
+                    &monitor_selection,
+                )))),
+            mode @ (WindowMode::Fullscreen(_) | WindowMode::SizedFullscreen(_)) => {
+                let videomode = match mode {
+                    WindowMode::Fullscreen(monitor_selection) => get_best_videomode(
+                        &select_monitor(
+                            monitors,
+                            event_loop.primary_monitor(),
+                            None,
+                            &monitor_selection,
+                        )
+                        .unwrap_or_else(|| {
+                            panic!("Could not find monitor for {:?}", monitor_selection)
+                        }),
+                    ),
+                    WindowMode::SizedFullscreen(monitor_selection) => get_fitting_videomode(
+                        &select_monitor(
+                            monitors,
+                            event_loop.primary_monitor(),
+                            None,
+                            &monitor_selection,
+                        )
+                        .unwrap_or_else(|| {
+                            panic!("Could not find monitor for {:?}", monitor_selection)
+                        }),
+                        window.width() as u32,
+                        window.height() as u32,
+                    ),
+                    _ => unreachable!(),
+                };
 
-                    winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
-                } else {
-                    warn!("Could not determine primary monitor, ignoring exclusive fullscreen request for window {:?}", window.title);
-                    winit_window_attributes
-                }
+                winit_window_attributes.with_fullscreen(Some(Fullscreen::Exclusive(videomode)))
             }
             WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
                     &window.position,
                     &window.resolution,
-                    event_loop.available_monitors(),
+                    monitors,
                     event_loop.primary_monitor(),
                     None,
                 ) {
@@ -225,16 +247,16 @@ impl WinitWindows {
         );
 
         // Do not set the grab mode on window creation if it's none. It can fail on mobile.
-        if window.cursor.grab_mode != CursorGrabMode::None {
-            attempt_grab(&winit_window, window.cursor.grab_mode);
+        if window.cursor_options.grab_mode != CursorGrabMode::None {
+            attempt_grab(&winit_window, window.cursor_options.grab_mode);
         }
 
-        winit_window.set_cursor_visible(window.cursor.visible);
+        winit_window.set_cursor_visible(window.cursor_options.visible);
 
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
-        if !window.cursor.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
+        if !window.cursor_options.hit_test {
+            if let Err(err) = winit_window.set_cursor_hittest(window.cursor_options.hit_test) {
                 warn!(
                     "Could not set cursor hit test for window {:?}: {:?}",
                     window.title, err
@@ -354,7 +376,7 @@ pub(crate) fn attempt_grab(winit_window: &WinitWindow, grab_mode: CursorGrabMode
 pub fn winit_window_position(
     position: &WindowPosition,
     resolution: &WindowResolution,
-    mut available_monitors: impl Iterator<Item = MonitorHandle>,
+    monitors: &WinitMonitors,
     primary_monitor: Option<MonitorHandle>,
     current_monitor: Option<MonitorHandle>,
 ) -> Option<PhysicalPosition<i32>> {
@@ -364,24 +386,22 @@ pub fn winit_window_position(
             None
         }
         WindowPosition::Centered(monitor_selection) => {
-            use bevy_window::MonitorSelection::*;
-            let maybe_monitor = match monitor_selection {
-                Current => {
-                    if current_monitor.is_none() {
-                        warn!("Can't select current monitor on window creation or cannot find current monitor!");
-                    }
-                    current_monitor
-                }
-                Primary => primary_monitor,
-                Index(n) => available_monitors.nth(*n),
-            };
+            let maybe_monitor = select_monitor(
+                monitors,
+                primary_monitor,
+                current_monitor,
+                monitor_selection,
+            );
 
             if let Some(monitor) = maybe_monitor {
                 let screen_size = monitor.size();
 
-                // We use the monitors scale factor here since `WindowResolution.scale_factor` is
-                // not yet populated when windows are created during plugin setup.
-                let scale_factor = monitor.scale_factor();
+                let scale_factor = match resolution.scale_factor_override() {
+                    Some(scale_factor_override) => scale_factor_override as f64,
+                    // We use the monitors scale factor here since `WindowResolution.scale_factor` is
+                    // not yet populated when windows are created during plugin setup.
+                    None => monitor.scale_factor(),
+                };
 
                 // Logical to physical window size
                 let (width, height): (u32, u32) =
@@ -405,5 +425,27 @@ pub fn winit_window_position(
         WindowPosition::At(position) => {
             Some(PhysicalPosition::new(position[0] as f64, position[1] as f64).cast::<i32>())
         }
+    }
+}
+
+/// Selects a monitor based on the given [`MonitorSelection`].
+pub fn select_monitor(
+    monitors: &WinitMonitors,
+    primary_monitor: Option<MonitorHandle>,
+    current_monitor: Option<MonitorHandle>,
+    monitor_selection: &MonitorSelection,
+) -> Option<MonitorHandle> {
+    use bevy_window::MonitorSelection::*;
+
+    match monitor_selection {
+        Current => {
+            if current_monitor.is_none() {
+                warn!("Can't select current monitor on window creation or cannot find current monitor!");
+            }
+            current_monitor
+        }
+        Primary => primary_monitor,
+        Index(n) => monitors.nth(*n),
+        Entity(entity) => monitors.find_entity(*entity),
     }
 }

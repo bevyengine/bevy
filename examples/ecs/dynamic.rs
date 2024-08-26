@@ -3,7 +3,7 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, ptr::NonNull};
+use std::{alloc::Layout, io::Write, mem::size_of, ptr::NonNull};
 
 use bevy::prelude::*;
 use bevy::{
@@ -79,7 +79,7 @@ fn main() {
                     let Some(name) = component.next() else {
                         return;
                     };
-                    let size = match component.next().map(|s| s.parse::<usize>()) {
+                    let size = match component.next().map(str::parse) {
                         Some(Ok(size)) => size,
                         _ => 0,
                     };
@@ -118,7 +118,7 @@ fn main() {
 
                     // Calculate the length for the array based on the layout created for this component id
                     let info = world.components().get_info(id).unwrap();
-                    let len = info.layout().size() / std::mem::size_of::<u64>();
+                    let len = info.layout().size() / size_of::<u64>();
                     let mut values: Vec<u64> = component
                         .take(len)
                         .filter_map(|value| value.parse::<u64>().ok())
@@ -155,7 +155,7 @@ fn main() {
                         .map(|id| {
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();
-                            let len = info.layout().size() / std::mem::size_of::<u64>();
+                            let len = info.layout().size() / size_of::<u64>();
 
                             // SAFETY:
                             // - All components are created with layout [u64]
@@ -168,7 +168,7 @@ fn main() {
                             };
 
                             // If we have write access, increment each value once
-                            if filtered_entity.access().has_write(id) {
+                            if filtered_entity.access().has_component_write(id) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
                                 });

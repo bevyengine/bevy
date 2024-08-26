@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{bloom::BloomSettings, tonemapping::Tonemapping},
-    input::mouse::{MouseButtonInput, MouseMotion, MouseWheel},
+    input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButtonInput},
     math::prelude::*,
     prelude::*,
 };
@@ -154,6 +154,9 @@ enum Shape {
     Tetrahedron,
     Triangle,
 }
+struct ShapeMeshBuilder {
+    shape: Shape,
+}
 
 impl Shape {
     /// Return a vector containing all implemented shapes
@@ -171,7 +174,7 @@ impl Shape {
 
 impl ShapeSample for Shape {
     type Output = Vec3;
-    fn sample_interior<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
+    fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         match self {
             Shape::Cuboid => CUBOID.sample_interior(rng),
             Shape::Sphere => SPHERE.sample_interior(rng),
@@ -182,7 +185,7 @@ impl ShapeSample for Shape {
         }
     }
 
-    fn sample_boundary<R: rand::prelude::Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
+    fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
         match self {
             Shape::Cuboid => CUBOID.sample_boundary(rng),
             Shape::Sphere => SPHERE.sample_boundary(rng),
@@ -195,16 +198,22 @@ impl ShapeSample for Shape {
 }
 
 impl Meshable for Shape {
-    type Output = Mesh;
+    type Output = ShapeMeshBuilder;
 
     fn mesh(&self) -> Self::Output {
-        match self {
-            Shape::Cuboid => CUBOID.mesh(),
+        ShapeMeshBuilder { shape: *self }
+    }
+}
+
+impl MeshBuilder for ShapeMeshBuilder {
+    fn build(&self) -> Mesh {
+        match self.shape {
+            Shape::Cuboid => CUBOID.mesh().into(),
             Shape::Sphere => SPHERE.mesh().into(),
             Shape::Capsule => CAPSULE_3D.mesh().into(),
             Shape::Cylinder => CYLINDER.mesh().into(),
-            Shape::Tetrahedron => TETRAHEDRON.mesh(),
-            Shape::Triangle => TRIANGLE_3D.mesh(),
+            Shape::Tetrahedron => TETRAHEDRON.mesh().into(),
+            Shape::Triangle => TRIANGLE_3D.mesh().into(),
         }
     }
 }
@@ -383,7 +392,7 @@ fn setup(
             R: Restart (erase all samples).\n\
             S: Add one random sample.\n\
             D: Add 100 random samples.\n\
-            Rotate camera by panning via mouse.\n\
+            Rotate camera by holding left mouse and panning.\n\
             Zoom camera by scrolling via mouse or +/-.\n\
             Move camera by L/R arrow keys.\n\
             Tab: Toggle this text",
@@ -514,9 +523,9 @@ fn handle_keypress(
 
 // Handle user mouse input for panning the camera around:
 fn handle_mouse(
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
+    accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mut button_events: EventReader<MouseButtonInput>,
-    mut motion_events: EventReader<MouseMotion>,
-    mut scroll_events: EventReader<MouseWheel>,
     mut camera: Query<&mut CameraRig>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
@@ -530,25 +539,25 @@ fn handle_mouse(
 
     let mut camera_rig = camera.single_mut();
 
-    let mouse_scroll = scroll_events
-        .read()
-        .fold(0.0, |acc, scroll_event| acc + scroll_event.y);
-    camera_rig.distance -= mouse_scroll / 15.0 * MAX_CAMERA_DISTANCE;
-    camera_rig.distance = camera_rig
-        .distance
-        .clamp(MIN_CAMERA_DISTANCE, MAX_CAMERA_DISTANCE);
+    if accumulated_mouse_scroll.delta != Vec2::ZERO {
+        let mouse_scroll = accumulated_mouse_scroll.delta.y;
+        camera_rig.distance -= mouse_scroll / 15.0 * MAX_CAMERA_DISTANCE;
+        camera_rig.distance = camera_rig
+            .distance
+            .clamp(MIN_CAMERA_DISTANCE, MAX_CAMERA_DISTANCE);
+    }
 
     // If the mouse is not pressed, just ignore motion events
     if !mouse_pressed.0 {
         return;
     }
-    let displacement = motion_events
-        .read()
-        .fold(Vec2::ZERO, |acc, mouse_motion| acc + mouse_motion.delta);
-    camera_rig.yaw += displacement.x / 90.;
-    camera_rig.pitch += displacement.y / 90.;
-    // The extra 0.01 is to disallow weird behaviour at the poles of the rotation
-    camera_rig.pitch = camera_rig.pitch.clamp(-PI / 2.01, PI / 2.01);
+    if accumulated_mouse_motion.delta != Vec2::ZERO {
+        let displacement = accumulated_mouse_motion.delta;
+        camera_rig.yaw += displacement.x / 90.;
+        camera_rig.pitch += displacement.y / 90.;
+        // The extra 0.01 is to disallow weird behaviour at the poles of the rotation
+        camera_rig.pitch = camera_rig.pitch.clamp(-PI / 2.01, PI / 2.01);
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

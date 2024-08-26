@@ -2,10 +2,11 @@
 
 use std::num::NonZeroU64;
 
+use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityHashMap},
-    query::Without,
+    query::{With, Without},
     reflect::ReflectComponent,
     system::{Commands, Query, Res, Resource},
     world::{FromWorld, World},
@@ -23,7 +24,7 @@ use bevy_render::{
 };
 use bevy_utils::{hashbrown::HashSet, tracing::warn};
 
-pub(crate) use crate::cluster::assign::assign_lights_to_clusters;
+pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::MeshPipeline;
 
 mod assign;
@@ -32,14 +33,14 @@ mod assign;
 mod test;
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
-pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
+pub const MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS: usize = 256;
 
 // NOTE: Clustered-forward rendering requires 3 storage buffer bindings so check that
 // at least that many are supported using this constant and SupportedBindingType::from_device()
 pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 
 // this must match CLUSTER_COUNT_SIZE in pbr.wgsl
-// and must be large enough to contain MAX_UNIFORM_BUFFER_POINT_LIGHTS
+// and must be large enough to contain MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
 const CLUSTER_COUNT_SIZE: u32 = 9;
 
 const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - (CLUSTER_COUNT_SIZE * 2))) - 1;
@@ -58,11 +59,11 @@ const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
 /// rendering
 #[derive(Debug, Copy, Clone, Reflect)]
 pub enum ClusterFarZMode {
-    /// Calculate the required maximum z-depth based on currently visible lights.
-    /// Makes better use of available clusters, speeding up GPU lighting operations
-    /// at the expense of some CPU time and using more indices in the cluster light
-    /// index lists.
-    MaxLightRange,
+    /// Calculate the required maximum z-depth based on currently visible
+    /// clusterable objects.  Makes better use of available clusters, speeding
+    /// up GPU lighting operations at the expense of some CPU time and using
+    /// more indices in the clusterable object index lists.
+    MaxClusterableObjectRange,
     /// Constant max z-depth
     Constant(f32),
 }
@@ -81,7 +82,7 @@ pub struct ClusterZConfig {
 #[derive(Debug, Copy, Clone, Component, Reflect)]
 #[reflect(Component)]
 pub enum ClusterConfig {
-    /// Disable light cluster calculations for this view
+    /// Disable cluster calculations for this view
     None,
     /// One single cluster. Optimal for low-light complexity scenes or scenes where
     /// most lights affect the entire scene.
@@ -91,7 +92,7 @@ pub enum ClusterConfig {
         dimensions: UVec3,
         z_config: ClusterZConfig,
         /// Specify if clusters should automatically resize in `X/Y` if there is a risk of exceeding
-        /// the available cluster-light index limit
+        /// the available cluster-object index limit
         dynamic_resizing: bool,
     },
     /// Fixed number of `Z` slices, `X` and `Y` calculated to give square clusters
@@ -104,7 +105,7 @@ pub enum ClusterConfig {
         z_slices: u32,
         z_config: ClusterZConfig,
         /// Specify if clusters should automatically resize in `X/Y` if there is a risk of exceeding
-        /// the available cluster-light index limit
+        /// the available clusterable object index limit
         dynamic_resizing: bool,
     },
 }
@@ -119,29 +120,29 @@ pub struct Clusters {
     /// and explicitly-configured to avoid having unnecessarily many slices close to the camera.
     pub(crate) near: f32,
     pub(crate) far: f32,
-    pub(crate) lights: Vec<VisiblePointLights>,
+    pub(crate) clusterable_objects: Vec<VisibleClusterableObjects>,
 }
 
 #[derive(Clone, Component, Debug, Default)]
-pub struct VisiblePointLights {
+pub struct VisibleClusterableObjects {
     pub(crate) entities: Vec<Entity>,
     pub point_light_count: usize,
     pub spot_light_count: usize,
 }
 
 #[derive(Resource, Default)]
-pub struct GlobalVisiblePointLights {
+pub struct GlobalVisibleClusterableObjects {
     pub(crate) entities: HashSet<Entity>,
 }
 
 #[derive(Resource)]
-pub struct GlobalLightMeta {
-    pub gpu_point_lights: GpuPointLights,
+pub struct GlobalClusterableObjectMeta {
+    pub gpu_clusterable_objects: GpuClusterableObjects,
     pub entity_to_index: EntityHashMap<usize>,
 }
 
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
-pub struct GpuPointLight {
+pub struct GpuClusterableObject {
     // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
     // For spot lights: 2 components of the direction (x,z), spot_scale and spot_offset
     pub(crate) light_custom_data: Vec4,
@@ -153,20 +154,20 @@ pub struct GpuPointLight {
     pub(crate) spot_light_tan_angle: f32,
 }
 
-pub enum GpuPointLights {
-    Uniform(UniformBuffer<GpuPointLightsUniform>),
-    Storage(StorageBuffer<GpuPointLightsStorage>),
+pub enum GpuClusterableObjects {
+    Uniform(UniformBuffer<GpuClusterableObjectsUniform>),
+    Storage(StorageBuffer<GpuClusterableObjectsStorage>),
 }
 
 #[derive(ShaderType)]
-pub struct GpuPointLightsUniform {
-    data: Box<[GpuPointLight; MAX_UNIFORM_BUFFER_POINT_LIGHTS]>,
+pub struct GpuClusterableObjectsUniform {
+    data: Box<[GpuClusterableObject; MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS]>,
 }
 
 #[derive(ShaderType, Default)]
-pub struct GpuPointLightsStorage {
+pub struct GpuClusterableObjectsStorage {
     #[size(runtime)]
-    data: Vec<GpuPointLight>,
+    data: Vec<GpuClusterableObject>,
 }
 
 #[derive(Component)]
@@ -178,14 +179,14 @@ pub struct ExtractedClusterConfig {
     pub(crate) dimensions: UVec3,
 }
 
-enum ExtractedClustersPointLightsElement {
+enum ExtractedClusterableObjectElement {
     ClusterHeader(u32, u32),
-    LightEntity(Entity),
+    ClusterableObjectEntity(Entity),
 }
 
 #[derive(Component)]
-pub struct ExtractedClustersPointLights {
-    data: Vec<ExtractedClustersPointLightsElement>,
+pub struct ExtractedClusterableObjects {
+    data: Vec<ExtractedClusterableObjectElement>,
 }
 
 #[derive(ShaderType)]
@@ -194,7 +195,7 @@ struct GpuClusterOffsetsAndCountsUniform {
 }
 
 #[derive(ShaderType, Default)]
-struct GpuClusterLightIndexListsStorage {
+struct GpuClusterableObjectIndexListsStorage {
     #[size(runtime)]
     data: Vec<u32>,
 }
@@ -208,12 +209,12 @@ struct GpuClusterOffsetsAndCountsStorage {
 enum ViewClusterBuffers {
     Uniform {
         // NOTE: UVec4 is because all arrays in Std140 layout have 16-byte alignment
-        cluster_light_index_lists: UniformBuffer<GpuClusterLightIndexListsUniform>,
+        clusterable_object_index_lists: UniformBuffer<GpuClusterableObjectIndexListsUniform>,
         // NOTE: UVec4 is because all arrays in Std140 layout have 16-byte alignment
         cluster_offsets_and_counts: UniformBuffer<GpuClusterOffsetsAndCountsUniform>,
     },
     Storage {
-        cluster_light_index_lists: StorageBuffer<GpuClusterLightIndexListsStorage>,
+        clusterable_object_index_lists: StorageBuffer<GpuClusterableObjectIndexListsStorage>,
         cluster_offsets_and_counts: StorageBuffer<GpuClusterOffsetsAndCountsStorage>,
     },
 }
@@ -229,7 +230,7 @@ impl Default for ClusterZConfig {
     fn default() -> Self {
         Self {
             first_slice_depth: 5.0,
-            far_z_mode: ClusterFarZMode::MaxLightRange,
+            far_z_mode: ClusterFarZMode::MaxClusterableObjectRange,
         }
     }
 }
@@ -297,7 +298,7 @@ impl ClusterConfig {
     fn far_z_mode(&self) -> ClusterFarZMode {
         match self {
             ClusterConfig::None => ClusterFarZMode::Constant(0.0),
-            ClusterConfig::Single => ClusterFarZMode::MaxLightRange,
+            ClusterConfig::Single => ClusterFarZMode::MaxClusterableObjectRange,
             ClusterConfig::XYZ { z_config, .. } | ClusterConfig::FixedZ { z_config, .. } => {
                 z_config.far_z_mode
             }
@@ -342,13 +343,13 @@ impl Clusters {
         self.dimensions = UVec3::ZERO;
         self.near = 0.0;
         self.far = 0.0;
-        self.lights.clear();
+        self.clusterable_objects.clear();
     }
 }
 
 pub fn add_clusters(
     mut commands: Commands,
-    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), Without<Clusters>>,
+    cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
 ) {
     for (entity, config, camera) in &cameras {
         if !camera.is_active {
@@ -356,14 +357,15 @@ pub fn add_clusters(
         }
 
         let config = config.copied().unwrap_or_default();
-        // actual settings here don't matter - they will be overwritten in assign_lights_to_clusters
+        // actual settings here don't matter - they will be overwritten in
+        // `assign_objects_to_clusters``
         commands
             .entity(entity)
             .insert((Clusters::default(), config));
     }
 }
 
-impl VisiblePointLights {
+impl VisibleClusterableObjects {
     #[inline]
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Entity> {
         self.entities.iter()
@@ -380,7 +382,7 @@ impl VisiblePointLights {
     }
 }
 
-impl GlobalVisiblePointLights {
+impl GlobalVisibleClusterableObjects {
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &Entity> {
         self.entities.iter()
@@ -392,7 +394,7 @@ impl GlobalVisiblePointLights {
     }
 }
 
-impl FromWorld for GlobalLightMeta {
+impl FromWorld for GlobalClusterableObjectMeta {
     fn from_world(world: &mut World) -> Self {
         Self::new(
             world
@@ -402,16 +404,16 @@ impl FromWorld for GlobalLightMeta {
     }
 }
 
-impl GlobalLightMeta {
+impl GlobalClusterableObjectMeta {
     pub fn new(buffer_binding_type: BufferBindingType) -> Self {
         Self {
-            gpu_point_lights: GpuPointLights::new(buffer_binding_type),
+            gpu_clusterable_objects: GpuClusterableObjects::new(buffer_binding_type),
             entity_to_index: EntityHashMap::default(),
         }
     }
 }
 
-impl GpuPointLights {
+impl GpuClusterableObjects {
     fn new(buffer_binding_type: BufferBindingType) -> Self {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => Self::storage(),
@@ -427,17 +429,19 @@ impl GpuPointLights {
         Self::Storage(StorageBuffer::default())
     }
 
-    pub(crate) fn set(&mut self, mut lights: Vec<GpuPointLight>) {
+    pub(crate) fn set(&mut self, mut clusterable_objects: Vec<GpuClusterableObject>) {
         match self {
-            GpuPointLights::Uniform(buffer) => {
-                let len = lights.len().min(MAX_UNIFORM_BUFFER_POINT_LIGHTS);
-                let src = &lights[..len];
+            GpuClusterableObjects::Uniform(buffer) => {
+                let len = clusterable_objects
+                    .len()
+                    .min(MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS);
+                let src = &clusterable_objects[..len];
                 let dst = &mut buffer.get_mut().data[..len];
                 dst.copy_from_slice(src);
             }
-            GpuPointLights::Storage(buffer) => {
+            GpuClusterableObjects::Storage(buffer) => {
                 buffer.get_mut().data.clear();
-                buffer.get_mut().data.append(&mut lights);
+                buffer.get_mut().data.append(&mut clusterable_objects);
             }
         }
     }
@@ -448,41 +452,54 @@ impl GpuPointLights {
         render_queue: &RenderQueue,
     ) {
         match self {
-            GpuPointLights::Uniform(buffer) => buffer.write_buffer(render_device, render_queue),
-            GpuPointLights::Storage(buffer) => buffer.write_buffer(render_device, render_queue),
+            GpuClusterableObjects::Uniform(buffer) => {
+                buffer.write_buffer(render_device, render_queue);
+            }
+            GpuClusterableObjects::Storage(buffer) => {
+                buffer.write_buffer(render_device, render_queue);
+            }
         }
     }
 
     pub fn binding(&self) -> Option<BindingResource> {
         match self {
-            GpuPointLights::Uniform(buffer) => buffer.binding(),
-            GpuPointLights::Storage(buffer) => buffer.binding(),
+            GpuClusterableObjects::Uniform(buffer) => buffer.binding(),
+            GpuClusterableObjects::Storage(buffer) => buffer.binding(),
         }
     }
 
     pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZeroU64 {
         match buffer_binding_type {
-            BufferBindingType::Storage { .. } => GpuPointLightsStorage::min_size(),
-            BufferBindingType::Uniform => GpuPointLightsUniform::min_size(),
+            BufferBindingType::Storage { .. } => GpuClusterableObjectsStorage::min_size(),
+            BufferBindingType::Uniform => GpuClusterableObjectsUniform::min_size(),
         }
     }
 }
 
-impl Default for GpuPointLightsUniform {
+impl Default for GpuClusterableObjectsUniform {
     fn default() -> Self {
         Self {
-            data: Box::new([GpuPointLight::default(); MAX_UNIFORM_BUFFER_POINT_LIGHTS]),
+            data: Box::new(
+                [GpuClusterableObject::default(); MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS],
+            ),
         }
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-// Sort lights by
-// - point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous blocks in the fragment shader,
-// - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
-//   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
-// - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
-pub(crate) fn point_light_order(
+// Sort clusterable objects by:
+//
+// * point-light vs spot-light, so that we can iterate point lights and spot
+//   lights in contiguous blocks in the fragment shader,
+//
+// * then those with shadows enabled first, so that the index can be used to
+//   render at most `point_light_shadow_maps_count` point light shadows and
+//   `spot_light_shadow_maps_count` spot light shadow maps,
+//
+// * then by entity as a stable key to ensure that a consistent set of
+//   clusterable objects are chosen if the clusterable object count limit is
+//   exceeded.
+pub(crate) fn clusterable_object_order(
     (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
     (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),
 ) -> std::cmp::Ordering {
@@ -502,20 +519,26 @@ pub fn extract_clusters(
             continue;
         }
 
-        let num_entities: usize = clusters.lights.iter().map(|l| l.entities.len()).sum();
-        let mut data = Vec::with_capacity(clusters.lights.len() + num_entities);
-        for cluster_lights in &clusters.lights {
-            data.push(ExtractedClustersPointLightsElement::ClusterHeader(
-                cluster_lights.point_light_count as u32,
-                cluster_lights.spot_light_count as u32,
+        let num_entities: usize = clusters
+            .clusterable_objects
+            .iter()
+            .map(|l| l.entities.len())
+            .sum();
+        let mut data = Vec::with_capacity(clusters.clusterable_objects.len() + num_entities);
+        for cluster_objects in &clusters.clusterable_objects {
+            data.push(ExtractedClusterableObjectElement::ClusterHeader(
+                cluster_objects.point_light_count as u32,
+                cluster_objects.spot_light_count as u32,
             ));
-            for l in &cluster_lights.entities {
-                data.push(ExtractedClustersPointLightsElement::LightEntity(*l));
+            for clusterable_entity in &cluster_objects.entities {
+                data.push(ExtractedClusterableObjectElement::ClusterableObjectEntity(
+                    *clusterable_entity,
+                ));
             }
         }
 
         commands.get_or_spawn(entity).insert((
-            ExtractedClustersPointLights { data },
+            ExtractedClusterableObjects { data },
             ExtractedClusterConfig {
                 near: clusters.near,
                 far: clusters.far,
@@ -530,8 +553,8 @@ pub fn prepare_clusters(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mesh_pipeline: Res<MeshPipeline>,
-    global_light_meta: Res<GlobalLightMeta>,
-    views: Query<(Entity, &ExtractedClustersPointLights)>,
+    global_clusterable_object_meta: Res<GlobalClusterableObjectMeta>,
+    views: Query<(Entity, &ExtractedClusterableObjects)>,
 ) {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(
@@ -545,7 +568,7 @@ pub fn prepare_clusters(
 
         for record in &extracted_clusters.data {
             match record {
-                ExtractedClustersPointLightsElement::ClusterHeader(
+                ExtractedClusterableObjectElement::ClusterHeader(
                     point_light_count,
                     spot_light_count,
                 ) => {
@@ -556,15 +579,20 @@ pub fn prepare_clusters(
                         *spot_light_count as usize,
                     );
                 }
-                ExtractedClustersPointLightsElement::LightEntity(entity) => {
-                    if let Some(light_index) = global_light_meta.entity_to_index.get(entity) {
+                ExtractedClusterableObjectElement::ClusterableObjectEntity(entity) => {
+                    if let Some(clusterable_object_index) =
+                        global_clusterable_object_meta.entity_to_index.get(entity)
+                    {
                         if view_clusters_bindings.n_indices() >= ViewClusterBindings::MAX_INDICES
                             && !supports_storage_buffers
                         {
-                            warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
+                            warn!(
+                                "Clusterable object index lists are full! The clusterable \
+                                 objects in the view are present in too many clusters."
+                            );
                             break;
                         }
-                        view_clusters_bindings.push_index(*light_index);
+                        view_clusters_bindings.push_index(*clusterable_object_index);
                     }
                 }
             }
@@ -592,18 +620,19 @@ impl ViewClusterBindings {
     pub fn clear(&mut self) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
-                cluster_light_index_lists,
+                clusterable_object_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                *cluster_light_index_lists.get_mut().data = [UVec4::ZERO; Self::MAX_UNIFORM_ITEMS];
+                *clusterable_object_index_lists.get_mut().data =
+                    [UVec4::ZERO; Self::MAX_UNIFORM_ITEMS];
                 *cluster_offsets_and_counts.get_mut().data = [UVec4::ZERO; Self::MAX_UNIFORM_ITEMS];
             }
             ViewClusterBuffers::Storage {
-                cluster_light_index_lists,
+                clusterable_object_index_lists,
                 cluster_offsets_and_counts,
                 ..
             } => {
-                cluster_light_index_lists.get_mut().data.clear();
+                clusterable_object_index_lists.get_mut().data.clear();
                 cluster_offsets_and_counts.get_mut().data.clear();
             }
         }
@@ -648,7 +677,7 @@ impl ViewClusterBindings {
     pub fn push_index(&mut self, index: usize) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
-                cluster_light_index_lists,
+                clusterable_object_index_lists,
                 ..
             } => {
                 let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
@@ -656,14 +685,17 @@ impl ViewClusterBindings {
                 let sub_index = self.n_indices & ((1 << 2) - 1);
                 let index = index as u32;
 
-                cluster_light_index_lists.get_mut().data[array_index][component] |=
+                clusterable_object_index_lists.get_mut().data[array_index][component] |=
                     index << (8 * sub_index);
             }
             ViewClusterBuffers::Storage {
-                cluster_light_index_lists,
+                clusterable_object_index_lists,
                 ..
             } => {
-                cluster_light_index_lists.get_mut().data.push(index as u32);
+                clusterable_object_index_lists
+                    .get_mut()
+                    .data
+                    .push(index as u32);
             }
         }
 
@@ -673,32 +705,32 @@ impl ViewClusterBindings {
     pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
-                cluster_light_index_lists,
+                clusterable_object_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                cluster_light_index_lists.write_buffer(render_device, render_queue);
+                clusterable_object_index_lists.write_buffer(render_device, render_queue);
                 cluster_offsets_and_counts.write_buffer(render_device, render_queue);
             }
             ViewClusterBuffers::Storage {
-                cluster_light_index_lists,
+                clusterable_object_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                cluster_light_index_lists.write_buffer(render_device, render_queue);
+                clusterable_object_index_lists.write_buffer(render_device, render_queue);
                 cluster_offsets_and_counts.write_buffer(render_device, render_queue);
             }
         }
     }
 
-    pub fn light_index_lists_binding(&self) -> Option<BindingResource> {
+    pub fn clusterable_object_index_lists_binding(&self) -> Option<BindingResource> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
-                cluster_light_index_lists,
+                clusterable_object_index_lists,
                 ..
-            } => cluster_light_index_lists.binding(),
+            } => clusterable_object_index_lists.binding(),
             ViewClusterBuffers::Storage {
-                cluster_light_index_lists,
+                clusterable_object_index_lists,
                 ..
-            } => cluster_light_index_lists.binding(),
+            } => clusterable_object_index_lists.binding(),
         }
     }
 
@@ -715,12 +747,12 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn min_size_cluster_light_index_lists(
+    pub fn min_size_clusterable_object_index_lists(
         buffer_binding_type: BufferBindingType,
     ) -> NonZeroU64 {
         match buffer_binding_type {
-            BufferBindingType::Storage { .. } => GpuClusterLightIndexListsStorage::min_size(),
-            BufferBindingType::Uniform => GpuClusterLightIndexListsUniform::min_size(),
+            BufferBindingType::Storage { .. } => GpuClusterableObjectIndexListsStorage::min_size(),
+            BufferBindingType::Uniform => GpuClusterableObjectIndexListsUniform::min_size(),
         }
     }
 
@@ -744,21 +776,21 @@ impl ViewClusterBuffers {
 
     fn uniform() -> Self {
         ViewClusterBuffers::Uniform {
-            cluster_light_index_lists: UniformBuffer::default(),
+            clusterable_object_index_lists: UniformBuffer::default(),
             cluster_offsets_and_counts: UniformBuffer::default(),
         }
     }
 
     fn storage() -> Self {
         ViewClusterBuffers::Storage {
-            cluster_light_index_lists: StorageBuffer::default(),
+            clusterable_object_index_lists: StorageBuffer::default(),
             cluster_offsets_and_counts: StorageBuffer::default(),
         }
     }
 }
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit 256 point lights in one uniform
+// that means we can fit 256 clusterable objects in one uniform
 // buffer, which means the count can be at most 256 so it
 // needs 9 bits.
 // The array of indices can also use u8 and that means the
@@ -778,15 +810,15 @@ fn pack_offset_and_counts(offset: usize, point_count: usize, spot_count: usize) 
 }
 
 #[derive(ShaderType)]
-struct GpuClusterLightIndexListsUniform {
+struct GpuClusterableObjectIndexListsUniform {
     data: Box<[UVec4; ViewClusterBindings::MAX_UNIFORM_ITEMS]>,
 }
 
-// NOTE: Assert at compile time that GpuClusterLightIndexListsUniform
+// NOTE: Assert at compile time that GpuClusterableObjectIndexListsUniform
 // fits within the maximum uniform buffer binding size
-const _: () = assert!(GpuClusterLightIndexListsUniform::SHADER_SIZE.get() <= 16384);
+const _: () = assert!(GpuClusterableObjectIndexListsUniform::SHADER_SIZE.get() <= 16384);
 
-impl Default for GpuClusterLightIndexListsUniform {
+impl Default for GpuClusterableObjectIndexListsUniform {
     fn default() -> Self {
         Self {
             data: Box::new([UVec4::ZERO; ViewClusterBindings::MAX_UNIFORM_ITEMS]),

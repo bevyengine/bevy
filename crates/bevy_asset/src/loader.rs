@@ -9,7 +9,6 @@ use crate::{
 use bevy_ecs::world::World;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
-use futures_lite::AsyncReadExt;
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -22,7 +21,7 @@ use thiserror::Error;
 /// should be loaded.
 pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
-    type Asset: crate::Asset;
+    type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
@@ -30,7 +29,7 @@ pub trait AssetLoader: Send + Sync + 'static {
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut dyn Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
@@ -47,7 +46,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     /// Asynchronously loads the asset(s) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut dyn Reader,
         meta: Box<dyn AssetMetaDyn>,
         load_context: LoadContext<'a>,
     ) -> BoxedFuture<
@@ -78,7 +77,7 @@ where
     /// Processes the asset in an asynchronous closure.
     fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut dyn Reader,
         meta: Box<dyn AssetMetaDyn>,
         mut load_context: LoadContext<'a>,
     ) -> BoxedFuture<
@@ -93,7 +92,7 @@ where
                 .expect("AssetLoader settings should match the loader type");
             let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
                 .await
-                .map_err(|error| error.into())?;
+                .map_err(Into::into)?;
             Ok(load_context.finish(asset, Some(meta)).into())
         })
     }
@@ -288,7 +287,7 @@ impl<A: Asset> AssetContainer for A {
     }
 }
 
-/// An error that occurs when attempting to call [`LoadContext::load_direct`]
+/// An error that occurs when attempting to call [`DirectNestedLoader::load`](crate::DirectNestedLoader::load)
 #[derive(Error, Debug)]
 #[error("Failed to load dependency {dependency:?} {error}")]
 pub struct LoadDirectError {
@@ -519,7 +518,7 @@ impl<'a> LoadContext<'a> {
         path: AssetPath<'static>,
         meta: Box<dyn AssetMetaDyn>,
         loader: &dyn ErasedAssetLoader,
-        reader: &mut Reader<'_>,
+        reader: &mut dyn Reader,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
         let loaded_asset = self
             .asset_server
@@ -540,7 +539,7 @@ impl<'a> LoadContext<'a> {
             .meta
             .as_ref()
             .and_then(|m| m.processed_info().as_ref());
-        let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
+        let hash = info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
         Ok(loaded_asset)
     }

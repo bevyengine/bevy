@@ -3,7 +3,7 @@ mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::tracing::{error, info, info_span};
+use bevy_utils::tracing::{error, info, info_span, warn};
 pub use graph_runner::*;
 pub use render_device::*;
 
@@ -20,7 +20,8 @@ use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, Instance, Queue, RequestAdapterOptions,
+    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
+    RequestAdapterOptions,
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
@@ -187,22 +188,19 @@ pub async fn initialize_renderer(
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
 
-    #[cfg(feature = "wgpu_trace")]
-    let trace_path = {
-        let path = std::path::Path::new("wgpu_trace");
-        // ignore potential error, wgpu will log it
-        let _ = std::fs::create_dir(path);
-        Some(path)
-    };
-    #[cfg(not(feature = "wgpu_trace"))]
-    let trace_path = None;
+    if adapter_info.device_type == DeviceType::Cpu {
+        warn!(
+            "The selected adapter is using a driver that only supports software rendering. \
+             This is likely to be very slow. See https://bevyengine.org/learn/errors/b0006/"
+        );
+    }
 
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
         features = adapter.features();
-        if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
+        if adapter_info.device_type == DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
             // should not be automatically enabled in this case. It is however beneficial for
@@ -326,17 +324,30 @@ pub async fn initialize_renderer(
             max_non_sampler_bindings: limits
                 .max_non_sampler_bindings
                 .min(constrained_limits.max_non_sampler_bindings),
+            max_color_attachments: limits
+                .max_color_attachments
+                .min(constrained_limits.max_color_attachments),
+            max_color_attachment_bytes_per_sample: limits
+                .max_color_attachment_bytes_per_sample
+                .min(constrained_limits.max_color_attachment_bytes_per_sample),
+            min_subgroup_size: limits
+                .min_subgroup_size
+                .max(constrained_limits.min_subgroup_size),
+            max_subgroup_size: limits
+                .max_subgroup_size
+                .min(constrained_limits.max_subgroup_size),
         };
     }
 
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                label: options.device_label.as_ref().map(AsRef::as_ref),
                 required_features: features,
                 required_limits: limits,
+                memory_hints: options.memory_hints.clone(),
             },
-            trace_path,
+            options.trace_path.as_deref(),
         )
         .await
         .unwrap();
@@ -411,7 +422,7 @@ impl<'w> RenderContext<'w> {
     /// configured using the provided `descriptor`.
     pub fn begin_tracked_render_pass<'a>(
         &'a mut self,
-        descriptor: RenderPassDescriptor<'a, '_>,
+        descriptor: RenderPassDescriptor<'_>,
     ) -> TrackedRenderPass<'a> {
         // Cannot use command_encoder() as we need to split the borrow on self
         let command_encoder = self.command_encoder.get_or_insert_with(|| {

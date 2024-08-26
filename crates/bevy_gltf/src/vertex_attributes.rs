@@ -49,7 +49,7 @@ impl<'a> BufferAccessor<'a> {
     /// Creates an iterator over the elements in this accessor
     fn iter<T: gltf::accessor::Item>(self) -> Result<gltf::accessor::Iter<'a, T>, AccessFailed> {
         gltf::accessor::Iter::new(self.accessor, |buffer: gltf::Buffer| {
-            self.buffer_data.get(buffer.index()).map(|v| v.as_slice())
+            self.buffer_data.get(buffer.index()).map(Vec::as_slice)
         })
         .ok_or(AccessFailed::MalformedData)
     }
@@ -272,7 +272,7 @@ pub(crate) fn convert_attribute(
         }
         gltf::Semantic::Extras(name) => custom_vertex_attributes
             .get(name.as_str())
-            .map(|attr| (attr.clone(), ConversionMode::Any)),
+            .map(|attr| (*attr, ConversionMode::Any)),
         _ => None,
     } {
         let raw_iter = VertexAttributeIter::from_accessor(accessor.clone(), buffer_data);

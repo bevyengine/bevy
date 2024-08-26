@@ -23,6 +23,8 @@ pub mod syncunsafecell;
 
 mod cow_arc;
 mod default;
+mod object_safe;
+pub use object_safe::assert_object_safe;
 mod once;
 mod parallel_queue;
 
@@ -47,7 +49,7 @@ use std::{
 
 #[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
-    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. WASM),
+    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
     /// futures aren't Send.
     pub trait ConditionalSend: Send {}
     impl<T: Send> ConditionalSend for T {}
@@ -62,7 +64,7 @@ mod conditional_send {
 
 pub use conditional_send::*;
 
-/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. WASM),
+/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
 /// futures aren't Send.
 pub trait ConditionalSendFuture: std::future::Future + ConditionalSend {}
 impl<T: std::future::Future + ConditionalSend> ConditionalSendFuture for T {}
@@ -374,7 +376,7 @@ pub struct NoOpHasher(u64);
 
 // This is for types that already contain a high-quality hash and want to skip
 // re-hashing that hash.
-impl std::hash::Hasher for NoOpHasher {
+impl Hasher for NoOpHasher {
     fn finish(&self) -> u64 {
         self.0
     }
@@ -504,7 +506,7 @@ mod tests {
             fn write_u64(&mut self, _: u64) {}
         }
 
-        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
+        Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 
     #[test]

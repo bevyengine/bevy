@@ -108,6 +108,7 @@ mod commands;
 mod exclusive_function_system;
 mod exclusive_system_param;
 mod function_system;
+mod observer_system;
 mod query;
 #[allow(clippy::module_inception)]
 mod system;
@@ -124,6 +125,7 @@ pub use commands::*;
 pub use exclusive_function_system::*;
 pub use exclusive_system_param::*;
 pub use function_system::*;
+pub use observer_system::*;
 pub use query::*;
 pub use system::*;
 pub use system_name::*;
@@ -149,6 +151,10 @@ use crate::world::World;
 // This trait has to be generic because we have potentially overlapping impls, in particular
 // because Rust thinks a type could impl multiple different `FnMut` combinations
 // even though none can currently
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid system with input `{In}` and output `{Out}`",
+    label = "invalid system"
+)]
 pub trait IntoSystem<In, Out, Marker>: Sized {
     /// The type of [`System`] that this instance converts into.
     type System: System<In = In, Out = Out>;
@@ -306,9 +312,9 @@ where
     assert_is_system(system);
 }
 
-/// Ensures that the provided system doesn't with itself.
+/// Ensures that the provided system doesn't conflict with itself.
 ///
-/// This function will  panic if the provided system conflict with itself.
+/// This function will panic if the provided system conflict with itself.
 ///
 /// Note: this will run the system on an empty world.
 pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Params>>(sys: S) {
@@ -334,10 +340,11 @@ impl<T> std::ops::DerefMut for In<T> {
 
 #[cfg(test)]
 mod tests {
+    use bevy_utils::default;
     use std::any::TypeId;
 
-    use bevy_utils::default;
-
+    use crate::prelude::EntityRef;
+    use crate::world::EntityMut;
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
@@ -551,9 +558,69 @@ mod tests {
     }
 
     #[test]
+    fn any_of_working() {
+        fn sys(_: Query<AnyOf<(&mut A, &B)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn any_of_with_and_without_common() {
+        fn sys(_: Query<(&mut D, &C, AnyOf<(&A, &B)>)>, _: Query<&mut D, Without<C>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_mut_and_ref() {
+        fn sys(_: Query<AnyOf<(&mut A, &A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_ref_and_mut() {
+        fn sys(_: Query<AnyOf<(&A, &mut A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "&bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_mut_and_option() {
+        fn sys(_: Query<AnyOf<(&mut A, Option<&A>)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn any_of_with_entity_and_mut() {
+        fn sys(_: Query<AnyOf<(Entity, &mut A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn any_of_with_empty_and_mut() {
+        fn sys(_: Query<AnyOf<((), &mut A)>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     #[should_panic = "error[B0001]"]
     fn any_of_has_no_filter_with() {
         fn sys(_: Query<(AnyOf<(&A, ())>, &mut B)>, _: Query<&mut B, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "&mut bevy_ecs::system::tests::A conflicts with a previous access in this query."]
+    fn any_of_with_conflicting() {
+        fn sys(_: Query<AnyOf<(&mut A, &mut A)>>) {}
         let mut world = World::default();
         run_system(&mut world, sys);
     }
@@ -737,6 +804,15 @@ mod tests {
     #[should_panic]
     fn conflicting_query_immut_system() {
         fn sys(_q1: Query<&A>, _q2: Query<&mut A>) {}
+
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic]
+    fn changed_trackers_or_conflict() {
+        fn sys(_: Query<&mut A>, _: Query<(), Or<(Changed<A>,)>>) {}
 
         let mut world = World::default();
         run_system(&mut world, sys);
@@ -1027,7 +1103,7 @@ mod tests {
             .get_resource_id(TypeId::of::<B>())
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
-        assert_eq!(conflicts, vec![b_id, d_id]);
+        assert_eq!(conflicts, vec![b_id, d_id].into());
     }
 
     #[test]
@@ -1420,7 +1496,7 @@ mod tests {
         assert_eq!(
             system
                 .archetype_component_access()
-                .reads()
+                .component_reads()
                 .collect::<HashSet<_>>(),
             expected_ids
         );
@@ -1450,7 +1526,7 @@ mod tests {
         assert_eq!(
             system
                 .archetype_component_access()
-                .reads()
+                .component_reads()
                 .collect::<HashSet<_>>(),
             expected_ids
         );
@@ -1468,7 +1544,7 @@ mod tests {
         assert_eq!(
             system
                 .archetype_component_access()
-                .reads()
+                .component_reads()
                 .collect::<HashSet<_>>(),
             expected_ids
         );
@@ -1530,6 +1606,33 @@ mod tests {
     #[should_panic]
     fn assert_system_does_not_conflict() {
         fn system(_query: Query<(&mut W<u32>, &mut W<u32>)>) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "error[B0001]: Query<bevy_ecs::world::entity_ref::EntityMut, ()> in system bevy_ecs::system::tests::assert_world_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+    )]
+    fn assert_world_and_entity_mut_system_does_conflict() {
+        fn system(_query: &World, _q2: Query<EntityMut>) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "error[B0001]: Query<bevy_ecs::world::entity_ref::EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_ref_and_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+    )]
+    fn assert_entity_ref_and_entity_mut_system_does_conflict() {
+        fn system(_query: Query<EntityRef>, _q2: Query<EntityMut>) {}
+        super::assert_system_does_not_conflict(system);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "error[B0001]: Query<bevy_ecs::world::entity_ref::EntityMut, ()> in system bevy_ecs::system::tests::assert_entity_mut_system_does_conflict::system accesses component(s) in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevyengine.org/learn/errors/b0001"
+    )]
+    fn assert_entity_mut_system_does_conflict() {
+        fn system(_query: Query<EntityMut>, _q2: Query<EntityMut>) {}
         super::assert_system_does_not_conflict(system);
     }
 
@@ -1678,7 +1781,7 @@ mod tests {
                     res.0 += 2;
                 },
             )
-                .distributive_run_if(resource_exists::<A>.or_else(resource_exists::<B>)),
+                .distributive_run_if(resource_exists::<A>.or(resource_exists::<B>)),
         );
         sched.initialize(&mut world).unwrap();
         sched.run(&mut world);

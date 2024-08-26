@@ -7,20 +7,21 @@
 
 use bevy::{
     color::palettes::basic::YELLOW,
-    core_pipeline::core_2d::Transparent2d,
+    core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::FloatOrd,
     prelude::*,
     render::{
-        mesh::{GpuMesh, Indices, MeshVertexAttribute},
+        mesh::{Indices, MeshVertexAttribute, RenderMesh},
         render_asset::{RenderAssetUsages, RenderAssets},
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
             ViewSortedRenderPhases,
         },
         render_resource::{
-            BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
-            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
+            BlendState, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
+            DepthStencilState, Face, FragmentState, FrontFace, MultisampleState, PipelineCache,
+            PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor,
+            SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilState,
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         texture::BevyDefault,
@@ -198,7 +199,22 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 topology: key.primitive_topology(),
                 strip_index_format: None,
             },
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_2D_DEPTH_FORMAT,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
@@ -246,7 +262,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // Project the world position of the mesh into screen position
-    let model = mesh2d_functions::get_model_matrix(vertex.instance_index);
+    let model = mesh2d_functions::get_world_from_local(vertex.instance_index);
     out.clip_position = mesh2d_functions::mesh2d_position_local_to_clip(model, vec4<f32>(vertex.position, 1.0));
     // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
     out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
@@ -325,7 +341,7 @@ pub fn extract_colored_mesh2d(
         }
 
         let transforms = Mesh2dTransforms {
-            transform: (&transform.affine()).into(),
+            world_from_local: (&transform.affine()).into(),
             flags: MeshFlags::empty().bits(),
         };
 
@@ -351,17 +367,16 @@ pub fn queue_colored_mesh2d(
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    msaa: Res<Msaa>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderColoredMesh2dInstances>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(Entity, &VisibleEntities, &ExtractedView)>,
+    mut views: Query<(Entity, &VisibleEntities, &ExtractedView, &Msaa)>,
 ) {
     if render_mesh_instances.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (view_entity, visible_entities, view) in &mut views {
+    for (view_entity, visible_entities, view, msaa) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
@@ -386,7 +401,7 @@ pub fn queue_colored_mesh2d(
                 let pipeline_id =
                     pipelines.specialize(&pipeline_cache, &colored_mesh2d_pipeline, mesh2d_key);
 
-                let mesh_z = mesh2d_transforms.transform.translation.z;
+                let mesh_z = mesh2d_transforms.world_from_local.translation.z;
                 transparent_phase.add(Transparent2d {
                     entity: *visible_entity,
                     draw_function: draw_colored_mesh2d,

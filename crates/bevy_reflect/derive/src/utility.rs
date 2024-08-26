@@ -94,7 +94,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     /// The default bounds added are as follows:
     /// - `Self` has the bounds `Any + Send + Sync`
     /// - Type parameters have the bound `TypePath` unless `#[reflect(type_path = false)]` is present
-    /// - Active fields have the bounds `TypePath` and either `Reflect` if `#[reflect(from_reflect = false)]` is present
+    /// - Active fields have the bounds `TypePath` and either `PartialReflect` if `#[reflect(from_reflect = false)]` is present
     ///   or `FromReflect` otherwise (or no bounds at all if `#[reflect(no_field_bounds)]` is present)
     ///
     /// When the derive is used with `#[reflect(where)]`, the bounds specified in the attribute are added as well.
@@ -150,17 +150,19 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     ///   // Custom bounds
     ///   T: MyTrait,
     /// ```
-    pub fn extend_where_clause(
-        &self,
-        where_clause: Option<&WhereClause>,
-    ) -> proc_macro2::TokenStream {
+    pub fn extend_where_clause(&self, where_clause: Option<&WhereClause>) -> TokenStream {
+        // We would normally just use `Self`, but that won't work for generating things like assertion functions
+        // and trait impls for a type's reference (e.g. `impl FromArg for &MyType`)
+        let this = self.meta.type_path().true_type();
+
         let required_bounds = self.required_bounds();
+
         // Maintain existing where clause, if any.
         let mut generic_where_clause = if let Some(where_clause) = where_clause {
             let predicates = where_clause.predicates.iter();
-            quote! {where Self: #required_bounds, #(#predicates,)*}
+            quote! {where #this: #required_bounds, #(#predicates,)*}
         } else {
-            quote!(where Self: #required_bounds,)
+            quote!(where #this: #required_bounds,)
         };
 
         // Add additional reflection trait bounds
@@ -223,20 +225,23 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
                 quote!(
                     #ty : #reflect_bound
                         + #bevy_reflect_path::TypePath
+                        // Needed for `Typed` impls
+                        + #bevy_reflect_path::MaybeTyped
+                        // Needed for `GetTypeRegistration` impls
                         + #bevy_reflect_path::__macro_exports::RegisterForReflection
                 )
             }))
         }
     }
 
-    /// The `Reflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
+    /// The `PartialReflect` or `FromReflect` bound to use based on `#[reflect(from_reflect = false)]`.
     fn reflect_bound(&self) -> TokenStream {
         let bevy_reflect_path = self.meta.bevy_reflect_path();
 
         if self.meta.from_reflect().should_auto_derive() {
             quote!(#bevy_reflect_path::FromReflect)
         } else {
-            quote!(#bevy_reflect_path::Reflect)
+            quote!(#bevy_reflect_path::PartialReflect)
         }
     }
 
@@ -251,7 +256,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     }
 
     /// The minimum required bounds for a type to be reflected.
-    fn required_bounds(&self) -> proc_macro2::TokenStream {
+    fn required_bounds(&self) -> TokenStream {
         quote!(#FQAny + #FQSend + #FQSync)
     }
 }
@@ -297,7 +302,7 @@ impl<T> ResultSifter<T> {
 }
 
 /// Turns an `Option<TokenStream>` into a `TokenStream` for an `Option`.
-pub(crate) fn wrap_in_option(tokens: Option<proc_macro2::TokenStream>) -> proc_macro2::TokenStream {
+pub(crate) fn wrap_in_option(tokens: Option<TokenStream>) -> TokenStream {
     match tokens {
         Some(tokens) => quote! {
             #FQOption::Some(#tokens)
@@ -316,11 +321,11 @@ pub(crate) enum StringExpr {
     /// This is either a string literal like `"mystring"`,
     /// or a string created by a macro like [`module_path`]
     /// or [`concat`].
-    Const(proc_macro2::TokenStream),
+    Const(TokenStream),
     /// A [string slice](str) that is borrowed for a `'static` lifetime.
-    Borrowed(proc_macro2::TokenStream),
+    Borrowed(TokenStream),
     /// An [owned string](String).
-    Owned(proc_macro2::TokenStream),
+    Owned(TokenStream),
 }
 
 impl<T: ToString + Spanned> From<T> for StringExpr {
@@ -349,7 +354,7 @@ impl StringExpr {
     /// The returned expression will allocate unless the [`StringExpr`] is [already owned].
     ///
     /// [already owned]: StringExpr::Owned
-    pub fn into_owned(self) -> proc_macro2::TokenStream {
+    pub fn into_owned(self) -> TokenStream {
         match self {
             Self::Const(tokens) | Self::Borrowed(tokens) => quote! {
                 ::std::string::ToString::to_string(#tokens)
@@ -359,7 +364,7 @@ impl StringExpr {
     }
 
     /// Returns tokens for a statically borrowed [string slice](str).
-    pub fn into_borrowed(self) -> proc_macro2::TokenStream {
+    pub fn into_borrowed(self) -> TokenStream {
         match self {
             Self::Const(tokens) | Self::Borrowed(tokens) => tokens,
             Self::Owned(owned) => quote! {

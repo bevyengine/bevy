@@ -12,8 +12,6 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 use bevy_utils::tracing::warn;
 
-use crate::CursorIcon;
-
 /// Marker [`Component`] for the window considered the primary window.
 ///
 /// Currently this is assumed to only exist on 1 entity at a time.
@@ -107,16 +105,16 @@ impl NormalizedWindowRef {
 ///
 /// Because this component is synchronized with `winit`, it can be used to perform
 /// OS-integrated windowing operations. For example, here's a simple system
-/// to change the cursor type:
+/// to change the window mode:
 ///
 /// ```
 /// # use bevy_ecs::query::With;
 /// # use bevy_ecs::system::Query;
-/// # use bevy_window::{CursorIcon, PrimaryWindow, Window};
-/// fn change_cursor(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+/// # use bevy_window::{WindowMode, PrimaryWindow, Window, MonitorSelection};
+/// fn change_window_mode(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
 ///     // Query returns one window typically.
 ///     for mut window in windows.iter_mut() {
-///         window.cursor.icon = CursorIcon::Wait;
+///         window.mode = WindowMode::Fullscreen(MonitorSelection::Current);
 ///     }
 /// }
 /// ```
@@ -128,8 +126,9 @@ impl NormalizedWindowRef {
 )]
 #[reflect(Component, Default)]
 pub struct Window {
-    /// The cursor of this window.
-    pub cursor: Cursor,
+    /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
+    /// window entity.
+    pub cursor_options: CursorOptions,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used.
@@ -281,6 +280,34 @@ pub struct Window {
     /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
     /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
     pub desired_maximum_frame_latency: Option<NonZeroU32>,
+    /// Sets whether this window recognizes [`PinchGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.PinchGesture.html)
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_pinch_gesture: bool,
+    /// Sets whether this window recognizes [`RotationGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.RotationGesture.html)
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_rotation_gesture: bool,
+    /// Sets whether this window recognizes [`DoubleTapGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.DoubleTapGesture.html)
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    /// - On macOS, they are recognized by default and can't be disabled.
+    pub recognize_doubletap_gesture: bool,
+    /// Sets whether this window recognizes [`PanGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.PanGesture.html),
+    /// with a number of fingers between the first value and the last.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - Only used on iOS.
+    pub recognize_pan_gesture: Option<(u8, u8)>,
 }
 
 impl Default for Window {
@@ -288,7 +315,7 @@ impl Default for Window {
         Self {
             title: "App".to_owned(),
             name: None,
-            cursor: Default::default(),
+            cursor_options: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
@@ -311,6 +338,10 @@ impl Default for Window {
             visible: true,
             skip_taskbar: false,
             desired_maximum_frame_latency: None,
+            recognize_pinch_gesture: false,
+            recognize_rotation_gesture: false,
+            recognize_doubletap_gesture: false,
+            recognize_pan_gesture: None,
         }
     }
 }
@@ -374,7 +405,7 @@ impl Window {
     ///
     /// See [`WindowResolution`] for an explanation about logical/physical sizes.
     #[inline]
-    pub fn physical_size(&self) -> bevy_math::UVec2 {
+    pub fn physical_size(&self) -> UVec2 {
         self.resolution.physical_size()
     }
 
@@ -511,23 +542,20 @@ impl WindowResizeConstraints {
 }
 
 /// Cursor data for a [`Window`].
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, Default)]
-pub struct Cursor {
-    /// What the cursor should look like while inside the window.
-    pub icon: CursorIcon,
-
+pub struct CursorOptions {
     /// Whether the cursor is visible or not.
     ///
     /// ## Platform-specific
     ///
     /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window.
-    /// To stop the cursor from leaving the window, change [`Cursor::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
+    ///     To stop the cursor from leaving the window, change [`CursorOptions::grab_mode`] to [`CursorGrabMode::Locked`] or [`CursorGrabMode::Confined`]
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub visible: bool,
@@ -551,10 +579,9 @@ pub struct Cursor {
     pub hit_test: bool,
 }
 
-impl Default for Cursor {
+impl Default for CursorOptions {
     fn default() -> Self {
-        Cursor {
-            icon: CursorIcon::Default,
+        CursorOptions {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
@@ -612,14 +639,14 @@ impl WindowPosition {
 ///
 /// There are three sizes associated with a window:
 /// - the physical size,
-/// which represents the actual height and width in physical pixels
-/// the window occupies on the monitor,
+///     which represents the actual height and width in physical pixels
+///     the window occupies on the monitor,
 /// - the logical size,
-/// which represents the size that should be used to scale elements
-/// inside the window, measured in logical pixels,
+///     which represents the size that should be used to scale elements
+///     inside the window, measured in logical pixels,
 /// - the requested size,
-/// measured in logical pixels, which is the value submitted
-/// to the API when creating the window, or requesting that it be resized.
+///     measured in logical pixels, which is the value submitted
+///     to the API when creating the window, or requesting that it be resized.
 ///
 /// ## Scale factor
 ///
@@ -786,6 +813,18 @@ impl WindowResolution {
         self.scale_factor = scale_factor;
     }
 
+    /// Set the window's scale factor, and apply it to the currently known physical size.
+    /// This may get overridden by the backend. This is mostly useful on window creation,
+    /// so that the window is created with the expected size instead of waiting for a resize
+    /// event after its creation.
+    #[inline]
+    #[doc(hidden)]
+    pub fn set_scale_factor_and_apply_to_physical_size(&mut self, scale_factor: f32) {
+        self.scale_factor = scale_factor;
+        self.physical_width = (self.physical_width as f32 * scale_factor) as u32;
+        self.physical_height = (self.physical_height as f32 * scale_factor) as u32;
+    }
+
     /// Set the window's scale factor, this will be used over what the backend decides.
     ///
     /// This can change the logical and physical sizes if the resulting physical
@@ -826,7 +865,7 @@ impl From<DVec2> for WindowResolution {
     }
 }
 
-/// Defines if and how the [`Cursor`] is grabbed by a [`Window`].
+/// Defines if and how the cursor is grabbed by a [`Window`].
 ///
 /// ## Platform-specific
 ///
@@ -901,6 +940,8 @@ pub enum MonitorSelection {
     Primary,
     /// Uses the monitor with the specified index.
     Index(usize),
+    /// Uses a given [`crate::monitor::Monitor`] entity.
+    Entity(Entity),
 }
 
 /// Presentation mode for a [`Window`].
@@ -1048,7 +1089,7 @@ pub enum WindowMode {
     #[default]
     Windowed,
     /// The window should appear fullscreen by being borderless and using the full
-    /// size of the screen.
+    /// size of the screen on the given [`MonitorSelection`].
     ///
     /// When setting this, the window's physical size will be modified to match the size
     /// of the current monitor resolution, and the logical size will follow based
@@ -1058,8 +1099,8 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    BorderlessFullscreen,
-    /// The window should be in "true"/"legacy" Fullscreen mode.
+    BorderlessFullscreen(MonitorSelection),
+    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
     ///
     /// When setting this, the operating system will be requested to use the
     /// **closest** resolution available for the current monitor to match as
@@ -1067,8 +1108,8 @@ pub enum WindowMode {
     /// After that, the window's physical size will be modified to match
     /// that monitor resolution, and the logical size will follow based on the
     /// scale factor, see [`WindowResolution`].
-    SizedFullscreen,
-    /// The window should be in "true"/"legacy" Fullscreen mode.
+    SizedFullscreen(MonitorSelection),
+    /// The window should be in "true"/"legacy" Fullscreen mode on the given [`MonitorSelection`].
     ///
     /// When setting this, the operating system will be requested to use the
     /// **biggest** resolution available for the current monitor.
@@ -1080,7 +1121,7 @@ pub enum WindowMode {
     /// the window's logical size may be different from its physical size.
     /// If you want to avoid that behavior, you can use the [`WindowResolution::set_scale_factor_override`] function
     /// or the [`WindowResolution::with_scale_factor_override`] builder method to set the scale factor to 1.0.
-    Fullscreen,
+    Fullscreen(MonitorSelection),
 }
 
 /// Specifies where a [`Window`] should appear relative to other overlapping windows (on top or under) .

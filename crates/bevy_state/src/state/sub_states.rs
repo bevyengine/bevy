@@ -140,12 +140,17 @@ pub use bevy_state_macros::SubStates;
 ///
 /// impl FreelyMutableState for GamePhase {}
 /// ```
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used as a sub-state",
+    label = "invalid sub-state",
+    note = "consider annotating `{Self}` with `#[derive(SubStates)]`"
+)]
 pub trait SubStates: States + FreelyMutableState {
     /// The set of states from which the [`Self`] is derived.
     ///
     /// This can either be a single type that implements [`States`], or a tuple
     /// containing multiple types that implement [`States`], or any combination of
-    /// types implementing [`States`] and Options of types implementing [`States`]
+    /// types implementing [`States`] and Options of types implementing [`States`].
     type SourceStates: StateSet;
 
     /// This function gets called whenever one of the [`SourceStates`](Self::SourceStates) changes.

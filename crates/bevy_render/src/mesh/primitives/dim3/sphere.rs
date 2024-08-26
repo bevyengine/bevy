@@ -16,9 +16,9 @@ pub enum IcosphereError {
     #[error("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
     TooManyVertices {
         /// The number of subdivisions used. 79 is the largest allowed value for a mesh to be generated.
-        subdivisions: usize,
+        subdivisions: u32,
         /// The number of vertices generated. 65535 is the largest allowed value for a mesh to be generated.
-        number_of_resulting_points: usize,
+        number_of_resulting_points: u32,
     },
 }
 
@@ -29,17 +29,17 @@ pub enum SphereKind {
     Ico {
         /// The number of subdivisions applied.
         /// The number of faces quadruples with each subdivision.
-        subdivisions: usize,
+        subdivisions: u32,
     },
     /// A UV sphere, a spherical mesh that consists of quadrilaterals
     /// apart from triangles at the top and bottom.
     Uv {
         /// The number of longitudinal sectors, aka the horizontal resolution.
         #[doc(alias = "horizontal_resolution")]
-        sectors: usize,
+        sectors: u32,
         /// The number of latitudinal stacks, aka the vertical resolution.
         #[doc(alias = "vertical_resolution")]
-        stacks: usize,
+        stacks: u32,
     },
 }
 
@@ -82,7 +82,7 @@ impl SphereMeshBuilder {
     /// and an [`IcosphereError`] is returned.
     ///
     /// A good default is `5` subdivisions.
-    pub fn ico(&self, subdivisions: usize) -> Result<Mesh, IcosphereError> {
+    pub fn ico(&self, subdivisions: u32) -> Result<Mesh, IcosphereError> {
         if subdivisions >= 80 {
             /*
             Number of triangles:
@@ -119,11 +119,11 @@ impl SphereMeshBuilder {
                 number_of_resulting_points,
             });
         }
-        let generated = IcoSphere::new(subdivisions, |point| {
+        let generated = IcoSphere::new(subdivisions as usize, |point| {
             let inclination = point.y.acos();
             let azimuth = point.z.atan2(point.x);
 
-            let norm_inclination = inclination / std::f32::consts::PI;
+            let norm_inclination = inclination / PI;
             let norm_azimuth = 0.5 - (azimuth / std::f32::consts::TAU);
 
             [norm_azimuth, norm_inclination]
@@ -166,7 +166,7 @@ impl SphereMeshBuilder {
     /// longitudinal sectors and latitudinal stacks, aka horizontal and vertical resolution.
     ///
     /// A good default is `32` sectors and `18` stacks.
-    pub fn uv(&self, sectors: usize, stacks: usize) -> Mesh {
+    pub fn uv(&self, sectors: u32, stacks: u32) -> Mesh {
         // Largely inspired from http://www.songho.ca/opengl/gl_sphere.html
 
         let sectors_f32 = sectors as f32;
@@ -175,10 +175,11 @@ impl SphereMeshBuilder {
         let sector_step = 2. * PI / sectors_f32;
         let stack_step = PI / stacks_f32;
 
-        let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(stacks * sectors);
-        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(stacks * sectors);
-        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(stacks * sectors);
-        let mut indices: Vec<u32> = Vec::with_capacity(stacks * sectors * 2 * 3);
+        let n_vertices = (stacks * sectors) as usize;
+        let mut vertices: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+        let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
+        let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
+        let mut indices: Vec<u32> = Vec::with_capacity(n_vertices * 2 * 3);
 
         for i in 0..stacks + 1 {
             let stack_angle = PI / 2. - (i as f32) * stack_step;
@@ -206,14 +207,14 @@ impl SphereMeshBuilder {
             let mut k2 = k1 + sectors + 1;
             for _j in 0..sectors {
                 if i != 0 {
-                    indices.push(k1 as u32);
-                    indices.push(k2 as u32);
-                    indices.push((k1 + 1) as u32);
+                    indices.push(k1);
+                    indices.push(k2);
+                    indices.push(k1 + 1);
                 }
                 if i != stacks - 1 {
-                    indices.push((k1 + 1) as u32);
-                    indices.push(k2 as u32);
-                    indices.push((k2 + 1) as u32);
+                    indices.push(k1 + 1);
+                    indices.push(k2);
+                    indices.push(k2 + 1);
                 }
                 k1 += 1;
                 k2 += 1;

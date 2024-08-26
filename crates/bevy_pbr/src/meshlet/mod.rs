@@ -3,12 +3,14 @@
 mod asset;
 #[cfg(feature = "meshlet_processor")]
 mod from_mesh;
-mod gpu_scene;
-mod material_draw_nodes;
-mod material_draw_prepare;
+mod instance_manager;
+mod material_pipeline_prepare;
+mod material_shade_nodes;
+mod meshlet_mesh_manager;
 mod persistent_buffer;
 mod persistent_buffer_impls;
 mod pipelines;
+mod resource_manager;
 mod visibility_buffer_raster_node;
 
 pub mod graph {
@@ -24,33 +26,30 @@ pub mod graph {
 }
 
 pub(crate) use self::{
-    gpu_scene::{queue_material_meshlet_meshes, MeshletGpuScene},
-    material_draw_prepare::{
+    instance_manager::{queue_material_meshlet_meshes, InstanceManager},
+    material_pipeline_prepare::{
         prepare_material_meshlet_meshes_main_opaque_pass, prepare_material_meshlet_meshes_prepass,
     },
 };
 
-pub use self::asset::*;
+pub use self::asset::{MeshletMesh, MeshletMeshSaverLoader};
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::MeshToMeshletMeshConversionError;
 
 use self::{
-    gpu_scene::{
-        extract_meshlet_meshes, perform_pending_meshlet_mesh_writes,
-        prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
-    },
     graph::NodeMeshlet,
-    material_draw_nodes::{
-        MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
-    },
-    material_draw_prepare::{
+    instance_manager::extract_meshlet_mesh_entities,
+    material_pipeline_prepare::{
         MeshletViewMaterialsDeferredGBufferPrepass, MeshletViewMaterialsMainOpaquePass,
         MeshletViewMaterialsPrepass,
     },
-    pipelines::{
-        MeshletPipelines, MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE, MESHLET_CULLING_SHADER_HANDLE,
-        MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE, MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
-        MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
+    material_shade_nodes::{
+        MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
+    },
+    meshlet_mesh_manager::{perform_pending_meshlet_mesh_writes, MeshletMeshManager},
+    pipelines::*,
+    resource_manager::{
+        prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups, ResourceManager,
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
@@ -58,10 +57,7 @@ use crate::{graph::NodePbr, Material};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{load_internal_asset, AssetApp, Handle};
 use bevy_core_pipeline::{
-    core_3d::{
-        graph::{Core3d, Node3d},
-        Camera3d,
-    },
+    core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_ecs::{
@@ -74,7 +70,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, TextureUsages},
+    render_resource::Shader,
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{
@@ -84,6 +80,7 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_utils::tracing::error;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
@@ -95,26 +92,53 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// Once meshes are pre-processed into a [`MeshletMesh`], this plugin can render these kinds of scenes very efficiently.
 ///
 /// In comparison to Bevy's standard renderer:
-/// * Minimal rendering work is done on the CPU. All rendering is GPU-driven.
 /// * Much more efficient culling. Meshlets can be culled individually, instead of all or nothing culling for entire meshes at a time.
-/// Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
-/// * Much more efficient batching. All geometry can be rasterized in a single indirect draw.
+///   Additionally, occlusion culling can eliminate meshlets that would cause overdraw.
+/// * Much more efficient batching. All geometry can be rasterized in a single draw.
 /// * Scales better with large amounts of dense geometry and overdraw. Bevy's standard renderer will bottleneck sooner.
 /// * Near-seamless level of detail (LOD).
-/// * Much greater base overhead. Rendering will be slower than Bevy's standard renderer with small amounts of geometry and overdraw.
-/// * Much greater memory usage.
+/// * Much greater base overhead. Rendering will be slower and use more memory than Bevy's standard renderer
+///   with small amounts of geometry and overdraw.
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
-/// * More limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
+/// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
-/// This plugin is not compatible with [`Msaa`], and adding this plugin will disable it.
+/// This plugin requires a fairly recent GPU that supports [`WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX`].
 ///
-/// This plugin does not work on WASM.
+/// This plugin currently works only on the Vulkan backend.
+///
+/// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
+/// [`Msaa`] set to [`Msaa::Off`].
+///
+/// Mixing forward+prepass and deferred rendering for opaque materials is not currently supported when using this plugin.
+/// You must use one or the other by setting [`crate::DefaultOpaqueRendererMethod`].
+/// Do not override [`crate::Material::opaque_render_method`] for any material when using this plugin.
 ///
 /// ![A render of the Stanford dragon as a `MeshletMesh`](https://raw.githubusercontent.com/bevyengine/bevy/main/crates/bevy_pbr/src/meshlet/meshlet_preview.png)
-pub struct MeshletPlugin;
+pub struct MeshletPlugin {
+    /// The maximum amount of clusters that can be processed at once,
+    /// used to control the size of a pre-allocated GPU buffer.
+    ///
+    /// If this number is too low, you'll see rendering artifacts like missing or blinking meshes.
+    ///
+    /// Each cluster slot costs 4 bytes of VRAM.
+    pub cluster_buffer_slots: u32,
+}
+
+impl MeshletPlugin {
+    /// [`WgpuFeatures`] required for this plugin to function.
+    pub fn required_wgpu_features() -> WgpuFeatures {
+        WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
+            | WgpuFeatures::SHADER_INT64
+            | WgpuFeatures::SUBGROUP
+            | WgpuFeatures::PUSH_CONSTANTS
+    }
+}
 
 impl Plugin for MeshletPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(target_endian = "big")]
+        compile_error!("MeshletPlugin is only supported on little-endian processors.");
+
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
@@ -136,7 +160,7 @@ impl Plugin for MeshletPlugin {
         load_internal_asset!(
             app,
             MESHLET_CULLING_SHADER_HANDLE,
-            "cull_meshlets.wgsl",
+            "cull_clusters.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -147,8 +171,14 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_VISIBILITY_BUFFER_RASTER_SHADER_HANDLE,
-            "visibility_buffer_raster.wgsl",
+            MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
+            "visibility_buffer_software_raster.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
+            "visibility_buffer_hardware_raster.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -159,14 +189,19 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_COPY_MATERIAL_DEPTH_SHADER_HANDLE,
-            "copy_material_depth.wgsl",
+            MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE,
+            "resolve_render_targets.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
+            "remap_1d_to_2d_dispatch.wgsl",
             Shader::from_wgsl
         );
 
         app.init_asset::<MeshletMesh>()
-            .register_asset_loader(MeshletMeshSaverLoad)
-            .insert_resource(Msaa::Off)
+            .register_asset_loader(MeshletMeshSaverLoader)
             .add_systems(
                 PostUpdate,
                 check_visibility::<WithMeshletMesh>.in_set(VisibilitySystems::CheckVisibility),
@@ -178,13 +213,14 @@ impl Plugin for MeshletPlugin {
             return;
         };
 
-        if !render_app
-            .world()
-            .resource::<RenderDevice>()
-            .features()
-            .contains(WgpuFeatures::PUSH_CONSTANTS)
-        {
-            panic!("MeshletPlugin can't be used. GPU lacks support: WgpuFeatures::PUSH_CONSTANTS is not supported.");
+        let render_device = render_app.world().resource::<RenderDevice>().clone();
+        let features = render_device.features();
+        if !features.contains(Self::required_wgpu_features()) {
+            error!(
+                "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
+                Self::required_wgpu_features().difference(features)
+            );
+            std::process::exit(1);
         }
 
         render_app
@@ -207,24 +243,31 @@ impl Plugin for MeshletPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    // TODO: Meshlet VisibilityBufferRaster should be after main pass when not using depth prepass
-                    NodePbr::ShadowPass,
-                    Node3d::Prepass,
-                    Node3d::DeferredPrepass,
                     NodeMeshlet::VisibilityBufferRasterPass,
+                    NodePbr::ShadowPass,
+                    //
                     NodeMeshlet::Prepass,
+                    Node3d::Prepass,
+                    //
                     NodeMeshlet::DeferredPrepass,
+                    Node3d::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
+                    //
                     Node3d::StartMainPass,
-                    Node3d::MainOpaquePass,
                     NodeMeshlet::MainOpaquePass,
+                    Node3d::MainOpaquePass,
                     Node3d::EndMainPass,
                 ),
             )
-            .init_resource::<MeshletGpuScene>()
+            .init_resource::<MeshletMeshManager>()
+            .insert_resource(InstanceManager::new())
+            .insert_resource(ResourceManager::new(
+                self.cluster_buffer_slots,
+                &render_device,
+            ))
             .init_resource::<MeshletPipelines>()
-            .add_systems(ExtractSchedule, extract_meshlet_meshes)
+            .add_systems(ExtractSchedule, extract_meshlet_mesh_entities)
             .add_systems(
                 Render,
                 (
@@ -275,19 +318,18 @@ pub type WithMeshletMesh = With<Handle<MeshletMesh>>;
 fn configure_meshlet_views(
     mut views_3d: Query<(
         Entity,
-        &mut Camera3d,
+        &Msaa,
         Has<NormalPrepass>,
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
     )>,
     mut commands: Commands,
 ) {
-    for (entity, mut camera_3d, normal_prepass, motion_vector_prepass, deferred_prepass) in
-        &mut views_3d
-    {
-        let mut usages: TextureUsages = camera_3d.depth_texture_usages.into();
-        usages |= TextureUsages::TEXTURE_BINDING;
-        camera_3d.depth_texture_usages = usages.into();
+    for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
+        if *msaa != Msaa::Off {
+            error!("MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin.");
+            std::process::exit(1);
+        }
 
         if !(normal_prepass || motion_vector_prepass || deferred_prepass) {
             commands

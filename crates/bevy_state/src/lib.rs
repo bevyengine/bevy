@@ -4,15 +4,15 @@
 //!
 //! - Standard [`States`](state::States) can only be changed by manually setting the [`NextState<S>`](state::NextState) resource.
 //!   These states are the baseline on which the other state types are built, and can be used on
-//!   their own for many simple patterns. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/state.rs)
+//!   their own for many simple patterns. See the [state example](https://github.com/bevyengine/bevy/blob/latest/examples/state/state.rs)
 //!   for a simple use case.
 //! - [`SubStates`](state::SubStates) are children of other states - they can be changed manually using [`NextState<S>`](state::NextState),
-//!   but are removed from the [`World`](bevy_ecs::prelude::World) if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/sub_states.rs)
+//!   but are removed from the [`World`](bevy_ecs::prelude::World) if the source states aren't in the right state. See the [sub_states example](https://github.com/bevyengine/bevy/blob/latest/examples/state/sub_states.rs)
 //!   for a simple use case based on the derive macro, or read the trait docs for more complex scenarios.
 //! - [`ComputedStates`](state::ComputedStates) are fully derived from other states - they provide a [`compute`](state::ComputedStates::compute) method
 //!   that takes in the source states and returns their derived value. They are particularly useful for situations
 //!   where a simplified view of the source states is necessary - such as having an `InAMenu` computed state, derived
-//!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/computed_states.rs)
+//!   from a source state that defines multiple distinct menus. See the [computed state example](https://github.com/bevyengine/bevy/blob/latest/examples/state/computed_states.rs)
 //!   to see usage samples for these states.
 //!
 //! Most of the utilities around state involve running systems during transitions between states, or
@@ -27,6 +27,10 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 
+// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods
 pub mod app;
@@ -35,6 +39,14 @@ pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
 
+/// Provides [`StateScoped`](crate::state_scoped::StateScoped) and
+/// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
+pub mod state_scoped;
+
+#[cfg(feature = "bevy_reflect")]
+/// Provides definitions for the basic traits required by the state system
+pub mod reflect;
+
 /// Most commonly used re-exported types.
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
@@ -42,9 +54,15 @@ pub mod prelude {
     pub use crate::app::AppExtStates;
     #[doc(hidden)]
     pub use crate::condition::*;
+    #[cfg(feature = "bevy_app")]
+    #[doc(hidden)]
+    pub use crate::reflect::{ReflectFreelyMutableState, ReflectState};
     #[doc(hidden)]
     pub use crate::state::{
-        ComputedStates, NextState, OnEnter, OnExit, OnTransition, State, StateSet, StateTransition,
-        StateTransitionEvent, States, SubStates,
+        last_transition, ComputedStates, EnterSchedules, ExitSchedules, NextState, OnEnter, OnExit,
+        OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States, SubStates,
+        TransitionSchedules,
     };
+    #[doc(hidden)]
+    pub use crate::state_scoped::StateScoped;
 }

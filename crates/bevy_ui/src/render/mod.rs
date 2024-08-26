@@ -2,12 +2,13 @@ mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
 
-use bevy_color::{Alpha, LinearRgba};
+use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::ViewSortedRenderPhases;
+use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
@@ -162,7 +163,7 @@ pub struct ExtractedUiNode {
     pub color: LinearRgba,
     pub rect: Rect,
     pub image: AssetId<Image>,
-    pub atlas_size: Option<Vec2>,
+    pub atlas_scaling: Option<Vec2>,
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
@@ -277,7 +278,7 @@ pub fn extract_uinode_background_colors(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-                atlas_size: None,
+                atlas_scaling: None,
                 flip_x: false,
                 flip_y: false,
                 camera_entity,
@@ -334,7 +335,10 @@ pub fn extract_uinode_images(
         };
 
         // Skip invisible images
-        if !view_visibility.get() || image.color.is_fully_transparent() {
+        if !view_visibility.get()
+            || image.color.is_fully_transparent()
+            || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             continue;
         }
 
@@ -347,19 +351,17 @@ pub fn extract_uinode_images(
             continue;
         }
 
-        let (rect, atlas_size) = match atlas {
+        let (rect, atlas_scaling) = match atlas {
             Some(atlas) => {
                 let Some(layout) = texture_atlases.get(&atlas.layout) else {
                     // Atlas not present in assets resource (should this warn the user?)
                     continue;
                 };
                 let mut atlas_rect = layout.textures[atlas.index].as_rect();
-                let mut atlas_size = layout.size.as_vec2();
-                let scale = uinode.size() / atlas_rect.size();
-                atlas_rect.min *= scale;
-                atlas_rect.max *= scale;
-                atlas_size *= scale;
-                (atlas_rect, Some(atlas_size))
+                let atlas_scaling = uinode.size() / atlas_rect.size();
+                atlas_rect.min *= atlas_scaling;
+                atlas_rect.max *= atlas_scaling;
+                (atlas_rect, Some(atlas_scaling))
             }
             None => (
                 Rect {
@@ -416,7 +418,7 @@ pub fn extract_uinode_images(
                 rect,
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
-                atlas_size,
+                atlas_scaling,
                 flip_x: image.flip_x,
                 flip_y: image.flip_y,
                 camera_entity,
@@ -594,7 +596,7 @@ pub fn extract_uinode_borders(
                     ..Default::default()
                 },
                 image,
-                atlas_size: None,
+                atlas_scaling: None,
                 clip: clip.map(|clip| clip.clip),
                 flip_x: false,
                 flip_y: false,
@@ -671,7 +673,7 @@ pub fn extract_uinode_outlines(
             ),
         ];
 
-        let transform = global_transform.compute_matrix();
+        let world_from_local = global_transform.compute_matrix();
         for edge in outline_edges {
             if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
                 extracted_uinodes.uinodes.insert(
@@ -679,14 +681,15 @@ pub fn extract_uinode_outlines(
                     ExtractedUiNode {
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
-                        transform: transform * Mat4::from_translation(edge.center().extend(0.)),
+                        transform: world_from_local
+                            * Mat4::from_translation(edge.center().extend(0.)),
                         color: outline.color.into(),
                         rect: Rect {
                             max: edge.size(),
                             ..Default::default()
                         },
                         image,
-                        atlas_size: None,
+                        atlas_scaling: None,
                         clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
@@ -755,13 +758,13 @@ pub fn extract_default_ui_camera_view(
             );
             let default_camera_view = commands
                 .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
+                    clip_from_view: projection_matrix,
+                    world_from_view: GlobalTransform::from_xyz(
                         0.0,
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
-                    view_projection: None,
+                    clip_from_world: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         physical_origin.x,
@@ -856,7 +859,7 @@ pub fn extract_uinode_text(
             }
             let atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
 
-            let mut rect = atlas.textures[atlas_info.glyph_index].as_rect();
+            let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
             extracted_uinodes.uinodes.insert(
@@ -868,7 +871,7 @@ pub fn extract_uinode_text(
                     color,
                     rect,
                     image: atlas_info.texture.id(),
-                    atlas_size: Some(atlas.size.as_vec2() * inverse_scale_factor),
+                    atlas_scaling: Some(Vec2::splat(inverse_scale_factor)),
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
@@ -1170,7 +1173,14 @@ pub fn prepare_uinodes(
                     let uvs = if flags == shader_flags::UNTEXTURED {
                         [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                     } else {
-                        let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
+                        let image = gpu_images
+                            .get(extracted_uinode.image)
+                            .expect("Image was checked during batching and should still exist");
+                        // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
+                        let atlas_extent = extracted_uinode
+                            .atlas_scaling
+                            .map(|scaling| image.size.as_vec2() * scaling)
+                            .unwrap_or(uinode_rect.max);
                         if extracted_uinode.flip_x {
                             std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
                             positions_diff[0].x *= -1.;

@@ -1,10 +1,10 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, ComponentInitializer, Components, StorageType, Tick},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table, TableRow},
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
@@ -70,7 +70,11 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
 /// [`State`]: Self::State
-
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid `Query` filter",
+    label = "invalid `Query` filter",
+    note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
+)]
 pub trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
     /// components are accessed by the Query.
@@ -138,6 +142,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
+
     #[inline]
     unsafe fn init_fetch(
         _world: UnsafeWorldCell,
@@ -179,8 +185,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         access.and_with(id);
     }
 
-    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
-        initializer.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -246,6 +252,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
+
     #[inline]
     unsafe fn init_fetch(
         _world: UnsafeWorldCell,
@@ -287,8 +295,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         access.and_without(id);
     }
 
-    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
-        initializer.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
@@ -382,6 +390,16 @@ macro_rules! impl_or_query_filter {
                 item
             }
 
+            fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+                let ($($filter,)*) = fetch;
+                ($(
+                    OrFetch {
+                        fetch: $filter::shrink_fetch($filter.fetch),
+                        matches: $filter.matches
+                    },
+                )*)
+            }
+
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
 
             #[inline]
@@ -439,26 +457,27 @@ macro_rules! impl_or_query_filter {
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                let mut _new_access = access.clone();
-                let mut _not_first = false;
+                let mut _new_access = FilteredAccess::matches_nothing();
+
                 $(
-                    if _not_first {
-                        let mut intermediate = access.clone();
-                        $filter::update_component_access($filter, &mut intermediate);
-                        _new_access.append_or(&intermediate);
-                        _new_access.extend_access(&intermediate);
-                    } else {
-                        $filter::update_component_access($filter, &mut _new_access);
-                        _new_access.required = access.required.clone();
-                        _not_first = true;
-                    }
+                    // Create an intermediate because `access`'s value needs to be preserved
+                    // for the next filter, and `_new_access` has to be modified only by `append_or` to it.
+                    let mut intermediate = access.clone();
+                    $filter::update_component_access($filter, &mut intermediate);
+                    _new_access.append_or(&intermediate);
+                    // Also extend the accesses required to compute the filter. This is required because
+                    // otherwise a `Query<(), Or<(Changed<Foo>,)>` won't conflict with `Query<&mut Foo>`.
+                    _new_access.extend_access(&intermediate);
                 )*
+
+                // The required components remain the same as the original `access`.
+                _new_access.required = std::mem::take(&mut access.required);
 
                 *access = _new_access;
             }
 
-            fn init_state(initializer: &mut ComponentInitializer) -> Self::State {
-                ($($filter::init_state(initializer),)*)
+            fn init_state(world: &mut World) -> Self::State {
+                ($($filter::init_state(world),)*)
             }
 
             fn get_state(components: &Components) -> Option<Self::State> {
@@ -488,11 +507,11 @@ macro_rules! impl_or_query_filter {
 }
 
 macro_rules! impl_tuple_query_filter {
-    ($($name: ident),*) => {
+    ($(#[$meta:meta])* $($name: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         #[allow(clippy::unused_unit)]
-
+        $(#[$meta])*
         impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
@@ -511,7 +530,13 @@ macro_rules! impl_tuple_query_filter {
     };
 }
 
-all_tuples!(impl_tuple_query_filter, 0, 15, F);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_tuple_query_filter,
+    0,
+    15,
+    F
+);
 all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
 /// A filter on a component that only retains results the first time after they have been added.
@@ -603,6 +628,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         item
     }
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -683,14 +712,14 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        if access.access().has_write(id) {
+        if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
-        access.add_read(id);
+        access.add_component_read(id);
     }
 
-    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
-        initializer.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
@@ -814,6 +843,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         item
     }
 
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
     #[inline]
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
@@ -894,14 +927,14 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
-        if access.access().has_write(id) {
+        if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
         }
-        access.add_read(id);
+        access.add_component_read(id);
     }
 
-    fn init_state(initializer: &mut ComponentInitializer) -> ComponentId {
-        initializer.init_component::<T>()
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
@@ -942,17 +975,35 @@ impl<T: Component> QueryFilter for Changed<T> {
 ///
 /// [`Added`] and [`Changed`] works with entities, and therefore are not archetypal. As such
 /// they do not implement [`ArchetypeFilter`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid `Query` filter based on archetype information",
+    label = "invalid `Query` filter",
+    note = "an `ArchetypeFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
+)]
 pub trait ArchetypeFilter: QueryFilter {}
 
 impl<T: Component> ArchetypeFilter for With<T> {}
 impl<T: Component> ArchetypeFilter for Without<T> {}
 
 macro_rules! impl_archetype_filter_tuple {
-    ($($filter: ident),*) => {
+    ($(#[$meta:meta])* $($filter: ident),*) => {
+        $(#[$meta])*
         impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for ($($filter,)*) {}
+    };
+}
 
+macro_rules! impl_archetype_or_filter_tuple {
+    ($($filter: ident),*) => {
         impl<$($filter: ArchetypeFilter),*> ArchetypeFilter for Or<($($filter,)*)> {}
     };
 }
 
-all_tuples!(impl_archetype_filter_tuple, 0, 15, F);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_archetype_filter_tuple,
+    0,
+    15,
+    F
+);
+
+all_tuples!(impl_archetype_or_filter_tuple, 0, 15, F);

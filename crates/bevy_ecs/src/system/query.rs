@@ -405,6 +405,36 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         unsafe { Query::new(self.world, new_state, self.last_run, self.this_run) }
     }
 
+    /// Returns a new `Query` reborrowing the access from this one. The current query will be unusable
+    /// while the new one exists.
+    ///
+    /// # Example
+    ///
+    /// For example this allows to call other methods or other systems that require an owned `Query` without
+    /// completely giving up ownership of it.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn helper_system(query: Query<&ComponentA>) { /* ... */}
+    ///
+    /// fn system(mut query: Query<&ComponentA>) {
+    ///     helper_system(query.reborrow());
+    ///     // Can still use query here:
+    ///     for component in &query {
+    ///         // ...
+    ///     }
+    /// }
+    /// ```
+    pub fn reborrow(&mut self) -> Query<'_, 's, D, F> {
+        // SAFETY: this query is exclusively borrowed while the new one exists, so
+        // no overlapping access can occur.
+        unsafe { Query::new(self.world, self.state, self.last_run, self.this_run) }
+    }
+
     /// Returns an [`Iterator`] over the read-only query items.
     ///
     /// This iterator is always guaranteed to return results from each matching entity once and only once.
@@ -1150,7 +1180,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Panics
     ///
-    /// This method panics if the number of query item is **not** exactly one.
+    /// This method panics if the number of query items is **not** exactly one.
     ///
     /// # Example
     ///
@@ -1368,8 +1398,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
-        let components = self.world.components();
-        let state = self.state.transmute_filtered::<NewD, NewF>(components);
+        let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
         QueryLens {
             world: self.world,
             state,
@@ -1385,9 +1414,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
     ///
-    /// For example, this can take a `Query<&A>` and a `Queryy<&B>` and return a `Query<&A, &B>`.
-    /// The returned query will only return items with both `A` and `B`. Note that since filter
-    /// are dropped, non-archetypal filters like `Added` and `Changed` will no be respected.
+    /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
+    /// The returned query will only return items with both `A` and `B`. Note that since filters
+    /// are dropped, non-archetypal filters like `Added` and `Changed` will not be respected.
     /// To maintain or change filter terms see `Self::join_filtered`.
     ///
     /// ## Example
@@ -1446,7 +1475,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Equivalent to [`Self::join`] but also includes a [`QueryFilter`] type.
     ///
-    /// Note that the lens with iterate a subset of the original queries tables
+    /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
     /// `With` and `Without` will not necessarily be respected and non-archetypal
     /// terms like `Added` and `Changed` will only be respected if they are in
@@ -1460,10 +1489,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &mut self,
         other: &mut Query<OtherD, OtherF>,
     ) -> QueryLens<'_, NewD, NewF> {
-        let components = self.world.components();
         let state = self
             .state
-            .join_filtered::<OtherD, OtherF, NewD, NewF>(components, other.state);
+            .join_filtered::<OtherD, OtherF, NewD, NewF>(self.world, other.state);
         QueryLens {
             world: self.world,
             state,

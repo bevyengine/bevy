@@ -58,6 +58,7 @@ impl PersistentGpuBufferable for Arc<[Meshlet]> {
             let bytes = bytemuck::cast::<_, [u8; size_of::<Meshlet>()]>(Meshlet {
                 start_vertex_id: meshlet.start_vertex_id + vertex_offset,
                 start_index_id: meshlet.start_index_id + index_offset,
+                vertex_count: meshlet.vertex_count,
                 triangle_count: meshlet.triangle_count,
             });
             buffer_slice[i..(i + size)].clone_from_slice(&bytes);

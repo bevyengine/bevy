@@ -109,8 +109,6 @@ fn print_time(time: Res<Time>) {
 }
 ```
 
-The [`resources.rs`](examples/resources.rs) example illustrates how to read and write a Counter resource from Systems.
-
 ### Schedules
 
 Schedules run a set of Systems according to some execution strategy.
@@ -224,8 +222,6 @@ fn system(time: Res<Time>) {
 }
 ```
 
-The [`change_detection.rs`](examples/change_detection.rs) example shows how to query only for updated entities and react on changes in resources.
-
 ### Component Storage
 
 Bevy ECS supports multiple component storage types.
@@ -305,6 +301,52 @@ fn reader(mut reader: EventReader<MyEvent>) {
 }
 ```
 
-A minimal set up using events can be seen in [`events.rs`](examples/events.rs).
+### Observers
+
+Observers are systems that listen for a "trigger" of a specific `Event`:
+
+```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Event)]
+struct MyEvent {
+    message: String
+}
+
+let mut world = World::new();
+
+world.observe(|trigger: Trigger<MyEvent>| {
+    println!("{}", trigger.event().message);
+});
+
+world.flush();
+
+world.trigger(MyEvent {
+    message: "hello!".to_string(),
+});
+```
+
+These differ from `EventReader` and `EventWriter` in that they are "reactive". Rather than happening at a specific point in a schedule, they happen _immediately_ whenever a trigger happens. Triggers can trigger other triggers, and they all will be evaluated at the same time!
+
+Events can also be triggered to target specific entities:
+
+```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Event)]
+struct Explode;
+
+let mut world = World::new();
+let entity = world.spawn_empty().id();
+
+world.observe(|trigger: Trigger<Explode>, mut commands: Commands| {
+    println!("Entity {:?} goes BOOM!", trigger.entity());
+    commands.entity(trigger.entity()).despawn();
+});
+
+world.flush();
+
+world.trigger_targets(Explode, entity);
+```
 
 [bevy]: https://bevyengine.org/
