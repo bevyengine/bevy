@@ -728,7 +728,8 @@ impl<'w, 's> Commands<'w, 's> {
         SystemId::from_entity(entity)
     }
 
-    /// Similar to [`Self::register_system`], but caching the [`SystemId`] in a [`CachedSystemId`].
+    /// Similar to [`Self::register_system`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId).
     pub fn register_system_cached<
         I: 'static + Send,
         O: 'static + Send,
@@ -743,12 +744,14 @@ impl<'w, 's> Commands<'w, 's> {
         SystemId::from_entity(entity)
     }
 
-    /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a [`CachedSystemId`].
+    /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId).
     pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
         self.run_system_cached_with(system, ());
     }
 
-    /// Similar to [`Self::run_system_with_input`], but caching the [`SystemId`] in a [`CachedSystemId`].
+    /// Similar to [`Self::run_system_with_input`], but caching the [`SystemId`] in a
+    /// [`CachedSystemId`](crate::system::CachedSystemId).
     pub fn run_system_cached_with<
         I: 'static + Send,
         M: 'static,

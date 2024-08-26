@@ -105,7 +105,7 @@ impl<I, O> std::fmt::Debug for SystemId<I, O> {
 /// A cached [`SystemId`] distinguished by the unique function type of its system.
 ///
 /// This resource is inserted as part of [`World::register_system_cached`] and
-/// [`Commands::register_system_cached`].
+/// [`Commands::register_system_cached`](crate::system::commands::Commands::register_system_cached).
 #[derive(Resource)]
 pub struct CachedSystemId<S, I = (), O = ()> {
     /// The cached `SystemId`.
