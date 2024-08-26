@@ -417,7 +417,9 @@ mod tests {
         let reg = EmbeddedAssetRegistry::default();
         let path = std::path::PathBuf::from("a/b/asset.png");
         reg.insert_asset(path.clone(), &path, &[]);
+        assert!(reg.dir.get_asset(&path).is_some());
         assert!(reg.remove_asset(&path).is_some());
+        assert!(reg.dir.get_asset(&path).is_none());
         assert!(reg.remove_asset(&path).is_none());
     }
 }
