@@ -383,18 +383,25 @@ impl Transform {
         self.rotate(rotation);
     }
 
-    /// Flips the scale of this [`Transform`] based on which axes are not zero in the given `Dir3`.
+    /// Flips this [`Transform`]'s scale on the x axis
     #[inline]
-    pub fn flip(&mut self, dir: Dir3) {
-        if dir.x != 0.0 {
-            self.scale.x *= -1.0;
-        }
-        if dir.y != 0.0 {
-            self.scale.y *= -1.0;
-        }
-        if dir.z != 0.0 {
-            self.scale.z *= -1.0;
-        }
+    pub fn flip_x(&mut self) -> &mut Self {
+        self.scale.x *= -1.0;
+        self
+    }
+
+    /// Flips this [`Transform`]'s scale on the y axis
+    #[inline]
+    pub fn flip_y(&mut self) -> &mut Self {
+        self.scale.y *= -1.0;
+        self
+    }
+
+    /// Flips this [`Transform`]'s scale on the z axis
+    #[inline]
+    pub fn flip_z(&mut self) -> &mut Self {
+        self.scale.z *= -1.0;
+        self
     }
 
     /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target` position,
