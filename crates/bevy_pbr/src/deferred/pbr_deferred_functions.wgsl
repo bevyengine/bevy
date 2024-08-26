@@ -53,6 +53,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     } else {
         base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
     }
+
 #ifdef LIGHTMAP
     if (any(in.lightmap_light > vec3(0.0f))) {
         // Utilize the emissive channel to transmit the lightmap data. To ensure
