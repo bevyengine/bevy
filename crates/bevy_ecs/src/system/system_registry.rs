@@ -469,48 +469,41 @@ impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
     }
 }
 
-/// The [`Command`] type for registering and caching one shot systems from
+/// The [`Command`] type for registering, caching, and running a one shot system from
 /// [`Commands`](crate::system::Commands).
 ///
-/// This command needs an already boxed system to register, and an already spawned entity.
-pub struct RegisterSystemCached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> {
+/// This command needs an already boxed system to register.
+pub struct RunSystemCachedWith<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> {
     system: BoxedSystem<I, O>,
-    entity: Entity,
+    input: I,
     _marker: std::marker::PhantomData<fn() -> (M, S)>,
 }
 
-impl<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> RegisterSystemCached<I, O, M, S> {
+impl<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> RunSystemCachedWith<I, O, M, S> {
     /// Creates a new [`Command`] struct, which can be added to
     /// [`Commands`](crate::system::Commands).
-    pub fn new(system: S, entity: Entity) -> Self {
+    pub fn new(system: S, input: I) -> Self {
         Self {
             system: Box::new(IntoSystem::into_system(system)),
-            entity,
+            input,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<I: 'static, O: 'static, M: 'static, S: IntoSystem<I, O, M> + 'static> Command
-    for RegisterSystemCached<I, O, M, S>
+impl<I: 'static + Send, O: 'static, M: 'static, S: IntoSystem<I, O, M> + 'static> Command
+    for RunSystemCachedWith<I, O, M, S>
 {
     fn apply(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert_if_new((
-                RegisteredSystem {
-                    initialized: false,
-                    system: self.system,
-                },
-                SystemIdMarker,
-            ));
-        } else {
-            return;
-        }
-
-        if !world.contains_resource::<CachedSystemId<S, I, O>>() {
-            let system_id = SystemId::from_entity(self.entity);
-            world.insert_resource(CachedSystemId::<S, I, O>::new(system_id));
-        }
+        let id = match world.get_resource::<CachedSystemId<S, I, O>>() {
+            Some(cached) => cached.id,
+            None => {
+                let id = world.register_boxed_system(self.system);
+                world.insert_resource(CachedSystemId::<S, I, O>::new(id));
+                id
+            }
+        };
+        let _ = world.run_system_with_input(id, self.input);
     }
 }
 

@@ -2,9 +2,7 @@ mod parallel_scope;
 
 use core::panic::Location;
 
-use super::{
-    Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, RegisterSystemCached, Resource,
-};
+use super::{Deferred, IntoObserverSystem, IntoSystem, RegisterSystem, Resource, RunSystemCached};
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
@@ -728,22 +726,6 @@ impl<'w, 's> Commands<'w, 's> {
         SystemId::from_entity(entity)
     }
 
-    /// Similar to [`Self::register_system`], but caching the [`SystemId`] in a
-    /// [`CachedSystemId`](crate::system::CachedSystemId).
-    pub fn register_system_cached<
-        I: 'static + Send,
-        O: 'static + Send,
-        M: 'static,
-        S: IntoSystem<I, O, M> + 'static,
-    >(
-        &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
-        let entity = self.spawn_empty().id();
-        self.push(RegisterSystemCached::new(system, entity));
-        SystemId::from_entity(entity)
-    }
-
     /// Similar to [`Self::run_system`], but caching the [`SystemId`] in a
     /// [`CachedSystemId`](crate::system::CachedSystemId).
     pub fn run_system_cached<M: 'static, S: IntoSystem<(), (), M> + 'static>(&mut self, system: S) {
@@ -761,8 +743,7 @@ impl<'w, 's> Commands<'w, 's> {
         system: S,
         input: I,
     ) {
-        let id = self.register_system_cached(system);
-        self.run_system_with_input(id, input);
+        self.push(RunSystemCachedWith::new(system, input));
     }
 
     /// Pushes a generic [`Command`] to the command queue.
