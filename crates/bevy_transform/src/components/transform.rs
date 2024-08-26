@@ -384,6 +384,10 @@ impl Transform {
     }
 
     /// Flips this [`Transform`]'s scale on the x axis
+    ///
+    /// ```
+    /// assert_eq!(Transform::IDENTITY.flip_x().scale.x, -1);
+    /// ```
     #[inline]
     pub fn flip_x(&mut self) -> &mut Self {
         self.scale.x *= -1.0;
@@ -391,6 +395,10 @@ impl Transform {
     }
 
     /// Flips this [`Transform`]'s scale on the y axis
+    ///
+    /// ```
+    /// assert_eq!(Transform::IDENTITY.flip_y().scale.y, -1);
+    /// ```
     #[inline]
     pub fn flip_y(&mut self) -> &mut Self {
         self.scale.y *= -1.0;
@@ -398,6 +406,10 @@ impl Transform {
     }
 
     /// Flips this [`Transform`]'s scale on the z axis
+    ///
+    /// ```
+    /// assert_eq!(Transform::IDENTITY.flip_z().scale.z, -1);
+    /// ```
     #[inline]
     pub fn flip_z(&mut self) -> &mut Self {
         self.scale.z *= -1.0;
