@@ -4,6 +4,7 @@ use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
     files::SimpleFile,
     term,
+    term::termcolor::WriteColor,
 };
 use thiserror::Error;
 use tracing::trace;
@@ -180,11 +181,6 @@ impl ComposerError {
 
         let files = SimpleFile::new(path, source.as_str());
         let config = term::Config::default();
-        #[cfg(any(test, target_arch = "wasm32"))]
-        let mut writer = term::termcolor::NoColor::new(Vec::new());
-        #[cfg(not(any(test, target_arch = "wasm32")))]
-        let mut writer = term::termcolor::Ansi::new(Vec::new());
-
         let (labels, notes) = match &self.inner {
             ComposerErrorInner::DecorationInSource(range) => {
                 (vec![Label::primary((), range.clone())], vec![])
@@ -277,11 +273,35 @@ impl ComposerError {
             .with_labels(labels)
             .with_notes(notes);
 
-        term::emit(&mut writer, &config, &files, &diagnostic).expect("cannot write error");
+        let mut msg = Vec::with_capacity(256);
 
-        let msg = writer.into_inner();
-        let msg = String::from_utf8_lossy(&msg);
+        let mut color_writer;
+        let mut no_color_writer;
+        let writer: &mut dyn WriteColor = if supports_color() {
+            color_writer = term::termcolor::Ansi::new(&mut msg);
+            &mut color_writer
+        } else {
+            no_color_writer = term::termcolor::NoColor::new(&mut msg);
+            &mut no_color_writer
+        };
 
-        msg.to_string()
+        term::emit(writer, &config, &files, &diagnostic).expect("cannot write error");
+
+        String::from_utf8_lossy(&msg).into_owned()
+    }
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+fn supports_color() -> bool {
+    false
+}
+
+// termcolor doesn't expose this logic when using custom buffers
+#[cfg(not(any(test, target_arch = "wasm32")))]
+fn supports_color() -> bool {
+    match std::env::var_os("TERM") {
+        None if cfg!(unix) => false,
+        Some(term) if term == "dumb" => false,
+        _ => std::env::var_os("NO_COLOR").is_none(),
     }
 }
