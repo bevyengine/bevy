@@ -232,7 +232,7 @@ pub fn extract_uinode_background_colors(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
+            .and_then(|(_, c)| c.logical_viewport_size().ok())
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -375,7 +375,7 @@ pub fn extract_uinode_images(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
+            .and_then(|(_, c)| c.logical_viewport_size().ok())
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -546,7 +546,7 @@ pub fn extract_uinode_borders(
         let ui_logical_viewport_size = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|(_, c)| c.logical_viewport_size())
+            .and_then(|(_, c)| c.logical_viewport_size().ok())
             .unwrap_or(Vec2::ZERO)
             // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
             // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -736,12 +736,12 @@ pub fn extract_default_ui_camera_view(
         }
 
         if let (
-            Some(logical_size),
-            Some(URect {
+            Ok(logical_size),
+            Ok(URect {
                 min: physical_origin,
                 ..
             }),
-            Some(physical_size),
+            Ok(physical_size),
         ) = (
             camera.logical_viewport_size(),
             camera.physical_viewport_rect(),

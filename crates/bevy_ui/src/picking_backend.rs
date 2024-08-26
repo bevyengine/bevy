@@ -96,7 +96,7 @@ pub fn ui_picking(
                 continue;
             };
             let mut pointer_pos = pointer_location.position;
-            if let Some(viewport) = camera_data.logical_viewport_rect() {
+            if let Ok(viewport) = camera_data.logical_viewport_rect() {
                 pointer_pos -= viewport.min;
             }
             let scaled_pointer_pos = pointer_pos / **ui_scale;

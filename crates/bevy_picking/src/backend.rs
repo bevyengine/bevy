@@ -228,9 +228,9 @@ pub mod ray {
         }
         let mut viewport_pos = pointer_loc.position;
         if let Some(viewport) = &camera.viewport {
-            let viewport_logical = camera.to_logical(viewport.physical_position)?;
+            let viewport_logical = camera.to_logical(viewport.physical_position).ok()?;
             viewport_pos -= viewport_logical;
         }
-        camera.viewport_to_world(camera_tfm, viewport_pos)
+        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
     }
 }

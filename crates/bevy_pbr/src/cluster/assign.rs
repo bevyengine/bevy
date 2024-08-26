@@ -209,7 +209,7 @@ pub(crate) fn assign_objects_to_clusters(
             continue;
         }
 
-        let Some(screen_size) = camera.physical_viewport_size() else {
+        let Ok(screen_size) = camera.physical_viewport_size() else {
             clusters.clear();
             continue;
         };

@@ -805,7 +805,7 @@ mod tests {
             let (target_camera_entity, _) = cameras
                 .iter()
                 .find(|(_, camera)| {
-                    let Some(logical_viewport_rect) = camera.logical_viewport_rect() else {
+                    let Ok(logical_viewport_rect) = camera.logical_viewport_rect() else {
                         panic!("missing logical viewport")
                     };
                     // make sure cursor is in viewport and that viewport has at least 1px of size
