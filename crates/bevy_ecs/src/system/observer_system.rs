@@ -25,6 +25,11 @@ impl<
 }
 
 /// Implemented for systems that convert into [`ObserverSystem`].
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot become an `ObserverSystem`",
+    label = "the trait `IntoObserverSystem` is not implemented",
+    note = "for function `ObserverSystem`s, ensure the first argument is a `Trigger<T>` and any subsequent ones are `SystemParam`"
+)]
 pub trait IntoObserverSystem<E: 'static, B: Bundle, M, Out = ()>: Send + 'static {
     /// The type of [`System`] that this instance converts into.
     type System: ObserverSystem<E, B, Out>;

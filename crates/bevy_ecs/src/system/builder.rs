@@ -4,7 +4,7 @@ use crate::{
     prelude::QueryBuilder,
     query::{QueryData, QueryFilter, QueryState},
     system::{
-        system_param::{Local, ParamSet, SystemParam},
+        system_param::{DynSystemParam, DynSystemParamState, Local, ParamSet, SystemParam},
         Query, SystemMeta,
     },
     world::{FromWorld, World},
@@ -212,7 +212,7 @@ all_tuples!(impl_system_param_builder_tuple, 0, 16, P, B);
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
 /// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
 /// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
-pub struct ParamSetBuilder<T>(T);
+pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
     ($(($param: ident, $builder: ident, $meta: ident)),*) => {
@@ -251,6 +251,34 @@ macro_rules! impl_param_set_builder_tuple {
 
 all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
 
+/// A [`SystemParamBuilder`] for a [`DynSystemParam`].
+pub struct DynParamBuilder<'a>(
+    Box<dyn FnOnce(&mut World, &mut SystemMeta) -> DynSystemParamState + 'a>,
+);
+
+impl<'a> DynParamBuilder<'a> {
+    /// Creates a new [`DynParamBuilder`] by wrapping a [`SystemParamBuilder`] of any type.
+    /// The built [`DynSystemParam`] can be downcast to `T`.
+    pub fn new<T: SystemParam + 'static>(builder: impl SystemParamBuilder<T> + 'a) -> Self {
+        Self(Box::new(|world, meta| {
+            DynSystemParamState::new::<T>(builder.build(world, meta))
+        }))
+    }
+}
+
+// SAFETY: `DynSystemParam::get_param` will call `get_param` on the boxed `DynSystemParamState`,
+// and the boxed builder was a valid implementation of `SystemParamBuilder` for that type.
+// The resulting `DynSystemParam` can only perform access by downcasting to that param type.
+unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamBuilder<'a> {
+    fn build(
+        self,
+        world: &mut World,
+        meta: &mut SystemMeta,
+    ) -> <DynSystemParam<'w, 's> as SystemParam>::State {
+        (self.0)(world, meta)
+    }
+}
+
 /// A [`SystemParamBuilder`] for a [`Local`].
 /// The provided value will be used as the initial value of the `Local`.
 pub struct LocalBuilder<T>(pub T);
@@ -271,6 +299,7 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::entity::Entities;
     use crate::prelude::{Component, Query};
     use crate::system::{Local, RunSystemOnce};
 
@@ -381,5 +410,34 @@ mod tests {
 
         let result = world.run_system_once(system);
         assert_eq!(result, 5);
+    }
+
+    #[test]
+    fn dyn_builder() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (
+            DynParamBuilder::new(LocalBuilder(3_usize)),
+            DynParamBuilder::new::<Query<()>>(QueryParamBuilder::new(|builder| {
+                builder.with::<A>();
+            })),
+            DynParamBuilder::new::<&Entities>(ParamBuilder),
+        )
+            .build_state(&mut world)
+            .build_system(
+                |mut p0: DynSystemParam, mut p1: DynSystemParam, mut p2: DynSystemParam| {
+                    let local = *p0.downcast_mut::<Local<usize>>().unwrap();
+                    let query_count = p1.downcast_mut::<Query<()>>().unwrap().iter().count();
+                    let _entities = p2.downcast_mut::<&Entities>().unwrap();
+                    assert!(p0.downcast_mut::<Query<()>>().is_none());
+                    local + query_count
+                },
+            );
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 4);
     }
 }

@@ -31,14 +31,14 @@ members = [
 ]
 
 [workspace.lints.clippy]
-type_complexity = "allow"
 doc_markdown = "warn"
 manual_let_else = "warn"
-undocumented_unsafe_blocks = "warn"
-redundant_else = "warn"
 match_same_arms = "warn"
-semicolon_if_nothing_returned = "warn"
 redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+type_complexity = "allow"
+undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 
 ptr_as_ptr = "warn"
@@ -46,10 +46,11 @@ ptr_cast_constness = "warn"
 ref_as_ptr = "warn"
 
 [workspace.lints.rust]
-unsafe_op_in_unsafe_fn = "warn"
 missing_docs = "warn"
-unsafe_code = "deny"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "warn"
+unused_qualifications = "warn"
 
 [lints]
 workspace = true
@@ -178,9 +179,6 @@ trace_tracy_memory = [
 
 # Tracing support
 trace = ["bevy_internal/trace"]
-
-# Save a trace of all wgpu calls
-wgpu_trace = ["bevy_internal/wgpu_trace"]
 
 # EXR image format support
 exr = ["bevy_internal/exr"]
@@ -3330,6 +3328,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "scrolling_fog"
+path = "examples/3d/scrolling_fog.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.scrolling_fog]
+name = "Scrolling fog"
+description = "Demonstrates how to create the effect of fog moving in the wind"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "physics_in_fixed_timestep"
 path = "examples/movement/physics_in_fixed_timestep.rs"
 doc-scrape-examples = true
@@ -3372,6 +3381,17 @@ required-features = ["bevy_picking"]
 [package.metadata.example.simple_picking]
 name = "Showcases simple picking events and usage"
 description = "Demonstrates how to use picking events to spawn simple objects"
+category = "Picking"
+wasm = true
+
+[[example]]
+name = "sprite_picking"
+path = "examples/picking/sprite_picking.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_picking]
+name = "Sprite Picking"
+description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
 

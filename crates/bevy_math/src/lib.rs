@@ -36,6 +36,7 @@ pub use common_traits::*;
 pub use direction::*;
 pub use float_ord::*;
 pub use isometry::{Isometry2d, Isometry3d};
+pub use ops::*;
 pub use ray::{Ray2d, Ray3d};
 pub use rects::*;
 pub use rotation2d::Rot2;
@@ -56,9 +57,9 @@ pub mod prelude {
         },
         direction::{Dir2, Dir3, Dir3A},
         primitives::*,
-        BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Mat2, Mat3, Mat4,
-        Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect, UVec2, UVec3, UVec4, Vec2,
-        Vec2Swizzles, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
+        BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Isometry2d,
+        Isometry3d, Mat2, Mat3, Mat4, Quat, Ray2d, Ray3d, Rect, Rot2, StableInterpolate, URect,
+        UVec2, UVec3, UVec4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
     };
 }
 

@@ -454,7 +454,6 @@ mod tests {
             right: Val::Percent(50.),
             top: Val::Px(12.),
             bottom: Val::Auto,
-            direction: crate::Direction::Inherit,
             flex_direction: FlexDirection::ColumnReverse,
             flex_wrap: FlexWrap::WrapReverse,
             align_items: AlignItems::Baseline,

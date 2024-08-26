@@ -1,13 +1,14 @@
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::all_tuples;
 
+use crate::type_info::impl_type_methods;
 use crate::{
     self as bevy_reflect, utility::GenericTypePathCell, ApplyError, FromReflect,
-    GetTypeRegistration, MaybeTyped, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    GetTypeRegistration, MaybeTyped, Reflect, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
     TypePath, TypeRegistration, TypeRegistry, Typed, UnnamedField,
 };
-use crate::{PartialReflect, ReflectKind, TypePathTable};
-use std::any::{Any, TypeId};
+use crate::{PartialReflect, ReflectKind};
+use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 
@@ -139,8 +140,7 @@ impl GetTupleField for dyn Tuple {
 /// A container for compile-time tuple info.
 #[derive(Clone, Debug)]
 pub struct TupleInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     fields: Box<[UnnamedField]>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -155,8 +155,7 @@ impl TupleInfo {
     ///
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_path: TypePathTable::of::<T>(),
-            type_id: TypeId::of::<T>(),
+            ty: Type::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -184,32 +183,7 @@ impl TupleInfo {
         self.fields.len()
     }
 
-    /// A representation of the type path of the tuple.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the tuple.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the tuple.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the tuple type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this tuple, if any.
     #[cfg(feature = "documentation")]

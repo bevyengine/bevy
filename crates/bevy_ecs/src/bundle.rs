@@ -706,7 +706,7 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location<'static>,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let add_bundle = self.add_bundle.as_ref();

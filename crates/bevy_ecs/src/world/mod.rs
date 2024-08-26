@@ -2348,7 +2348,7 @@ impl World {
 
         // By setting the change tick in the drop impl, we ensure that
         // the change tick gets reset even if a panic occurs during the scope.
-        impl std::ops::Drop for LastTickGuard<'_> {
+        impl Drop for LastTickGuard<'_> {
             fn drop(&mut self) {
                 self.world.last_change_tick = self.last_tick;
             }
@@ -3197,7 +3197,7 @@ mod tests {
         };
 
         assert!(iter.next().is_none());
-        std::mem::drop(iter);
+        drop(iter);
 
         assert_eq!(world.resource::<TestResource>().0, 43);
         assert_eq!(

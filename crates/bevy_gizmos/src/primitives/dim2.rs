@@ -1,6 +1,6 @@
 //! A module for rendering each of the 2D [`bevy_math::primitives`] with [`Gizmos`].
 
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use super::helpers::*;
 
@@ -10,7 +10,7 @@ use bevy_math::primitives::{
     CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
     RegularPolygon, Rhombus, Segment2d, Triangle2d,
 };
-use bevy_math::{Dir2, Mat2, Vec2};
+use bevy_math::{Dir2, Isometry2d, Mat2, Rot2, Vec2};
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 
@@ -86,8 +86,7 @@ where
         }
 
         self.arc_2d(
-            position,
-            angle,
+            Isometry2d::new(position, Rot2::radians(angle - primitive.half_angle)),
             primitive.half_angle * 2.0,
             primitive.radius,
             color,
@@ -139,8 +138,7 @@ where
 
         // we need to draw the arc part of the sector, and the two lines connecting the arc and the center
         self.arc_2d(
-            position,
-            angle,
+            Isometry2d::new(position, Rot2::radians(angle - primitive.arc.half_angle)),
             primitive.arc.half_angle * 2.0,
             primitive.arc.radius,
             color,
@@ -179,8 +177,7 @@ where
 
         // we need to draw the arc part of the segment, and the line connecting the two ends
         self.arc_2d(
-            position,
-            angle,
+            Isometry2d::new(position, Rot2::radians(angle - primitive.arc.half_angle)),
             primitive.arc.half_angle * 2.0,
             primitive.arc.radius,
             color,
@@ -386,20 +383,18 @@ where
         self.line_2d(bottom_left, top_left, polymorphic_color);
         self.line_2d(bottom_right, top_right, polymorphic_color);
 
-        let start_angle_top = angle;
-        let start_angle_bottom = PI + angle;
+        let start_angle_top = angle - FRAC_PI_2;
+        let start_angle_bottom = angle + FRAC_PI_2;
 
         // draw arcs
         self.arc_2d(
-            top_center,
-            start_angle_top,
+            Isometry2d::new(top_center, Rot2::radians(start_angle_top)),
             PI,
             primitive.radius,
             polymorphic_color,
         );
         self.arc_2d(
-            bottom_center,
-            start_angle_bottom,
+            Isometry2d::new(bottom_center, Rot2::radians(start_angle_bottom)),
             PI,
             primitive.radius,
             polymorphic_color,

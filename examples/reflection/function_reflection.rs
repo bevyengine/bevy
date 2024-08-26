@@ -7,8 +7,8 @@
 //! processing deserialized reflection data, or even just storing type-erased versions of your functions.
 
 use bevy::reflect::func::{
-    ArgList, DynamicClosure, DynamicClosureMut, DynamicFunction, FunctionError, FunctionInfo,
-    IntoClosure, IntoClosureMut, IntoFunction, Return,
+    ArgList, DynamicFunction, DynamicFunctionMut, FunctionError, FunctionInfo, IntoFunction,
+    IntoFunctionMut, Return,
 };
 use bevy::reflect::{PartialReflect, Reflect};
 
@@ -37,7 +37,7 @@ fn main() {
     // Luckily, Bevy's reflection crate comes with a set of tools for doing just that!
     // We do this by first converting our function into the reflection-based `DynamicFunction` type
     // using the `IntoFunction` trait.
-    let function: DynamicFunction = dbg!(add.into_function());
+    let function: DynamicFunction<'static> = dbg!(add.into_function());
 
     // This time, you'll notice that `DynamicFunction` doesn't take any information about the function's arguments or return value.
     // This is because `DynamicFunction` checks the types of the arguments and return value at runtime.
@@ -56,27 +56,28 @@ fn main() {
     assert_eq!(value.try_take::<i32>().unwrap(), 4);
 
     // The same can also be done for closures that capture references to their environment.
-    // Closures that capture their environment immutably can be converted into a `DynamicClosure`
-    // using the `IntoClosure` trait.
+    // Closures that capture their environment immutably can be converted into a `DynamicFunction`
+    // using the `IntoFunction` trait.
     let minimum = 5;
     let clamp = |value: i32| value.max(minimum);
 
-    let function: DynamicClosure = dbg!(clamp.into_closure());
+    let function: DynamicFunction = dbg!(clamp.into_function());
     let args = dbg!(ArgList::new().push_owned(2_i32));
     let return_value = dbg!(function.call(args).unwrap());
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 5);
 
     // We can also handle closures that capture their environment mutably
-    // using the `IntoClosureMut` trait.
+    // using the `IntoFunctionMut` trait.
     let mut count = 0;
     let increment = |amount: i32| count += amount;
 
-    let closure: DynamicClosureMut = dbg!(increment.into_closure_mut());
+    let closure: DynamicFunctionMut = dbg!(increment.into_function_mut());
     let args = dbg!(ArgList::new().push_owned(5_i32));
-    // Because `DynamicClosureMut` mutably borrows `total`,
+
+    // Because `DynamicFunctionMut` mutably borrows `total`,
     // it will need to be dropped before `total` can be accessed again.
-    // This can be done manually with `drop(closure)` or by using the `DynamicClosureMut::call_once` method.
+    // This can be done manually with `drop(closure)` or by using the `DynamicFunctionMut::call_once` method.
     dbg!(closure.call_once(args).unwrap());
     assert_eq!(count, 5);
 
