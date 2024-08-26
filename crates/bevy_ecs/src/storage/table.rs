@@ -669,7 +669,8 @@ impl TableBuilder {
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, Column>,
+    // columns: ImmutableSparseSet<ComponentId, Column>,
+    columns: Vec<Column>,
     entities: Vec<Entity>,
 }
 

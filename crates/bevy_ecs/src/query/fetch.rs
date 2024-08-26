@@ -13,6 +13,7 @@ use crate::{
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::all_tuples;
 use std::{cell::UnsafeCell, marker::PhantomData};
+use crate::archetype::ComponentIndex;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -896,6 +897,7 @@ unsafe impl ReadOnlyQueryData for &Archetype {}
 
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
+    component_index: &'w ComponentIndex,
     // T::STORAGE_TYPE = StorageType::Table
     table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
     // T::STORAGE_TYPE = StorageType::SparseSet
@@ -935,6 +937,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         _this_run: Tick,
     ) -> ReadFetch<'w, T> {
         ReadFetch {
+            component_index: world.archetypes().component_index(),
             table_components: None,
             sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 // SAFETY: The underlying type associated with `component_id` is `T`,
@@ -978,8 +981,12 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn set_table<'w>(
         fetch: &mut ReadFetch<'w, T>,
         &component_id: &ComponentId,
+        _archetype: &'w Archetype,
         table: &'w Table,
     ) {
+        let column = fetch.component_index.get(&component_id)
+            .and_then(|data| data.get(&_archetype.id()).and_then(|record| record.column));
+        table.column[column];
         fetch.table_components = Some(
             table
                 .get_column(component_id)
