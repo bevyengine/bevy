@@ -65,7 +65,7 @@ impl Interval {
         }
     }
 
-    /// The unit interval covering the range between `0.0` and `1.0`.
+    /// An interval of length 1.0, starting at 0.0 and ending at 1.0.
     pub const UNIT: Self = Self {
         start: 0.0,
         end: 1.0,
@@ -75,12 +75,6 @@ impl Interval {
     pub const EVERYWHERE: Self = Self {
         start: f32::NEG_INFINITY,
         end: f32::INFINITY,
-    };
-
-    /// An interval of length 1.0, starting at 0.0 and ending at 1.0.
-    pub const UNIT: Self = Self {
-        start: 0.0,
-        end: 1.0,
     };
 
     /// Get the start of this interval.
