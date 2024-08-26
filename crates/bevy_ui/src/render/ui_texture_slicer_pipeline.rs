@@ -78,7 +78,7 @@ struct UiSliceVertex {
     pub uv: [f32; 2],
     pub color: [f32; 4],
     pub slices: [f32; 4],
-    pub insets: [f32; 4],
+    pub border: [f32; 4],
     pub repeat: [f32; 4],
 }
 
@@ -519,7 +519,7 @@ pub fn prepare_ui_slicers(
                             uv: uvs[i].into(),
                             color,
                             slices: [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
-                            insets: [1. / 6., 1. / 6., 1. / 2., 1. / 2.],
+                            border: [1. / 6., 1. / 6., 1. / 2., 1. / 2.],
                             repeat: [1.; 4],
                         });
                     }
