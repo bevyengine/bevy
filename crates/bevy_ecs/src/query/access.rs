@@ -1289,13 +1289,13 @@ mod tests {
         let a = SortedSmallVec(SmallVec::from([1, 3, 4, 6]));
         let b = SortedSmallVec(smallvec![1, 3, 4, 6, 8]);
         assert_eq!(a.difference(&b).collect::<Vec<_>>(), vec![]);
-        assert_eq!(a.is_subset(&b), true);
+        assert!(a.is_subset(&b));
 
         // TODO: allow different values of N?
         let a = SortedSmallVec(SmallVec::from([2, 3, 4, 5]));
         let b = SortedSmallVec(SmallVec::from([1, 2, 3, 4]));
         assert_eq!(a.difference(&b).collect::<Vec<_>>(), vec![5]);
-        assert_eq!(a.is_subset(&b), false);
+        assert!(!a.is_subset(&b));
     }
 
     fn create_sample_access() -> Access<usize> {
