@@ -1,7 +1,9 @@
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![allow(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -102,7 +104,6 @@ pub struct RenderPlugin {
 
 /// The systems sets of the default [`App`] rendering schedule.
 ///
-/// that runs immediately after the matching system set.
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
@@ -136,6 +137,10 @@ pub enum RenderSet {
     Render,
     /// Cleanup render resources here.
     Cleanup,
+    /// Final cleanup occurs: all entities will be despawned.
+    ///
+    /// Runs after [`Cleanup`](RenderSet::Cleanup).
+    PostCleanup,
 }
 
 /// The main render schedule.
@@ -160,6 +165,7 @@ impl Render {
                 Prepare,
                 Render,
                 Cleanup,
+                PostCleanup,
             )
                 .chain(),
         );
@@ -467,7 +473,7 @@ unsafe fn initialize_render_app(app: &mut App) {
                     render_system,
                 )
                     .in_set(RenderSet::Render),
-                World::clear_entities.in_set(RenderSet::Cleanup),
+                World::clear_entities.in_set(RenderSet::PostCleanup),
             ),
         );
 

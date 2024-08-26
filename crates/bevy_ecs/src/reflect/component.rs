@@ -67,7 +67,7 @@ use crate::{
         FilteredEntityRef, World,
     },
 };
-use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
+use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
@@ -99,11 +99,11 @@ pub struct ReflectComponent(ReflectComponentFns);
 #[derive(Clone)]
 pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::insert()`].
-    pub insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(EntityMut, &dyn Reflect),
+    pub apply: fn(EntityMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn Reflect, &TypeRegistry),
+    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
@@ -127,7 +127,7 @@ impl ReflectComponentFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Component + Reflect + FromReflect>() -> Self {
+    pub fn new<T: Component + FromReflect + TypePath>() -> Self {
         <ReflectComponent as FromType<T>>::from_type().0
     }
 }
@@ -137,7 +137,7 @@ impl ReflectComponent {
     pub fn insert(
         &self,
         entity: &mut EntityWorldMut,
-        component: &dyn Reflect,
+        component: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.insert)(entity, component, registry);
@@ -148,7 +148,7 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
-    pub fn apply<'a>(&self, entity: impl Into<EntityMut<'a>>, component: &dyn Reflect) {
+    pub fn apply<'a>(&self, entity: impl Into<EntityMut<'a>>, component: &dyn PartialReflect) {
         (self.0.apply)(entity.into(), component);
     }
 
@@ -156,7 +156,7 @@ impl ReflectComponent {
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
-        component: &dyn Reflect,
+        component: &dyn PartialReflect,
         registry: &TypeRegistry,
     ) {
         (self.0.apply_or_insert)(entity, component, registry);
@@ -256,7 +256,7 @@ impl ReflectComponent {
     }
 }
 
-impl<C: Component + Reflect> FromType<C> for ReflectComponent {
+impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
     fn from_type() -> Self {
         ReflectComponent(ReflectComponentFns {
             insert: |entity, reflected_component, registry| {
@@ -271,7 +271,7 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
             },
             apply_or_insert: |entity, reflected_component, registry| {
                 if let Some(mut component) = entity.get_mut::<C>() {
-                    component.apply(reflected_component);
+                    component.apply(reflected_component.as_partial_reflect());
                 } else {
                     let component = entity.world_scope(|world| {
                         from_reflect_with_fallback::<C>(reflected_component, world, registry)
@@ -293,24 +293,15 @@ impl<C: Component + Reflect> FromType<C> for ReflectComponent {
             },
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
-                entity.into_mut::<C>().map(|c| Mut {
-                    value: c.value as &mut dyn Reflect,
-                    ticks: c.ticks,
-                    #[cfg(feature = "track_change_detection")]
-                    changed_by: c.changed_by,
-                })
+                entity
+                    .into_mut::<C>()
+                    .map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
             },
             reflect_unchecked_mut: |entity| {
                 // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
                 // `reflect_unchecked_mut` which must be called with an UnsafeEntityCell with access to the component `C` on the `entity`
-                unsafe {
-                    entity.get_mut::<C>().map(|c| Mut {
-                        value: c.value as &mut dyn Reflect,
-                        ticks: c.ticks,
-                        #[cfg(feature = "track_change_detection")]
-                        changed_by: c.changed_by,
-                    })
-                }
+                let c = unsafe { entity.get_mut::<C>() };
+                c.map(|c| c.map_unchanged(|value| value as &mut dyn Reflect))
             },
         })
     }

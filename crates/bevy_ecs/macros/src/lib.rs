@@ -101,7 +101,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         });
                     }
                     None => {
-                        let index = syn::Index::from(i);
+                        let index = Index::from(i);
                         field_get_components.push(quote! {
                             self.#index.get_components(&mut *func);
                         });

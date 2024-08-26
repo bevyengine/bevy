@@ -6,7 +6,7 @@ use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     world::World,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::PartialReflect;
 use bevy_utils::default;
 use std::collections::BTreeMap;
 
@@ -52,8 +52,10 @@ use std::collections::BTreeMap;
 /// # let entity = world.spawn(ComponentA).id();
 /// let dynamic_scene = DynamicSceneBuilder::from_world(&world).extract_entity(entity).build();
 /// ```
+///
+/// [`Reflect`]: bevy_reflect::Reflect
 pub struct DynamicSceneBuilder<'w> {
-    extracted_resources: BTreeMap<ComponentId, Box<dyn Reflect>>,
+    extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect>>,
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
     component_filter: SceneFilter,
     resource_filter: SceneFilter,

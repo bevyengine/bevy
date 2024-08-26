@@ -9,13 +9,15 @@ use crate::{Reflect, TypePath};
 ///
 /// This allows functions to be called dynamically through [reflection].
 ///
-/// This is a supertrait of [`ReflectFn`], and is used for closures that may mutate their environment.
+/// This is a supertrait of [`ReflectFn`], and is used for functions that may mutate their environment,
+/// such as closures that capture mutable references.
 ///
 /// # Blanket Implementation
 ///
 /// This trait has a blanket implementation that covers everything that [`ReflectFn`] does:
 /// - Functions and methods defined with the `fn` keyword
-/// - Closures that do not capture their environment
+/// - Anonymous functions
+/// - Function pointers
 /// - Closures that capture immutable references to their environment
 /// - Closures that take ownership of captured variables
 ///
@@ -57,7 +59,7 @@ use crate::{Reflect, TypePath};
 /// This `Marker` can be any type, provided it doesn't conflict with other implementations.
 ///
 /// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the function.
-/// For most functions, this will end up just being `'static`,
+/// For named functions and some closures, this will end up just being `'static`,
 /// however, closures that borrow from their environment will have a lifetime bound to that environment.
 ///
 /// [reflection]: crate
@@ -70,7 +72,7 @@ pub trait ReflectFnMut<'env, Marker> {
     fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a>;
 }
 
-/// Helper macro for implementing [`ReflectFnMut`] on Rust closures.
+/// Helper macro for implementing [`ReflectFnMut`] on Rust functions.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
 /// - `FnMut(arg0, arg1, ..., argN) -> R`
