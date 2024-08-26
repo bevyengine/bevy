@@ -581,7 +581,7 @@ pub fn extract_camera_previous_view_data(
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
-            let mut entity = commands.get_or_spawn(entity);
+            let entity = commands.get_or_spawn(entity);
 
             if let Some(previous_view_data) = maybe_previous_view_data {
                 entity.insert(previous_view_data.clone());

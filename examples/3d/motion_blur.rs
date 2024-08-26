@@ -144,18 +144,17 @@ fn spawn_cars(
 
     for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
-        let mut entity = commands.spawn((
-            PbrBundle {
-                mesh: box_mesh.clone(),
-                material: color.clone(),
-                transform: Transform::from_scale(Vec3::splat(0.5)),
-                ..default()
-            },
-            Moves(i as f32 * 2.0),
-        ));
-        if i == 0 {
-            entity.insert(CameraTracked);
-        }
+        let mut entity = commands
+            .spawn((
+                PbrBundle {
+                    mesh: box_mesh.clone(),
+                    material: color.clone(),
+                    transform: Transform::from_scale(Vec3::splat(0.5)),
+                    ..default()
+                },
+                Moves(i as f32 * 2.0),
+            ))
+            .insert_if(CameraTracked, || i == 0);
         entity.with_children(|parent| {
             parent.spawn(PbrBundle {
                 mesh: box_mesh.clone(),
