@@ -664,17 +664,17 @@ unsafe impl<'a> WorldQuery for FilteredEntityRef<'a> {
         fetch: &mut Self::Fetch<'w>,
         state: &Self::State,
         archetype_id: ArchetypeId,
-        table: &'w Table,
+        _table: &'w Table,
     ) {
         let mut access = Access::default();
         state.access.component_reads().for_each(|id| {
-            let column_index = fetch
+            let has_column = fetch
                 .0
                 .archetypes()
                 .component_index()
                 .get_column_index(id, archetype_id)
-                .debug_checked_unwrap();
-            if table.has_column(column_index) {
+                .is_some();
+            if has_column {
                 access.add_component_read(id);
             }
         });
@@ -792,18 +792,18 @@ unsafe impl<'a> WorldQuery for FilteredEntityMut<'a> {
         let mut access = Access::default();
         let component_index = fetch.0.archetypes().component_index();
         state.access.component_reads().for_each(|id| {
-            let column_index = component_index
+            let has_column = component_index
                 .get_column_index(id, archetype_id)
-                .debug_checked_unwrap();
-            if table.has_column(column_index) {
+                .is_some();
+            if has_column {
                 access.add_component_read(id);
             }
         });
         state.access.component_writes().for_each(|id| {
-            let column_index = component_index
+            let has_column = component_index
                 .get_column_index(id, archetype_id)
-                .debug_checked_unwrap();
-            if table.has_column(column_index) {
+                .is_some();
+            if has_column {
                 access.add_component_write(id);
             }
         });
