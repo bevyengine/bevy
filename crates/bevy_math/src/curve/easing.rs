@@ -244,7 +244,7 @@ impl ElasticCurve {
 pub fn quadratic_ease_in() -> FunctionCurve<f32, fn(f32) -> f32> {
     FunctionCurve {
         domain: Interval::UNIT,
-        f: ops::FloatPow::squared,
+        f: FloatPow::squared,
         _phantom: PhantomData,
     }
 }
