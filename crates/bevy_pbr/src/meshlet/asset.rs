@@ -35,8 +35,6 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// See also [`super::MaterialMeshletMeshBundle`] and [`super::MeshletPlugin`].
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
-    /// The total amount of triangles summed across all LOD 0 meshlets in the mesh.
-    pub(crate) worst_case_meshlet_triangles: u64,
     /// Raw vertex data bytes for the overall mesh.
     pub(crate) vertex_data: Arc<[u8]>,
     /// Indices into `vertex_data`.
@@ -57,6 +55,8 @@ pub struct Meshlet {
     pub start_vertex_id: u32,
     /// The offset within the parent mesh's [`MeshletMesh::indices`] buffer where the indices for this meshlet begin.
     pub start_index_id: u32,
+    /// The amount of vertices in this meshlet.
+    pub vertex_count: u32,
     /// The amount of triangles in this meshlet.
     pub triangle_count: u32,
 }
@@ -107,9 +107,6 @@ impl AssetSaver for MeshletMeshSaverLoader {
             .await?;
 
         // Compress and write asset data
-        writer
-            .write_all(&asset.worst_case_meshlet_triangles.to_le_bytes())
-            .await?;
         let mut writer = FrameEncoder::new(AsyncWriteSyncAdapter(writer));
         write_slice(&asset.vertex_data, &mut writer)?;
         write_slice(&asset.vertex_ids, &mut writer)?;
@@ -146,7 +143,6 @@ impl AssetLoader for MeshletMeshSaverLoader {
         }
 
         // Load and decompress asset data
-        let worst_case_meshlet_triangles = async_read_u64(reader).await?;
         let reader = &mut FrameDecoder::new(AsyncReadSyncAdapter(reader));
         let vertex_data = read_slice(reader)?;
         let vertex_ids = read_slice(reader)?;
@@ -155,7 +151,6 @@ impl AssetLoader for MeshletMeshSaverLoader {
         let bounding_spheres = read_slice(reader)?;
 
         Ok(MeshletMesh {
-            worst_case_meshlet_triangles,
             vertex_data,
             vertex_ids,
             indices,

@@ -1,7 +1,7 @@
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
-    MeshletGpuScene,
+    InstanceManager,
 };
 use crate::*;
 use bevy_asset::{Asset, AssetId, AssetServer};
@@ -283,7 +283,7 @@ where
                 Render,
                 queue_material_meshlet_meshes::<M>
                     .in_set(RenderSet::QueueMeshes)
-                    .run_if(resource_exists::<MeshletGpuScene>),
+                    .run_if(resource_exists::<InstanceManager>),
             );
 
             #[cfg(feature = "meshlet")]
@@ -293,7 +293,7 @@ where
                     .in_set(RenderSet::QueueMeshes)
                     .after(prepare_assets::<PreparedMaterial<M>>)
                     .before(queue_material_meshlet_meshes::<M>)
-                    .run_if(resource_exists::<MeshletGpuScene>),
+                    .run_if(resource_exists::<InstanceManager>),
             );
         }
 
