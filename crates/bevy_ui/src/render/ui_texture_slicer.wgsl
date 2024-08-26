@@ -14,6 +14,7 @@ struct UiVertexOutput {
     @location(1) color: vec4<f32>,
     @location(2) @interpolate(flat) slices: vec4<f32>,
     @location(3) @interpolate(flat) insets: vec4<f32>,
+    @location(3) @interpolate(flat) repeat: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 }
 
@@ -24,6 +25,7 @@ fn vertex(
     @location(2) vertex_color: vec4<f32>,
     @location(3) slices: vec4<f32>,
     @location(4) insets: vec4<f32>,
+    @location(5) repeat: vec4<f32>,
 ) -> UiVertexOutput {
     var out: UiVertexOutput;
     out.uv = vertex_uv;
@@ -31,7 +33,15 @@ fn vertex(
     out.position = view.clip_from_world * vec4<f32>(vertex_position, 1.0);
     out.slices = slices;
     out.insets = insets;
+    out.repeat = repeat;
     return out;
+}
+
+fn map_repeat(
+    p: f32,
+    r: f32
+) -> f32 {
+    return fract(p * r);
 }
 
 fn map_axis(

@@ -40,7 +40,7 @@ impl Plugin for UiSlicerPlugin {
         load_internal_asset!(
             app,
             UI_SLICER_SHADER_HANDLE,
-            "ui_slicer.wgsl",
+            "ui_texture_slicer.wgsl",
             Shader::from_wgsl
         );
 
@@ -79,6 +79,7 @@ struct UiSliceVertex {
     pub color: [f32; 4],
     pub slices: [f32; 4],
     pub insets: [f32; 4],
+    pub repeat: [f32; 4],
 }
 
 #[derive(Component)]
@@ -162,6 +163,8 @@ impl SpecializedRenderPipeline for UiSlicerPipeline {
                 // slices (left, top, right, bottom)
                 VertexFormat::Float32x4,
                 // insets (left, top, right, bottom)
+                VertexFormat::Float32x4,
+                // repeat values (h_side, v_side, h_center, v_center)
                 VertexFormat::Float32x4,
             ],
         );
@@ -517,6 +520,7 @@ pub fn prepare_ui_slicers(
                             color,
                             slices: [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
                             insets: [1. / 6., 1. / 6., 1. / 2., 1. / 2.],
+                            repeat: [1.; 4],
                         });
                     }
 
