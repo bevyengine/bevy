@@ -16,17 +16,19 @@ use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
     Reflect, TypeRegistration, TypeRegistry,
 };
-use bevy_utils::{prelude::default, HashMap};
+use bevy_utils::HashMap;
 use serde::de::DeserializeSeed as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// `GET`: Retrieves one or more components from the entity with the given
+use crate::{error_codes, BrpError, BrpResult};
+
+/// `bevy/get`: Retrieves one or more components from the entity with the given
 /// ID.
 ///
 /// The server responds with a [`BrpGetResponse`].
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpGetRequest {
+pub struct BrpGetParams {
     /// The ID of the entity from which components are to be requested.
     pub entity: Entity,
 
@@ -39,12 +41,12 @@ pub struct BrpGetRequest {
     pub components: Vec<String>,
 }
 
-/// `QUERY`: Performs a query over components in the ECS, returning entities
+/// `bevy/query`: Performs a query over components in the ECS, returning entities
 /// and component values that match.
 ///
 /// The server responds with a [`BrpQueryResponse`].
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpQueryRequest {
+pub struct BrpQueryParams {
     /// The components to select.
     pub data: BrpQuery,
 
@@ -54,12 +56,12 @@ pub struct BrpQueryRequest {
     pub filter: BrpQueryFilter,
 }
 
-/// `SPAWN`: Creates a new entity with the given components and responds
+/// `bevy/spawn`: Creates a new entity with the given components and responds
 /// with its ID.
 ///
 /// The server responds with a [`BrpEntityResponse`].
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpSpawnRequest {
+pub struct BrpSpawnParams {
     /// A map from each component's *full path* to its serialized value.
     ///
     /// These components will be added to the entity.
@@ -70,20 +72,20 @@ pub struct BrpSpawnRequest {
     pub components: HashMap<String, Value>,
 }
 
-/// `DESTROY`: Given an ID, despawns the entity with that ID.
+/// `bevy/destroy`: Given an ID, despawns the entity with that ID.
 ///
 /// The server responds with an okay.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpDestroyRequest {
+pub struct BrpDestroyParams {
     /// The ID of the entity to despawn.
     pub entity: Entity,
 }
 
-/// `REMOVE`: Deletes one or more components from an entity.
+/// `bevy/remove`: Deletes one or more components from an entity.
 ///
-/// The server responds with an okay.
+/// The server responds with a null.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpRemoveRequest {
+pub struct BrpRemoveParams {
     /// The ID of the entity from which components are to be removed.
     pub entity: Entity,
 
@@ -96,11 +98,11 @@ pub struct BrpRemoveRequest {
     pub components: Vec<String>,
 }
 
-/// `INSERT`: Adds one or more components to an entity.
+/// `bevy/insert`: Adds one or more components to an entity.
 ///
-/// The server responds with an okay.
+/// The server responds with a null.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpInsertRequest {
+pub struct BrpInsertParams {
     /// The ID of the entity that components are to be added to.
     pub entity: Entity,
 
@@ -114,11 +116,11 @@ pub struct BrpInsertRequest {
     pub components: HashMap<String, Value>,
 }
 
-/// `REPARENT`: Changes the parent of an entity.
+/// `bevy/reparent`: Changes the parent of an entity.
 ///
-/// The server responds with an okay.
+/// The server responds with a null.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpReparentRequest {
+pub struct BrpReparentParams {
     /// The IDs of the entities that are to become the new children of the
     /// `parent`.
     pub entities: Vec<Entity>,
@@ -130,17 +132,14 @@ pub struct BrpReparentRequest {
     pub parent: Option<Entity>,
 }
 
-/// `LIST`: Returns a list of all type names of registered components in the
-/// system, or those on an entity.
+/// `bevy/list`: Returns a list of all type names of registered components in the
+/// system (no params provided), or those on an entity (params provided).
 ///
 /// The server responds with a [`BrpListResponse`]
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpListRequest {
+pub struct BrpListParams {
     /// The entity to query.
-    ///
-    /// If not specified, this request returns the names of all registered
-    /// components.
-    pub entity: Option<Entity>,
+    pub entity: Entity,
 }
 
 /// Describes the data that is to be fetched in a query.
@@ -179,43 +178,21 @@ pub struct BrpQueryFilter {
 
 /// A response from the world to the client that specifies a single entity.
 ///
-/// This is sent in response to `SPAWN`.
+/// This is sent in response to `bevy/spawn`.
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BrpEntityResponse {
+pub struct BrpSpawnResponse {
     /// The ID of the entity in question.
     pub entity: Entity,
 }
 
-/// The response to a `GET` request.
-#[derive(Serialize, Deserialize, Clone)]
-struct BrpGetResponse {
-    /// The ID of the entity for which components were requested.
-    entity: Entity,
+/// The response to a `bevy/get` request.
+pub type BrpGetResponse = HashMap<String, Value>;
 
-    /// The values of the requested components.
-    components: HashMap<String, Value>,
-}
+/// The response to a `bevy/list` request.
+pub type BrpListResponse = Vec<String>;
 
-/// The response to a `LIST` request.
-#[derive(Serialize, Deserialize, Clone)]
-struct BrpListResponse {
-    /// The ID of the entity for which component names were requested, if
-    /// present.
-    ///
-    /// If this is `None`, then `components` contains the name of all
-    /// reflectable components known to the system.
-    entity: Option<Entity>,
-
-    /// The full type names of the registered components.
-    components: Vec<String>,
-}
-
-/// The response to a `QUERY` request.
-#[derive(Serialize, Deserialize, Clone)]
-struct BrpQueryResponse {
-    /// All results of the query: the entities and the requested components.
-    rows: Vec<BrpQueryRow>,
-}
+/// The response to a `bevy/query` request.
+pub type BrpQueryResponse = Vec<BrpQueryRow>;
 
 /// One query match result: a single entity paired with the requested components.
 #[derive(Serialize, Deserialize, Clone)]
@@ -224,74 +201,93 @@ pub struct BrpQueryRow {
     pub entity: Entity,
 
     /// The serialized values of the requested components.
-    #[serde(flatten)]
     pub components: HashMap<String, Value>,
 }
 
-/// Handles a `GET` request coming from a client.
-pub fn process_remote_get_request(In(request): In<Value>, world: &World) -> AnyhowResult<Value> {
-    let BrpGetRequest { entity, components } = serde_json::from_value(request)?;
+/// A helper function used to parse a `serde_json::Value`.
+fn parse<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, BrpError> {
+    serde_json::from_value(value).map_err(|err| BrpError {
+        code: error_codes::INVALID_PARAMS,
+        message: err.to_string(),
+        data: None,
+    })
+}
+
+/// A helper function used to parse a `serde_json::Value` wrapped in an `Option`.
+fn parse_some<T: for<'de> Deserialize<'de>>(value: Option<Value>) -> Result<T, BrpError> {
+    match value {
+        Some(value) => parse(value),
+        None => Err(BrpError {
+            code: error_codes::INVALID_PARAMS,
+            message: String::from("Params not provided"),
+            data: None,
+        }),
+    }
+}
+
+/// Handles a `bevy/get` request coming from a client.
+pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
+    let BrpGetParams { entity, components } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
-    let Some(entity_ref) = world.get_entity(entity) else {
-        return Err(anyhow!("Entity {:?} didn't exist", entity));
-    };
+    let entity_ref = get_entity(world, entity)?;
 
     let mut serialized_components_map = HashMap::new();
 
     for component_path in components {
-        let reflect_component = get_reflect_component(&type_registry, &component_path)?;
+        let reflect_component = get_reflect_component(&type_registry, &component_path)
+            .map_err(BrpError::component_error)?;
 
         // Retrieve the reflected value for the given specified component on the given entity.
         let Some(reflected) = reflect_component.reflect(entity_ref) else {
-            return Err(anyhow!(
-                "Entity {:?} has no component `{}`",
-                entity,
-                component_path
-            ));
+            return Err(BrpError::component_not_present(&component_path, entity));
         };
 
         // Each component value serializes to a map with a single entry.
         let reflect_serializer = ReflectSerializer::new(reflected, &type_registry);
-        let Value::Object(serialized_object) = serde_json::to_value(&reflect_serializer)? else {
-            return Err(anyhow!(
-                "Component `{}` could not be serialized",
-                component_path
-            ));
+        let Value::Object(serialized_object) =
+            serde_json::to_value(&reflect_serializer).map_err(|err| BrpError {
+                code: error_codes::COMPONENT_ERROR,
+                message: err.to_string(),
+                data: None,
+            })?
+        else {
+            return Err(BrpError {
+                code: error_codes::COMPONENT_ERROR,
+                message: format!("Component `{}` could not be serialized", component_path),
+                data: None,
+            });
         };
 
         serialized_components_map.extend(serialized_object.into_iter());
     }
 
-    Ok(serde_json::to_value(BrpGetResponse {
-        entity,
-        components: serialized_components_map,
-    })?)
+    serde_json::to_value(serialized_components_map).map_err(BrpError::internal)
 }
 
-/// Handles a `QUERY` request coming from a client.
-pub fn process_remote_query_request(
-    In(request): In<Value>,
-    world: &mut World,
-) -> AnyhowResult<Value> {
-    let BrpQueryRequest {
+/// Handles a `bevy/query` request coming from a client.
+pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let BrpQueryParams {
         data: BrpQuery {
             components,
             option,
             has,
         },
         filter: BrpQueryFilter { without, with },
-    } = serde_json::from_value(request)?;
+    } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let components = get_component_ids(&type_registry, world, components)?;
-    let option = get_component_ids(&type_registry, world, option)?;
-    let has = get_component_ids(&type_registry, world, has)?;
-    let without = get_component_ids(&type_registry, world, without)?;
-    let with = get_component_ids(&type_registry, world, with)?;
+    let components =
+        get_component_ids(&type_registry, world, components).map_err(BrpError::component_error)?;
+    let option =
+        get_component_ids(&type_registry, world, option).map_err(BrpError::component_error)?;
+    let has = get_component_ids(&type_registry, world, has).map_err(BrpError::component_error)?;
+    let without =
+        get_component_ids(&type_registry, world, without).map_err(BrpError::component_error)?;
+    let with = get_component_ids(&type_registry, world, with).map_err(BrpError::component_error)?;
 
     let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
     for (_, component) in &components {
@@ -321,64 +317,67 @@ pub fn process_remote_query_request(
             row.clone(),
             components.iter().map(|(type_id, _)| *type_id),
             &type_registry,
-        )?;
+        )
+        .map_err(BrpError::component_error)?;
         rows.push(BrpQueryRow {
             entity: row.id(),
             components: components_map,
         });
     }
 
-    Ok(serde_json::to_value(BrpQueryResponse { rows })?)
+    serde_json::to_value(rows).map_err(BrpError::internal)
 }
 
-/// Handles a `SPAWN` request coming from a client.
-pub fn process_remote_spawn_request(
-    In(request): In<Value>,
-    world: &mut World,
-) -> AnyhowResult<Value> {
-    let BrpSpawnRequest { components } = serde_json::from_value(request)?;
+/// Handles a `bevy/spawn` request coming from a client.
+pub fn process_remote_spawn_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let BrpSpawnParams { components } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let reflect_components = deserialize_components(&type_registry, components)?;
-    insert_reflected_components(&type_registry, world.spawn_empty(), reflect_components)?;
+    let reflect_components =
+        deserialize_components(&type_registry, components).map_err(BrpError::component_error)?;
+    insert_reflected_components(&type_registry, world.spawn_empty(), reflect_components)
+        .map_err(BrpError::component_error)?;
 
-    Ok(Value::Object(default()))
+    Ok(Value::Null)
 }
 
-/// Handles an `INSERT` request (insert components) coming from a client.
+/// Handles a `bevy/insert` request (insert components) coming from a client.
 pub fn process_remote_insert_request(
-    In(request): In<Value>,
+    In(params): In<Option<Value>>,
     world: &mut World,
-) -> AnyhowResult<Value> {
-    let BrpInsertRequest { entity, components } = serde_json::from_value(request)?;
+) -> BrpResult {
+    let BrpInsertParams { entity, components } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let reflect_components = deserialize_components(&type_registry, components)?;
+    let reflect_components =
+        deserialize_components(&type_registry, components).map_err(BrpError::component_error)?;
 
     insert_reflected_components(
         &type_registry,
         get_entity_mut(world, entity)?,
         reflect_components,
-    )?;
+    )
+    .map_err(BrpError::component_error)?;
 
-    Ok(Value::Object(default()))
+    Ok(Value::Null)
 }
 
-/// Handles a `REMOVE` request (remove components) coming from a client.
+/// Handles a `bevy/remove` request (remove components) coming from a client.
 pub fn process_remote_remove_request(
-    In(request): In<Value>,
+    In(params): In<Option<Value>>,
     world: &mut World,
-) -> AnyhowResult<Value> {
-    let BrpRemoveRequest { entity, components } = serde_json::from_value(request)?;
+) -> BrpResult {
+    let BrpRemoveParams { entity, components } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let component_ids = get_component_ids(&type_registry, world, components)?;
+    let component_ids =
+        get_component_ids(&type_registry, world, components).map_err(BrpError::component_error)?;
 
     // Remove the components.
     let mut entity_world_mut = get_entity_mut(world, entity)?;
@@ -386,37 +385,38 @@ pub fn process_remote_remove_request(
         entity_world_mut.remove_by_id(component_id);
     }
 
-    Ok(Value::Object(default()))
+    Ok(Value::Null)
 }
 
-/// Handles a `DESTROY` (despawn entity) request coming from a client.
+/// Handles a `bevy/destroy` (despawn entity) request coming from a client.
 pub fn process_remote_destroy_request(
-    In(request): In<Value>,
+    In(params): In<Option<Value>>,
     world: &mut World,
-) -> AnyhowResult<Value> {
-    let BrpDestroyRequest { entity } = serde_json::from_value(request)?;
+) -> BrpResult {
+    let BrpDestroyParams { entity } = parse_some(params)?;
 
     get_entity_mut(world, entity)?.despawn();
 
-    Ok(Value::Object(default()))
+    Ok(Value::Null)
 }
 
-/// Handles a `REPARENT` request coming from a client.
+/// Handles a `bevy/reparent` request coming from a client.
 pub fn process_remote_reparent_request(
-    In(request): In<Value>,
+    In(params): In<Option<Value>>,
     world: &mut World,
-) -> AnyhowResult<Value> {
-    let BrpReparentRequest {
+) -> BrpResult {
+    let BrpReparentParams {
         entities,
         parent: maybe_parent,
-    } = serde_json::from_value(request)?;
+    } = parse_some(params)?;
 
     // If `Some`, reparent the entities.
     if let Some(parent) = maybe_parent {
-        let mut parent_commands = get_entity_mut(world, parent)?;
+        let mut parent_commands =
+            get_entity_mut(world, parent).map_err(|_| BrpError::entity_not_found(parent))?;
         for entity in entities {
             if entity == parent {
-                return Err(anyhow!("Attempted to parent Entity {:?} to itself", entity));
+                return Err(BrpError::self_reparent(entity));
             }
             parent_commands.add_child(entity);
         }
@@ -428,20 +428,18 @@ pub fn process_remote_reparent_request(
         }
     }
 
-    Ok(Value::Object(default()))
+    Ok(Value::Null)
 }
 
-/// Handles a `LIST` request (list all components) coming from a client.
-pub fn process_remote_list_request(In(request): In<Value>, world: &World) -> AnyhowResult<Value> {
-    let BrpListRequest { entity } = serde_json::from_value(request)?;
-
+/// Handles a `bevy/list` request (list all components) coming from a client.
+pub fn process_remote_list_request(In(params): In<Option<Value>>, world: &World) -> BrpResult {
     let app_type_registry = world.resource::<AppTypeRegistry>();
     let type_registry = app_type_registry.read();
 
     let mut result = vec![];
 
     // If `Some`, return all components of the provided entity.
-    if let Some(entity) = entity {
+    if let Some(BrpListParams { entity }) = params.map(parse).transpose()? {
         let entity = get_entity(world, entity)?;
         for component_id in entity.archetype().components() {
             let Some(component_info) = world.components().get_info(component_id) else {
@@ -463,26 +461,23 @@ pub fn process_remote_list_request(In(request): In<Value>, world: &World) -> Any
     // accidentally depending on the order.
     result.sort();
 
-    Ok(serde_json::to_value(BrpListResponse {
-        entity,
-        components: result,
-    })?)
+    serde_json::to_value(result).map_err(BrpError::internal)
 }
 
 /// Immutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
-fn get_entity(world: &World, entity: Entity) -> AnyhowResult<EntityRef<'_>> {
+fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> {
     world
         .get_entity(entity)
-        .ok_or_else(|| anyhow!("Entity {:?} not found", entity))
+        .ok_or_else(|| BrpError::entity_not_found(entity))
 }
 
 /// Mutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
-fn get_entity_mut(world: &mut World, entity: Entity) -> AnyhowResult<EntityWorldMut<'_>> {
+fn get_entity_mut(world: &mut World, entity: Entity) -> Result<EntityWorldMut<'_>, BrpError> {
     world
         .get_entity_mut(entity)
-        .ok_or_else(|| anyhow!("Entity {:?} not found", entity))
+        .ok_or_else(|| BrpError::entity_not_found(entity))
 }
 
 /// Returns the [`TypeId`] and [`ComponentId`] of the components with the given
@@ -561,6 +556,7 @@ fn deserialize_components(
     components: HashMap<String, Value>,
 ) -> AnyhowResult<Vec<Box<dyn Reflect>>> {
     let mut reflect_components = vec![];
+
     for (component_path, component) in components {
         let Some(component_type) = type_registry.get_with_type_path(&component_path) else {
             return Err(anyhow!("Unknown component type: `{}`", component_path));
@@ -587,6 +583,7 @@ fn insert_reflected_components(
             get_reflect_component(type_registry, reflected.reflect_type_path())?;
         reflect_component.insert(&mut entity_world_mut, &*reflected, type_registry);
     }
+
     Ok(())
 }
 

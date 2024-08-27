@@ -5,9 +5,7 @@ use std::process;
 
 use anyhow::Result as AnyhowResult;
 use argh::FromArgs;
-use bevy::prelude::default;
-use bevy::remote::builtin_verbs::{BrpQuery, BrpQueryRequest};
-use bevy::remote::{BrpRequest, DEFAULT_PORT};
+use bevy::remote::DEFAULT_PORT;
 use http_body_util::BodyExt as _;
 use hyper::client::conn::http1;
 use hyper::header::HOST;
@@ -52,36 +50,25 @@ async fn main(executor: &Executor<'_>) -> AnyhowResult<()> {
         .await
         .unwrap();
 
-    // Build the parameters to our BRP request. Include the full type names of
-    // all the components, as specified on the command line.
-    let brp_query_params = BrpQueryRequest {
-        data: BrpQuery {
-            components: args.components,
-            ..default()
-        },
-        filter: default(),
-    };
-
-    let brp_query_params = match serde_json::to_value(&brp_query_params) {
-        Ok(brp_query_params) => brp_query_params,
-        Err(error) => die(&format!(
-            "Failed to serialize request parameters: {}",
-            error
-        )),
-    };
-
-    // Build the request.
-    let brp_request = BrpRequest {
-        request: "QUERY".to_owned(),
-        id: (0).into(),
-        params: brp_query_params,
-    };
-
-    // Serialize the request.
-    let brp_request = match serde_json::to_string(&brp_request) {
-        Ok(brp_request) => brp_request,
-        Err(error) => die(&format!("Failed to serialize request: {}", error)),
-    };
+    let brp_request = format!(
+        r#"
+        {{
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "bevy/query",
+            "params": {{
+                "data": {{
+                    "components": [{}]
+                }}
+            }}
+        }}
+        "#,
+        args.components
+            .into_iter()
+            .map(|comp| format!("\"{comp}\""))
+            .reduce(|a, b| format!("{a}, {b}"))
+            .unwrap_or_else(String::new)
+    );
 
     // Connect.
     executor
