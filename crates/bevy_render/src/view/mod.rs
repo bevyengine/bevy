@@ -5,12 +5,13 @@ use bevy_asset::{load_internal_asset, Handle};
 pub use visibility::*;
 pub use window::*;
 
+use crate::camera::NormalizedRenderTarget;
+use crate::extract_component::ExtractComponentPlugin;
 use crate::{
     camera::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, TemporalJitter,
     },
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Shader,
     primitives::Frustum,
     render_asset::RenderAssets,
@@ -25,11 +26,13 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
+use bevy_utils::{hashbrown::hash_map::Entry, HashMap};
 use std::{
     ops::Range,
     sync::{
@@ -107,10 +110,9 @@ impl Plugin for ViewPlugin {
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
-            .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
-                ExtractResourcePlugin::<Msaa>::default(),
+                ExtractComponentPlugin::<Msaa>::default(),
                 VisibilityPlugin,
                 VisibilityRangePlugin,
             ));
@@ -119,6 +121,9 @@ impl Plugin for ViewPlugin {
             render_app.add_systems(
                 Render,
                 (
+                    prepare_view_attachments
+                        .in_set(RenderSet::ManageViews)
+                        .before(prepare_view_targets),
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_windows)
@@ -132,31 +137,35 @@ impl Plugin for ViewPlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ViewUniforms>();
+            render_app
+                .init_resource::<ViewUniforms>()
+                .init_resource::<ViewTargetAttachments>();
         }
     }
 }
 
 /// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
 ///
-/// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
-/// smoother edges.
-/// Defaults to 4 samples.
+/// The number of samples to run for Multi-Sample Anti-Aliasing for a given camera. Higher numbers
+/// result in smoother edges.
+///
+/// Defaults to 4 samples. Some advanced rendering features may require that MSAA be disabled.
 ///
 /// Note that web currently only supports 1 or 4 samples.
-///
-/// # Example
-/// ```
-/// # use bevy_app::prelude::App;
-/// # use bevy_render::prelude::Msaa;
-/// App::new()
-///     .insert_resource(Msaa::default())
-///     .run();
-/// ```
 #[derive(
-    Resource, Default, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd, Eq, Hash, Debug,
+    Component,
+    Default,
+    Clone,
+    Copy,
+    ExtractComponent,
+    Reflect,
+    PartialEq,
+    PartialOrd,
+    Eq,
+    Hash,
+    Debug,
 )]
-#[reflect(Resource, Default)]
+#[reflect(Component, Default)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -279,17 +288,17 @@ pub struct ColorGradingGlobal {
 /// The [`ColorGrading`] structure, packed into the most efficient form for the
 /// GPU.
 #[derive(Clone, Copy, Debug, ShaderType)]
-struct ColorGradingUniform {
-    balance: Mat3,
-    saturation: Vec3,
-    contrast: Vec3,
-    gamma: Vec3,
-    gain: Vec3,
-    lift: Vec3,
-    midtone_range: Vec2,
-    exposure: f32,
-    hue: f32,
-    post_saturation: f32,
+pub struct ColorGradingUniform {
+    pub balance: Mat3,
+    pub saturation: Vec3,
+    pub contrast: Vec3,
+    pub gamma: Vec3,
+    pub gain: Vec3,
+    pub lift: Vec3,
+    pub midtone_range: Vec2,
+    pub exposure: f32,
+    pub hue: f32,
+    pub post_saturation: f32,
 }
 
 /// A section of color grading values that can be selectively applied to
@@ -406,20 +415,20 @@ impl ColorGrading {
 
 #[derive(Clone, ShaderType)]
 pub struct ViewUniform {
-    clip_from_world: Mat4,
-    unjittered_clip_from_world: Mat4,
-    world_from_clip: Mat4,
-    world_from_view: Mat4,
-    view_from_world: Mat4,
-    clip_from_view: Mat4,
-    view_from_clip: Mat4,
-    world_position: Vec3,
-    exposure: f32,
+    pub clip_from_world: Mat4,
+    pub unjittered_clip_from_world: Mat4,
+    pub world_from_clip: Mat4,
+    pub world_from_view: Mat4,
+    pub view_from_world: Mat4,
+    pub clip_from_view: Mat4,
+    pub view_from_clip: Mat4,
+    pub world_position: Vec3,
+    pub exposure: f32,
     // viewport(x_origin, y_origin, width, height)
-    viewport: Vec4,
-    frustum: [Vec4; 6],
-    color_grading: ColorGradingUniform,
-    mip_bias: f32,
+    pub viewport: Vec4,
+    pub frustum: [Vec4; 6],
+    pub color_grading: ColorGradingUniform,
+    pub mip_bias: f32,
 }
 
 #[derive(Resource)]
@@ -455,6 +464,13 @@ pub struct ViewTarget {
     main_texture: Arc<AtomicUsize>,
     out_texture: OutputColorAttachment,
 }
+
+/// Contains [`OutputColorAttachment`] used for each target present on any view in the current
+/// frame, after being prepared by [`prepare_view_attachments`]. Users that want to override
+/// the default output color attachment for a specific target can do so by adding a
+/// [`OutputColorAttachment`] to this resource before [`prepare_view_targets`] is called.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAttachment>);
 
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
@@ -792,12 +808,41 @@ struct MainTargetTextures {
     main_texture: Arc<AtomicUsize>,
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_view_targets(
-    mut commands: Commands,
+/// Prepares the view target [`OutputColorAttachment`] for each view in the current frame.
+pub fn prepare_view_attachments(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
-    msaa: Res<Msaa>,
+    manual_texture_views: Res<ManualTextureViews>,
+    cameras: Query<&ExtractedCamera>,
+    mut view_target_attachments: ResMut<ViewTargetAttachments>,
+) {
+    view_target_attachments.clear();
+    for camera in cameras.iter() {
+        let Some(target) = &camera.target else {
+            continue;
+        };
+
+        match view_target_attachments.entry(target.clone()) {
+            Entry::Occupied(_) => {}
+            Entry::Vacant(entry) => {
+                let Some(attachment) = target
+                    .get_texture_view(&windows, &images, &manual_texture_views)
+                    .cloned()
+                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
+                    .map(|(view, format)| {
+                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
+                    })
+                else {
+                    continue;
+                };
+                entry.insert(attachment);
+            }
+        };
+    }
+}
+
+pub fn prepare_view_targets(
+    mut commands: Commands,
     clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
@@ -806,25 +851,18 @@ pub fn prepare_view_targets(
         &ExtractedCamera,
         &ExtractedView,
         &CameraMainTextureUsages,
+        &Msaa,
     )>,
-    manual_texture_views: Res<ManualTextureViews>,
+    view_target_attachments: Res<ViewTargetAttachments>,
 ) {
     let mut textures = HashMap::default();
-    let mut output_textures = HashMap::default();
-    for (entity, camera, view, texture_usage) in cameras.iter() {
+    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {
             continue;
         };
 
-        let Some(out_texture) = output_textures.entry(target.clone()).or_insert_with(|| {
-            target
-                .get_texture_view(&windows, &images, &manual_texture_views)
-                .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                .map(|(view, format)| {
-                    OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                })
-        }) else {
+        let Some(out_attachment) = view_target_attachments.get(target) else {
             continue;
         };
 
@@ -847,7 +885,7 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), view.hdr))
+            .entry((camera.target.clone(), view.hdr, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
@@ -911,7 +949,7 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
-            out_texture: out_texture.clone(),
+            out_texture: out_attachment.clone(),
         });
     }
 }

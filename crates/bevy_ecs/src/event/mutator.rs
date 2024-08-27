@@ -40,6 +40,8 @@ use bevy_ecs::{
 /// Most of the time systems will want to use [`EventMutator::read()`]. This function creates an iterator over
 /// all events that haven't been read yet by this system, marking the event as read in the process.
 ///
+/// [`EventReader`]: super::EventReader
+/// [`EventWriter`]: super::EventWriter
 #[derive(SystemParam, Debug)]
 pub struct EventMutator<'w, 's, E: Event> {
     pub(super) reader: Local<'s, EventCursor<E>>,
@@ -54,13 +56,13 @@ impl<'w, 's, E: Event> EventMutator<'w, 's, E> {
         self.reader.read_mut(&mut self.events)
     }
 
-    /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
+    /// Like [`read`](Self::read), except also returning the [`EventId`](super::EventId) of the events.
     pub fn read_with_id(&mut self) -> EventMutIteratorWithId<'_, E> {
         self.reader.read_mut_with_id(&mut self.events)
     }
 
     /// Returns a parallel iterator over the events this [`EventMutator`] has not seen yet.
-    /// See also [`for_each`](EventParIter::for_each).
+    /// See also [`for_each`](super::EventParIter::for_each).
     ///
     /// # Example
     /// ```

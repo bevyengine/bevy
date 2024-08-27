@@ -304,7 +304,7 @@ pub struct TextMeasureInfo {
     pub min: Vec2,
     /// Maximum size for a text area in pixels, to be used when laying out widgets with taffy
     pub max: Vec2,
-    buffer: cosmic_text::Buffer,
+    buffer: Buffer,
 }
 
 impl std::fmt::Debug for TextMeasureInfo {
@@ -358,7 +358,7 @@ fn load_font_to_fontdb(
         });
 }
 
-/// Translates [`TextSection`] to [`Attrs`](cosmic_text::attrs::Attrs),
+/// Translates [`TextSection`] to [`Attrs`],
 /// loading fonts into the [`Database`](cosmic_text::fontdb::Database) if required.
 fn get_attrs<'a>(
     section: &TextSection,

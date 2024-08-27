@@ -11,14 +11,17 @@ use super::{freely_mutable_state::FreelyMutableState, states::States};
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectResource;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::prelude::ReflectDefault;
+
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`](crate::state::OnEnter) and [`OnExit(state)`](crate::state::OnExit)).
 ///
 /// The current state value can be accessed through this resource. To *change* the state,
 /// queue a transition in the [`NextState<S>`] resource, and it will be applied during the
-/// [`StateTransition`](crate::transition::StateTransition) schedule - which by default runs after `PreUpdate`.
+/// [`StateTransition`](crate::state::StateTransition) schedule - which by default runs after `PreUpdate`.
 ///
-/// You can also manually trigger the [`StateTransition`](crate::transition::StateTransition) schedule to apply the changes
+/// You can also manually trigger the [`StateTransition`](crate::state::StateTransition) schedule to apply the changes
 /// at an arbitrary time.
 ///
 /// The starting state is defined via the [`Default`] implementation for `S`.
@@ -93,7 +96,7 @@ impl<S: States> Deref for State<S> {
 /// To queue a transition, call [`NextState::set`] or mutate the value to [`NextState::Pending`] directly.
 ///
 /// Note that these transitions can be overridden by other systems:
-/// only the actual value of this resource during the [`StateTransition`](crate::transition::StateTransition) schedule matters.
+/// only the actual value of this resource during the [`StateTransition`](crate::state::StateTransition) schedule matters.
 ///
 /// ```
 /// use bevy_state::prelude::*;
@@ -115,7 +118,7 @@ impl<S: States> Deref for State<S> {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(bevy_reflect::Reflect),
-    reflect(Resource)
+    reflect(Resource, Default)
 )]
 pub enum NextState<S: FreelyMutableState> {
     /// No state transition is pending

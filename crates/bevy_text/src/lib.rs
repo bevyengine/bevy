@@ -20,7 +20,7 @@
 //! Note that text measurement is only relevant in a UI context.
 //!
 //! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
-//! or [`bevy_text::text2d::update_text2d_layout`] system (in a 2d world space context)
+//! or [`text2d::update_text2d_layout`] system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
 //! 1. creates a [`Buffer`](cosmic_text::Buffer) from the [`TextSection`]s, generating new [`FontAtlasSet`]s if necessary.
@@ -71,6 +71,10 @@ use bevy_render::{
 };
 use bevy_sprite::SpriteSystem;
 
+/// The raw data for the default font used by `bevy_text`
+#[cfg(feature = "default_font")]
+pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
+
 /// Adds text rendering support to an app.
 ///
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
@@ -109,7 +113,7 @@ impl Plugin for TextPlugin {
                         .in_set(VisibilitySystems::CalculateBounds)
                         .after(update_text2d_layout),
                     update_text2d_layout
-                        .after(font_atlas_set::remove_dropped_font_atlas_sets)
+                        .after(remove_dropped_font_atlas_sets)
                         // Potential conflict: `Assets<Image>`
                         // In practice, they run independently since `bevy_render::camera_update_system`
                         // will only ever observe its own render target, and `update_text2d_layout`

@@ -87,9 +87,10 @@ impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
 }
 
 macro_rules! impl_exclusive_system_param_tuple {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
+        $(#[$meta])*
         impl<$($param: ExclusiveSystemParam),*> ExclusiveSystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'s> = ($($param::Item<'s>,)*);
@@ -113,7 +114,13 @@ macro_rules! impl_exclusive_system_param_tuple {
     };
 }
 
-all_tuples!(impl_exclusive_system_param_tuple, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_exclusive_system_param_tuple,
+    0,
+    16,
+    P
+);
 
 #[cfg(test)]
 mod tests {

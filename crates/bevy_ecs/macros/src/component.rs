@@ -17,6 +17,8 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
+            type Traversal = #bevy_ecs_path::traversal::TraverseNone;
+            const AUTO_PROPAGATE: bool = false;
         }
 
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
@@ -56,6 +58,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let on_add = hook_register_function_call(quote! {on_add}, attrs.on_add);
     let on_insert = hook_register_function_call(quote! {on_insert}, attrs.on_insert);
+    let on_replace = hook_register_function_call(quote! {on_replace}, attrs.on_replace);
     let on_remove = hook_register_function_call(quote! {on_remove}, attrs.on_remove);
 
     ast.generics
@@ -74,6 +77,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             fn register_component_hooks(hooks: &mut #bevy_ecs_path::component::ComponentHooks) {
                 #on_add
                 #on_insert
+                #on_replace
                 #on_remove
             }
         }
@@ -84,12 +88,14 @@ pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
+pub const ON_REPLACE: &str = "on_replace";
 pub const ON_REMOVE: &str = "on_remove";
 
 struct Attrs {
     storage: StorageTy,
     on_add: Option<ExprPath>,
     on_insert: Option<ExprPath>,
+    on_replace: Option<ExprPath>,
     on_remove: Option<ExprPath>,
 }
 
@@ -108,6 +114,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         storage: StorageTy::Table,
         on_add: None,
         on_insert: None,
+        on_replace: None,
         on_remove: None,
     };
 
@@ -129,6 +136,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 Ok(())
             } else if nested.path.is_ident(ON_INSERT) {
                 attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
+                Ok(())
+            } else if nested.path.is_ident(ON_REPLACE) {
+                attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
                 Ok(())
             } else if nested.path.is_ident(ON_REMOVE) {
                 attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);

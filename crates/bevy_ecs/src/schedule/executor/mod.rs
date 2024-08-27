@@ -30,7 +30,7 @@ pub(super) trait SystemExecutor: Send + Sync {
 /// Specifies how a [`Schedule`](super::Schedule) will be run.
 ///
 /// The default depends on the target platform:
-///  - [`SingleThreaded`](ExecutorKind::SingleThreaded) on WASM.
+///  - [`SingleThreaded`](ExecutorKind::SingleThreaded) on Wasm.
 ///  - [`MultiThreaded`](ExecutorKind::MultiThreaded) everywhere else.
 #[derive(PartialEq, Eq, Default, Debug, Copy, Clone)]
 pub enum ExecutorKind {

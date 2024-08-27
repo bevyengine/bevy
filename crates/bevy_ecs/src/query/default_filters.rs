@@ -1,5 +1,8 @@
 use crate as bevy_ecs;
-use crate::{component::ComponentId, query::FilteredAccess};
+use crate::{
+    component::{ComponentId, Components, StorageType},
+    query::FilteredAccess,
+};
 use bevy_ecs_macros::Resource;
 use bevy_utils::HashMap;
 
@@ -104,6 +107,14 @@ impl DefaultQueryFilters {
                 }
             }
         }
+    }
+
+    pub(super) fn is_dense(&self, components: &Components) -> bool {
+        self.0.keys().all(|&component_id| {
+            components
+                .get_info(component_id)
+                .map_or(false, |info| info.storage_type() == StorageType::Table)
+        })
     }
 }
 

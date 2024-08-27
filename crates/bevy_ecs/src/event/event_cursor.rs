@@ -58,6 +58,9 @@ pub type ManualEventReader<E> = EventCursor<E>;
 ///
 /// # bevy_ecs::system::assert_is_system(send_and_receive_events);
 /// ```
+///
+/// [`EventReader`]: super::EventReader
+/// [`EventMutator`]: super::EventMutator
 #[derive(Debug)]
 pub struct EventCursor<E: Event> {
     pub(super) last_event_count: usize,
@@ -84,22 +87,22 @@ impl<E: Event> Clone for EventCursor<E> {
 
 #[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> EventCursor<E> {
-    /// See [`EventReader::read`]
+    /// See [`EventReader::read`](super::EventReader::read)
     pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {
         self.read_with_id(events).without_id()
     }
 
-    /// See [`EventMutator::read`]
+    /// See [`EventMutator::read`](super::EventMutator::read)
     pub fn read_mut<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutIterator<'a, E> {
         self.read_mut_with_id(events).without_id()
     }
 
-    /// See [`EventReader::read_with_id`]
+    /// See [`EventReader::read_with_id`](super::EventReader::read_with_id)
     pub fn read_with_id<'a>(&'a mut self, events: &'a Events<E>) -> EventIteratorWithId<'a, E> {
         EventIteratorWithId::new(self, events)
     }
 
-    /// See [`EventMutator::read_with_id`]
+    /// See [`EventMutator::read_with_id`](super::EventMutator::read_with_id)
     pub fn read_mut_with_id<'a>(
         &'a mut self,
         events: &'a mut Events<E>,
@@ -107,19 +110,19 @@ impl<E: Event> EventCursor<E> {
         EventMutIteratorWithId::new(self, events)
     }
 
-    /// See [`EventReader::par_read`]
+    /// See [`EventReader::par_read`](super::EventReader::par_read)
     #[cfg(feature = "multi_threaded")]
     pub fn par_read<'a>(&'a mut self, events: &'a Events<E>) -> EventParIter<'a, E> {
         EventParIter::new(self, events)
     }
 
-    /// See [`EventMutator::par_read`]
+    /// See [`EventMutator::par_read`](super::EventMutator::par_read)
     #[cfg(feature = "multi_threaded")]
     pub fn par_read_mut<'a>(&'a mut self, events: &'a mut Events<E>) -> EventMutParIter<'a, E> {
         EventMutParIter::new(self, events)
     }
 
-    /// See [`EventReader::len`]
+    /// See [`EventReader::len`](super::EventReader::len)
     pub fn len(&self, events: &Events<E>) -> usize {
         // The number of events in this reader is the difference between the most recent event
         // and the last event seen by it. This will be at most the number of events contained
@@ -138,12 +141,12 @@ impl<E: Event> EventCursor<E> {
             .saturating_sub(self.last_event_count)
     }
 
-    /// See [`EventReader::is_empty()`]
+    /// See [`EventReader::is_empty()`](super::EventReader::is_empty)
     pub fn is_empty(&self, events: &Events<E>) -> bool {
         self.len(events) == 0
     }
 
-    /// See [`EventReader::clear()`]
+    /// See [`EventReader::clear()`](super::EventReader::clear)
     pub fn clear(&mut self, events: &Events<E>) {
         self.last_event_count = events.event_count;
     }

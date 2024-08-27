@@ -69,7 +69,7 @@ fn spawn_tasks(mut commands: Commands) {
                     let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
                     let mut command_queue = CommandQueue::default();
 
-                    // we use a raw command queue to pass a FnOne(&mut World) back to be
+                    // we use a raw command queue to pass a FnOnce(&mut World) back to be
                     // applied in a deferred manner.
                     command_queue.push(move |world: &mut World| {
                         let (box_mesh_handle, box_material_handle) = {

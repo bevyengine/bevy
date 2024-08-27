@@ -58,6 +58,10 @@ impl Default for RenderLayers {
 
 impl RenderLayers {
     /// Create a new `RenderLayers` belonging to the given layer.
+    ///
+    /// This `const` constructor is limited to `size_of::<usize>()` layers.
+    /// If you need to support an arbitrary number of layers, use [`with`](RenderLayers::with)
+    /// or [`from_layers`](RenderLayers::from_layers).
     pub const fn layer(n: Layer) -> Self {
         let (buffer_index, bit) = Self::layer_info(n);
         assert!(
@@ -135,7 +139,7 @@ impl RenderLayers {
         false
     }
 
-    /// get the bitmask representation of the contained layers
+    /// Get the bitmask representation of the contained layers.
     pub fn bits(&self) -> &[u64] {
         self.0.as_slice()
     }
@@ -162,7 +166,7 @@ impl RenderLayers {
                 return None;
             }
             let next = buffer.trailing_zeros() + 1;
-            buffer >>= next;
+            buffer = buffer.checked_shr(next).unwrap_or(0);
             layer += next as usize;
             Some(layer - 1)
         })
@@ -358,5 +362,11 @@ mod rendering_mask_tests {
         // When excluding that layer, it should drop the extra memory block
         let layers = layers.without(77);
         assert!(layers.0.len() == 1);
+    }
+
+    #[test]
+    fn render_layer_iter_no_overflow() {
+        let layers = RenderLayers::from_layers(&[63]);
+        layers.iter().count();
     }
 }

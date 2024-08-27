@@ -26,6 +26,18 @@ pub enum CowArc<'a, T: ?Sized + 'static> {
     Owned(Arc<T>),
 }
 
+impl<T: ?Sized> CowArc<'static, T> {
+    /// Indicates this [`CowArc`] should have a static lifetime.
+    /// This ensures if this was created with a value `Borrowed(&'static T)`, it is replaced with `Static(&'static T)`.
+    #[inline]
+    pub fn as_static(self) -> Self {
+        match self {
+            Self::Borrowed(value) | Self::Static(value) => Self::Static(value),
+            Self::Owned(value) => Self::Owned(value),
+        }
+    }
+}
+
 impl<'a, T: ?Sized> Deref for CowArc<'a, T> {
     type Target = T;
 

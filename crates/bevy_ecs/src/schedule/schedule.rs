@@ -23,6 +23,8 @@ use crate::{
     world::World,
 };
 
+use crate::query::AccessConflicts;
+use crate::storage::SparseSetIndex;
 pub use stepping::Stepping;
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
@@ -1363,14 +1365,22 @@ impl ScheduleGraph {
                 let access_a = system_a.component_access();
                 let access_b = system_b.component_access();
                 if !access_a.is_compatible(access_b) {
-                    let conflicts: Vec<_> = access_a
-                        .get_conflicts(access_b)
-                        .into_iter()
-                        .filter(|id| !ignored_ambiguities.contains(id))
-                        .collect();
-
-                    if !conflicts.is_empty() {
-                        conflicting_systems.push((a, b, conflicts));
+                    match access_a.get_conflicts(access_b) {
+                        AccessConflicts::Individual(conflicts) => {
+                            let conflicts: Vec<_> = conflicts
+                                .ones()
+                                .map(ComponentId::get_sparse_set_index)
+                                .filter(|id| !ignored_ambiguities.contains(id))
+                                .collect();
+                            if !conflicts.is_empty() {
+                                conflicting_systems.push((a, b, conflicts));
+                            }
+                        }
+                        AccessConflicts::All => {
+                            // there is no specific component conflicting, but the systems are overall incompatible
+                            // for example 2 systems with `Query<EntityMut>`
+                            conflicting_systems.push((a, b, Vec::new()));
+                        }
                     }
                 }
             }

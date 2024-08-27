@@ -20,7 +20,7 @@ pub struct ObserverState {
 impl Default for ObserverState {
     fn default() -> Self {
         Self {
-            runner: |_, _, _| {},
+            runner: |_, _, _, _| {},
             last_trigger_id: 0,
             despawned_watched_entities: 0,
             descriptor: Default::default(),
@@ -84,9 +84,9 @@ impl Component for ObserverState {
 }
 
 /// Type for function that is run when an observer is triggered.
-/// Typically refers to the default runner that runs the system stored in the associated [`ObserverSystemComponent`],
+/// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
 /// but can be overridden for custom behaviour.
-pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
+pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
@@ -257,7 +257,8 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut);
 /// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple entities with the same [`Observer`].
 ///
 /// When first added, [`Observer`] will also create an [`ObserverState`] component, which registers the observer with the [`World`] and
-/// serves as the "source of truth" of the observer.
+/// serves as the "source of truth" of the observer. [`ObserverState`] can be used to filter for [`Observer`] [`Entity`]s, e.g.
+/// [`With<ObserverState>`].
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer<T: 'static, B: Bundle> {
@@ -358,6 +359,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     mut world: DeferredWorld,
     observer_trigger: ObserverTrigger,
     ptr: PtrMut,
+    propagate: &mut bool,
 ) {
     let world = world.as_unsafe_world_cell();
     // SAFETY: Observer was triggered so must still exist in world
@@ -374,15 +376,18 @@ fn observer_system_runner<E: Event, B: Bundle>(
     };
 
     // TODO: Move this check into the observer cache to avoid dynamic dispatch
-    // SAFETY: We only access world metadata
-    let last_trigger = unsafe { world.world_metadata() }.last_trigger_id();
+    let last_trigger = world.last_trigger_id();
     if state.last_trigger_id == last_trigger {
         return;
     }
     state.last_trigger_id = last_trigger;
 
-    // SAFETY: Caller ensures `ptr` is castable to `&mut T`
-    let trigger: Trigger<E, B> = Trigger::new(unsafe { ptr.deref_mut() }, observer_trigger);
+    let trigger: Trigger<E, B> = Trigger::new(
+        // SAFETY: Caller ensures `ptr` is castable to `&mut T`
+        unsafe { ptr.deref_mut() },
+        propagate,
+        observer_trigger,
+    );
     // SAFETY: the static lifetime is encapsulated in Trigger / cannot leak out.
     // Additionally, IntoObserverSystem is only implemented for functions starting
     // with for<'a> Trigger<'a>, meaning users cannot specify Trigger<'static> manually,
@@ -390,7 +395,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     // This transmute is obviously not ideal, but it is safe. Ideally we can remove the
     // static constraint from ObserverSystem, but so far we have not found a way.
     let trigger: Trigger<'static, E, B> = unsafe { std::mem::transmute(trigger) };
-    // SAFETY: Observer was triggered so must have an `ObserverSystemComponent`
+    // SAFETY: Observer was triggered so must have an `Observer` component.
     let system = unsafe {
         &mut observer_cell
             .get_mut::<Observer<E, B>>()

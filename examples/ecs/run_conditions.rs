@@ -25,8 +25,7 @@ fn main() {
                     .run_if(resource_exists::<Unused>.or(
                         // This is a custom run condition, defined using a system that returns
                         // a `bool` and which has read-only `SystemParam`s.
-                        // Both run conditions must return `true` in order for the system to run.
-                        // Note that this second run condition will be evaluated even if the first returns `false`.
+                        // Only a single run condition must return `true` in order for the system to run.
                         has_user_input,
                     )),
                 print_input_counter

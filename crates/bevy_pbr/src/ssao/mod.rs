@@ -484,17 +484,16 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (Entity, &Camera, &ScreenSpaceAmbientOcclusionSettings),
+            (Entity, &Camera, &ScreenSpaceAmbientOcclusionSettings, &Msaa),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
-    msaa: Extract<Res<Msaa>>,
 ) {
-    for (entity, camera, ssao_settings) in &cameras {
-        if **msaa != Msaa::Off {
+    for (entity, camera, ssao_settings, msaa) in &cameras {
+        if *msaa != Msaa::Off {
             error!(
                 "SSAO is being used which requires Msaa::Off, but Msaa is currently set to Msaa::{:?}",
-                **msaa
+                *msaa
             );
             return;
         }

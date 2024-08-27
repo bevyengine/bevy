@@ -153,10 +153,9 @@ pub(crate) fn prepare_motion_blur_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
-    msaa: Res<Msaa>,
-    views: Query<(Entity, &ExtractedView), With<MotionBlur>>,
+    views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlur>>,
 ) {
-    for (entity, view) in &views {
+    for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,

@@ -97,3 +97,16 @@ macro_rules! impl_function_traits {
 }
 
 pub(crate) use impl_function_traits;
+
+/// Helper macro that returns the number of tokens it receives.
+///
+/// See [here] for details.
+///
+/// [here]: https://veykril.github.io/tlborm/decl-macros/building-blocks/counting.html#bit-twiddling
+macro_rules! count_tokens {
+    () => { 0 };
+    ($odd:tt $($a:tt $b:tt)*) => { ($crate::func::macros::count_tokens!($($a)*) << 1) | 1 };
+    ($($a:tt $even:tt)*) => { $crate::func::macros::count_tokens!($($a)*) << 1 };
+}
+
+pub(crate) use count_tokens;

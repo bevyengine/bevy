@@ -34,7 +34,7 @@ fn setup(
     ]];
 
     // Make a CubicCurve
-    let bezier = CubicBezier::new(points).to_curve();
+    let bezier = CubicBezier::new(points).to_curve().unwrap();
 
     // Spawning a cube to experiment on
     commands.spawn((

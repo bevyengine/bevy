@@ -5,7 +5,7 @@
 )]
 
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
-//! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
+//! apps, and automatically configures platform specific log handlers (i.e. Wasm or Android).
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
 //! and behave identically to it.
@@ -75,7 +75,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///     logging to `stdout`.
 /// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
 ///     logging to Android logs.
-/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
 ///     to the browser console.
 ///
 /// You can configure this plugin.
@@ -147,8 +147,8 @@ pub struct LogPlugin {
     ///
     /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
     ///
-    /// Access to [`App`] is also provided to allow for communication between the [`Subscriber`]
-    /// and the [`App`].
+    /// Access to [`App`] is also provided to allow for communication between the
+    /// [`Subscriber`](bevy_utils::tracing::Subscriber) and the [`App`].
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,

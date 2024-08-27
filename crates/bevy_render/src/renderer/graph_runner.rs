@@ -19,7 +19,7 @@ use crate::{
 /// The [`RenderGraphRunner`] is responsible for executing a [`RenderGraph`].
 ///
 /// It will run all nodes in the graph sequentially in the correct order (defined by the edges).
-/// Each [`Node`](crate::render_graph::node::Node) can run any arbitrary code, but will generally
+/// Each [`Node`](crate::render_graph::Node) can run any arbitrary code, but will generally
 /// either send directly a [`CommandBuffer`] or a task that will asynchronously generate a [`CommandBuffer`]
 ///
 /// After running the graph, the [`RenderGraphRunner`] will execute in parallel all the tasks to get

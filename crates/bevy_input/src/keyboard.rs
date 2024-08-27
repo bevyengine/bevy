@@ -88,8 +88,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`]
 /// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[derive(Event, Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Hash)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -102,6 +106,10 @@ pub struct KeyboardInput {
     pub logical_key: Key,
     /// The press state of the key.
     pub state: ButtonState,
+    /// On some systems, holding down a key for some period of time causes that key to be repeated
+    /// as though it were being pressed and released repeatedly. This field is [`true`] if this
+    /// event is the result of one of those repeats.
+    pub repeat: bool,
     /// Window that received the input.
     pub window: Entity,
 }
@@ -832,7 +840,7 @@ pub enum Key {
     /// Scroll up or display previous page of content.
     PageUp,
     /// Used to remove the character to the left of the cursor. This key value is also used for
-    /// the key labeled `Delete` on MacOS keyboards.
+    /// the key labeled `Delete` on macOS keyboards.
     Backspace,
     /// Remove the currently selected input.
     Clear,
@@ -843,7 +851,7 @@ pub enum Key {
     /// Cut the current selection. (`APPCOMMAND_CUT`)
     Cut,
     /// Used to delete the character to the right of the cursor. This key value is also used for the
-    /// key labeled `Delete` on MacOS keyboards when `Fn` is active.
+    /// key labeled `Delete` on macOS keyboards when `Fn` is active.
     Delete,
     /// The Erase to End of Field key. This key deletes all characters from the current cursor
     /// position to the end of the current field.

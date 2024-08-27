@@ -15,6 +15,8 @@ proc-macro = true
 default = []
 # When enabled, allows documentation comments to be processed by the reflection macros
 documentation = []
+# Enables macro logic related to function reflection
+functions = []
 
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.15.0-dev" }
@@ -28,5 +30,5 @@ uuid = { version = "1.1", features = ["v4"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
