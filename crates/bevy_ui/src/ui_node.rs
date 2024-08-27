@@ -2,12 +2,13 @@ use crate::{UiRect, Val};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{Rect, Vec2};
+use bevy_math::{Rect, Vec2, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     texture::{Image, TRANSPARENT_IMAGE_HANDLE},
 };
+use bevy_text::cosmic_text::ttf_parser::feat;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -44,6 +45,11 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
+    /// Resolved border radius values, calculated by `resolve_border_radius` system.
+    /// In order: top left, top right, bottom right, bottom left.
+    ///
+    /// Automatically calculated by [`super::layout::resolve_border_radius_sytem`].
+    pub(crate) border_radius: Vec4,
 }
 
 impl Node {
@@ -118,6 +124,7 @@ impl Node {
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
+        border_radius: Vec4::ZERO,
     };
 }
 
