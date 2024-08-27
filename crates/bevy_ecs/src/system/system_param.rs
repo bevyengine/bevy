@@ -517,25 +517,34 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.init_resource::<T>();
-        let archetype_component_id = world.initialize_resource_internal(component_id).id();
+        fn init_state(
+            world: &mut World,
+            system_meta: &mut SystemMeta,
+            init_resource: fn(&mut Components) -> ComponentId,
+            name: &str,
+        ) -> ComponentId {
+            let component_id = init_resource(&mut world.components);
+            let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
-        let combined_access = system_meta.component_access_set.combined_access();
-        assert!(
-            !combined_access.has_resource_write(component_id),
-            "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-            std::any::type_name::<T>(),
-            system_meta.name,
-        );
-        system_meta
-            .component_access_set
-            .add_unfiltered_resource_read(component_id);
+            let combined_access = system_meta.component_access_set.combined_access();
+            assert!(
+                !combined_access.has_resource_write(component_id),
+                "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+                name,
+                system_meta.name,
+            );
+            system_meta
+                .component_access_set
+                .add_unfiltered_resource_read(component_id);
 
-        system_meta
-            .archetype_component_access
-            .add_resource_read(archetype_component_id);
+            system_meta
+                .archetype_component_access
+                .add_resource_read(archetype_component_id);
 
-        component_id
+            component_id
+        }
+
+        init_state(world, system_meta, Components::init_resource::<T>, std::any::type_name::<T>())
     }
 
     #[inline]
@@ -611,28 +620,37 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let component_id = world.components.init_resource::<T>();
-        let archetype_component_id = world.initialize_resource_internal(component_id).id();
+        fn init_state(
+            world: &mut World,
+            system_meta: &mut SystemMeta,
+            init_resource: fn(&mut Components) -> ComponentId,
+            name: &str,
+        ) -> ComponentId {
+            let component_id = init_resource(&mut world.components);
+            let archetype_component_id = world.initialize_resource_internal(component_id).id();
 
-        let combined_access = system_meta.component_access_set.combined_access();
-        if combined_access.has_resource_write(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                std::any::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(component_id) {
-            panic!(
-                "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
-                std::any::type_name::<T>(), system_meta.name);
+            let combined_access = system_meta.component_access_set.combined_access();
+            if combined_access.has_resource_write(component_id) {
+                panic!(
+                    "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+                    name, system_meta.name);
+            } else if combined_access.has_resource_read(component_id) {
+                panic!(
+                    "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevyengine.org/learn/errors/b0002",
+                    name, system_meta.name);
+            }
+            system_meta
+                .component_access_set
+                .add_unfiltered_resource_write(component_id);
+
+            system_meta
+                .archetype_component_access
+                .add_resource_write(archetype_component_id);
+
+            component_id
         }
-        system_meta
-            .component_access_set
-            .add_unfiltered_resource_write(component_id);
 
-        system_meta
-            .archetype_component_access
-            .add_resource_write(archetype_component_id);
-
-        component_id
+        init_state(world, system_meta, Components::init_resource::<T>, std::any::type_name::<T>())
     }
 
     #[inline]
