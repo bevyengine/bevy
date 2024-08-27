@@ -158,6 +158,15 @@ impl VertexBufferLayout {
             attributes,
         }
     }
+
+    /// Returns a [`VertexBufferLayout`] with the shader location of every attribute offset by
+    /// `location`.
+    pub fn offset_locations_by(mut self, location: u32) -> Self {
+        self.attributes.iter_mut().for_each(|attr| {
+            attr.shader_location += location;
+        });
+        self
+    }
 }
 
 /// Describes the fragment process in a render pipeline.

@@ -972,15 +972,15 @@ pub fn extract_cameras(
             ));
 
             if let Some(temporal_jitter) = temporal_jitter {
-                commands.insert(temporal_jitter.clone());
+                commands = commands.insert(temporal_jitter.clone());
             }
 
             if let Some(render_layers) = render_layers {
-                commands.insert(render_layers.clone());
+                commands = commands.insert(render_layers.clone());
             }
 
             if let Some(perspective) = projection {
-                commands.insert(perspective.clone());
+                commands = commands.insert(perspective.clone());
             }
             if gpu_culling {
                 if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {

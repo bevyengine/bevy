@@ -257,7 +257,7 @@ fn spawn_button(
     ));
 
     if let Some(image) = image {
-        builder.insert(UiImage::new(image));
+        builder = builder.insert(UiImage::new(image));
     }
 
     if spawn_text {
