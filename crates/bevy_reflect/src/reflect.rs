@@ -523,11 +523,15 @@ impl dyn Reflect {
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn downcast<T: Any>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
-        if self.is::<T>() {
-            Ok(self.into_any().downcast().unwrap())
-        } else {
-            Err(self)
+        fn downcast(this: Box<dyn Reflect>, id: TypeId) -> Result<Box<dyn Any>, Box<dyn Reflect>> {
+            if this.as_any().type_id() == id {
+                Ok(this.into_any())
+            } else {
+                Err(this)
+            }
         }
+
+        downcast(self, TypeId::of::<T>()).map(|value| value.downcast().unwrap())
     }
 
     /// Downcasts the value to type `T`, unboxing and consuming the trait object.
@@ -641,3 +645,24 @@ macro_rules! impl_full_reflect {
 }
 
 pub(crate) use impl_full_reflect;
+
+/// Standard implementation of the [`PartialReflect::try_apply`] method for [`Struct`] types.
+#[doc(hidden)]
+pub fn try_apply_struct(this: &mut dyn Struct, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+    if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
+        for (i, value) in struct_value.iter_fields().enumerate() {
+            let name = struct_value.name_at(i).unwrap();
+            if let Some(v) = this.field_mut(name) {
+                v.try_apply(value)?;
+            }
+        }
+    } else {
+        return Err(
+            ApplyError::MismatchedKinds {
+                from_kind: PartialReflect::reflect_kind(value),
+                to_kind: ReflectKind::Struct
+            }
+        );
+    }
+    Ok(())
+}
