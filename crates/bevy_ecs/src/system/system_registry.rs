@@ -360,7 +360,7 @@ where
 {
     fn clone(&self) -> Self {
         RunSystemWithInput {
-            system_id: self.system_id.clone(),
+            system_id: self.system_id,
             input: self.input.clone(),
         }
     }

@@ -358,9 +358,7 @@ pub trait SystemInput {
 
 impl SystemInput for () {
     type Inner = ();
-    fn wrap(_: Self::Inner) -> Self {
-        ()
-    }
+    fn wrap(_: Self::Inner) -> Self {}
 }
 
 impl<T> SystemInput for In<T> {
