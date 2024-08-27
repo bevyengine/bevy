@@ -333,7 +333,7 @@ impl Plugin for PbrPlugin {
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
             ))
-            .add_plugins(WorldSyncPlugin::<(PointLight, SpotLight, DirectionalLight)>::default())
+            .add_plugins(WorldSyncPlugin)
             .configure_sets(
                 PostUpdate,
                 (

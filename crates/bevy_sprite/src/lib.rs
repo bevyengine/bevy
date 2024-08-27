@@ -56,7 +56,6 @@ use bevy_render::{
     render_resource::{Shader, SpecializedRenderPipelines},
     texture::Image,
     view::{check_visibility, NoFrustumCulling, VisibilitySystems},
-    world_sync::WorldSyncPlugin,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -118,7 +117,6 @@ impl Plugin for SpritePlugin {
                 Mesh2dRenderPlugin,
                 ColorMaterialPlugin,
                 ExtractComponentPlugin::<SpriteSource>::default(),
-                WorldSyncPlugin::<Sprite>::default(),
             ))
             .add_systems(
                 PostUpdate,

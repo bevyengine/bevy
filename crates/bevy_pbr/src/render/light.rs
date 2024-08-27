@@ -419,9 +419,9 @@ pub(crate) fn remove_light_view_entities(
 ) {
     if let Ok(entities) = query.get(trigger.entity()) {
         for e in entities.0.iter().copied() {
-            commands.get_entity(e).map(|v| {
+            if let Some(v) = commands.get_entity(e) {
                 v.despawn();
-            });
+            }
         }
     }
 }

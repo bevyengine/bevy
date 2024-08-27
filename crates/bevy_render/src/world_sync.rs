@@ -1,9 +1,6 @@
-use std::marker::PhantomData;
-
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    bundle::Bundle,
     component::Component,
     entity::Entity,
     observer::Trigger,
@@ -16,9 +13,12 @@ use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
 
 /// Marker component that indicates that its entity needs to be Synchronized to the render world
+///
+/// NOTE: This component should persist throughout the entity's entire lifecycle.
+/// If this component is removed from its entity, the entity will be despawned.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect[Component]]
-pub struct ToRenderWorld;
+pub struct SyncRenderWorld;
 
 #[derive(Component, Deref, Clone, Debug, Copy)]
 /// Marker component added on the main world entities that are synced to the Render World in order to keep track of the corresponding render world entity
@@ -84,6 +84,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
+// TODO: performance remove matched archetype
 pub(crate) fn despawn_fly_entity(
     world: &mut World,
     state: &mut SystemState<Query<Entity, With<RenderFlyEntity>>>,
@@ -102,20 +103,18 @@ pub(crate) fn despawn_fly_entity(
 
 /// A Plugin that synchronizes entities with specific Components between the main world and render world.
 #[derive(Default)]
-pub struct WorldSyncPlugin<B: Bundle> {
-    _marker: PhantomData<B>,
-}
+pub struct WorldSyncPlugin;
 
-impl<B: Bundle> Plugin for WorldSyncPlugin<B> {
+impl Plugin for WorldSyncPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.observe(
-            |trigger: Trigger<OnAdd, B>, mut pending: ResMut<PendingSyncEntity>| {
+            |trigger: Trigger<OnAdd, SyncRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
                 pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
         app.observe(
-            |trigger: Trigger<OnRemove, B>,
+            |trigger: Trigger<OnRemove, SyncRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
                 if let Ok(e) = query.get(trigger.entity()) {
