@@ -100,6 +100,19 @@ impl DrawState {
     ) -> bool {
         self.index_buffer == Some((buffer, offset, index_format))
     }
+
+    /// Resets tracking state
+    pub fn reset_tracking(&mut self) {
+        self.pipeline = None;
+        self.bind_groups.iter_mut().for_each(|val| {
+            val.0 = None;
+            val.1.clear();
+        });
+        self.vertex_buffers.iter_mut().for_each(|val| {
+            *val = None;
+        });
+        self.index_buffer = None;
+    }
 }
 
 /// A [`RenderPass`], which tracks the current pipeline state to skip redundant operations.
@@ -127,7 +140,15 @@ impl<'a> TrackedRenderPass<'a> {
         }
     }
 
+    /// Reset internal tracking state
+    pub fn reset_tracking(&mut self) {
+        self.state.reset_tracking();
+    }
+
     /// Returns the wgpu [`RenderPass`].
+    ///
+    /// If render pass state is modified using returned reference,
+    /// method [`TrackedRenderPass::reset_tracking`] may need to be called.
     pub fn wgpu_pass(&mut self) -> &mut RenderPass<'a> {
         &mut self.pass
     }
