@@ -621,7 +621,7 @@ async fn process_request_batch(
                 let mut responses = Vec::new();
 
                 for request in requests {
-                    responses.push(process_single_request(request, &request_sender).await?);
+                    responses.push(process_single_request(request, request_sender).await?);
                 }
 
                 serde_json::to_string(&responses)?

@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_hierarchy::BuildChildren as _;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    Reflect, TypeRegistration, TypeRegistry,
+    PartialReflect, TypeRegistration, TypeRegistry,
 };
 use bevy_utils::HashMap;
 use serde::de::DeserializeSeed as _;
@@ -245,7 +245,8 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
         };
 
         // Each component value serializes to a map with a single entry.
-        let reflect_serializer = ReflectSerializer::new(reflected, &type_registry);
+        let reflect_serializer =
+            ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
         let Value::Object(serialized_object) =
             serde_json::to_value(&reflect_serializer).map_err(|err| BrpError {
                 code: error_codes::COMPONENT_ERROR,
@@ -538,7 +539,8 @@ fn serialize_components(
             ));
         };
 
-        let reflect_serializer = ReflectSerializer::new(reflected, type_registry);
+        let reflect_serializer =
+            ReflectSerializer::new(reflected.as_partial_reflect(), type_registry);
         let Value::Object(serialized_object) = serde_json::to_value(&reflect_serializer)? else {
             return Err(anyhow!("Component `{}` could not be serialized", type_path));
         };
@@ -554,14 +556,14 @@ fn serialize_components(
 fn deserialize_components(
     type_registry: &TypeRegistry,
     components: HashMap<String, Value>,
-) -> AnyhowResult<Vec<Box<dyn Reflect>>> {
+) -> AnyhowResult<Vec<Box<dyn PartialReflect>>> {
     let mut reflect_components = vec![];
 
     for (component_path, component) in components {
         let Some(component_type) = type_registry.get_with_type_path(&component_path) else {
             return Err(anyhow!("Unknown component type: `{}`", component_path));
         };
-        let reflected: Box<dyn Reflect> =
+        let reflected: Box<dyn PartialReflect> =
             TypedReflectDeserializer::new(component_type, type_registry)
                 .deserialize(&component)
                 .unwrap();
@@ -576,7 +578,7 @@ fn deserialize_components(
 fn insert_reflected_components(
     type_registry: &TypeRegistry,
     mut entity_world_mut: EntityWorldMut,
-    reflect_components: Vec<Box<dyn Reflect>>,
+    reflect_components: Vec<Box<dyn PartialReflect>>,
 ) -> AnyhowResult<()> {
     for reflected in reflect_components {
         let reflect_component =
