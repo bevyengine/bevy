@@ -1123,21 +1123,42 @@ impl Bundles {
         components: &mut Components,
         storages: &mut Storages,
     ) -> BundleId {
-        let bundle_infos = &mut self.bundle_infos;
-        let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
-            let mut component_ids = Vec::new();
-            T::component_ids(components, storages, &mut |id| component_ids.push(id));
-            let id = BundleId(bundle_infos.len());
-            let bundle_info =
-                // SAFETY: T::component_id ensures:
-                // - its info was created
-                // - appropriate storage for it has been initialized.
-                // - it was created in the same order as the components in T
-                unsafe { BundleInfo::new(std::any::type_name::<T>(), components, component_ids, id) };
-            bundle_infos.push(bundle_info);
+        fn init_info(
+            this: &mut Bundles,
+            components: &mut Components,
+            storages: &mut Storages,
+            type_id: TypeId,
+            type_name: &'static str,
+            component_ids: fn(&mut Components, &mut Storages) -> Vec<ComponentId>,
+        ) -> BundleId {
+            let bundle_infos = &mut this.bundle_infos;
+            let id = *this.bundle_ids.entry(type_id).or_insert_with(|| {
+                let component_ids = component_ids(components, storages);
+                let id = BundleId(bundle_infos.len());
+                let bundle_info =
+                    // SAFETY: T::component_id ensures:
+                    // - its info was created
+                    // - appropriate storage for it has been initialized.
+                    // - it was created in the same order as the components in T
+                    unsafe { BundleInfo::new(type_name, components, component_ids, id) };
+                bundle_infos.push(bundle_info);
+                id
+            });
             id
-        });
-        id
+        }
+
+        init_info(
+            self,
+            components,
+            storages,
+            TypeId::of::<T>(),
+            std::any::type_name::<T>(),
+            |components, storages| {
+                let mut component_ids = Vec::new();
+                T::component_ids(components, storages, &mut |id| component_ids.push(id));
+                component_ids
+            },
+        )
     }
 
     /// # Safety
