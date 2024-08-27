@@ -1,19 +1,19 @@
-use crate::Reflect;
+use crate::PartialReflect;
 
-/// The return type of a [`DynamicFunction`] or [`DynamicClosure`].
+/// The return type of a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`DynamicFunction`]: crate::func::DynamicFunction
-/// [`DynamicClosure`]: crate::func::DynamicClosure
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum Return<'a> {
     /// The function returns nothing (i.e. it returns `()`).
     Unit,
     /// The function returns an owned value.
-    Owned(Box<dyn Reflect>),
+    Owned(Box<dyn PartialReflect>),
     /// The function returns a reference to a value.
-    Ref(&'a dyn Reflect),
+    Ref(&'a dyn PartialReflect),
     /// The function returns a mutable reference to a value.
-    Mut(&'a mut dyn Reflect),
+    Mut(&'a mut dyn PartialReflect),
 }
 
 impl<'a> Return<'a> {
@@ -27,7 +27,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Owned`].
-    pub fn unwrap_owned(self) -> Box<dyn Reflect> {
+    pub fn unwrap_owned(self) -> Box<dyn PartialReflect> {
         match self {
             Return::Owned(value) => value,
             _ => panic!("expected owned value"),
@@ -39,7 +39,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Ref`].
-    pub fn unwrap_ref(self) -> &'a dyn Reflect {
+    pub fn unwrap_ref(self) -> &'a dyn PartialReflect {
         match self {
             Return::Ref(value) => value,
             _ => panic!("expected reference value"),
@@ -51,7 +51,7 @@ impl<'a> Return<'a> {
     /// # Panics
     ///
     /// Panics if the return value is not [`Self::Mut`].
-    pub fn unwrap_mut(self) -> &'a mut dyn Reflect {
+    pub fn unwrap_mut(self) -> &'a mut dyn PartialReflect {
         match self {
             Return::Mut(value) => value,
             _ => panic!("expected mutable reference value"),
@@ -62,14 +62,15 @@ impl<'a> Return<'a> {
 /// A trait for types that can be converted into a [`Return`] value.
 ///
 /// This trait exists so that types can be automatically converted into a [`Return`]
-/// by [`IntoFunction`].
+/// by [`ReflectFn`] and [`ReflectFnMut`].
 ///
 /// This trait is used instead of a blanket [`Into`] implementation due to coherence issues:
 /// we can't implement `Into<Return>` for both `T` and `&T`/`&mut T`.
 ///
 /// This trait is automatically implemented when using the `Reflect` [derive macro].
 ///
-/// [`IntoFunction`]: crate::func::IntoFunction
+/// [`ReflectFn`]: crate::func::ReflectFn
+/// [`ReflectFnMut`]: crate::func::ReflectFnMut
 /// [derive macro]: derive@crate::Reflect
 pub trait IntoReturn {
     /// Converts [`Self`] into a [`Return`] value.

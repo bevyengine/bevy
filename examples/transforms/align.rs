@@ -2,6 +2,7 @@
 
 use bevy::color::palettes::basic::{GRAY, RED, WHITE};
 use bevy::input::mouse::{AccumulatedMouseMotion, MouseButtonInput};
+use bevy::math::StableInterpolate;
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -18,14 +19,8 @@ fn main() {
 /// This struct stores metadata for a single rotational move of the ship
 #[derive(Component, Default)]
 struct Ship {
-    /// The initial transform of the ship move, the starting point of interpolation
-    initial_transform: Transform,
-
     /// The target transform of the ship move, the endpoint of interpolation
     target_transform: Transform,
-
-    /// The progress of the ship move in percentage points
-    progress: u16,
 
     /// Whether the ship is currently in motion; allows motion to be paused
     in_motion: bool,
@@ -92,7 +87,6 @@ fn setup(
             ..default()
         },
         Ship {
-            initial_transform: Transform::IDENTITY,
             target_transform: random_axes_target_alignment(&RandomAxes(first, second)),
             ..default()
         },
@@ -147,37 +141,33 @@ fn draw_random_axes(mut gizmos: Gizmos, query: Query<&RandomAxes>) {
 }
 
 // Actually update the ship's transform according to its initial source and target
-fn rotate_ship(mut ship: Query<(&mut Ship, &mut Transform)>) {
+fn rotate_ship(mut ship: Query<(&mut Ship, &mut Transform)>, time: Res<Time>) {
     let (mut ship, mut ship_transform) = ship.single_mut();
 
     if !ship.in_motion {
         return;
     }
 
-    let start = ship.initial_transform.rotation;
-    let end = ship.target_transform.rotation;
+    let target_rotation = ship.target_transform.rotation;
 
-    let p: f32 = ship.progress.into();
-    let t = p / 100.;
+    ship_transform
+        .rotation
+        .smooth_nudge(&target_rotation, 3.0, time.delta_seconds());
 
-    *ship_transform = Transform::from_rotation(start.slerp(end, t));
-
-    if ship.progress == 100 {
+    if ship_transform.rotation.angle_between(target_rotation) <= f32::EPSILON {
         ship.in_motion = false;
-    } else {
-        ship.progress += 1;
     }
 }
 
 // Handle user inputs from the keyboard for dynamically altering the scenario
 fn handle_keypress(
-    mut ship: Query<(&mut Ship, &Transform)>,
+    mut ship: Query<&mut Ship>,
     mut random_axes: Query<&mut RandomAxes>,
     mut instructions: Query<&mut Visibility, With<Instructions>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
-    let (mut ship, ship_transform) = ship.single_mut();
+    let mut ship = ship.single_mut();
     let mut random_axes = random_axes.single_mut();
 
     if keyboard.just_pressed(KeyCode::KeyR) {
@@ -188,9 +178,7 @@ fn handle_keypress(
 
         // Stop the ship and set it up to transform from its present orientation to the new one
         ship.in_motion = false;
-        ship.initial_transform = *ship_transform;
         ship.target_transform = random_axes_target_alignment(&random_axes);
-        ship.progress = 0;
     }
 
     if keyboard.just_pressed(KeyCode::KeyT) {

@@ -17,6 +17,9 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+#[cfg(feature = "bevy_picking")]
+pub mod picking_backend;
+
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
@@ -163,9 +166,7 @@ impl Plugin for UiPlugin {
             PostUpdate,
             (
                 check_visibility::<WithNode>.in_set(VisibilitySystems::CheckVisibility),
-                (update_target_camera_system, apply_deferred)
-                    .chain()
-                    .in_set(UiSystem::Prepare),
+                update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
@@ -202,6 +203,9 @@ impl Plugin for UiPlugin {
         build_text_interop(app);
 
         build_ui_render(app);
+
+        #[cfg(feature = "bevy_picking")]
+        app.add_plugins(picking_backend::UiPickingBackend);
     }
 
     fn finish(&self, app: &mut App) {

@@ -13,7 +13,10 @@ use bevy_utils::tracing::error;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque2d`] [`ViewBinnedRenderPhases`]
+use super::AlphaMask2d;
+
+/// A [`bevy_render::render_graph::Node`] that runs the
+/// [`Opaque2d`] [`ViewBinnedRenderPhases`] and [`AlphaMask2d`] [`ViewBinnedRenderPhases`]
 #[derive(Default)]
 pub struct MainOpaquePass2dNode;
 impl ViewNode for MainOpaquePass2dNode {
@@ -30,7 +33,10 @@ impl ViewNode for MainOpaquePass2dNode {
         (camera, target, depth): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let Some(opaque_phases) = world.get_resource::<ViewBinnedRenderPhases<Opaque2d>>() else {
+        let (Some(opaque_phases), Some(alpha_mask_phases)) = (
+            world.get_resource::<ViewBinnedRenderPhases<Opaque2d>>(),
+            world.get_resource::<ViewBinnedRenderPhases<AlphaMask2d>>(),
+        ) else {
             return Ok(());
         };
 
@@ -40,7 +46,10 @@ impl ViewNode for MainOpaquePass2dNode {
         let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
 
         let view_entity = graph.view_entity();
-        let Some(opaque_phase) = opaque_phases.get(&view_entity) else {
+        let (Some(opaque_phase), Some(alpha_mask_phase)) = (
+            opaque_phases.get(&view_entity),
+            alpha_mask_phases.get(&view_entity),
+        ) else {
             return Ok(());
         };
         render_context.add_command_buffer_generation_task(move |render_device| {
@@ -74,6 +83,15 @@ impl ViewNode for MainOpaquePass2dNode {
                 let _opaque_main_pass_2d_span = info_span!("opaque_main_pass_2d").entered();
                 if let Err(err) = opaque_phase.render(&mut render_pass, world, view_entity) {
                     error!("Error encountered while rendering the 2d opaque phase {err:?}");
+                }
+            }
+
+            // Alpha mask draws
+            if !alpha_mask_phase.is_empty() {
+                #[cfg(feature = "trace")]
+                let _alpha_mask_main_pass_2d_span = info_span!("alpha_mask_main_pass_2d").entered();
+                if let Err(err) = alpha_mask_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the 2d alpha mask phase {err:?}");
                 }
             }
 

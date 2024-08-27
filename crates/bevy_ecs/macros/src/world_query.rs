@@ -106,6 +106,17 @@ pub(crate) fn world_query_impl(
                 }
             }
 
+            fn shrink_fetch<'__wlong: '__wshort, '__wshort>(
+                fetch: <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wlong>
+            ) -> <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wshort> {
+                #fetch_struct_name {
+                    #(
+                        #named_field_idents: <#field_types>::shrink_fetch(fetch.#named_field_idents),
+                    )*
+                    #marker_name: &(),
+                }
+            }
+
             unsafe fn init_fetch<'__w>(
                 _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
                 state: &Self::State,

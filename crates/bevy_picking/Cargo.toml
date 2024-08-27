@@ -20,6 +20,9 @@ bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.15.0-dev" }
 
+bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
+
 uuid = { version = "1.1", features = ["v4"] }
 
 [lints]
