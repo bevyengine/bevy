@@ -226,7 +226,7 @@ use std::{cell::UnsafeCell, fmt::Debug};
 ///
 /// In general, this shouldn't happen often, but when it does the algorithm is simple and predictable:
 /// 1. Use all of the constructors (including default constructors) directly defined in the spawned component's require list
-/// 2. In the order the requires are defined in #[require()], recursively visit the require list of each of the components in the list (this is a depth Depth First Search). When a constructor is found, it will only be used if one has not already been found.
+/// 2. In the order the requires are defined in `#[require()]`, recursively visit the require list of each of the components in the list (this is a depth Depth First Search). When a constructor is found, it will only be used if one has not already been found.
 ///
 /// From a user perspective, just think about this as the following:
 /// 1. Specifying a required component constructor for Foo directly on a spawned component Bar will result in that constructor being used (and overriding existing constructors lower in the inheritance tree). This is the classic "inheritance override" behavior people expect.
