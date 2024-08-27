@@ -84,7 +84,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
-// TODO: performance remove matched archetype
+// TODO: directly remove matched archetype for performance
 pub(crate) fn despawn_fly_entity(
     world: &mut World,
     state: &mut SystemState<Query<Entity, With<RenderFlyEntity>>>,
