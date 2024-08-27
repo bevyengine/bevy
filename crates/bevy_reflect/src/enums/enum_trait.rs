@@ -152,23 +152,30 @@ impl EnumInfo {
     /// * `variants`: The variants of this enum in the order they are defined
     ///
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
-        let variant_indices = variants
-            .iter()
-            .enumerate()
-            .map(|(index, variant)| (variant.name(), index))
-            .collect::<HashMap<_, _>>();
+        fn new(variants: &[VariantInfo], ty: Type) -> EnumInfo {
+            let variant_indices = variants
+                .iter()
+                .enumerate()
+                .map(|(index, variant)| (variant.name(), index))
+                .collect::<HashMap<_, _>>();
 
-        let variant_names = variants.iter().map(VariantInfo::name).collect();
+            let variant_names = variants.iter().map(VariantInfo::name).collect();
 
-        Self {
-            ty: Type::of::<TEnum>(),
-            variants: variants.to_vec().into_boxed_slice(),
-            variant_names,
-            variant_indices,
-            custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            EnumInfo {
+                ty,
+                variants: variants.to_vec().into_boxed_slice(),
+                variant_names,
+                variant_indices,
+                custom_attributes: Arc::new(CustomAttributes::default()),
+                #[cfg(feature = "documentation")]
+                docs: None,
+            }
         }
+
+        new(
+            variants,
+            Type::of::<TEnum>(),
+        )
     }
 
     /// Sets the docstring for this enum.

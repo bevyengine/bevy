@@ -92,23 +92,27 @@ impl StructInfo {
     /// * `fields`: The fields of this struct in the order they are defined
     ///
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
-        let field_indices = fields
-            .iter()
-            .enumerate()
-            .map(|(index, field)| (field.name(), index))
-            .collect::<HashMap<_, _>>();
+        fn new(fields: &[NamedField], ty: Type) -> StructInfo {
+            let field_indices = fields
+                .iter()
+                .enumerate()
+                .map(|(index, field)| (field.name(), index))
+                .collect::<HashMap<_, _>>();
 
-        let field_names = fields.iter().map(NamedField::name).collect();
+            let field_names = fields.iter().map(NamedField::name).collect();
 
-        Self {
-            ty: Type::of::<T>(),
-            fields: fields.to_vec().into_boxed_slice(),
-            field_names,
-            field_indices,
-            custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
-            docs: None,
+            StructInfo {
+                ty,
+                fields: fields.to_vec().into_boxed_slice(),
+                field_names,
+                field_indices,
+                custom_attributes: Arc::new(CustomAttributes::default()),
+                #[cfg(feature = "documentation")]
+                docs: None,
+            }
         }
+
+        new(fields, Type::of::<T>())
     }
 
     /// Sets the docstring for this struct.
