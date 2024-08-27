@@ -92,6 +92,8 @@ impl StructInfo {
     /// * `fields`: The fields of this struct in the order they are defined
     ///
     pub fn new<T: Reflect + TypePath>(fields: &[NamedField]) -> Self {
+        // This function allows for the implementation of new to be mostly independent of the type
+        // parameter T, reducing code bloat due to monomorphization.
         fn new(fields: &[NamedField], ty: Type) -> StructInfo {
             let field_indices = fields
                 .iter()

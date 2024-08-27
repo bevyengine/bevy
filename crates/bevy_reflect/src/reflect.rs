@@ -523,6 +523,8 @@ impl dyn Reflect {
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn downcast<T: Any>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
+        // This function allows for the implementation of downcast to be mostly independent of the
+        // type parameter T, reducing code bloat due to monomorphization.
         fn downcast(this: Box<dyn Reflect>, id: TypeId) -> Result<Box<dyn Any>, Box<dyn Reflect>> {
             if this.as_any().type_id() == id {
                 Ok(this.into_any())
@@ -648,7 +650,10 @@ pub(crate) use impl_full_reflect;
 
 /// Standard implementation of the [`PartialReflect::try_apply`] method for [`Struct`] types.
 #[doc(hidden)]
-pub fn try_apply_struct(this: &mut dyn Struct, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+pub fn try_apply_struct(
+    this: &mut dyn Struct,
+    value: &dyn PartialReflect,
+) -> Result<(), ApplyError> {
     if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
         for (i, value) in struct_value.iter_fields().enumerate() {
             let name = struct_value.name_at(i).unwrap();
@@ -657,12 +662,10 @@ pub fn try_apply_struct(this: &mut dyn Struct, value: &dyn PartialReflect) -> Re
             }
         }
     } else {
-        return Err(
-            ApplyError::MismatchedKinds {
-                from_kind: PartialReflect::reflect_kind(value),
-                to_kind: ReflectKind::Struct
-            }
-        );
+        return Err(ApplyError::MismatchedKinds {
+            from_kind: PartialReflect::reflect_kind(value),
+            to_kind: ReflectKind::Struct,
+        });
     }
     Ok(())
 }

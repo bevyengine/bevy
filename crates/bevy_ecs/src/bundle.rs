@@ -1123,17 +1123,20 @@ impl Bundles {
         components: &mut Components,
         storages: &mut Storages,
     ) -> BundleId {
+        // This function allows for the implementation of init_info to be mostly independent of the
+        // type parameter T, reducing code bloat due to monomorphization.
         fn init_info(
             this: &mut Bundles,
             components: &mut Components,
             storages: &mut Storages,
             type_id: TypeId,
             type_name: &'static str,
-            component_ids: fn(&mut Components, &mut Storages) -> Vec<ComponentId>,
+            get_component_ids: fn(&mut Components, &mut Storages, &mut Vec<ComponentId>),
         ) -> BundleId {
             let bundle_infos = &mut this.bundle_infos;
             let id = *this.bundle_ids.entry(type_id).or_insert_with(|| {
-                let component_ids = component_ids(components, storages);
+                let mut component_ids = Vec::new();
+                get_component_ids(components, storages, &mut component_ids);
                 let id = BundleId(bundle_infos.len());
                 let bundle_info =
                     // SAFETY: T::component_id ensures:
@@ -1153,10 +1156,8 @@ impl Bundles {
             storages,
             TypeId::of::<T>(),
             std::any::type_name::<T>(),
-            |components, storages| {
-                let mut component_ids = Vec::new();
+            |components, storages, component_ids| {
                 T::component_ids(components, storages, &mut |id| component_ids.push(id));
-                component_ids
             },
         )
     }

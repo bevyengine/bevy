@@ -152,6 +152,8 @@ impl TypeRegistry {
     where
         T: GetTypeRegistration,
     {
+        // This function allows for the implementation of register to be mostly independent of the
+        // type parameter T, reducing code bloat due to monomorphization.
         fn register(
             this: &mut TypeRegistry,
             type_id: TypeId,

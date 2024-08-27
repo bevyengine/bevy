@@ -68,9 +68,15 @@ impl<T: 'static> SystemTypeSet<T> {
 
 impl<T> Debug for SystemTypeSet<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SystemTypeSet")
-            .field(&format_args!("fn {}()", &std::any::type_name::<T>()))
-            .finish()
+        // This function allows for the implementation of Debug::fmt to be mostly independent of the
+        // type parameter T, reducing code bloat due to monomorphization.
+        fn fmt(f: &mut std::fmt::Formatter<'_>, type_name: &'static str) -> std::fmt::Result {
+            f.debug_tuple("SystemTypeSet")
+                .field(&format_args!("fn {}()", type_name))
+                .finish()
+        }
+
+        fmt(f, std::any::type_name::<T>())
     }
 }
 

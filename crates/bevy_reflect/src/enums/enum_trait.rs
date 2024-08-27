@@ -152,6 +152,8 @@ impl EnumInfo {
     /// * `variants`: The variants of this enum in the order they are defined
     ///
     pub fn new<TEnum: Enum + TypePath>(variants: &[VariantInfo]) -> Self {
+        // This function allows for the implementation of new to be mostly independent of the type
+        // parameter TEnum, reducing code bloat due to monomorphization.
         fn new(variants: &[VariantInfo], ty: Type) -> EnumInfo {
             let variant_indices = variants
                 .iter()
@@ -172,10 +174,7 @@ impl EnumInfo {
             }
         }
 
-        new(
-            variants,
-            Type::of::<TEnum>(),
-        )
+        new(variants, Type::of::<TEnum>())
     }
 
     /// Sets the docstring for this enum.

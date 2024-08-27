@@ -517,6 +517,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        // This function allows for the implementation of init_state to be mostly independent of the
+        // type parameter T, reducing code bloat due to monomorphization.
         fn init_state(
             world: &mut World,
             system_meta: &mut SystemMeta,
@@ -544,7 +546,12 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             component_id
         }
 
-        init_state(world, system_meta, Components::init_resource::<T>, std::any::type_name::<T>())
+        init_state(
+            world,
+            system_meta,
+            Components::init_resource::<T>,
+            std::any::type_name::<T>(),
+        )
     }
 
     #[inline]
@@ -620,6 +627,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        // This function allows for the implementation of init_state to be mostly independent of the
+        // type parameter T, reducing code bloat due to monomorphization.
         fn init_state(
             world: &mut World,
             system_meta: &mut SystemMeta,
@@ -650,7 +659,12 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             component_id
         }
 
-        init_state(world, system_meta, Components::init_resource::<T>, std::any::type_name::<T>())
+        init_state(
+            world,
+            system_meta,
+            Components::init_resource::<T>,
+            std::any::type_name::<T>(),
+        )
     }
 
     #[inline]

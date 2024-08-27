@@ -692,6 +692,8 @@ impl Components {
     /// * [`Components::init_component_with_descriptor()`]
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+        // This function allows for the implementation of init_component to be mostly independent of
+        // the type parameter T, reducing code bloat due to monomorphization.
         fn init_component(
             this: &mut Components,
             storages: &mut Storages,
@@ -885,7 +887,10 @@ impl Components {
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), ComponentDescriptor::new_resource::<T>)
+            self.get_or_insert_resource_with(
+                TypeId::of::<T>(),
+                ComponentDescriptor::new_resource::<T>,
+            )
         }
     }
 

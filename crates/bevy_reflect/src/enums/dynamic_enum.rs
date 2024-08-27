@@ -163,40 +163,55 @@ impl DynamicEnum {
     ///
     /// This is functionally the same as [`DynamicEnum::from`] except it takes a reference.
     pub fn from_ref<TEnum: Enum>(value: &TEnum) -> Self {
-        let type_info = value.get_represented_type_info();
-        let mut dyn_enum = match value.variant_type() {
-            VariantType::Unit => DynamicEnum::new_with_index(
-                value.variant_index(),
-                value.variant_name(),
-                DynamicVariant::Unit,
-            ),
-            VariantType::Tuple => {
-                let mut data = DynamicTuple::default();
-                for field in value.iter_fields() {
-                    data.insert_boxed(field.value().clone_value());
+        // This function allows for the implementation of from_ref to be mostly independent of the
+        // type parameter TEnum, reducing code bloat due to monomorphization.
+        fn from_ref(
+            type_info: Option<&'static TypeInfo>,
+            variant_type: VariantType,
+            variant_index: usize,
+            variant_name: &str,
+            fields: VariantFieldIter,
+        ) -> DynamicEnum {
+            let mut dyn_enum = match variant_type {
+                VariantType::Unit => {
+                    DynamicEnum::new_with_index(variant_index, variant_name, DynamicVariant::Unit)
                 }
-                DynamicEnum::new_with_index(
-                    value.variant_index(),
-                    value.variant_name(),
-                    DynamicVariant::Tuple(data),
-                )
-            }
-            VariantType::Struct => {
-                let mut data = DynamicStruct::default();
-                for field in value.iter_fields() {
-                    let name = field.name().unwrap();
-                    data.insert_boxed(name, field.value().clone_value());
+                VariantType::Tuple => {
+                    let mut data = DynamicTuple::default();
+                    for field in fields {
+                        data.insert_boxed(field.value().clone_value());
+                    }
+                    DynamicEnum::new_with_index(
+                        variant_index,
+                        variant_name,
+                        DynamicVariant::Tuple(data),
+                    )
                 }
-                DynamicEnum::new_with_index(
-                    value.variant_index(),
-                    value.variant_name(),
-                    DynamicVariant::Struct(data),
-                )
-            }
-        };
+                VariantType::Struct => {
+                    let mut data = DynamicStruct::default();
+                    for field in fields {
+                        let name = field.name().unwrap();
+                        data.insert_boxed(name, field.value().clone_value());
+                    }
+                    DynamicEnum::new_with_index(
+                        variant_index,
+                        variant_name,
+                        DynamicVariant::Struct(data),
+                    )
+                }
+            };
 
-        dyn_enum.set_represented_type(type_info);
-        dyn_enum
+            dyn_enum.set_represented_type(type_info);
+            dyn_enum
+        }
+
+        from_ref(
+            value.get_represented_type_info(),
+            value.variant_type(),
+            value.variant_index(),
+            value.variant_name(),
+            value.iter_fields(),
+        )
     }
 }
 

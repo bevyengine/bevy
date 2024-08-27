@@ -100,6 +100,8 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
         );
     }
 
+    // This function allows for the implementation of from_reflect_with_fallback to be mostly
+    // independent of the type parameter T, reducing code bloat due to monomorphization.
     fn from_reflect_with_fallback(
         reflected: &dyn PartialReflect,
         world: &mut World,
@@ -117,7 +119,8 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
         }
 
         // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
-        let value = if let Some(reflect_default) = registry.get_type_data::<ReflectDefault>(type_id)
+        let (mut value, reflection_trait) = if let Some(reflect_default) =
+            registry.get_type_data::<ReflectDefault>(type_id)
         {
             (reflect_default.default(), "Default")
         } else if let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(type_id)
@@ -133,7 +136,9 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
             );
         };
 
-        value
+        value.apply(reflected);
+
+        (value, reflection_trait)
     }
 
     let (value, reflection_trait) = from_reflect_with_fallback(
@@ -144,10 +149,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
         std::any::type_name::<T>(),
     );
 
-    let mut value = value
-        .take::<T>()
-        .unwrap_or_else(|_| different_type_error(reflection_trait, T::type_path()));
-
-    value.apply(reflected);
     value
+        .take::<T>()
+        .unwrap_or_else(|_| different_type_error(reflection_trait, T::type_path()))
 }
