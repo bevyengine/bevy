@@ -791,7 +791,7 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Sends an arbitrary [`Event`].
     ///
-    /// This is a convenience method for sending events without requiring an [`EventWriter`]. 
+    /// This is a convenience method for sending events without requiring an [`EventWriter`].
     /// ## Performance
     /// Since this is a command, exclusive world access is used, which means that it will not profit from
     /// system-level parallelism on supported platforms.
