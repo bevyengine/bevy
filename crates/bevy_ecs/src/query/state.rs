@@ -1517,22 +1517,12 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let init_accum = init_accum.clone();
                     let len = batch_size.min(count - offset);
                     let batch = offset..offset + len;
-
                     scope.spawn(async move {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
-                        if D::IS_DENSE && F::IS_DENSE {
-                            let id = storage_id.table_id;
-                            let table = world.storages().tables.get(id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_table_range(accum, &mut func, table, batch);
-                        } else {
-                            let id = storage_id.archetype_id;
-                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_archetype_range(accum, &mut func, archetype, batch);
-                        }
+                        self.iter_unchecked_manual(world, last_run, this_run)
+                            .fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
                     });
                 }
             };
