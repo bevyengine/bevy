@@ -50,13 +50,85 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
     }
 
+    /// Creates a new separate iterator yielding the same remaining items of the current one.
+    /// Advancing the new iterator will not advance the original one, which will resume at the
+    /// point it was left at.
+    ///
+    /// Differently from [`remaining_mut`](QueryIter::remaining_mut) the new iterator does not
+    /// borrow from the original one. However it can only be called from an iterator over read only
+    /// items.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn combinations(query: Query<&ComponentA>) {
+    ///     let mut iter = query.iter();
+    ///     while let Some(a) = iter.next() {
+    ///         for b in iter.remaining() {
+    ///             // Check every combination (a, b)
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn remaining(&self) -> QueryIter<'w, 's, D, F>
+    where
+        D: ReadOnlyQueryData,
+    {
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            query_state: self.query_state,
+            cursor: self.cursor.clone(),
+        }
+    }
+
+    /// Creates a new separate iterator yielding the same remaining items of the current one.
+    /// Advancing the new iterator will not advance the original one, which will resume at the
+    /// point it was left at.
+    ///
+    /// This method can be called on iterators over mutable items. However the original iterator
+    /// will be borrowed while the new iterator exists and will thus not be usable in that timespan.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct ComponentA;
+    ///
+    /// fn combinations(mut query: Query<&mut ComponentA>) {
+    ///     let mut iter = query.iter_mut();
+    ///     while let Some(a) = iter.next() {
+    ///         for b in iter.remaining_mut() {
+    ///             // Check every combination (a, b)
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn remaining_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            query_state: self.query_state,
+            cursor: self.cursor.reborrow(),
+        }
+    }
+
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
     /// from an table.
     ///
     /// # Safety
     ///  - all `rows` must be in `[0, table.entity_count)`.
     ///  - `table` must match D and F
-    ///  - Both `D::IS_DENSE` and `F::IS_DENSE` must be true.
+    ///  - The query iteration must be dense (i.e. `self.query_state.is_dense` must be true).
     #[inline]
     pub(super) unsafe fn fold_over_table_range<B, Func>(
         &mut self,
@@ -68,6 +140,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if table.is_empty() {
+            return accum;
+        }
         assert!(
             rows.end <= u32::MAX as usize,
             "TableRow is only valid up to u32::MAX"
@@ -108,7 +183,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Safety
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
-    ///  - Either `D::IS_DENSE` or `F::IS_DENSE` must be false.
+    ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_archetype_range<B, Func>(
         &mut self,
@@ -120,6 +195,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if archetype.is_empty() {
+            return accum;
+        }
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         D::set_archetype(
             &mut self.cursor.fetch,
@@ -174,7 +252,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///  - all `indices` must be in `[0, archetype.len())`.
     ///  - `archetype` must match D and F
     ///  - `archetype` must have the same length with it's table.
-    ///  - Either `D::IS_DENSE` or `F::IS_DENSE` must be false.
+    ///  - The query iteration must not be dense (i.e. `self.query_state.is_dense` must be false).
     #[inline]
     pub(super) unsafe fn fold_over_dense_archetype_range<B, Func>(
         &mut self,
@@ -186,6 +264,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     where
         Func: FnMut(B, D::Item<'w>) -> B,
     {
+        if archetype.is_empty() {
+            return accum;
+        }
         assert!(
             rows.end <= u32::MAX as usize,
             "TableRow is only valid up to u32::MAX"
@@ -950,20 +1031,27 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
             let Some(item) = self.next() else { break };
             accum = func(accum, item);
         }
-        for id in self.cursor.storage_id_iter.clone() {
-            if D::IS_DENSE && F::IS_DENSE {
+
+        if self.cursor.is_dense {
+            for id in self.cursor.storage_id_iter.clone() {
+                // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
+                let table_id = unsafe { id.table_id };
                 // SAFETY: Matched table IDs are guaranteed to still exist.
-                let table = unsafe { self.tables.get(id.table_id).debug_checked_unwrap() };
+                let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
+
                 accum =
                     // SAFETY: 
                     // - The fetched table matches both D and F
                     // - The provided range is equivalent to [0, table.entity_count)
-                    // - The if block ensures that D::IS_DENSE and F::IS_DENSE are both true
+                    // - The if block ensures that the query iteration is dense
                     unsafe { self.fold_over_table_range(accum, &mut func, table, 0..table.entity_count()) };
-            } else {
-                let archetype =
-                    // SAFETY: Matched archetype IDs are guaranteed to still exist.
-                    unsafe { self.archetypes.get(id.archetype_id).debug_checked_unwrap() };
+            }
+        } else {
+            for id in self.cursor.storage_id_iter.clone() {
+                // SAFETY: `self.cursor.is_dense` is false, so storage ids are guaranteed to be archetype ids.
+                let archetype_id = unsafe { id.archetype_id };
+                // SAFETY: Matched archetype IDs are guaranteed to still exist.
+                let archetype = unsafe { self.archetypes.get(archetype_id).debug_checked_unwrap() };
                 // SAFETY: Matched table IDs are guaranteed to still exist.
                 let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
 
@@ -971,19 +1059,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
                 // this leverages cache locality to optimize performance.
                 if table.entity_count() == archetype.len() {
                     accum =
-                    // SAFETY:
-                    // - The fetched archetype matches both D and F
-                    // - The provided archetype and its' table have the same length.
-                    // - The provided range is equivalent to [0, archetype.len)
-                    // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
-                    unsafe { self.fold_over_dense_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
+                        // SAFETY:
+                        // - The fetched archetype matches both D and F
+                        // - The provided archetype and its' table have the same length.
+                        // - The provided range is equivalent to [0, archetype.len)
+                        // - The if block ensures that the query iteration is not dense.
+                        unsafe { self.fold_over_dense_archetype_range(accum, &mut func, archetype, 0..archetype.len()) };
                 } else {
                     accum =
-                    // SAFETY:
-                    // - The fetched archetype matches both D and F
-                    // - The provided range is equivalent to [0, archetype.len)
-                    // - The if block ensures that ether D::IS_DENSE or F::IS_DENSE are false
-                    unsafe { self.fold_over_archetype_range(accum, &mut func, archetype,0..archetype.len()) };
+                        // SAFETY:
+                        // - The fetched archetype matches both D and F
+                        // - The provided range is equivalent to [0, archetype.len)
+                        // - The if block ensures that the query iteration is not dense.
+                        unsafe { self.fold_over_archetype_range(accum, &mut func, archetype, 0..archetype.len()) };
                 }
             }
         }
@@ -1594,6 +1682,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> Debug
 }
 
 struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
+    // whether the query iteration is dense or not. Mirrors QueryState's `is_dense` field.
+    is_dense: bool,
     storage_id_iter: std::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
@@ -1608,6 +1698,7 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
 impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
     fn clone(&self) -> Self {
         Self {
+            is_dense: self.is_dense,
             storage_id_iter: self.storage_id_iter.clone(),
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
@@ -1620,8 +1711,6 @@ impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> 
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
-    const IS_DENSE: bool = D::IS_DENSE && F::IS_DENSE;
-
     unsafe fn init_empty(
         world: UnsafeWorldCell<'w>,
         query_state: &'s QueryState<D, F>,
@@ -1651,8 +1740,22 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             table_entities: &[],
             archetype_entities: &[],
             storage_id_iter: query_state.matched_storage_ids.iter(),
+            is_dense: query_state.is_dense,
             current_len: 0,
             current_row: 0,
+        }
+    }
+
+    fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F> {
+        QueryIterationCursor {
+            is_dense: self.is_dense,
+            fetch: D::shrink_fetch(self.fetch.clone()),
+            filter: F::shrink_fetch(self.filter.clone()),
+            table_entities: self.table_entities,
+            archetype_entities: self.archetype_entities,
+            storage_id_iter: self.storage_id_iter.clone(),
+            current_len: self.current_len,
+            current_row: self.current_row,
         }
     }
 
@@ -1661,7 +1764,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
-            if Self::IS_DENSE {
+            if self.is_dense {
                 let entity = self.table_entities.get_unchecked(index);
                 Some(D::fetch(
                     &mut self.fetch,
@@ -1687,7 +1790,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let ids = self.storage_id_iter.clone();
-        let remaining_matched: usize = if Self::IS_DENSE {
+        let remaining_matched: usize = if self.is_dense {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
@@ -1710,12 +1813,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<D, F>,
     ) -> Option<D::Item<'w>> {
-        if Self::IS_DENSE {
+        if self.is_dense {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
                     let table_id = self.storage_id_iter.next()?.table_id;
                     let table = tables.get(table_id).debug_checked_unwrap();
+                    if table.is_empty() {
+                        continue;
+                    }
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     unsafe {
@@ -1725,7 +1831,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
                     self.current_row = 0;
-                    continue;
                 }
 
                 // SAFETY: set_table was called prior.
@@ -1752,6 +1857,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 if self.current_row == self.current_len {
                     let archetype_id = self.storage_id_iter.next()?.archetype_id;
                     let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
+                    if archetype.is_empty() {
+                        continue;
+                    }
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -1772,7 +1880,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
                     self.current_row = 0;
-                    continue;
                 }
 
                 // SAFETY: set_archetype was called prior.

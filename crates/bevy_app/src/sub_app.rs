@@ -413,7 +413,7 @@ impl SubApp {
     #[cfg(feature = "reflect_functions")]
     pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
     where
-        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
     {
         let registry = self.world.resource_mut::<AppFunctionRegistry>();
         registry.write().register(function).unwrap();
@@ -428,7 +428,7 @@ impl SubApp {
         function: F,
     ) -> &mut Self
     where
-        F: bevy_reflect::func::IntoFunction<Marker> + 'static,
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
     {
         let registry = self.world.resource_mut::<AppFunctionRegistry>();
         registry.write().register_with_name(name, function).unwrap();

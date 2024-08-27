@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_2d::{Opaque2d, Opaque2dBinKey, Transparent2d},
+    core_2d::{AlphaMask2d, AlphaMask2dBinKey, Opaque2d, Opaque2dBinKey, Transparent2d},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -28,7 +28,6 @@ use bevy_render::{
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -149,6 +148,15 @@ pub enum AlphaMode2d {
     /// Base color alpha values are overridden to be fully opaque (1.0).
     #[default]
     Opaque,
+    /// Reduce transparency to fully opaque or fully transparent
+    /// based on a threshold.
+    ///
+    /// Compares the base color alpha value to the specified threshold.
+    /// If the value is below the threshold,
+    /// considers the color to be fully transparent (alpha is set to 0.0).
+    /// If it is equal to or above the threshold,
+    /// considers the color to be fully opaque (alpha is set to 1.0).
+    Mask(f32),
     /// The base color alpha value defines the opacity of the color.
     /// Standard alpha-blending is used to blend the fragment's color
     /// with the color behind it.
@@ -176,6 +184,7 @@ where
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
+                .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
@@ -374,6 +383,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode2d) -> Mesh2dPipelineKey {
     match alpha_mode {
         AlphaMode2d::Blend => Mesh2dPipelineKey::BLEND_ALPHA,
+        AlphaMode2d::Mask(_) => Mesh2dPipelineKey::MAY_DISCARD,
         _ => Mesh2dPipelineKey::NONE,
     }
 }
@@ -396,6 +406,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material2d_meshes<M: Material2d>(
     opaque_draw_functions: Res<DrawFunctions<Opaque2d>>,
+    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask2d>>,
     transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
@@ -406,6 +417,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
+    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
     mut views: Query<(
         Entity,
         &ExtractedView,
@@ -425,13 +437,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
-
         let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+            continue;
+        };
+        let Some(alpha_mask_phase) = alpha_mask_render_phases.get_mut(&view_entity) else {
             continue;
         };
 
         let draw_transparent_2d = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
         let draw_opaque_2d = opaque_draw_functions.read().id::<DrawMaterial2d<M>>();
+        let draw_alpha_mask_2d = alpha_mask_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
@@ -497,6 +512,19 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
                     );
                 }
+                AlphaMode2d::Mask(_) => {
+                    let bin_key = AlphaMask2dBinKey {
+                        pipeline: pipeline_id,
+                        draw_function: draw_alpha_mask_2d,
+                        asset_id: mesh_instance.mesh_asset_id.into(),
+                        material_bind_group_id: material_2d.get_bind_group_id().0,
+                    };
+                    alpha_mask_phase.add(
+                        bin_key,
+                        *visible_entity,
+                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                    );
+                }
                 AlphaMode2d::Blend => {
                     transparent_phase.add(Transparent2d {
                         entity: *visible_entity,
@@ -552,23 +580,13 @@ impl<T: Material2d> PreparedMaterial2d<T> {
 impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     type SourceAsset = M;
 
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderAssets<GpuImage>>,
-        SRes<FallbackImage>,
-        SRes<Material2dPipeline<M>>,
-    );
+    type Param = (SRes<RenderDevice>, SRes<Material2dPipeline<M>>, M::Param);
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(
-            &pipeline.material2d_layout,
-            render_device,
-            images,
-            fallback_image,
-        ) {
+        match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
                 mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(material.alpha_mode()));
@@ -586,6 +604,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
             }
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
         }
     }
 }

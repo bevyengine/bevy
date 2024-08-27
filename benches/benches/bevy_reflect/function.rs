@@ -1,4 +1,4 @@
-use bevy_reflect::func::{ArgList, IntoClosure, TypedFunction};
+use bevy_reflect::func::{ArgList, IntoFunction, TypedFunction};
 use bevy_reflect::prelude::*;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 
@@ -29,7 +29,7 @@ fn into(c: &mut Criterion) {
         .bench_function("closure", |b| {
             let capture = 25;
             let closure = |a: i32| a + capture;
-            b.iter(|| closure.into_closure());
+            b.iter(|| closure.into_function());
         });
 }
 
@@ -45,7 +45,7 @@ fn call(c: &mut Criterion) {
         })
         .bench_function("closure", |b| {
             let capture = 25;
-            let add = (|a: i32| a + capture).into_closure();
+            let add = (|a: i32| a + capture).into_function();
             b.iter_batched(
                 || ArgList::new().push_owned(75_i32),
                 |args| add.call(args),

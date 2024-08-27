@@ -8,6 +8,7 @@ use wgpu::{
 
 use super::{CompressedImageFormats, Image, TextureError};
 
+#[cfg(feature = "dds")]
 pub fn dds_buffer_to_image(
     #[cfg(debug_assertions)] name: String,
     buffer: &[u8],
@@ -82,6 +83,7 @@ pub fn dds_buffer_to_image(
     Ok(image)
 }
 
+#[cfg(feature = "dds")]
 pub fn dds_format_to_texture_format(
     dds: &Dds,
     is_srgb: bool,

@@ -103,6 +103,7 @@ enum AlphaMode {
     Opaque,
     #[default]
     Blend,
+    AlphaMask,
 }
 
 impl FromStr for AlphaMode {
@@ -112,8 +113,9 @@ impl FromStr for AlphaMode {
         match s {
             "opaque" => Ok(Self::Opaque),
             "blend" => Ok(Self::Blend),
+            "alpha_mask" => Ok(Self::AlphaMask),
             _ => Err(format!(
-                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend'"
+                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask'"
             )),
         }
     }
@@ -601,6 +603,7 @@ fn init_materials(
     let alpha_mode = match args.alpha_mode {
         AlphaMode::Opaque => AlphaMode2d::Opaque,
         AlphaMode::Blend => AlphaMode2d::Blend,
+        AlphaMode::AlphaMask => AlphaMode2d::Mask(0.5),
     };
 
     let mut materials = Vec::with_capacity(capacity);
