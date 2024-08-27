@@ -1,30 +1,15 @@
-use crate::{
-    system::Commands,
-    world::{Command, World},
-};
-
 use super::{Event, Events};
+use crate::world::{Command, World};
 
-struct FireEvent<E: Event> {
-    event: E,
+/// A command to Send an arbitrary [`Event`], used by [`Commands::send_event`].
+pub struct SendEvent<E: Event> {
+    /// The event to send.
+    pub event: E,
 }
 
-impl<E: Event> Command for FireEvent<E> {
+impl<E: Event> Command for SendEvent<E> {
     fn apply(self, world: &mut World) {
         let mut events = world.resource_mut::<Events<E>>();
         events.send(self.event);
-    }
-}
-
-/// Send an arbitrary event via commands
-pub trait SendEventEx {
-    /// Send an arbitrary event via commands
-    fn send_event<E: Event>(&mut self, e: E) -> &mut Self;
-}
-
-impl SendEventEx for Commands<'_, '_> {
-    fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
-        self.add(FireEvent { event });
-        self
     }
 }

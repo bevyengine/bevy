@@ -25,7 +25,7 @@ pub use mut_iterators::{EventMutIterator, EventMutIteratorWithId};
 pub use mutator::EventMutator;
 pub use reader::EventReader;
 pub use registry::{EventRegistry, ShouldUpdateEvents};
-pub use send_event::SendEventEx;
+pub use send_event::SendEvent;
 pub use update::{
     event_update_condition, event_update_system, signal_event_update_system, EventUpdates,
 };
