@@ -675,6 +675,29 @@ fn compute_texture_slices(
             tile_x,
             tile_y,
             stretch_value,
-        } => [[0.; 4], [0., 0., 1., 1.], [1.; 4]],
+        } => {
+            let rx = compute_tiled_axis(
+                *tile_x,
+                image_size.x as f32,
+                target_size.x as f32,
+                *stretch_value,
+            );
+            let ry = compute_tiled_axis(
+                *tile_y,
+                image_size.y as f32,
+                target_size.y as f32,
+                *stretch_value,
+            );
+            [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
+        }
+    }
+}
+
+fn compute_tiled_axis(tile: bool, is: f32, ts: f32, stretch: f32) -> f32 {
+    if tile {
+        let s = is * stretch;
+        ts / s
+    } else {
+        1.
     }
 }

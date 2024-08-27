@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
+            for [w, h] in [[192.0, 192.0], [384.0, 192.0], [192.0, 384.0]] {
                 parent
                     .spawn((
                         ButtonBundle {
@@ -85,7 +85,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             image: image.clone().into(),
                             ..default()
                         },
-                        ImageScaleMode::Sliced(slicer.clone()),
+                        //ImageScaleMode::Sliced(slicer.clone()),
+                        ImageScaleMode::Tiled {
+                            tile_x: true,
+                            tile_y: true,
+                            stretch_value: 1.,
+                        },
                     ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(
