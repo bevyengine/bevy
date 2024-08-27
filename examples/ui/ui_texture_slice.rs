@@ -85,8 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             image: image.clone().into(),
                             ..default()
                         },
-                        //ImageScaleMode::Sliced(slicer.clone()),
-                        UiSlicer,
+                        ImageScaleMode::Sliced(slicer.clone()),
                     ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(

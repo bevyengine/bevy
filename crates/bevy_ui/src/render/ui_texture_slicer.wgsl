@@ -44,6 +44,10 @@ fn map_repeat(
     return fract(p * r);
 }
 
+fn map_center(
+) {
+}
+
 fn map_axis(
     p: f32,
     tl: f32,
@@ -60,18 +64,43 @@ fn map_axis(
     }
 }
 
+fn map_axis_with_repeat(
+    p: f32,
+    tl: f32,
+    th: f32,
+    il: f32,
+    ih: f32,
+    r: f32,
+) -> f32 {
+    if p < il {
+        return (p / il) * tl;
+    } else if ih < p {
+        return th + ((p - ih) / (1 - ih)) * (1 - th);
+    } else {
+        return tl + fract((r * (p - il)) / (ih - il)) * (th - tl);
+    }
+}
+
 fn map_uvs(
     uv: vec2<f32>,
     slices: vec4<f32>,
     border: vec4<f32>,
+    repeat: vec4<f32>,
 ) -> vec2<f32> {
-    let x = map_axis(uv.x, slices.x, slices.z, border.x, border.z);
-    let y = map_axis(uv.y, slices.y, slices.w, border.y, border.w);
+    var r: vec2<f32>;
+    if border.x < uv.x && uv.x < border.z && border.y < uv.y && uv.y < border.w {
+        r = repeat.zw;
+    } else {
+        r = repeat.xy;
+    }
+
+    let x = map_axis_with_repeat(uv.x, slices.x, slices.z, border.x, border.z, r.x);
+    let y = map_axis_with_repeat(uv.y, slices.y, slices.w, border.y, border.w, r.y);
     return vec2(x, y);
 }
 
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
-    let uv = map_uvs(in.uv, in.slices, in.border);
+    let uv = map_uvs(in.uv, in.slices, in.border, in.repeat);
     return in.color * textureSample(sprite_texture, sprite_sampler, uv);
 }

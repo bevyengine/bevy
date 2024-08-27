@@ -20,7 +20,7 @@ use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
-use ui_texture_slicer_pipeline::UiSlicerPlugin;
+use ui_texture_slicer_pipeline::UiTextureSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::texture_slice::UiSlicer;
@@ -144,7 +144,7 @@ pub fn build_ui_render(app: &mut App) {
         graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
     }
 
-    app.add_plugins(UiSlicerPlugin);
+    app.add_plugins(UiTextureSlicerPlugin);
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
@@ -304,22 +304,18 @@ pub fn extract_uinode_images(
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-                &UiImage,
-                Option<&TextureAtlas>,
-                Option<&ComputedTextureSlices>,
-                Option<&BorderRadius>,
-                Option<&Parent>,
-                &Style,
-            ),
-            Without<UiSlicer>,
-        >,
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &UiImage,
+            Option<&TextureAtlas>,
+            Option<&BorderRadius>,
+            Option<&Parent>,
+            &Style,
+        )>,
     >,
     node_query: Extract<Query<&Node>>,
 ) {
@@ -331,7 +327,6 @@ pub fn extract_uinode_images(
         camera,
         image,
         atlas,
-        slices,
         border_radius,
         parent,
         style,
@@ -350,14 +345,14 @@ pub fn extract_uinode_images(
             continue;
         }
 
-        if let Some(slices) = slices {
-            extracted_uinodes.uinodes.extend(
-                slices
-                    .extract_ui_nodes(transform, uinode, image, clip, camera_entity)
-                    .map(|e| (commands.spawn_empty().id(), e)),
-            );
-            continue;
-        }
+        // if let Some(slices) = slices {
+        //     extracted_uinodes.uinodes.extend(
+        //         slices
+        //             .extract_ui_nodes(transform, uinode, image, clip, camera_entity)
+        //             .map(|e| (commands.spawn_empty().id(), e)),
+        //     );
+        //     continue;
+        // }
 
         let (rect, atlas_scaling) = match atlas {
             Some(atlas) => {

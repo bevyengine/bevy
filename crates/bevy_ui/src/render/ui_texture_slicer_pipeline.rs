@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::lifetimeless::{Read, SRes},
     system::*,
 };
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
@@ -18,20 +18,19 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::SpriteAssetEvents;
+use bevy_sprite::{ImageScaleMode, SpriteAssetEvents};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
-use texture_slice::UiSlicer;
 
 use crate::*;
 
 pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
 
-pub struct UiSlicerPlugin;
+pub struct UiTextureSlicerPlugin;
 
-impl Plugin for UiSlicerPlugin {
+impl Plugin for UiTextureSlicerPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -42,14 +41,14 @@ impl Plugin for UiSlicerPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_render_command::<TransparentUi, DrawUiSlicer>()
-                .init_resource::<ExtractedUiSlicers>()
-                .init_resource::<UiSlicerMeta>()
-                .init_resource::<UiSlicerImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<UiSlicerPipeline>>()
+                .add_render_command::<TransparentUi, DrawUiTextureSlicer>()
+                .init_resource::<ExtractedUiTextureSlicers>()
+                .init_resource::<UiTextureSlicerMeta>()
+                .init_resource::<UiTextureSlicerImageBindGroups>()
+                .init_resource::<SpecializedRenderPipelines<UiTextureSlicerPipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_ui_slicers.after(extract_uinode_images),
+                    extract_ui_texture_slicers.after(extract_uinode_images),
                 )
                 .add_systems(
                     Render,
@@ -63,14 +62,14 @@ impl Plugin for UiSlicerPlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiSlicerPipeline>();
+            render_app.init_resource::<UiTextureSlicerPipeline>();
         }
     }
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
-struct UiSliceVertex {
+struct UiTextureSliceVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
@@ -80,20 +79,20 @@ struct UiSliceVertex {
 }
 
 #[derive(Component)]
-pub struct UiSlicerBatch {
+pub struct UiTextureSlicerBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
     pub camera: Entity,
 }
 
 #[derive(Resource)]
-pub struct UiSlicerMeta {
-    vertices: RawBufferVec<UiSliceVertex>,
+pub struct UiTextureSlicerMeta {
+    vertices: RawBufferVec<UiTextureSliceVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
 }
 
-impl Default for UiSlicerMeta {
+impl Default for UiTextureSlicerMeta {
     fn default() -> Self {
         Self {
             vertices: RawBufferVec::new(BufferUsages::VERTEX),
@@ -104,18 +103,18 @@ impl Default for UiSlicerMeta {
 }
 
 #[derive(Resource, Default)]
-pub struct UiSlicerImageBindGroups {
+pub struct UiTextureSlicerImageBindGroups {
     pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
 #[derive(Resource)]
-pub struct UiSlicerPipeline {
+pub struct UiTextureSlicerPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
     pub nearest_sampler: Sampler,
 }
 
-impl FromWorld for UiSlicerPipeline {
+impl FromWorld for UiTextureSlicerPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
@@ -153,7 +152,7 @@ impl FromWorld for UiSlicerPipeline {
             ),
         );
 
-        UiSlicerPipeline {
+        UiTextureSlicerPipeline {
             view_layout,
             image_layout,
             nearest_sampler,
@@ -166,7 +165,7 @@ pub struct UiSlicerPipelineKey {
     pub hdr: bool,
 }
 
-impl SpecializedRenderPipeline for UiSlicerPipeline {
+impl SpecializedRenderPipeline for UiTextureSlicerPipeline {
     type Key = UiSlicerPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -240,32 +239,33 @@ pub struct ExtractedUiSlicer {
     pub clip: Option<Rect>,
     pub camera_entity: Entity,
     pub color: LinearRgba,
+    pub image_scale_mode: ImageScaleMode,
 }
 
 #[derive(Resource, Default)]
-pub struct ExtractedUiSlicers {
+pub struct ExtractedUiTextureSlicers {
     pub slicers: SparseSet<Entity, ExtractedUiSlicer>,
 }
 
-pub fn extract_ui_slicers(
+pub fn extract_ui_texture_slicers(
     mut commands: Commands,
-    mut extracted_ui_slicers: ResMut<ExtractedUiSlicers>,
+    mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlicers>,
     default_ui_camera: Extract<DefaultUiCamera>,
     slicers_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-                &UiImage,
-            ),
-            With<UiSlicer>,
-        >,
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            &UiImage,
+            &ImageScaleMode,
+        )>,
     >,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
+    for (uinode, transform, view_visibility, clip, camera, image, image_scale_mode) in
+        &slicers_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -292,21 +292,22 @@ pub fn extract_ui_slicers(
                 clip: clip.map(|clip| clip.clip),
                 image: image.texture.id(),
                 camera_entity,
+                image_scale_mode: image_scale_mode.clone(),
             },
         );
     }
 }
 
 pub fn queue_ui_slicers(
-    extracted_ui_slicers: ResMut<ExtractedUiSlicers>,
-    ui_slicer_pipeline: Res<UiSlicerPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiSlicerPipeline>>,
+    extracted_ui_slicers: ResMut<ExtractedUiTextureSlicers>,
+    ui_slicer_pipeline: Res<UiTextureSlicerPipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicerPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut views: Query<(Entity, &ExtractedView)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    let draw_function = draw_functions.read().id::<DrawUiSlicer>();
+    let draw_function = draw_functions.read().id::<DrawUiTextureSlicer>();
     for (entity, extracted_slicer) in extracted_ui_slicers.slicers.iter() {
         let Ok((view_entity, view)) = views.get_mut(extracted_slicer.camera_entity) else {
             continue;
@@ -340,11 +341,11 @@ pub fn prepare_ui_slicers(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<UiSlicerMeta>,
-    mut extracted_slicers: ResMut<ExtractedUiSlicers>,
+    mut ui_meta: ResMut<UiTextureSlicerMeta>,
+    mut extracted_slicers: ResMut<ExtractedUiTextureSlicers>,
     view_uniforms: Res<ViewUniforms>,
-    slicer_pipeline: Res<UiSlicerPipeline>,
-    mut image_bind_groups: ResMut<UiSlicerImageBindGroups>,
+    slicer_pipeline: Res<UiTextureSlicerPipeline>,
+    mut image_bind_groups: ResMut<UiTextureSlicerImageBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
@@ -364,7 +365,7 @@ pub fn prepare_ui_slicers(
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        let mut batches: Vec<(Entity, UiSlicerBatch)> = Vec::with_capacity(*previous_len);
+        let mut batches: Vec<(Entity, UiTextureSlicerBatch)> = Vec::with_capacity(*previous_len);
 
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
@@ -381,6 +382,7 @@ pub fn prepare_ui_slicers(
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
+            let mut batch_image_size = UVec2::ZERO;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -398,8 +400,9 @@ pub fn prepare_ui_slicers(
                         if let Some(gpu_image) = gpu_images.get(extracted_slicer.image) {
                             batch_item_index = item_index;
                             batch_image_handle = extracted_slicer.image;
+                            batch_image_size = gpu_image.size;
 
-                            let new_batch = UiSlicerBatch {
+                            let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
                                 image: extracted_slicer.image,
                                 camera: extracted_slicer.camera_entity,
@@ -430,6 +433,7 @@ pub fn prepare_ui_slicers(
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_slicer.image) {
                             batch_image_handle = extracted_slicer.image;
+                            batch_image_size = gpu_image.size;
                             existing_batch.as_mut().unwrap().1.image = extracted_slicer.image;
 
                             image_bind_groups
@@ -545,14 +549,19 @@ pub fn prepare_ui_slicers(
 
                     let color = extracted_slicer.color.to_f32_array();
 
+                    let [slices, border, repeat] = computer_texture_slices(
+                        batch_image_size,
+                        &extracted_slicer.image_scale_mode,
+                    );
+
                     for i in 0..4 {
-                        ui_meta.vertices.push(UiSliceVertex {
+                        ui_meta.vertices.push(UiTextureSliceVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
                             color,
-                            slices: [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
-                            border: [1. / 10., 1. / 10., 9. / 10., 9. / 10.],
-                            repeat: [1.; 4],
+                            slices,
+                            border,
+                            repeat,
                         });
                     }
 
@@ -578,7 +587,7 @@ pub fn prepare_ui_slicers(
     extracted_slicers.slicers.clear();
 }
 
-pub type DrawUiSlicer = (
+pub type DrawUiTextureSlicer = (
     SetItemPipeline,
     SetSlicerViewBindGroup<0>,
     SetSlicerTextureBindGroup<1>,
@@ -587,7 +596,7 @@ pub type DrawUiSlicer = (
 
 pub struct SetSlicerViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerViewBindGroup<I> {
-    type Param = SRes<UiSlicerMeta>;
+    type Param = SRes<UiTextureSlicerMeta>;
     type ViewQuery = Read<ViewUniformOffset>;
     type ItemQuery = ();
 
@@ -607,15 +616,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerViewBindGroup<I
 }
 pub struct SetSlicerTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerTextureBindGroup<I> {
-    type Param = SRes<UiSlicerImageBindGroups>;
+    type Param = SRes<UiTextureSlicerImageBindGroups>;
     type ViewQuery = ();
-    type ItemQuery = Read<UiSlicerBatch>;
+    type ItemQuery = Read<UiTextureSlicerBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: Option<&'w UiSlicerBatch>,
+        batch: Option<&'w UiTextureSlicerBatch>,
         image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -630,15 +639,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerTextureBindGrou
 }
 pub struct DrawSlicer;
 impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
-    type Param = SRes<UiSlicerMeta>;
+    type Param = SRes<UiTextureSlicerMeta>;
     type ViewQuery = ();
-    type ItemQuery = Read<UiSlicerBatch>;
+    type ItemQuery = Read<UiTextureSlicerBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        batch: Option<&'w UiSlicerBatch>,
+        batch: Option<&'w UiTextureSlicerBatch>,
         ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -665,4 +674,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
     }
+}
+
+fn computer_texture_slices(image_size: UVec2, image_scale_mode: &ImageScaleMode) -> [[f32; 4]; 3] {
+    [
+        [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
+        [1. / 10., 1. / 10., 9. / 10., 9. / 10.],
+        [1.; 4],
+    ]
 }
