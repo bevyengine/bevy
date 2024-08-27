@@ -152,9 +152,23 @@ impl TypeRegistry {
     where
         T: GetTypeRegistration,
     {
-        if self.register_internal(TypeId::of::<T>(), T::get_type_registration) {
-            T::register_type_dependencies(self);
+        fn register(
+            this: &mut TypeRegistry,
+            type_id: TypeId,
+            get_type_registration: fn() -> TypeRegistration,
+            register_type_dependencies: fn(&mut TypeRegistry),
+        ) {
+            if this.register_internal(type_id, get_type_registration) {
+                register_type_dependencies(this);
+            }
         }
+
+        register(
+            self,
+            TypeId::of::<T>(),
+            T::get_type_registration,
+            T::register_type_dependencies,
+        )
     }
 
     /// Attempts to register the type described by `registration`.
