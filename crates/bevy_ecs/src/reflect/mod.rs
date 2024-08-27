@@ -92,52 +92,61 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {
-    fn different_type_error<T: TypePath>(reflected: &str) -> ! {
+    fn different_type_error(reflected: &str, type_path: &str) -> ! {
         panic!(
             "The registration for the reflected `{}` trait for the type `{}` produced \
             a value of a different type",
-            reflected,
-            T::type_path(),
+            reflected, type_path,
         );
     }
 
-    // First, try `FromReflect`. This is handled differently from the others because
-    // it doesn't need a subsequent `apply` and may fail.
-    if let Some(reflect_from_reflect) =
-        registry.get_type_data::<ReflectFromReflect>(TypeId::of::<T>())
-    {
-        // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
-        if let Some(value) = reflect_from_reflect.from_reflect(reflected) {
-            return value
-                .take::<T>()
-                .unwrap_or_else(|_| different_type_error::<T>("FromReflect"));
+    fn from_reflect_with_fallback(
+        reflected: &dyn PartialReflect,
+        world: &mut World,
+        registry: &TypeRegistry,
+        type_id: TypeId,
+        type_name: &str,
+    ) -> (Box<dyn Reflect>, &'static str) {
+        // First, try `FromReflect`. This is handled differently from the others because
+        // it doesn't need a subsequent `apply` and may fail.
+        if let Some(reflect_from_reflect) = registry.get_type_data::<ReflectFromReflect>(type_id) {
+            // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
+            if let Some(value) = reflect_from_reflect.from_reflect(reflected) {
+                return (value, "FromReflect");
+            }
         }
+
+        // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
+        let value = if let Some(reflect_default) = registry.get_type_data::<ReflectDefault>(type_id)
+        {
+            (reflect_default.default(), "Default")
+        } else if let Some(reflect_from_world) = registry.get_type_data::<ReflectFromWorld>(type_id)
+        {
+            (reflect_from_world.from_world(world), "FromWorld")
+        } else {
+            panic!(
+                "Couldn't create an instance of `{}` using the reflected `FromReflect`, \
+                `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
+                or `#[reflect(FromWorld)]`?",
+                // FIXME: once we have unique reflect, use `TypePath`.
+                type_name,
+            );
+        };
+
+        value
     }
 
-    // Create an instance of `T` using either the reflected `Default` or `FromWorld`.
-    let mut value = if let Some(reflect_default) =
-        registry.get_type_data::<ReflectDefault>(TypeId::of::<T>())
-    {
-        reflect_default
-            .default()
-            .take::<T>()
-            .unwrap_or_else(|_| different_type_error::<T>("Default"))
-    } else if let Some(reflect_from_world) =
-        registry.get_type_data::<ReflectFromWorld>(TypeId::of::<T>())
-    {
-        reflect_from_world
-            .from_world(world)
-            .take::<T>()
-            .unwrap_or_else(|_| different_type_error::<T>("FromWorld"))
-    } else {
-        panic!(
-            "Couldn't create an instance of `{}` using the reflected `FromReflect`, \
-            `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
-            or `#[reflect(FromWorld)]`?",
-            // FIXME: once we have unique reflect, use `TypePath`.
-            std::any::type_name::<T>(),
-        );
-    };
+    let (value, reflection_trait) = from_reflect_with_fallback(
+        reflected,
+        world,
+        registry,
+        TypeId::of::<T>(),
+        std::any::type_name::<T>(),
+    );
+
+    let mut value = value
+        .take::<T>()
+        .unwrap_or_else(|_| different_type_error(reflection_trait, T::type_path()));
 
     value.apply(reflected);
     value
