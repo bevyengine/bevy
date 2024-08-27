@@ -400,7 +400,6 @@ where
 {
     #[inline]
     fn apply(self, world: &mut World) {
-        println!("Running system: {:?}", self.system_id);
         let _ = world.run_system_with_input(self.system_id, self.input);
     }
 }
@@ -638,7 +637,6 @@ mod tests {
 
         fn nested(query: Query<&Callback>, mut commands: Commands) {
             for callback in query.iter() {
-                println!("running nested system with input {}", callback.1);
                 commands.run_system_with_input(callback.0, callback.1);
             }
         }
@@ -648,17 +646,13 @@ mod tests {
 
         let increment_by =
             world.register_system(|In(amt): In<u8>, mut counter: ResMut<Counter>| {
-                println!("incrementing by {}", amt);
                 counter.0 += amt;
             });
-        println!("system id: {:?}", increment_by);
         let nested_id = world.register_system(nested);
 
         world.spawn(Callback(increment_by, 2));
         world.spawn(Callback(increment_by, 3));
         let _ = world.run_system(nested_id);
-        world.flush();
-        world.flush();
         assert_eq!(*world.resource::<Counter>(), Counter(5));
     }
 }
