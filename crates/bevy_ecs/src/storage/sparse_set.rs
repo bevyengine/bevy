@@ -414,6 +414,7 @@ macro_rules! impl_sparse_set {
             /// Returns a mutable reference to the value for `index`.
             ///
             /// Returns `None` if `index` does not have a value in the sparse set.
+            #[allow(dead_code)]
             pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
                 let dense = &mut self.dense;
                 self.sparse.get(index).map(move |dense_index| {
@@ -428,11 +429,13 @@ macro_rules! impl_sparse_set {
             }
 
             /// Returns an iterator visiting all values in arbitrary order.
+            #[allow(dead_code)]
             pub fn values(&self) -> impl Iterator<Item = &V> {
                 self.dense.iter()
             }
 
             /// Returns an iterator visiting all values mutably in arbitrary order.
+            #[allow(dead_code)]
             pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
                 self.dense.iter_mut()
             }
@@ -443,6 +446,7 @@ macro_rules! impl_sparse_set {
             }
 
             /// Returns an iterator visiting all key-value pairs in arbitrary order, with mutable references to the values.
+            #[allow(dead_code)]
             pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
                 self.indices.iter().zip(self.dense.iter_mut())
             }

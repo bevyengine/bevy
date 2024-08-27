@@ -1,3 +1,4 @@
+use crate::archetype::{ArchetypeId, ComponentIndex};
 use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
@@ -170,7 +171,13 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
+    unsafe fn set_table(
+        _fetch: &mut (),
+        _state: &ComponentId,
+        _archetype_id: ArchetypeId,
+        _table: &Table,
+    ) {
+    }
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -280,7 +287,13 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     #[inline]
-    unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
+    unsafe fn set_table(
+        _fetch: &mut (),
+        _state: &Self::State,
+        _archetype_id: ArchetypeId,
+        _table: &Table,
+    ) {
+    }
 
     #[inline(always)]
     unsafe fn fetch<'w>(
@@ -382,7 +395,7 @@ macro_rules! impl_or_query_filter {
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($filter: QueryFilter),*> WorldQuery for Or<($($filter,)*)> {
-            type Fetch<'w> = ($(OrFetch<'w, $filter>,)*);
+            type Fetch<'w> = (&'w ComponentIndex, ($(OrFetch<'w, $filter>,)*));
             type Item<'w> = bool;
             type State = ($($filter::State,)*);
 
@@ -391,13 +404,16 @@ macro_rules! impl_or_query_filter {
             }
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-                let ($($filter,)*) = fetch;
-                ($(
-                    OrFetch {
-                        fetch: $filter::shrink_fetch($filter.fetch),
-                        matches: $filter.matches
-                    },
-                )*)
+                let (index, ($($filter,)*)) = fetch;
+                (
+                    index,
+                    ($(
+                        OrFetch {
+                            fetch: $filter::shrink_fetch($filter.fetch),
+                            matches: $filter.matches
+                        },
+                    )*)
+                )
             }
 
             const IS_DENSE: bool = true $(&& $filter::IS_DENSE)*;
@@ -405,22 +421,27 @@ macro_rules! impl_or_query_filter {
             #[inline]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
-                ($(OrFetch {
+                let index = world.archetypes().component_index();
+                (index, ($(OrFetch {
                     // SAFETY: The invariants are uphold by the caller.
                     fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
                     matches: false,
-                },)*)
+                },)*))
             }
 
             #[inline]
-            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-                let ($($filter,)*) = fetch;
+            unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, archetype_id: ArchetypeId, table: &'w Table) {
+                let (index, ($($filter,)*)) = fetch;
                 let ($($state,)*) = state;
                 $(
-                    $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
+                    $filter.matches = $filter::matches_component_set($state, &|id| {
+                        index.get_column_index(id, archetype_id).is_some_and(
+                            |column_index| table.has_column(column_index)
+                        )
+                    });
                     if $filter.matches {
                         // SAFETY: The invariants are uphold by the caller.
-                        unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
+                        unsafe { $filter::set_table(&mut $filter.fetch, $state, archetype_id, table); }
                     }
                 )*
             }
@@ -432,7 +453,7 @@ macro_rules! impl_or_query_filter {
                 archetype: &'w Archetype,
                 table: &'w Table
             ) {
-                let ($($filter,)*) = fetch;
+                let (_, ($($filter,)*)) = fetch;
                 let ($($state,)*) = &state;
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
@@ -449,7 +470,7 @@ macro_rules! impl_or_query_filter {
                 _entity: Entity,
                 _table_row: TableRow
             ) -> Self::Item<'w> {
-                let ($($filter,)*) = fetch;
+                let (_, ($($filter,)*)) = fetch;
                 // SAFETY: The invariants are uphold by the caller.
                 false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row) }))*
             }
@@ -608,6 +629,7 @@ pub struct Added<T>(PhantomData<T>);
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct AddedFetch<'w> {
+    component_index: &'w ComponentIndex,
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
     sparse_set: Option<&'w ComponentSparseSet>,
     last_run: Tick,
@@ -640,6 +662,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
+            component_index: world.archetypes().component_index(),
             table_ticks: None,
             sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
@@ -659,13 +682,13 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, archetype.id(), table);
             }
         }
     }
@@ -674,10 +697,15 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     unsafe fn set_table<'w>(
         fetch: &mut Self::Fetch<'w>,
         &component_id: &ComponentId,
+        archetype_id: ArchetypeId,
         table: &'w Table,
     ) {
+        let column_index = fetch
+            .component_index
+            .get_column_index(component_id, archetype_id)
+            .debug_checked_unwrap();
         fetch.table_ticks = Some(
-            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+            Column::get_added_ticks_slice(table.get_column(column_index).debug_checked_unwrap())
                 .into(),
         );
     }
@@ -823,6 +851,7 @@ pub struct Changed<T>(PhantomData<T>);
 #[doc(hidden)]
 #[derive(Clone)]
 pub struct ChangedFetch<'w> {
+    component_index: &'w ComponentIndex,
     table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
     sparse_set: Option<&'w ComponentSparseSet>,
     last_run: Tick,
@@ -855,6 +884,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         this_run: Tick,
     ) -> Self::Fetch<'w> {
         Self::Fetch::<'w> {
+            component_index: world.archetypes().component_index(),
             table_ticks: None,
             sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
                 .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
@@ -874,13 +904,13 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     unsafe fn set_archetype<'w>(
         fetch: &mut Self::Fetch<'w>,
         component_id: &ComponentId,
-        _archetype: &'w Archetype,
+        archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, component_id, archetype.id(), table);
             }
         }
     }
@@ -889,10 +919,15 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     unsafe fn set_table<'w>(
         fetch: &mut Self::Fetch<'w>,
         &component_id: &ComponentId,
+        archetype_id: ArchetypeId,
         table: &'w Table,
     ) {
+        let column_index = fetch
+            .component_index
+            .get_column_index(component_id, archetype_id)
+            .debug_checked_unwrap();
         fetch.table_ticks = Some(
-            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+            Column::get_changed_ticks_slice(table.get_column(column_index).debug_checked_unwrap())
                 .into(),
         );
     }

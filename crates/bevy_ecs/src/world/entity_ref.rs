@@ -1,3 +1,5 @@
+use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
+use crate::query::DebugCheckedUnwrap;
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
@@ -15,8 +17,6 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr};
 use std::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
-
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -949,7 +949,7 @@ impl<'w> EntityWorldMut<'w> {
             );
         }
 
-        let archetypes = &mut world.archetypes;
+        let component_index = &mut world.archetypes.component_index();
         let storages = &mut world.storages;
         let components = &mut world.components;
         let entities = &mut world.entities;
@@ -961,7 +961,10 @@ impl<'w> EntityWorldMut<'w> {
         // matches
         let result = unsafe {
             T::from_components(storages, &mut |storages| {
+                // TODO: how to fix borrow-checker issues here?
                 let component_id = bundle_components.next().unwrap();
+                let column_index =
+                    component_index.get_column_index(component_id, old_location.archetype_id);
                 // SAFETY:
                 // - entity location is valid
                 // - table row is removed below, without dropping the contents
@@ -970,6 +973,7 @@ impl<'w> EntityWorldMut<'w> {
                     storages,
                     components,
                     removed_components,
+                    column_index,
                     component_id,
                     entity,
                     old_location,
@@ -977,6 +981,7 @@ impl<'w> EntityWorldMut<'w> {
             })
         };
 
+        let archetypes = &mut world.archetypes;
         #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
         unsafe {
             Self::move_entity_from_remove::<false>(
@@ -1037,20 +1042,34 @@ impl<'w> EntityWorldMut<'w> {
         let new_location = if old_table_id == new_archetype.table_id() {
             new_archetype.allocate(entity, old_table_row)
         } else {
-            let (old_table, new_table) = storages
-                .tables
-                .get_2_mut(old_table_id, new_archetype.table_id());
+            let new_table_id = new_archetype.table_id();
+            let (old_table, new_table) = storages.tables.get_2_mut(old_table_id, new_table_id);
 
             let move_result = if DROP {
                 // SAFETY: old_table_row exists
-                unsafe { old_table.move_to_and_drop_missing_unchecked(old_table_row, new_table) }
+                unsafe {
+                    old_table.move_to_and_drop_missing_unchecked(
+                        old_table_row,
+                        new_table,
+                        archetypes.component_index(),
+                        new_archetype_id,
+                    )
+                }
             } else {
                 // SAFETY: old_table_row exists
-                unsafe { old_table.move_to_and_forget_missing_unchecked(old_table_row, new_table) }
+                unsafe {
+                    old_table.move_to_and_forget_missing_unchecked(
+                        old_table_row,
+                        new_table,
+                        archetypes.component_index(),
+                        new_archetype_id,
+                    )
+                }
             };
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
+            let new_location =
+                unsafe { archetypes[new_archetype_id].allocate(entity, move_result.new_row) };
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
@@ -2520,6 +2539,7 @@ pub(crate) unsafe fn take_component<'a>(
     storages: &'a mut Storages,
     components: &Components,
     removed_components: &mut RemovedComponentEvents,
+    column_index: Option<usize>,
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
@@ -2530,7 +2550,9 @@ pub(crate) unsafe fn take_component<'a>(
     match component_info.storage_type() {
         StorageType::Table => {
             let table = &mut storages.tables[location.table_id];
-            let components = table.get_column_mut(component_id).unwrap();
+            let components = table
+                .get_column_mut(column_index.debug_checked_unwrap())
+                .unwrap();
             // SAFETY:
             // - archetypes only store valid table_rows
             // - index is in bounds as promised by caller

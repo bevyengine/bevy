@@ -1,3 +1,4 @@
+use crate::archetype::ArchetypeId;
 use crate::{
     archetype::Archetype,
     component::{ComponentId, Components, Tick},
@@ -99,7 +100,12 @@ pub unsafe trait WorldQuery {
     ///
     /// - `table` must be from the same [`World`] that [`WorldQuery::init_state`] was called on.
     /// - `state` must be the [`State`](Self::State) that `fetch` was initialized with.
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table);
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype_id: ArchetypeId,
+        table: &'w Table,
+    );
 
     /// Sets available accesses for implementors with dynamic access such as [`FilteredEntityRef`](crate::world::FilteredEntityRef)
     /// or [`FilteredEntityMut`](crate::world::FilteredEntityMut).
@@ -200,11 +206,11 @@ macro_rules! impl_tuple_world_query {
             }
 
             #[inline]
-            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+            unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _archetype_id: ArchetypeId, _table: &'w Table) {
                 let ($($name,)*) = _fetch;
                 let ($($state,)*) = _state;
                 // SAFETY: The invariants are uphold by the caller.
-                $(unsafe { $name::set_table($name, $state, _table); })*
+                $(unsafe { $name::set_table($name, $state, _archetype_id, _table); })*
             }
 
             #[inline(always)]
