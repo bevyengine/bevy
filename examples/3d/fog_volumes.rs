@@ -10,6 +10,7 @@ use bevy::{
     pbr::{FogVolume, VolumetricFogSettings, VolumetricLight},
     prelude::*,
 };
+use bevy_render::world_sync::ToRenderWorld;
 
 /// Entry point.
 fn main() {
@@ -43,7 +44,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // up.
             scattering: 1.0,
             ..default()
-        });
+        })
+        // indicates that this spatial needs to be Synchronized to the render world
+        .insert(ToRenderWorld);
 
     // Spawn a bright directional light that illuminates the fog well.
     commands

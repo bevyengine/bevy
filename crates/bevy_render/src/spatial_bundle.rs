@@ -1,10 +1,7 @@
 use bevy_ecs::prelude::Bundle;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
-use crate::{
-    view::{InheritedVisibility, ViewVisibility, Visibility},
-    world_sync::ToRenderWorld,
-};
+use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 
 /// A [`Bundle`] that allows the correct positional rendering of an entity.
 ///
@@ -30,8 +27,6 @@ pub struct SpatialBundle {
     pub transform: Transform,
     /// The global transform of the entity.
     pub global_transform: GlobalTransform,
-
-    pub _marker: ToRenderWorld,
 }
 
 impl SpatialBundle {
@@ -53,7 +48,6 @@ impl SpatialBundle {
         view_visibility: ViewVisibility::HIDDEN,
         transform: Transform::IDENTITY,
         global_transform: GlobalTransform::IDENTITY,
-        _marker: ToRenderWorld,
     };
 
     /// An invisible [`SpatialBundle`] with identity transform.
