@@ -402,19 +402,28 @@ pub fn extract_lights(
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct LightViewEntities(Vec<Entity>);
 
-pub fn insert_light_view_entities(
+// TODO: using required component
+pub(crate) fn add_light_view_entities(
+    trigger: Trigger<OnAdd, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
-    query: Query<
-        Entity,
-        (
-            Or<(With<ExtractedDirectionalLight>, With<ExtractedPointLight>)>,
-            Without<LightViewEntities>,
-        ),
-    >,
 ) {
-    query.iter().for_each(|e| {
-        commands.entity(e).insert(LightViewEntities::default());
-    });
+    commands
+        .get_entity(trigger.entity())
+        .map(|v| v.insert(LightViewEntities::default()));
+}
+
+pub(crate) fn remove_light_view_entities(
+    trigger: Trigger<OnRemove, LightViewEntities>,
+    query: Query<&LightViewEntities>,
+    mut commands: Commands,
+) {
+    if let Ok(entities) = query.get(trigger.entity()) {
+        for e in entities.0.iter().copied() {
+            commands.get_entity(e).map(|v| {
+                v.despawn();
+            });
+        }
+    }
 }
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;

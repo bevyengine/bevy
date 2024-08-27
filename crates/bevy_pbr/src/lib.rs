@@ -413,12 +413,6 @@ impl Plugin for PbrPlugin {
             .add_systems(ExtractSchedule, (extract_clusters, extract_lights))
             .add_systems(
                 Render,
-                insert_light_view_entities
-                    .in_set(RenderSet::ManageViews)
-                    .before(prepare_lights),
-            )
-            .add_systems(
-                Render,
                 (
                     prepare_lights
                         .in_set(RenderSet::ManageViews)
@@ -427,6 +421,9 @@ impl Plugin for PbrPlugin {
                 ),
             )
             .init_resource::<LightMeta>();
+
+        render_app.world_mut().observe(add_light_view_entities);
+        render_app.world_mut().observe(remove_light_view_entities);
 
         let shadow_pass_node = ShadowPassNode::new(render_app.world_mut());
         let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();

@@ -936,7 +936,7 @@ pub fn extract_cameras(
             }
 
             let mut commands = commands.entity(render_entity.id());
-            commands.insert((
+            commands = commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),

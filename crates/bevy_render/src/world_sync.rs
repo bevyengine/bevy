@@ -59,6 +59,7 @@ pub(crate) struct PendingSyncEntity {
 
 pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut World) {
     main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity>| {
+        // TODO : batching record
         for record in pending.drain(..) {
             match record {
                 EntityRecord::Added(e) => {
