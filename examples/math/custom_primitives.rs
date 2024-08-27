@@ -473,7 +473,7 @@ impl MeshBuilder for HeartMeshBuilder {
 
 // The `Extrudable` trait can be used to easily implement meshing for extrusions.
 impl Extrudable for HeartMeshBuilder {
-    fn perimeter(&self) -> Vec<bevy::render::mesh::PerimeterSegment> {
+    fn perimeter(&self) -> Vec<PerimeterSegment> {
         let resolution = self.resolution as u32;
         vec![
             // The left wing of the heart

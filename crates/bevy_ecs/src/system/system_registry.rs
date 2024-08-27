@@ -12,6 +12,10 @@ struct RegisteredSystem<I, O> {
     system: BoxedSystem<I, O>,
 }
 
+/// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
+#[derive(Component)]
+pub struct SystemIdMarker;
+
 /// A system that has been removed from the registry.
 /// It contains the system and whether or not it has been initialized.
 ///
@@ -125,10 +129,13 @@ impl World {
     ) -> SystemId<I, O> {
         SystemId {
             entity: self
-                .spawn(RegisteredSystem {
-                    initialized: false,
-                    system,
-                })
+                .spawn((
+                    RegisteredSystem {
+                        initialized: false,
+                        system,
+                    },
+                    SystemIdMarker,
+                ))
                 .id(),
             marker: std::marker::PhantomData,
         }

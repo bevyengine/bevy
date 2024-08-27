@@ -1,6 +1,9 @@
 use glam::FloatExt;
 
-use crate::prelude::{Mat2, Vec2};
+use crate::{
+    ops,
+    prelude::{Mat2, Vec2},
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -99,14 +102,7 @@ impl Rot2 {
     /// Creates a [`Rot2`] from a counterclockwise angle in radians.
     #[inline]
     pub fn radians(radians: f32) -> Self {
-        #[cfg(feature = "libm")]
-        let (sin, cos) = (
-            libm::sin(radians as f64) as f32,
-            libm::cos(radians as f64) as f32,
-        );
-        #[cfg(not(feature = "libm"))]
-        let (sin, cos) = radians.sin_cos();
-
+        let (sin, cos) = ops::sin_cos(radians);
         Self::from_sin_cos(sin, cos)
     }
 
@@ -136,14 +132,7 @@ impl Rot2 {
     /// Returns the rotation in radians in the `(-pi, pi]` range.
     #[inline]
     pub fn as_radians(self) -> f32 {
-        #[cfg(feature = "libm")]
-        {
-            libm::atan2(self.sin as f64, self.cos as f64) as f32
-        }
-        #[cfg(not(feature = "libm"))]
-        {
-            f32::atan2(self.sin, self.cos)
-        }
+        ops::atan2(self.sin, self.cos)
     }
 
     /// Returns the rotation in degrees in the `(-180, 180]` range.

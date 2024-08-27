@@ -15,7 +15,7 @@ use bevy_log::{error, trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use bevy_utils::Instant;
+use bevy_utils::{HashMap, Instant};
 use std::marker::PhantomData;
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
@@ -85,7 +85,7 @@ struct WinitAppRunnerState<T: Event> {
 
 impl<T: Event> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
-        app.add_event::<T>();
+        app.add_event::<T>().init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
@@ -130,6 +130,39 @@ impl<T: Event> WinitAppRunnerState<T> {
         self.app.world_mut()
     }
 }
+
+/// Identifiers for custom cursors used in caching.
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum CustomCursorCacheKey {
+    /// u64 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
+    AssetIndex(u64),
+    /// u128 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
+    AssetUuid(u128),
+    /// A URL to a cursor.
+    Url(String),
+}
+
+/// Caches custom cursors. On many platforms, creating custom cursors is expensive, especially on
+/// the web.
+#[derive(Debug, Clone, Default, Resource)]
+pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::CustomCursor>);
+
+/// A source for a cursor. Is created in `bevy_render` and consumed by the winit event loop.
+#[derive(Debug)]
+pub enum CursorSource {
+    /// A custom cursor was identified to be cached, no reason to recreate it.
+    CustomCached(CustomCursorCacheKey),
+    /// A custom cursor was not cached, so it needs to be created by the winit event loop.
+    Custom((CustomCursorCacheKey, winit::window::CustomCursorSource)),
+    /// A system cursor was requested.
+    System(winit::window::CursorIcon),
+}
+
+/// Component that indicates what cursor should be used for a window. Inserted
+/// automatically after changing `CursorIcon` and consumed by the winit event
+/// loop.
+#[derive(Component, Debug)]
+pub struct PendingCursor(pub Option<CursorSource>);
 
 impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
@@ -520,6 +553,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
             if !self.ran_update_since_last_redraw || all_invisible {
                 self.run_app_update();
+                self.update_cursors(event_loop);
                 self.ran_update_since_last_redraw = true;
             } else {
                 self.redraw_requested = true;
@@ -528,7 +562,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
-
             update_mode = config.update_mode(focused);
         }
 
@@ -749,6 +782,42 @@ impl<T: Event> WinitAppRunnerState<T> {
         world
             .resource_mut::<Events<WinitEvent>>()
             .send_batch(buffered_events);
+    }
+
+    fn update_cursors(&mut self, event_loop: &ActiveEventLoop) {
+        let mut windows_state: SystemState<(
+            NonSendMut<WinitWindows>,
+            ResMut<CustomCursorCache>,
+            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
+        )> = SystemState::new(self.world_mut());
+        let (winit_windows, mut cursor_cache, mut windows) =
+            windows_state.get_mut(self.world_mut());
+
+        for (entity, mut pending_cursor) in windows.iter_mut() {
+            let Some(winit_window) = winit_windows.get_window(entity) else {
+                continue;
+            };
+            let Some(pending_cursor) = pending_cursor.0.take() else {
+                continue;
+            };
+
+            let final_cursor: winit::window::Cursor = match pending_cursor {
+                CursorSource::CustomCached(cache_key) => {
+                    let Some(cached_cursor) = cursor_cache.0.get(&cache_key) else {
+                        error!("Cursor should have been cached, but was not found");
+                        continue;
+                    };
+                    cached_cursor.clone().into()
+                }
+                CursorSource::Custom((cache_key, cursor)) => {
+                    let custom_cursor = event_loop.create_custom_cursor(cursor);
+                    cursor_cache.0.insert(cache_key, custom_cursor.clone());
+                    custom_cursor.into()
+                }
+                CursorSource::System(system_cursor) => system_cursor.into(),
+            };
+            winit_window.set_cursor(final_cursor);
+        }
     }
 }
 
