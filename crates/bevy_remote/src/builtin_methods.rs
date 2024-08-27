@@ -59,7 +59,7 @@ pub struct BrpQueryParams {
 /// `bevy/spawn`: Creates a new entity with the given components and responds
 /// with its ID.
 ///
-/// The server responds with a [`BrpEntityResponse`].
+/// The server responds with a [`BrpSpawnResponse`].
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BrpSpawnParams {
     /// A map from each component's *full path* to its serialized value.
