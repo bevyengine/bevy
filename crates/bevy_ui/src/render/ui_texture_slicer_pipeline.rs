@@ -3,10 +3,13 @@ use std::{hash::Hash, ops::Range};
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::{
+    change_detection::MAX_CHANGE_AGE,
     prelude::Component,
     storage::SparseSet,
-    system::lifetimeless::{Read, SRes},
-    system::*,
+    system::{
+        lifetimeless::{Read, SRes},
+        *,
+    },
 };
 use bevy_math::{FloatOrd, Mat4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_render::{
@@ -18,7 +21,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{ImageScaleMode, SpriteAssetEvents};
+use bevy_sprite::{ImageScaleMode, SliceScaleMode, SpriteAssetEvents, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
@@ -533,7 +536,7 @@ pub fn prepare_ui_slicers(
                     let color = extracted_slicer.color.to_f32_array();
 
                     let [slices, border, repeat] = compute_texture_slices(
-                        batch_image_size,
+                        batch_image_size.as_vec2(),
                         uinode_rect.size(),
                         &extracted_slicer.image_scale_mode,
                     );
@@ -661,33 +664,50 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
 }
 
 fn compute_texture_slices(
-    image_size: UVec2,
+    image_size: Vec2,
     target_size: Vec2,
     image_scale_mode: &ImageScaleMode,
 ) -> [[f32; 4]; 3] {
     match image_scale_mode {
-        ImageScaleMode::Sliced(_) => [
-            [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
-            [1. / 10., 1. / 10., 9. / 10., 9. / 10.],
-            [1.; 4],
-        ],
+        ImageScaleMode::Sliced(TextureSlicer {
+            border,
+            center_scale_mode,
+            sides_scale_mode,
+            max_corner_scale,
+        }) => {
+            let slices = [
+                border.left / image_size.x,
+                border.top / image_size.y,
+                1. - border.right / image_size.x,
+                1. - border.bottom / image_size.y,
+            ];
+
+            let border = [
+                border.left / target_size.x,
+                border.top / target_size.y,
+                1. - border.right / target_size.x,
+                1. - border.bottom / target_size.y,
+            ];
+
+            let isx = image_size.x * (1. - slices[0] - slices[2]);
+            let isy = image_size.y * (1. - slices[1] - slices[3]);
+            let tsx = target_size.x * (1. - border[0] - border[2]);
+            let tsy = target_size.y * (1. - border[1] - border[3]);
+
+            let rx = compute_tiled_subaxis(isx, tsx, sides_scale_mode);
+            let ry = compute_tiled_subaxis(isy, tsy, sides_scale_mode);
+            let cx = compute_tiled_subaxis(isx, tsx, center_scale_mode);
+            let cy = compute_tiled_subaxis(isy, tsy, center_scale_mode);
+
+            [slices, border, [rx, ry, cx, cy]]
+        }
         ImageScaleMode::Tiled {
             tile_x,
             tile_y,
             stretch_value,
         } => {
-            let rx = compute_tiled_axis(
-                *tile_x,
-                image_size.x as f32,
-                target_size.x as f32,
-                *stretch_value,
-            );
-            let ry = compute_tiled_axis(
-                *tile_y,
-                image_size.y as f32,
-                target_size.y as f32,
-                *stretch_value,
-            );
+            let rx = compute_tiled_axis(*tile_x, image_size.x, target_size.x, *stretch_value);
+            let ry = compute_tiled_axis(*tile_y, image_size.y, target_size.y, *stretch_value);
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
         }
     }
@@ -699,5 +719,15 @@ fn compute_tiled_axis(tile: bool, is: f32, ts: f32, stretch: f32) -> f32 {
         ts / s
     } else {
         1.
+    }
+}
+
+fn compute_tiled_subaxis(is: f32, ts: f32, mode: &SliceScaleMode) -> f32 {
+    match mode {
+        SliceScaleMode::Stretch => 1.,
+        SliceScaleMode::Tile { stretch_value } => {
+            let s = is * *stretch_value;
+            ts / s
+        }
     }
 }
