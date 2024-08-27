@@ -7,8 +7,9 @@ struct MyEvent;
 
 fn observer(_: In<Trigger<'static, MyEvent, ()>>) {}
 
-pub fn is_observer<E: Event, B: Bundle, M>(_: impl IntoObserverSystem<E, B, M>) {}
+pub fn check_observer<E: Event, B: Bundle, M>(_: impl IntoObserverSystem<E, B, M>) {}
 
 fn main() {
-    is_observer(observer);
+    check_observer(observer);
+    //~^ E0277
 }
