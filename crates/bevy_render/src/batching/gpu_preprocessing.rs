@@ -233,14 +233,16 @@ impl FromWorld for GpuPreprocessingSupport {
 
                 // Filter out Adreno 730 and earlier GPUs (except 720, as it's newer than 730)
                 // while also taking suffixes into account like Adreno 642L.
-                name.strip_prefix("Adreno (TM) ").is_some_and(|version| {
+                let applies_on_version = |version: &str| -> bool {
                     let version = version
                         .chars()
                         .map_while(|c| c.to_digit(10))
                         .fold(0, |acc, digit| acc * 10 + digit);
 
-                    return version != 720 && version <= 730
-                })
+                    version != 720 && version <= 730
+                };
+
+                name.strip_prefix("Adreno (TM) ").is_some_and(applies_on_version)
             })
         {
             GpuPreprocessingSupport::None
