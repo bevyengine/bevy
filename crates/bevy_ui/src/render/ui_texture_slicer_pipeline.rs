@@ -111,27 +111,11 @@ pub struct UiTextureSlicerImageBindGroups {
 pub struct UiTextureSlicerPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
-    pub nearest_sampler: Sampler,
 }
 
 impl FromWorld for UiTextureSlicerPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-
-        let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: None,
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Nearest,
-            min_filter: FilterMode::Nearest,
-            mipmap_filter: FilterMode::Nearest,
-            lod_min_clamp: 0.0,
-            lod_max_clamp: 100.0,
-            compare: None,
-            anisotropy_clamp: 1,
-            border_color: None,
-        });
 
         let view_layout = render_device.create_bind_group_layout(
             "ui_slicer_view_layout",
@@ -146,8 +130,8 @@ impl FromWorld for UiTextureSlicerPipeline {
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
-                    texture_2d(TextureSampleType::Float { filterable: false }),
-                    sampler(SamplerBindingType::NonFiltering),
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
                 ),
             ),
         );
@@ -155,7 +139,6 @@ impl FromWorld for UiTextureSlicerPipeline {
         UiTextureSlicerPipeline {
             view_layout,
             image_layout,
-            nearest_sampler,
         }
     }
 }
@@ -344,7 +327,7 @@ pub fn prepare_ui_slicers(
     mut ui_meta: ResMut<UiTextureSlicerMeta>,
     mut extracted_slicers: ResMut<ExtractedUiTextureSlicers>,
     view_uniforms: Res<ViewUniforms>,
-    slicer_pipeline: Res<UiTextureSlicerPipeline>,
+    texture_slicer_pipeline: Res<UiTextureSlicerPipeline>,
     mut image_bind_groups: ResMut<UiTextureSlicerImageBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -371,7 +354,7 @@ pub fn prepare_ui_slicers(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_slicer_view_bind_group",
-            &slicer_pipeline.view_layout,
+            &texture_slicer_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -416,10 +399,10 @@ pub fn prepare_ui_slicers(
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_image_slicer_bind_group",
-                                        &slicer_pipeline.image_layout,
+                                        &texture_slicer_pipeline.image_layout,
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
-                                            &slicer_pipeline.nearest_sampler,
+                                            &gpu_image.sampler,
                                         )),
                                     )
                                 });
@@ -442,10 +425,10 @@ pub fn prepare_ui_slicers(
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_image_slicer_bind_group",
-                                        &slicer_pipeline.image_layout,
+                                        &texture_slicer_pipeline.image_layout,
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
-                                            &slicer_pipeline.nearest_sampler,
+                                            &gpu_image.sampler,
                                         )),
                                     )
                                 });
@@ -549,8 +532,9 @@ pub fn prepare_ui_slicers(
 
                     let color = extracted_slicer.color.to_f32_array();
 
-                    let [slices, border, repeat] = computer_texture_slices(
+                    let [slices, border, repeat] = compute_texture_slices(
                         batch_image_size,
+                        uinode_rect.size(),
                         &extracted_slicer.image_scale_mode,
                     );
 
@@ -676,10 +660,21 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
     }
 }
 
-fn computer_texture_slices(image_size: UVec2, image_scale_mode: &ImageScaleMode) -> [[f32; 4]; 3] {
-    [
-        [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
-        [1. / 10., 1. / 10., 9. / 10., 9. / 10.],
-        [1.; 4],
-    ]
+fn compute_texture_slices(
+    image_size: UVec2,
+    target_size: Vec2,
+    image_scale_mode: &ImageScaleMode,
+) -> [[f32; 4]; 3] {
+    match image_scale_mode {
+        ImageScaleMode::Sliced(_) => [
+            [1. / 3., 1. / 3., 2. / 3., 2. / 3.],
+            [1. / 10., 1. / 10., 9. / 10., 9. / 10.],
+            [1.; 4],
+        ],
+        ImageScaleMode::Tiled {
+            tile_x,
+            tile_y,
+            stretch_value,
+        } => [[0.; 4], [0., 0., 1., 1.], [1.; 4]],
+    }
 }
