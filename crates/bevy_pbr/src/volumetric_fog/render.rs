@@ -18,7 +18,9 @@ use bevy_ecs::{
 };
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
 use bevy_render::{
-    mesh::{GpuBufferInfo, GpuMesh, Mesh, MeshVertexBufferLayoutRef},
+    mesh::{
+        allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
+    },
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
@@ -44,8 +46,9 @@ use bitflags::bitflags;
 
 use crate::{
     FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset, VolumetricFogSettings, VolumetricLight,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFogSettings,
+    VolumetricLight,
 };
 
 bitflags! {
@@ -180,6 +183,7 @@ pub struct VolumetricFogUniform {
     absorption: f32,
     scattering: f32,
     density: f32,
+    density_texture_offset: Vec3,
     scattering_asymmetry: f32,
     light_intensity: f32,
     jitter_strength: f32,
@@ -304,6 +308,8 @@ impl ViewNode for VolumetricFogNode {
         Read<ViewVolumetricFog>,
         Read<MeshViewBindGroup>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<Msaa>,
+        Read<ViewEnvironmentMapUniformOffset>,
     );
 
     fn run<'w>(
@@ -321,6 +327,8 @@ impl ViewNode for VolumetricFogNode {
             view_fog_volumes,
             view_bind_group,
             view_ssr_offset,
+            msaa,
+            view_environment_map_offset,
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
@@ -328,7 +336,7 @@ impl ViewNode for VolumetricFogNode {
         let volumetric_lighting_pipeline = world.resource::<VolumetricFogPipeline>();
         let volumetric_lighting_uniform_buffers = world.resource::<VolumetricFogUniformBuffer>();
         let image_assets = world.resource::<RenderAssets<GpuImage>>();
-        let msaa = world.resource::<Msaa>();
+        let mesh_allocator = world.resource::<MeshAllocator>();
 
         // Fetch the uniform buffer and binding.
         let (
@@ -344,7 +352,7 @@ impl ViewNode for VolumetricFogNode {
             return Ok(());
         };
 
-        let gpu_meshes = world.resource::<RenderAssets<GpuMesh>>();
+        let render_meshes = world.resource::<RenderAssets<RenderMesh>>();
 
         for view_fog_volume in view_fog_volumes.iter() {
             // If the camera is outside the fog volume, pick the cube mesh;
@@ -354,6 +362,11 @@ impl ViewNode for VolumetricFogNode {
                 CUBE_MESH.clone()
             } else {
                 PLANE_MESH.clone()
+            };
+
+            let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(&mesh_handle.id())
+            else {
+                continue;
             };
 
             let density_image = view_fog_volume
@@ -370,7 +383,7 @@ impl ViewNode for VolumetricFogNode {
 
             // This should always succeed, but if the asset was unloaded don't
             // panic.
-            let Some(gpu_mesh) = gpu_meshes.get(&mesh_handle) else {
+            let Some(render_mesh) = render_meshes.get(&mesh_handle) else {
                 return Ok(());
             };
 
@@ -426,7 +439,7 @@ impl ViewNode for VolumetricFogNode {
                 .command_encoder()
                 .begin_render_pass(&render_pass_descriptor);
 
-            render_pass.set_vertex_buffer(0, *gpu_mesh.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(0, *vertex_buffer_slice.buffer.slice(..));
             render_pass.set_pipeline(pipeline);
             render_pass.set_bind_group(
                 0,
@@ -437,6 +450,7 @@ impl ViewNode for VolumetricFogNode {
                     view_fog_offset.offset,
                     **view_light_probes_offset,
                     **view_ssr_offset,
+                    **view_environment_map_offset,
                 ],
             );
             render_pass.set_bind_group(
@@ -446,17 +460,27 @@ impl ViewNode for VolumetricFogNode {
             );
 
             // Draw elements or arrays, as appropriate.
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
+            match &render_mesh.buffer_info {
+                RenderMeshBufferInfo::Indexed {
                     index_format,
                     count,
                 } => {
-                    render_pass.set_index_buffer(*buffer.slice(..), *index_format);
-                    render_pass.draw_indexed(0..*count, 0, 0..1);
+                    let Some(index_buffer_slice) =
+                        mesh_allocator.mesh_index_slice(&mesh_handle.id())
+                    else {
+                        continue;
+                    };
+
+                    render_pass
+                        .set_index_buffer(*index_buffer_slice.buffer.slice(..), *index_format);
+                    render_pass.draw_indexed(
+                        index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                        vertex_buffer_slice.range.start as i32,
+                        0..1,
+                    );
                 }
-                GpuBufferInfo::NonIndexed => {
-                    render_pass.draw(0..gpu_mesh.vertex_count, 0..1);
+                RenderMeshBufferInfo::NonIndexed => {
+                    render_pass.draw(vertex_buffer_slice.range, 0..1);
                 }
             }
         }
@@ -576,6 +600,7 @@ pub fn prepare_volumetric_fog_pipelines(
         (
             Entity,
             &ExtractedView,
+            &Msaa,
             Has<NormalPrepass>,
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
@@ -583,13 +608,19 @@ pub fn prepare_volumetric_fog_pipelines(
         ),
         With<VolumetricFogSettings>,
     >,
-    msaa: Res<Msaa>,
-    meshes: Res<RenderAssets<GpuMesh>>,
+    meshes: Res<RenderAssets<RenderMesh>>,
 ) {
     let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
 
-    for (entity, view, normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass) in
-        view_targets.iter()
+    for (
+        entity,
+        view,
+        msaa,
+        normal_prepass,
+        depth_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
         let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(*msaa);
@@ -697,6 +728,7 @@ pub fn prepare_volumetric_fog_uniforms(
                 absorption: fog_volume.absorption,
                 scattering: fog_volume.scattering,
                 density: fog_volume.density_factor,
+                density_texture_offset: fog_volume.density_texture_offset,
                 scattering_asymmetry: fog_volume.scattering_asymmetry,
                 light_intensity: fog_volume.light_intensity,
                 jitter_strength: volumetric_fog_settings.jitter,

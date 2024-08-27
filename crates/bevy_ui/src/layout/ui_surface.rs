@@ -231,6 +231,8 @@ without UI components as a child of an entity with UI components, results may be
                                         available_height: available_space.height,
                                         #[cfg(feature = "bevy_text")]
                                         font_system,
+                                        #[cfg(not(feature = "bevy_text"))]
+                                        font_system: std::marker::PhantomData,
                                     },
                                     style,
                                 );

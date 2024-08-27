@@ -2,20 +2,22 @@ use bevy_utils::all_tuples;
 
 use crate::func::args::FromArg;
 use crate::func::macros::count_tokens;
-use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionResult, IntoReturn};
-use crate::Reflect;
+use crate::func::{ArgList, FunctionError, FunctionResult, IntoReturn};
+use crate::{Reflect, TypePath};
 
 /// A reflection-based version of the [`FnMut`] trait.
 ///
 /// This allows functions to be called dynamically through [reflection].
 ///
-/// This is a supertrait of [`ReflectFn`], and is used for closures that may mutate their environment.
+/// This is a supertrait of [`ReflectFn`], and is used for functions that may mutate their environment,
+/// such as closures that capture mutable references.
 ///
 /// # Blanket Implementation
 ///
 /// This trait has a blanket implementation that covers everything that [`ReflectFn`] does:
 /// - Functions and methods defined with the `fn` keyword
-/// - Closures that do not capture their environment
+/// - Anonymous functions
+/// - Function pointers
 /// - Closures that capture immutable references to their environment
 /// - Closures that take ownership of captured variables
 ///
@@ -35,7 +37,7 @@ use crate::Reflect;
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::func::{ArgList, FunctionInfo, ReflectFnMut, TypedFunction};
+/// # use bevy_reflect::func::{ArgList, FunctionInfo, ReflectFnMut};
 /// #
 /// let mut list: Vec<i32> = vec![1, 3];
 ///
@@ -45,9 +47,8 @@ use crate::Reflect;
 /// };
 ///
 /// let args = ArgList::new().push_owned(1_usize).push_owned(2_i32);
-/// let info = insert.get_function_info();
 ///
-/// insert.reflect_call_mut(args, &info).unwrap();
+/// insert.reflect_call_mut(args).unwrap();
 /// assert_eq!(list, vec![1, 2, 3]);
 /// ```
 ///
@@ -58,7 +59,7 @@ use crate::Reflect;
 /// This `Marker` can be any type, provided it doesn't conflict with other implementations.
 ///
 /// Additionally, it has a lifetime parameter, `'env`, that is used to bound the lifetime of the function.
-/// For most functions, this will end up just being `'static`,
+/// For named functions and some closures, this will end up just being `'static`,
 /// however, closures that borrow from their environment will have a lifetime bound to that environment.
 ///
 /// [reflection]: crate
@@ -68,14 +69,10 @@ use crate::Reflect;
 /// [unconstrained type parameters]: https://doc.rust-lang.org/error_codes/E0207.html
 pub trait ReflectFnMut<'env, Marker> {
     /// Call the function with the given arguments and return the result.
-    fn reflect_call_mut<'a>(
-        &mut self,
-        args: ArgList<'a>,
-        info: &FunctionInfo,
-    ) -> FunctionResult<'a>;
+    fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a>;
 }
 
-/// Helper macro for implementing [`ReflectFnMut`] on Rust closures.
+/// Helper macro for implementing [`ReflectFnMut`] on Rust functions.
 ///
 /// This currently implements it for the following signatures (where `argX` may be any of `T`, `&T`, or `&mut T`):
 /// - `FnMut(arg0, arg1, ..., argN) -> R`
@@ -91,27 +88,22 @@ macro_rules! impl_reflect_fn_mut {
             // This clause allows us to convert `ReturnType` into `Return`
             ReturnType: IntoReturn + Reflect,
             Function: FnMut($($Arg),*) -> ReturnType + 'env,
-            // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
-            Function: for<'a> FnMut($($Arg::Item<'a>),*) -> ReturnType + 'env,
+            // This clause essentially asserts that `Arg::This` is the same type as `Arg`
+            Function: for<'a> FnMut($($Arg::This<'a>),*) -> ReturnType + 'env,
         {
-            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            #[allow(unused_mut)]
+            fn reflect_call_mut<'a>(&mut self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!($($Arg)*);
 
                 if args.len() != COUNT {
-                    return Err(FunctionError::InvalidArgCount {
+                    return Err(FunctionError::ArgCountMismatch {
                         expected: COUNT,
                         received: args.len(),
                     });
                 }
 
-                let [$($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                #[allow(unused_mut)]
-                let mut _index = 0;
-                let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                    _index += 1;
-                    _info.args().get(_index - 1).expect("argument index out of bounds")
-                })?,)*);
+                // Extract all arguments (in order)
+                $(let $arg = args.take::<$Arg>()?;)*
 
                 Ok((self)($($arg,)*).into_return())
             }
@@ -120,35 +112,28 @@ macro_rules! impl_reflect_fn_mut {
         // === (&self, ...) -> &ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&Receiver, $($Arg),*) -> &ReturnType> for Function
         where
-            Receiver: Reflect,
+            Receiver: Reflect + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&ReturnType` into `Return`
             for<'a> &'a ReturnType: IntoReturn,
             Function: for<'a> FnMut(&'a Receiver, $($Arg),*) -> &'a ReturnType + 'env,
-            // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
-            Function: for<'a> FnMut(&'a Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
+            // This clause essentially asserts that `Arg::This` is the same type as `Arg`
+            Function: for<'a> FnMut(&'a Receiver, $($Arg::This<'a>),*) -> &'a ReturnType + 'env,
         {
-            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call_mut<'a>(&mut self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
-                    return Err(FunctionError::InvalidArgCount {
+                    return Err(FunctionError::ArgCountMismatch {
                         expected: COUNT,
                         received: args.len(),
                     });
                 }
 
-                let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                let receiver = receiver.take_ref::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
-
-                #[allow(unused_mut)]
-                let mut _index = 1;
-                let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                    _index += 1;
-                    _info.args().get(_index - 1).expect("argument index out of bounds")
-                })?,)*);
+                // Extract all arguments (in order)
+                let receiver = args.take_ref::<Receiver>()?;
+                $(let $arg = args.take::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
@@ -157,35 +142,28 @@ macro_rules! impl_reflect_fn_mut {
         // === (&mut self, ...) -> &mut ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&mut Receiver, $($Arg),*) -> &mut ReturnType> for Function
         where
-            Receiver: Reflect,
+            Receiver: Reflect + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&mut ReturnType` into `Return`
             for<'a> &'a mut ReturnType: IntoReturn,
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a mut ReturnType + 'env,
-            // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
-            Function: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a mut ReturnType + 'env,
+            // This clause essentially asserts that `Arg::This` is the same type as `Arg`
+            Function: for<'a> FnMut(&'a mut Receiver, $($Arg::This<'a>),*) -> &'a mut ReturnType + 'env,
         {
-            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call_mut<'a>(&mut self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
-                    return Err(FunctionError::InvalidArgCount {
+                    return Err(FunctionError::ArgCountMismatch {
                         expected: COUNT,
                         received: args.len(),
                     });
                 }
 
-                let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
-
-                #[allow(unused_mut)]
-                let mut _index = 1;
-                let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                    _index += 1;
-                    _info.args().get(_index - 1).expect("argument index out of bounds")
-                })?,)*);
+                // Extract all arguments (in order)
+                let receiver = args.take_mut::<Receiver>()?;
+                $(let $arg = args.take::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }
@@ -194,35 +172,28 @@ macro_rules! impl_reflect_fn_mut {
         // === (&mut self, ...) -> &ReturnType === //
         impl<'env, Receiver, $($Arg,)* ReturnType, Function> ReflectFnMut<'env, fn(&mut Receiver, $($Arg),*) -> &ReturnType> for Function
         where
-            Receiver: Reflect,
+            Receiver: Reflect + TypePath,
             $($Arg: FromArg,)*
             ReturnType: Reflect,
             // This clause allows us to convert `&ReturnType` into `Return`
             for<'a> &'a ReturnType: IntoReturn,
             Function: for<'a> FnMut(&'a mut Receiver, $($Arg),*) -> &'a ReturnType + 'env,
-            // This clause essentially asserts that `Arg::Item` is the same type as `Arg`
-            Function: for<'a> FnMut(&'a mut Receiver, $($Arg::Item<'a>),*) -> &'a ReturnType + 'env,
+            // This clause essentially asserts that `Arg::This` is the same type as `Arg`
+            Function: for<'a> FnMut(&'a mut Receiver, $($Arg::This<'a>),*) -> &'a ReturnType + 'env,
         {
-            fn reflect_call_mut<'a>(&mut self, args: ArgList<'a>, _info: &FunctionInfo) -> FunctionResult<'a> {
+            fn reflect_call_mut<'a>(&mut self, mut args: ArgList<'a>) -> FunctionResult<'a> {
                 const COUNT: usize = count_tokens!(Receiver $($Arg)*);
 
                 if args.len() != COUNT {
-                    return Err(FunctionError::InvalidArgCount {
+                    return Err(FunctionError::ArgCountMismatch {
                         expected: COUNT,
                         received: args.len(),
                     });
                 }
 
-                let [receiver, $($arg,)*] = args.take().try_into().expect("invalid number of arguments");
-
-                let receiver = receiver.take_mut::<Receiver>(_info.args().get(0).expect("argument index out of bounds"))?;
-
-                #[allow(unused_mut)]
-                let mut _index = 1;
-                let ($($arg,)*) = ($($Arg::from_arg($arg, {
-                    _index += 1;
-                    _info.args().get(_index - 1).expect("argument index out of bounds")
-                })?,)*);
+                // Extract all arguments (in order)
+                let receiver = args.take_mut::<Receiver>()?;
+                $(let $arg = args.take::<$Arg>()?;)*
 
                 Ok((self)(receiver, $($arg,)*).into_return())
             }

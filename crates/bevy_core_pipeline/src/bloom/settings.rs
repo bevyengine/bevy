@@ -102,9 +102,20 @@ pub struct BloomSettings {
     /// configured in a non-energy-conserving way,
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
+
+    /// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
+    /// Only tweak if you are seeing visual artifacts.
+    pub max_mip_dimension: u32,
+
+    /// UV offset for bloom shader. Ideally close to 2.0 / `max_mip_dimension`.
+    /// Only tweak if you are seeing visual artifacts.
+    pub uv_offset: f32,
 }
 
 impl BloomSettings {
+    const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
+    const DEFAULT_UV_OFFSET: f32 = 0.004;
+
     /// The default bloom preset.
     ///
     /// This uses the [`EnergyConserving`](BloomCompositeMode::EnergyConserving) composite mode.
@@ -118,6 +129,8 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 
     /// A preset that's similar to how older games did bloom.
@@ -131,6 +144,8 @@ impl BloomSettings {
             threshold_softness: 0.2,
         },
         composite_mode: BloomCompositeMode::Additive,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -144,6 +159,8 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 }
 
@@ -213,6 +230,7 @@ impl ExtractComponent for BloomSettings {
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
                     aspect: AspectRatio::from_pixels(size.x, size.y).into(),
+                    uv_offset: settings.uv_offset,
                 };
 
                 Some((settings.clone(), uniform))

@@ -1,7 +1,7 @@
-//! Argument types and utilities for working with [`DynamicFunctions`] and [`DynamicClosures`].
+//! Argument types and utilities for working with [`DynamicFunction`] and [`DynamicFunctionMut`].
 //!
-//! [`DynamicFunctions`]: crate::func::DynamicFunction
-//! [`DynamicClosures`]: crate::func::DynamicClosure
+//! [`DynamicFunction`]: crate::func::DynamicFunction
+//! [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 
 pub use arg::*;
 pub use error::*;

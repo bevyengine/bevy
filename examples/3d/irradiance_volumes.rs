@@ -239,7 +239,7 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         .insert(Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
-            ..Default::default()
+            ..default()
         });
 }
 

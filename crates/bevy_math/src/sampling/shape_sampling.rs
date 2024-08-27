@@ -40,7 +40,7 @@
 
 use std::f32::consts::{PI, TAU};
 
-use crate::{primitives::*, NormedVectorSpace, Vec2, Vec3};
+use crate::{ops, primitives::*, NormedVectorSpace, Vec2, Vec3};
 use rand::{
     distributions::{Distribution, WeightedIndex},
     Rng,
@@ -155,12 +155,14 @@ impl ShapeSample for Circle {
         let theta = rng.gen_range(0.0..TAU);
         let r_squared = rng.gen_range(0.0..=(self.radius * self.radius));
         let r = r_squared.sqrt();
-        Vec2::new(r * theta.cos(), r * theta.sin())
+        let (sin, cos) = ops::sin_cos(theta);
+        Vec2::new(r * cos, r * sin)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
         let theta = rng.gen_range(0.0..TAU);
-        Vec2::new(self.radius * theta.cos(), self.radius * theta.sin())
+        let (sin, cos) = ops::sin_cos(theta);
+        Vec2::new(self.radius * cos, self.radius * sin)
     }
 }
 
@@ -168,7 +170,7 @@ impl ShapeSample for Circle {
 #[inline]
 fn sample_unit_sphere_boundary<R: Rng + ?Sized>(rng: &mut R) -> Vec3 {
     let z = rng.gen_range(-1f32..=1f32);
-    let (a_sin, a_cos) = rng.gen_range(-PI..=PI).sin_cos();
+    let (a_sin, a_cos) = ops::sin_cos(rng.gen_range(-PI..=PI));
     let c = (1f32 - z * z).sqrt();
     let x = a_sin * c;
     let y = a_cos * c;
@@ -181,7 +183,7 @@ impl ShapeSample for Sphere {
 
     fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
         let r_cubed = rng.gen_range(0.0..=(self.radius * self.radius * self.radius));
-        let r = r_cubed.cbrt();
+        let r = ops::cbrt(r_cubed);
 
         r * sample_unit_sphere_boundary(rng)
     }
@@ -202,8 +204,9 @@ impl ShapeSample for Annulus {
         let r_squared = rng.gen_range((inner_radius * inner_radius)..(outer_radius * outer_radius));
         let r = r_squared.sqrt();
         let theta = rng.gen_range(0.0..TAU);
+        let (sin, cos) = ops::sin_cos(theta);
 
-        Vec2::new(r * theta.cos(), r * theta.sin())
+        Vec2::new(r * cos, r * sin)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
@@ -624,7 +627,7 @@ mod tests {
         for _ in 0..5000 {
             let point = circle.sample_boundary(&mut rng);
 
-            let angle = f32::atan(point.y / point.x) + PI / 2.0;
+            let angle = ops::atan(point.y / point.x) + PI / 2.0;
             let wedge = (angle * 8.0 / PI).floor() as usize;
             wedge_hits[wedge] += 1;
         }

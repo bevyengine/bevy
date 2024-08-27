@@ -78,7 +78,7 @@ fn spawn_curve_sprite<T: CurveColor>(commands: &mut Commands, y: f32, points: [T
             },
             ..Default::default()
         },
-        Curve(CubicBezier::new([points]).to_curve()),
+        Curve(CubicBezier::new([points]).to_curve().unwrap()),
     ));
 }
 

@@ -55,6 +55,17 @@ impl Dir {
         );
     }
 
+    /// Removes the stored asset at `path` and returns the `Data` stored if found and otherwise `None`.
+    pub fn remove_asset(&self, path: &Path) -> Option<Data> {
+        let mut dir = self.clone();
+        if let Some(parent) = path.parent() {
+            dir = self.get_or_insert_dir(parent);
+        }
+        let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
+        let data = dir.0.write().assets.remove(&key);
+        data
+    }
+
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
         let mut dir = self.clone();
         if let Some(parent) = path.parent() {
