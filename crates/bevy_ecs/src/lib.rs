@@ -1793,6 +1793,235 @@ mod tests {
         );
     }
 
+    #[test]
+    fn required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component)]
+        #[require(Z(new_z))]
+        struct Y {
+            value: String,
+        }
+
+        #[derive(Component)]
+        struct Z(u32);
+
+        impl Default for Y {
+            fn default() -> Self {
+                Self {
+                    value: "hello".to_string(),
+                }
+            }
+        }
+
+        fn new_z() -> Z {
+            Z(7)
+        }
+
+        let mut world = World::new();
+        let id = world.spawn(X).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world
+            .spawn((
+                X,
+                Y {
+                    value: "foo".to_string(),
+                },
+            ))
+            .id();
+        assert_eq!(
+            "foo",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the manually provided value"
+        );
+        assert_eq!(
+            7,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the value provided by the constructor defined in Y"
+        );
+
+        let id = world.spawn((X, Z(8))).id();
+        assert_eq!(
+            "hello",
+            world.entity(id).get::<Y>().unwrap().value,
+            "Y should have the default value"
+        );
+        assert_eq!(
+            8,
+            world.entity(id).get::<Z>().unwrap().0,
+            "Z should have the manually provided value"
+        );
+    }
+
+    #[test]
+    fn generic_required_components() {
+        #[derive(Component)]
+        #[require(Y<usize>)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y<T> {
+            value: T,
+        }
+
+        let mut world = World::new();
+        let id = world.spawn(X).id();
+        assert_eq!(
+            0,
+            world.entity(id).get::<Y<usize>>().unwrap().value,
+            "Y should have the default value"
+        );
+    }
+
+    #[test]
+    fn required_components_spawn_nonexistent_hooks() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Resource)]
+        struct A(usize);
+
+        #[derive(Resource)]
+        struct I(usize);
+
+        let mut world = World::new();
+        world.insert_resource(A(0));
+        world.insert_resource(I(0));
+        world
+            .register_component_hooks::<Y>()
+            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+
+        // Spawn entity and ensure Y was added
+        assert!(world.spawn(X).contains::<Y>());
+
+        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<I>().0, 1);
+    }
+
+    #[test]
+    fn required_components_insert_existing_hooks() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Resource)]
+        struct A(usize);
+
+        #[derive(Resource)]
+        struct I(usize);
+
+        let mut world = World::new();
+        world.insert_resource(A(0));
+        world.insert_resource(I(0));
+        world
+            .register_component_hooks::<Y>()
+            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+
+        // Spawn entity and ensure Y was added
+        assert!(world.spawn_empty().insert(X).contains::<Y>());
+
+        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<I>().0, 1);
+    }
+
+    #[test]
+    fn required_components_take_leaves_required() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        let e = world.spawn(X).id();
+        let _ = world.entity_mut(e).take::<X>().unwrap();
+        assert!(world.entity_mut(e).contains::<Y>());
+    }
+
+    #[test]
+    fn required_components_retain_keeps_required() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        let mut world = World::new();
+        let e = world.spawn((X, Z)).id();
+        world.entity_mut(e).retain::<X>();
+        assert!(world.entity_mut(e).contains::<X>());
+        assert!(world.entity_mut(e).contains::<Y>());
+        assert!(!world.entity_mut(e).contains::<Z>());
+    }
+
+    #[test]
+    fn required_components_spawn_then_insert_no_overwrite() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y(usize);
+
+        let mut world = World::new();
+        let id = world.spawn((X, Y(10))).id();
+        world.entity_mut(id).insert(X);
+
+        assert_eq!(
+            10,
+            world.entity(id).get::<Y>().unwrap().0,
+            "Y should still have the manually provided value"
+        );
+    }
+
+    #[test]
+    fn dynamic_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::new();
+        let x_id = world.init_component::<X>();
+
+        let mut e = world.spawn_empty();
+
+        // SAFETY: x_id is a valid component id
+        bevy_ptr::OwningPtr::make(X, |ptr| unsafe {
+            e.insert_by_id(x_id, ptr);
+        });
+
+        assert!(e.contains::<Y>());
+    }
+
     // These structs are primarily compilation tests to test the derive macros. Because they are
     // never constructed, we have to manually silence the `dead_code` lint.
     #[allow(dead_code)]
