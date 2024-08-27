@@ -486,16 +486,14 @@ impl AssetServer {
     ///
     /// `input_handle` must only be [`Some`] if `should_load` was true when retrieving `input_handle`. This is an optimization to
     /// avoid looking up `should_load` twice, but it means you _must_ be sure a load is necessary when calling this function with [`Some`].
-    async fn load_internal<'a>(
+    async fn load_internal_owned(
         &self,
         input_handle: Option<UntypedHandle>,
-        path: AssetPath<'a>,
+        path: AssetPath<'static>,
         force: bool,
         meta_transform: Option<MetaTransform>,
     ) -> Result<UntypedHandle, AssetLoadError> {
         let asset_type_id = input_handle.as_ref().map(UntypedHandle::type_id);
-
-        let path = path.into_owned();
         let path_clone = path.clone();
         let (mut meta, loader, mut reader) = self
             .get_meta_loader_and_reader(&path_clone, asset_type_id)
@@ -623,6 +621,22 @@ impl AssetServer {
                 Err(err)
             }
         }
+    }
+
+    /// Performs an async asset load.
+    ///
+    /// `input_handle` must only be [`Some`] if `should_load` was true when retrieving `input_handle`. This is an optimization to
+    /// avoid looking up `should_load` twice, but it means you _must_ be sure a load is necessary when calling this function with [`Some`].
+    async fn load_internal<'a>(
+        &self,
+        input_handle: Option<UntypedHandle>,
+        path: AssetPath<'a>,
+        force: bool,
+        meta_transform: Option<MetaTransform>,
+    ) -> Result<UntypedHandle, AssetLoadError> {
+        let path = path.clone_owned();
+        self.load_internal_owned(input_handle, path, force, meta_transform)
+            .await
     }
 
     /// Sends a load event for the given `loaded_asset` and does the same recursively for all
