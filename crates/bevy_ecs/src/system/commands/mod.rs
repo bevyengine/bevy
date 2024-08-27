@@ -794,6 +794,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// This is a convenience method for sending events without requiring an [`EventWriter`]. The event is sent
     /// via exclusive world access when commands are applied. Note that for performance critical or very frequently
     /// sent events it will be faster to use a typed [`EventWriter`] instead.
+    ///
+    /// [`EventWriter`]: crate::event::EventWriter
     pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
         self.add(SendEvent { event });
         self
