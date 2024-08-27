@@ -166,9 +166,10 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     ///
     /// The second system must have [`In<T>`](crate::system::In) as its first parameter,
     /// where `T` is the return type of the first system.
-    fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
+    fn pipe<B, M, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
     where
-        B: IntoSystem<super::system::In<Out>, Final, MarkerB>,
+        M: SystemInput<Inner = Out>,
+        B: IntoSystem<M, Final, MarkerB>,
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
@@ -238,7 +239,7 @@ impl<T: System> IntoSystem<T::In, T::Out, ()> for T {
 ///
 ///     let mut world = World::default();
 ///     square_system.initialize(&mut world);
-///     assert_eq!(square_system.run(12, &mut world), 144);
+///     assert_eq!(square_system.run(In(12), &mut world), 144);
 /// }
 ///
 /// fn square(In(input): In<usize>) -> usize {
@@ -335,6 +336,37 @@ impl<T> std::ops::Deref for In<T> {
 impl<T> std::ops::DerefMut for In<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+/// The `SystemInput` trait abstracts the concept of wrapping an input value into
+/// a specific type. It defines an associated type `Inner` and a method `wrap` that takes
+/// this inner type and returns the wrapped type.
+pub trait SystemInput {
+    /// The inner type that will be wrapped by the implementing type.
+    type Inner;
+
+    /// Wraps a value of the inner type into the implementing type.
+    ///
+    /// # Parameters
+    /// - `value`: The value of the inner type to be wrapped.
+    ///
+    /// # Returns
+    /// The wrapped value as an instance of the implementing type.
+    fn wrap(value: Self::Inner) -> Self;
+}
+
+impl SystemInput for () {
+    type Inner = ();
+    fn wrap(_: Self::Inner) -> Self {
+        ()
+    }
+}
+
+impl<T> SystemInput for In<T> {
+    type Inner = T;
+    fn wrap(value: Self::Inner) -> Self {
+        In(value)
     }
 }
 
@@ -1730,14 +1762,14 @@ mod tests {
         let mut sys = first.pipe(second);
         sys.initialize(&mut world);
 
-        sys.run(default(), &mut world);
+        sys.run(In(default()), &mut world);
 
         // The second system should observe a change made in the first system.
         let info = sys.run(
-            Info {
+            In(Info {
                 do_first: true,
                 ..default()
-            },
+            }),
             &mut world,
         );
         assert!(!info.first_flag);
@@ -1746,13 +1778,13 @@ mod tests {
         // When a change is made in the second system, the first system
         // should observe it the next time they are run.
         let info1 = sys.run(
-            Info {
+            In(Info {
                 do_second: true,
                 ..default()
-            },
+            }),
             &mut world,
         );
-        let info2 = sys.run(default(), &mut world);
+        let info2 = sys.run(In(default()), &mut world);
         assert!(!info1.first_flag);
         assert!(!info1.second_flag);
         assert!(info2.first_flag);

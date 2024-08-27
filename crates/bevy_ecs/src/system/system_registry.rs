@@ -5,6 +5,8 @@ use crate::{self as bevy_ecs};
 use bevy_ecs_macros::Component;
 use thiserror::Error;
 
+use super::SystemInput;
+
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
 #[derive(Component)]
 struct RegisteredSystem<I, O> {
@@ -286,10 +288,10 @@ impl World {
     /// ```
     ///
     /// See [`World::run_system`] for more examples.
-    pub fn run_system_with_input<I: 'static, O: 'static>(
+    pub fn run_system_with_input<I: 'static + SystemInput, O: 'static>(
         &mut self,
         id: SystemId<I, O>,
-        input: I,
+        input: <I as SystemInput>::Inner,
     ) -> Result<O, RegisteredSystemError<I, O>> {
         // lookup
         let mut entity = self
@@ -309,7 +311,7 @@ impl World {
             system.initialize(self);
             initialized = true;
         }
-        let result = system.run(input, self);
+        let result = system.run(I::wrap(input), self);
 
         // return ownership of system trait object (if entity still exists)
         if let Some(mut entity) = self.get_entity_mut(id.entity) {
@@ -333,10 +335,35 @@ impl World {
 /// There is no way to get the output of a system when run as a command, because the
 /// execution of the system happens later. To get the output of a system, use
 /// [`World::run_system`] or [`World::run_system_with_input`] instead of running the system as a command.
-#[derive(Debug, Clone)]
-pub struct RunSystemWithInput<I: 'static> {
+pub struct RunSystemWithInput<I: 'static + SystemInput> {
     system_id: SystemId<I>,
-    input: I,
+    input: <I as SystemInput>::Inner,
+}
+
+impl<I: std::fmt::Debug> std::fmt::Debug for RunSystemWithInput<I>
+where
+    I: 'static + SystemInput,
+    <I as SystemInput>::Inner: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("RunSystemWithInput")
+            .field("system_id", &self.system_id)
+            .field("input", &self.input)
+            .finish()
+    }
+}
+
+impl<I: Clone> Clone for RunSystemWithInput<I>
+where
+    I: 'static + SystemInput,
+    <I as SystemInput>::Inner: Clone,
+{
+    fn clone(&self) -> Self {
+        RunSystemWithInput {
+            system_id: self.system_id.clone(),
+            input: self.input.clone(),
+        }
+    }
 }
 
 /// The [`Command`] type for [`World::run_system`].
@@ -359,17 +386,21 @@ impl RunSystem {
     }
 }
 
-impl<I: 'static> RunSystemWithInput<I> {
+impl<I: 'static + SystemInput> RunSystemWithInput<I> {
     /// Creates a new [`Command`] struct, which can be added to [`Commands`](crate::system::Commands)
     /// in order to run the specified system with the provided [`In<_>`](crate::system::In) input value.
-    pub fn new_with_input(system_id: SystemId<I>, input: I) -> Self {
+    pub fn new_with_input(system_id: SystemId<I>, input: <I as SystemInput>::Inner) -> Self {
         Self { system_id, input }
     }
 }
 
-impl<I: 'static + Send> Command for RunSystemWithInput<I> {
+impl<I: 'static + SystemInput> Command for RunSystemWithInput<I>
+where
+    <I as SystemInput>::Inner: Send,
+{
     #[inline]
     fn apply(self, world: &mut World) {
+        println!("Running system: {:?}", self.system_id);
         let _ = world.run_system_with_input(self.system_id, self.input);
     }
 }
@@ -603,10 +634,11 @@ mod tests {
         use crate::system::SystemId;
 
         #[derive(Component)]
-        struct Callback(SystemId<u8>, u8);
+        struct Callback(SystemId<In<u8>>, u8);
 
         fn nested(query: Query<&Callback>, mut commands: Commands) {
             for callback in query.iter() {
+                println!("running nested system with input {}", callback.1);
                 commands.run_system_with_input(callback.0, callback.1);
             }
         }
@@ -616,13 +648,17 @@ mod tests {
 
         let increment_by =
             world.register_system(|In(amt): In<u8>, mut counter: ResMut<Counter>| {
+                println!("incrementing by {}", amt);
                 counter.0 += amt;
             });
+        println!("system id: {:?}", increment_by);
         let nested_id = world.register_system(nested);
 
         world.spawn(Callback(increment_by, 2));
         world.spawn(Callback(increment_by, 3));
         let _ = world.run_system(nested_id);
+        world.flush();
+        world.flush();
         assert_eq!(*world.resource::<Counter>(), Counter(5));
     }
 }

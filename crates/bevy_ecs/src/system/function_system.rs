@@ -670,16 +670,16 @@ where
 /// pub fn pipe<A, B, AMarker, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(In<A::In>, ParamSet<(A::Param, B::Param)>) -> B::Out
+/// ) -> impl FnMut(A::In, ParamSet<(A::Param, B::Param)>) -> B::Out
 /// where
 ///     // We need A and B to be systems, add those bounds
 ///     A: SystemParamFunction<AMarker>,
-///     B: SystemParamFunction<BMarker, In = A::Out>,
+///     B: SystemParamFunction<BMarker, In = In<A::Out>>,
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
-///     move |In(a_in), mut params| {
+///     move |a_in, mut params| {
 ///         let shared = a.run(a_in, params.p0());
-///         b.run(shared, params.p1())
+///         b.run(In(shared), params.p1())
 ///     }
 /// }
 ///

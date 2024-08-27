@@ -10,7 +10,7 @@ use crate::{archetype::ArchetypeComponentId, component::ComponentId, query::Acce
 use std::any::TypeId;
 use std::borrow::Cow;
 
-use super::IntoSystem;
+use super::{IntoSystem, SystemInput};
 
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
@@ -283,22 +283,22 @@ pub trait RunSystemOnce: Sized {
     }
 
     /// Runs a system with given input and applies its deferred parameters.
-    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In: SystemInput, Out, Marker>(
         self,
-        input: In,
+        input: <In as SystemInput>::Inner,
         system: T,
     ) -> Out;
 }
 
 impl RunSystemOnce for &mut World {
-    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In, Out, Marker>(
+    fn run_system_once_with<T: IntoSystem<In, Out, Marker>, In: SystemInput, Out, Marker>(
         self,
-        input: In,
+        input: <In as SystemInput>::Inner,
         system: T,
     ) -> Out {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        system.run(input, self)
+        system.run(In::wrap(input), self)
     }
 }
 

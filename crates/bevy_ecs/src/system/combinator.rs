@@ -9,7 +9,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{ReadOnlySystem, System};
+use super::{ReadOnlySystem, System, SystemInput};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -306,10 +306,11 @@ pub type PipeSystem<SystemA, SystemB> = CombinatorSystem<Pipe, SystemA, SystemB>
 #[doc(hidden)]
 pub struct Pipe;
 
-impl<A, B> Combine<A, B> for Pipe
+impl<A, B, M> Combine<A, B> for Pipe
 where
     A: System,
-    B: System<In = crate::system::In<A::Out>>,
+    B: System<In = M>,
+    M: SystemInput<Inner = A::Out>,
 {
     type In = A::In;
     type Out = B::Out;
@@ -320,6 +321,6 @@ where
         b: impl FnOnce(B::In) -> B::Out,
     ) -> Self::Out {
         let value = a(input);
-        b(crate::system::In(value))
+        b(M::wrap(value))
     }
 }
