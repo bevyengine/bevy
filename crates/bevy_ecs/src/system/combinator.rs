@@ -309,7 +309,7 @@ pub struct Pipe;
 impl<A, B> Combine<A, B> for Pipe
 where
     A: System,
-    B: System<In = A::Out>,
+    B: System<In = crate::system::In<A::Out>>,
 {
     type In = A::In;
     type Out = B::Out;
@@ -320,6 +320,6 @@ where
         b: impl FnOnce(B::In) -> B::Out,
     ) -> Self::Out {
         let value = a(input);
-        b(value)
+        b(crate::system::In(value))
     }
 }

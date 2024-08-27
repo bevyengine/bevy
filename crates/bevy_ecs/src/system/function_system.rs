@@ -761,11 +761,11 @@ macro_rules! impl_system_function {
                 FnMut(In<Input>, $($param),*) -> Out +
                 FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
-            type In = Input;
+            type In = In<Input>;
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, input: Self::In, param_value: SystemParamItem< ($($param,)*)>) -> Out {
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input, Out, $($param,)*>(
                     mut f: impl FnMut(In<Input>, $($param,)*)->Out,
@@ -775,7 +775,7 @@ macro_rules! impl_system_function {
                     f(input, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, In(input), $($param),*)
+                call_inner(self, input, $($param),*)
             }
         }
     };

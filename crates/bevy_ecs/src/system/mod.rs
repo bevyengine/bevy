@@ -168,7 +168,7 @@ pub trait IntoSystem<In, Out, Marker>: Sized {
     /// where `T` is the return type of the first system.
     fn pipe<B, Final, MarkerB>(self, system: B) -> PipeSystem<Self::System, B::System>
     where
-        B: IntoSystem<Out, Final, MarkerB>,
+        B: IntoSystem<super::system::In<Out>, Final, MarkerB>,
     {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);

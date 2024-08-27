@@ -240,22 +240,22 @@ macro_rules! impl_exclusive_system_function {
                 FnMut(In<Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Out: 'static,
         {
-            type In = Input;
+            type In = In<Input>;
             type Out = Out;
             type Param = ($($param,)*);
             #[inline]
-            fn run(&mut self, world: &mut World, input: Input, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
+            fn run(&mut self, world: &mut World, input: Self::In, param_value: ExclusiveSystemParamItem< ($($param,)*)>) -> Out {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input, Out, $($param,)*>(
                     mut f: impl FnMut(In<Input>, &mut World, $($param,)*) -> Out,
-                    input: Input,
+                    input: In<Input>,
                     world: &mut World,
                     $($param: $param,)*
                 ) -> Out {
-                    f(In(input), world, $($param,)*)
+                    f(input, world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
                 call_inner(self, input, world, $($param),*)
