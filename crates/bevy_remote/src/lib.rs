@@ -360,11 +360,12 @@ pub type BrpResult = Result<Value, BrpError>;
 /// Actual parsing is deferred for the sake of proper
 /// error reporting.
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum BrpBatch {
-    /// A single request with deferred parsing.
-    Single(Value),
     /// Multiple requests with deferred parsing.
     Batch(Vec<Value>),
+    /// A single request with deferred parsing.
+    Single(Value),
 }
 
 /// A message from the Bevy Remote Protocol server thread to the main world.
