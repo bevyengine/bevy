@@ -1,7 +1,7 @@
 use super::{Event, Events};
 use crate::world::{Command, World};
 
-/// A command to Send an arbitrary [`Event`], used by [`Commands::send_event`](crate::system::Commands::send_event).
+/// A command to send an arbitrary [`Event`], used by [`Commands::send_event`](crate::system::Commands::send_event).
 pub struct SendEvent<E: Event> {
     /// The event to send.
     pub event: E,
