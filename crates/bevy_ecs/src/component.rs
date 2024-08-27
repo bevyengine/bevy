@@ -692,22 +692,33 @@ impl Components {
     /// * [`Components::init_component_with_descriptor()`]
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
-        let type_id = TypeId::of::<T>();
-
-        let Components {
-            indices,
-            components,
-            ..
-        } = self;
-        *indices.entry(type_id).or_insert_with(|| {
-            let index = Components::init_component_inner(
+        fn init_component(
+            this: &mut Components,
+            storages: &mut Storages,
+            type_id: TypeId,
+            component_descriptor: fn() -> ComponentDescriptor,
+            register_component_hooks: fn(&mut ComponentHooks),
+        ) -> ComponentId {
+            let Components {
+                indices,
                 components,
-                storages,
-                ComponentDescriptor::new::<T>(),
-            );
-            T::register_component_hooks(&mut components[index.index()].hooks);
-            index
-        })
+                ..
+            } = this;
+            *indices.entry(type_id).or_insert_with(|| {
+                let index =
+                    Components::init_component_inner(components, storages, component_descriptor());
+                register_component_hooks(&mut components[index.index()].hooks);
+                index
+            })
+        }
+
+        init_component(
+            self,
+            storages,
+            TypeId::of::<T>(),
+            ComponentDescriptor::new::<T>,
+            T::register_component_hooks,
+        )
     }
 
     /// Initializes a component described by `descriptor`.
@@ -874,9 +885,7 @@ impl Components {
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
-            })
+            self.get_or_insert_resource_with(TypeId::of::<T>(), ComponentDescriptor::new_resource::<T>)
         }
     }
 
@@ -896,11 +905,10 @@ impl Components {
     /// # Safety
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
-    #[inline]
     unsafe fn get_or_insert_resource_with(
         &mut self,
         type_id: TypeId,
-        func: impl FnOnce() -> ComponentDescriptor,
+        func: fn() -> ComponentDescriptor,
     ) -> ComponentId {
         let components = &mut self.components;
         *self.resource_indices.entry(type_id).or_insert_with(|| {
