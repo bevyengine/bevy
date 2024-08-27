@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use crate::component::StorageType;
 use crate::{component::ComponentId, prelude::*};
 
 use super::{FilteredAccess, QueryData, QueryFilter};
@@ -66,6 +67,26 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             first: false,
             _marker: PhantomData,
         }
+    }
+
+    pub(super) fn is_dense(&self) -> bool {
+        // Note: `component_id` comes from the user in safe code, so we cannot trust it to
+        // exist. If it doesn't exist we pessimistically assume it's sparse.
+        let is_dense = |component_id| {
+            self.world()
+                .components()
+                .get_info(component_id)
+                .map_or(false, |info| info.storage_type() == StorageType::Table)
+        };
+
+        self.access
+            .access()
+            .component_reads_and_writes()
+            .all(is_dense)
+            && self.access.access().archetypal().all(is_dense)
+            && !self.access.access().has_read_all_components()
+            && self.access.with_filters().all(is_dense)
+            && self.access.without_filters().all(is_dense)
     }
 
     /// Returns a reference to the world passed to [`Self::new`].
@@ -395,5 +416,28 @@ mod tests {
             assert_eq!(0, a.deref::<A>().0);
             assert_eq!(1, b.deref::<B>().0);
         }
+    }
+
+    /// Regression test for issue #14348
+    #[test]
+    fn builder_static_dense_dynamic_sparse() {
+        #[derive(Component)]
+        struct Dense;
+
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        world.spawn(Dense);
+        world.spawn((Dense, Sparse));
+
+        let mut query = QueryBuilder::<&Dense>::new(&mut world)
+            .with::<Sparse>()
+            .build();
+
+        let matched = query.iter(&world).count();
+        assert_eq!(matched, 1);
     }
 }
