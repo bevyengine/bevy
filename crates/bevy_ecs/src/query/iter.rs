@@ -147,7 +147,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             accum =
                 // SAFETY: 
                 // - The fetched table matches both D and F
-                // - `range` is within `[0, table.entity_count)`
+                // - caller ensures `range` is within `[0, table.entity_count)`
                 // - The if block ensures that the query iteration is dense
                 unsafe { self.fold_over_table_range(accum, func, table, range) };
         } else {
@@ -167,14 +167,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 // SAFETY:
                 // - The fetched archetype matches both D and F
                 // - The provided archetype and its' table have the same length.
-                // - `range` is within `[0, archetype.len)`
+                // - caller ensures `range` is within `[0, archetype.len)`
                 // - The if block ensures that the query iteration is not dense.
                 unsafe { self.fold_over_dense_archetype_range(accum, func, archetype,range) };
             } else {
                 accum =
                 // SAFETY:
                 // - The fetched archetype matches both D and F
-                // - `range` is within `[0, archetype.len)`
+                // - caller ensures `range` is within `[0, archetype.len)`
                 // - The if block ensures that the query iteration is not dense.
                 unsafe { self.fold_over_archetype_range(accum, func, archetype,range) };
             }
@@ -1093,7 +1093,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
 
         for id in self.cursor.storage_id_iter.clone().copied() {
             // SAFETY:
-            // - The provided range(None) is equivalent to [0, storage.entity_count)
+            // - The range(None) is equivalent to [0, storage.entity_count)
             accum = unsafe { self.fold_over_storage_range(accum, &mut func, id, None) };
         }
         accum
