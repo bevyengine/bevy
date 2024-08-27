@@ -391,8 +391,15 @@ impl SubApp {
     /// See [`App::register_type`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
-        let registry = self.world.resource_mut::<AppTypeRegistry>();
-        registry.write().register::<T>();
+        fn register_type(app: &mut SubApp, register: fn(&mut bevy_reflect::TypeRegistry)) {
+            let registry = app.world.resource_mut::<AppTypeRegistry>();
+            let mut lock = registry.write();
+
+            register(&mut lock);
+        }
+
+        register_type(self, bevy_reflect::TypeRegistry::register::<T>);
+        
         self
     }
 
