@@ -88,7 +88,7 @@ fn map_uvs(
     repeat: vec4<f32>,
 ) -> vec2<f32> {
     var r: vec2<f32>;
-    if border.x < uv.x && uv.x < border.z && border.y < uv.y && uv.y < border.w {
+    if border.x <= uv.x && uv.x <= border.z && border.y <= uv.y && uv.y <= border.w {
         r = repeat.zw;
     } else {
         r = repeat.xy;
