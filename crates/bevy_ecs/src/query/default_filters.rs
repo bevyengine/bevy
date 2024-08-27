@@ -145,7 +145,9 @@ mod tests {
 
         // A component access with an unrelated component
         let mut component_access = FilteredAccess::<ComponentId>::default();
-        component_access.access_mut().add_read(ComponentId::new(2));
+        component_access
+            .access_mut()
+            .add_component_read(ComponentId::new(2));
 
         let mut applied_access = component_access.clone();
         filters.apply(&mut applied_access);
