@@ -170,16 +170,10 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                resolve_outlines_system
-                    .in_set(UiSystem::Outlines)
-                    // clipping doesn't care about outlines
-                    .ambiguous_with(update_clipping_system)
-                    .in_set(AmbiguousWithTextSystem),
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
                     .ambiguous_with(update_clipping_system)
-                    .ambiguous_with(resolve_outlines_system)
                     .ambiguous_with(ui_layout_system)
                     .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),

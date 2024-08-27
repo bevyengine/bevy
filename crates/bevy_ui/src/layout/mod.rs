@@ -94,7 +94,7 @@ pub fn ui_layout_system(
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
-    mut node_transform_query: Query<(&mut Node, &mut Transform)>,
+    mut node_transform_query: Query<(&mut Node, &mut Transform, Option<&Outline>)>,
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
 ) {
     struct CameraLayoutInfo {
@@ -242,6 +242,7 @@ pub fn ui_layout_system(
             update_uinode_geometry_recursive(
                 *root,
                 &ui_surface,
+                None,
                 &mut node_transform_query,
                 &just_children_query,
                 inverse_target_scale_factor,
@@ -254,16 +255,18 @@ pub fn ui_layout_system(
     fn update_uinode_geometry_recursive(
         entity: Entity,
         ui_surface: &UiSurface,
-        node_transform_query: &mut Query<(&mut Node, &mut Transform)>,
+        root_size: Option<Vec2>,
+        node_transform_query: &mut Query<(&mut Node, &mut Transform, Option<&Outline>)>,
         children_query: &Query<&Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         mut absolute_location: Vec2,
     ) {
-        if let Ok((mut node, mut transform)) = node_transform_query.get_mut(entity) {
+        if let Ok((mut node, mut transform, outline)) = node_transform_query.get_mut(entity) {
             let Ok(layout) = ui_surface.get_layout(entity) else {
                 return;
             };
+
             let layout_size = inverse_target_scale_factor
                 * Vec2::new(
                     layout.size.width - layout.padding.left - layout.padding.right,
@@ -288,14 +291,35 @@ pub fn ui_layout_system(
                 node.calculated_size = rounded_size;
                 node.unrounded_size = layout_size;
             }
+
+            let viewport_size = root_size.unwrap_or(node.calculated_size);
+
+            if let Some(outline) = outline {
+                // don't trigger change detection when outlines are changed
+                let node = node.bypass_change_detection();
+                node.outline_width = outline
+                    .width
+                    .resolve(node.size().x, viewport_size)
+                    .unwrap_or(0.)
+                    .max(0.);
+
+                node.outline_offset = outline
+                    .offset
+                    .resolve(node.size().x, viewport_size)
+                    .unwrap_or(0.)
+                    .max(0.);
+            }
+
             if transform.translation.truncate() != rounded_location {
                 transform.translation = rounded_location.extend(0.);
             }
+
             if let Ok(children) = children_query.get(entity) {
                 for &child_uinode in children {
                     update_uinode_geometry_recursive(
                         child_uinode,
                         ui_surface,
+                        Some(viewport_size),
                         node_transform_query,
                         children_query,
                         inverse_target_scale_factor,
@@ -305,34 +329,6 @@ pub fn ui_layout_system(
                 }
             }
         }
-    }
-}
-
-/// Resolve and update the widths of Node outlines
-pub fn resolve_outlines_system(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
-    mut outlines_query: Query<(&Outline, &mut Node)>,
-) {
-    let viewport_size = primary_window
-        .get_single()
-        .map(Window::size)
-        .unwrap_or(Vec2::ZERO)
-        / ui_scale.0;
-
-    for (outline, mut node) in outlines_query.iter_mut() {
-        let node = node.bypass_change_detection();
-        node.outline_width = outline
-            .width
-            .resolve(node.size().x, viewport_size)
-            .unwrap_or(0.)
-            .max(0.);
-
-        node.outline_offset = outline
-            .offset
-            .resolve(node.size().x, viewport_size)
-            .unwrap_or(0.)
-            .max(0.);
     }
 }
 
