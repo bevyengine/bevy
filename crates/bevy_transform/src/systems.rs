@@ -188,7 +188,6 @@ mod test {
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
-    use crate::bundles::TransformBundle;
     use crate::systems::*;
     use bevy_hierarchy::{BuildChildren, ChildBuild};
 
@@ -198,8 +197,7 @@ mod test {
         let mut world = World::default();
         let offset_global_transform =
             |offset| GlobalTransform::from(Transform::from_xyz(offset, offset, offset));
-        let offset_transform =
-            |offset| TransformBundle::from_transform(Transform::from_xyz(offset, offset, offset));
+        let offset_transform = |offset| Transform::from_xyz(offset, offset, offset);
 
         let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
@@ -256,22 +254,14 @@ mod test {
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
         // Root entity
-        world.spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
+        world.spawn(Transform::from_xyz(1.0, 0.0, 0.0));
 
         let mut children = Vec::new();
         world
-            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(Transform::from_xyz(1.0, 0.0, 0.0))
             .with_children(|parent| {
-                children.push(
-                    parent
-                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
-                        .id(),
-                );
-                children.push(
-                    parent
-                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
-                        .id(),
-                );
+                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.)).id());
+                children.push(parent.spawn(Transform::from_xyz(0.0, 0.0, 3.)).id());
             });
         schedule.run(&mut world);
 
@@ -298,18 +288,10 @@ mod test {
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(Transform::from_xyz(1.0, 0.0, 0.0))
             .with_children(|parent| {
-                children.push(
-                    parent
-                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
-                        .id(),
-                );
-                children.push(
-                    parent
-                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
-                        .id(),
-                );
+                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.0)).id());
+                children.push(parent.spawn(Transform::from_xyz(0.0, 0.0, 3.0)).id());
             });
         queue.apply(&mut world);
         schedule.run(&mut world);
@@ -422,9 +404,9 @@ mod test {
             ))
             .with_children(|builder| {
                 child = builder
-                    .spawn(TransformBundle::IDENTITY)
+                    .spawn(Transform::IDENTITY)
                     .with_children(|builder| {
-                        grandchild = builder.spawn(TransformBundle::IDENTITY).id();
+                        grandchild = builder.spawn(Transform::IDENTITY).id();
                     })
                     .id();
             })
@@ -461,9 +443,9 @@ mod test {
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);
             let child = world
-                .spawn(TransformBundle::IDENTITY)
+                .spawn(Transform::IDENTITY)
                 .with_children(|builder| {
-                    grandchild = builder.spawn(TransformBundle::IDENTITY).id();
+                    grandchild = builder.spawn(Transform::IDENTITY).id();
                 })
                 .id();
             (child, grandchild)
@@ -476,7 +458,7 @@ mod test {
         assert_eq!(temp_grandchild, grandchild);
 
         app.world_mut()
-            .spawn(TransformBundle::IDENTITY)
+            .spawn(Transform::IDENTITY)
             .push_children(&[child]);
         std::mem::swap(
             &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
@@ -495,14 +477,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems((sync_simple_transforms, propagate_transforms));
 
-        // Spawn a `TransformBundle` entity with a local translation of `Vec3::ONE`
-        let mut spawn_transform_bundle = || {
-            world
-                .spawn(TransformBundle::from_transform(
-                    Transform::from_translation(translation),
-                ))
-                .id()
-        };
+        // Spawn a `Transform` entity with a local translation of `Vec3::ONE`
+        let mut spawn_transform_bundle =
+            || world.spawn(Transform::from_translation(translation)).id();
 
         // Spawn parent and child with identical transform bundles
         let parent = spawn_transform_bundle();

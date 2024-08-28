@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::Bundle;
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::prelude::Transform;
 
 use crate::view::{InheritedVisibility, ViewVisibility, Visibility};
 
@@ -25,8 +25,6 @@ pub struct SpatialBundle {
     pub view_visibility: ViewVisibility,
     /// The transform of the entity.
     pub transform: Transform,
-    /// The global transform of the entity.
-    pub global_transform: GlobalTransform,
 }
 
 impl SpatialBundle {
@@ -47,7 +45,6 @@ impl SpatialBundle {
         inherited_visibility: InheritedVisibility::HIDDEN,
         view_visibility: ViewVisibility::HIDDEN,
         transform: Transform::IDENTITY,
-        global_transform: GlobalTransform::IDENTITY,
     };
 
     /// An invisible [`SpatialBundle`] with identity transform.

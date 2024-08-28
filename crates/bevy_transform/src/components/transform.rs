@@ -38,6 +38,7 @@ use std::ops::Mul;
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component, Reflect),
+    require(GlobalTransform),
     reflect(Component, Default, PartialEq)
 )]
 pub struct Transform {

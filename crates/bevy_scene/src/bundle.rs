@@ -9,7 +9,7 @@ use bevy_ecs::{
 };
 #[cfg(feature = "bevy_render")]
 use bevy_render::prelude::{InheritedVisibility, ViewVisibility, Visibility};
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::Transform;
 
 use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
 
@@ -28,9 +28,6 @@ pub struct SceneBundle {
     pub scene: Handle<Scene>,
     /// Transform of the scene root entity.
     pub transform: Transform,
-    /// Global transform of the scene root entity.
-    pub global_transform: GlobalTransform,
-
     /// User-driven visibility of the scene root entity.
     #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,
@@ -52,9 +49,6 @@ pub struct DynamicSceneBundle {
     pub scene: Handle<DynamicScene>,
     /// Transform of the scene root entity.
     pub transform: Transform,
-    /// Global transform of the scene root entity.
-    pub global_transform: GlobalTransform,
-
     /// User-driven visibility of the scene root entity.
     #[cfg(feature = "bevy_render")]
     pub visibility: Visibility,

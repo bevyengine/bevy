@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use bevy_ecs::bundle::Bundle;
 
 use crate::prelude::{GlobalTransform, Transform};
@@ -24,6 +26,7 @@ use crate::prelude::{GlobalTransform, Transform};
 /// update the [`Transform`] of an entity in this schedule or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 #[derive(Clone, Copy, Debug, Default, Bundle)]
+#[deprecated(since = "0.15.0", note = "Use `Transform` on its own")]
 pub struct TransformBundle {
     /// The transform of the entity.
     pub local: Transform,

@@ -31,7 +31,7 @@ use bevy_render::{
     view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::Transform;
 use bevy_utils::tracing::error;
 use std::{hash::Hash, marker::PhantomData};
 
@@ -615,7 +615,6 @@ pub struct MaterialMesh2dBundle<M: Material2d> {
     pub mesh: Mesh2dHandle,
     pub material: Handle<M>,
     pub transform: Transform,
-    pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     // Inherited visibility of an entity.
@@ -630,7 +629,6 @@ impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
             mesh: Default::default(),
             material: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),

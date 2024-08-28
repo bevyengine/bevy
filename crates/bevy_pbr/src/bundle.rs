@@ -12,7 +12,7 @@ use bevy_render::{
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
-use bevy_transform::components::{GlobalTransform, Transform};
+use bevy_transform::components::Transform;
 
 /// A component bundle for PBR entities with a [`Mesh`] and a [`StandardMaterial`].
 pub type PbrBundle = MaterialMeshBundle<StandardMaterial>;
@@ -23,7 +23,6 @@ pub struct MaterialMeshBundle<M: Material> {
     pub mesh: Handle<Mesh>,
     pub material: Handle<M>,
     pub transform: Transform,
-    pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -38,7 +37,6 @@ impl<M: Material> Default for MaterialMeshBundle<M> {
             mesh: Default::default(),
             material: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
@@ -96,7 +94,6 @@ pub struct PointLightBundle {
     pub cubemap_visible_entities: CubemapVisibleEntities,
     pub cubemap_frusta: CubemapFrusta,
     pub transform: Transform,
-    pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -112,7 +109,6 @@ pub struct SpotLightBundle {
     pub visible_entities: VisibleMeshEntities,
     pub frustum: Frustum,
     pub transform: Transform,
-    pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -130,7 +126,6 @@ pub struct DirectionalLightBundle {
     pub cascade_shadow_config: CascadeShadowConfig,
     pub visible_entities: CascadesVisibleEntities,
     pub transform: Transform,
-    pub global_transform: GlobalTransform,
     /// Enables or disables the light
     pub visibility: Visibility,
     /// Inherited visibility of an entity.

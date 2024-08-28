@@ -19,7 +19,7 @@ use bevy_sprite::TextureAtlas;
 use bevy_text::{
     BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
 };
-use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_transform::prelude::Transform;
 
 /// The basic UI node.
 ///
@@ -46,11 +46,6 @@ pub struct NodeBundle {
     /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -96,10 +91,6 @@ pub struct ImageBundle {
     /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -146,10 +137,6 @@ pub struct AtlasImageBundle {
     /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `AtlasImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -189,10 +176,6 @@ pub struct TextBundle {
     /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `TextBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -296,10 +279,6 @@ pub struct ButtonBundle {
     /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `ButtonBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -323,7 +302,6 @@ impl Default for ButtonBundle {
             image: Default::default(),
             background_color: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
@@ -352,11 +330,6 @@ pub struct MaterialNodeBundle<M: UiMaterial> {
     /// This field is automatically managed by the UI layout system.
     /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
-    pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -375,7 +348,6 @@ impl<M: UiMaterial> Default for MaterialNodeBundle<M> {
             material: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
-            global_transform: Default::default(),
             visibility: Default::default(),
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
