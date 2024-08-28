@@ -97,7 +97,9 @@ fn draw_example_collection(
         310.,
         ORANGE_RED,
     );
-    my_gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_2, 75.0, ORANGE_RED);
+    my_gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_2, 80.0, ORANGE_RED);
+    my_gizmos.long_arc_2d_between(Vec2::ZERO, Vec2::X * 20.0, Vec2::Y * 20.0, ORANGE_RED);
+    my_gizmos.short_arc_2d_between(Vec2::ZERO, Vec2::X * 40.0, Vec2::Y * 40.0, ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,
