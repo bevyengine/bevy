@@ -45,11 +45,10 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
-    /// Resolved border radius values, calculated by `resolve_border_radius` system.
-    /// In order: top left, top right, bottom right, bottom left.
+    /// Resolved border radius values in logical pixels.
     ///
-    /// Automatically calculated by [`super::layout::resolve_border_radius_sytem`].
-    pub(crate) border_radius: Vec4,
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) border_radius: ResolvedBorderRadius,
 }
 
 impl Node {
@@ -124,7 +123,7 @@ impl Node {
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
-        border_radius: Vec4::ZERO,
+        border_radius: ResolvedBorderRadius::DEFAULT,
     };
 }
 
@@ -2191,6 +2190,26 @@ impl BorderRadius {
         self.bottom_right = radius;
         self
     }
+}
+
+/// Represents the resolved border radius values for a UI node.
+///
+/// The values are in logical pixels.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+pub struct ResolvedBorderRadius {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_left: f32,
+    pub bottom_right: f32,
+}
+
+impl ResolvedBorderRadius {
+    pub const DEFAULT: Self = Self {
+        top_left: 0.,
+        top_right: 0.,
+        bottom_left: 0.,
+        bottom_right: 0.,
+    };
 }
 
 #[cfg(test)]
