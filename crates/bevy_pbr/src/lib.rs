@@ -333,7 +333,6 @@ impl Plugin for PbrPlugin {
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
             ))
-            .add_plugins(WorldSyncPlugin)
             .configure_sets(
                 PostUpdate,
                 (

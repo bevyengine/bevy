@@ -66,7 +66,7 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
-use world_sync::{despawn_fly_entity, entity_sync_system, SyncRenderWorld};
+use world_sync::{despawn_fly_entity, entity_sync_system, SyncRenderWorld, WorldSyncPlugin};
 
 use crate::mesh::RenderMesh;
 use crate::renderer::WgpuWrapper;
@@ -358,6 +358,7 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin,
+            WorldSyncPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
