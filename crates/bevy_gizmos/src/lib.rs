@@ -30,6 +30,9 @@ pub enum GizmoRenderSystem {
     QueueLineGizmos3d,
 }
 
+mod lines;
+mod billboard;
+
 #[cfg(feature = "bevy_render")]
 pub mod aabb;
 pub mod arcs;
@@ -39,10 +42,8 @@ pub mod config;
 pub mod cross;
 pub mod gizmos;
 pub mod grid;
-pub mod lines;
 pub mod primitives;
 pub mod rounded_box;
-
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 pub mod light;
 
