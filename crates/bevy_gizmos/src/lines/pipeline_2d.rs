@@ -1,9 +1,11 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
+    GizmoRenderSystem,
+};
+use super::{
     line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
-    LINE_SHADER_HANDLE,
+    DrawLineJointGizmo, GpuLineGizmo, LineGizmo,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;
@@ -29,6 +31,8 @@ use bevy_render::{
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 use bevy_utils::tracing::error;
+
+use super::{LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE};
 
 pub struct LineGizmo2dPlugin;
 
