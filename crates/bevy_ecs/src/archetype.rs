@@ -21,7 +21,7 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, Components, StorageType},
+    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
@@ -123,8 +123,29 @@ pub(crate) struct AddBundle {
     /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
     /// indicate if the component is newly added to the target archetype or if it already existed
     pub bundle_status: Vec<ComponentStatus>,
+    /// The set of additional required components that must be initialized immediately when adding this Bundle.
+    ///
+    /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
+    pub required_components: Vec<RequiredComponentConstructor>,
+    /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
     pub added: Vec<ComponentId>,
+    /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
+    /// Required Components.
     pub existing: Vec<ComponentId>,
+}
+
+impl AddBundle {
+    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.added.iter().chain(self.existing.iter()).copied()
+    }
+
+    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.added.iter().copied()
+    }
+
+    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.existing.iter().copied()
+    }
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
@@ -208,6 +229,7 @@ impl Edges {
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
         bundle_status: Vec<ComponentStatus>,
+        required_components: Vec<RequiredComponentConstructor>,
         added: Vec<ComponentId>,
         existing: Vec<ComponentId>,
     ) {
@@ -216,6 +238,7 @@ impl Edges {
             AddBundle {
                 archetype_id,
                 bundle_status,
+                required_components,
                 added,
                 existing,
             },
