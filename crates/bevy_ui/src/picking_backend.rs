@@ -26,7 +26,7 @@
 use crate::{prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::Vec2;
+use bevy_math::{Vec2, VectorSpace};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_utils::hashbrown::HashMap;
@@ -163,6 +163,11 @@ pub fn ui_picking(
             if visible_rect
                 .normalize(node_rect)
                 .contains(relative_cursor_position)
+                && pick_rounded_box(
+                    *cursor_position - node_rect.center(),
+                    node_rect.size(),
+                    node.node.border_radius,
+                )
             {
                 hit_nodes
                     .entry((camera_entity, *pointer_id))
@@ -211,4 +216,30 @@ pub fn ui_picking(
 
         output.send(PointerHits::new(*pointer, picks, order));
     }
+}
+
+pub(crate) fn pick_rounded_box(
+    point: Vec2,
+    size: Vec2,
+    border_radius: ResolvedBorderRadius,
+) -> bool {
+    let r = if 0. < point.y {
+        if 0. < point.x {
+            border_radius.top_left
+        } else {
+            border_radius.top_right
+        }
+    } else {
+        if 0. < point.x {
+            border_radius.bottom_left
+        } else {
+            border_radius.bottom_right
+        }
+    };
+
+    let corner_to_point = point.abs() - 0.5 * size;
+    let q = corner_to_point + r;
+    let l = q.max(Vec2::ZERO).length();
+    let m = q.max_element().min(0.);
+    l + m - r < 0.
 }
