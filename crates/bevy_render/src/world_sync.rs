@@ -15,7 +15,7 @@ use bevy_utils::tracing::warn;
 
 /// A Plugin that synchronizes entities with specific Components between the main world and render world.
 ///
-/// Bevy's renderer is architected independently from main app, It operates in its own separate ECS World. Therefore, the renderer could run in parrallel with main app logic, This is called "Pipelined Rendering". See [`PipelinedRenderingPlugin`] for more information.
+/// Bevy's renderer is architected independently from main app, It operates in its own separate ECS World. Therefore, the renderer could run in parallel with main app logic, This is called "Pipelined Rendering". See [`PipelinedRenderingPlugin`] for more information.
 ///
 /// Previously, `extract` will copy the related main world entity and its data into the render world , and then render world will clear all render entities at the end of frame to reserve enough entity space to ensure that no main world entity ID has been occupied during next `extract`.
 ///
