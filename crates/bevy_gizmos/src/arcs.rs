@@ -428,7 +428,7 @@ where
         // orientation ambiguity of `up` doesn't matter
         let from_axis = (from - center).normalize_or_zero();
         let to_axis = (to - center).normalize_or_zero();
-        let rotation = Vec2::X.angle_to(from_axis);
+        let rotation = Vec2::Y.angle_to(from_axis);
         let arc_angle_raw = from_axis.angle_to(to_axis);
 
         let arc_angle = angle_fn(arc_angle_raw);
