@@ -34,7 +34,6 @@ use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
-use naga_oil::derive;
 use std::ops::Range;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
