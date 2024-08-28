@@ -170,7 +170,7 @@ impl TypeRegistry {
             TypeId::of::<T>(),
             T::get_type_registration,
             T::register_type_dependencies,
-        )
+        );
     }
 
     /// Attempts to register the type described by `registration`.
