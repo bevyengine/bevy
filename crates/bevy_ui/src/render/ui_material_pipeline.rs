@@ -18,7 +18,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
     view::*,
-    world_sync::{RenderEntity, RenderFlyEntity},
+    world_sync::{RenderEntity, TemporaryRenderEntity},
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -432,7 +432,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             ) / uinode.size().y;
 
             extracted_uinodes.uinodes.insert(
-                commands.spawn(RenderFlyEntity).id(),
+                commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiMaterialNode {
                     stack_index,
                     transform: transform.compute_matrix(),

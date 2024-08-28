@@ -105,7 +105,7 @@ use bevy_render::{
         ShaderType, VertexFormat,
     },
     renderer::RenderDevice,
-    world_sync::RenderFlyEntity,
+    world_sync::TemporaryRenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -453,7 +453,7 @@ fn extract_gizmo_data(
             (*handle).clone_weak(),
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             config::GizmoMeshConfig::from(config),
-            RenderFlyEntity,
+            TemporaryRenderEntity,
         ));
     }
 }

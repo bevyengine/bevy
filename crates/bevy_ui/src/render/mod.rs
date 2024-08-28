@@ -10,7 +10,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_hierarchy::Parent;
 use bevy_render::render_phase::ViewSortedRenderPhases;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::world_sync::{RenderEntity, RenderFlyEntity};
+use bevy_render::world_sync::{RenderEntity, TemporaryRenderEntity};
 use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     texture::GpuImage,
@@ -272,7 +272,7 @@ pub fn extract_uinode_background_colors(
         };
 
         extracted_uinodes.uinodes.insert(
-            commands.spawn(RenderFlyEntity).id(),
+            commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -365,7 +365,7 @@ pub fn extract_uinode_images(
             extracted_uinodes.uinodes.extend(
                 slices
                     .extract_ui_nodes(transform, uinode, image, clip, camera_entity.id())
-                    .map(|e| (commands.spawn(RenderFlyEntity).id(), e)),
+                    .map(|e| (commands.spawn(TemporaryRenderEntity).id(), e)),
             );
             continue;
         }
@@ -420,7 +420,7 @@ pub fn extract_uinode_images(
         };
 
         extracted_uinodes.uinodes.insert(
-            commands.spawn(RenderFlyEntity).id(),
+            commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiNode {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
@@ -600,7 +600,7 @@ pub fn extract_uinode_borders(
         let transform = global_transform.compute_matrix();
 
         extracted_uinodes.uinodes.insert(
-            commands.spawn(RenderFlyEntity).id(),
+            commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiNode {
                 stack_index: node.stack_index,
                 // This translates the uinode's transform to the center of the current border rectangle
@@ -696,7 +696,7 @@ pub fn extract_uinode_outlines(
         for edge in outline_edges {
             if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
                 extracted_uinodes.uinodes.insert(
-                    commands.spawn(RenderFlyEntity).id(),
+                    commands.spawn(TemporaryRenderEntity).id(),
                     ExtractedUiNode {
                         stack_index: node.stack_index,
                         // This translates the uinode's transform to the center of the current border rectangle
@@ -795,7 +795,7 @@ pub fn extract_default_ui_camera_view(
                         ),
                         color_grading: Default::default(),
                     },
-                    RenderFlyEntity,
+                    TemporaryRenderEntity,
                 ))
                 .id();
             commands
@@ -890,7 +890,7 @@ pub fn extract_uinode_text(
             let mut rect = atlas.textures[atlas_info.location.glyph_index].as_rect();
             rect.min *= inverse_scale_factor;
             rect.max *= inverse_scale_factor;
-            let id = commands.spawn(RenderFlyEntity).id();
+            let id = commands.spawn(TemporaryRenderEntity).id();
             extracted_uinodes.uinodes.insert(
                 id,
                 ExtractedUiNode {

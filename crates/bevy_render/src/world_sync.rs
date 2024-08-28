@@ -21,7 +21,7 @@ use bevy_utils::tracing::warn;
 ///
 /// With `* as entities`, we should not clear all entities in render world because some core metadata (e.g. [`Component`], [`Query`]) are also stored in the form of entity.
 ///
-/// So we turn to an entity-to-entity mapping strategy to sync between main world entity and render world entity,where each `synchronized` main entity has a component [`RenderEntity`] that holds an Entity ID pointer to its unique counterpart entity in the render world.
+/// So we turn to an entity-to-entity mapping strategy to sync between main world entity and render world entity, where each `synchronized` main entity has a [`RenderEntity`] component holds an Entity ID pointer to its unique counterpart entity in the render world.
 ///
 /// A example for `synchronized` main entity 1v1 and 18v1
 ///
@@ -42,19 +42,18 @@ use bevy_utils::tracing::warn;
 ///
 /// ```
 ///
-/// To establish a "Synchronous Relationship", you can add a [`SyncRenderWorld`] component to an entity, indicating that it needs to be synchronized with the render world.
+/// To establish a "Synchronous Relationship", you can add a [`SyncRenderWorld`] component to an entity. Once a `synchronized` main entity is despawned ,its corresponding render entity will be automatically purged in the next `Sync`
 ///
 /// Now a single frame of execution looks something like below
 ///
 /// ```text
 /// |--------------------------------------------------------------------|
-/// |      |         |          Main   world lopp                        |
+/// |      |         |          Main   world loop                        |
 /// | Sync | extract |---------------------------------------------------|
 /// |      |         |         Render wrold loop                         |
 /// |--------------------------------------------------------------------|
 /// ```
 ///
-/// `Sync` is the step that syncs main entity behavior(add, remove) to its counterpart render entity.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
 #[derive(Default)]
@@ -110,7 +109,8 @@ impl MainEntity {
 
 // marker component that indicates that its entity needs to be despawned at the end of every frame.
 #[derive(Component, Clone, Debug, Default, Reflect)]
-pub struct RenderFlyEntity;
+#[component(storage = "SparseSet")]
+pub struct TemporaryRenderEntity;
 
 pub(crate) enum EntityRecord {
     // When an entity is spawned on the main world, notify the render world so that it can spawn a corresponding entity. This contains the main world entity
@@ -155,9 +155,9 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
 }
 
 // TODO: directly remove matched archetype for performance
-pub(crate) fn despawn_fly_entity(
+pub(crate) fn despawn_temporary_render_entity(
     world: &mut World,
-    state: &mut SystemState<Query<Entity, With<RenderFlyEntity>>>,
+    state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,
     mut local: Local<Vec<Entity>>,
 ) {
     let query = state.get(world);
