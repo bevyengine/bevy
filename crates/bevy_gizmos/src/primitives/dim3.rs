@@ -7,7 +7,7 @@ use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
     Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
 };
-use bevy_math::{Dir3, Isometry3d, UVec2, Vec2, Vec3};
+use bevy_math::{Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3};
 
 use crate::circles::SphereBuilder;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
@@ -149,8 +149,14 @@ where
 
         self.gizmos
             .primitive_3d(&self.normal, self.isometry, self.color);
-        self.gizmos
-            .grid(self.isometry, self.cell_count, self.spacing, self.color);
+        // the default orientation of the grid is Z-up
+        let rot = Quat::from_rotation_arc(Vec3::Z, self.normal.as_vec3());
+        self.gizmos.grid(
+            Isometry3d::new(self.isometry.translation, self.isometry.rotation * rot),
+            self.cell_count,
+            self.spacing,
+            self.color,
+        );
     }
 }
 
