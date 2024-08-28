@@ -26,7 +26,7 @@
 use crate::{prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::{Vec2, VectorSpace};
+use bevy_math::Vec2;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_utils::hashbrown::HashMap;
@@ -163,7 +163,7 @@ pub fn ui_picking(
             if visible_rect
                 .normalize(node_rect)
                 .contains(relative_cursor_position)
-                && pick_rounded_box(
+                && pick_rounded_rect(
                     *cursor_position - node_rect.center(),
                     node_rect.size(),
                     node.node.border_radius,
@@ -218,7 +218,11 @@ pub fn ui_picking(
     }
 }
 
-pub(crate) fn pick_rounded_box(
+// Returns true if `point`` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
+// the given size and border radius.
+//
+// Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+pub(crate) fn pick_rounded_rect(
     point: Vec2,
     size: Vec2,
     border_radius: ResolvedBorderRadius,
