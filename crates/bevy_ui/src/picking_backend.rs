@@ -227,18 +227,16 @@ pub(crate) fn pick_rounded_rect(
     size: Vec2,
     border_radius: ResolvedBorderRadius,
 ) -> bool {
-    let r = if 0. < point.y {
-        if 0. < point.x {
+    let r = if point.y < 0. {
+        if point.x < 0. {
             border_radius.top_left
         } else {
             border_radius.top_right
         }
+    } else if point.x < 0. {
+        border_radius.bottom_left
     } else {
-        if 0. < point.x {
-            border_radius.bottom_left
-        } else {
-            border_radius.bottom_right
-        }
+        border_radius.bottom_right
     };
 
     let corner_to_point = point.abs() - 0.5 * size;
