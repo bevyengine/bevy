@@ -19,7 +19,7 @@ use bevy_utils::tracing::warn;
 ///
 /// Previously, `extract` will copy the related main world entity and its data into the render world , and then render world will clear all render entities at the end of frame to reserve enough entity space to ensure that no main world entity ID has been occupied during next `extract`.
 ///
-/// With `* as entities`, we should not clear all entities in render world because some core metadata(e.g. [`Component`], [`Query`]`) are also stored in the form of entity.
+/// With `* as entities`, we should not clear all entities in render world because some core metadata (e.g. [`Component`], [`Query`]) are also stored in the form of entity.
 ///
 /// So we turn to an entity-to-entity mapping strategy to sync between main world entity and render world entity,where each `synchronized` main entity has a component [`RenderEntity`] that holds an Entity ID pointer to its unique counterpart entity in the render world.
 ///
@@ -54,7 +54,7 @@ use bevy_utils::tracing::warn;
 /// |--------------------------------------------------------------------|
 /// ```
 ///
-/// `Sync` is the step that syncs main entity behavior(add, remove) to its counterpart render entity. [`entity_sync_system`]
+/// `Sync` is the step that syncs main entity behavior(add, remove) to its counterpart render entity.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
 #[derive(Default)]

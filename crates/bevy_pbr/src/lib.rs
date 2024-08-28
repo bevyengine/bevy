@@ -118,7 +118,6 @@ use bevy_render::{
     render_resource::Shader,
     texture::{GpuImage, Image},
     view::{check_visibility, VisibilitySystems},
-    world_sync::WorldSyncPlugin,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
