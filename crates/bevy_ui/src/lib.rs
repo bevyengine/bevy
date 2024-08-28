@@ -92,10 +92,6 @@ pub enum UiSystem {
     ///
     /// Runs in [`PostUpdate`].
     Stack,
-    /// After this label, node outline widths have been updated.
-    ///
-    /// Runs in [`PostUpdate`].
-    Outlines,
 }
 
 /// The current scale of the UI.
@@ -153,7 +149,7 @@ impl Plugin for UiPlugin {
                     CameraUpdateSystem,
                     UiSystem::Prepare.before(UiSystem::Stack),
                     UiSystem::Layout,
-                    (UiSystem::PostLayout, UiSystem::Outlines),
+                    UiSystem::PostLayout,
                 )
                     .chain(),
             )
