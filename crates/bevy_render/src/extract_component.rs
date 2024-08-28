@@ -2,7 +2,7 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
-    world_sync::{RenderEntity, SyncRenderWorld},
+    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -210,7 +210,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, C::QueryData), (C::QueryFilter, With<SyncRenderWorld>)>>,
+    query: Extract<Query<(&RenderEntity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
@@ -226,12 +226,7 @@ fn extract_components<C: ExtractComponent>(
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<
-        Query<
-            (&RenderEntity, &ViewVisibility, C::QueryData),
-            (C::QueryFilter, With<SyncRenderWorld>),
-        >,
-    >,
+    query: Extract<Query<(&RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
