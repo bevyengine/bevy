@@ -45,6 +45,7 @@ pub struct Node {
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
     /// Resolved border radius values in logical pixels.
+    /// Border radius updates bypass change detection.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) border_radius: ResolvedBorderRadius,
@@ -2190,56 +2191,26 @@ impl BorderRadius {
         self
     }
 
-    /// Compute the border radius for a single corner from the given values
-    pub fn resolve_single_corner(
-        radius: Val,
-        node_size: Vec2,
-        viewport_size: Vec2,
-        ui_scale: f32,
-    ) -> f32 {
+    /// Compute the logical border radius for a single corner from the given values
+    pub fn resolve_single_corner(radius: Val, node_size: Vec2, viewport_size: Vec2) -> f32 {
         match radius {
             Val::Auto => 0.,
-            Val::Px(px) => ui_scale * px,
+            Val::Px(px) => px,
             Val::Percent(percent) => node_size.min_element() * percent / 100.,
             Val::Vw(percent) => viewport_size.x * percent / 100.,
             Val::Vh(percent) => viewport_size.y * percent / 100.,
             Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
             Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
         }
-        .clamp(0., 0.5 * node_size.min_element() * ui_scale)
+        .clamp(0., 0.5 * node_size.min_element())
     }
 
-    pub fn resolve_border_radius(
-        &self,
-        node_size: Vec2,
-        viewport_size: Vec2,
-        ui_scale: f32,
-    ) -> ResolvedBorderRadius {
+    pub fn resolve(&self, node_size: Vec2, viewport_size: Vec2) -> ResolvedBorderRadius {
         ResolvedBorderRadius {
-            top_left: Self::resolve_single_corner(
-                self.top_left,
-                node_size,
-                viewport_size,
-                ui_scale,
-            ),
-            top_right: Self::resolve_single_corner(
-                self.top_right,
-                node_size,
-                viewport_size,
-                ui_scale,
-            ),
-            bottom_left: Self::resolve_single_corner(
-                self.bottom_left,
-                node_size,
-                viewport_size,
-                ui_scale,
-            ),
-            bottom_right: Self::resolve_single_corner(
-                self.bottom_right,
-                node_size,
-                viewport_size,
-                ui_scale,
-            ),
+            top_left: Self::resolve_single_corner(self.top_left, node_size, viewport_size),
+            top_right: Self::resolve_single_corner(self.top_right, node_size, viewport_size),
+            bottom_left: Self::resolve_single_corner(self.bottom_left, node_size, viewport_size),
+            bottom_right: Self::resolve_single_corner(self.bottom_right, node_size, viewport_size),
         }
     }
 }
