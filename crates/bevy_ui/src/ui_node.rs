@@ -122,7 +122,7 @@ impl Node {
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
-        border_radius: ResolvedBorderRadius::DEFAULT,
+        border_radius: ResolvedBorderRadius::ZERO,
     };
 }
 
@@ -2203,7 +2203,7 @@ pub struct ResolvedBorderRadius {
 }
 
 impl ResolvedBorderRadius {
-    pub const DEFAULT: Self = Self {
+    pub const ZERO: Self = Self {
         top_left: 0.,
         top_right: 0.,
         bottom_left: 0.,
