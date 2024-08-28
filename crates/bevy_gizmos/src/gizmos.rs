@@ -25,6 +25,8 @@ pub struct GizmoStorage<Config, Clear> {
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
+    pub(crate) billboard_positions: Vec<Vec3>,
+    pub(crate) billboard_colors: Vec<LinearRgba>,
     marker: PhantomData<(Config, Clear)>,
 }
 
@@ -35,6 +37,8 @@ impl<Config, Clear> Default for GizmoStorage<Config, Clear> {
             list_colors: default(),
             strip_positions: default(),
             strip_colors: default(),
+            billboard_positions: default(),
+            billboard_colors: default(),
             marker: PhantomData,
         }
     }
@@ -54,6 +58,8 @@ where
         self.list_colors.extend(other.list_colors.iter());
         self.strip_positions.extend(other.strip_positions.iter());
         self.strip_colors.extend(other.strip_colors.iter());
+        self.billboard_positions.extend(other.billboard_positions.iter());
+        self.billboard_colors.extend(other.billboard_colors.iter());
     }
 
     pub(crate) fn swap<OtherConfig, OtherClear>(
@@ -64,6 +70,8 @@ where
         mem::swap(&mut self.list_colors, &mut other.list_colors);
         mem::swap(&mut self.strip_positions, &mut other.strip_positions);
         mem::swap(&mut self.strip_colors, &mut other.strip_colors);
+        mem::swap(&mut self.billboard_positions, &mut other.billboard_positions);
+        mem::swap(&mut self.billboard_colors, &mut other.billboard_colors);
     }
 
     /// Clear this gizmo storage of any requested gizmos.
@@ -72,6 +80,8 @@ where
         self.list_colors.clear();
         self.strip_positions.clear();
         self.strip_colors.clear();
+        self.billboard_positions.clear();
+        self.billboard_colors.clear();
     }
 }
 
@@ -235,6 +245,8 @@ where
     list_colors: Vec<LinearRgba>,
     strip_positions: Vec<Vec3>,
     strip_colors: Vec<LinearRgba>,
+    billboard_positions: Vec<Vec3>,
+    billboard_colors: Vec<LinearRgba>,
     marker: PhantomData<(Config, Clear)>,
 }
 
@@ -249,6 +261,8 @@ where
             list_colors: default(),
             strip_positions: default(),
             strip_colors: default(),
+            billboard_positions: default(),
+            billboard_colors: default(),
             marker: PhantomData,
         }
     }
@@ -265,6 +279,8 @@ where
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
         storage.strip_colors.append(&mut self.strip_colors);
+        storage.billboard_positions.append(&mut self.billboard_positions);
+        storage.billboard_colors.append(&mut self.billboard_colors);
     }
 }
 
@@ -273,6 +289,30 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    /// Draw a billboard in 3D at `position`. 
+    ///
+    /// This should be called for each frame the line needs to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.billboard(Vec3::ZERO, GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn billboard(&mut self, position: Vec3, color: impl Into<Color>) {
+        if !self.enabled {
+            return;
+        }
+        self.buffer.billboard_positions.push(position);
+        let polymorphic_color: Color = color.into();
+        let linear_color = LinearRgba::from(polymorphic_color);
+        self.buffer.billboard_colors.push(linear_color);
+    }
+
     /// Draw a line in 3D from `start` to `end`.
     ///
     /// This should be called for each frame the line needs to be rendered.
