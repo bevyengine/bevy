@@ -2189,6 +2189,59 @@ impl BorderRadius {
         self.bottom_right = radius;
         self
     }
+
+    /// Compute the border radius for a single corner from the given values
+    pub fn resolve_single_corner(
+        radius: Val,
+        node_size: Vec2,
+        viewport_size: Vec2,
+        ui_scale: f32,
+    ) -> f32 {
+        match radius {
+            Val::Auto => 0.,
+            Val::Px(px) => ui_scale * px,
+            Val::Percent(percent) => node_size.min_element() * percent / 100.,
+            Val::Vw(percent) => viewport_size.x * percent / 100.,
+            Val::Vh(percent) => viewport_size.y * percent / 100.,
+            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
+            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
+        }
+        .clamp(0., 0.5 * node_size.min_element() * ui_scale)
+    }
+
+    pub fn resolve_border_radius(
+        &self,
+        node_size: Vec2,
+        viewport_size: Vec2,
+        ui_scale: f32,
+    ) -> ResolvedBorderRadius {
+        ResolvedBorderRadius {
+            top_left: Self::resolve_single_corner(
+                self.top_left,
+                node_size,
+                viewport_size,
+                ui_scale,
+            ),
+            top_right: Self::resolve_single_corner(
+                self.top_right,
+                node_size,
+                viewport_size,
+                ui_scale,
+            ),
+            bottom_left: Self::resolve_single_corner(
+                self.bottom_left,
+                node_size,
+                viewport_size,
+                ui_scale,
+            ),
+            bottom_right: Self::resolve_single_corner(
+                self.bottom_right,
+                node_size,
+                viewport_size,
+                ui_scale,
+            ),
+        }
+    }
 }
 
 /// Represents the resolved border radius values for a UI node.
