@@ -57,10 +57,7 @@ pub trait Curve<T> {
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = Option<T>>
-    where
-        Self: Sized,
-    {
+    fn sample_iter(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = Option<T>> {
         iter.into_iter().map(|t| self.sample(t))
     }
 
@@ -75,10 +72,10 @@ pub trait Curve<T> {
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter_unchecked(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T>
-    where
-        Self: Sized,
-    {
+    fn sample_iter_unchecked(
+        &self,
+        iter: impl IntoIterator<Item = f32>,
+    ) -> impl Iterator<Item = T> {
         iter.into_iter().map(|t| self.sample_unchecked(t))
     }
 
@@ -88,10 +85,7 @@ pub trait Curve<T> {
     /// The samples are returned in the same order as the parameter values `t_n` were provided and
     /// will include all results. This leaves the responsibility for things like filtering and
     /// sorting to the user for maximum flexibility.
-    fn sample_iter_clamped(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T>
-    where
-        Self: Sized,
-    {
+    fn sample_iter_clamped(&self, iter: impl IntoIterator<Item = f32>) -> impl Iterator<Item = T> {
         iter.into_iter().map(|t| self.sample_clamped(t))
     }
 
@@ -766,9 +760,6 @@ where
 /// must be left-finite.
 ///
 /// Curves of this type are produced by [`Curve::chain`].
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct ChainCurve<T, C, D> {
     first: C,
     second: D,
@@ -1021,15 +1012,6 @@ mod tests {
     use crate::{ops, Quat};
     use approx::{assert_abs_diff_eq, AbsDiffEq};
     use std::f32::consts::TAU;
-
-    #[test]
-    fn curve_can_be_made_into_an_object() {
-        let curve = constant_curve(Interval::UNIT, 42.0);
-        let curve: &dyn Curve<f64> = &curve;
-
-        assert_eq!(curve.sample(1.0), Some(42.0));
-        assert_eq!(curve.sample(2.0), None);
-    }
 
     #[test]
     fn constant_curves() {

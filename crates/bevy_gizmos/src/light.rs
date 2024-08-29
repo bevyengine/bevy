@@ -19,7 +19,7 @@ use bevy_ecs::{
 };
 use bevy_math::{
     primitives::{Cone, Sphere},
-    Isometry3d, Quat, Vec3,
+    Quat, Vec3,
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -44,16 +44,13 @@ fn point_light_gizmo(
             &Sphere {
                 radius: point_light.radius,
             },
-            Isometry3d::from_translation(position),
+            position,
+            Quat::IDENTITY,
             color,
         )
         .resolution(16);
     gizmos
-        .sphere(
-            Isometry3d::from_translation(position),
-            point_light.range,
-            color,
-        )
+        .sphere(position, Quat::IDENTITY, point_light.range, color)
         .resolution(32);
 }
 
@@ -71,7 +68,8 @@ fn spot_light_gizmo(
             &Sphere {
                 radius: spot_light.radius,
             },
-            Isometry3d::from_translation(translation),
+            translation,
+            Quat::IDENTITY,
             color,
         )
         .resolution(16);
@@ -86,7 +84,8 @@ fn spot_light_gizmo(
                     radius: spot_light.range * angle.sin(),
                     height,
                 },
-                Isometry3d::new(position, rotation * Quat::from_rotation_x(PI / 2.0)),
+                position,
+                rotation * Quat::from_rotation_x(PI / 2.0),
                 color,
             )
             .height_resolution(4)
@@ -106,7 +105,8 @@ fn spot_light_gizmo(
             .arc_3d(
                 2.0 * spot_light.outer_angle,
                 spot_light.range,
-                Isometry3d::new(translation, rotation * arc_rotation),
+                translation,
+                rotation * arc_rotation,
                 color,
             )
             .resolution(16);

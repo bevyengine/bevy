@@ -956,7 +956,7 @@ impl<'w> EntityWorldMut<'w> {
         let removed_components = &mut world.removed_components;
 
         let entity = self.entity;
-        let mut bundle_components = bundle_info.iter_explicit_components();
+        let mut bundle_components = bundle_info.iter_components();
         // SAFETY: bundle components are iterated in order, which guarantees that the component type
         // matches
         let result = unsafe {
@@ -1131,7 +1131,7 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         let old_archetype = &world.archetypes[location.archetype_id];
-        for component_id in bundle_info.iter_explicit_components() {
+        for component_id in bundle_info.iter_components() {
             if old_archetype.contains(component_id) {
                 world.removed_components.send(component_id, entity);
 
@@ -1180,7 +1180,7 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Removes any components except those in the [`Bundle`] (and its Required Components) from the entity.
+    /// Removes any components except those in the [`Bundle`] from the entity.
     ///
     /// See [`EntityCommands::retain`](crate::system::EntityCommands::retain) for more details.
     pub fn retain<T: Bundle>(&mut self) -> &mut Self {
@@ -1194,10 +1194,9 @@ impl<'w> EntityWorldMut<'w> {
         let old_location = self.location;
         let old_archetype = &mut archetypes[old_location.archetype_id];
 
-        // PERF: this could be stored in an Archetype Edge
         let to_remove = &old_archetype
             .components()
-            .filter(|c| !retained_bundle_info.contributed_components().contains(c))
+            .filter(|c| !retained_bundle_info.components().contains(c))
             .collect::<Vec<_>>();
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 
@@ -1262,11 +1261,19 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             deferred_world.trigger_on_replace(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
-                deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    ON_REPLACE,
+                    self.entity,
+                    &archetype.components().collect::<Vec<ComponentId>>(),
+                );
             }
             deferred_world.trigger_on_remove(archetype, self.entity, archetype.components());
             if archetype.has_remove_observer() {
-                deferred_world.trigger_observers(ON_REMOVE, self.entity, archetype.components());
+                deferred_world.trigger_observers(
+                    ON_REMOVE,
+                    self.entity,
+                    &archetype.components().collect::<Vec<ComponentId>>(),
+                );
             }
         }
 
@@ -1477,17 +1484,13 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     entity: Entity,
     bundle_info: &BundleInfo,
 ) {
-    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_explicit_components());
+    deferred_world.trigger_on_replace(archetype, entity, bundle_info.iter_components());
     if archetype.has_replace_observer() {
-        deferred_world.trigger_observers(
-            ON_REPLACE,
-            entity,
-            bundle_info.iter_explicit_components(),
-        );
+        deferred_world.trigger_observers(ON_REPLACE, entity, bundle_info.components());
     }
-    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
+    deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_components());
     if archetype.has_remove_observer() {
-        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.iter_explicit_components());
+        deferred_world.trigger_observers(ON_REMOVE, entity, bundle_info.components());
     }
 }
 
@@ -2420,7 +2423,7 @@ unsafe fn remove_bundle_from_archetype(
             let current_archetype = &mut archetypes[archetype_id];
             let mut removed_table_components = Vec::new();
             let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.iter_explicit_components() {
+            for component_id in bundle_info.components().iter().cloned() {
                 if current_archetype.contains(component_id) {
                     // SAFETY: bundle components were already initialized by bundles.get_info
                     let component_info = unsafe { components.get_info_unchecked(component_id) };
