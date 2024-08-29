@@ -45,7 +45,7 @@ impl Default for ShaderStorageBuffer {
                 usage: BufferUsages::STORAGE,
                 mapped_at_creation: false,
             },
-            asset_usage: RenderAssetUsages::empty(),
+            asset_usage: RenderAssetUsages::default(),
         }
     }
 }
