@@ -218,7 +218,7 @@ pub fn ui_picking(
     }
 }
 
-// Returns true if `point`` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
+// Returns true if `point` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
 // the given size and border radius.
 //
 // Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
