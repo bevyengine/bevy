@@ -111,7 +111,7 @@ fn setup(
     let text_style = TextStyle {
         font: font.clone(),
         font_size: 30.0,
-        color: Color::WHITE,
+        ..default()
     };
     commands.spawn((
         Text2dBundle {
@@ -237,7 +237,7 @@ fn update_cursor_hit_test(
 
     // If the window has decorations (e.g. a border) then it should be clickable
     if primary_window.decorations {
-        primary_window.cursor.hit_test = true;
+        primary_window.cursor_options.hit_test = true;
         return;
     }
 
@@ -248,7 +248,7 @@ fn update_cursor_hit_test(
 
     // If the cursor is within the radius of the Bevy logo make the window clickable otherwise the window is not clickable
     let bevy_logo_transform = q_bevy_logo.single();
-    primary_window.cursor.hit_test = bevy_logo_transform
+    primary_window.cursor_options.hit_test = bevy_logo_transform
         .translation
         .truncate()
         .distance(cursor_world_pos)

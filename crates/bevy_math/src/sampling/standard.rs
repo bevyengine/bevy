@@ -7,7 +7,7 @@
 //! ```
 //! # use rand::{random, Rng, SeedableRng, rngs::StdRng, distributions::Standard};
 //! # use bevy_math::{Dir3, sampling::FromRng};
-//! let mut rng = StdRng::from_entropy();
+//! let mut rng = StdRng::seed_from_u64(7313429298);
 //! // Random direction using thread-local rng
 //! let random_direction1: Dir3 = random();
 //!
@@ -21,9 +21,11 @@
 //! let many_random_directions: Vec<Dir3> = rng.sample_iter(Standard).take(5).collect();
 //! ```
 
+use std::f32::consts::TAU;
+
 use crate::{
     primitives::{Circle, Sphere},
-    Dir2, Dir3, Dir3A, Quat, ShapeSample, Vec3A,
+    Dir2, Dir3, Dir3A, Quat, Rot2, ShapeSample, Vec3A,
 };
 use rand::{
     distributions::{Distribution, Standard},
@@ -37,7 +39,7 @@ use rand::{
 /// ```
 /// # use rand::{Rng, SeedableRng, rngs::StdRng};
 /// # use bevy_math::{Dir3, sampling::FromRng};
-/// let mut rng = StdRng::from_entropy();
+/// let mut rng = StdRng::seed_from_u64(451);
 /// let random_dir = Dir3::from_rng(&mut rng);
 /// ```
 pub trait FromRng
@@ -52,6 +54,7 @@ where
 }
 
 impl Distribution<Dir2> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir2 {
         let circle = Circle::new(1.0);
         let vector = circle.sample_boundary(rng);
@@ -62,6 +65,7 @@ impl Distribution<Dir2> for Standard {
 impl FromRng for Dir2 {}
 
 impl Distribution<Dir3> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir3 {
         let sphere = Sphere::new(1.0);
         let vector = sphere.sample_boundary(rng);
@@ -72,6 +76,7 @@ impl Distribution<Dir3> for Standard {
 impl FromRng for Dir3 {}
 
 impl Distribution<Dir3A> for Standard {
+    #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Dir3A {
         let sphere = Sphere::new(1.0);
         let vector: Vec3A = sphere.sample_boundary(rng).into();
@@ -80,5 +85,15 @@ impl Distribution<Dir3A> for Standard {
 }
 
 impl FromRng for Dir3A {}
+
+impl Distribution<Rot2> for Standard {
+    #[inline]
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Rot2 {
+        let angle = rng.gen_range(0.0..TAU);
+        Rot2::radians(angle)
+    }
+}
+
+impl FromRng for Rot2 {}
 
 impl FromRng for Quat {}

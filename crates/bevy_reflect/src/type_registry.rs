@@ -56,6 +56,10 @@ impl Debug for TypeRegistryArc {
 /// See the [crate-level documentation] for more information on type registration.
 ///
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not provide type registration information",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait GetTypeRegistration: 'static {
     /// Returns the default [`TypeRegistration`] for this type.
     fn get_type_registration() -> TypeRegistration;
@@ -391,8 +395,7 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     pub fn get_type_info(&self, type_id: TypeId) -> Option<&'static TypeInfo> {
-        self.get(type_id)
-            .map(|registration| registration.type_info())
+        self.get(type_id).map(TypeRegistration::type_info)
     }
 
     /// Returns an iterator over the [`TypeRegistration`]s of the registered
@@ -581,7 +584,7 @@ impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for Reflec
                 value
                     .downcast_ref::<T>()
                     .map(|value| Serializable::Borrowed(value))
-                    .or_else(|| T::from_reflect(value).map(|value| Serializable::Owned(Box::new(value))))
+                    .or_else(|| T::from_reflect(value.as_partial_reflect()).map(|value| Serializable::Owned(Box::new(value))))
                     .unwrap_or_else(|| {
                         panic!(
                             "FromReflect::from_reflect failed when called on type `{}` with this value: {value:?}",
@@ -785,7 +788,11 @@ mod test {
             let dyn_reflect = unsafe { reflect_from_ptr.as_reflect(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
-                    let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
+                    let a = strukt
+                        .field("a")
+                        .unwrap()
+                        .try_downcast_ref::<f32>()
+                        .unwrap();
                     assert_eq!(*a, 2.0);
                 }
                 _ => panic!("invalid reflection"),

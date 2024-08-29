@@ -7,7 +7,7 @@ use bevy::{
     color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
-    pbr::{ExtractedPointLight, GlobalLightMeta},
+    pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
     render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowResolution},
@@ -170,7 +170,7 @@ fn print_visible_light_count(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
-    global_light_meta: Res<GlobalLightMeta>,
+    global_light_meta: Res<GlobalClusterableObjectMeta>,
 ) {
     timer.0.tick(time.delta());
 

@@ -70,9 +70,9 @@ struct LevelData {
 
 fn setup(mut commands: Commands) {
     let level_data = LevelData {
-        unload_level_id: commands.register_one_shot_system(unload_current_level),
-        level_1_id: commands.register_one_shot_system(load_level_1),
-        level_2_id: commands.register_one_shot_system(load_level_2),
+        unload_level_id: commands.register_system(unload_current_level),
+        level_1_id: commands.register_system(load_level_1),
+        level_2_id: commands.register_system(load_level_2),
     };
     commands.insert_resource(level_data);
 
@@ -150,7 +150,7 @@ fn load_level_1(
     ));
 
     // Save the asset into the `loading_assets` vector.
-    let fox = asset_server.load("models/animated/Fox.glb#Scene0");
+    let fox = asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
     loading_data.loading_assets.push(fox.clone().into());
     // Spawn the fox.
     commands.spawn((
@@ -192,7 +192,8 @@ fn load_level_2(
     ));
 
     // Spawn the helmet.
-    let helmet_scene = asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0");
+    let helmet_scene = asset_server
+        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     loading_data
         .loading_assets
         .push(helmet_scene.clone().into());
@@ -331,7 +332,7 @@ mod pipelines_ready {
             // and then update the pipelines status from there.
             // Writing between these Apps can only be done through the
             // `ExtractSchedule`.
-            app.sub_app_mut(bevy::render::RenderApp)
+            app.sub_app_mut(RenderApp)
                 .add_systems(ExtractSchedule, update_pipelines_ready);
         }
     }

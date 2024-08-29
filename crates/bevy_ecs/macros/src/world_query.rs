@@ -20,7 +20,7 @@ pub(crate) fn item_struct(
     user_where_clauses_with_world: Option<&WhereClause>,
 ) -> proc_macro2::TokenStream {
     let item_attrs = quote!(
-            #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
+            #[doc = "Automatically generated [`WorldQuery`](#path::query::WorldQuery) item type for [`"]
             #[doc = stringify!(#struct_name)]
             #[doc = "`], returned when iterating over query results."]
             #[automatically_derived]
@@ -106,6 +106,17 @@ pub(crate) fn world_query_impl(
                 }
             }
 
+            fn shrink_fetch<'__wlong: '__wshort, '__wshort>(
+                fetch: <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wlong>
+            ) -> <#struct_name #user_ty_generics as #path::query::WorldQuery>::Fetch<'__wshort> {
+                #fetch_struct_name {
+                    #(
+                        #named_field_idents: <#field_types>::shrink_fetch(fetch.#named_field_idents),
+                    )*
+                    #marker_name: &(),
+                }
+            }
+
             unsafe fn init_fetch<'__w>(
                 _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
                 state: &Self::State,
@@ -170,9 +181,9 @@ pub(crate) fn world_query_impl(
                 }
             }
 
-            fn get_state(world: &#path::world::World) -> Option<#state_struct_name #user_ty_generics> {
+            fn get_state(components: &#path::component::Components) -> Option<#state_struct_name #user_ty_generics> {
                 Some(#state_struct_name {
-                    #(#named_field_idents: <#field_types>::get_state(world)?,)*
+                    #(#named_field_idents: <#field_types>::get_state(components)?,)*
                 })
             }
 

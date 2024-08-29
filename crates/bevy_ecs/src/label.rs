@@ -197,3 +197,19 @@ macro_rules! define_label {
             $crate::intern::Interner::new();
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DynEq, DynHash};
+    use bevy_utils::assert_object_safe;
+
+    #[test]
+    fn dyn_eq_object_safe() {
+        assert_object_safe::<dyn DynEq>();
+    }
+
+    #[test]
+    fn dyn_hash_object_safe() {
+        assert_object_safe::<dyn DynHash>();
+    }
+}

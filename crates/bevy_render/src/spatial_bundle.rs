@@ -41,7 +41,7 @@ impl SpatialBundle {
         }
     }
 
-    /// A visible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
+    /// A [`SpatialBundle`] with inherited visibility and identity transform.
     pub const INHERITED_IDENTITY: Self = SpatialBundle {
         visibility: Visibility::Inherited,
         inherited_visibility: InheritedVisibility::HIDDEN,
@@ -50,7 +50,7 @@ impl SpatialBundle {
         global_transform: GlobalTransform::IDENTITY,
     };
 
-    /// An invisible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
+    /// An invisible [`SpatialBundle`] with identity transform.
     pub const HIDDEN_IDENTITY: Self = SpatialBundle {
         visibility: Visibility::Hidden,
         ..Self::INHERITED_IDENTITY

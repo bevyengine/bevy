@@ -79,10 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Instructions
 
-    let text_style = TextStyle {
-        font_size: 20.,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     commands.spawn((
         TextBundle::from_sections([

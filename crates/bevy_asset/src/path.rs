@@ -17,7 +17,7 @@ use thiserror::Error;
 ///     This is optional. If one is not set the default source will be used (which is the `assets` folder by default).
 /// * [`AssetPath::path`]: The "virtual filesystem path" pointing to an asset source file.
 /// * [`AssetPath::label`]: An optional "named sub asset". When assets are loaded, they are
-/// allowed to load "sub assets" of any type, which are identified by a named "label".
+///     allowed to load "sub assets" of any type, which are identified by a named "label".
 ///
 /// Asset paths are generally constructed (and visualized) as strings:
 ///
@@ -74,7 +74,7 @@ impl<'a> Display for AssetPath<'a> {
     }
 }
 
-/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`] or [`AssetPath::from<'static str>`].
+/// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`].
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
     /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
@@ -320,7 +320,7 @@ impl<'a> AssetPath<'a> {
         AssetPath {
             source: self.source.into_owned(),
             path: self.path.into_owned(),
-            label: self.label.map(|l| l.into_owned()),
+            label: self.label.map(CowArc::into_owned),
         }
     }
 
@@ -475,14 +475,43 @@ impl<'a> AssetPath<'a> {
     }
 }
 
-impl From<&'static str> for AssetPath<'static> {
+impl AssetPath<'static> {
+    /// Indicates this [`AssetPath`] should have a static lifetime.
     #[inline]
-    fn from(asset_path: &'static str) -> Self {
+    pub fn as_static(self) -> Self {
+        let Self {
+            source,
+            path,
+            label,
+        } = self;
+
+        let source = source.as_static();
+        let path = path.as_static();
+        let label = label.map(CowArc::as_static);
+
+        Self {
+            source,
+            path,
+            label,
+        }
+    }
+
+    /// Constructs an [`AssetPath`] with a static lifetime.
+    #[inline]
+    pub fn from_static(value: impl Into<Self>) -> Self {
+        value.into().as_static()
+    }
+}
+
+impl<'a> From<&'a str> for AssetPath<'a> {
+    #[inline]
+    fn from(asset_path: &'a str) -> Self {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
+
         AssetPath {
             source: source.into(),
-            path: CowArc::Static(path),
-            label: label.map(CowArc::Static),
+            path: CowArc::Borrowed(path),
+            label: label.map(CowArc::Borrowed),
         }
     }
 }
@@ -501,12 +530,12 @@ impl From<String> for AssetPath<'static> {
     }
 }
 
-impl From<&'static Path> for AssetPath<'static> {
+impl<'a> From<&'a Path> for AssetPath<'a> {
     #[inline]
-    fn from(path: &'static Path) -> Self {
+    fn from(path: &'a Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::Static(path),
+            path: CowArc::Borrowed(path),
             label: None,
         }
     }

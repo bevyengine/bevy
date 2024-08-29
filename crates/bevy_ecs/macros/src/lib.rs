@@ -74,8 +74,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let mut field_component_ids = Vec::new();
+    let mut field_get_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
+    let mut field_required_components = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
         .enumerate()
@@ -87,6 +89,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 field_component_ids.push(quote! {
                 <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
                 });
+                field_required_components.push(quote! {
+                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, storages, required_components);
+                });
+                field_get_component_ids.push(quote! {
+                    <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
+                });
                 match field {
                     Some(field) => {
                         field_get_components.push(quote! {
@@ -97,7 +105,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                         });
                     }
                     None => {
-                        let index = syn::Index::from(i);
+                        let index = Index::from(i);
                         field_get_components.push(quote! {
                             self.#index.get_components(&mut *func);
                         });
@@ -133,6 +141,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(#field_component_ids)*
             }
 
+            fn get_component_ids(
+                components: &#ecs_path::component::Components,
+                ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
+            ){
+                #(#field_get_component_ids)*
+            }
+
             #[allow(unused_variables, non_snake_case)]
             unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
             where
@@ -141,6 +156,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 Self{
                     #(#field_from_components)*
                 }
+            }
+
+            fn register_required_components(
+                components: &mut #ecs_path::component::Components,
+                storages: &mut #ecs_path::storage::Storages,
+                required_components: &mut #ecs_path::component::RequiredComponents
+            ){
+                #(#field_required_components)*
             }
         }
 
@@ -400,6 +423,56 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let state_struct_visibility = &ast.vis;
     let state_struct_name = ensure_no_collision(format_ident!("FetchState"), token_stream);
 
+    let mut builder_name = None;
+    for meta in ast
+        .attrs
+        .iter()
+        .filter(|a| a.path().is_ident("system_param"))
+    {
+        if let Err(e) = meta.parse_nested_meta(|nested| {
+            if nested.path.is_ident("builder") {
+                builder_name = Some(format_ident!("{struct_name}Builder"));
+                Ok(())
+            } else {
+                Err(nested.error("Unsupported attribute"))
+            }
+        }) {
+            return e.into_compile_error().into();
+        }
+    }
+
+    let builder = builder_name.map(|builder_name| {
+        let builder_type_parameters: Vec<_> = (0..fields.len()).map(|i| format_ident!("B{i}")).collect();
+        let builder_doc_comment = format!("A [`SystemParamBuilder`] for a [`{struct_name}`].");
+        let builder_struct = quote! {
+            #[doc = #builder_doc_comment]
+            struct #builder_name<#(#builder_type_parameters,)*> {
+                #(#fields: #builder_type_parameters,)*
+            }
+        };
+        let lifetimes: Vec<_> = generics.lifetimes().collect();
+        let generic_struct = quote!{ #struct_name <#(#lifetimes,)* #punctuated_generic_idents> };
+        let builder_impl = quote!{
+            // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
+            unsafe impl<
+                #(#lifetimes,)*
+                #(#builder_type_parameters: #path::system::SystemParamBuilder<#field_types>,)*
+                #punctuated_generics
+            > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
+                #where_clause
+            {
+                fn build(self, world: &mut #path::world::World, meta: &mut #path::system::SystemMeta) -> <#generic_struct as #path::system::SystemParam>::State {
+                    let #builder_name { #(#fields: #field_locals,)* } = self;
+                    #state_struct_name {
+                        state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world, meta)
+                    }
+                }
+            }
+        };
+        (builder_struct, builder_impl)
+    });
+    let (builder_struct, builder_impl) = builder.unzip();
+
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
@@ -435,6 +508,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
+                fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: #path::world::DeferredWorld) {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
+                }
+
                 unsafe fn get_param<'w, 's>(
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
@@ -452,7 +529,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
             unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
+
+            #builder_impl
         };
+
+        #builder_struct
     })
 }
 
@@ -512,7 +593,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-#[proc_macro_derive(Component, attributes(component))]
+#[proc_macro_derive(Component, attributes(component, require))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
@@ -520,4 +601,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(States)]
 pub fn derive_states(input: TokenStream) -> TokenStream {
     states::derive_states(input)
+}
+
+#[proc_macro_derive(SubStates, attributes(source))]
+pub fn derive_substates(input: TokenStream) -> TokenStream {
+    states::derive_substates(input)
 }

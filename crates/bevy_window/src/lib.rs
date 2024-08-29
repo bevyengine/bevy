@@ -11,19 +11,23 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
+use std::sync::{Arc, Mutex};
+
 use bevy_a11y::Focus;
 
-mod cursor;
 mod event;
+mod monitor;
 mod raw_handle;
 mod system;
+mod system_cursor;
 mod window;
 
 pub use crate::raw_handle::*;
 
-pub use cursor::*;
 pub use event::*;
+pub use monitor::*;
 pub use system::*;
+pub use system_cursor::*;
 pub use window::*;
 
 #[allow(missing_docs)]
@@ -31,7 +35,7 @@ pub mod prelude {
     #[allow(deprecated)]
     #[doc(hidden)]
     pub use crate::{
-        CursorEntered, CursorIcon, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
+        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, MonitorSelection,
         ReceivedCharacter, Window, WindowMoved, WindowPlugin, WindowPosition,
         WindowResizeConstraints,
     };
@@ -89,6 +93,7 @@ impl Plugin for WindowPlugin {
         #[allow(deprecated)]
         app.add_event::<WindowResized>()
             .add_event::<WindowCreated>()
+            .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
             .add_event::<WindowDestroyed>()
@@ -105,13 +110,16 @@ impl Plugin for WindowPlugin {
             .add_event::<FileDragAndDrop>()
             .add_event::<WindowMoved>()
             .add_event::<WindowThemeChanged>()
-            .add_event::<ApplicationLifetime>();
+            .add_event::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {
             let initial_focus = app
                 .world_mut()
                 .spawn(primary_window.clone())
-                .insert(PrimaryWindow)
+                .insert((
+                    PrimaryWindow,
+                    RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
+                ))
                 .id();
             if let Some(mut focus) = app.world_mut().get_resource_mut::<Focus>() {
                 **focus = Some(initial_focus);
@@ -139,6 +147,7 @@ impl Plugin for WindowPlugin {
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
+            .register_type::<WindowClosing>()
             .register_type::<WindowClosed>()
             .register_type::<CursorMoved>()
             .register_type::<CursorEntered>()
@@ -151,7 +160,7 @@ impl Plugin for WindowPlugin {
             .register_type::<FileDragAndDrop>()
             .register_type::<WindowMoved>()
             .register_type::<WindowThemeChanged>()
-            .register_type::<ApplicationLifetime>();
+            .register_type::<AppLifecycle>();
 
         // Register window descriptor and related types
         app.register_type::<Window>()

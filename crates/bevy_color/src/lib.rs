@@ -147,7 +147,6 @@ where
     Self: core::fmt::Debug,
     Self: Clone + Copy,
     Self: PartialEq,
-    Self: bevy_reflect::Reflect,
     Self: Default,
     Self: From<Color> + Into<Color>,
     Self: From<Srgba> + Into<Srgba>,

@@ -7,6 +7,7 @@ Cargo.lock
 /.idea
 /.vscode
 /benches/target
+/tools/compile_fail_utils/target
 dxcompiler.dll
 dxil.dll
 
@@ -21,3 +22,4 @@ crates/bevy_asset/imported_assets
 imported_assets
 
 example_showcase_config.ron
+example-showcase-reports/

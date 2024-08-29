@@ -44,7 +44,7 @@ fn main() {
             global: true,
             // Controls the default color of all wireframes. Used as the default color for global wireframes.
             // Can be changed per mesh using the `Wireframe2dColor` component.
-            default_color: WHITE,
+            default_color: WHITE.into(),
         })
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
@@ -91,7 +91,9 @@ fn setup(
         Wireframe2d,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
-        Wireframe2dColor { color: GREEN },
+        Wireframe2dColor {
+            color: GREEN.into(),
+        },
     ));
 
     // Camera
@@ -101,8 +103,8 @@ fn setup(
     commands.spawn(
         TextBundle::from_section("", TextStyle::default()).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
     );
@@ -116,8 +118,7 @@ fn update_colors(
     mut text: Query<&mut Text>,
 ) {
     text.single_mut().sections[0].value = format!(
-        "
-Controls
+        "Controls
 ---------------
 Z - Toggle global
 X - Change global color
@@ -126,9 +127,9 @@ C - Change color of the circle wireframe
 Wireframe2dConfig
 -------------
 Global: {}
-Color: {:?}
-",
-        config.global, config.default_color,
+Color: {:?}",
+        config.global,
+        config.default_color.to_srgba(),
     );
 
     // Toggle showing a wireframe on all meshes
@@ -138,17 +139,21 @@ Color: {:?}
 
     // Toggle the global wireframe color
     if keyboard_input.just_pressed(KeyCode::KeyX) {
-        config.default_color = if config.default_color == WHITE {
-            RED
+        config.default_color = if config.default_color == WHITE.into() {
+            RED.into()
         } else {
-            WHITE
+            WHITE.into()
         };
     }
 
     // Toggle the color of a wireframe using `Wireframe2dColor` and not the global color
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         for mut color in &mut wireframe_colors {
-            color.color = if color.color == GREEN { RED } else { GREEN };
+            color.color = if color.color == GREEN.into() {
+                RED.into()
+            } else {
+                GREEN.into()
+            };
         }
     }
 }

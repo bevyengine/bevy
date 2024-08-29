@@ -10,6 +10,10 @@ use std::marker::PhantomData;
 
 /// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
 /// Any parameters implementing this trait must come after the `&mut World` parameter.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` can not be used as a parameter for an exclusive system",
+    label = "invalid system parameter"
+)]
 pub trait ExclusiveSystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
@@ -83,9 +87,10 @@ impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
 }
 
 macro_rules! impl_exclusive_system_param_tuple {
-    ($($param: ident),*) => {
+    ($(#[$meta:meta])* $($param: ident),*) => {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
+        $(#[$meta])*
         impl<$($param: ExclusiveSystemParam),*> ExclusiveSystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'s> = ($($param::Item<'s>,)*);
@@ -109,7 +114,13 @@ macro_rules! impl_exclusive_system_param_tuple {
     };
 }
 
-all_tuples!(impl_exclusive_system_param_tuple, 0, 16, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_exclusive_system_param_tuple,
+    0,
+    16,
+    P
+);
 
 #[cfg(test)]
 mod tests {

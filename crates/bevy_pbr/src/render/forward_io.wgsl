@@ -8,7 +8,7 @@ struct Vertex {
 #ifdef VERTEX_NORMALS
     @location(1) normal: vec3<f32>,
 #endif
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     @location(2) uv: vec2<f32>,
 #endif
 #ifdef VERTEX_UVS_B
@@ -35,7 +35,7 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) world_position: vec4<f32>,
     @location(1) world_normal: vec3<f32>,
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     @location(2) uv: vec2<f32>,
 #endif
 #ifdef VERTEX_UVS_B
@@ -49,6 +49,9 @@ struct VertexOutput {
 #endif
 #ifdef VERTEX_OUTPUT_INSTANCE_INDEX
     @location(6) @interpolate(flat) instance_index: u32,
+#endif
+#ifdef VISIBILITY_RANGE_DITHER
+    @location(7) @interpolate(flat) visibility_range_dither: i32,
 #endif
 }
 

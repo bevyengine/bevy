@@ -82,7 +82,7 @@ impl ComputedTextureSlices {
 /// * `image_handle` - The texture to slice or tile
 /// * `images` - The image assets, use to retrieve the image dimensions
 /// * `atlas` - Optional texture atlas, if set the slicing will happen on the matching sub section
-/// of the texture
+///     of the texture
 /// * `atlas_layouts` - The atlas layout assets, used to retrieve the texture atlas section rect
 #[must_use]
 fn compute_sprite_slices(

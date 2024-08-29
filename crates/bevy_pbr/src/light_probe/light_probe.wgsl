@@ -13,7 +13,7 @@ struct LightProbeQueryResult {
     intensity: f32,
     // Transform from world space to the light probe model space. In light probe
     // model space, the light probe is a 1×1×1 cube centered on the origin.
-    inverse_transform: mat4x4<f32>,
+    light_from_world: mat4x4<f32>,
 };
 
 fn transpose_affine_matrix(matrix: mat3x4<f32>) -> mat4x4<f32> {
@@ -53,16 +53,16 @@ fn query_light_probe(
         }
 
         // Unpack the inverse transform.
-        let inverse_transform =
-            transpose_affine_matrix(light_probe.inverse_transpose_transform);
+        let light_from_world =
+            transpose_affine_matrix(light_probe.light_from_world_transposed);
 
         // Check to see if the transformed point is inside the unit cube
         // centered at the origin.
-        let probe_space_pos = (inverse_transform * vec4<f32>(world_position, 1.0f)).xyz;
+        let probe_space_pos = (light_from_world * vec4<f32>(world_position, 1.0f)).xyz;
         if (all(abs(probe_space_pos) <= vec3(0.5f))) {
             result.texture_index = light_probe.cubemap_index;
             result.intensity = light_probe.intensity;
-            result.inverse_transform = inverse_transform;
+            result.light_from_world = light_from_world;
 
             // TODO: Workaround for ICE in DXC https://github.com/microsoft/DirectXShaderCompiler/issues/6183
             // We can't use `break` here because of the ICE.

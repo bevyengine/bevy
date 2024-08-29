@@ -34,10 +34,11 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
 };
+use bevy_utils::tracing::warn;
 
 const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
 
-/// Plugin for temporal anti-aliasing. Disables multisample anti-aliasing (MSAA).
+/// Plugin for temporal anti-aliasing.
 ///
 /// See [`TemporalAntiAliasSettings`] for more details.
 pub struct TemporalAntiAliasPlugin;
@@ -46,8 +47,7 @@ impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.insert_resource(Msaa::Off)
-            .register_type::<TemporalAntiAliasSettings>();
+        app.register_type::<TemporalAntiAliasSettings>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -68,8 +68,8 @@ impl Plugin for TemporalAntiAliasPlugin {
                 Core3d,
                 (
                     Node3d::EndMainPass,
+                    Node3d::MotionBlur, // Running before TAA reduces edge artifacts and noise
                     Node3d::Taa,
-                    Node3d::MotionBlur, // Run MB after TAA, else TAA will add motion artifacts
                     Node3d::Bloom,
                     Node3d::Tonemapping,
                 ),
@@ -118,14 +118,14 @@ pub struct TemporalAntiAliasBundle {
 ///
 /// # Usage Notes
 ///
+/// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
+///
 /// Requires that you add [`TemporalAntiAliasPlugin`] to your app,
 /// and add the [`DepthPrepass`], [`MotionVectorPrepass`], and [`TemporalJitter`]
 /// components to your camera.
 ///
 /// [Currently](https://github.com/bevyengine/bevy/issues/8423) cannot be used with [`bevy_render::camera::OrthographicProjection`].
 ///
-/// Currently does not support skinned meshes and morph targets.
-/// There will probably be ghosting artifacts if used with them.
 /// Does not work well with alpha-blended meshes as it requires depth writing to determine motion.
 ///
 /// It is very important that correct motion vectors are written for everything on screen.
@@ -164,17 +164,23 @@ impl ViewNode for TemporalAntiAliasNode {
         &'static TemporalAntiAliasHistoryTextures,
         &'static ViewPrepassTextures,
         &'static TemporalAntiAliasPipelineId,
+        &'static Msaa,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id): QueryItem<
+        (camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id, msaa): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
+        if *msaa != Msaa::Off {
+            warn!("Temporal anti-aliasing requires MSAA to be disabled");
+            return Ok(());
+        }
+
         let (Some(pipelines), Some(pipeline_cache)) = (
             world.get_resource::<TaaPipeline>(),
             world.get_resource::<PipelineCache>(),
@@ -404,13 +410,13 @@ fn prepare_taa_history_textures(
     views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasSettings>>,
 ) {
     for (entity, camera, view) in &views {
-        if let Some(physical_viewport_size) = camera.physical_viewport_size {
+        if let Some(physical_target_size) = camera.physical_target_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
                 size: Extent3d {
                     depth_or_array_layers: 1,
-                    width: physical_viewport_size.x,
-                    height: physical_viewport_size.y,
+                    width: physical_target_size.x,
+                    height: physical_target_size.y,
                 },
                 mip_level_count: 1,
                 sample_count: 1,

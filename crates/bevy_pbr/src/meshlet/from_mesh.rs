@@ -3,14 +3,14 @@ use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
 };
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::HashMap;
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds,
-    ffi::{meshopt_Bounds, meshopt_optimizeMeshlet},
-    simplify, simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
+    build_meshlets, compute_cluster_bounds, compute_meshlet_bounds, ffi::meshopt_Bounds, simplify,
+    simplify_scale, Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::Graph;
+use smallvec::SmallVec;
 use std::{borrow::Cow, ops::Range};
 
 impl MeshletMesh {
@@ -49,23 +49,15 @@ impl MeshletMesh {
                 },
             })
             .collect::<Vec<_>>();
-        let worst_case_meshlet_triangles = meshlets
-            .meshlets
-            .iter()
-            .map(|m| m.triangle_count as u64)
-            .sum();
+        let mesh_scale = simplify_scale(&vertices);
 
         // Build further LODs
         let mut simplification_queue = 0..meshlets.len();
         let mut lod_level = 1;
         while simplification_queue.len() > 1 {
-            // For each meshlet build a set of triangle edges
-            let triangle_edges_per_meshlet =
-                collect_triangle_edges_per_meshlet(simplification_queue.clone(), &meshlets);
-
             // For each meshlet build a list of connected meshlets (meshlets that share a triangle edge)
             let connected_meshlets_per_meshlet =
-                find_connected_meshlets(simplification_queue.clone(), &triangle_edges_per_meshlet);
+                find_connected_meshlets(simplification_queue.clone(), &meshlets);
 
             // Group meshlets into roughly groups of 4, grouping meshlets with a high number of shared edges
             // http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/manual.pdf
@@ -76,17 +68,21 @@ impl MeshletMesh {
 
             let next_lod_start = meshlets.len();
 
-            for group_meshlets in groups.values().filter(|group| group.len() > 1) {
+            for group_meshlets in groups.into_iter().filter(|group| group.len() > 1) {
                 // Simplify the group to ~50% triangle count
-                let Some((simplified_group_indices, mut group_error)) =
-                    simplify_meshlet_groups(group_meshlets, &meshlets, &vertices, lod_level)
-                else {
+                let Some((simplified_group_indices, mut group_error)) = simplify_meshlet_groups(
+                    &group_meshlets,
+                    &meshlets,
+                    &vertices,
+                    lod_level,
+                    mesh_scale,
+                ) else {
                     continue;
                 };
 
                 // Add the maximum child error to the parent error to make parent error cumulative from LOD 0
                 // (we're currently building the parent from its children)
-                group_error += group_meshlets.iter().fold(group_error, |acc, meshlet_id| {
+                group_error += group_meshlets.iter().fold(0.0f32, |acc, meshlet_id| {
                     acc.max(bounding_spheres[*meshlet_id].self_lod.radius)
                 });
 
@@ -99,7 +95,7 @@ impl MeshletMesh {
 
                 // For each meshlet in the group set their parent LOD bounding sphere to that of the simplified group
                 for meshlet_id in group_meshlets {
-                    bounding_spheres[*meshlet_id].parent_lod = group_bounding_sphere;
+                    bounding_spheres[meshlet_id].parent_lod = group_bounding_sphere;
                 }
 
                 // Build new meshlets using the simplified group
@@ -139,12 +135,12 @@ impl MeshletMesh {
             .map(|m| Meshlet {
                 start_vertex_id: m.vertex_offset,
                 start_index_id: m.triangle_offset,
+                vertex_count: m.vertex_count,
                 triangle_count: m.triangle_count,
             })
             .collect();
 
         Ok(Self {
-            worst_case_meshlet_triangles,
             vertex_data: vertex_buffer.into(),
             vertex_ids: meshlets.vertices.into(),
             indices: meshlets.triangles.into(),
@@ -159,7 +155,7 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
         return Err(MeshToMeshletMeshConversionError::WrongMeshPrimitiveTopology);
     }
 
-    if mesh.attributes().map(|(id, _)| id).ne([
+    if mesh.attributes().map(|(attribute, _)| attribute.id).ne([
         Mesh::ATTRIBUTE_POSITION.id,
         Mesh::ATTRIBUTE_NORMAL.id,
         Mesh::ATTRIBUTE_UV_0.id,
@@ -176,105 +172,97 @@ fn validate_input_mesh(mesh: &Mesh) -> Result<Cow<'_, [u32]>, MeshToMeshletMeshC
 }
 
 fn compute_meshlets(indices: &[u32], vertices: &VertexDataAdapter) -> Meshlets {
-    let mut meshlets = build_meshlets(indices, vertices, 64, 64, 0.0);
-
-    for meshlet in &mut meshlets.meshlets {
-        #[allow(unsafe_code)]
-        #[allow(clippy::undocumented_unsafe_blocks)]
-        unsafe {
-            meshopt_optimizeMeshlet(
-                &mut meshlets.vertices[meshlet.vertex_offset as usize],
-                &mut meshlets.triangles[meshlet.triangle_offset as usize],
-                meshlet.triangle_count as usize,
-                meshlet.vertex_count as usize,
-            );
-        }
-    }
-
-    meshlets
-}
-
-fn collect_triangle_edges_per_meshlet(
-    simplification_queue: Range<usize>,
-    meshlets: &Meshlets,
-) -> HashMap<usize, HashSet<(u32, u32)>> {
-    let mut triangle_edges_per_meshlet = HashMap::new();
-    for meshlet_id in simplification_queue {
-        let meshlet = meshlets.get(meshlet_id);
-        let meshlet_triangle_edges = triangle_edges_per_meshlet
-            .entry(meshlet_id)
-            .or_insert(HashSet::new());
-        for i in meshlet.triangles.chunks(3) {
-            let v0 = meshlet.vertices[i[0] as usize];
-            let v1 = meshlet.vertices[i[1] as usize];
-            let v2 = meshlet.vertices[i[2] as usize];
-            meshlet_triangle_edges.insert((v0.min(v1), v0.max(v1)));
-            meshlet_triangle_edges.insert((v0.min(v2), v0.max(v2)));
-            meshlet_triangle_edges.insert((v1.min(v2), v1.max(v2)));
-        }
-    }
-    triangle_edges_per_meshlet
+    build_meshlets(indices, vertices, 64, 64, 0.0)
 }
 
 fn find_connected_meshlets(
     simplification_queue: Range<usize>,
-    triangle_edges_per_meshlet: &HashMap<usize, HashSet<(u32, u32)>>,
-) -> HashMap<usize, Vec<(usize, usize)>> {
-    let mut connected_meshlets_per_meshlet = HashMap::new();
-    for meshlet_id in simplification_queue.clone() {
-        connected_meshlets_per_meshlet.insert(meshlet_id, Vec::new());
-    }
+    meshlets: &Meshlets,
+) -> Vec<Vec<(usize, usize)>> {
+    // For each edge, gather all meshlets that use it
+    let mut edges_to_meshlets = HashMap::new();
 
-    for (meshlet_id1, meshlet_id2) in simplification_queue.tuple_combinations() {
-        let shared_edge_count = triangle_edges_per_meshlet[&meshlet_id1]
-            .intersection(&triangle_edges_per_meshlet[&meshlet_id2])
-            .count();
-        if shared_edge_count != 0 {
-            connected_meshlets_per_meshlet
-                .get_mut(&meshlet_id1)
-                .unwrap()
-                .push((meshlet_id2, shared_edge_count));
-            connected_meshlets_per_meshlet
-                .get_mut(&meshlet_id2)
-                .unwrap()
-                .push((meshlet_id1, shared_edge_count));
+    for meshlet_id in simplification_queue.clone() {
+        let meshlet = meshlets.get(meshlet_id);
+        for i in meshlet.triangles.chunks(3) {
+            for k in 0..3 {
+                let v0 = meshlet.vertices[i[k] as usize];
+                let v1 = meshlet.vertices[i[(k + 1) % 3] as usize];
+                let edge = (v0.min(v1), v0.max(v1));
+
+                let vec = edges_to_meshlets
+                    .entry(edge)
+                    .or_insert_with(SmallVec::<[usize; 2]>::new);
+                // Meshlets are added in order, so we can just check the last element to deduplicate,
+                // in the case of two triangles sharing the same edge within a single meshlet
+                if vec.last() != Some(&meshlet_id) {
+                    vec.push(meshlet_id);
+                }
+            }
         }
     }
-    connected_meshlets_per_meshlet
+
+    // For each meshlet pair, count how many edges they share
+    let mut shared_edge_count = HashMap::new();
+
+    for (_, meshlet_ids) in edges_to_meshlets {
+        for (meshlet_id1, meshlet_id2) in meshlet_ids.into_iter().tuple_combinations() {
+            let count = shared_edge_count
+                .entry((meshlet_id1.min(meshlet_id2), meshlet_id1.max(meshlet_id2)))
+                .or_insert(0);
+            *count += 1;
+        }
+    }
+
+    // For each meshlet, gather all meshlets that share at least one edge along with shared edge count
+    let mut connected_meshlets = vec![Vec::new(); simplification_queue.len()];
+
+    for ((meshlet_id1, meshlet_id2), shared_count) in shared_edge_count {
+        // We record id1->id2 and id2->id1 as adjacency is symmetrical
+        connected_meshlets[meshlet_id1 - simplification_queue.start]
+            .push((meshlet_id2, shared_count));
+        connected_meshlets[meshlet_id2 - simplification_queue.start]
+            .push((meshlet_id1, shared_count));
+    }
+
+    // The order of meshlets depends on hash traversal order; to produce deterministic results, sort them
+    for list in connected_meshlets.iter_mut() {
+        list.sort_unstable();
+    }
+
+    connected_meshlets
 }
 
 fn group_meshlets(
     simplification_queue: Range<usize>,
-    connected_meshlets_per_meshlet: &HashMap<usize, Vec<(usize, usize)>>,
-) -> HashMap<i32, Vec<usize>> {
+    connected_meshlets_per_meshlet: &[Vec<(usize, usize)>],
+) -> Vec<Vec<usize>> {
     let mut xadj = Vec::with_capacity(simplification_queue.len() + 1);
     let mut adjncy = Vec::new();
     let mut adjwgt = Vec::new();
     for meshlet_id in simplification_queue.clone() {
         xadj.push(adjncy.len() as i32);
         for (connected_meshlet_id, shared_edge_count) in
-            connected_meshlets_per_meshlet[&meshlet_id].iter().copied()
+            connected_meshlets_per_meshlet[meshlet_id - simplification_queue.start].iter()
         {
             adjncy.push((connected_meshlet_id - simplification_queue.start) as i32);
-            adjwgt.push(shared_edge_count as i32);
+            adjwgt.push(*shared_edge_count as i32);
         }
     }
     xadj.push(adjncy.len() as i32);
 
     let mut group_per_meshlet = vec![0; simplification_queue.len()];
-    let partition_count = (simplification_queue.len().div_ceil(4)) as i32;
-    Graph::new(1, partition_count, &xadj, &adjncy)
+    let partition_count = simplification_queue.len().div_ceil(4);
+    Graph::new(1, partition_count as i32, &xadj, &adjncy)
         .unwrap()
         .set_adjwgt(&adjwgt)
         .part_kway(&mut group_per_meshlet)
         .unwrap();
 
-    let mut groups = HashMap::new();
+    let mut groups = vec![Vec::new(); partition_count];
+
     for (i, meshlet_group) in group_per_meshlet.into_iter().enumerate() {
-        groups
-            .entry(meshlet_group)
-            .or_insert(Vec::new())
-            .push(i + simplification_queue.start);
+        groups[meshlet_group as usize].push(i + simplification_queue.start);
     }
     groups
 }
@@ -284,6 +272,7 @@ fn simplify_meshlet_groups(
     meshlets: &Meshlets,
     vertices: &VertexDataAdapter<'_>,
     lod_level: u32,
+    mesh_scale: f32,
 ) -> Option<(Vec<u32>, f32)> {
     // Build a new index buffer into the mesh vertex data by combining all meshlet data in the group
     let mut group_indices = Vec::new();
@@ -296,17 +285,18 @@ fn simplify_meshlet_groups(
 
     // Allow more deformation for high LOD levels (1% at LOD 1, 10% at LOD 20+)
     let t = (lod_level - 1) as f32 / 19.0;
-    let target_error = 0.1 * t + 0.01 * (1.0 - t);
+    let target_error_relative = 0.1 * t + 0.01 * (1.0 - t);
+    let target_error = target_error_relative * mesh_scale;
 
     // Simplify the group to ~50% triangle count
-    // TODO: Use simplify_with_locks()
+    // TODO: Simplify using vertex attributes
     let mut error = 0.0;
     let simplified_group_indices = simplify(
         &group_indices,
         vertices,
         group_indices.len() / 2,
         target_error,
-        SimplifyOptions::LockBorder,
+        SimplifyOptions::LockBorder | SimplifyOptions::Sparse | SimplifyOptions::ErrorAbsolute,
         Some(&mut error),
     );
 
@@ -315,8 +305,8 @@ fn simplify_meshlet_groups(
         return None;
     }
 
-    // Convert error to object-space and convert from diameter to radius
-    error *= simplify_scale(vertices) * 0.5;
+    // Convert error from diameter to radius
+    error *= 0.5;
 
     Some((simplified_group_indices, error))
 }

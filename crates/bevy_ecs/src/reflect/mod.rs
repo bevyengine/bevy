@@ -6,7 +6,9 @@ use std::ops::{Deref, DerefMut};
 use crate as bevy_ecs;
 use crate::{system::Resource, world::World};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{Reflect, ReflectFromReflect, TypeRegistry, TypeRegistryArc};
+use bevy_reflect::{
+    PartialReflect, Reflect, ReflectFromReflect, TypePath, TypeRegistry, TypeRegistryArc,
+};
 
 mod bundle;
 mod component;
@@ -19,7 +21,7 @@ pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
-pub use map_entities::ReflectMapEntities;
+pub use map_entities::{ReflectMapEntities, ReflectMapEntitiesResource};
 pub use resource::{ReflectResource, ReflectResourceFns};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
@@ -43,7 +45,33 @@ impl DerefMut for AppTypeRegistry {
     }
 }
 
-/// Creates a `T` from a `&dyn Reflect`.
+/// A [`Resource`] storing [`FunctionRegistry`] for
+/// function registrations relevant to a whole app.
+///
+/// [`FunctionRegistry`]: bevy_reflect::func::FunctionRegistry
+#[cfg(feature = "reflect_functions")]
+#[derive(Resource, Clone, Default)]
+pub struct AppFunctionRegistry(pub bevy_reflect::func::FunctionRegistryArc);
+
+#[cfg(feature = "reflect_functions")]
+impl Deref for AppFunctionRegistry {
+    type Target = bevy_reflect::func::FunctionRegistryArc;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[cfg(feature = "reflect_functions")]
+impl DerefMut for AppFunctionRegistry {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/// Creates a `T` from a `&dyn PartialReflect`.
 ///
 /// This will try the following strategies, in this order:
 ///
@@ -59,18 +87,17 @@ impl DerefMut for AppTypeRegistry {
 /// this method will panic.
 ///
 /// If none of the strategies succeed, this method will panic.
-fn from_reflect_with_fallback<T: Reflect>(
-    reflected: &dyn Reflect,
+pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
+    reflected: &dyn PartialReflect,
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {
-    fn different_type_error<T>(reflected: &str) -> ! {
+    fn different_type_error<T: TypePath>(reflected: &str) -> ! {
         panic!(
             "The registration for the reflected `{}` trait for the type `{}` produced \
             a value of a different type",
             reflected,
-            // FIXME: once we have unique reflect, use `TypePath`.
-            std::any::type_name::<T>(),
+            T::type_path(),
         );
     }
 

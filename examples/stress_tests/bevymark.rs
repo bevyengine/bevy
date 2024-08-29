@@ -13,7 +13,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{AlphaMode2d, MaterialMesh2dBundle, Mesh2dHandle},
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -71,6 +71,10 @@ struct Args {
     /// generate z values in increasing order rather than randomly
     #[argh(switch)]
     ordered_z: bool,
+
+    /// the alpha mode used to spawn the sprites
+    #[argh(option, default = "AlphaMode::Blend")]
+    alpha_mode: AlphaMode,
 }
 
 #[derive(Default, Clone)]
@@ -89,6 +93,29 @@ impl FromStr for Mode {
             "mesh2d" => Ok(Self::Mesh2d),
             _ => Err(format!(
                 "Unknown mode: '{s}', valid modes: 'sprite', 'mesh2d'"
+            )),
+        }
+    }
+}
+
+#[derive(Default, Clone)]
+enum AlphaMode {
+    Opaque,
+    #[default]
+    Blend,
+    AlphaMask,
+}
+
+impl FromStr for AlphaMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "opaque" => Ok(Self::Opaque),
+            "blend" => Ok(Self::Blend),
+            "alpha_mask" => Ok(Self::AlphaMask),
+            _ => Err(format!(
+                "Unknown alpha mode: '{s}', valid modes: 'opaque', 'blend', 'alpha_mask'"
             )),
         }
     }
@@ -573,10 +600,17 @@ fn init_materials(
     }
     .max(1);
 
+    let alpha_mode = match args.alpha_mode {
+        AlphaMode::Opaque => AlphaMode2d::Opaque,
+        AlphaMode::Blend => AlphaMode2d::Blend,
+        AlphaMode::AlphaMask => AlphaMode2d::Mask(0.5),
+    };
+
     let mut materials = Vec::with_capacity(capacity);
     materials.push(assets.add(ColorMaterial {
         color: Color::WHITE,
         texture: textures.first().cloned(),
+        alpha_mode,
     }));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -588,6 +622,7 @@ fn init_materials(
             assets.add(ColorMaterial {
                 color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
                 texture: textures.choose(&mut texture_rng).cloned(),
+                alpha_mode,
             })
         })
         .take(capacity - materials.len()),

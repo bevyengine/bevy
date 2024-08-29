@@ -16,7 +16,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{BevyDefault, FallbackImage, GpuImage},
+    texture::BevyDefault,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -91,7 +91,7 @@ where
 
 #[derive(Resource)]
 pub struct UiMaterialMeta<M: UiMaterial> {
-    vertices: BufferVec<UiMaterialVertex>,
+    vertices: RawBufferVec<UiMaterialVertex>,
     view_bind_group: Option<BindGroup>,
     marker: PhantomData<M>,
 }
@@ -99,7 +99,7 @@ pub struct UiMaterialMeta<M: UiMaterial> {
 impl<M: UiMaterial> Default for UiMaterialMeta<M> {
     fn default() -> Self {
         Self {
-            vertices: BufferVec::new(BufferUsages::VERTEX),
+            vertices: RawBufferVec::new(BufferUsages::VERTEX),
             view_bind_group: Default::default(),
             marker: PhantomData,
         }
@@ -292,10 +292,10 @@ impl<P: PhaseItem, M: UiMaterial, const I: usize> RenderCommand<P>
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(material_handle) = material_handle else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(material) = materials.into_inner().get(material_handle.material) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
@@ -317,7 +317,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(batch) = batch else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
 
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
@@ -377,7 +377,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
-        .map(|window| window.size())
+        .map(Window::size)
         .unwrap_or(Vec2::ZERO)
         // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
         // so we have to divide by `UiScale` to get the size of the UI viewport.
@@ -454,7 +454,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
     ui_material_pipeline: Res<UiMaterialPipeline<M>>,
-    mut phases: Query<&mut SortedRenderPhase<TransparentUi>>,
+    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut previous_len: Local<usize>,
 ) {
     if let (Some(view_binding), Some(globals_binding)) = (
@@ -471,7 +471,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
         ));
         let mut index = 0;
 
-        for mut ui_phase in &mut phases {
+        for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_shader_handle = AssetId::invalid();
 
@@ -604,18 +604,13 @@ pub struct PreparedUiMaterial<T: UiMaterial> {
 impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     type SourceAsset = M;
 
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderAssets<GpuImage>>,
-        SRes<FallbackImage>,
-        SRes<UiMaterialPipeline<M>>,
-    );
+    type Param = (SRes<RenderDevice>, SRes<UiMaterialPipeline<M>>, M::Param);
 
     fn prepare_asset(
         material: Self::SourceAsset,
-        (render_device, images, fallback_image, pipeline): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, ref mut material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        match material.as_bind_group(&pipeline.ui_layout, render_device, images, fallback_image) {
+        match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
             Ok(prepared) => Ok(PreparedUiMaterial {
                 bindings: prepared.bindings,
                 bind_group: prepared.bind_group,
@@ -624,6 +619,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
             Err(AsBindGroupError::RetryNextUpdate) => {
                 Err(PrepareAssetError::RetryNextUpdate(material))
             }
+            Err(other) => Err(PrepareAssetError::AsBindGroupError(other)),
         }
     }
 }
@@ -636,7 +632,8 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiMaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
-    mut views: Query<(&ExtractedView, &mut SortedRenderPhase<TransparentUi>)>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
+    mut views: Query<&ExtractedView>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -646,7 +643,11 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(extracted_uinode.material) else {
             continue;
         };
-        let Ok((view, mut transparent_phase)) = views.get_mut(extracted_uinode.camera_entity)
+        let Ok(view) = views.get_mut(extracted_uinode.camera_entity) else {
+            continue;
+        };
+        let Some(transparent_phase) =
+            transparent_render_phases.get_mut(&extracted_uinode.camera_entity)
         else {
             continue;
         };

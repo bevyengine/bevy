@@ -78,10 +78,7 @@ fn setup(
     commands.spawn(
         TextBundle::from_section(
             "Up/Down/Left/Right: Move Listener\nSpace: Toggle Emitter Movement",
-            TextStyle {
-                font_size: 20.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,

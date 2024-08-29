@@ -113,10 +113,8 @@ fn setup(
         ..default()
     });
 
-    let style = TextStyle {
-        font_size: 20.,
-        ..default()
-    };
+    let style = TextStyle::default();
+
     commands
         .spawn(NodeBundle {
             style: Style {

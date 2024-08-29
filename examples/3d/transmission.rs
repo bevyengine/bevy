@@ -30,7 +30,7 @@ use bevy::{
     prelude::*,
     render::{
         camera::{Exposure, TemporalJitter},
-        view::ColorGrading,
+        view::{ColorGrading, ColorGradingGlobal},
     },
 };
 
@@ -57,8 +57,7 @@ fn main() {
     // it _greatly enhances_ the look of the resulting blur effects.
     // Sadly, it's not available under WebGL.
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
-    app.insert_resource(Msaa::Off)
-        .add_plugins(TemporalAntiAliasPlugin);
+    app.add_plugins(TemporalAntiAliasPlugin);
 
     app.run();
 }
@@ -137,15 +136,14 @@ fn setup(
     ));
 
     // Candle Flame
-    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 80.;
-    let scaled_orange = LinearRgba::from(ORANGE_RED) * 16.;
+    let scaled_white = LinearRgba::from(ANTIQUE_WHITE) * 20.;
+    let scaled_orange = LinearRgba::from(ORANGE_RED) * 4.;
     let emissive = LinearRgba {
         red: scaled_white.red + scaled_orange.red,
         green: scaled_white.green + scaled_orange.green,
         blue: scaled_white.blue + scaled_orange.blue,
         alpha: 1.0,
-    }
-    .into();
+    };
 
     commands.spawn((
         PbrBundle {
@@ -345,11 +343,16 @@ fn setup(
             },
             transform: Transform::from_xyz(1.0, 1.8, 7.0).looking_at(Vec3::ZERO, Vec3::Y),
             color_grading: ColorGrading {
-                post_saturation: 1.2,
+                global: ColorGradingGlobal {
+                    post_saturation: 1.2,
+                    ..default()
+                },
                 ..default()
             },
             tonemapping: Tonemapping::TonyMcMapface,
             exposure: Exposure { ev100: 6.0 },
+            #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
+            msaa: Msaa::Off,
             ..default()
         },
         #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
@@ -358,21 +361,19 @@ fn setup(
             intensity: 25.0,
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            ..default()
         },
         BloomSettings::default(),
     ));
 
     // Controls Text
-    let text_style = TextStyle {
-        font_size: 18.0,
-        ..default()
-    };
+    let text_style = TextStyle::default();
 
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            left: Val::Px(10.0),
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         }),
         ExampleDisplay,
