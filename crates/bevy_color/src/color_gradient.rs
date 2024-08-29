@@ -153,4 +153,33 @@ mod tests {
         assert_eq!(gradient.at(2.5), lblue);
         assert_eq!(gradient.at(3.0), lblue);
     }
+
+    #[test]
+    fn test_color_curve() {
+        let gradient = ColorGradient::new([basic::RED, basic::LIME, basic::BLUE]).unwrap();
+        let curve = gradient.to_curve();
+
+        assert_eq!(curve.domain(), Interval::new(0.0, 2.0).unwrap());
+
+        // you can then apply useful methods ontop of the gradient
+        let brighter_curve = curve.map(|c| c.mix(&basic::WHITE, 0.5));
+
+        [
+            (-0.1, None),
+            (0.0, Some([1.0, 0.5, 0.5, 1.0])),
+            (0.5, Some([0.75, 0.75, 0.5, 1.0])),
+            (1.0, Some([0.5, 1.0, 0.5, 1.0])),
+            (1.5, Some([0.5, 0.75, 0.75, 1.0])),
+            (2.0, Some([0.5, 0.5, 1.0, 1.0])),
+            (2.1, None),
+        ]
+        .map(|(t, maybe_rgba)| {
+            let maybe_srgba = maybe_rgba.map(|[r, g, b, a]| Srgba::new(r, g, b, a));
+            (t, maybe_srgba)
+        })
+        .into_iter()
+        .for_each(|(t, maybe_color)| {
+            assert_eq!(brighter_curve.sample(t), maybe_color);
+        });
+    }
 }
