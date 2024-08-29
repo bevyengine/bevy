@@ -124,7 +124,7 @@ fn draw_example_collection(
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| t * 5.0)
-        .map(|t| (t, GREEN.mix(&RED, t / 5.0)));
+        .map(|t| (t, TEAL.mix(&HOT_PINK, t / 5.0)));
     gizmos.curve_gradient_3d(curve, times_and_colors);
 
     my_gizmos.sphere(
