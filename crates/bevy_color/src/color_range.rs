@@ -1,5 +1,7 @@
 use std::ops::Range;
 
+use bevy_math::curve::{Curve, Interval};
+
 use crate::Mix;
 
 /// Represents a range of colors that can be linearly interpolated, defined by a start and
@@ -25,6 +27,7 @@ impl<T: Mix> ColorRange<T> for Range<T> {
 /// By default the color values are linearly interpolated.
 ///
 /// This is useful for defining complex gradients or animated color transitions.
+#[derive(Debug, Clone)]
 pub struct ColorGradient<T: Mix> {
     colors: Vec<T>,
 }
@@ -50,6 +53,33 @@ impl<T: Mix> ColorGradient<T> {
         (!colors.is_empty())
             .then(|| Self { colors })
             .ok_or_else(|| ColorGradientError(len))
+    }
+
+    /// Converts the [`ColorGradient`] to a [`ColorCurve`] which implements the [`Curve`] trait
+    /// along with its adaptor methods
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_color::palettes::basic::*;
+    /// # use bevy_color::ColorGradient;
+    /// # use bevy_color::Srgba;
+    /// # use bevy_color::Mix;
+    /// # use bevy_math::curve::Curve;
+    /// let gradient = ColorGradient::new([RED, GREEN, BLUE]).unwrap();
+    /// let curve = gradient.to_curve();
+    ///
+    /// // you can then apply useful methods ontop of the gradient
+    /// let brighter_curve = curve.map(|c| c.mix(&WHITE, 0.25));
+    ///
+    /// assert_eq!(brighter_curve.sample_unchecked(0.0), Srgba::new(1.0, 0.25, 0.25, 1.0));
+    /// ```
+    pub fn to_curve(self) -> ColorCurve<T> {
+        let domain =
+            Interval::new(0.0, (self.colors.len() - 1) as f32).expect("at least 1 by construction");
+        ColorCurve {
+            domain,
+            gradient: self,
+        }
     }
 }
 
@@ -89,6 +119,24 @@ impl<T: Mix> ColorRange<T> for ColorGradient<T> {
     "Couldn't construct a ColorGradient since there were too few colors. Got {0}, expected >=1"
 )]
 pub struct ColorGradientError(usize);
+
+/// A curve whose samples are defined by a [`ColorGradient`]. Curves of this type are produced by
+/// calling [`ColorGradien::to_curve`].
+#[derive(Clone, Debug)]
+pub struct ColorCurve<T: Mix> {
+    domain: Interval,
+    gradient: ColorGradient<T>,
+}
+
+impl<T: Mix> Curve<T> for ColorCurve<T> {
+    fn domain(&self) -> Interval {
+        self.domain
+    }
+
+    fn sample_unchecked(&self, t: f32) -> T {
+        self.gradient.at(t)
+    }
+}
 
 #[cfg(test)]
 mod tests {
