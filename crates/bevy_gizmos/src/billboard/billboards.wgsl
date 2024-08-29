@@ -26,6 +26,9 @@ struct VertexOutput {
     @location(0) color: vec4<f32>,
 };
 
+const SQRT2: f32 = 1.4142135;
+const EPSILON: f32 = 4.88e-04;
+
 @vertex
 fn vertex(vertex: VertexInput) -> VertexOutput {
     var positions = array<vec2<f32>, 6>(
@@ -38,7 +41,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     );
     let position = positions[vertex.index];
 
-    let clip = view.view_proj * vec4(vertex.position, 1.);
+    let clip = view.clip_from_world * vec4(vertex.position, 1.);
 
     let resolution = view.viewport.zw;
     let screen_center = resolution * (0.5 * clip.xy / clip.w + 0.5);
@@ -56,7 +59,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let abs_size = length(billboard_size);
     if abs_size < SQRT2 {
         color.a *= abs_size / SQRT2;
-        billboard_size = vec2(1., 1.);
+        billboard_size = 1.;
     }
 
     let screen = screen_center + position * billboard_size;

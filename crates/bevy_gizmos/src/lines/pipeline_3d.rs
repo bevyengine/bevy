@@ -51,14 +51,14 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos3d
+                GizmoRenderSystem::QueueGizmos3d
                     .in_set(RenderSet::Queue)
                     .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
             )
             .add_systems(
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
-                    .in_set(GizmoRenderSystem::QueueLineGizmos3d)
+                    .in_set(GizmoRenderSystem::QueueGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
     }

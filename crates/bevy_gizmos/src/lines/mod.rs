@@ -23,23 +23,21 @@ use crate::{
     gizmos::GizmoStorage, UpdateGizmoMeshes,
 };
 
+#[cfg(all(feature = "bevy_sprite", feature = "bevy_render"))]
+mod pipeline_2d;
+#[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
+mod pipeline_3d;
+
 #[cfg(feature = "bevy_render")]
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
 #[cfg(feature = "bevy_render")]
 const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
 
 /// A [`Plugin`] that provides an immediate mode line drawing api for visual debugging.
-///
-/// Requires to be loaded after [`PbrPlugin`](bevy_pbr::PbrPlugin) or [`SpritePlugin`](bevy_sprite::SpritePlugin).
 #[derive(Default)]
-pub struct GizmoLinePlugin;
+pub struct LineGizmoPlugin;
 
-#[cfg(all(feature = "bevy_sprite", feature = "bevy_render"))]
-mod pipeline_2d;
-#[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
-mod pipeline_3d;
-
-impl Plugin for GizmoLinePlugin {
+impl Plugin for LineGizmoPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "bevy_render")]
         {
@@ -107,7 +105,7 @@ impl Plugin for GizmoLinePlugin {
     }
 }
 
-/// A extension trait adding `App::init_gizmo_group` and `App::insert_gizmo_config`.
+/// An internal extension trait adding `App::init_line_gizmo_group`.
 pub(crate) trait AppLineGizmoBuilder {
     /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
     ///
@@ -165,7 +163,6 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
         } else {
             let list = LineGizmo {
                 strip: false,
-                config_ty: TypeId::of::<Config>(),
                 positions: mem::take(&mut storage.list_positions),
                 colors: mem::take(&mut storage.list_colors),
                 joints: GizmoLineJoint::None,
@@ -189,7 +186,6 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
             let strip = LineGizmo {
                 strip: true,
                 joints: config.line_joints,
-                config_ty: TypeId::of::<Config>(),
                 positions: mem::take(&mut storage.strip_positions),
                 colors: mem::take(&mut storage.strip_colors),
             };
@@ -262,8 +258,6 @@ pub struct LineGizmo {
     pub strip: bool,
     /// Whether this gizmo should draw line joints. This is only applicable if the gizmo's topology is line-strip.
     pub joints: GizmoLineJoint,
-    /// The type of the gizmo's configuration group
-    pub config_ty: TypeId,
 }
 
 #[cfg(feature = "bevy_render")]

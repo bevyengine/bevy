@@ -24,10 +24,10 @@
 pub enum GizmoRenderSystem {
     /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
     #[cfg(feature = "bevy_sprite")]
-    QueueLineGizmos2d,
+    QueueGizmos2d,
     /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
     #[cfg(feature = "bevy_pbr")]
-    QueueLineGizmos3d,
+    QueueGizmos3d,
 }
 
 mod lines;
@@ -72,13 +72,14 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_time::Fixed;
+use billboard::{AppBillboardGizmoBuilder, BillboardGizmoPlugin};
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
 };
 use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
-use lines::{AppLineGizmoBuilder, GizmoLinePlugin};
+use lines::{AppLineGizmoBuilder, LineGizmoPlugin};
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
@@ -88,7 +89,8 @@ pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(GizmoLinePlugin)
+        app.add_plugins(LineGizmoPlugin)
+            .add_plugins(BillboardGizmoPlugin)
             .register_type::<GizmoConfig>()
             .register_type::<GizmoConfigStore>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
@@ -102,7 +104,7 @@ impl Plugin for GizmoPlugin {
     }
 }
 
-/// A extension trait adding `App::init_gizmo_group` and `App::insert_gizmo_config`.
+/// An extension trait adding `App::init_gizmo_group` and `App::insert_gizmo_config`.
 pub trait AppGizmoBuilder {
     /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
     ///
@@ -130,6 +132,7 @@ impl AppGizmoBuilder for App {
             .register::<Config>();
 
         self.init_line_gizmo_group::<Config>();
+        self.init_billboard_gizmo_group::<Config>();
 
         self
             .init_resource::<GizmoStorage<Config, ()>>()
