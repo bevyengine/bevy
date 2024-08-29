@@ -418,7 +418,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    mut views: Query<(
+    views: Query<(
         Entity,
         &ExtractedView,
         &VisibleEntities,
@@ -433,7 +433,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &mut views {
+    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };

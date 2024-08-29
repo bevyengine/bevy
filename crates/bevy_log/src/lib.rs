@@ -157,10 +157,13 @@ pub struct LogPlugin {
 /// A boxed [`Layer`] that can be used with [`LogPlugin`].
 pub type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
 
+/// The default [`LogPlugin`] [`EnvFilter`].
+pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+
 impl Default for LogPlugin {
     fn default() -> Self {
         Self {
-            filter: "wgpu=error,naga=warn".to_string(),
+            filter: DEFAULT_FILTER.to_string(),
             level: Level::INFO,
             custom_layer: |_| None,
         }

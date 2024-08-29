@@ -83,41 +83,48 @@ fn draw_example_collection(
     time: Res<Time>,
 ) {
     gizmos.grid(
-        Vec3::ZERO,
-        Quat::from_rotation_x(PI / 2.),
+        Isometry3d::from_rotation(Quat::from_rotation_x(PI / 2.)),
         UVec2::splat(20),
         Vec2::new(2., 2.),
         // Light gray
         LinearRgba::gray(0.65),
     );
     gizmos.grid(
-        Vec3::ONE * 10.0,
-        Quat::from_rotation_x(PI / 3. * 2.),
+        Isometry3d::new(Vec3::ONE * 10.0, Quat::from_rotation_x(PI / 3. * 2.)),
         UVec2::splat(20),
         Vec2::new(2., 2.),
         PURPLE,
     );
-    gizmos.sphere(Vec3::ONE * 10.0, Quat::default(), 1.0, PURPLE);
+    gizmos.sphere(Isometry3d::from_translation(Vec3::ONE * 10.0), 1.0, PURPLE);
 
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         BLACK,
     );
     gizmos.rect(
-        Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
-        Quat::from_rotation_y(PI / 2.),
+        Isometry3d::new(
+            Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
+            Quat::from_rotation_y(PI / 2.),
+        ),
         Vec2::splat(2.),
         LIME,
     );
 
-    gizmos.cross(Vec3::new(-1., 1., 1.), Quat::IDENTITY, 0.5, FUCHSIA);
+    gizmos.cross(
+        Isometry3d::from_translation(Vec3::new(-1., 1., 1.)),
+        0.5,
+        FUCHSIA,
+    );
 
-    my_gizmos.sphere(Vec3::new(1., 0.5, 0.), Quat::IDENTITY, 0.5, RED);
+    my_gizmos.sphere(
+        Isometry3d::from_translation(Vec3::new(1., 0.5, 0.)),
+        0.5,
+        RED,
+    );
 
     my_gizmos
         .rounded_cuboid(
-            Vec3::new(-2.0, 0.75, -0.75),
-            Quat::IDENTITY,
+            Isometry3d::from_translation(Vec3::new(-2.0, 0.75, -0.75)),
             Vec3::splat(0.9),
             TURQUOISE,
         )
@@ -136,20 +143,30 @@ fn draw_example_collection(
         .arc_3d(
             180.0_f32.to_radians(),
             0.2,
-            Vec3::ONE,
-            Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
+            Isometry3d::new(
+                Vec3::ONE,
+                Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
+            ),
             ORANGE,
         )
         .resolution(10);
 
     // Circles have 32 line-segments by default.
-    my_gizmos.circle(Vec3::ZERO, Dir3::Y, 3., BLACK);
+    my_gizmos.circle(
+        Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, Vec3::Y)),
+        3.,
+        BLACK,
+    );
     // You may want to increase this for larger circles or spheres.
     my_gizmos
-        .circle(Vec3::ZERO, Dir3::Y, 3.1, NAVY)
+        .circle(
+            Isometry3d::from_rotation(Quat::from_rotation_arc(Vec3::Z, Vec3::Y)),
+            3.1,
+            NAVY,
+        )
         .resolution(64);
     my_gizmos
-        .sphere(Vec3::ZERO, Quat::IDENTITY, 3.2, BLACK)
+        .sphere(Isometry3d::IDENTITY, 3.2, BLACK)
         .resolution(64);
 
     gizmos.arrow(Vec3::ZERO, Vec3::ONE * 1.5, YELLOW);
