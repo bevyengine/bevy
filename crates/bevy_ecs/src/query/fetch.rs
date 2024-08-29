@@ -1163,9 +1163,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 .debug_checked_unwrap()
                 .into(),
             #[cfg(not(feature = "track_change_detection"))]
-            {
-                ();
-            },
+            (),
         ));
     }
 
@@ -1375,9 +1373,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 .debug_checked_unwrap()
                 .into(),
             #[cfg(not(feature = "track_change_detection"))]
-            {
-                ();
-            },
+            (),
         ));
     }
 

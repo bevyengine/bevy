@@ -76,7 +76,7 @@ impl BlobArray {
     ///
     /// # Safety
     /// - The element with at index `index` is safe to access.
-    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
+    ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
         let size = self.item_layout.size();
@@ -95,7 +95,7 @@ impl BlobArray {
     ///
     /// # Safety
     /// - The element with at index `index` is safe to access.
-    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
+    ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
         let size = self.item_layout.size();
@@ -142,7 +142,7 @@ impl BlobArray {
     ///
     /// # Safety
     /// - For every element with index `i`, if `i` < `elements_to_clear`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
-    /// (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
+    ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `elements_to_clear` <= `len`)
     pub unsafe fn clear_elements(&mut self, elements_to_clear: usize) {
         if let Some(drop) = self.drop {
             // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
@@ -222,7 +222,7 @@ impl BlobArray {
     /// - `current_capacity` + `increment` doesn't overflow `usize`
     /// - The size of the resulting array does not overflow `usize` (specifically, see the safety requirements of [`array_layout_unchecked`])
     /// - `current_capacity` is indeed the current capacity of this array.
-    /// After calling this method, the caller must update their saved capacity to reflect the change.
+    /// - After calling this method, the caller must update their saved capacity to reflect the change.
     pub(super) unsafe fn realloc(
         &mut self,
         current_capacity: NonZeroUsize,
@@ -255,8 +255,7 @@ impl BlobArray {
     ///
     /// # Safety
     /// - `index` must be in bounds (`index` < `len`)
-    /// - the memory in the [`BlobArray`] starting at index `index`, of a size matching this [`BlobArray`]'s
-    /// `item_layout`, must have been previously allocated.
+    /// - the memory in the [`BlobArray`] starting at index `index`, of a size matching this [`BlobArray`]'s `item_layout`, must have been previously allocated.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         let ptr = self.get_unchecked_mut(index);
@@ -268,10 +267,9 @@ impl BlobArray {
     /// # Safety
     /// - index must be in-bounds (`index` < `len`)
     /// - the memory in the [`BlobArray`] starting at index `index`, of a size matching this
-    /// [`BlobArray`]'s `item_layout`, must have been previously initialized with an item matching
-    /// this [`BlobArray`]'s `item_layout`
-    /// - the memory at `*value` must also be previously initialized with an item matching this
-    /// [`BlobArray`]'s `item_layout`
+    ///     [`BlobArray`]'s `item_layout`, must have been previously initialized with an item matching
+    ///     this [`BlobArray`]'s `item_layout`
+    /// - the memory at `*value` must also be previously initialized with an item matching this [`BlobArray`]'s `item_layout`
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         // Pointer to the value in the vector that will get replaced.
         // SAFETY: The caller ensures that `index` fits in this vector.
@@ -336,9 +334,9 @@ impl BlobArray {
     /// - `index_to_keep` < `len`
     /// - `index_to_remove` < `len`
     /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
-    /// `len` - 1 is not valid to use (set `len` to `len` - 1).
+    ///     `len` - 1 is not valid to use (set `len` to `len` - 1).
     /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
-    /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    ///     because after calling this method, the element with index `index_to_keep` will not be valid to use.
     #[inline]
     #[must_use = "The returned pointer should be used to drop the removed element"]
     pub unsafe fn swap_remove_unchecked(
@@ -361,9 +359,9 @@ impl BlobArray {
     /// - `index_to_remove` < `len`
     /// - `index_to_remove` != `index_to_keep`
     /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
-    /// `len` - 1 is not valid to use (set `len` to `len` - 1).
+    ///     `len` - 1 is not valid to use (set `len` to `len` - 1).
     /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
-    /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    ///     because after calling this method, the element with index `index_to_keep` will not be valid to use.
     #[inline]
     pub unsafe fn swap_remove_unchecked_nonoverlapping(
         &mut self,
@@ -393,9 +391,9 @@ impl BlobArray {
     /// - `index_to_keep` < `len`
     /// - `index_to_remove` < `len`
     /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
-    /// `len` - 1 is not valid to use (set `len` to `len` - 1).
+    ///     `len` - 1 is not valid to use (set `len` to `len` - 1).
     /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
-    /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    ///     because after calling this method, the element with index `index_to_keep` will not be valid to use.
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
@@ -416,9 +414,9 @@ impl BlobArray {
     /// - `index_to_remove` < `len`
     /// - `index_to_remove` != `index_to_keep`
     /// - If `index_to_keep` == `len` - 1, and the caller has the length saved, update the length to reflect that the element with index
-    /// `len` - 1 is not valid to use (set `len` to `len` - 1).
+    ///     `len` - 1 is not valid to use (set `len` to `len` - 1).
     /// - If the length wasn't updated by the caller, they must use [`Self::initialize_unchecked`] to initialize an element in the index `index_to_keep`,
-    /// because after calling this method, the element with index `index_to_keep` will not be valid to use.
+    ///     because after calling this method, the element with index `index_to_keep` will not be valid to use.
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
         &mut self,

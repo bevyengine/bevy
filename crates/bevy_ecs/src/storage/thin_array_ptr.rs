@@ -85,7 +85,7 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - the current capacity is indeed greater than 0
-    /// The caller should update their saved `capacity` value to reflect the fact that it was changed
+    /// -   The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
         self.assert_capacity(current_capacity.get());
         self.set_capacity(new_capacity.get());
@@ -190,7 +190,7 @@ impl<T> ThinArrayPtr<T> {
     /// - `index` != `last_element_index`
     /// - `index < len`
     /// - `last_element_index` = `len - 1`
-    /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    /// -   The caller should update their saved length value to reflect that the last element has been removed (decrement it)
     #[inline]
     pub unsafe fn swap_remove_unchecked_nonoverlapping(
         &mut self,
@@ -209,7 +209,7 @@ impl<T> ThinArrayPtr<T> {
     /// # Safety
     /// - `index < len`
     /// - `last_element_index` = `len - 1`
-    /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    /// -   The caller should update their saved length value to reflect that the last element has been removed (decrement it)
     #[inline]
     pub unsafe fn swap_remove_unchecked(&mut self, index: usize, last_element_index: usize) -> T {
         if index != last_element_index {
@@ -223,7 +223,7 @@ impl<T> ThinArrayPtr<T> {
     /// # Safety
     /// - `index < len`
     /// - `last_element_index` = `len - 1`
-    /// The caller should update their saved length value to reflect that the last element has been removed (decrement it)
+    /// -   The caller should update their saved length value to reflect that the last element has been removed (decrement it)
     #[inline]
     pub unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
@@ -247,7 +247,7 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Safety
     /// - `current_len` is indeed the length of the array
-    /// The caller should update their saved length value
+    /// -   The caller should update their saved length value
     pub unsafe fn clear_elements(&mut self, mut current_len: usize) {
         if needs_drop::<T>() {
             while let Some(to_drop) = self.last_element(current_len) {

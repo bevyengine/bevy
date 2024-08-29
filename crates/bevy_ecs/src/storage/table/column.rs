@@ -40,7 +40,7 @@ impl ThinColumn {
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
     /// - `last_element_index` != `row.as_usize()`
-    /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// -   The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub(crate) unsafe fn swap_remove_and_drop_unchecked_nonoverlapping(
         &mut self,
         last_element_index: usize,
@@ -62,7 +62,7 @@ impl ThinColumn {
     /// # Safety
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
-    /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// -   The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub(crate) unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
@@ -84,7 +84,7 @@ impl ThinColumn {
     /// # Safety
     /// - `row.as_usize()` < `len`
     /// - `last_element_index` = `len - 1`
-    /// The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
+    /// -   The caller should update the `len` to `len - 1`, or immediately initialize another element in the `last_element_index`
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,
@@ -106,7 +106,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
-    /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
+    /// -   The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
     pub(crate) unsafe fn realloc(
         &mut self,
         current_capacity: NonZeroUsize,
@@ -251,7 +251,7 @@ impl ThinColumn {
     ///
     /// # Safety
     /// - `len` must match the actual length of the column
-    /// The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
+    /// -   The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
     pub(crate) unsafe fn clear(&mut self, len: usize) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
