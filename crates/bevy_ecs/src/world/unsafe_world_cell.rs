@@ -1040,7 +1040,7 @@ unsafe fn get_component_and_ticks(
                     .debug_checked_unwrap(),
                 #[cfg(not(feature = "track_change_detection"))]
                 {
-                    ()
+                    ();
                 },
             ))
         }

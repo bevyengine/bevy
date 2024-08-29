@@ -1164,7 +1164,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 .into(),
             #[cfg(not(feature = "track_change_detection"))]
             {
-                ()
+                ();
             },
         ));
     }
@@ -1376,7 +1376,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 .into(),
             #[cfg(not(feature = "track_change_detection"))]
             {
-                ()
+                ();
             },
         ));
     }

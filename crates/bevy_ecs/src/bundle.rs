@@ -451,7 +451,7 @@ impl BundleInfo {
                             ),
                         (ComponentStatus::Existing, InsertMode::Keep) => {
                             if let Some(drop_fn) = table.get_drop_for(component_id) {
-                                drop_fn(component_ptr)
+                                drop_fn(component_ptr);
                             }
                         }
                     }
