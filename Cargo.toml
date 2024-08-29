@@ -2416,7 +2416,7 @@ category = "Shaders"
 wasm = false
 
 [[example]]
-name = "storage"
+name = "storage_buffer"
 path = "examples/shader/storage_buffer.rs"
 doc-scrape-examples = true
 
