@@ -9,6 +9,7 @@
 
 #[cfg(feature = "meshlet")]
 mod meshlet;
+pub mod sky;
 pub mod wireframe;
 
 /// Experimental features that are not yet finished. Please report any issues you encounter!
