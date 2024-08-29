@@ -1,4 +1,4 @@
-use std::{iter, mem};
+use std::{iter, mem, mem::size_of};
 
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
@@ -83,7 +83,7 @@ const WGPU_MIN_ALIGN: usize = 256;
 /// Align a [`RawBufferVec`] to `N` bytes by padding the end with `T::default()` values.
 fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
     let n = WGPU_MIN_ALIGN;
-    let t_size = mem::size_of::<T>();
+    let t_size = size_of::<T>();
     if !can_align(n, t_size) {
         // This panic is stripped at compile time, due to n, t_size and can_align being const
         panic!(
@@ -131,7 +131,7 @@ pub fn extract_morphs(
         uniform.current_buffer.extend(legal_weights);
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 
-        let index = (start * mem::size_of::<f32>()) as u32;
+        let index = (start * size_of::<f32>()) as u32;
         morph_indices.current.insert(entity, MorphIndex { index });
     }
 }

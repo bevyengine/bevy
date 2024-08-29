@@ -37,7 +37,7 @@ impl Plugin for DiagnosticsPlugin {
         app.init_resource::<DiagnosticsStore>();
 
         #[cfg(feature = "sysinfo_plugin")]
-        app.init_resource::<system_information_diagnostics_plugin::SystemInfo>();
+        app.init_resource::<SystemInfo>();
     }
 }
 

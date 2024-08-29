@@ -840,7 +840,7 @@ pub enum Key {
     /// Scroll up or display previous page of content.
     PageUp,
     /// Used to remove the character to the left of the cursor. This key value is also used for
-    /// the key labeled `Delete` on MacOS keyboards.
+    /// the key labeled `Delete` on macOS keyboards.
     Backspace,
     /// Remove the currently selected input.
     Clear,
@@ -851,7 +851,7 @@ pub enum Key {
     /// Cut the current selection. (`APPCOMMAND_CUT`)
     Cut,
     /// Used to delete the character to the right of the cursor. This key value is also used for the
-    /// key labeled `Delete` on MacOS keyboards when `Fn` is active.
+    /// key labeled `Delete` on macOS keyboards when `Fn` is active.
     Delete,
     /// The Erase to End of Field key. This key deletes all characters from the current cursor
     /// position to the end of the current field.

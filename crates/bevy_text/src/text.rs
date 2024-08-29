@@ -128,6 +128,7 @@ impl Text {
 
 /// Contains the value of the text in a section and how it should be styled.
 #[derive(Debug, Default, Clone, Reflect)]
+#[reflect(Default)]
 pub struct TextSection {
     /// The content (in `String` form) of the text in the section.
     pub value: String,
@@ -153,7 +154,6 @@ impl TextSection {
     }
 }
 
-#[cfg(feature = "default_font")]
 impl From<&str> for TextSection {
     fn from(value: &str) -> Self {
         Self {
@@ -163,7 +163,6 @@ impl From<&str> for TextSection {
     }
 }
 
-#[cfg(feature = "default_font")]
 impl From<String> for TextSection {
     fn from(value: String) -> Self {
         Self {
@@ -217,7 +216,8 @@ pub struct TextStyle {
     /// If the `font` is not specified, then
     /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
     ///   `FiraMono-subset.ttf` compiled into the library is used.
-    /// * otherwise no text will be rendered.
+    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
+    ///   handle.
     pub font: Handle<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///

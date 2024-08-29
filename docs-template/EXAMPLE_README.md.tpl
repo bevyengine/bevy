@@ -51,7 +51,7 @@ git checkout v0.4.0
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
-  - [WASM](#wasm)
+  - [Wasm](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
     - [WebGL2 and WebGPU](#webgl2-and-webgpu)
@@ -225,7 +225,7 @@ Example | File | Description
 --- | --- | ---
 `ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
-## WASM
+## Wasm
 
 ### Setup
 

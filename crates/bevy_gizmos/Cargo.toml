@@ -11,6 +11,7 @@ keywords = ["bevy"]
 [features]
 webgl = []
 webgpu = []
+bevy_render = ["dep:bevy_render", "bevy_core_pipeline"]
 
 [dependencies]
 # Bevy
@@ -21,10 +22,10 @@ bevy_color = { path = "../bevy_color", version = "0.15.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.15.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.15.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.15.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.15.0-dev", optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.15.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.15.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.15.0-dev" }
 bevy_gizmos_macros = { path = "macros", version = "0.15.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.15.0-dev" }
@@ -35,5 +36,5 @@ bytemuck = "1.0"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
