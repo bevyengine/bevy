@@ -121,6 +121,55 @@ use std::{
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
 ///
+/// ## Builders
+///
+/// If you want to use a [`SystemParamBuilder`](crate::system::SystemParamBuilder) with a derived [`SystemParam`] implementation,
+/// add a `#[system_param(builder)]` attribute to the struct.
+/// This will generate a builder struct whose name is the param struct suffixed with `Builder`.
+/// The builder will not be `pub`, so you may want to expose a method that returns an `impl SystemParamBuilder<T>`.
+///
+/// ```
+/// mod custom_param {
+/// #     use bevy_ecs::{
+/// #         prelude::*,
+/// #         system::{LocalBuilder, QueryParamBuilder, SystemParam},
+/// #     };
+/// #
+///     #[derive(SystemParam)]
+///     #[system_param(builder)]
+///     pub struct CustomParam<'w, 's> {
+///         query: Query<'w, 's, ()>,
+///         local: Local<'s, usize>,
+///     }
+///
+///     impl<'w, 's> CustomParam<'w, 's> {
+///         pub fn builder(
+///             local: usize,
+///             query: impl FnOnce(&mut QueryBuilder<()>),
+///         ) -> impl SystemParamBuilder<Self> {
+///             CustomParamBuilder {
+///                 local: LocalBuilder(local),
+///                 query: QueryParamBuilder::new(query),
+///             }
+///         }
+///     }
+/// }
+///
+/// use custom_param::CustomParam;
+///
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct A;
+/// #
+/// # let mut world = World::new();
+/// #
+/// let system = (CustomParam::builder(100, |builder| {
+///     builder.with::<A>();
+/// }),)
+///     .build_state(&mut world)
+///     .build_system(|param: CustomParam| {});
+/// ```
+///
 /// # Safety
 ///
 /// The implementor must ensure the following is true.
