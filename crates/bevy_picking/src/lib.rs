@@ -257,12 +257,6 @@ impl Plugin for InteractionPlugin {
 
         app.init_resource::<focus::HoverMap>()
             .init_resource::<focus::PreviousHoverMap>()
-            .add_event::<Pointer<Down>>()
-            .add_event::<Pointer<Up>>()
-            .add_event::<Pointer<Move>>()
-            .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Out>>()
-            .add_event::<Pointer<DragEnd>>()
             .add_systems(
                 PreUpdate,
                 (update_focus, pointer_events, update_interactions)

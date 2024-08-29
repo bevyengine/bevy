@@ -1,4 +1,39 @@
-//! Processes data from input and backends, producing interaction events.
+//! This module defines a stateful set of interaction events driven by the `PointerInput` stream
+//! and the hover state of each Pointer.
+//!
+//! # Useage
+//!
+//! To receive events from this module, you must use an [`bevy::ecs::Observer`]. The simplest example,
+//! registering a callback when an entity is hovered over by a pointer, looks like this
+//!
+//! ```rust
+//! # use bevy_ecs::prelude;
+//! # let mut world = World::default();
+//! world.spawn_empty()
+//!     .observe(|trigger: Trigger<Pointer<Over>>| {
+//!         println!("I am being hovered over");
+//!     });
+//! ```
+//!
+//! Observers give us three important properties:
+//! 1. They allow for attaching event handlers to specific entities,
+//! 2. they allow events to bubble up the entity hierarchy,
+//! 3. and they allow events of different types to be called in a specific order.
+//!
+//! The order in which interaction events are received is extreamly important, and you can read more
+//! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in [`PreUpdate`]
+//! in [`PickSet::Focus`]. All pointer-event observers resolve during the sync point between
+//! [`pointer_events`] and [`update_interactions`].
+//!
+//! # Events Types
+//!
+//! The events this module defines fall into a few broad categories:
+//! + Hovering and movement: [`Over`], [`Move`], and [`Out`].
+//! + Clicking and pressing: [`Down`], [`Up`], and [`Click`].
+//! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`], [`Drop`], [`DragLeave`].
+//!
+//! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which contains
+//! general metadata about the pointer and it's location.
 
 use std::fmt::Debug;
 
@@ -16,7 +51,10 @@ use crate::{
     },
 };
 
-/// Stores the common data needed for all `PointerEvent`s.
+/// Stores the common data needed for all points events.
+///
+/// The documentation for the [`pointer_events`] explains the events this module exposes and
+/// the order in which they fire.
 #[derive(Clone, PartialEq, Debug, Reflect, Component)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
     /// The pointer that triggered this event
@@ -55,7 +93,7 @@ impl<E: Debug + Clone + Reflect> std::ops::Deref for Pointer<E> {
 }
 
 impl<E: Debug + Clone + Reflect> Pointer<E> {
-    /// Construct a new `PointerEvent`.
+    /// Construct a new `Pointer<E>` event.
     pub fn new(id: PointerId, location: Location, event: E) -> Self {
         Self {
             pointer_id: id,
@@ -200,20 +238,23 @@ pub struct DragEntry {
     pub latest_pos: Vec2,
 }
 
-/// Dispatches interaction events to entities.
+/// Dispatches interaction events to the target entities.
 ///
 /// Events will be dispatched in the following order:
-/// + The sequence `Over`, `DragEnter`
+/// + The sequence [`Over`], [`DragEnter`].
 /// + Any number of any of the following:
-///   + For each movement: The sequence `Move`, `DragStart`, `Drag`, `DragOver`
-///   + For each button press: Either `Down`, or the sequence `Up`, `Click`, `Drop`, `DragEnd`, `DragLeave`
-/// + Finally the sequence `DragLeave`, `Out`
+///   + For each movement: The sequence [`Move`], [`DragStart`], [`Drag`], [`DragOver`].
+///   + For each button press: Either [`Down`], or the sequence [`Up`], [`Click`], [`Drop`], [`DragEnd`], [`DragLeave`].
+/// + Finally the sequence [`DragLeave`], [`Out`].
 ///
 /// Additionally, the following are guaranteed to be received in the order by each listener:
-/// + When a pointer moves over the target: `Over`, `Move`, `Out`
-/// + When a pointer presses buttons on the target: `Down`, `Up`, `Click`
-/// + When a pointer drags the target: `DragStart`, `Drag`, `DragEnd`
-/// + When a pointer drags something over the target: `DragEnter`, `DragOver`, `Drop`, `DragLeave`
+/// + When a pointer moves over the target: [`Over`], [`Move`], [`Out`].
+/// + When a pointer presses buttons on the target: [`Down`], [`Up`], [`Click`].
+/// + When a pointer drags the target: [`DragStart`], [`Drag`], [`DragEnd`].
+/// + When a pointer drags something over the target: [`DragEnter`], [`DragOver`], [`Drop`], [`DragLeave`].
+///
+/// Two events -- [`Over`] and [`Out`] -- are driven only by the change in the raw [`PointerLocation`]. The rest rely on
+/// additional data from the [`PointerInput`] event stream.
 #[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
