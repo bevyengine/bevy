@@ -32,7 +32,7 @@ impl<T: Mix> ColorGradient<T> {
         let len = colors.len();
         (!colors.is_empty())
             .then(|| Self { colors })
-            .ok_or_else(|| ColorGradientError(len))
+            .ok_or(ColorGradientError(len))
     }
 
     /// Converts the [`ColorGradient`] to a [`ColorCurve`] which implements the [`Curve`] trait
@@ -66,10 +66,10 @@ impl<T: Mix> ColorGradient<T> {
 impl<T: Mix> ColorRange<T> for ColorGradient<T> {
     fn at(&self, factor: f32) -> T {
         match self.colors.len() {
-            len if len == 0 => {
+            0 => {
                 unreachable!("at least 1 by construction")
             }
-            len if len == 1 => {
+            1 => {
                 // This weirdness exists to prevent adding a `Clone` bound on the type `T` and instead
                 // work with what we already have here
                 self.colors[0].mix(&self.colors[0], 0.0)
@@ -161,7 +161,6 @@ mod tests {
 
         assert_eq!(curve.domain(), Interval::new(0.0, 2.0).unwrap());
 
-        // you can then apply useful methods ontop of the gradient
         let brighter_curve = curve.map(|c| c.mix(&basic::WHITE, 0.5));
 
         [
