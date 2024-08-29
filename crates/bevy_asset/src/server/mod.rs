@@ -17,10 +17,11 @@ use crate::{
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId,
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
+use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{error, info};
-use bevy_utils::{CowArc, HashSet};
+use bevy_utils::HashSet;
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
