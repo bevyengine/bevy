@@ -1,12 +1,8 @@
-use crate::{
-    config::GizmoMeshConfig,
-    GizmoRenderSystem,
-};
 use super::{
-    billboard_gizmo_vertex_buffer_layouts, DrawBillboardGizmo,
-    GpuBillboardGizmo,
-    BillboardGizmoUniformBindgroupLayout, SetBillboardGizmoBindGroup,
+    billboard_gizmo_vertex_buffer_layouts, BillboardGizmoUniformBindgroupLayout,
+    DrawBillboardGizmo, GpuBillboardGizmo, SetBillboardGizmoBindGroup,
 };
+use crate::{config::GizmoMeshConfig, GizmoRenderSystem};
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
@@ -175,7 +171,10 @@ fn queue_billboard_gizmos_2d(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawBillboardGizmo2d>().unwrap();
+    let draw_function = draw_functions
+        .read()
+        .get_id::<DrawBillboardGizmo2d>()
+        .unwrap();
 
     for (view_entity, view, msaa, render_layers) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
@@ -194,9 +193,7 @@ fn queue_billboard_gizmos_2d(
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &pipeline,
-                BillboardGizmoPipelineKey {
-                    mesh_key,
-                },
+                BillboardGizmoPipelineKey { mesh_key },
             );
 
             transparent_phase.add(Transparent2d {

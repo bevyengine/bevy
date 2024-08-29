@@ -58,7 +58,8 @@ where
         self.list_colors.extend(other.list_colors.iter());
         self.strip_positions.extend(other.strip_positions.iter());
         self.strip_colors.extend(other.strip_colors.iter());
-        self.billboard_positions.extend(other.billboard_positions.iter());
+        self.billboard_positions
+            .extend(other.billboard_positions.iter());
         self.billboard_colors.extend(other.billboard_colors.iter());
     }
 
@@ -70,7 +71,10 @@ where
         mem::swap(&mut self.list_colors, &mut other.list_colors);
         mem::swap(&mut self.strip_positions, &mut other.strip_positions);
         mem::swap(&mut self.strip_colors, &mut other.strip_colors);
-        mem::swap(&mut self.billboard_positions, &mut other.billboard_positions);
+        mem::swap(
+            &mut self.billboard_positions,
+            &mut other.billboard_positions,
+        );
         mem::swap(&mut self.billboard_colors, &mut other.billboard_colors);
     }
 
@@ -279,7 +283,9 @@ where
         storage.list_colors.append(&mut self.list_colors);
         storage.strip_positions.append(&mut self.strip_positions);
         storage.strip_colors.append(&mut self.strip_colors);
-        storage.billboard_positions.append(&mut self.billboard_positions);
+        storage
+            .billboard_positions
+            .append(&mut self.billboard_positions);
         storage.billboard_colors.append(&mut self.billboard_colors);
     }
 }
@@ -289,7 +295,7 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draw a billboard in 3D at `position`. 
+    /// Draw a billboard in 3D at `position`.
     ///
     /// This should be called for each frame the line needs to be rendered.
     ///

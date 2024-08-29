@@ -4,21 +4,35 @@ use bevy_app::{App, Last, Plugin};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
 use bevy_ecs::{
-    component::Component, query::ROQueryItem, schedule::IntoSystemConfigs, system::{lifetimeless::{Read, SRes}, Commands, Res, ResMut, Resource, SystemParamItem}
+    component::Component,
+    query::ROQueryItem,
+    schedule::IntoSystemConfigs,
+    system::{
+        lifetimeless::{Read, SRes},
+        Commands, Res, ResMut, Resource, SystemParamItem,
+    },
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use bevy_render::{
-    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin}, render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets}, render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass}, render_resource::{
-        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages, ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode
-    }, renderer::RenderDevice, Extract, ExtractSchedule, Render, RenderApp, RenderSet
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_resource::{
+        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
+        ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
+    },
+    renderer::RenderDevice,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::TypeIdMap;
 use bytemuck::cast_slice;
 
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},
-    gizmos::GizmoStorage, UpdateGizmoMeshes,
+    gizmos::GizmoStorage,
+    UpdateGizmoMeshes,
 };
 
 #[cfg(all(feature = "bevy_sprite", feature = "bevy_render"))]
@@ -38,7 +52,12 @@ impl Plugin for BillboardGizmoPlugin {
         #[cfg(feature = "bevy_render")]
         {
             use bevy_asset::load_internal_asset;
-            load_internal_asset!(app, BILLBOARD_SHADER_HANDLE, "billboards.wgsl", Shader::from_wgsl);
+            load_internal_asset!(
+                app,
+                BILLBOARD_SHADER_HANDLE,
+                "billboards.wgsl",
+                Shader::from_wgsl
+            );
         }
         app.init_asset::<BillboardGizmo>()
             .init_resource::<BillboardGizmoHandles>();
@@ -114,7 +133,10 @@ impl AppBillboardGizmoBuilder for App {
 
         handles.billboards.insert(TypeId::of::<Config>(), None);
 
-        self.add_systems(Last, update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes));
+        self.add_systems(
+            Last,
+            update_gizmo_meshes::<Config>.in_set(UpdateGizmoMeshes),
+        );
 
         self
     }
@@ -141,6 +163,11 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
     if storage.list_positions.is_empty() {
         handles.billboards.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.billboards.get_mut(&TypeId::of::<Config>()) {
+        println!(
+            "took {} billboards from {}",
+            storage.billboard_positions.len(),
+            std::any::type_name::<Config>()
+        );
         if let Some(handle) = handle {
             let billboards = billboard_gizmos.get_mut(handle.id()).unwrap();
 
@@ -339,6 +366,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawBillboardGizmo {
 
             billboard_gizmo.vertex_count
         };
+
+        println!("Drawing {} billboard(s)", instances);
 
         pass.draw(0..6, 0..instances);
 

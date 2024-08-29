@@ -1,11 +1,11 @@
+use super::{
+    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
+    DrawLineJointGizmo, GpuLineGizmo, LineGizmo, LineGizmoUniformBindgroupLayout,
+    SetLineGizmoBindGroup,
+};
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     GizmoRenderSystem,
-};
-use super::{
-    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GpuLineGizmo, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::Handle;

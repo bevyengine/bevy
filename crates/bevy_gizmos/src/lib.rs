@@ -30,8 +30,8 @@ pub enum GizmoRenderSystem {
     QueueGizmos3d,
 }
 
-mod lines;
 mod billboard;
+mod lines;
 
 #[cfg(feature = "bevy_render")]
 pub mod aabb;
@@ -42,10 +42,10 @@ pub mod config;
 pub mod cross;
 pub mod gizmos;
 pub mod grid;
-pub mod primitives;
-pub mod rounded_box;
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 pub mod light;
+pub mod primitives;
+pub mod rounded_box;
 
 /// The `bevy_gizmos` prelude.
 pub mod prelude {
@@ -73,9 +73,7 @@ use bevy_ecs::{
 };
 use bevy_time::Fixed;
 use billboard::{AppBillboardGizmoBuilder, BillboardGizmoPlugin};
-use config::{
-    DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
-};
+use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
@@ -134,8 +132,7 @@ impl AppGizmoBuilder for App {
         self.init_line_gizmo_group::<Config>();
         self.init_billboard_gizmo_group::<Config>();
 
-        self
-            .init_resource::<GizmoStorage<Config, ()>>()
+        self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()
             .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
             .add_systems(
@@ -152,9 +149,7 @@ impl AppGizmoBuilder for App {
             )
             .add_systems(
                 Last,
-                (
-                    propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),
-                ),
+                (propagate_gizmos::<Config, Fixed>.before(UpdateGizmoMeshes),),
             );
 
         self
@@ -166,7 +161,6 @@ impl AppGizmoBuilder for App {
         config: GizmoConfig,
     ) -> &mut Self {
         self.init_gizmo_group::<Config>();
-
 
         self.world_mut()
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)

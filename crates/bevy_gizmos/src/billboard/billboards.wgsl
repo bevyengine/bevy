@@ -80,7 +80,8 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
-    return VertexOutput(clip_position, color);
+    // return VertexOutput(clip_position, color);
+    return VertexOutput(vec4(position, 0.0, 0.), color);
 }
 
 struct FragmentOutput {

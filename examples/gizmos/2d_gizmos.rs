@@ -73,6 +73,8 @@ fn draw_example_collection(
         FUCHSIA,
     );
 
+    gizmos.billboard(Vec3::new(200., 160., 0.), RED);
+
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
         .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
