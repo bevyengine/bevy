@@ -11,6 +11,7 @@ categories = ["game-engines", "data-structures"]
 rust-version = "1.77.0"
 
 [features]
+# default = ["bevy_reflect", "track_change_detection"]
 default = ["bevy_reflect"]
 trace = []
 multi_threaded = ["bevy_tasks/multi_threaded", "arrayvec"]

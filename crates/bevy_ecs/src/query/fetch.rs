@@ -1157,11 +1157,13 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 .get_changed_ticks_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
-            // #[cfg(feature = "track_change_detection")]
-            // column.get_changed_by_slice().into(),
-            // #[cfg(not(feature = "track_change_detection"))]
+            #[cfg(feature = "track_change_detection")]
+            table
+                .get_changed_by_slice_for(component_id)
+                .debug_checked_unwrap()
+                .into(),
+            #[cfg(not(feature = "track_change_detection"))]
             {
-                todo!("implement track change detection in Table");
                 ()
             },
         ));
@@ -1367,11 +1369,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 .get_changed_ticks_slice_for(component_id)
                 .debug_checked_unwrap()
                 .into(),
-            // #[cfg(feature = "track_change_detection")]
-            // column.get_changed_by_slice().into(),
-            // #[cfg(not(feature = "track_change_detection"))]
+            #[cfg(feature = "track_change_detection")]
+            table
+                .get_changed_by_slice_for(component_id)
+                .debug_checked_unwrap()
+                .into(),
+            #[cfg(not(feature = "track_change_detection"))]
             {
-                todo!("implement track change detection in Table");
                 ()
             },
         ));

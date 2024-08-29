@@ -1035,9 +1035,13 @@ unsafe fn get_component_and_ticks(
                         .debug_checked_unwrap(),
                 },
                 #[cfg(feature = "track_change_detection")]
-                components.get_changed_by_unchecked(location.table_row),
+                table
+                    .get_changed_by(component_id, location.table_row)
+                    .debug_checked_unwrap(),
                 #[cfg(not(feature = "track_change_detection"))]
-                (),
+                {
+                    ()
+                },
             ))
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_with_ticks(entity),

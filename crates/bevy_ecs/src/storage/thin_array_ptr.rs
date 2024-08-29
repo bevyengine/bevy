@@ -40,8 +40,8 @@ impl<T> ThinArrayPtr<T> {
     }
 
     #[inline(always)]
+    #[cfg(debug_assertions)]
     fn assert_capacity(&self, _capacity: usize) {
-        #[cfg(debug_assertions)]
         {
             assert_eq!(self.capacity, _capacity);
         }
@@ -122,7 +122,7 @@ impl<T> ThinArrayPtr<T> {
         // SAFETY: `index` is in bounds
         let ptr = unsafe { self.get_unchecked_raw(index) };
         // SAFETY: `index` is in bounds, therefore the pointer to that location in the array is valid, and aligned.
-        unsafe { core::ptr::write(ptr, value) };
+        unsafe { ptr::write(ptr, value) };
     }
 
     /// Get a raw pointer to the element at `index`. This method doesn't do any bounds checking.
@@ -231,7 +231,7 @@ impl<T> ThinArrayPtr<T> {
         last_element_index: usize,
     ) {
         let val = &mut self.swap_remove_unchecked(index, last_element_index);
-        std::ptr::drop_in_place(std::ptr::from_mut(val));
+        ptr::drop_in_place(ptr::from_mut(val));
     }
 
     /// Get a raw pointer to the last element of the array, return `None` if the length is 0
