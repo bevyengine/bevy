@@ -1,4 +1,4 @@
-use std::{iter, marker::PhantomData};
+use std::{iter, marker::PhantomData, mem::size_of};
 
 use crate::{
     render_resource::Buffer,
@@ -53,7 +53,7 @@ impl<T: NoUninit> RawBufferVec<T> {
             values: Vec::new(),
             buffer: None,
             capacity: 0,
-            item_size: std::mem::size_of::<T>(),
+            item_size: size_of::<T>(),
             buffer_usage,
             label: None,
             changed: false,
@@ -105,7 +105,7 @@ impl<T: NoUninit> RawBufferVec<T> {
 
     /// Changes the debugging label of the buffer.
     ///
-    /// The next time the buffer is updated (via [`reserve`]), Bevy will inform
+    /// The next time the buffer is updated (via [`reserve`](Self::reserve)), Bevy will inform
     /// the driver of the new label.
     pub fn set_label(&mut self, label: Option<&str>) {
         let label = label.map(str::to_string);
@@ -201,7 +201,7 @@ impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
 /// For performance reasons, unlike [`RawBufferVec`], this type doesn't allow
 /// CPU access to the data after it's been added via [`BufferVec::push`]. If you
 /// need CPU access to the data, consider another type, such as
-/// [`StorageBuffer`].
+/// [`StorageBuffer`][super::StorageBuffer].
 pub struct BufferVec<T>
 where
     T: ShaderType + WriteInto,
@@ -284,7 +284,7 @@ where
 
     /// Changes the debugging label of the buffer.
     ///
-    /// The next time the buffer is updated (via [`reserve`]), Bevy will inform
+    /// The next time the buffer is updated (via [`Self::reserve`]), Bevy will inform
     /// the driver of the new label.
     pub fn set_label(&mut self, label: Option<&str>) {
         let label = label.map(str::to_string);
@@ -387,7 +387,7 @@ where
             len: 0,
             buffer: None,
             capacity: 0,
-            item_size: std::mem::size_of::<T>(),
+            item_size: size_of::<T>(),
             buffer_usage,
             label: None,
             label_changed: false,
@@ -444,7 +444,7 @@ where
         let size = self.item_size * capacity;
         self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
             label: self.label.as_deref(),
-            size: size as wgpu::BufferAddress,
+            size: size as BufferAddress,
             usage: BufferUsages::COPY_DST | self.buffer_usage,
             mapped_at_creation: false,
         }));

@@ -3,7 +3,7 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -102,7 +102,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
 
     let Some(fps) = diag
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|fps| fps.smoothed())
+        .and_then(Diagnostic::smoothed)
     else {
         return;
     };

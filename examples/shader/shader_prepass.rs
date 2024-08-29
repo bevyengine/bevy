@@ -34,8 +34,6 @@ fn main() {
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, toggle_prepass_view))
-        // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
-        .insert_resource(Msaa::Off)
         .run();
 }
 
@@ -52,6 +50,8 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            // Disabling MSAA for maximum compatibility. Shader prepass with MSAA needs GPU capability MULTISAMPLED_SHADING
+            msaa: Msaa::Off,
             ..default()
         },
         // To enable the prepass you need to add the components associated with the ones you need

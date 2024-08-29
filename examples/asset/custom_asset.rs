@@ -1,7 +1,7 @@
 //! Implements loader for a custom asset type.
 
 use bevy::{
-    asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext},
+    asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
     reflect::TypePath,
 };
@@ -35,7 +35,7 @@ impl AssetLoader for CustomAssetLoader {
     type Error = CustomAssetLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
@@ -74,7 +74,7 @@ impl AssetLoader for BlobAssetLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a (),
         _load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {

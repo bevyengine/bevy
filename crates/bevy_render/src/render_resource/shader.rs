@@ -3,7 +3,6 @@ use crate::define_atomic_id;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use bevy_utils::tracing::error;
-use futures_lite::AsyncReadExt;
 use std::{borrow::Cow, marker::Copy};
 use thiserror::Error;
 
@@ -261,7 +260,7 @@ impl AssetLoader for ShaderLoader {
     type Error = ShaderLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _settings: &'a Self::Settings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {

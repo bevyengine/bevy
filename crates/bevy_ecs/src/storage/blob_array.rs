@@ -20,7 +20,7 @@ pub(super) struct BlobArray {
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
     data: NonNull<u8>,
     // None if the underlying type doesn't need to be dropped
-    drop: Option<unsafe fn(OwningPtr<'_>)>,
+    pub drop: Option<unsafe fn(OwningPtr<'_>)>,
 }
 
 impl BlobArray {

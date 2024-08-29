@@ -40,7 +40,7 @@
 
 use std::f32::consts::{PI, TAU};
 
-use crate::{primitives::*, NormedVectorSpace, Vec2, Vec3};
+use crate::{ops, primitives::*, NormedVectorSpace, Vec2, Vec3};
 use rand::{
     distributions::{Distribution, WeightedIndex},
     Rng,
@@ -155,39 +155,41 @@ impl ShapeSample for Circle {
         let theta = rng.gen_range(0.0..TAU);
         let r_squared = rng.gen_range(0.0..=(self.radius * self.radius));
         let r = r_squared.sqrt();
-        Vec2::new(r * theta.cos(), r * theta.sin())
+        let (sin, cos) = ops::sin_cos(theta);
+        Vec2::new(r * cos, r * sin)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
         let theta = rng.gen_range(0.0..TAU);
-        Vec2::new(self.radius * theta.cos(), self.radius * theta.sin())
+        let (sin, cos) = ops::sin_cos(theta);
+        Vec2::new(self.radius * cos, self.radius * sin)
     }
+}
+
+/// Boundary sampling for unit-spheres
+#[inline]
+fn sample_unit_sphere_boundary<R: Rng + ?Sized>(rng: &mut R) -> Vec3 {
+    let z = rng.gen_range(-1f32..=1f32);
+    let (a_sin, a_cos) = ops::sin_cos(rng.gen_range(-PI..=PI));
+    let c = (1f32 - z * z).sqrt();
+    let x = a_sin * c;
+    let y = a_cos * c;
+
+    Vec3::new(x, y, z)
 }
 
 impl ShapeSample for Sphere {
     type Output = Vec3;
 
     fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // https://mathworld.wolfram.com/SpherePointPicking.html
-        let theta = rng.gen_range(0.0..TAU);
-        let phi = rng.gen_range(-1.0_f32..1.0).acos();
         let r_cubed = rng.gen_range(0.0..=(self.radius * self.radius * self.radius));
-        let r = r_cubed.cbrt();
-        Vec3 {
-            x: r * phi.sin() * theta.cos(),
-            y: r * phi.sin() * theta.sin(),
-            z: r * phi.cos(),
-        }
+        let r = ops::cbrt(r_cubed);
+
+        r * sample_unit_sphere_boundary(rng)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        let theta = rng.gen_range(0.0..TAU);
-        let phi = rng.gen_range(-1.0_f32..1.0).acos();
-        Vec3 {
-            x: self.radius * phi.sin() * theta.cos(),
-            y: self.radius * phi.sin() * theta.sin(),
-            z: self.radius * phi.cos(),
-        }
+        self.radius * sample_unit_sphere_boundary(rng)
     }
 }
 
@@ -202,8 +204,9 @@ impl ShapeSample for Annulus {
         let r_squared = rng.gen_range((inner_radius * inner_radius)..(outer_radius * outer_radius));
         let r = r_squared.sqrt();
         let theta = rng.gen_range(0.0..TAU);
+        let (sin, cos) = ops::sin_cos(theta);
 
-        Vec2::new(r * theta.cos(), r * theta.sin())
+        Vec2::new(r * cos, r * sin)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
@@ -390,7 +393,7 @@ impl ShapeSample for Tetrahedron {
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
         let triangles = self.faces();
-        let areas = triangles.iter().map(|t| t.area());
+        let areas = triangles.iter().map(Measured2d::area);
 
         if areas.clone().sum::<f32>() > 0.0 {
             // There is at least one triangle with nonzero area, so this unwrap succeeds.
@@ -624,7 +627,7 @@ mod tests {
         for _ in 0..5000 {
             let point = circle.sample_boundary(&mut rng);
 
-            let angle = f32::atan(point.y / point.x) + PI / 2.0;
+            let angle = ops::atan(point.y / point.x) + PI / 2.0;
             let wedge = (angle * 8.0 / PI).floor() as usize;
             wedge_hits[wedge] += 1;
         }

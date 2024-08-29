@@ -154,7 +154,7 @@ fn apply_wireframe_material(
     global_material: Res<GlobalWireframeMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(mut commands) = commands.get_entity(e) {
+        if let Some(commands) = commands.get_entity(e) {
             commands.remove::<Handle<WireframeMaterial>>();
         }
     }

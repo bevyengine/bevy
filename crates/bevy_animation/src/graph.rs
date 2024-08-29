@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::ops::{Index, IndexMut};
 
 use bevy_asset::io::Reader;
-use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, AsyncReadExt as _, Handle, LoadContext};
+use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::{Reflect, ReflectSerialize};
 use petgraph::graph::{DiGraph, NodeIndex};
 use ron::de::SpannedError;
@@ -192,6 +192,23 @@ impl AnimationGraph {
         (graph, node_index)
     }
 
+    /// A convenience method to create an [`AnimationGraph`]s with an iterator
+    /// of clips.
+    ///
+    /// All of the animation clips will be direct children of the root with
+    /// weight 1.0.
+    ///
+    /// Returns the the graph and indices of the new nodes.
+    pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<AnimationNodeIndex>)
+    where
+        I: IntoIterator<Item = Handle<AnimationClip>>,
+        <I as IntoIterator>::IntoIter: 'a,
+    {
+        let mut graph = Self::new();
+        let indices = graph.add_clips(clips, 1.0, graph.root).collect();
+        (graph, indices)
+    }
+
     /// Adds an [`AnimationClip`] to the animation graph with the given weight
     /// and returns its index.
     ///
@@ -225,7 +242,7 @@ impl AnimationGraph {
     ) -> impl Iterator<Item = AnimationNodeIndex> + 'a
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,
-        <I as std::iter::IntoIterator>::IntoIter: 'a,
+        <I as IntoIterator>::IntoIter: 'a,
     {
         clips
             .into_iter()
@@ -337,7 +354,7 @@ impl AssetLoader for AnimationGraphAssetLoader {
 
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         _: &'a Self::Settings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {

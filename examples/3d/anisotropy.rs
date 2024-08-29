@@ -78,14 +78,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
         ..default()
     });
 
-    spawn_text(&mut commands, &asset_server, &app_status);
+    spawn_text(&mut commands, &app_status);
 }
 
 /// Spawns the help text.
-fn spawn_text(commands: &mut Commands, asset_server: &AssetServer, app_status: &AppStatus) {
+fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
     commands.spawn(
         TextBundle {
-            text: app_status.create_help_text(asset_server),
+            text: app_status.create_help_text(),
             ..default()
         }
         .with_style(Style {
@@ -223,13 +223,9 @@ fn handle_input(
 }
 
 /// A system that updates the help text based on the current app status.
-fn update_help_text(
-    mut text_query: Query<&mut Text>,
-    app_status: Res<AppStatus>,
-    asset_server: Res<AssetServer>,
-) {
+fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
     for mut text in text_query.iter_mut() {
-        *text = app_status.create_help_text(&asset_server);
+        *text = app_status.create_help_text();
     }
 }
 
@@ -244,11 +240,13 @@ fn add_skybox_and_environment_map(
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
+            ..default()
         })
         .insert(EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2500.0,
+            ..default()
         });
 }
 
@@ -278,7 +276,7 @@ fn spawn_point_light(commands: &mut Commands) {
 
 impl AppStatus {
     /// Creates the help text as appropriate for the current app status.
-    fn create_help_text(&self, asset_server: &AssetServer) -> Text {
+    fn create_help_text(&self) -> Text {
         // Choose the appropriate help text for the anisotropy toggle.
         let material_variant_help_text = if self.anisotropy_enabled {
             "Press Enter to disable anisotropy"
@@ -296,11 +294,7 @@ impl AppStatus {
         // Build the `Text` object.
         Text::from_section(
             format!("{}\n{}", material_variant_help_text, light_help_text),
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 24.0,
-                ..default()
-            },
+            TextStyle::default(),
         )
     }
 }

@@ -1,6 +1,6 @@
-use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
+use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::{
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
@@ -43,7 +43,8 @@ impl Scene {
     /// provided [`AppTypeRegistry`] or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
     pub fn clone_with(&self, type_registry: &AppTypeRegistry) -> Result<Scene, SceneSpawnError> {
         let mut new_world = World::new();
-        self.write_to_world_with(&mut new_world, type_registry)?;
+        let mut entity_map = EntityHashMap::default();
+        self.write_to_world_with(&mut new_world, &mut entity_map, type_registry)?;
         Ok(Self { world: new_world })
     }
 
@@ -54,12 +55,9 @@ impl Scene {
     pub fn write_to_world_with(
         &self,
         world: &mut World,
+        entity_map: &mut EntityHashMap<Entity>,
         type_registry: &AppTypeRegistry,
-    ) -> Result<InstanceInfo, SceneSpawnError> {
-        let mut instance_info = InstanceInfo {
-            entity_map: EntityHashMap::default(),
-        };
-
+    ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
         // Resources archetype
@@ -94,8 +92,7 @@ impl Scene {
 
         for archetype in self.world.archetypes().iter() {
             for scene_entity in archetype.entities() {
-                let entity = *instance_info
-                    .entity_map
+                let entity = entity_map
                     .entry(scene_entity.id())
                     .or_insert_with(|| world.spawn_empty().id());
                 for component_id in archetype.components() {
@@ -121,7 +118,7 @@ impl Scene {
                         &self.world,
                         world,
                         scene_entity.id(),
-                        entity,
+                        *entity,
                         &type_registry,
                     );
                 }
@@ -130,10 +127,10 @@ impl Scene {
 
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect.map_all_entities(world, &mut instance_info.entity_map);
+                map_entities_reflect.map_all_entities(world, entity_map);
             }
         }
 
-        Ok(instance_info)
+        Ok(())
     }
 }

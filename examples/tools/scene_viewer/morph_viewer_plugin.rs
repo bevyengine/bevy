@@ -132,12 +132,12 @@ impl Target {
         entity: Entity,
     ) -> Vec<Target> {
         let get_name = |i| target_names.and_then(|names| names.get(i));
-        let entity_name = entity_name.map(|n| n.as_str());
+        let entity_name = entity_name.map(Name::as_str);
         weights
             .iter()
             .enumerate()
             .map(|(index, weight)| Target {
-                entity_name: entity_name.map(|n| n.to_owned()),
+                entity_name: entity_name.map(ToOwned::to_owned),
                 entity,
                 name: get_name(index).cloned(),
                 index,

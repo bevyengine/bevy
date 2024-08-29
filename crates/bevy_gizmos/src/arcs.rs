@@ -6,8 +6,8 @@
 use crate::circles::DEFAULT_CIRCLE_RESOLUTION;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Quat, Vec2, Vec3};
-use std::f32::consts::TAU;
+use bevy_math::{Isometry2d, Quat, Vec2, Vec3};
+use std::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===
 
@@ -21,9 +21,9 @@ where
     /// This should be called for each frame the arc needs to be rendered.
     ///
     /// # Arguments
-    /// - `position` sets the center of this circle.
-    /// - `direction_angle` sets the counter-clockwise  angle in radians between `Vec2::Y` and
-    ///     the vector from `position` to the midpoint of the arc.
+    /// - `isometry` defines the translation and rotation of the arc.
+    ///   - the translation specifies the center of the arc
+    ///   - the rotation is counter-clockwise starting from `Vec2::Y`
     /// - `arc_angle` sets the length of this arc, in radians.
     /// - `radius` controls the distance from `position` to this arc, and thus its curvature.
     /// - `color` sets the color to draw the arc.
@@ -31,17 +31,16 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
-    /// # use std::f32::consts::PI;
+    /// # use std::f32::consts::FRAC_PI_4;
     /// # use bevy_color::palettes::basic::{GREEN, RED};
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.arc_2d(Vec2::ZERO, 0., PI / 4., 1., GREEN);
+    ///     gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_4, 1., GREEN);
     ///
     ///     // Arcs have 32 line-segments by default.
     ///     // You may want to increase this for larger arcs.
     ///     gizmos
-    ///         .arc_2d(Vec2::ZERO, 0., PI / 4., 5., RED)
+    ///         .arc_2d(Isometry2d::IDENTITY, FRAC_PI_4, 5., RED)
     ///         .resolution(64);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
@@ -49,16 +48,14 @@ where
     #[inline]
     pub fn arc_2d(
         &mut self,
-        position: Vec2,
-        direction_angle: f32,
+        isometry: Isometry2d,
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
-            position,
-            direction_angle,
+            isometry,
             arc_angle,
             radius,
             color: color.into(),
@@ -74,12 +71,11 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
-    position: Vec2,
-    direction_angle: f32,
+    isometry: Isometry2d,
     arc_angle: f32,
     radius: f32,
     color: Color,
-    resolution: Option<usize>,
+    resolution: Option<u32>,
 }
 
 impl<Config, Clear> Arc2dBuilder<'_, '_, '_, Config, Clear>
@@ -88,7 +84,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines used to approximate the geometry of this arc.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution.replace(resolution);
         self
     }
@@ -108,31 +104,19 @@ where
             .resolution
             .unwrap_or_else(|| resolution_from_angle(self.arc_angle));
 
-        let positions = arc_2d_inner(
-            self.direction_angle,
-            self.arc_angle,
-            self.radius,
-            resolution,
-        )
-        .map(|vec2| (vec2 + self.position));
+        let positions =
+            arc_2d_inner(self.arc_angle, self.radius, resolution).map(|vec2| self.isometry * vec2);
         self.gizmos.linestrip_2d(positions, self.color);
     }
 }
 
-fn arc_2d_inner(
-    direction_angle: f32,
-    arc_angle: f32,
-    radius: f32,
-    resolution: usize,
-) -> impl Iterator<Item = Vec2> {
-    (0..resolution + 1).map(move |i| {
-        let start = direction_angle - arc_angle / 2.;
-
-        let angle =
-            start + (i as f32 * (arc_angle / resolution as f32)) + std::f32::consts::FRAC_PI_2;
-
-        Vec2::new(angle.cos(), angle.sin()) * radius
-    })
+fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<Item = Vec2> {
+    (0..=resolution)
+        .map(move |n| arc_angle * n as f32 / resolution as f32)
+        .map(|angle| angle + FRAC_PI_2)
+        .map(f32::sin_cos)
+        .map(|(sin, cos)| Vec2::new(cos, sin))
+        .map(move |vec2| vec2 * radius)
 }
 
 // === 3D ===
@@ -168,7 +152,6 @@ where
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use std::f32::consts::PI;
     /// # use bevy_color::palettes::css::ORANGE;
@@ -225,7 +208,6 @@ where
     /// # Examples
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
@@ -272,7 +254,6 @@ where
     /// # Examples
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::css::ORANGE;
     /// fn system(mut gizmos: Gizmos) {
@@ -368,7 +349,7 @@ where
     angle: f32,
     radius: f32,
     color: Color,
-    resolution: Option<usize>,
+    resolution: Option<u32>,
 }
 
 impl<Config, Clear> Arc3dBuilder<'_, '_, '_, Config, Clear>
@@ -377,7 +358,7 @@ where
     Clear: 'static + Send + Sync,
 {
     /// Set the number of lines for this arc.
-    pub fn resolution(mut self, resolution: usize) -> Self {
+    pub fn resolution(mut self, resolution: u32) -> Self {
         self.resolution.replace(resolution);
         self
     }
@@ -415,7 +396,7 @@ fn arc_3d_inner(
     rotation: Quat,
     angle: f32,
     radius: f32,
-    resolution: usize,
+    resolution: u32,
 ) -> impl Iterator<Item = Vec3> {
     // drawing arcs bigger than TAU degrees or smaller than -TAU degrees makes no sense since
     // we won't see the overlap and we would just decrease the level of details since the resolution
@@ -429,6 +410,6 @@ fn arc_3d_inner(
 }
 
 // helper function for getting a default value for the resolution parameter
-fn resolution_from_angle(angle: f32) -> usize {
-    ((angle.abs() / TAU) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as usize
+fn resolution_from_angle(angle: f32) -> u32 {
+    ((angle.abs() / TAU) * DEFAULT_CIRCLE_RESOLUTION as f32).ceil() as u32
 }

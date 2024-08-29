@@ -456,7 +456,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style.clone(),
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Play,
@@ -477,7 +477,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style.clone(),
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Settings,
@@ -498,7 +498,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::Quit,
@@ -567,7 +567,7 @@ mod menu {
                                 .spawn((
                                     ButtonBundle {
                                         style: button_style.clone(),
-                                        image: UiImage::default().with_color(NORMAL_BUTTON),
+                                        background_color: NORMAL_BUTTON.into(),
                                         ..default()
                                     },
                                     action,
@@ -654,7 +654,7 @@ mod menu {
                                                 height: Val::Px(65.0),
                                                 ..button_style.clone()
                                             },
-                                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                                            background_color: NORMAL_BUTTON.into(),
                                             ..default()
                                         },
                                         quality_setting,
@@ -675,7 +675,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::BackToSettings,
@@ -743,14 +743,14 @@ mod menu {
                                     button_text_style.clone(),
                                 ));
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
-                                    let mut entity = parent.spawn((
+                                    let entity = parent.spawn((
                                         ButtonBundle {
                                             style: Style {
                                                 width: Val::Px(30.0),
                                                 height: Val::Px(65.0),
                                                 ..button_style.clone()
                                             },
-                                            image: UiImage::default().with_color(NORMAL_BUTTON),
+                                            background_color: NORMAL_BUTTON.into(),
                                             ..default()
                                         },
                                         Volume(volume_setting),
@@ -764,7 +764,7 @@ mod menu {
                             .spawn((
                                 ButtonBundle {
                                     style: button_style,
-                                    image: UiImage::default().with_color(NORMAL_BUTTON),
+                                    background_color: NORMAL_BUTTON.into(),
                                     ..default()
                                 },
                                 MenuButtonAction::BackToSettings,

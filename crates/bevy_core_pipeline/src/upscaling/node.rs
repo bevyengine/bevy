@@ -48,7 +48,7 @@ impl ViewNode for UpscalingNode {
             ClearColorConfig::Custom(color) => Some(color),
             ClearColorConfig::None => None,
         };
-        let converted_clear_color = clear_color.map(|color| color.into());
+        let converted_clear_color = clear_color.map(Into::into);
         let upscaled_texture = target.main_texture_view();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
@@ -83,6 +83,14 @@ impl ViewNode for UpscalingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+
+        if let Some(camera) = camera {
+            if let Some(viewport) = &camera.viewport {
+                let size = viewport.physical_size;
+                let position = viewport.physical_position;
+                render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
+            }
+        }
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);

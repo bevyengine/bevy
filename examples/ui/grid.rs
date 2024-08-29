@@ -140,7 +140,6 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         "Sidebar",
                         TextStyle {
                             font: font.clone(),
-                            font_size: 24.0,
                             ..default()
                         },
                     ));
@@ -215,8 +214,8 @@ fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text
         text,
         TextStyle {
             font,
-            font_size: 24.0,
             color: Color::BLACK,
+            ..default()
         },
     ));
 }

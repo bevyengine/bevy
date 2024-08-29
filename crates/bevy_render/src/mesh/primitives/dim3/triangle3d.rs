@@ -44,7 +44,7 @@ impl Meshable for Triangle3d {
 /// The normal of a [`Triangle3d`] with zeroing so that a [`Vec3`] is always obtained for meshing.
 #[inline]
 pub(crate) fn normal_vec(triangle: &Triangle3d) -> Vec3 {
-    triangle.normal().map_or(Vec3::ZERO, |n| n.into())
+    triangle.normal().map_or(Vec3::ZERO, Into::into)
 }
 
 /// Unskewed uv-coordinates for a [`Triangle3d`].

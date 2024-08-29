@@ -9,7 +9,7 @@
 //! There are two ways to solve this problem:
 //!
 //! 1. Use [`ParamSet`] to check out the [`EventWriter`] and [`EventReader`] one at a time.
-//! 2. Use a [`Local`] [`ManualEventReader`] instead of an [`EventReader`], and use [`ResMut`] to access [`Events`].
+//! 2. Use a [`Local`] [`EventCursor`] instead of an [`EventReader`], and use [`ResMut`] to access [`Events`].
 //!
 //! In the first case, you're being careful to only check out only one of the [`EventWriter`] or [`EventReader`] at a time.
 //! By "temporally" separating them, you avoid the overlap.
@@ -20,7 +20,7 @@
 //! Let's look at an example of each.
 
 use bevy::core::FrameCount;
-use bevy::ecs::event::ManualEventReader;
+use bevy::ecs::event::EventCursor;
 use bevy::prelude::*;
 
 fn main() {
@@ -133,17 +133,17 @@ fn send_and_receive_param_set(
     }
 }
 
-/// A system that both sends and receives events using a [`Local`] [`ManualEventReader`].
+/// A system that both sends and receives events using a [`Local`] [`EventCursor`].
 fn send_and_receive_manual_event_reader(
     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
-    // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
-    mut local_event_reader: Local<ManualEventReader<DebugEvent>>,
+    // `EventCursor<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
+    mut local_event_reader: Local<EventCursor<DebugEvent>>,
     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
     mut events: ResMut<Events<DebugEvent>>,
     frame_count: Res<FrameCount>,
 ) {
     println!(
-        "Sending and receiving events for frame {} with a `Local<ManualEventReader>",
+        "Sending and receiving events for frame {} with a `Local<EventCursor>",
         frame_count.0
     );
 

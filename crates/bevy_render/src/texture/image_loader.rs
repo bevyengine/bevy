@@ -1,4 +1,4 @@
-use bevy_asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use bevy_ecs::prelude::{FromWorld, World};
 use thiserror::Error;
 
@@ -88,7 +88,7 @@ impl AssetLoader for ImageLoader {
     type Error = ImageLoaderError;
     async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader<'_>,
+        reader: &'a mut dyn Reader,
         settings: &'a ImageLoaderSettings,
         load_context: &'a mut LoadContext<'_>,
     ) -> Result<Image, Self::Error> {

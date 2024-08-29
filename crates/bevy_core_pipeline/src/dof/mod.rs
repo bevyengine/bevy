@@ -21,10 +21,12 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{QueryItem, With},
+    reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{PhysicalCameraParameters, Projection},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -67,7 +69,8 @@ const DOF_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(203186118073921
 pub struct DepthOfFieldPlugin;
 
 /// Depth of field settings.
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
 pub struct DepthOfFieldSettings {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,
@@ -110,7 +113,8 @@ pub struct DepthOfFieldSettings {
 }
 
 /// Controls the appearance of the effect.
-#[derive(Component, Clone, Copy, Default, PartialEq, Debug)]
+#[derive(Clone, Copy, Default, PartialEq, Debug, Reflect)]
+#[reflect(Default, PartialEq)]
 pub enum DepthOfFieldMode {
     /// A more accurate simulation, in which circles of confusion generate
     /// "spots" of light.
@@ -195,6 +199,8 @@ impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, DOF_SHADER_HANDLE, "dof.wgsl", Shader::from_wgsl);
 
+        app.register_type::<DepthOfFieldSettings>();
+        app.register_type::<DepthOfFieldMode>();
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -515,11 +521,10 @@ impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
 /// specific to each view.
 pub fn prepare_depth_of_field_view_bind_group_layouts(
     mut commands: Commands,
-    view_targets: Query<(Entity, &DepthOfFieldSettings)>,
-    msaa: Res<Msaa>,
+    view_targets: Query<(Entity, &DepthOfFieldSettings, &Msaa)>,
     render_device: Res<RenderDevice>,
 ) {
-    for (view, dof_settings) in view_targets.iter() {
+    for (view, dof_settings, msaa) in view_targets.iter() {
         // Create the bind group layout for the passes that take one input.
         let single_input = render_device.create_bind_group_layout(
             Some("depth of field bind group layout (single input)"),
@@ -646,16 +651,16 @@ pub fn prepare_depth_of_field_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DepthOfFieldPipeline>>,
-    msaa: Res<Msaa>,
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
     view_targets: Query<(
         Entity,
         &ExtractedView,
         &DepthOfFieldSettings,
         &ViewDepthOfFieldBindGroupLayouts,
+        &Msaa,
     )>,
 ) {
-    for (entity, view, dof_settings, view_bind_group_layouts) in view_targets.iter() {
+    for (entity, view, dof_settings, view_bind_group_layouts, msaa) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
