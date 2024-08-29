@@ -1,3 +1,6 @@
+use std::path::PathBuf;
+
+use crate::processor::WriterContext;
 use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
 use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
 use bevy_utils::tracing::error;
@@ -12,7 +15,7 @@ pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
 ///
 /// `L` is the [`AssetLoader`] (if one is configured) for the [`AssetAction`]. This can be `()` if it is not required.
 /// `P` is the [`Process`] processor, if one is configured for the [`AssetAction`]. This can be `()` if it is not required.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct AssetMeta<L: AssetLoader, P: Process> {
     /// The version of the meta format being used. This will change whenever a breaking change is made to
     /// the meta format.
@@ -43,7 +46,7 @@ impl<L: AssetLoader, P: Process> AssetMeta<L, P> {
 }
 
 /// Configures how an asset source file should be handled by the asset system.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum AssetAction<LoaderSettings, ProcessSettings> {
     /// Load the asset with the given loader and settings
     /// See [`AssetLoader`].
@@ -63,6 +66,82 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
     Ignore,
 }
 
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ErasedAssetMeta {
+    /// The version of the meta format being used. This will change whenever a breaking change is made to
+    /// the meta format.
+    pub meta_format_version: String,
+    /// Information produced by the [`AssetProcessor`] _after_ processing this asset.
+    /// This will only exist alongside processed versions of assets. You should not manually set it in your asset source files.
+    ///
+    /// [`AssetProcessor`]: crate::processor::AssetProcessor
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub processed_info: Option<ProcessedInfo>,
+    /// How to handle this asset in the asset system. See [`AssetAction`].
+    pub asset: ErasedAssetAction,
+}
+
+impl ErasedAssetMeta {
+    pub fn new(asset: ErasedAssetAction) -> Self {
+        Self {
+            meta_format_version: META_FORMAT_VERSION.to_string(),
+            processed_info: None,
+            asset,
+        }
+    }
+
+    /// Deserializes the given serialized byte representation of the asset meta.
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, DeserializeMetaError> {
+        Ok(ron::de::from_bytes(bytes)?)
+    }
+}
+
+pub trait LSettings: Settings + Default + Serialize + for<'a> Deserialize<'a>{}
+
+/// Configures how an asset source file should be handled by the asset system.
+#[derive(Serialize, Deserialize, Clone)]
+pub enum ErasedAssetAction {
+    Load {
+        loader: String,
+        settings: (),
+    },
+    Process {
+        processor: String,
+        settings: (),
+    },
+    Ignore,
+}
+
+
+impl AssetMetaDyn for ErasedAssetMeta {
+    fn loader_settings(&self) -> Option<&dyn Settings> {
+        if let ErasedAssetAction::Load { settings, .. } = &self.asset {
+            Some(settings)
+        } else {
+            None
+        }
+    }
+    fn loader_settings_mut(&mut self) -> Option<&mut dyn Settings> {
+        if let ErasedAssetAction::Load { settings, .. } = &mut self.asset {
+            Some(settings)
+        } else {
+            None
+        }
+    }
+    fn serialize(&self) -> Vec<u8> {
+        ron::ser::to_string_pretty(&self, PrettyConfig::default())
+            .expect("type is convertible to ron")
+            .into_bytes()
+    }
+    fn processed_info(&self) -> &Option<ProcessedInfo> {
+        &self.processed_info
+    }
+    fn processed_info_mut(&mut self) -> &mut Option<ProcessedInfo> {
+        &mut self.processed_info
+    }
+}
+
 /// Info produced by the [`AssetProcessor`] for a given processed asset. This is used to determine if an
 /// asset source file (or its dependencies) has changed.
 ///
@@ -75,6 +154,7 @@ pub struct ProcessedInfo {
     pub full_hash: AssetHash,
     /// Information about the "process dependencies" used to process this asset.
     pub process_dependencies: Vec<ProcessDependencyInfo>,
+    pub path_change: Option<PathChange>,
 }
 
 /// Information about a dependency used to process an asset. This is used to determine whether an asset's "process dependency"
@@ -175,7 +255,7 @@ impl Process for () {
         &'a self,
         _context: &'a mut bevy_asset::processor::ProcessContext<'_>,
         _meta: AssetMeta<(), Self>,
-        _writer: &'a mut bevy_asset::io::Writer,
+        _writer: &'a mut WriterContext<'_>,
     ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
     }
@@ -251,4 +331,10 @@ pub(crate) fn get_full_asset_hash(
         hasher.update(&hash);
     }
     *hasher.finalize().as_bytes()
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct PathChange {
+    pub source_path: PathBuf,
+    pub dest_path: PathBuf,
 }

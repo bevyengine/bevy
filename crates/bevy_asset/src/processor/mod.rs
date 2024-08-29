@@ -8,14 +8,14 @@ use crate::{
     io::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
         AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
-        MissingAssetSourceError,
+        MissingAssetSourceError, Writer,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
-        AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
+        AssetMetaDyn, AssetMetaMinimal, PathChange, ProcessedInfo, ProcessedInfoMinimal, Settings,
     },
-    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError,
+    AssetLoadError, AssetLoader, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode,
+    DeserializeMetaError, MissingAssetLoaderForExtensionError,
 };
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
@@ -27,7 +27,10 @@ use bevy_utils::{
 };
 use bevy_utils::{HashMap, HashSet};
 use futures_io::ErrorKind;
-use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
+use futures_lite::{
+    io::{FlushFuture, WriteAllFuture},
+    AsyncReadExt, AsyncWriteExt, StreamExt,
+};
 use parking_lot::RwLock;
 use std::{
     collections::VecDeque,
@@ -583,7 +586,7 @@ impl AssetProcessor {
             .map_err(InitializeError::FailedToReadDestinationPaths)?;
 
             for path in unprocessed_paths {
-                asset_infos.get_or_insert(AssetPath::from(path).with_source(source.id()));
+                asset_infos.get_or_insert(&AssetPath::from(path).with_source(source.id()));
             }
 
             for path in processed_paths {
@@ -791,7 +794,9 @@ impl AssetProcessor {
             hash: new_hash,
             full_hash: new_hash,
             process_dependencies: Vec::new(),
+            path_change: None,
         };
+        let mut processed_infos = vec![];
 
         {
             let infos = self.data.asset_infos.read().await;
@@ -821,7 +826,7 @@ impl AssetProcessor {
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
             let mut infos = self.data.asset_infos.write().await;
-            let info = infos.get_or_insert(asset_path.clone());
+            let info = infos.get_or_insert(asset_path);
             info.file_transaction_lock.write_arc().await
         };
 
@@ -830,37 +835,57 @@ impl AssetProcessor {
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
         self.log_begin_processing(asset_path).await;
         if let Some(processor) = processor {
-            let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
-            let mut processed_meta = {
+            let mut writer_context = WriterContext::new(asset_path.clone_owned(), processed_writer);
+            let mut processed_metas = {
                 let mut context =
                     ProcessContext::new(self, asset_path, &asset_bytes, &mut new_processed_info);
                 processor
-                    .process(&mut context, source_meta, &mut *writer)
+                    .process(&mut context, source_meta, &mut writer_context)
                     .await?
             };
 
-            writer
-                .flush()
-                .await
-                .map_err(|e| ProcessError::AssetWriterError {
-                    path: asset_path.clone(),
-                    err: AssetWriterError::Io(e),
-                })?;
+            for (index, (path, mut writer)) in writer_context.writers.into_iter().enumerate() {
+                writer
+                    .flush()
+                    .await
+                    .map_err(|e| ProcessError::AssetWriterError {
+                        path: asset_path.clone(),
+                        err: AssetWriterError::Io(e),
+                    })?;
 
-            let full_hash = get_full_asset_hash(
-                new_hash,
-                new_processed_info
-                    .process_dependencies
-                    .iter()
-                    .map(|i| i.full_hash),
-            );
-            new_processed_info.full_hash = full_hash;
-            *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
-            let meta_bytes = processed_meta.serialize();
-            processed_writer
-                .write_meta_bytes(path, &meta_bytes)
-                .await
-                .map_err(writer_err)?;
+                let mut new_processed_info = new_processed_info.clone();
+                new_processed_info.path_change = if path.as_path() != asset_path.path() {
+                    Some(PathChange {
+                        source_path: asset_path.path().to_owned(),
+                        dest_path: path.clone(),
+                    })
+                } else {
+                    None
+                };
+
+                let full_hash = get_full_asset_hash(
+                    new_hash,
+                    new_processed_info
+                        .process_dependencies
+                        .iter()
+                        .map(|i| i.full_hash),
+                );
+                new_processed_info.full_hash = full_hash;
+
+                let processed_meta = processed_metas.get_mut(index);
+                let Some(processed_meta) = processed_meta else {
+                    continue;
+                };
+
+                *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
+                let meta_bytes = processed_meta.serialize();
+                processed_writer
+                    .write_meta_bytes(&path, &meta_bytes)
+                    .await
+                    .map_err(writer_err)?;
+
+                processed_infos.push(new_processed_info);
+            }
         } else {
             processed_writer
                 .write_bytes(path, &asset_bytes)
@@ -872,10 +897,12 @@ impl AssetProcessor {
                 .write_meta_bytes(path, &meta_bytes)
                 .await
                 .map_err(writer_err)?;
+
+            processed_infos.push(new_processed_info);
         }
         self.log_end_processing(asset_path).await;
 
-        Ok(ProcessResult::Processed(new_processed_info))
+        Ok(ProcessResult::Processed(processed_infos))
     }
 
     async fn validate_transaction_log_and_recover(&self) {
@@ -961,6 +988,75 @@ impl AssetProcessor {
             Ok(log) => Some(log),
             Err(err) => panic!("Failed to initialize asset processor log. This cannot be recovered. Try restarting. If that doesn't work, try deleting processed asset folder. {}", err),
         };
+    }
+}
+
+pub struct WriterContext<'a> {
+    asset_path: AssetPath<'a>,
+    writer: &'a dyn ErasedAssetWriter,
+    writers: HashMap<PathBuf, WriteResults>,
+}
+
+impl<'a> WriterContext<'a> {
+    pub fn new(asset_path: AssetPath<'a>, writer: &'a dyn ErasedAssetWriter) -> WriterContext<'a> {
+        WriterContext {
+            asset_path,
+            writer,
+            writers: HashMap::new(),
+        }
+    }
+
+    pub fn get_path(&self) -> PathBuf {
+        self.asset_path.path().to_owned()
+    }
+
+    pub async fn get_default_writer<T: AssetLoader>(
+        &mut self,
+        settings: Box<dyn Settings>,
+    ) -> Result<&mut WriteResults, AssetWriterError> {
+        let path = self.asset_path.path();
+        let writer = self.writer.write(path).await?;
+        let write_results = WriteResults {
+            writer,
+            out_type: std::any::type_name::<T>().to_string(),
+            settings,
+        };
+        self.writers.insert(path.to_path_buf(), write_results);
+        Ok(self.writers.get_mut(&path.to_path_buf()).unwrap())
+    }
+
+    pub async fn get_writer<T: AssetLoader>(
+        &mut self,
+        path: &Path,
+        settings: Box<dyn Settings>,
+    ) -> Result<&mut WriteResults, AssetWriterError> {
+        // println!("Getting writer for {:?}", path);
+        let p = path.to_owned();
+        let writer = self.writer.write(p.as_path()).await?;
+        let write_results = WriteResults {
+            writer,
+            out_type: std::any::type_name::<T>().to_string(),
+            settings,
+        };
+        self.writers.insert(path.to_path_buf(), write_results);
+        Ok(self.writers.get_mut(&path.to_path_buf()).unwrap())
+    }
+}
+
+#[allow(dead_code)]
+pub struct WriteResults {
+    writer: Box<Writer>,
+    out_type: String,
+    settings: Box<dyn Settings>,
+}
+
+impl WriteResults {
+    pub fn flush(&mut self) -> FlushFuture<'_, Box<Writer>> {
+        self.writer.flush()
+    }
+
+    pub fn write_all<'a>(&'a mut self, bytes: &'a [u8]) -> WriteAllFuture<'a, Box<Writer>> {
+        self.writer.write_all(bytes)
     }
 }
 
@@ -1076,7 +1172,7 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
 /// The (successful) result of processing an asset
 #[derive(Debug, Clone)]
 pub enum ProcessResult {
-    Processed(ProcessedInfo),
+    Processed(Vec<ProcessedInfo>),
     SkippedNotChanged,
     Ignored,
 }
@@ -1155,11 +1251,11 @@ pub struct ProcessorAssetInfos {
 }
 
 impl ProcessorAssetInfos {
-    fn get_or_insert(&mut self, asset_path: AssetPath<'static>) -> &mut ProcessorAssetInfo {
+    fn get_or_insert(&mut self, asset_path: &AssetPath<'static>) -> &mut ProcessorAssetInfo {
         self.infos.entry(asset_path.clone()).or_insert_with(|| {
             let mut info = ProcessorAssetInfo::default();
             // track existing dependants by resolving existing "hanging" dependants.
-            if let Some(dependants) = self.non_existent_dependants.remove(&asset_path) {
+            if let Some(dependants) = self.non_existent_dependants.remove(asset_path) {
                 info.dependants = dependants;
             }
             info
@@ -1193,8 +1289,8 @@ impl ProcessorAssetInfos {
         result: Result<ProcessResult, ProcessError>,
     ) {
         match result {
-            Ok(ProcessResult::Processed(processed_info)) => {
-                debug!("Finished processing \"{:?}\"", asset_path);
+            Ok(ProcessResult::Processed(processed_infos)) => {
+                debug!("Finished processing \"{:?}\"", &asset_path);
                 // clean up old dependants
                 let old_processed_info = self
                     .infos
@@ -1204,16 +1300,29 @@ impl ProcessorAssetInfos {
                     self.clear_dependencies(&asset_path, old_processed_info);
                 }
 
-                // populate new dependants
-                for process_dependency_info in &processed_info.process_dependencies {
-                    self.add_dependant(&process_dependency_info.path, asset_path.to_owned());
-                }
-                let info = self.get_or_insert(asset_path);
-                info.processed_info = Some(processed_info);
+                let info = self.get_or_insert(&asset_path);
                 info.update_status(ProcessStatus::Processed).await;
-                let dependants = info.dependants.iter().cloned().collect::<Vec<_>>();
-                for path in dependants {
-                    self.check_reprocess_queue.push_back(path);
+
+                // let mut source_found = false;
+                for new_info in processed_infos {
+                    let new_asset_path = if let Some(change) = &new_info.path_change {
+                        &AssetPath::from(change.dest_path.clone())
+                    } else {
+                        // source_found = true;
+                        &asset_path
+                    };
+
+                    // populate new dependants
+                    for process_dependency_info in &new_info.process_dependencies {
+                        self.add_dependant(&process_dependency_info.path, asset_path.to_owned());
+                    }
+                    let info = self.get_or_insert(&new_asset_path);
+                    info.processed_info = Some(new_info);
+                    info.update_status(ProcessStatus::Processed).await;
+                    let dependants = info.dependants.iter().cloned().collect::<Vec<_>>();
+                    for path in dependants {
+                        self.check_reprocess_queue.push_back(path);
+                    }
                 }
             }
             Ok(ProcessResult::SkippedNotChanged) => {
@@ -1254,6 +1363,7 @@ impl ProcessorAssetInfos {
                         hash: AssetHash::default(),
                         full_hash: AssetHash::default(),
                         process_dependencies: vec![],
+                        path_change: None,
                     });
                     self.add_dependant(dependency.path(), asset_path.to_owned());
                 }
@@ -1325,7 +1435,7 @@ impl ProcessorAssetInfos {
                 .await
                 .unwrap();
             let dependants: Vec<AssetPath<'static>> = {
-                let new_info = self.get_or_insert(new.clone());
+                let new_info = self.get_or_insert(new);
                 new_info.processed_info = info.processed_info;
                 new_info.status = info.status;
                 // Ensure things waiting on the new path are informed of the status of this asset

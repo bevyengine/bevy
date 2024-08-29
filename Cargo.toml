@@ -1451,6 +1451,12 @@ path = "examples/asset/processing/asset_processing.rs"
 doc-scrape-examples = true
 required-features = ["file_watcher", "asset_processor"]
 
+[[example]]
+name = "simo_processing"
+path = "examples/asset/processing/simo.rs"
+doc-scrape-examples = true
+required-features = ["file_watcher", "asset_processor"]
+
 [package.metadata.example.asset_processing]
 name = "Asset Processing"
 description = "Demonstrates how to process and load custom assets"

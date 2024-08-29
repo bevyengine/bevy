@@ -1,8 +1,10 @@
 use crate::io::SliceReader;
+use crate::meta::{ErasedAssetAction, ErasedAssetMeta};
+use crate::saver::ErasedAssetSaver;
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Writer,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError,
     },
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
@@ -15,6 +17,8 @@ use bevy_utils::{BoxedFuture, ConditionalSendFuture};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use thiserror::Error;
+
+use super::WriterContext;
 
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
 /// and then writes the final processed bytes with [`Writer`]. The resulting bytes must be loadable with the given [`Process::OutputLoader`].
@@ -32,10 +36,78 @@ pub trait Process: Send + Sync + Sized + 'static {
         &'a self,
         context: &'a mut ProcessContext,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &'a mut WriterContext,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>,
     >;
+}
+
+pub struct LoadTransformAndMultiSave<L: AssetLoader, T: AssetTransformer<AssetInput = L::Asset>> {
+    transformer: T,
+    savers: Vec<Box<dyn ErasedAssetSaver>>,
+    marker: PhantomData<fn() -> L>,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct LoadTransformAndMultiSaveSettings<LoaderSettings, TransformerSettings> {
+    /// The [`AssetLoader::Settings`] for [`LoadTransformAndSave`].
+    pub loader_settings: LoaderSettings,
+    /// The [`AssetTransformer::Settings`] for [`LoadTransformAndSave`].
+    pub transformer_settings: TransformerSettings,
+}
+
+impl<L: AssetLoader, T: AssetTransformer<AssetInput = L::Asset>> LoadTransformAndMultiSave<L, T> {
+    pub fn new(transformer: T, savers: Vec<Box<dyn ErasedAssetSaver>>) -> Self {
+        LoadTransformAndMultiSave {
+            transformer,
+            savers,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<Loader, Transformer> Process for LoadTransformAndMultiSave<Loader, Transformer>
+where
+    Loader: AssetLoader,
+    Transformer: AssetTransformer<AssetInput = Loader::Asset>,
+{
+    type Settings = LoadTransformAndMultiSaveSettings<Loader::Settings, Transformer::Settings>;
+    type OutputLoader = ();
+
+    async fn process<'a>(
+        &'a self,
+        context: &'a mut ProcessContext<'_>,
+        meta: AssetMeta<(), Self>,
+        writer: &'a mut WriterContext<'_>,
+    ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
+        let AssetAction::Process { settings, .. } = meta.asset else {
+            return Err(ProcessError::WrongMetaType);
+        };
+        let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
+            loader: std::any::type_name::<Loader>().to_string(),
+            settings: settings.loader_settings,
+        });
+        let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
+            context.load_source_asset(loader_meta).await?,
+        )
+        .unwrap();
+
+        let post_transformed_asset = self
+            .transformer
+            .transform(pre_transformed_asset, &settings.transformer_settings)
+            .await
+            .map_err(|err| ProcessError::AssetTransformError(err.into()))?;
+
+        let asset = ErasedLoadedAsset::from(post_transformed_asset);
+        for saver in self.savers.iter() {
+            let _x = saver
+                .save(writer, &asset, None)
+                .await
+                .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
+        }
+
+        Ok(())
+    }
 }
 
 /// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then transforms
@@ -181,7 +253,7 @@ where
         &'a self,
         context: &'a mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &'a mut WriterContext<'_>,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
         let AssetAction::Process { settings, .. } = meta.asset else {
             return Err(ProcessError::WrongMetaType);
@@ -206,7 +278,7 @@ where
 
         let output_settings = self
             .saver
-            .save(writer, saved_asset, &settings.saver_settings)
+            .save(writer, saved_asset, Some(&settings.saver_settings))
             .await
             .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
         Ok(output_settings)
@@ -223,7 +295,7 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
         &'a self,
         context: &'a mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &'a mut WriterContext<'_>,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
         let AssetAction::Process { settings, .. } = meta.asset else {
             return Err(ProcessError::WrongMetaType);
@@ -236,7 +308,7 @@ impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
         let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
         let output_settings = self
             .saver
-            .save(writer, saved_asset, &settings.saver_settings)
+            .save(writer, saved_asset, Some(&settings.saver_settings))
             .await
             .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
         Ok(output_settings)
@@ -250,9 +322,9 @@ pub trait ErasedProcessor: Send + Sync {
     fn process<'a>(
         &'a self,
         context: &'a mut ProcessContext,
-        meta: Box<dyn AssetMetaDyn>,
-        writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
+        source_meta: Box<dyn AssetMetaDyn>,
+        writer: &'a mut WriterContext,
+    ) -> BoxedFuture<'a, Result<Vec<Box<dyn AssetMetaDyn>>, ProcessError>>;
     /// Deserialized `meta` as type-erased [`AssetMeta`], operating under the assumption that it matches the meta
     /// for the underlying [`Process`] impl.
     fn deserialize_meta(&self, meta: &[u8]) -> Result<Box<dyn AssetMetaDyn>, DeserializeMetaError>;
@@ -265,19 +337,27 @@ impl<P: Process> ErasedProcessor for P {
         &'a self,
         context: &'a mut ProcessContext,
         meta: Box<dyn AssetMetaDyn>,
-        writer: &'a mut Writer,
-    ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {
+        writer: &'a mut WriterContext,
+    ) -> BoxedFuture<'a, Result<Vec<Box<dyn AssetMetaDyn>>, ProcessError>> {
         Box::pin(async move {
             let meta = meta
                 .downcast::<AssetMeta<(), P>>()
                 .map_err(|_e| ProcessError::WrongMetaType)?;
-            let loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
-            let output_meta: Box<dyn AssetMetaDyn> =
-                Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
-                    loader: std::any::type_name::<P::OutputLoader>().to_string(),
-                    settings: loader_settings,
-                }));
-            Ok(output_meta)
+            let _loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
+
+            let mut outputs = vec![];
+
+            for (_path, write_results) in &writer.writers {
+                let new_meta: Box<dyn AssetMetaDyn> =
+                    Box::new(ErasedAssetMeta::new(ErasedAssetAction::Load {
+                        loader: write_results.out_type.to_owned(),
+                        settings: (), //write_results.settings,
+                    }));
+
+                outputs.push(new_meta);
+            }
+
+            Ok(outputs)
         })
     }
 

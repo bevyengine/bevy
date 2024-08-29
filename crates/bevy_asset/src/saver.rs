@@ -1,5 +1,6 @@
+use crate::processor::WriterContext;
 use crate::transformer::TransformedAsset;
-use crate::{io::Writer, meta::Settings, Asset, ErasedLoadedAsset};
+use crate::{meta::Settings, Asset, ErasedLoadedAsset};
 use crate::{AssetLoader, Handle, LabeledAsset, UntypedHandle};
 use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap};
 use serde::{Deserialize, Serialize};
@@ -21,9 +22,9 @@ pub trait AssetSaver: Send + Sync + 'static {
     /// `asset` is saved.  
     fn save<'a>(
         &'a self,
-        writer: &'a mut Writer,
+        writer: &'a mut WriterContext,
         asset: SavedAsset<'a, Self::Asset>,
-        settings: &'a Self::Settings,
+        settings: Option<&'a Self::Settings>,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error>,
     >;
@@ -35,9 +36,9 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
     /// `asset` is saved.  
     fn save<'a>(
         &'a self,
-        writer: &'a mut Writer,
+        writer: &'a mut WriterContext,
         asset: &'a ErasedLoadedAsset,
-        settings: &'a dyn Settings,
+        settings: Option<&'a dyn Settings>,
     ) -> BoxedFuture<'a, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>>;
 
     /// The type name of the [`AssetSaver`].
@@ -47,14 +48,17 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
 impl<S: AssetSaver> ErasedAssetSaver for S {
     fn save<'a>(
         &'a self,
-        writer: &'a mut Writer,
+        writer: &'a mut WriterContext,
         asset: &'a ErasedLoadedAsset,
-        settings: &'a dyn Settings,
+        settings: Option<&'a dyn Settings>,
     ) -> BoxedFuture<'a, Result<(), Box<dyn std::error::Error + Send + Sync + 'static>>> {
         Box::pin(async move {
-            let settings = settings
-                .downcast_ref::<S::Settings>()
-                .expect("AssetLoader settings should match the loader type");
+            let settings = match settings {
+                Some(s) => Some(s
+                    .downcast_ref::<S::Settings>()
+                    .expect("AssetLoader settings should match the loader type")),
+                None => None,
+            };
             let saved_asset = SavedAsset::<S::Asset>::from_loaded(asset).unwrap();
             if let Err(err) = self.save(writer, saved_asset, settings).await {
                 return Err(err.into());
