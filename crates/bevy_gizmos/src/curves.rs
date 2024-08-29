@@ -17,7 +17,7 @@ where
     ///
     /// This should be called for each frame the curve needs to be rendered.
     ///
-    /// Samples of time points outside of the curves domain will be filtered out and won't
+    /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
     /// to create a new curve with an extended domain.
     ///
@@ -51,7 +51,7 @@ where
     ///
     /// This should be called for each frame the curve needs to be rendered.
     ///
-    /// Samples of time points outside of the curves domain will be filtered out and won't
+    /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
     /// to create a new curve with an extended domain.
     ///
@@ -88,14 +88,14 @@ where
     ///
     /// This should be called for each frame the curve needs to be rendered.
     ///
-    /// Samples of time points outside of the curves domain will be filtered out and won't
+    /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
     /// to create a new curve with an extended domain.
     ///
     /// # Arguments
     /// - `curve_2d` some type that implements the [`Curve`] trait and samples `Vec2`s
     /// - `times_with_colors` some iterable type yielding `f32` which will be used for sampling
-    /// the curve together with the color at this position
+    ///   the curve together with the color at this position
     ///
     /// # Example
     /// ```
@@ -131,14 +131,14 @@ where
     ///
     /// This should be called for each frame the curve needs to be rendered.
     ///
-    /// Samples of time points outside of the curves domain will be filtered out and won't
+    /// Samples of time points outside of the curve's domain will be filtered out and won't
     /// contribute to the rendering. If you wish to render the curve outside of its domain you need
     /// to create a new curve with an extended domain.
     ///
     /// # Arguments
     /// - `curve_3d` some type that implements the [`Curve`] trait and samples `Vec3`s
     /// - `times_with_colors` some iterable type yielding `f32` which will be used for sampling
-    /// the curve together with the color at this position
+    ///   the curve together with the color at this position
     ///
     /// # Example
     /// ```
