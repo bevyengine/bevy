@@ -101,7 +101,7 @@ impl<T: Mix> ColorRange<T> for ColorGradient<T> {
 pub struct ColorGradientError(usize);
 
 /// A curve whose samples are defined by a [`ColorGradient`]. Curves of this type are produced by
-/// calling [`ColorGradien::to_curve`].
+/// calling [`ColorGradient::to_curve`].
 #[derive(Clone, Debug)]
 pub struct ColorCurve<T: Mix> {
     domain: Interval,
