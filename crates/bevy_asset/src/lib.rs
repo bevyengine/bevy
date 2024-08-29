@@ -583,13 +583,10 @@ mod tests {
         async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<impl bevy_asset::io::Reader + 'a, AssetReaderError> {
+        ) -> Result<impl Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
-        async fn read<'a>(
-            &'a self,
-            path: &'a Path,
-        ) -> Result<impl bevy_asset::io::Reader + 'a, bevy_asset::io::AssetReaderError> {
+        async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {

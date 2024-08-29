@@ -1,7 +1,8 @@
 use alloc::borrow::Cow;
 
 use crate::func::args::{GetOwnership, Ownership};
-use crate::TypePath;
+use crate::type_info::impl_type_methods;
+use crate::{Type, TypePath};
 
 /// Type information for an [`Arg`] used in a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
@@ -16,10 +17,10 @@ pub struct ArgInfo {
     name: Option<Cow<'static, str>>,
     /// The ownership of the argument.
     ownership: Ownership,
-    /// The [type path] of the argument.
+    /// The [type] of the argument.
     ///
-    /// [type path]: TypePath::type_path
-    type_path: &'static str,
+    /// [type]: Type
+    ty: Type,
 }
 
 impl ArgInfo {
@@ -31,7 +32,7 @@ impl ArgInfo {
             index,
             name: None,
             ownership: T::ownership(),
-            type_path: T::type_path(),
+            ty: Type::of::<T>(),
         }
     }
 
@@ -72,12 +73,7 @@ impl ArgInfo {
         self.ownership
     }
 
-    /// The [type path] of the argument.
-    ///
-    /// [type path]: TypePath::type_path
-    pub fn type_path(&self) -> &'static str {
-        self.type_path
-    }
+    impl_type_methods!(ty);
 
     /// Get an ID representing the argument.
     ///

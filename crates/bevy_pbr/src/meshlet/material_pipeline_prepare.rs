@@ -1,4 +1,7 @@
-use super::{MeshletGpuScene, MESHLET_MESH_MATERIAL_SHADER_HANDLE};
+use super::{
+    instance_manager::InstanceManager, resource_manager::ResourceManager,
+    MESHLET_MESH_MATERIAL_SHADER_HANDLE,
+};
 use crate::{environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume, *};
 use bevy_asset::AssetServer;
 use bevy_core_pipeline::{
@@ -22,10 +25,11 @@ use std::hash::Hash;
 pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
 /// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletMainOpaquePass3dNode`],
-/// and register the material with [`MeshletGpuScene`].
+/// and register the material with [`InstanceManager`].
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
-    mut gpu_scene: ResMut<MeshletGpuScene>,
+    resource_manager: ResMut<ResourceManager>,
+    mut instance_manager: ResMut<InstanceManager>,
     mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
     material_pipeline: Res<MaterialPipeline<M>>,
@@ -167,7 +171,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 label: material_pipeline_descriptor.label,
                 layout: vec![
                     mesh_pipeline.get_view_layout(view_key.into()).clone(),
-                    gpu_scene.material_draw_bind_group_layout(),
+                    resource_manager.material_shade_bind_group_layout.clone(),
                     material_pipeline.material_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
@@ -198,7 +202,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
                 }),
             };
 
-            let material_id = gpu_scene.get_material_id(material_id.untyped());
+            let material_id = instance_manager.get_material_id(material_id.untyped());
 
             let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
@@ -219,10 +223,11 @@ pub struct MeshletViewMaterialsDeferredGBufferPrepass(
 );
 
 /// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletPrepassNode`],
-/// and [`super::MeshletDeferredGBufferPrepassNode`] and register the material with [`MeshletGpuScene`].
+/// and [`super::MeshletDeferredGBufferPrepassNode`] and register the material with [`InstanceManager`].
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
-    mut gpu_scene: ResMut<MeshletGpuScene>,
+    resource_manager: ResMut<ResourceManager>,
+    mut instance_manager: ResMut<InstanceManager>,
     mut cache: Local<HashMap<MeshPipelineKey, CachedRenderPipelineId>>,
     pipeline_cache: Res<PipelineCache>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
@@ -319,7 +324,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 label: material_pipeline_descriptor.label,
                 layout: vec![
                     view_layout,
-                    gpu_scene.material_draw_bind_group_layout(),
+                    resource_manager.material_shade_bind_group_layout.clone(),
                     prepass_pipeline.material_layout.clone(),
                 ],
                 push_constant_ranges: vec![],
@@ -350,7 +355,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 }),
             };
 
-            let material_id = gpu_scene.get_material_id(material_id.untyped());
+            let material_id = instance_manager.get_material_id(material_id.untyped());
 
             let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())

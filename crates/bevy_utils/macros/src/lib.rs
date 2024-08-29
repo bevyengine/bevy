@@ -54,15 +54,19 @@ impl Parse for AllTuples {
 /// Helper macro to generate tuple pyramids. Useful to generate scaffolding to work around Rust
 /// lacking variadics. Invoking `all_tuples!(impl_foo, start, end, P, Q, ..)`
 /// invokes `impl_foo` providing ident tuples through arity `start..=end`.
-/// # Examples
-/// A single parameter.
-/// ```
-/// use std::marker::PhantomData;
-/// use bevy_utils_proc_macros::all_tuples;
+/// If you require the length of the tuple, see [`all_tuples_with_size!`].
 ///
+/// # Examples
+///
+/// ## Single parameter
+///
+/// ```
+/// # use std::marker::PhantomData;
+/// # use bevy_utils_proc_macros::all_tuples;
+/// #
 /// struct Foo<T> {
 ///     // ..
-///     _phantom: PhantomData<T>
+/// #    _phantom: PhantomData<T>
 /// }
 ///
 /// trait WrappedInFoo {
@@ -84,10 +88,12 @@ impl Parse for AllTuples {
 /// // ..
 /// // impl_wrapped_in_foo!(T0 .. T14);
 /// ```
-/// Multiple parameters.
-/// ```
-/// use bevy_utils_proc_macros::all_tuples;
 ///
+/// # Multiple parameters
+///
+/// ```
+/// # use bevy_utils_proc_macros::all_tuples;
+/// #
 /// trait Append {
 ///     type Out<Item>;
 ///     fn append<Item>(tup: Self, item: Item) -> Self::Out<Item>;
@@ -138,8 +144,8 @@ impl Parse for AllTuples {
 /// ```
 ///
 /// ```
-/// use bevy_utils_proc_macros::all_tuples;
-///
+/// # use bevy_utils_proc_macros::all_tuples;
+/// #
 /// trait Variadic {}
 ///
 /// impl Variadic for () {}
@@ -185,6 +191,116 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Helper macro to generate tuple pyramids with their length. Useful to generate scaffolding to
+/// work around Rust lacking variadics. Invoking `all_tuples_with_size!(impl_foo, start, end, P, Q, ..)`
+/// invokes `impl_foo` providing ident tuples through arity `start..=end` preceded by their length.
+/// If you don't require the length of the tuple, see [`all_tuples!`].
+///
+/// # Examples
+///
+/// ## Single parameter
+///
+/// ```
+/// # use std::marker::PhantomData;
+/// # use bevy_utils_proc_macros::all_tuples_with_size;
+/// #
+/// struct Foo<T> {
+///     // ..
+/// #    _phantom: PhantomData<T>
+/// }
+///
+/// trait WrappedInFoo {
+///     type Tup;
+///     const LENGTH: usize;
+/// }
+///
+/// macro_rules! impl_wrapped_in_foo {
+///     ($N:expr, $($T:ident),*) => {
+///         impl<$($T),*> WrappedInFoo for ($($T,)*) {
+///             type Tup = ($(Foo<$T>,)*);
+///             const LENGTH: usize = $N;
+///         }
+///     };
+/// }
+///
+/// all_tuples_with_size!(impl_wrapped_in_foo, 0, 15, T);
+/// // impl_wrapped_in_foo!(0);
+/// // impl_wrapped_in_foo!(1, T0);
+/// // impl_wrapped_in_foo!(2, T0, T1);
+/// // ..
+/// // impl_wrapped_in_foo!(15, T0 .. T14);
+/// ```
+///
+/// ## Multiple parameters
+///
+/// ```
+/// # use bevy_utils_proc_macros::all_tuples_with_size;
+/// #
+/// trait Append {
+///     type Out<Item>;
+///     fn append<Item>(tup: Self, item: Item) -> Self::Out<Item>;
+/// }
+///
+/// impl Append for () {
+///     type Out<Item> = (Item,);
+///     fn append<Item>(_: Self, item: Item) -> Self::Out<Item> {
+///         (item,)
+///     }
+/// }
+///
+/// macro_rules! impl_append {
+///     ($N:expr, $(($P:ident, $p:ident)),*) => {
+///         impl<$($P),*> Append for ($($P,)*) {
+///             type Out<Item> = ($($P),*, Item);
+///             fn append<Item>(($($p,)*): Self, item: Item) -> Self::Out<Item> {
+///                 ($($p),*, item)
+///             }
+///         }
+///     }
+/// }
+///
+/// all_tuples_with_size!(impl_append, 1, 15, P, p);
+/// // impl_append!(1, (P0, p0));
+/// // impl_append!(2, (P0, p0), (P1, p1));
+/// // impl_append!(3, (P0, p0), (P1, p1), (P2, p2));
+/// // ..
+/// // impl_append!(15, (P0, p0) .. (P14, p14));
+/// ```
+///
+/// **`#[doc(fake_variadic)]`**
+///
+/// To improve the readability of your docs when implementing a trait for
+/// tuples or fn pointers of varying length you can use the rustdoc-internal `fake_variadic` marker.
+/// All your impls are collapsed and shown as a single `impl Trait for (F₁, F₂, …, Fₙ)`.
+///
+/// The `all_tuples!` macro does most of the work for you, the only change to your implementation macro
+/// is that you have to accept attributes using `$(#[$meta:meta])*`.
+///
+/// Since this feature requires a nightly compiler, it's only enabled on docs.rs by default.
+/// Add the following to your lib.rs if not already present:
+///
+/// ```
+/// // `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
+/// #![allow(internal_features)]
+/// #![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+/// ```
+///
+/// ```
+/// # use bevy_utils_proc_macros::all_tuples_with_size;
+/// #
+/// trait Variadic {}
+///
+/// impl Variadic for () {}
+///
+/// macro_rules! impl_variadic {
+///     ($N:expr, $(#[$meta:meta])* $(($P:ident, $p:ident)),*) => {
+///         $(#[$meta])*
+///         impl<$($P),*> Variadic for ($($P,)*) {}
+///     }
+/// }
+///
+/// all_tuples_with_size!(#[doc(fake_variadic)] impl_variadic, 1, 15, P, p);
+/// ```
 #[proc_macro]
 pub fn all_tuples_with_size(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as AllTuples);

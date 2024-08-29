@@ -990,6 +990,36 @@ impl App {
     }
 
     /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_utils::default;
+    /// #
+    /// # let mut app = App::new();
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Party {
+    /// #   friends_allowed: bool,
+    /// # };
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Invite;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Friend;
+    /// #
+    /// // An observer system can be any system where the first parameter is a trigger
+    /// app.observe(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    ///     if trigger.event().friends_allowed {
+    ///         for friend in friends.iter() {
+    ///             commands.trigger_targets(Invite, friend);
+    ///         }
+    ///     }
+    /// });
+    /// ```
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -1074,7 +1104,7 @@ impl From<u8> for AppExit {
 }
 
 impl Termination for AppExit {
-    fn report(self) -> std::process::ExitCode {
+    fn report(self) -> ExitCode {
         match self {
             AppExit::Success => ExitCode::SUCCESS,
             // We leave logging an error to our users
@@ -1085,7 +1115,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter, marker::PhantomData, mem, sync::Mutex};
+    use std::{iter, marker::PhantomData, mem::size_of, sync::Mutex};
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
@@ -1411,7 +1441,7 @@ mod tests {
     fn app_exit_size() {
         // There wont be many of them so the size isn't a issue but
         // it's nice they're so small let's keep it that way.
-        assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
+        assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }
 
     #[test]

@@ -376,7 +376,7 @@ pub struct NoOpHasher(u64);
 
 // This is for types that already contain a high-quality hash and want to skip
 // re-hashing that hash.
-impl std::hash::Hasher for NoOpHasher {
+impl Hasher for NoOpHasher {
     fn finish(&self) -> u64 {
         self.0
     }
@@ -506,7 +506,7 @@ mod tests {
             fn write_u64(&mut self, _: u64) {}
         }
 
-        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
+        Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 
     #[test]

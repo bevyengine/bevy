@@ -1,4 +1,4 @@
-use std::mem;
+use std::mem::{self, size_of};
 
 use bevy_asset::Assets;
 use bevy_ecs::entity::EntityHashMap;
@@ -26,7 +26,7 @@ impl SkinIndex {
     /// Index to be in address space based on the size of a skin uniform.
     const fn new(start: usize) -> Self {
         SkinIndex {
-            index: (start * std::mem::size_of::<Mat4>()) as u32,
+            index: (start * size_of::<Mat4>()) as u32,
         }
     }
 }

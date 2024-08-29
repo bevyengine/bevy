@@ -165,7 +165,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         &mut self,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
         if self.is_present() {
             self.validate_access();
@@ -203,7 +203,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         &mut self,
         value: OwningPtr<'_>,
         change_ticks: ComponentTicks,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_change_detection")] caller: &'static Location,
     ) {
         if self.is_present() {
             self.validate_access();

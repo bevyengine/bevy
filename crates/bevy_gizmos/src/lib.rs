@@ -9,7 +9,6 @@
 //! # Example
 //! ```
 //! # use bevy_gizmos::prelude::*;
-//! # use bevy_render::prelude::*;
 //! # use bevy_math::prelude::*;
 //! # use bevy_color::palettes::basic::GREEN;
 //! fn system(mut gizmos: Gizmos) {
@@ -70,20 +69,31 @@ pub mod prelude {
     pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
+#[cfg(feature = "bevy_render")]
+use bevy_ecs::{
+    query::ROQueryItem,
+    system::{
+        lifetimeless::{Read, SRes},
+        Commands, SystemParamItem,
+    },
+};
+
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
+#[cfg(feature = "bevy_render")]
+use bevy_ecs::component::Component;
 use bevy_ecs::{
-    component::Component,
-    query::ROQueryItem,
     schedule::{IntoSystemConfigs, SystemSet},
-    system::{
-        lifetimeless::{Read, SRes},
-        Commands, Res, ResMut, Resource, SystemParamItem,
-    },
+    system::{Res, ResMut, Resource},
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite"),
+))]
+use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
 #[cfg(feature = "bevy_render")]
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
@@ -92,19 +102,21 @@ use bevy_render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
-        ShaderType, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode,
+        ShaderType, VertexFormat,
     },
     renderer::RenderDevice,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
+
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
+#[cfg(feature = "bevy_render")]
 use bytemuck::cast_slice;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
 };
 use gizmos::{GizmoStorage, Swap};
-#[cfg(feature = "bevy_pbr")]
+#[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
 use std::{any::TypeId, mem};
 
@@ -120,7 +132,7 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11627807
 pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
+    fn build(&self, app: &mut App) {
         #[cfg(feature = "bevy_render")]
         {
             use bevy_asset::load_internal_asset;
@@ -145,7 +157,7 @@ impl Plugin for GizmoPlugin {
             .add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());
 
-        #[cfg(feature = "bevy_pbr")]
+        #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
         app.add_plugins(LightGizmoPlugin);
 
         #[cfg(feature = "bevy_render")]
@@ -175,7 +187,7 @@ impl Plugin for GizmoPlugin {
     }
 
     #[cfg(feature = "bevy_render")]
-    fn finish(&self, app: &mut bevy_app::App) {
+    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -234,13 +246,15 @@ impl AppGizmoBuilder for App {
             .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()
             .add_systems(
                 RunFixedMainLoop,
-                start_gizmo_context::<Config, Fixed>.before(bevy_time::run_fixed_main_schedule),
+                start_gizmo_context::<Config, Fixed>
+                    .in_set(bevy_app::RunFixedMainLoopSystem::BeforeFixedMainLoop),
             )
             .add_systems(FixedFirst, clear_gizmo_context::<Config, Fixed>)
             .add_systems(FixedLast, collect_requested_gizmos::<Config, Fixed>)
             .add_systems(
                 RunFixedMainLoop,
-                end_gizmo_context::<Config, Fixed>.after(bevy_time::run_fixed_main_schedule),
+                end_gizmo_context::<Config, Fixed>
+                    .in_set(bevy_app::RunFixedMainLoopSystem::AfterFixedMainLoop),
             )
             .add_systems(
                 Last,
@@ -436,6 +450,7 @@ fn extract_gizmo_data(
                 _padding: Default::default(),
             },
             (*handle).clone_weak(),
+            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
             config::GizmoMeshConfig::from(config),
         ));
     }
@@ -654,11 +669,24 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
         };
 
         let instances = {
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(..));
+            let item_size = VertexFormat::Float32x3.size();
+            // position_a
+            let buffer_size_a = line_gizmo.position_buffer.size() - item_size * 2;
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size_a));
+            // position_b
+            let buffer_size_b = line_gizmo.position_buffer.size() - item_size;
+            pass.set_vertex_buffer(
+                1,
+                line_gizmo.position_buffer.slice(item_size..buffer_size_b),
+            );
+            // position_c
+            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(item_size * 2..));
 
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(..));
+            // color
+            let item_size = VertexFormat::Float32x4.size();
+            let buffer_size = line_gizmo.color_buffer.size() - item_size;
+            // This corresponds to the color of position_b, hence starts from `item_size`
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..buffer_size));
 
             u32::max(line_gizmo.vertex_count, 2) - 2
         };
@@ -676,7 +704,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     }
 }
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
@@ -731,7 +762,10 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     }
 }
 
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
@@ -749,7 +783,7 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         step_mode: VertexStepMode::Instance,
         attributes: vec![VertexAttribute {
             format: Float32x4,
-            offset: Float32x4.size(),
+            offset: 0,
             shader_location: 3,
         }],
     };
@@ -758,12 +792,10 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         position_layout.clone(),
         {
             position_layout.attributes[0].shader_location = 1;
-            position_layout.attributes[0].offset = Float32x3.size();
             position_layout.clone()
         },
         {
             position_layout.attributes[0].shader_location = 2;
-            position_layout.attributes[0].offset = 2 * Float32x3.size();
             position_layout
         },
         color_layout.clone(),

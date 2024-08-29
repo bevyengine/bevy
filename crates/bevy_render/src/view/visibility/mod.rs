@@ -21,8 +21,6 @@ use crate::{
     primitives::{Aabb, Frustum, Sphere},
 };
 
-use thiserror::Error;
-
 use super::NoCpuCulling;
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
@@ -49,40 +47,36 @@ pub enum Visibility {
     Visible,
 }
 
-/// Enum of errors that could occur during conversion to [`bool`]
-#[non_exhaustive]
-#[derive(Error, Debug)]
-pub enum VisibilityToBoolConversionError {
-    #[error("The variant `{0:?}` cannot be converted to a bool")]
-    VariantNotSupported(Visibility),
-}
-/// Implements conversion from bool to Visibility
-/// `true` corresponds to [`Visibility::Visible`], while false corresponds to [`Visibility::Hidden`].
-impl From<bool> for Visibility {
-    fn from(visible: bool) -> Visibility {
-        if visible {
-            Visibility::Visible
-        } else {
-            Visibility::Hidden
-        }
+impl Visibility {
+    /// Toggles between `Visibility::Inherited` and `Visibility::Visible`.
+    /// If the value is `Visibility::Hidden`, it remains unaffected.
+    #[inline]
+    pub fn toggle_inherited_visible(&mut self) {
+        *self = match *self {
+            Visibility::Inherited => Visibility::Visible,
+            Visibility::Visible => Visibility::Inherited,
+            _ => *self,
+        };
     }
-}
-
-/// Implements conversion from [`Visibility`] to [`bool`]
-/// - returns `Ok(true)` if `Visibility::Visible`
-/// - returns `Ok(false)` if `Visibility::Hidden`
-/// - returns `Err()` if `Visibility::Inherited`
-impl TryFrom<Visibility> for bool {
-    type Error = VisibilityToBoolConversionError;
-
-    fn try_from(visible: Visibility) -> Result<Self, Self::Error> {
-        match visible {
-            Visibility::Hidden => Ok(false),
-            Visibility::Visible => Ok(true),
-            Visibility::Inherited => Err(VisibilityToBoolConversionError::VariantNotSupported(
-                Visibility::Inherited,
-            )),
-        }
+    /// Toggles between `Visibility::Inherited` and `Visibility::Hidden`.
+    /// If the value is `Visibility::Visible`, it remains unaffected.
+    #[inline]
+    pub fn toggle_inherited_hidden(&mut self) {
+        *self = match *self {
+            Visibility::Inherited => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Inherited,
+            _ => *self,
+        };
+    }
+    /// Toggles between `Visibility::Visible` and `Visibility::Hidden`.
+    /// If the value is `Visibility::Inherited`, it remains unaffected.
+    #[inline]
+    pub fn toggle_visible_hidden(&mut self) {
+        *self = match *self {
+            Visibility::Visible => Visibility::Hidden,
+            Visibility::Hidden => Visibility::Visible,
+            _ => *self,
+        };
     }
 }
 
@@ -535,12 +529,10 @@ pub fn check_visibility<QF>(
 
 #[cfg(test)]
 mod test {
-    use bevy_app::prelude::*;
-    use bevy_ecs::prelude::*;
-
     use super::*;
-
+    use bevy_app::prelude::*;
     use bevy_hierarchy::BuildChildren;
+    use std::mem::size_of;
 
     fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
         VisibilityBundle {
@@ -802,8 +794,7 @@ mod test {
 
     #[test]
     fn ensure_visibility_enum_size() {
-        use std::mem;
-        assert_eq!(1, mem::size_of::<Visibility>());
-        assert_eq!(1, mem::size_of::<Option<Visibility>>());
+        assert_eq!(1, size_of::<Visibility>());
+        assert_eq!(1, size_of::<Option<Visibility>>());
     }
 }

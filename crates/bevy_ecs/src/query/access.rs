@@ -35,7 +35,7 @@ impl<'a, T: SparseSetIndex> FormattedBitSet<'a, T> {
     }
 }
 
-impl<'a, T: SparseSetIndex + fmt::Debug> fmt::Debug for FormattedBitSet<'a, T> {
+impl<'a, T: SparseSetIndex + Debug> Debug for FormattedBitSet<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list()
             .entries(self.bit_set.ones().map(T::get_sparse_set_index))
@@ -106,7 +106,7 @@ impl<T: SparseSetIndex> Clone for Access<T> {
     }
 }
 
-impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
+impl<T: SparseSetIndex + Debug> Debug for Access<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Access")
             .field(
@@ -907,7 +907,7 @@ impl<T: SparseSetIndex> Clone for AccessFilters<T> {
     }
 }
 
-impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for AccessFilters<T> {
+impl<T: SparseSetIndex + Debug> Debug for AccessFilters<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AccessFilters")
             .field("with", &FormattedBitSet::<T>::new(&self.with))

@@ -801,7 +801,7 @@ impl Mesh {
         // The indices of `other` should start after the last vertex of `self`.
         let index_offset = self
             .attribute(Mesh::ATTRIBUTE_POSITION)
-            .get_or_insert(&VertexAttributeValues::Float32x3(Vec::default()))
+            .get_or_insert(&Float32x3(Vec::default()))
             .len();
 
         // Extend attributes of `self` with attributes of `other`.

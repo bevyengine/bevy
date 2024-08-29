@@ -2348,7 +2348,7 @@ impl World {
 
         // By setting the change tick in the drop impl, we ensure that
         // the change tick gets reset even if a panic occurs during the scope.
-        impl std::ops::Drop for LastTickGuard<'_> {
+        impl Drop for LastTickGuard<'_> {
             fn drop(&mut self) {
                 self.world.last_change_tick = self.last_tick;
             }
@@ -2949,12 +2949,15 @@ unsafe impl Sync for World {}
 /// using data from the supplied [`World`].
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
+///
+/// [`FromWorld`] is automatically implemented for any type implementing [`Default`].
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
     fn from_world(world: &mut World) -> Self;
 }
 
 impl<T: Default> FromWorld for T {
+    /// Creates `Self` using [`default()`](`Default::default`).
     fn from_world(_world: &mut World) -> Self {
         T::default()
     }
@@ -3197,7 +3200,7 @@ mod tests {
         };
 
         assert!(iter.next().is_none());
-        std::mem::drop(iter);
+        drop(iter);
 
         assert_eq!(world.resource::<TestResource>().0, 43);
         assert_eq!(

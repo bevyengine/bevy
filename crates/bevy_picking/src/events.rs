@@ -30,7 +30,7 @@
 //! The events this module defines fall into a few broad categories:
 //! + Hovering and movement: [`Over`], [`Move`], and [`Out`].
 //! + Clicking and pressing: [`Down`], [`Up`], and [`Click`].
-//! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`], [`Drop`], [`DragLeave`].
+//! + Dragging and dropping: [`DragStart`], [`Drag`], [`DragEnd`], [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
 //!
 //! When received by an observer, these events will always be wrapped by the [`Pointer`] type, which contains
 //! general metadata about the pointer and it's location.
@@ -61,7 +61,7 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     pub pointer_id: PointerId,
     /// The location of the pointer during this event
     pub pointer_location: Location,
-    /// Additional event-specific data. [`Drop`] for example, has an additional field to describe
+    /// Additional event-specific data. [`DragDrop`] for example, has an additional field to describe
     /// the `Entity` that is being dropped on the target.
     pub event: E,
 }
@@ -220,7 +220,7 @@ pub struct DragLeave {
 
 /// Fires when a pointer drops the `dropped` entity onto the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
-pub struct Drop {
+pub struct DragDrop {
     /// Pointer button lifted to drop.
     pub button: PointerButton,
     /// The entity that was dropped onto the `target` entity.
@@ -244,14 +244,14 @@ pub struct DragEntry {
 /// + The sequence [`Over`], [`DragEnter`].
 /// + Any number of any of the following:
 ///   + For each movement: The sequence [`Move`], [`DragStart`], [`Drag`], [`DragOver`].
-///   + For each button press: Either [`Down`], or the sequence [`Up`], [`Click`], [`Drop`], [`DragEnd`], [`DragLeave`].
+///   + For each button press: Either [`Down`], or the sequence [`Up`], [`Click`], [`DragDrop`], [`DragEnd`], [`DragLeave`].
 /// + Finally the sequence [`DragLeave`], [`Out`].
 ///
 /// Additionally, the following are guaranteed to be received in the order by each listener:
 /// + When a pointer moves over the target: [`Over`], [`Move`], [`Out`].
 /// + When a pointer presses buttons on the target: [`Down`], [`Up`], [`Click`].
 /// + When a pointer drags the target: [`DragStart`], [`Drag`], [`DragEnd`].
-/// + When a pointer drags something over the target: [`DragEnter`], [`DragOver`], [`Drop`], [`DragLeave`].
+/// + When a pointer drags something over the target: [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
 ///
 /// Two events -- [`Over`] and [`Out`] -- are driven only by the change in the raw [`PointerLocation`]. The rest rely on
 /// additional data from the [`PointerInput`] event stream.
@@ -400,7 +400,7 @@ pub fn pointer_events(
                     };
                 }
 
-                // Additionally, for all button releases clear out the state and possibly emit DragEnd, Drop, DragLeave and
+                // Additionally, for all button releases clear out the state and possibly emit DragEnd, DragDrop, DragLeave and
                 if direction == PressDirection::Up {
                     down_map.insert((pointer_id, button), HashMap::new());
                     let Some(drag_list) = drag_map.insert((pointer_id, button), HashMap::new())
@@ -412,13 +412,13 @@ pub fn pointer_events(
                         else {
                             continue;
                         };
-                        // Emit Drop
+                        // Emit DragDrop
                         for (dragged_over, hit) in drag_over_set.drain() {
                             commands.trigger_targets(
                                 Pointer::new(
                                     pointer_id,
                                     location.clone(),
-                                    Drop {
+                                    DragDrop {
                                         button,
                                         dropped: drag_target,
                                         hit: hit.clone(),
