@@ -73,6 +73,15 @@ fn draw_example_collection(
         FUCHSIA,
     );
 
+    let domain = Interval::EVERYWHERE;
+    let curve = function_curve(domain, |t| Vec2::new(t, (t / 25.0).sin() * 100.0));
+    let resolution = ((time.elapsed_seconds().sin() + 1.0) * 50.0) as usize;
+    let times_and_colors = (0..=resolution)
+        .map(|n| n as f32 / resolution as f32)
+        .map(|t| (t - 0.5) * 600.0)
+        .map(|t| (t, GREEN.mix(&RED, (t + 300.0) / 600.0)));
+    gizmos.curve_gradient_2d(curve, times_and_colors);
+
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
         .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);

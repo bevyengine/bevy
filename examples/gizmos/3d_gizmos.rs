@@ -116,6 +116,17 @@ fn draw_example_collection(
         FUCHSIA,
     );
 
+    let domain = Interval::EVERYWHERE;
+    let curve = function_curve(domain, |t| {
+        (Vec2::from((t * 10.0).sin_cos())).extend(t - 6.0)
+    });
+    let resolution = ((time.elapsed_seconds().sin() + 1.0) * 100.0) as usize;
+    let times_and_colors = (0..=resolution)
+        .map(|n| n as f32 / resolution as f32)
+        .map(|t| t * 5.0)
+        .map(|t| (t, GREEN.mix(&RED, t / 5.0)));
+    gizmos.curve_gradient_3d(curve, times_and_colors);
+
     my_gizmos.sphere(
         Isometry3d::from_translation(Vec3::new(1., 0.5, 0.)),
         0.5,
