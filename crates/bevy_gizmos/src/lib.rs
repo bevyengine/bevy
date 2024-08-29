@@ -129,8 +129,8 @@ impl AppGizmoBuilder for App {
             .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
             .register::<Config>();
 
-        self.init_line_gizmo_group::<Config>();
         self.init_billboard_gizmo_group::<Config>();
+        self.init_line_gizmo_group::<Config>();
 
         self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()

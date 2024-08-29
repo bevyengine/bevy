@@ -163,11 +163,6 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
     if storage.list_positions.is_empty() {
         handles.billboards.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.billboards.get_mut(&TypeId::of::<Config>()) {
-        println!(
-            "took {} billboards from {}",
-            storage.billboard_positions.len(),
-            std::any::type_name::<Config>()
-        );
         if let Some(handle) = handle {
             let billboards = billboard_gizmos.get_mut(handle.id()).unwrap();
 
@@ -366,8 +361,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawBillboardGizmo {
 
             billboard_gizmo.vertex_count
         };
-
-        println!("Drawing {} billboard(s)", instances);
 
         pass.draw(0..6, 0..instances);
 

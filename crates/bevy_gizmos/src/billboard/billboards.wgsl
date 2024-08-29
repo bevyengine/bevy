@@ -26,7 +26,6 @@ struct VertexOutput {
     @location(0) color: vec4<f32>,
 };
 
-const SQRT2: f32 = 1.4142135;
 const EPSILON: f32 = 4.88e-04;
 
 @vertex
@@ -39,49 +38,45 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         vec2(0.5, 0.5),
         vec2(0.5, -0.5)
     );
-    let position = positions[vertex.index];
+    var offset = positions[vertex.index];
 
-    let clip = view.clip_from_world * vec4(vertex.position, 1.);
+	let center_clip = view.clip_from_world * vec4(vertex.position, 1.0); // vec4(offset.x * clip_size / aspect_ratio, offset.y * clip_size, 0., 0.);
 
     let resolution = view.viewport.zw;
-    let screen_center = resolution * (0.5 * clip.xy / clip.w + 0.5);
+    let screen_center = resolution * (0.5 * center_clip.xy / center_clip.w + 0.5);
 
     var color = vertex.color;
-
     var billboard_size = billboard_gizmo.size;
-    var alpha = 1.;
-
 #ifdef PERSPECTIVE
-    billboard_size /= clip.w;
+    billboard_size /= center_clip.w;
 #endif
-
-    // Billboard size fade based on https://acegikmo.com/shapes/docs/#anti-aliasing
-    let abs_size = length(billboard_size);
-    if abs_size < SQRT2 {
-        color.a *= abs_size / SQRT2;
+    if billboard_size < 1. {
+        color.a *= billboard_size;
         billboard_size = 1.;
     }
 
-    let screen = screen_center + position * billboard_size;
+    let screen = screen_center + offset * billboard_size;
 
     var depth: f32;
     if billboard_gizmo.depth_bias >= 0. {
-        depth = clip.z * (1. - billboard_gizmo.depth_bias);
+        depth = center_clip.z * (1. - billboard_gizmo.depth_bias);
     } else {
-        // depth * (clip.w / depth)^-depth_bias. So that when -depth_bias is 1.0, this is equal to clip.w
+        // depth * (center_clip.w / depth)^-depth_bias. So that when -depth_bias is 1.0, this is equal to center_clip.w
         // and when equal to 0.0, it is exactly equal to depth.
-        // the epsilon is here to prevent the depth from exceeding clip.w when -depth_bias = 1.0
-        // clip.w represents the near plane in homogeneous clip space in bevy, having a depth
+        // the epsilon is here to prevent the depth from exceeding center_clip.w when -depth_bias = 1.0
+        // center_clip.w represents the near plane in homogeneous clip space in bevy, having a depth
         // of this value means nothing can be in front of this
         // The reason this uses an exponential function is that it makes it much easier for the
         // user to chose a value that is convenient for them
-        depth = clip.z * exp2(-billboard_gizmo.depth_bias * log2(clip.w / clip.z - EPSILON));
+        depth = center_clip.z * exp2(-billboard_gizmo.depth_bias * log2(center_clip.w / center_clip.z - EPSILON));
     }
 
-    var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
+    var clip_position = vec4(center_clip.w * ((2. * screen) / resolution - 1.), depth, center_clip.w);
 
-    // return VertexOutput(clip_position, color);
-    return VertexOutput(vec4(position, 0.0, 0.), color);
+    var result: VertexOutput;
+	result.clip_position = clip_position;
+	result.color = color;
+	return result;
 }
 
 struct FragmentOutput {
@@ -90,5 +85,6 @@ struct FragmentOutput {
 
 @fragment
 fn fragment(in: VertexOutput) -> FragmentOutput {
+    // return FragmentOutput(vec4(1., 1., 1., 1.));
     return FragmentOutput(in.color);
 }
