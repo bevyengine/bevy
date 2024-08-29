@@ -326,58 +326,6 @@ impl Table {
         }
     }
 
-    /// Writes component data to its corresponding column at the given row.
-    /// Assumes the slot is uninitialized, drop is not called.
-    /// To overwrite an existing initialized value, use [`Self::replace_component`] instead.
-    ///
-    /// # Safety
-    /// - `row.as_usize()` < `len`
-    /// - `comp_ptr` holds a component that matches the `component_id`
-    pub(crate) unsafe fn initialize_component(
-        &mut self,
-        row: TableRow,
-        component_id: ComponentId,
-        comp_ptr: OwningPtr<'_>,
-        change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
-    ) {
-        debug_assert!(row.as_usize() < self.entity_count());
-        self.get_column_mut(component_id)
-            .debug_checked_unwrap()
-            .initialize(
-                row,
-                comp_ptr,
-                change_tick,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
-    }
-
-    /// Replace the component at the given `row` with the component at `comp_ptr`
-    ///
-    /// # Safety
-    /// `row.as_usize()` < `self.len()`
-    /// `comp_ptr` holds the data of a component matching the `component_id`
-    pub(crate) unsafe fn replace_component(
-        &mut self,
-        row: TableRow,
-        component_id: ComponentId,
-        comp_ptr: OwningPtr<'_>,
-        change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
-    ) {
-        debug_assert!(row.as_usize() < self.entity_count());
-        self.get_column_mut(component_id)
-            .debug_checked_unwrap()
-            .replace(
-                row,
-                comp_ptr,
-                change_tick,
-                #[cfg(feature = "track_change_detection")]
-                caller,
-            );
-    }
-
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
     /// Returns the index of the new row in `new_table` and the entity in this table swapped in
     /// to replace it (if an entity was swapped in).
