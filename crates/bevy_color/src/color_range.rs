@@ -15,7 +15,9 @@ pub trait ColorRange<T: Mix> {
 
 impl<T: Mix> ColorRange<T> for Range<T> {
     fn at(&self, factor: f32) -> T {
-        self.start.mix(&self.end, factor)
+        self.start.mix(&self.end, factor.clamp(0.0, 1.0))
+    }
+}
     }
 }
 
