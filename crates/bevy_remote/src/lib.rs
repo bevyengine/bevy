@@ -267,6 +267,7 @@ pub struct BrpError {
     /// Short, human-readable description of the error.
     pub message: String,
     /// Optional additional error data.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
 }
 
