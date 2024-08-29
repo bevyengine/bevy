@@ -99,7 +99,15 @@
 //! - [`Components`](crate::component::Components) (Provides Components metadata)
 //! - [`Entities`](crate::entity::Entities) (Provides Entities metadata)
 //! - All tuples between 1 to 16 elements where each element implements [`SystemParam`]
+//! - [`ParamSet`]
 //! - [`()` (unit primitive type)](https://doc.rust-lang.org/stable/std/primitive.unit.html)
+//!
+//! In addition, the following parameters can be used when constructing a dynamic system with [`SystemParamBuilder`],
+//! but will only provide an empty value when used with an ordinary system:
+//!
+//! - [`DynSystemParam`]
+//! - [`Vec<P>`] where `P: SystemParam`
+//! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
 
 mod adapter_system;
 mod builder;
