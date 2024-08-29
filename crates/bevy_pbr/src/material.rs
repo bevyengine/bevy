@@ -545,7 +545,7 @@ pub fn queue_material_meshes<M: Material>(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
+    views: Query<(
         Entity,
         &ExtractedView,
         &VisibleEntities,
@@ -585,7 +585,7 @@ pub fn queue_material_meshes<M: Material>(
         temporal_jitter,
         projection,
         (has_environment_maps, has_irradiance_volumes),
-    ) in &mut views
+    ) in &views
     {
         let (
             Some(opaque_phase),

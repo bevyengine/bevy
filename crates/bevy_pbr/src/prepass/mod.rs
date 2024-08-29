@@ -688,7 +688,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    mut views: Query<
+    views: Query<
         (
             Entity,
             &VisibleEntities,
@@ -727,7 +727,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
-    ) in &mut views
+    ) in &views
     {
         let (
             mut opaque_phase,

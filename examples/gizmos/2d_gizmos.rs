@@ -49,8 +49,7 @@ fn draw_example_collection(
 
     gizmos
         .grid_2d(
-            Vec2::ZERO,
-            0.0,
+            Isometry2d::IDENTITY,
             UVec2::new(16, 9),
             Vec2::new(80., 80.),
             // Dark gray
@@ -66,21 +65,26 @@ fn draw_example_collection(
         (Vec2::Y * 300., BLUE),
     ]);
 
-    gizmos.rect_2d(Vec2::ZERO, 0., Vec2::splat(650.), BLACK);
+    gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::splat(650.), BLACK);
 
-    gizmos.cross_2d(Vec2::new(-160., 120.), 0., 12., FUCHSIA);
+    gizmos.cross_2d(
+        Isometry2d::from_translation(Vec2::new(-160., 120.)),
+        12.,
+        FUCHSIA,
+    );
 
     my_gizmos
-        .rounded_rect_2d(Vec2::ZERO, 0., Vec2::splat(630.), BLACK)
+        .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
         .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
 
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.
-    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).resolution(64);
+    my_gizmos
+        .circle_2d(Isometry2d::from_translation(Vec2::ZERO), 300., NAVY)
+        .resolution(64);
 
     my_gizmos.ellipse_2d(
-        Vec2::ZERO,
-        time.elapsed_seconds() % TAU,
+        Isometry2d::new(Vec2::ZERO, Rot2::radians(time.elapsed_seconds() % TAU)),
         Vec2::new(100., 200.),
         YELLOW_GREEN,
     );
@@ -93,7 +97,9 @@ fn draw_example_collection(
         310.,
         ORANGE_RED,
     );
-    my_gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_2, 75.0, ORANGE_RED);
+    my_gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_2, 80.0, ORANGE_RED);
+    my_gizmos.long_arc_2d_between(Vec2::ZERO, Vec2::X * 20.0, Vec2::Y * 20.0, ORANGE_RED);
+    my_gizmos.short_arc_2d_between(Vec2::ZERO, Vec2::X * 40.0, Vec2::Y * 40.0, ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,
