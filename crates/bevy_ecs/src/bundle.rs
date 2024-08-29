@@ -427,13 +427,13 @@ impl BundleInfo {
         let mut bundle_component = 0;
         bundle.get_components(&mut |storage_type, component_ptr| {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
-            // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
-            // the target table contains the component.
-            let column = unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
             match storage_type {
                 StorageType::Table => {
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
+                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                    // the target table contains the component.
+                    let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
                         (ComponentStatus::Added, _) => column.initialize(
                             table_row,
