@@ -16,7 +16,7 @@ use bevy_render::{
     view::ViewVisibility,
     ExtractSchedule, Render,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
@@ -302,18 +302,21 @@ pub fn extract_uinode_images(
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<(
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-            &UiImage,
-            Option<&TextureAtlas>,
-            Option<&BorderRadius>,
-            Option<&Parent>,
-            &Style,
-        )>,
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+                &UiImage,
+                Option<&TextureAtlas>,
+                Option<&BorderRadius>,
+                Option<&Parent>,
+                &Style,
+            ),
+            Without<ImageScaleMode>,
+        >,
     >,
     node_query: Extract<Query<&Node>>,
 ) {
@@ -342,15 +345,6 @@ pub fn extract_uinode_images(
         {
             continue;
         }
-
-        // if let Some(slices) = slices {
-        //     extracted_uinodes.uinodes.extend(
-        //         slices
-        //             .extract_ui_nodes(transform, uinode, image, clip, camera_entity)
-        //             .map(|e| (commands.spawn_empty().id(), e)),
-        //     );
-        //     continue;
-        // }
 
         let (rect, atlas_scaling) = match atlas {
             Some(atlas) => {
