@@ -6,7 +6,6 @@ use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
-use bevy_render::world_sync::RenderEntity;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
@@ -178,7 +177,6 @@ pub fn extract_lights(
     global_point_lights: Extract<Res<GlobalVisibleClusterableObjects>>,
     point_lights: Extract<
         Query<(
-            &RenderEntity,
             &PointLight,
             &CubemapVisibleEntities,
             &GlobalTransform,
@@ -188,7 +186,6 @@ pub fn extract_lights(
     >,
     spot_lights: Extract<
         Query<(
-            &RenderEntity,
             &SpotLight,
             &VisibleMeshEntities,
             &GlobalTransform,
@@ -199,7 +196,7 @@ pub fn extract_lights(
     directional_lights: Extract<
         Query<
             (
-                &RenderEntity,
+                Entity,
                 &DirectionalLight,
                 &CascadesVisibleEntities,
                 &Cascades,
@@ -213,7 +210,6 @@ pub fn extract_lights(
             Without<SpotLight>,
         >,
     >,
-    mapper: Extract<Query<&RenderEntity>>,
     mut previous_point_lights_len: Local<usize>,
     mut previous_spot_lights_len: Local<usize>,
 ) {
@@ -236,14 +232,8 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        let Ok((
-            render_entity,
-            point_light,
-            cubemap_visible_entities,
-            transform,
-            view_visibility,
-            frusta,
-        )) = point_lights.get(entity)
+        let Ok((point_light, cubemap_visible_entities, transform, view_visibility, frusta)) =
+            point_lights.get(entity)
         else {
             continue;
         };
@@ -271,7 +261,7 @@ pub fn extract_lights(
             spot_light_angles: None,
         };
         point_lights_values.push((
-            render_entity.id(),
+            entity,
             (
                 extracted_point_light,
                 render_cubemap_visible_entities,
@@ -284,14 +274,8 @@ pub fn extract_lights(
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((
-            render_entity,
-            spot_light,
-            visible_entities,
-            transform,
-            view_visibility,
-            frustum,
-        )) = spot_lights.get(entity)
+        if let Ok((spot_light, visible_entities, transform, view_visibility, frustum)) =
+            spot_lights.get(entity)
         {
             if !view_visibility.get() {
                 continue;
@@ -303,7 +287,7 @@ pub fn extract_lights(
                 2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
 
             spot_lights_values.push((
-                render_entity.id(),
+                entity,
                 (
                     ExtractedPointLight {
                         color: spot_light.color.into(),
@@ -351,33 +335,9 @@ pub fn extract_lights(
             continue;
         }
 
-        // TODO: update in place instead of reinserting.
-        let mut extracted_cascades = EntityHashMap::default();
-        let mut extracted_frusta = EntityHashMap::default();
-        let mut cascade_visible_entities = EntityHashMap::default();
-        for (e, v) in cascades.cascades.iter() {
-            if let Ok(entity) = mapper.get(*e) {
-                extracted_cascades.insert(entity.id(), v.clone());
-            } else {
-                break;
-            }
-        }
-        for (e, v) in frusta.frusta.iter() {
-            if let Ok(entity) = mapper.get(*e) {
-                extracted_frusta.insert(entity.id(), v.clone());
-            } else {
-                break;
-            }
-        }
-        for (e, v) in visible_entities.entities.iter() {
-            if let Ok(entity) = mapper.get(*e) {
-                cascade_visible_entities.insert(entity.id(), v.clone());
-            } else {
-                break;
-            }
-        }
-
-        commands.get_or_spawn(entity.id()).insert((
+        // TODO: As above
+        let render_visible_entities = visible_entities.clone();
+        commands.get_or_spawn(entity).insert((
             ExtractedDirectionalLight {
                 color: directional_light.color.into(),
                 illuminance: directional_light.illuminance,
@@ -388,13 +348,11 @@ pub fn extract_lights(
                 // The factor of SQRT_2 is for the worst-case diagonal offset
                 shadow_normal_bias: directional_light.shadow_normal_bias * std::f32::consts::SQRT_2,
                 cascade_shadow_config: cascade_config.clone(),
-                cascades: extracted_cascades,
-                frusta: extracted_frusta,
+                cascades: cascades.cascades.clone(),
+                frusta: frusta.frusta.clone(),
                 render_layers: maybe_layers.unwrap_or_default().clone(),
             },
-            CascadesVisibleEntities {
-                entities: cascade_visible_entities,
-            },
+            render_visible_entities,
         ));
     }
 }

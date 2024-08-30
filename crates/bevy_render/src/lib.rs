@@ -66,9 +66,7 @@ use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue};
-use world_sync::{
-    despawn_temporary_render_entity, entity_sync_system, SyncRenderWorld, WorldSyncPlugin,
-};
+use world_sync::{despawn_temporary_render_entity, SyncRenderWorld};
 
 use crate::mesh::RenderMesh;
 use crate::renderer::WgpuWrapper;
@@ -360,7 +358,6 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin,
-            WorldSyncPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
@@ -450,7 +447,7 @@ fn extract(main_world: &mut World, render_world: &mut World) {
 unsafe fn initialize_render_app(app: &mut App) {
     app.init_resource::<ScratchMainWorld>();
 
-    let mut render_app = SubApp::new();
+    let mut render_app = SubApp::new_with_entity_alloc_mask(1);
     render_app.update_schedule = Some(Render.intern());
 
     let mut extract_schedule = Schedule::new(ExtractSchedule);
@@ -487,7 +484,11 @@ unsafe fn initialize_render_app(app: &mut App) {
         {
             #[cfg(feature = "trace")]
             let _stage_span = bevy_utils::tracing::info_span!("entity_sync").entered();
-            entity_sync_system(main_world, render_world);
+            // entity_sync_system(main_world, render_world);
+            println!(
+                "render world count:{}",
+                render_world.entities().total_count()
+            );
         }
 
         // run extract schedule
