@@ -148,7 +148,7 @@ impl World {
         &mut self,
         system: BoxedSystem<I, O>,
     ) -> SystemId<I, O> {
-        let entity = self.spawn_empty().insert(system_bundle(system)).id();
+        let entity = self.spawn(system_bundle(system)).id();
         SystemId::from_entity(entity)
     }
 
