@@ -2,7 +2,7 @@
 //!
 //! The picking system is built around the concept of a 'Pointer', which is an
 //! abstract representation of a user input with a specific screen location. The cursor
-//! and touch input is provided under [`bevy_picking::input`], but you can also implement
+//! and touch input is provided under [`crate::input`], but you can also implement
 //! your own custom pointers by supplying a unique ID.
 //!
 //! The purpose of this module is primarily to provide a common interface that can be
@@ -91,7 +91,7 @@ pub fn update_pointer_map(pointers: Query<(Entity, &PointerId)>, mut map: ResMut
     }
 }
 
-/// Tracks the state of the pointer's buttons in response to [`InputPress`]s.
+/// Tracks the state of the pointer's buttons in response to [`PointerInput`] events.
 #[derive(Debug, Default, Clone, Component, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default)]
 pub struct PointerPress {

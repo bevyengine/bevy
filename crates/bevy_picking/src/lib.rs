@@ -29,7 +29,7 @@
 //!
 //! ## Expressive Events
 //!
-//! The events in this module (see `[bevy_picking::event]`) cannot be listened to with normal `EventReader`s.
+//! The events in this module (see `[crate::event]`) cannot be listened to with normal `EventReader`s.
 //! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
 //! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
 //! with a call to [`bevy_ecs::observer::Trigger::propagate`]. See [`bevy_ecs::observer`] for details.
@@ -95,13 +95,12 @@
 //! # The Picking Pipeline
 //!
 //! This plugin is designed to be extremely modular. To do so, it works in well-defined stages that
-//! form a pipeline, where events are used to pass data between each stage. All the types needed for
-//! the pipeline are defined in the [`bevy_picking_core`] crate.
+//! form a pipeline, where events are used to pass data between each stage.
 //!
-//! #### Pointers ([`bevy_picking::pointer`])
+//! #### Pointers ([`crate::pointer`])
 //!
 //! The first stage of the pipeline is to gather inputs and update pointers. This stage is
-//! ultimately responsible for generating [`PointerInput`] events. The provided crate does this
+//! ultimately responsible for generating [`pointer::PointerInput`] events. The provided crate does this
 //! automatically for mouse, touch, and pen inputs. If you wanted to implement your own pointer,
 //! controlled by some other input, you can do that here. The ordering of events within the
 //! `PointerInput` stream is meaningful for events with the same `PointerId`, but not between
@@ -110,14 +109,14 @@
 //! Because pointer positions and presses are driven by these events, you can use them to mock
 //! inputs for testing.
 //!
-//! After inputs are generated, they are then collected to update the current [`PointerLocation`]
+//! After inputs are generated, they are then collected to update the current [`pointer::PointerLocation`]
 //! for each pointer.
 //!
-//! #### Backend ([`bevy_picking::backend`])
+//! #### Backend ([`crate::backend`])
 //!
 //! A picking backend only has one job: reading [`PointerLocation`] components, and producing
-//! [`PointerHits`](crate::backend::PointerHits). You can find all documentation and types needed to
-//! implement a backend at [`bevy_picking_core::backend`].
+//! [`PointerHits`](backend::PointerHits). You can find all documentation and types needed to
+//! implement a backend at [`backend`].
 //!
 //! You will eventually need to choose which picking backend(s) you want to use. This crate does not
 //! supply any backends, and expects you to select some from the other bevy crates or the third-party
@@ -128,7 +127,7 @@
 //! This crate provides some backends out of the box, but you can even write your own. It's been
 //! made as easy as possible intentionally; the `bevy_mod_raycast` backend is 50 lines of code.
 //!
-//! #### Focus ([`bevy_picking::focus`])
+//! #### Focus ([`crate::focus`])
 //!
 //! The next step is to use the data from the backends, combine and sort the results, and determine
 //! what each cursor is hovering over, producing a [`HoverMap`](`crate::focus::HoverMap`). Note that
@@ -138,7 +137,7 @@
 //! order of the backend, and the [`Pickable`] state of the entity. In other words, if one entity is
 //! in front of another, usually only the topmost one will be hovered.
 //!
-//! #### Events ([`bevy_picking::events`])
+//! #### Events ([`create::events`])
 //!
 //! In the final step, the high-level pointer events are generated, such as events that trigger when
 //! a pointer hovers or clicks an entity. These simple events are then used to generate more complex

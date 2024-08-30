@@ -7,7 +7,7 @@
 //! inputs, and allow users full accessibility to map whatever inputs they need to pointer input.
 //!
 //! If, for example, you wanted to add support for VR input, all you need to do is spawn a pointer
-//! entity with a custom [`PointerId`](crate::pointer::PointerId), and write a system
+//! entity with a custom [`PointerId`], and write a system
 //! that updates its position. If you want this to work properly with the existing interaction events,
 //! you need to be sure that you also write a [`PointerInput`] event stream.
 

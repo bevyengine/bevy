@@ -3,8 +3,8 @@
 //!
 //! # Usage
 //!
-//! To receive events from this module, you must use an [`bevy::ecs::Observer`]. The simplest example,
-//! registering a callback when an entity is hovered over by a pointer, looks like this
+//! To receive events from this module, you must use an [`Observer`](bevy_ecs::observer::Observer)
+//! The simplest example, registering a callback when an entity is hovered over by a pointer, looks like this:
 //!
 //! ```rust
 //! # use bevy_ecs::prelude::*;
@@ -24,7 +24,7 @@
 //! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in [`PreUpdate`]
 //! in [`PickSet::Focus`]. All pointer-event observers resolve during the sync point between
-//! [`pointer_events`] and [`update_interactions`].
+//! [`pointer_events`] and [`crate::focus::update_interactions`].
 //!
 //! # Events Types
 //!
@@ -237,7 +237,7 @@ pub struct DragDrop {
     pub hit: HitData,
 }
 
-/// An entry in the [`DragMap`].
+/// Dragging state.
 #[derive(Debug, Clone)]
 pub struct DragEntry {
     /// The position of the pointer at drag start.
