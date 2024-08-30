@@ -2420,7 +2420,7 @@ name = "storage_buffer"
 path = "examples/shader/storage_buffer.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.storage]
+[package.metadata.example.storage_buffer]
 name = "Storage Buffer"
 description = "A shader that shows how to bind a storage buffer using a custom material."
 category = "Shaders"
