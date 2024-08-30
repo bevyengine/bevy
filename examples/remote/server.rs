@@ -7,6 +7,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(RemotePlugin::default())
         .add_systems(Startup, setup)
+        .register_type::<Cube>()
         .run();
 }
 
@@ -24,12 +25,15 @@ fn setup(
     });
 
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::srgb_u8(124, 144, 255)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
+            material: materials.add(Color::srgb_u8(124, 144, 255)),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            ..default()
+        },
+        Cube(1.0),
+    ));
 
     // light
     commands.spawn(PointLightBundle {
@@ -47,3 +51,7 @@ fn setup(
         ..default()
     });
 }
+
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+struct Cube(f32);

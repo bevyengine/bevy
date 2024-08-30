@@ -126,7 +126,7 @@
 //!   - `components` (optional): An array of fully-qualified type names of components to fetch.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
-//!      checked for, without inclusion in query results.
+//!      reported as boolean values.
 //! - `filter` (optional):
 //!   - `with` (optional): An array of fully-qualified type names of components that must be present
 //!     on entities in order for them to be included in results.
@@ -135,7 +135,10 @@
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
-//! - `components`: A map associating each type name to its value on the matching entity.
+//! - `components`: A map associating each type name from `components`/`option` to its value on the matching
+//!   entity if the component is present.
+//! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
+//!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
 //! ### bevy/spawn
 //!
@@ -360,8 +363,10 @@ pub struct BrpRequest {
 pub struct BrpResponse {
     /// This field is mandatory and must be set to `"2.0"`.
     pub jsonrpc: &'static str,
+
     /// The id of the original request.
     pub id: Option<Value>,
+
     /// The actual response payload.
     #[serde(flatten)]
     pub payload: BrpPayload,
@@ -452,6 +457,7 @@ impl BrpError {
     }
 
     /// Attempt to reparent an entity to itself.
+    #[must_use]
     pub fn self_reparent(entity: Entity) -> Self {
         Self {
             code: error_codes::SELF_REPARENT,

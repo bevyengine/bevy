@@ -203,6 +203,10 @@ pub struct BrpQueryRow {
 
     /// The serialized values of the requested components.
     pub components: HashMap<String, Value>,
+
+    /// The boolean-only containment query results.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub has: HashMap<String, Value>,
 }
 
 /// A helper function used to parse a `serde_json::Value`.
@@ -295,14 +299,14 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
     for (_, component) in &components {
         query.ref_id(*component);
     }
-    for (_, option) in option {
+    for (_, option) in &option {
         query.optional(|query| {
-            query.ref_id(option);
+            query.ref_id(*option);
         });
     }
-    for (_, has) in has {
+    for (_, has) in &has {
         query.optional(|query| {
-            query.ref_id(has);
+            query.ref_id(*has);
         });
     }
     for (_, without) in without {
@@ -312,18 +316,45 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
         query.with_id(with);
     }
 
+    // At this point, we can safely unify `components` and `option`, since we only retrieved
+    // entities that actually have all the `components` already.
+    //
+    // We also will just collect the `ReflectComponent` values from the type registry all
+    // at once so that we can reuse them between components.
+    let paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = components
+        .into_iter()
+        .chain(option)
+        .map(|(type_id, _)| reflect_component_from_id(type_id, &type_registry))
+        .collect::<AnyhowResult<Vec<(&str, &ReflectComponent)>>>()
+        .map_err(BrpError::component_error)?;
+
+    // ... and the analogous construction for `has`:
+    let has_paths_and_reflect_components: Vec<(&str, &ReflectComponent)> = has
+        .into_iter()
+        .map(|(type_id, _)| reflect_component_from_id(type_id, &type_registry))
+        .collect::<AnyhowResult<Vec<(&str, &ReflectComponent)>>>()
+        .map_err(BrpError::component_error)?;
+
     let mut rows = vec![];
     let mut query = query.build();
     for row in query.iter(world) {
-        let components_map = serialize_components(
+        // The map of component values:
+        let components_map = build_components_map(
             row.clone(),
-            components.iter().map(|(type_id, _)| *type_id),
+            paths_and_reflect_components.iter().copied(),
             &type_registry,
         )
         .map_err(BrpError::component_error)?;
+
+        // The map of boolean-valued component presences:
+        let has_map = build_has_map(
+            row.clone(),
+            has_paths_and_reflect_components.iter().copied(),
+        );
         rows.push(BrpQueryRow {
             entity: row.id(),
             components: components_map,
+            has: has_map,
         });
     }
 
@@ -509,35 +540,22 @@ fn get_component_ids(
     Ok(component_ids)
 }
 
-/// Given an entity (`entity_ref`) and a list of component type IDs (`component_type_ids`),
-/// return a map which associates each component to its serialized value from the entity.
-fn serialize_components(
+/// Given an entity (`entity_ref`) and a list of reflected component information
+/// (`paths_and_reflect_components`), return a map which associates each component to
+/// its serialized value from the entity.
+///
+/// This is intended to be used on an entity which has already been filtered; components
+/// where the value is not present on an entity are simply skipped.
+fn build_components_map<'a>(
     entity_ref: FilteredEntityRef,
-    component_type_ids: impl Iterator<Item = TypeId>,
+    paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
     type_registry: &TypeRegistry,
 ) -> AnyhowResult<HashMap<String, Value>> {
     let mut serialized_components_map = HashMap::new();
 
-    for component_type_id in component_type_ids {
-        let Some(type_registration) = type_registry.get(component_type_id) else {
-            return Err(anyhow!(
-                "Component `{:?}` isn't registered",
-                component_type_id
-            ));
-        };
-
-        let type_path = type_registration.type_info().type_path();
-
-        let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
-            return Err(anyhow!("Component `{}` isn't reflectable", type_path));
-        };
-
+    for (type_path, reflect_component) in paths_and_reflect_components {
         let Some(reflected) = reflect_component.reflect(entity_ref.clone()) else {
-            return Err(anyhow!(
-                "Entity {:?} has no component `{}`",
-                entity_ref.id(),
-                type_path
-            ));
+            continue;
         };
 
         let reflect_serializer =
@@ -550,6 +568,46 @@ fn serialize_components(
     }
 
     Ok(serialized_components_map)
+}
+
+/// Given an entity (`entity_ref`) and list of reflected component information
+/// (`paths_and_reflect_components`), return a map which associates each component to
+/// a boolean value indicating whether or not that component is present on the entity.
+fn build_has_map<'a>(
+    entity_ref: FilteredEntityRef,
+    paths_and_reflect_components: impl Iterator<Item = (&'a str, &'a ReflectComponent)>,
+) -> HashMap<String, Value> {
+    let mut has_map = HashMap::new();
+
+    for (type_path, reflect_component) in paths_and_reflect_components {
+        let has = reflect_component.contains(entity_ref.clone());
+        has_map.insert(type_path.to_owned(), Value::Bool(has));
+    }
+
+    has_map
+}
+
+/// Given a component ID, return the associated type path and `ReflectComponent` if possible.
+///
+/// The `ReflectComponent` part is the meat of this; the type path is only used for error messages.
+fn reflect_component_from_id(
+    component_type_id: TypeId,
+    type_registry: &TypeRegistry,
+) -> AnyhowResult<(&str, &ReflectComponent)> {
+    let Some(type_registration) = type_registry.get(component_type_id) else {
+        return Err(anyhow!(
+            "Component `{:?}` isn't registered",
+            component_type_id
+        ));
+    };
+
+    let type_path = type_registration.type_info().type_path();
+
+    let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
+        return Err(anyhow!("Component `{}` isn't reflectable", type_path));
+    };
+
+    Ok((type_path, reflect_component))
 }
 
 /// Given a collection of component paths and their associated serialized values (`components`),
