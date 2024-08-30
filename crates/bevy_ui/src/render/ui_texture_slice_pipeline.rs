@@ -78,6 +78,7 @@ struct UiTextureSliceVertex {
     pub slices: [f32; 4],
     pub border: [f32; 4],
     pub repeat: [f32; 4],
+    pub atlas: [f32; 4],
 }
 
 #[derive(Component)]
@@ -168,6 +169,8 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 // insets (left, top, right, bottom)
                 VertexFormat::Float32x4,
                 // repeat values (h_side, v_side, h_center, v_center)
+                VertexFormat::Float32x4,
+                // atlas rect (left, top, right, bottom)
                 VertexFormat::Float32x4,
             ],
         );
@@ -546,6 +549,7 @@ pub fn prepare_ui_slices(
                             slices,
                             border,
                             repeat,
+                            atlas: [0., 0., 1., 1.],
                         });
                     }
 

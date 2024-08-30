@@ -15,6 +15,7 @@ struct UiVertexOutput {
     @location(2) @interpolate(flat) slices: vec4<f32>,
     @location(3) @interpolate(flat) border: vec4<f32>,
     @location(4) @interpolate(flat) repeat: vec4<f32>,
+    @location(5) @interpolate(flat) atlas: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 }
 
@@ -26,6 +27,7 @@ fn vertex(
     @location(3) slices: vec4<f32>,
     @location(4) border: vec4<f32>,
     @location(5) repeat: vec4<f32>,
+    @location(6) atlas: vec4<f32>,
 ) -> UiVertexOutput {
     var out: UiVertexOutput;
     out.uv = vertex_uv;
@@ -34,6 +36,7 @@ fn vertex(
     out.slices = slices;
     out.border = border;
     out.repeat = repeat;
+    out.atlas = atlas;
     return out;
 }
 
