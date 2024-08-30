@@ -70,7 +70,7 @@ struct WinitAppRunnerState<T: Event> {
     /// The previous app lifecycle state.
     previous_lifecycle: AppLifecycle,
     /// Bevy window events to send
-    bevy_events: Vec<bevy_window::WindowEvent>,
+    bevy_window_events: Vec<bevy_window::WindowEvent>,
     _marker: PhantomData<T>,
 
     event_writer_system_state: SystemState<(
@@ -110,7 +110,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             wait_elapsed: false,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
-            bevy_events: Vec::new(),
+            bevy_window_events: Vec::new(),
             _marker: PhantomData,
             event_writer_system_state,
         }
@@ -258,7 +258,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     &mut window_scale_factor_changed,
                 );
             }
-            WindowEvent::CloseRequested => self.bevy_events.send(WindowCloseRequested { window }),
+            WindowEvent::CloseRequested => self
+                .bevy_window_events
+                .send(WindowCloseRequested { window }),
             WindowEvent::KeyboardInput {
                 ref event,
                 is_synthetic,
@@ -274,10 +276,11 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                         if let Some(char) = &event.text {
                             let char = char.clone();
                             #[allow(deprecated)]
-                            self.bevy_events.send(ReceivedCharacter { window, char });
+                            self.bevy_window_events
+                                .send(ReceivedCharacter { window, char });
                         }
                     }
-                    self.bevy_events
+                    self.bevy_window_events
                         .send(converters::convert_keyboard_input(event, window));
                 }
             }
@@ -291,44 +294,44 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
                 win.set_physical_cursor_position(Some(physical_position));
                 let position = (physical_position / win.resolution.scale_factor() as f64).as_vec2();
-                self.bevy_events.send(CursorMoved {
+                self.bevy_window_events.send(CursorMoved {
                     window,
                     position,
                     delta,
                 });
             }
             WindowEvent::CursorEntered { .. } => {
-                self.bevy_events.send(CursorEntered { window });
+                self.bevy_window_events.send(CursorEntered { window });
             }
             WindowEvent::CursorLeft { .. } => {
                 win.set_physical_cursor_position(None);
-                self.bevy_events.send(CursorLeft { window });
+                self.bevy_window_events.send(CursorLeft { window });
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                self.bevy_events.send(MouseButtonInput {
+                self.bevy_window_events.send(MouseButtonInput {
                     button: converters::convert_mouse_button(button),
                     state: converters::convert_element_state(state),
                     window,
                 });
             }
             WindowEvent::PinchGesture { delta, .. } => {
-                self.bevy_events.send(PinchGesture(delta as f32));
+                self.bevy_window_events.send(PinchGesture(delta as f32));
             }
             WindowEvent::RotationGesture { delta, .. } => {
-                self.bevy_events.send(RotationGesture(delta));
+                self.bevy_window_events.send(RotationGesture(delta));
             }
             WindowEvent::DoubleTapGesture { .. } => {
-                self.bevy_events.send(DoubleTapGesture);
+                self.bevy_window_events.send(DoubleTapGesture);
             }
             WindowEvent::PanGesture { delta, .. } => {
-                self.bevy_events.send(PanGesture(Vec2 {
+                self.bevy_window_events.send(PanGesture(Vec2 {
                     x: delta.x,
                     y: delta.y,
                 }));
             }
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 event::MouseScrollDelta::LineDelta(x, y) => {
-                    self.bevy_events.send(MouseWheel {
+                    self.bevy_window_events.send(MouseWheel {
                         unit: MouseScrollUnit::Line,
                         x,
                         y,
@@ -336,7 +339,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     });
                 }
                 event::MouseScrollDelta::PixelDelta(p) => {
-                    self.bevy_events.send(MouseWheel {
+                    self.bevy_window_events.send(MouseWheel {
                         unit: MouseScrollUnit::Pixel,
                         x: p.x as f32,
                         y: p.y as f32,
@@ -348,62 +351,65 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 let location = touch
                     .location
                     .to_logical(win.resolution.scale_factor() as f64);
-                self.bevy_events
+                self.bevy_window_events
                     .send(converters::convert_touch_input(touch, location, window));
             }
             WindowEvent::Focused(focused) => {
                 win.focused = focused;
-                self.bevy_events.send(WindowFocused { window, focused });
+                self.bevy_window_events
+                    .send(WindowFocused { window, focused });
                 if !focused {
-                    self.bevy_events.send(KeyboardFocusLost);
+                    self.bevy_window_events.send(KeyboardFocusLost);
                 }
             }
             WindowEvent::Occluded(occluded) => {
-                self.bevy_events.send(WindowOccluded { window, occluded });
+                self.bevy_window_events
+                    .send(WindowOccluded { window, occluded });
             }
             WindowEvent::DroppedFile(path_buf) => {
-                self.bevy_events
+                self.bevy_window_events
                     .send(FileDragAndDrop::DroppedFile { window, path_buf });
             }
             WindowEvent::HoveredFile(path_buf) => {
-                self.bevy_events
+                self.bevy_window_events
                     .send(FileDragAndDrop::HoveredFile { window, path_buf });
             }
             WindowEvent::HoveredFileCancelled => {
-                self.bevy_events
+                self.bevy_window_events
                     .send(FileDragAndDrop::HoveredFileCanceled { window });
             }
             WindowEvent::Moved(position) => {
                 let position = ivec2(position.x, position.y);
                 win.position.set(position);
-                self.bevy_events.send(WindowMoved { window, position });
+                self.bevy_window_events
+                    .send(WindowMoved { window, position });
             }
             WindowEvent::Ime(event) => match event {
                 event::Ime::Preedit(value, cursor) => {
-                    self.bevy_events.send(Ime::Preedit {
+                    self.bevy_window_events.send(Ime::Preedit {
                         window,
                         value,
                         cursor,
                     });
                 }
                 event::Ime::Commit(value) => {
-                    self.bevy_events.send(Ime::Commit { window, value });
+                    self.bevy_window_events.send(Ime::Commit { window, value });
                 }
                 event::Ime::Enabled => {
-                    self.bevy_events.send(Ime::Enabled { window });
+                    self.bevy_window_events.send(Ime::Enabled { window });
                 }
                 event::Ime::Disabled => {
-                    self.bevy_events.send(Ime::Disabled { window });
+                    self.bevy_window_events.send(Ime::Disabled { window });
                 }
             },
             WindowEvent::ThemeChanged(theme) => {
-                self.bevy_events.send(WindowThemeChanged {
+                self.bevy_window_events.send(WindowThemeChanged {
                     window,
                     theme: converters::convert_winit_theme(theme),
                 });
             }
             WindowEvent::Destroyed => {
-                self.bevy_events.send(WindowDestroyed { window });
+                self.bevy_window_events.send(WindowDestroyed { window });
             }
             WindowEvent::RedrawRequested => {
                 self.ran_update_since_last_redraw = false;
@@ -429,7 +435,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
         if let DeviceEvent::MouseMotion { delta: (x, y) } = event {
             let delta = Vec2::new(x as f32, y as f32);
-            self.bevy_events.send(MouseMotion { delta });
+            self.bevy_window_events.send(MouseMotion { delta });
         }
     }
 
@@ -534,7 +540,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         // Notifies a lifecycle change
         if self.lifecycle != self.previous_lifecycle {
             self.previous_lifecycle = self.lifecycle;
-            self.bevy_events.send(self.lifecycle);
+            self.bevy_window_events.send(self.lifecycle);
         }
 
         // This is recorded before running app.update(), to run the next cycle after a correct timeout.
@@ -682,7 +688,7 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 
     fn forward_bevy_events(&mut self) {
-        let buffered_events = self.bevy_events.drain(..).collect::<Vec<_>>();
+        let buffered_events = self.bevy_window_events.drain(..).collect::<Vec<_>>();
 
         if buffered_events.is_empty() {
             return;
