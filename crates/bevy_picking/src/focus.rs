@@ -1,4 +1,7 @@
 //! Determines which entities are being hovered by which pointers.
+//!
+//! The most important type in this module is the [`HoverMap`], which maps points to the entities
+//! they are hovering over.
 
 use std::{
     collections::{BTreeMap, HashSet},

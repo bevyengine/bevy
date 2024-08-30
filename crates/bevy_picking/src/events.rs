@@ -7,7 +7,8 @@
 //! registering a callback when an entity is hovered over by a pointer, looks like this
 //!
 //! ```rust
-//! # use bevy_ecs::prelude;
+//! # use bevy_ecs::prelude::*;
+//! # use bevy_picking::prelude::*;
 //! # let mut world = World::default();
 //! world.spawn_empty()
 //!     .observe(|trigger: Trigger<Pointer<Over>>| {
@@ -240,21 +241,27 @@ pub struct DragEntry {
 
 /// Dispatches interaction events to the target entities.
 ///
-/// Events will be dispatched in the following order:
-/// + The sequence [`Over`], [`DragEnter`].
+/// Within a single frame, events are dispatched in the following order:
+/// + The sequence [`DragEnter`], [`Over`].
 /// + Any number of any of the following:
-///   + For each movement: The sequence [`Move`], [`DragStart`], [`Drag`], [`DragOver`].
-///   + For each button press: Either [`Down`], or the sequence [`Up`], [`Click`], [`DragDrop`], [`DragEnd`], [`DragLeave`].
+///   + For each movement: The sequence [`DragStart`], [`Drag`], [`DragOver`], [`Move`].
+///   + For each button press: Either [`Down`], or the sequence [`DragDrop`], [`DragEnd`], [`DragLeave`], [`Click`], [`Up`].
 /// + Finally the sequence [`DragLeave`], [`Out`].
 ///
-/// Additionally, the following are guaranteed to be received in the order by each listener:
+/// Only the last event in a given sequence is garenteed to be present.
+///
+/// Additionally, across multiple frames, the following are also strictly ordered by the interaction state machine:
 /// + When a pointer moves over the target: [`Over`], [`Move`], [`Out`].
 /// + When a pointer presses buttons on the target: [`Down`], [`Up`], [`Click`].
 /// + When a pointer drags the target: [`DragStart`], [`Drag`], [`DragEnd`].
 /// + When a pointer drags something over the target: [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
 ///
-/// Two events -- [`Over`] and [`Out`] -- are driven only by the change in the raw [`PointerLocation`]. The rest rely on
-/// additional data from the [`PointerInput`] event stream.
+/// Two events -- [`Over`] and [`Out`] -- are driven only by the [`HoverMap`]. The rest rely on additional data from the
+/// [`PointerInput`] event stream. To receive these events for a custom pointer, you must add [`PointerInput`] events.
+///
+/// Note: Though it is common for the [`PointerInput`] stream may contain multiple pointer movements and presses each frame,
+/// the hover state is determined only by the pointer's *final position*. Since the hover state ultimately determines which
+/// entities receive events, this may mean that an entity can receive events which occured before it was actually hovered.
 #[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
