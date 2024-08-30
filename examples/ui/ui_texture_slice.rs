@@ -12,7 +12,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
-        .insert_resource(UiScale(2.0))
         .add_systems(Startup, setup)
         .add_systems(Update, button_system)
         .run();
@@ -45,10 +44,10 @@ fn button_system(
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let image = asset_server.load("textures/texture-slice-test-texture.png");
+    let image = asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(16.0),
+        border: BorderRect::square(22.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,
@@ -67,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            for [w, h] in [[192.0, 192.0], [384.0, 192.0], [192.0, 384.0]] {
+            for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
                 parent
                     .spawn((
                         ButtonBundle {
@@ -84,12 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             image: image.clone().into(),
                             ..default()
                         },
-                        //ImageScaleMode::Sliced(slicer.clone()),
-                        ImageScaleMode::Tiled {
-                            tile_x: true,
-                            tile_y: true,
-                            stretch_value: 1.,
-                        },
+                        ImageScaleMode::Sliced(slicer.clone()),
                     ))
                     .with_children(|parent| {
                         parent.spawn(TextBundle::from_section(
