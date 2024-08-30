@@ -1,7 +1,7 @@
 use crate::bundle::Bundle;
 use crate::change_detection::Mut;
 use crate::entity::Entity;
-use crate::system::{BoxedSystem, IntoSystem};
+use crate::system::{BoxedSystem, IntoSystem, System};
 use crate::world::{Command, World};
 use crate::{self as bevy_ecs};
 use bevy_ecs_macros::{Component, Resource};
@@ -108,21 +108,7 @@ impl<I, O> std::fmt::Debug for SystemId<I, O> {
 ///
 /// This resource is inserted as part of [`World::register_system_cached`].
 #[derive(Resource)]
-pub struct CachedSystemId<S, I = (), O = ()> {
-    /// The cached `SystemId`.
-    pub id: SystemId<I, O>,
-    _marker: std::marker::PhantomData<fn() -> S>,
-}
-
-impl<S, I, O> CachedSystemId<S, I, O> {
-    /// Creates a new `CachedSystemId` struct given a `SystemId`.
-    pub fn new(id: SystemId<I, O>) -> Self {
-        Self {
-            id,
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
+pub struct CachedSystemId<S: System>(pub SystemId<S::In, S::Out>);
 
 /// Creates a [`Bundle`] for a one-shot system entity.
 fn system_bundle<I: 'static, O: 'static>(system: BoxedSystem<I, O>) -> impl Bundle {
@@ -357,21 +343,21 @@ impl World {
         &mut self,
         system: S,
     ) -> SystemId<I, O> {
-        if !self.contains_resource::<CachedSystemId<S, I, O>>() {
+        if !self.contains_resource::<CachedSystemId<S::System>>() {
             let id = self.register_system(system);
-            self.insert_resource(CachedSystemId::<S, I, O>::new(id));
+            self.insert_resource(CachedSystemId::<S::System>(id));
             return id;
         }
 
-        self.resource_scope(|world, mut cached: Mut<CachedSystemId<S, I, O>>| {
-            if let Some(mut entity) = world.get_entity_mut(cached.id.entity()) {
+        self.resource_scope(|world, mut id: Mut<CachedSystemId<S::System>>| {
+            if let Some(mut entity) = world.get_entity_mut(id.0.entity()) {
                 if !entity.contains::<RegisteredSystem<I, O>>() {
                     entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
                 }
             } else {
-                cached.id = world.register_system(system);
+                id.0 = world.register_system(system);
             }
-            cached.id
+            id.0
         })
     }
 
@@ -380,10 +366,10 @@ impl World {
         &mut self,
         _system: S,
     ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>> {
-        let cached = self
-            .remove_resource::<CachedSystemId<S, I, O>>()
+        let id = self
+            .remove_resource::<CachedSystemId<S::System>>()
             .ok_or(RegisteredSystemError::SystemNotCached)?;
-        self.remove_system(cached.id)
+        self.remove_system(id.0)
     }
 
     /// Runs a system, registering it and caching its [`SystemId`] if necessary.
