@@ -23,11 +23,9 @@ pub use ui_material_pipeline::*;
 use ui_texture_slicer_pipeline::UiTextureSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
-use crate::texture_slice::UiSlicer;
 use crate::{
-    texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, BorderRadius,
-    CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage,
-    UiScale, Val,
+    BackgroundColor, BorderColor, BorderRadius, CalculatedClip, ContentSize, DefaultUiCamera, Node,
+    Outline, Style, TargetCamera, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;

@@ -4,7 +4,6 @@
 use bevy::{
     color::palettes::css::{GOLD, ORANGE},
     prelude::*,
-    ui::UiSlicer,
     winit::WinitSettings,
 };
 
