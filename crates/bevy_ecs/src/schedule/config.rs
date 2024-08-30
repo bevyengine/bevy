@@ -316,7 +316,6 @@ where
         self.into_configs().before(set)
     }
 
-    ///
     /// Run after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
     ///
