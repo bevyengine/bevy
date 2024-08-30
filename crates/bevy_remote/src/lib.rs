@@ -351,7 +351,7 @@ pub struct BrpRequest {
     /// the response.
     pub id: Option<Value>,
 
-    /// The parameters, specific to each verb.
+    /// The parameters, specific to each method.
     ///
     /// These are passed as the first argument to the method handler.
     /// Sometimes params can be omitted.
