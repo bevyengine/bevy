@@ -366,9 +366,10 @@ pub fn pointer_events(
         match action {
             // Pressed Button
             PointerAction::Pressed { direction, button } => {
-                // For all button releases, first clear out the state and possibly emit DragEnd, DragDrop, DragLeave
+                let state = pointer_state.entry((pointer_id, button)).or_default();
+
+                // Possibly emit DragEnd, DragDrop, DragLeave on button releases
                 if direction == PressDirection::Up {
-                    let state = pointer_state.entry((pointer_id, button)).or_default();
                     // For each currently dragged entity
                     for (drag_target, drag) in state.dragging.drain() {
                         // Emit DragDrop
@@ -414,11 +415,6 @@ pub fn pointer_events(
                             );
                         }
                     }
-
-                    // Finally, clear the state
-                    state.pressing.clear();
-                    state.dragging.clear();
-                    state.dragging_over.clear();
                 }
 
                 // Send a Down or possibly a Click and an Up button events
@@ -433,18 +429,15 @@ pub fn pointer_events(
                             let event =
                                 Pointer::new(pointer_id, location.clone(), Down { button, hit });
                             commands.trigger_targets(event.clone(), hovered_entity);
-                            // Also update the down map
-                            pointer_state
-                                .entry((pointer_id, button))
-                                .or_default()
+                            // Also insert the press into the state
+                            state
                                 .pressing
                                 .insert(hovered_entity, (event.pointer_location, now));
                         }
                         PressDirection::Up => {
                             // If this pointer previously pressed the hovered entity, first send a Click event
-                            if let Some((_location, press_instant)) = pointer_state
-                                .get(&(pointer_id, button))
-                                .and_then(|state| state.pressing.get(&hovered_entity))
+                            if let Some((_location, press_instant)) =
+                                state.pressing.get(&hovered_entity)
                             {
                                 commands.trigger_targets(
                                     Pointer::new(
@@ -471,6 +464,10 @@ pub fn pointer_events(
                                 ),
                                 hovered_entity,
                             );
+                            // Also clear the state
+                            state.pressing.clear();
+                            state.dragging.clear();
+                            state.dragging_over.clear();
                         }
                     };
                 }
@@ -486,8 +483,7 @@ pub fn pointer_events(
                     for button in PointerButton::iter() {
                         let state = pointer_state.entry((pointer_id, button)).or_default();
 
-                        // Emit a DragStart to the hovered entity when a pointer moves with a button pressed down, unless
-                        // the pointer is already registered as dragged with that button.
+                        // Emit a DragStart the first time the pointer moves while pressing an entity
                         for (location, _instant) in state.pressing.values() {
                             if state.dragging.contains_key(&hovered_entity) {
                                 continue; // this entity is already logged as being dragged
@@ -538,7 +534,7 @@ pub fn pointer_events(
                         }
                     }
 
-                    // Always send Move events
+                    // Always send Move event
                     commands.trigger_targets(
                         Pointer::new(
                             pointer_id,
