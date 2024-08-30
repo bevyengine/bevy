@@ -470,30 +470,29 @@ impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
     }
 }
 
-/// The [`Command`] type for registering, caching, and running a one shot system from
+/// The [`Command`] type for running a cached one-shot system from
 /// [`Commands`](crate::system::Commands).
 ///
 /// This command needs an already boxed system to register.
-pub struct RunSystemCachedWith<I, O, M, S> {
+pub struct RunSystemCachedWith<S: System<Out = ()>> {
     system: S,
-    input: I,
-    _marker: std::marker::PhantomData<fn() -> (O, M)>,
+    input: S::In,
 }
 
-impl<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> RunSystemCachedWith<I, O, M, S> {
+impl<S: System<Out = ()>> RunSystemCachedWith<S> {
     /// Creates a new [`Command`] struct, which can be added to
     /// [`Commands`](crate::system::Commands).
-    pub fn new(system: S, input: I) -> Self {
+    pub fn new<M>(system: impl IntoSystem<S::In, (), M, System = S>, input: S::In) -> Self {
         Self {
-            system,
+            system: IntoSystem::into_system(system),
             input,
-            _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<I: 'static + Send, O: 'static, M: 'static, S: IntoSystem<I, O, M> + Send + 'static> Command
-    for RunSystemCachedWith<I, O, M, S>
+impl<S: System<Out = ()>> Command for RunSystemCachedWith<S>
+where
+    S::In: Send,
 {
     fn apply(self, world: &mut World) {
         let _ = world.run_system_cached_with(self.system, self.input);
