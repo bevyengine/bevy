@@ -1,4 +1,4 @@
-//! Traits and types for allowing things to be interpolated between two values.
+//! Traits and type for interpolating between values.
 
 use crate::util;
 use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
