@@ -37,26 +37,26 @@ impl Plugin for UiTextureSlicerPlugin {
         load_internal_asset!(
             app,
             UI_SLICER_SHADER_HANDLE,
-            "ui_texture_slicer.wgsl",
+            "ui_texture_slice.wgsl",
             Shader::from_wgsl
         );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_render_command::<TransparentUi, DrawUiTextureSlicer>()
-                .init_resource::<ExtractedUiTextureSlicers>()
-                .init_resource::<UiTextureSlicerMeta>()
-                .init_resource::<UiTextureSlicerImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<UiTextureSlicerPipeline>>()
+                .add_render_command::<TransparentUi, DrawUiTextureSlices>()
+                .init_resource::<ExtractedUiTextureSlices>()
+                .init_resource::<UiTextureSliceMeta>()
+                .init_resource::<UiTextureSliceImageBindGroups>()
+                .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_ui_texture_slicers.after(extract_uinode_images),
+                    extract_ui_texture_slices.after(extract_uinode_images),
                 )
                 .add_systems(
                     Render,
                     (
-                        queue_ui_slicers.in_set(RenderSet::Queue),
-                        prepare_ui_slicers.in_set(RenderSet::PrepareBindGroups),
+                        queue_ui_slices.in_set(RenderSet::Queue),
+                        prepare_ui_slices.in_set(RenderSet::PrepareBindGroups),
                     ),
                 );
         }
@@ -64,7 +64,7 @@ impl Plugin for UiTextureSlicerPlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiTextureSlicerPipeline>();
+            render_app.init_resource::<UiTextureSlicePipeline>();
         }
     }
 }
@@ -88,13 +88,13 @@ pub struct UiTextureSlicerBatch {
 }
 
 #[derive(Resource)]
-pub struct UiTextureSlicerMeta {
+pub struct UiTextureSliceMeta {
     vertices: RawBufferVec<UiTextureSliceVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
 }
 
-impl Default for UiTextureSlicerMeta {
+impl Default for UiTextureSliceMeta {
     fn default() -> Self {
         Self {
             vertices: RawBufferVec::new(BufferUsages::VERTEX),
@@ -105,22 +105,22 @@ impl Default for UiTextureSlicerMeta {
 }
 
 #[derive(Resource, Default)]
-pub struct UiTextureSlicerImageBindGroups {
+pub struct UiTextureSliceImageBindGroups {
     pub values: HashMap<AssetId<Image>, BindGroup>,
 }
 
 #[derive(Resource)]
-pub struct UiTextureSlicerPipeline {
+pub struct UiTextureSlicePipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
 }
 
-impl FromWorld for UiTextureSlicerPipeline {
+impl FromWorld for UiTextureSlicePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(
-            "ui_slicer_view_layout",
+            "ui_texture_slice_view_layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX_FRAGMENT,
                 uniform_buffer::<ViewUniform>(true),
@@ -128,7 +128,7 @@ impl FromWorld for UiTextureSlicerPipeline {
         );
 
         let image_layout = render_device.create_bind_group_layout(
-            "ui_slicer_image_layout",
+            "ui_texture_slice_image_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
@@ -138,7 +138,7 @@ impl FromWorld for UiTextureSlicerPipeline {
             ),
         );
 
-        UiTextureSlicerPipeline {
+        UiTextureSlicePipeline {
             view_layout,
             image_layout,
         }
@@ -146,12 +146,12 @@ impl FromWorld for UiTextureSlicerPipeline {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiSlicerPipelineKey {
+pub struct UiTextureSlicePipelineKey {
     pub hdr: bool,
 }
 
-impl SpecializedRenderPipeline for UiTextureSlicerPipeline {
-    type Key = UiSlicerPipelineKey;
+impl SpecializedRenderPipeline for UiTextureSlicePipeline {
+    type Key = UiTextureSlicePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
@@ -211,12 +211,12 @@ impl SpecializedRenderPipeline for UiTextureSlicerPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("ui_slicer_pipeline".into()),
+            label: Some("ui_texture_slice_pipeline".into()),
         }
     }
 }
 
-pub struct ExtractedUiSlicer {
+pub struct ExtractedUiTextureSlice {
     pub stack_index: u32,
     pub transform: Mat4,
     pub rect: Rect,
@@ -228,13 +228,13 @@ pub struct ExtractedUiSlicer {
 }
 
 #[derive(Resource, Default)]
-pub struct ExtractedUiTextureSlicers {
-    pub slicers: SparseSet<Entity, ExtractedUiSlicer>,
+pub struct ExtractedUiTextureSlices {
+    pub slices: SparseSet<Entity, ExtractedUiTextureSlice>,
 }
 
-pub fn extract_ui_texture_slicers(
+pub fn extract_ui_texture_slices(
     mut commands: Commands,
-    mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlicers>,
+    mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     default_ui_camera: Extract<DefaultUiCamera>,
     slicers_query: Extract<
         Query<(
@@ -264,9 +264,9 @@ pub fn extract_ui_texture_slicers(
             continue;
         }
 
-        extracted_ui_slicers.slicers.insert(
+        extracted_ui_slicers.slices.insert(
             commands.spawn_empty().id(),
-            ExtractedUiSlicer {
+            ExtractedUiTextureSlice {
                 stack_index: uinode.stack_index,
                 transform: transform.compute_matrix(),
                 color: image.color.into(),
@@ -283,17 +283,17 @@ pub fn extract_ui_texture_slicers(
     }
 }
 
-pub fn queue_ui_slicers(
-    extracted_ui_slicers: ResMut<ExtractedUiTextureSlicers>,
-    ui_slicer_pipeline: Res<UiTextureSlicerPipeline>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicerPipeline>>,
+pub fn queue_ui_slices(
+    extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
+    ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut views: Query<(Entity, &ExtractedView)>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
-    let draw_function = draw_functions.read().id::<DrawUiTextureSlicer>();
-    for (entity, extracted_slicer) in extracted_ui_slicers.slicers.iter() {
+    let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
+    for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
         let Ok((view_entity, view)) = views.get_mut(extracted_slicer.camera_entity) else {
             continue;
         };
@@ -305,7 +305,7 @@ pub fn queue_ui_slicers(
         let pipeline = pipelines.specialize(
             &pipeline_cache,
             &ui_slicer_pipeline,
-            UiSlicerPipelineKey { hdr: view.hdr },
+            UiTextureSlicePipelineKey { hdr: view.hdr },
         );
 
         transparent_phase.add(TransparentUi {
@@ -322,15 +322,15 @@ pub fn queue_ui_slicers(
     }
 }
 
-pub fn prepare_ui_slicers(
+pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut ui_meta: ResMut<UiTextureSlicerMeta>,
-    mut extracted_slicers: ResMut<ExtractedUiTextureSlicers>,
+    mut ui_meta: ResMut<UiTextureSliceMeta>,
+    mut extracted_slices: ResMut<ExtractedUiTextureSlices>,
     view_uniforms: Res<ViewUniforms>,
-    texture_slicer_pipeline: Res<UiTextureSlicerPipeline>,
-    mut image_bind_groups: ResMut<UiTextureSlicerImageBindGroups>,
+    texture_slicer_pipeline: Res<UiTextureSlicePipeline>,
+    mut image_bind_groups: ResMut<UiTextureSliceImageBindGroups>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     events: Res<SpriteAssetEvents>,
@@ -371,26 +371,26 @@ pub fn prepare_ui_slicers(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_slicer) = extracted_slicers.slicers.get(item.entity) {
+                if let Some(slices) = extracted_slices.slices.get(item.entity) {
                     let mut existing_batch = batches.last_mut();
 
                     if batch_image_handle == AssetId::invalid()
                         || existing_batch.is_none()
                         || (batch_image_handle != AssetId::default()
-                            && extracted_slicer.image != AssetId::default()
-                            && batch_image_handle != extracted_slicer.image)
+                            && slices.image != AssetId::default()
+                            && batch_image_handle != slices.image)
                         || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(extracted_slicer.camera_entity)
+                            != Some(slices.camera_entity)
                     {
-                        if let Some(gpu_image) = gpu_images.get(extracted_slicer.image) {
+                        if let Some(gpu_image) = gpu_images.get(slices.image) {
                             batch_item_index = item_index;
-                            batch_image_handle = extracted_slicer.image;
+                            batch_image_handle = slices.image;
                             batch_image_size = gpu_image.size;
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
-                                image: extracted_slicer.image,
-                                camera: extracted_slicer.camera_entity,
+                                image: slices.image,
+                                camera: slices.camera_entity,
                             };
 
                             batches.push((item.entity, new_batch));
@@ -414,12 +414,12 @@ pub fn prepare_ui_slicers(
                             continue;
                         }
                     } else if batch_image_handle == AssetId::default()
-                        && extracted_slicer.image != AssetId::default()
+                        && slices.image != AssetId::default()
                     {
-                        if let Some(gpu_image) = gpu_images.get(extracted_slicer.image) {
-                            batch_image_handle = extracted_slicer.image;
+                        if let Some(gpu_image) = gpu_images.get(slices.image) {
+                            batch_image_handle = slices.image;
                             batch_image_size = gpu_image.size;
-                            existing_batch.as_mut().unwrap().1.image = extracted_slicer.image;
+                            existing_batch.as_mut().unwrap().1.image = slices.image;
 
                             image_bind_groups
                                 .values
@@ -439,18 +439,17 @@ pub fn prepare_ui_slicers(
                         }
                     }
 
-                    let uinode_rect = extracted_slicer.rect;
+                    let uinode_rect = slices.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);
 
                     // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        (extracted_slicer.transform * (pos * rect_size).extend(1.)).xyz()
-                    });
+                    let positions = QUAD_VERTEX_POSITIONS
+                        .map(|pos| (slices.transform * (pos * rect_size).extend(1.)).xyz());
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let positions_diff = if let Some(clip) = extracted_slicer.clip {
+                    let positions_diff = if let Some(clip) = slices.clip {
                         [
                             Vec2::new(
                                 f32::max(clip.min.x - positions[0].x, 0.),
@@ -480,8 +479,7 @@ pub fn prepare_ui_slicers(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size =
-                        extracted_slicer.transform.transform_vector3(rect_size);
+                    let transformed_rect_size = slices.transform.transform_vector3(rect_size);
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -489,7 +487,7 @@ pub fn prepare_ui_slicers(
                     // horizontal / vertical lines
                     // For all other angles, bypass the culling check
                     // This does not properly handles all rotations on all axis
-                    if extracted_slicer.transform.x_axis[1] == 0.0 {
+                    if slices.transform.x_axis[1] == 0.0 {
                         // Cull nodes that are completely clipped
                         if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                             || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
@@ -497,7 +495,7 @@ pub fn prepare_ui_slicers(
                             continue;
                         }
                     }
-                    let flags = if extracted_slicer.image != AssetId::default() {
+                    let flags = if slices.image != AssetId::default() {
                         shader_flags::TEXTURED
                     } else {
                         shader_flags::UNTEXTURED
@@ -532,12 +530,12 @@ pub fn prepare_ui_slicers(
                         .map(|pos| pos / atlas_extent)
                     };
 
-                    let color = extracted_slicer.color.to_f32_array();
+                    let color = slices.color.to_f32_array();
 
                     let [slices, border, repeat] = compute_texture_slices(
                         batch_image_size.as_vec2(),
                         uinode_rect.size(),
-                        &extracted_slicer.image_scale_mode,
+                        &slices.image_scale_mode,
                     );
 
                     for i in 0..4 {
@@ -570,10 +568,10 @@ pub fn prepare_ui_slicers(
         *previous_len = batches.len();
         commands.insert_or_spawn_batch(batches);
     }
-    extracted_slicers.slicers.clear();
+    extracted_slices.slices.clear();
 }
 
-pub type DrawUiTextureSlicer = (
+pub type DrawUiTextureSlices = (
     SetItemPipeline,
     SetSlicerViewBindGroup<0>,
     SetSlicerTextureBindGroup<1>,
@@ -582,7 +580,7 @@ pub type DrawUiTextureSlicer = (
 
 pub struct SetSlicerViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerViewBindGroup<I> {
-    type Param = SRes<UiTextureSlicerMeta>;
+    type Param = SRes<UiTextureSliceMeta>;
     type ViewQuery = Read<ViewUniformOffset>;
     type ItemQuery = ();
 
@@ -602,7 +600,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerViewBindGroup<I
 }
 pub struct SetSlicerTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerTextureBindGroup<I> {
-    type Param = SRes<UiTextureSlicerImageBindGroups>;
+    type Param = SRes<UiTextureSliceImageBindGroups>;
     type ViewQuery = ();
     type ItemQuery = Read<UiTextureSlicerBatch>;
 
@@ -625,7 +623,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSlicerTextureBindGrou
 }
 pub struct DrawSlicer;
 impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
-    type Param = SRes<UiTextureSlicerMeta>;
+    type Param = SRes<UiTextureSliceMeta>;
     type ViewQuery = ();
     type ItemQuery = Read<UiTextureSlicerBatch>;
 
