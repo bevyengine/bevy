@@ -116,7 +116,7 @@ pub struct BrpInsertParams {
     pub components: HashMap<String, Value>,
 }
 
-/// `bevy/reparent`: Changes the parent of an entity.
+/// `bevy/reparent`: Assign a new parent to one or more entities.
 ///
 /// The server responds with a null.
 #[derive(Serialize, Deserialize, Clone)]
@@ -129,6 +129,7 @@ pub struct BrpReparentParams {
     /// `entities`.
     ///
     /// If this is `None`, then the entities are removed from all parents.
+    #[serde(default)]
     pub parent: Option<Entity>,
 }
 

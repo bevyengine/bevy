@@ -7,7 +7,7 @@
 //! entity-component system. Clients are expected to `POST` JSON requests to the
 //! root URL; see the `client` example for a trivial example of use.
 //!
-//! The Bevy Remote Protocol is based on JSON-RPC 2.0 protocol.
+//! The Bevy Remote Protocol is based on the JSON-RPC 2.0 protocol.
 //!
 //! ## Request objects
 //!
@@ -97,7 +97,145 @@
 //!
 //! * `data` is an optional field of arbitrary type containing additional information about the error.
 //!
-//! TODO: Fill in more here.
+//! ## Built-in methods
+//!
+//! The Bevy Remote Protocol includes a number of built-in methods for accessing and modifying data
+//! in the ECS. Each of these methods uses the `bevy/` prefix, which is a namespace reserved for
+//! BRP built-in methods.
+//!
+//! ### bevy/get
+//!
+//! Retrieve the values of one or more components from an entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity whose components will be fetched.
+//! - `components`: An array of fully-qualified type names of components to fetch.
+//!
+//! `result`: A map associating each type name to its value on the requested entity.
+//!
+//! ### bevy/query
+//!
+//! Perform a query over components in the ECS, returning all matching entities and their associated
+//! component values.
+//!
+//! All of the arrays that comprise this request are optional, and when they are not provided, they
+//! will be treated as if they were empty.
+//!
+//! `params`:
+//! - `data`:
+//!   - `components` (optional): An array of fully-qualified type names of components to fetch.
+//!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
+//!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
+//!      checked for, without inclusion in query results.
+//! - `filter` (optional):
+//!   - `with` (optional): An array of fully-qualified type names of components that must be present
+//!     on entities in order for them to be included in results.
+//!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
+//!     present on entities in order for them to be included in results.
+//!
+//! `result`: An array, each of which is an object containing:
+//! - `entity`: The ID of a query-matching entity.
+//! - `components`: A map associating each type name to its value on the matching entity.
+//!
+//! ### bevy/spawn
+//!
+//! Create a new entity with the provided components and return the resulting entity ID.
+//!
+//! `params`:
+//! - `components`: A map associating each component's fully-qualified type name with its value.
+//!
+//! `result`:
+//! - `entity`: The ID of the newly spawned entity.
+//!
+//! ### bevy/destroy
+//!
+//! Despawn the entity with the given ID.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity to be despawned.
+//!
+//! `result`: null.
+//!
+//! ### bevy/remove
+//!
+//! Delete one or more components from an entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity whose components should be removed.
+//! - `components`: An array of fully-qualified type names of components to be removed.
+//!
+//! `result`: null.
+//!
+//! ### bevy/insert
+//!
+//! Insert one or more components into an entity.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity to insert components into.
+//! - `components`: A map associating each component's fully-qualified type name with its value.
+//!
+//! `result`: null.
+//!
+//! ### bevy/reparent
+//!
+//! Assign a new parent to one or more entities.
+//!
+//! `params`:
+//! - `entities`: An array of entity IDs of entities that will be made children of the `parent`.
+//! - `parent` (optional): The entity ID of the parent to which the child entities will be assigned.
+//!   If excluded, the given entities will be removed from their parents.
+//!
+//! `result`: null.
+//!
+//! ### bevy/list
+//!
+//! List all registered components or all components present on an entity.
+//!
+//! When `params` is not provided, this lists all registered components. If `params` is provided,
+//! this lists only those components present on the provided entity.
+//!
+//! `params` (optional):
+//! - `entity`: The ID of the entity whose components will be listed.
+//!
+//! `result`: An array of fuly-qualified type names of components.
+//!
+//! ## Custom methods
+//!
+//! In addition to the provided methods, the Bevy Remote Protocol can be extended to include custom
+//! methods. This is primarily done during the initialization of [`RemotePlugin`], although the
+//! methods may also be extended at runtime using the [`RemoteMethods`] resource.
+//!
+//! ### Example
+//! ```ignore
+//! fn main() {
+//!     App::new()
+//!         .add_plugins(DefaultPlugins)
+//!         .add_plugins(
+//!             // `default` adds all of the built-in methods, while `with_method` extends them
+//!             RemotePlugin::default()
+//!                 .with_method("super_user/cool_method".to_owned(), path::to::my::cool::handler)
+//!                 // ... more methods can be added by chaining `with_method`
+//!         )
+//!         .add_systems(
+//!             // ... standard application setup
+//!         )
+//!         .run();
+//! }
+//! ```
+//!
+//! The handler is expected to be a system-convertible function which takes optional JSON parameters
+//! as input and returns a [`BrpResult`]. This means that it should have a type signature which looks
+//! something like this:
+//! ```
+//! # use serde_json::Value;
+//! # use bevy_ecs::{In, World};
+//! fn handler(In<Option<Value>>, world: &mut World) -> BrpResult {
+//!     // ...
+//! }
+//! ```
+//!
+//! Arbitrary system parameters can be used in conjunction with the optional `Value` input. The
+//! handler system will always run with exclusive `World` access.
 //!
 //! [the `serde` documentation]: https://serde.rs/
 
@@ -151,13 +289,13 @@ const CHANNEL_SIZE: usize = 16;
 /// - [`DEFAULT_PORT`] : 15702.
 pub struct RemotePlugin {
     /// The address that Bevy will use.
-    pub address: IpAddr,
+    address: IpAddr,
 
     /// The port that Bevy will listen on.
-    pub port: u16,
+    port: u16,
 
     /// The verbs that the server will recognize and respond to.
-    pub methods: RwLock<Vec<(String, Box<dyn System<In = Option<Value>, Out = BrpResult>>)>>,
+    methods: RwLock<Vec<(String, Box<dyn System<In = Option<Value>, Out = BrpResult>>)>>,
 }
 
 /// A resource containing the IP address that Bevy will host on.
@@ -179,7 +317,7 @@ pub type RemoteMethod = SystemId<Option<Value>, BrpResult>;
 
 /// Holds all implementations of methods known to the server.
 ///
-/// You can add custom methods to this list.
+/// Custom methods can be added to this list using [`RemoteMethods::insert`].
 #[derive(Resource, Default)]
 pub struct RemoteMethods(HashMap<String, RemoteMethod>);
 
