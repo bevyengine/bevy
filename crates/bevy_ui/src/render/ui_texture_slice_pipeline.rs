@@ -355,7 +355,7 @@ pub fn prepare_ui_slices(
         ui_meta.vertices.clear();
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
-            "ui_slicer_view_bind_group",
+            "ui_texture_slice_view_bind_group",
             &texture_slicer_pipeline.view_layout,
             &BindGroupEntries::single(view_binding),
         ));
@@ -400,7 +400,7 @@ pub fn prepare_ui_slices(
                                 .entry(batch_image_handle)
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
-                                        "ui_image_slicer_bind_group",
+                                        "ui_texture_slice_image_layout",
                                         &texture_slicer_pipeline.image_layout,
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
@@ -426,7 +426,7 @@ pub fn prepare_ui_slices(
                                 .entry(batch_image_handle)
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
-                                        "ui_image_slicer_bind_group",
+                                        "ui_texture_slice_image_layout",
                                         &texture_slicer_pipeline.image_layout,
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
