@@ -134,7 +134,13 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// sets up global logging configuration for **all** Apps in a given process, and
 /// rerunning the same initialization multiple times will lead to a panic.
 pub struct LogPlugin {
-    /// Filters logs using the [`EnvFilter`] format
+    /// Filters logs using the [`EnvFilter`] format.
+    ///
+    /// # Performance
+    ///
+    /// Due to how this filter is implemented, it can noticeably degrade performance to use lengthy
+    /// or otherwise complex filter strings. Where possible, use [`level`](`LogPlugin::level`), as
+    /// its global filtering is much more performant.
     pub filter: String,
 
     /// Filters out logs that are "less than" the given level.
