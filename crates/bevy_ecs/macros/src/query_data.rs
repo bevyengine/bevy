@@ -250,9 +250,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             user_where_clauses_with_world,
         );
         let read_only_structs = quote! {
-            #[doc = "Automatically generated [`WorldQuery`] type for a read-only variant of [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`]."]
+            #[doc = concat!(
+                "Automatically generated [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) type for a read-only variant of [`",
+                stringify!(#struct_name),
+                "`]."
+            )]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #(
