@@ -59,7 +59,9 @@ use crate::{
 };
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
-use std::{fmt, hash::Hash, mem, num::NonZeroU32, sync::atomic::Ordering};
+use std::{
+    fmt, hash::Hash, iter::StepBy, mem, num::NonZeroU32, ops::Range, sync::atomic::Ordering,
+};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -453,7 +455,8 @@ pub struct ReserveEntitiesIterator<'a> {
     index_iter: std::slice::Iter<'a, u32>,
 
     // New Entity indices to hand out, outside the range of meta.len().
-    index_range: std::ops::Range<u32>,
+    index_range: StepBy<Range<u32>>,
+    mask: u32,
 }
 
 impl<'a> Iterator for ReserveEntitiesIterator<'a> {
@@ -465,7 +468,11 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
             .map(|&index| {
                 Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
             })
-            .or_else(|| self.index_range.next().map(Entity::from_raw))
+            .or_else(|| {
+                self.index_range
+                    .next()
+                    .map(|i| Entity::from_raw(i | self.mask))
+            })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -477,6 +484,9 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
+pub const RESERVED_BITS: usize = 2;
+pub const ENTITY_ALLOC_STEP: usize = 1 << RESERVED_BITS;
+pub const INDEX_HIGH_MASK: u32 = u32::MAX << RESERVED_BITS;
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
 /// Contains metadata on:
@@ -533,6 +543,7 @@ pub struct Entities {
     free_cursor: AtomicIdCursor,
     /// Stores the number of free entities for [`len`](Entities::len)
     len: u32,
+    mask: u32,
 }
 
 impl Entities {
@@ -542,6 +553,17 @@ impl Entities {
             pending: Vec::new(),
             free_cursor: AtomicIdCursor::new(0),
             len: 0,
+            mask: 0,
+        }
+    }
+
+    pub const fn new_with_mask(mask: u32) -> Self {
+        Entities {
+            meta: Vec::new(),
+            pending: Vec::new(),
+            free_cursor: AtomicIdCursor::new(0),
+            len: 0,
+            mask,
         }
     }
 
@@ -577,7 +599,8 @@ impl Entities {
             // to go, yielding `meta.len()+0 .. meta.len()+3`.
             let base = self.meta.len() as IdCursor;
 
-            let new_id_end = u32::try_from(base - range_start).expect("too many entities");
+            let new_id_end = u32::try_from(base - (range_start * ENTITY_ALLOC_STEP as i64))
+                .expect("too many entities");
 
             // `new_id_end` is in range, so no need to check `start`.
             let new_id_start = (base - range_end.min(0)) as u32;
@@ -588,7 +611,8 @@ impl Entities {
         ReserveEntitiesIterator {
             meta: &self.meta[..],
             index_iter: self.pending[freelist_range].iter(),
-            index_range: new_id_start..new_id_end,
+            index_range: (new_id_start..new_id_end).step_by(ENTITY_ALLOC_STEP),
+            mask: self.mask,
         }
     }
 
@@ -608,7 +632,9 @@ impl Entities {
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
             Entity::from_raw(
-                u32::try_from(self.meta.len() as IdCursor - n).expect("too many entities"),
+                u32::try_from(self.meta.len() as IdCursor - (n * ENTITY_ALLOC_STEP as i64))
+                    .expect("too many entities")
+                    | self.mask,
             )
         }
     }
@@ -631,8 +657,9 @@ impl Entities {
             Entity::from_raw_and_generation(index, self.meta[index as usize].generation)
         } else {
             let index = u32::try_from(self.meta.len()).expect("too many entities");
-            self.meta.push(EntityMeta::EMPTY);
-            Entity::from_raw(index)
+            self.meta
+                .extend((0..ENTITY_ALLOC_STEP).map(|_| EntityMeta::EMPTY));
+            Entity::from_raw(index | self.mask)
         }
     }
 
@@ -644,12 +671,17 @@ impl Entities {
         self.verify_flushed();
 
         let loc = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
+            self.pending.extend(
+                ((self.meta.len() as u32)..(entity.index()))
+                    .step_by(ENTITY_ALLOC_STEP)
+                    .filter(|v| (v & !INDEX_HIGH_MASK) == self.mask),
+            );
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
+            self.meta.resize(
+                entity.index().next_multiple_of(ENTITY_ALLOC_STEP as u32) as usize,
+                EntityMeta::EMPTY,
+            );
             self.len += 1;
             None
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
@@ -680,12 +712,17 @@ impl Entities {
         self.verify_flushed();
 
         let result = if entity.index() as usize >= self.meta.len() {
-            self.pending
-                .extend((self.meta.len() as u32)..entity.index());
+            self.pending.extend(
+                ((self.meta.len() as u32)..(entity.index()))
+                    .step_by(ENTITY_ALLOC_STEP)
+                    .filter(|v| (v & !INDEX_HIGH_MASK) == self.mask),
+            );
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta
-                .resize(entity.index() as usize + 1, EntityMeta::EMPTY);
+            self.meta.resize(
+                entity.index().next_multiple_of(ENTITY_ALLOC_STEP as u32) as usize,
+                EntityMeta::EMPTY,
+            );
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
@@ -860,7 +897,7 @@ impl Entities {
             current_free_cursor as usize
         } else {
             let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -current_free_cursor as usize;
+            let new_meta_len = old_meta_len + (-current_free_cursor as usize) * ENTITY_ALLOC_STEP;
             self.meta.resize(new_meta_len, EntityMeta::EMPTY);
             self.len += -current_free_cursor as u32;
             for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
@@ -902,6 +939,7 @@ impl Entities {
     pub unsafe fn flush_and_reserve_invalid_assuming_no_entities(&mut self, count: usize) {
         let free_cursor = self.free_cursor.get_mut();
         *free_cursor = 0;
+        let count = count.next_multiple_of(ENTITY_ALLOC_STEP);
         self.meta.reserve(count);
         // SAFETY: The EntityMeta struct only contains integers, and it is valid to have all bytes set to u8::MAX
         unsafe {
