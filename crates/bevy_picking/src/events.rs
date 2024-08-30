@@ -1,7 +1,7 @@
 //! This module defines a stateful set of interaction events driven by the `PointerInput` stream
 //! and the hover state of each Pointer.
 //!
-//! # Useage
+//! # Usage
 //!
 //! To receive events from this module, you must use an [`bevy::ecs::Observer`]. The simplest example,
 //! registering a callback when an entity is hovered over by a pointer, looks like this
@@ -21,7 +21,7 @@
 //! 2. they allow events to bubble up the entity hierarchy,
 //! 3. and they allow events of different types to be called in a specific order.
 //!
-//! The order in which interaction events are received is extreamly important, and you can read more
+//! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in [`PreUpdate`]
 //! in [`PickSet::Focus`]. All pointer-event observers resolve during the sync point between
 //! [`pointer_events`] and [`update_interactions`].
@@ -104,7 +104,7 @@ impl<E: Debug + Clone + Reflect> Pointer<E> {
     }
 }
 
-/// Fires when a pointer is cancled, and it's current interaction state is dropped.
+/// Fires when a pointer is canceled, and it's current interaction state is dropped.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct Cancel {
     /// Information about the picking intersection.
@@ -282,7 +282,7 @@ pub struct PointerState {
 ///
 /// Note: Though it is common for the [`PointerInput`] stream may contain multiple pointer movements and presses each frame,
 /// the hover state is determined only by the pointer's *final position*. Since the hover state ultimately determines which
-/// entities receive events, this may mean that an entity can receive events which occured before it was actually hovered.
+/// entities receive events, this may mean that an entity can receive events which occurred before it was actually hovered.
 #[allow(clippy::too_many_arguments)]
 pub fn pointer_events(
     // Input
@@ -565,7 +565,7 @@ pub fn pointer_events(
                         hovered_entity,
                     );
                 }
-                // Clear the local state for the cancled pointer
+                // Clear the local state for the canceled pointer
                 for button in PointerButton::iter() {
                     if let Some(state) = pointer_state.get_mut(&(pointer_id, button)) {
                         state.pressing.clear();
