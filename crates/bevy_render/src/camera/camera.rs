@@ -10,7 +10,6 @@ use crate::{
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
     },
-    world_sync::RenderEntity,
     Extract,
 };
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
@@ -881,7 +880,7 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
-            &RenderEntity,
+            Entity,
             &Camera,
             &CameraRenderGraph,
             &GlobalTransform,
@@ -900,7 +899,7 @@ pub fn extract_cameras(
 ) {
     let primary_window = primary_window.iter().next();
     for (
-        render_entity,
+        entity,
         camera,
         camera_render_graph,
         transform,
@@ -914,10 +913,11 @@ pub fn extract_cameras(
         gpu_culling,
     ) in query.iter()
     {
+        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
+
         if !camera.is_active {
             continue;
         }
-        let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
         if let (
             Some(URect {
@@ -935,8 +935,7 @@ pub fn extract_cameras(
                 continue;
             }
 
-            let mut commands = commands.entity(render_entity.id());
-            commands = commands.insert((
+            let mut commands = commands.get_or_spawn(entity).insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
@@ -982,6 +981,7 @@ pub fn extract_cameras(
             if let Some(perspective) = projection {
                 commands = commands.insert(perspective.clone());
             }
+
             if gpu_culling {
                 if *gpu_preprocessing_support == GpuPreprocessingSupport::Culling {
                     commands.insert(GpuCulling);
@@ -991,7 +991,7 @@ pub fn extract_cameras(
                     );
                 }
             }
-        };
+        }
     }
 }
 

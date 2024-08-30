@@ -2,7 +2,6 @@ use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
-    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
@@ -206,33 +205,33 @@ impl<T: Asset> ExtractComponent for Handle<T> {
     }
 }
 
-/// This system extracts all synced entities components of the corresponding [`ExtractComponent`] type.
+/// This system extracts all components of the corresponding [`ExtractComponent`] type.
 fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(Entity, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
-            values.push((entity.id(), component));
+            values.push((entity, component));
         }
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
 }
 
-/// This system extracts all synced visible entities components of the corresponding [`ExtractComponent`] type.
+/// This system extracts all visible components of the corresponding [`ExtractComponent`] type.
 fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(&RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
+    query: Extract<Query<(Entity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
-                values.push((entity.id(), component));
+                values.push((entity, component));
             }
         }
     }

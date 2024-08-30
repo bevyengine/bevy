@@ -3,7 +3,6 @@ use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::prelude::Msaa;
-use bevy_render::world_sync::SyncRenderWorld;
 use bevy_render::{
     camera::{
         Camera, CameraMainTextureUsages, CameraProjection, CameraRenderGraph,
@@ -38,8 +37,6 @@ pub struct Camera2dBundle {
     pub deband_dither: DebandDither,
     pub main_texture_usages: CameraMainTextureUsages,
     pub msaa: Msaa,
-    /// Marker component that indicates that its entity needs to be Synchronized to the render world
-    pub sync: SyncRenderWorld,
 }
 
 impl Default for Camera2dBundle {
@@ -64,7 +61,6 @@ impl Default for Camera2dBundle {
             deband_dither: DebandDither::Disabled,
             main_texture_usages: Default::default(),
             msaa: Default::default(),
-            sync: Default::default(),
         }
     }
 }
@@ -98,7 +94,6 @@ impl Camera2dBundle {
             deband_dither: DebandDither::Disabled,
             main_texture_usages: Default::default(),
             msaa: Default::default(),
-            sync: Default::default(),
         }
     }
 }

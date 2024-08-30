@@ -178,21 +178,21 @@ pub fn extract_meshlet_mesh_entities(
                 Res<AssetServer>,
                 ResMut<Assets<MeshletMesh>>,
                 EventReader<AssetEvent<MeshletMesh>>,
+                &Entities,
             )>,
         >,
     >,
-    render_entities: &Entities,
 ) {
     // Get instances query
     if system_state.is_none() {
         *system_state = Some(SystemState::new(&mut main_world));
     }
     let system_state = system_state.as_mut().unwrap();
-    let (instances_query, asset_server, mut assets, mut asset_events) =
+    let (instances_query, asset_server, mut assets, mut asset_events, entities) =
         system_state.get_mut(&mut main_world);
 
     // Reset per-frame data
-    instance_manager.reset(render_entities);
+    instance_manager.reset(entities);
 
     // Free GPU buffer space for any modified or dropped MeshletMesh assets
     for asset_event in asset_events.read() {

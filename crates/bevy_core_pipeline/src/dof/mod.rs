@@ -50,7 +50,6 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::{info_once, prelude::default, warn_once};
@@ -799,7 +798,7 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
 /// Extracts all [`DepthOfFieldSettings`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    mut query: Extract<Query<(&RenderEntity, &DepthOfFieldSettings, &Projection)>>,
+    mut query: Extract<Query<(Entity, &DepthOfFieldSettings, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         info_once!(
@@ -809,7 +808,6 @@ fn extract_depth_of_field_settings(
     }
 
     for (entity, dof_settings, projection) in query.iter_mut() {
-        let entity = entity.id();
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
             continue;

@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_ecs::prelude::*;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+use bevy_render::view::Msaa;
 use bevy_render::{
     camera::{Camera, CameraMainTextureUsages, CameraRenderGraph, Exposure, Projection},
     extract_component::ExtractComponent,
@@ -11,7 +12,6 @@ use bevy_render::{
     render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
 };
-use bevy_render::{view::Msaa, world_sync::SyncRenderWorld};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
@@ -154,8 +154,6 @@ pub struct Camera3dBundle {
     pub exposure: Exposure,
     pub main_texture_usages: CameraMainTextureUsages,
     pub msaa: Msaa,
-    /// Marker component that indicates that its entity needs to be Synchronized to the render world
-    pub sync: SyncRenderWorld,
 }
 
 // NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference
@@ -176,7 +174,6 @@ impl Default for Camera3dBundle {
             main_texture_usages: Default::default(),
             deband_dither: DebandDither::Enabled,
             msaa: Default::default(),
-            sync: Default::default(),
         }
     }
 }

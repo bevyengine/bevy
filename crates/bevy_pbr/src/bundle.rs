@@ -7,7 +7,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::{Entity, EntityHashMap};
 use bevy_ecs::{bundle::Bundle, component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
-use bevy_render::world_sync::SyncRenderWorld;
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},
@@ -104,8 +103,6 @@ pub struct PointLightBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
-    /// Marker component that indicates that its entity needs to be Synchronized to the render world
-    pub sync: SyncRenderWorld,
 }
 
 /// A component bundle for spot light entities
@@ -122,8 +119,6 @@ pub struct SpotLightBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
-    /// Marker component that indicates that its entity needs to be Synchronized to the render world
-    pub sync: SyncRenderWorld,
 }
 
 /// A component bundle for [`DirectionalLight`] entities.
@@ -142,6 +137,4 @@ pub struct DirectionalLightBundle {
     pub inherited_visibility: InheritedVisibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
-    /// Marker component that indicates that its entity needs to be Synchronized to the render world
-    pub sync: SyncRenderWorld,
 }
