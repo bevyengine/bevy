@@ -228,9 +228,10 @@
 //! something like this:
 //! ```
 //! # use serde_json::Value;
-//! # use bevy_ecs::{In, World};
-//! fn handler(In<Option<Value>>, world: &mut World) -> BrpResult {
-//!     // ...
+//! # use bevy_ecs::prelude::{In, World};
+//! # use bevy_remote::BrpResult;
+//! fn handler(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+//!     todo!()
 //! }
 //! ```
 //!
