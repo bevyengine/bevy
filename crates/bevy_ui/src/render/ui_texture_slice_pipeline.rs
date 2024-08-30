@@ -20,7 +20,10 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{ImageScaleMode, SliceScaleMode, SpriteAssetEvents, TextureSlicer};
+use bevy_sprite::{
+    ImageScaleMode, SliceScaleMode, SpriteAssetEvents, TextureAtlas, TextureAtlasLayout,
+    TextureSlicer,
+};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
@@ -223,6 +226,7 @@ pub struct ExtractedUiTextureSlice {
     pub stack_index: u32,
     pub transform: Mat4,
     pub rect: Rect,
+    pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
     pub camera_entity: Entity,
@@ -239,6 +243,7 @@ pub fn extract_ui_texture_slices(
     mut commands: Commands,
     mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     default_ui_camera: Extract<DefaultUiCamera>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     slicers_query: Extract<
         Query<(
             &Node,
@@ -248,10 +253,11 @@ pub fn extract_ui_texture_slices(
             Option<&TargetCamera>,
             &UiImage,
             &ImageScaleMode,
+            Option<&TextureAtlas>,
         )>,
     >,
 ) {
-    for (uinode, transform, view_visibility, clip, camera, image, image_scale_mode) in
+    for (uinode, transform, view_visibility, clip, camera, image, image_scale_mode, atlas) in
         &slicers_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -267,6 +273,12 @@ pub fn extract_ui_texture_slices(
             continue;
         }
 
+        let atlas_rect = atlas.and_then(|atlas| {
+            texture_atlases
+                .get(&atlas.layout)
+                .map(|layout| layout.textures[atlas.index].as_rect())
+        });
+
         extracted_ui_slicers.slices.insert(
             commands.spawn_empty().id(),
             ExtractedUiTextureSlice {
@@ -281,6 +293,7 @@ pub fn extract_ui_texture_slices(
                 image: image.texture.id(),
                 camera_entity,
                 image_scale_mode: image_scale_mode.clone(),
+                atlas_rect,
             },
         );
     }
@@ -374,26 +387,26 @@ pub fn prepare_ui_slices(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(slices) = extracted_slices.slices.get(item.entity) {
+                if let Some(texture_slices) = extracted_slices.slices.get(item.entity) {
                     let mut existing_batch = batches.last_mut();
 
                     if batch_image_handle == AssetId::invalid()
                         || existing_batch.is_none()
                         || (batch_image_handle != AssetId::default()
-                            && slices.image != AssetId::default()
-                            && batch_image_handle != slices.image)
+                            && texture_slices.image != AssetId::default()
+                            && batch_image_handle != texture_slices.image)
                         || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(slices.camera_entity)
+                            != Some(texture_slices.camera_entity)
                     {
-                        if let Some(gpu_image) = gpu_images.get(slices.image) {
+                        if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
-                            batch_image_handle = slices.image;
+                            batch_image_handle = texture_slices.image;
                             batch_image_size = gpu_image.size;
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
-                                image: slices.image,
-                                camera: slices.camera_entity,
+                                image: texture_slices.image,
+                                camera: texture_slices.camera_entity,
                             };
 
                             batches.push((item.entity, new_batch));
@@ -417,12 +430,12 @@ pub fn prepare_ui_slices(
                             continue;
                         }
                     } else if batch_image_handle == AssetId::default()
-                        && slices.image != AssetId::default()
+                        && texture_slices.image != AssetId::default()
                     {
-                        if let Some(gpu_image) = gpu_images.get(slices.image) {
-                            batch_image_handle = slices.image;
+                        if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
+                            batch_image_handle = texture_slices.image;
                             batch_image_size = gpu_image.size;
-                            existing_batch.as_mut().unwrap().1.image = slices.image;
+                            existing_batch.as_mut().unwrap().1.image = texture_slices.image;
 
                             image_bind_groups
                                 .values
@@ -442,17 +455,17 @@ pub fn prepare_ui_slices(
                         }
                     }
 
-                    let uinode_rect = slices.rect;
+                    let uinode_rect = texture_slices.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);
 
                     // Specify the corners of the node
                     let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (slices.transform * (pos * rect_size).extend(1.)).xyz());
+                        .map(|pos| (texture_slices.transform * (pos * rect_size).extend(1.)).xyz());
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let positions_diff = if let Some(clip) = slices.clip {
+                    let positions_diff = if let Some(clip) = texture_slices.clip {
                         [
                             Vec2::new(
                                 f32::max(clip.min.x - positions[0].x, 0.),
@@ -482,7 +495,8 @@ pub fn prepare_ui_slices(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size = slices.transform.transform_vector3(rect_size);
+                    let transformed_rect_size =
+                        texture_slices.transform.transform_vector3(rect_size);
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -490,7 +504,7 @@ pub fn prepare_ui_slices(
                     // horizontal / vertical lines
                     // For all other angles, bypass the culling check
                     // This does not properly handles all rotations on all axis
-                    if slices.transform.x_axis[1] == 0.0 {
+                    if texture_slices.transform.x_axis[1] == 0.0 {
                         // Cull nodes that are completely clipped
                         if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                             || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
@@ -498,7 +512,7 @@ pub fn prepare_ui_slices(
                             continue;
                         }
                     }
-                    let flags = if slices.image != AssetId::default() {
+                    let flags = if texture_slices.image != AssetId::default() {
                         shader_flags::TEXTURED
                     } else {
                         shader_flags::UNTEXTURED
@@ -507,10 +521,6 @@ pub fn prepare_ui_slices(
                     let uvs = if flags == shader_flags::UNTEXTURED {
                         [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                     } else {
-                        // let image = gpu_images
-                        //     .get(extracted_slicer.image)
-                        //     .expect("Image was checked during batching and should still exist");
-                        // // Rescale atlases. This is done here because we need texture data that might not be available in Extract.
                         let atlas_extent = uinode_rect.max;
                         [
                             Vec2::new(
@@ -533,12 +543,28 @@ pub fn prepare_ui_slices(
                         .map(|pos| pos / atlas_extent)
                     };
 
-                    let color = slices.color.to_f32_array();
+                    let color = texture_slices.color.to_f32_array();
+
+                    let atlas = if let Some(atlas) = texture_slices.atlas_rect {
+                        let atlas_size = gpu_images
+                            .get(texture_slices.image)
+                            .expect("Image was checked during batching and should still exist")
+                            .size
+                            .as_vec2();
+                        [
+                            atlas.min.x / atlas_size.x,
+                            atlas.min.y / atlas_size.y,
+                            atlas.max.x / atlas_size.x,
+                            atlas.max.y / atlas_size.y,
+                        ]
+                    } else {
+                        [0., 0., 1., 1.]
+                    };
 
                     let [slices, border, repeat] = compute_texture_slices(
                         batch_image_size.as_vec2(),
                         uinode_rect.size(),
-                        &slices.image_scale_mode,
+                        &texture_slices.image_scale_mode,
                     );
 
                     for i in 0..4 {
@@ -549,7 +575,7 @@ pub fn prepare_ui_slices(
                             slices,
                             border,
                             repeat,
-                            atlas: [0., 0., 1., 1.],
+                            atlas,
                         });
                     }
 
