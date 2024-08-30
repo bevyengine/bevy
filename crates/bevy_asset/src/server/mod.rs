@@ -415,7 +415,7 @@ impl AssetServer {
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
         let untyped_source = AssetSourceId::Name(match path.source() {
-            AssetSourceId::Default => CowArc::Borrowed(UNTYPED_SOURCE_SUFFIX),
+            AssetSourceId::Default => CowArc::Static(UNTYPED_SOURCE_SUFFIX),
             AssetSourceId::Name(source) => {
                 CowArc::Owned(format!("{source}--{UNTYPED_SOURCE_SUFFIX}").into())
             }
