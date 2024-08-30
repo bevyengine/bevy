@@ -3,7 +3,6 @@ use std::{hash::Hash, ops::Range};
 use bevy_asset::*;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::{
-    change_detection::MAX_CHANGE_AGE,
     prelude::Component,
     storage::SparseSet,
     system::{
@@ -652,11 +651,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(
-            indices.slice(..),
-            0,
-            bevy_render::render_resource::IndexFormat::Uint32,
-        );
+        pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint32);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success
@@ -673,7 +668,7 @@ fn compute_texture_slices(
             border,
             center_scale_mode,
             sides_scale_mode,
-            max_corner_scale,
+            max_corner_scale: _,
         }) => {
             let slices = [
                 border.left / image_size.x,
