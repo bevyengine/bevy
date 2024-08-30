@@ -18,7 +18,7 @@ use std::{
     process::{ExitCode, Termination},
 };
 use std::{
-    num::NonZeroU8,
+    num::NonZero,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
 use thiserror::Error;
@@ -1061,14 +1061,14 @@ pub enum AppExit {
     Success,
     /// The [`App`] experienced an unhandleable error.
     /// Holds the exit code we expect our app to return.
-    Error(NonZeroU8),
+    Error(NonZero<u8>),
 }
 
 impl AppExit {
     /// Creates a [`AppExit::Error`] with a error code of 1.
     #[must_use]
     pub const fn error() -> Self {
-        Self::Error(NonZeroU8::MIN)
+        Self::Error(NonZero::<u8>::MIN)
     }
 
     /// Returns `true` if `self` is a [`AppExit::Success`].
@@ -1089,7 +1089,7 @@ impl AppExit {
     /// [`AppExit::Error`] is constructed.
     #[must_use]
     pub const fn from_code(code: u8) -> Self {
-        match NonZeroU8::new(code) {
+        match NonZero::<u8>::new(code) {
             Some(code) => Self::Error(code),
             None => Self::Success,
         }
