@@ -37,33 +37,6 @@ fn vertex(
     return out;
 }
 
-fn map_repeat(
-    p: f32,
-    r: f32
-) -> f32 {
-    return fract(p * r);
-}
-
-fn map_center(
-) {
-}
-
-fn map_axis(
-    p: f32,
-    tl: f32,
-    th: f32,
-    il: f32,
-    ih: f32,
-) -> f32 {
-    if p < il {
-        return (p / il) * tl;
-    } else if ih < p {
-        return th + ((p - ih) / (1 - ih)) * (1 - th);
-    } else {
-        return tl + ((p - il) / (ih - il)) * (th - tl);
-    }
-}
-
 fn map_axis_with_repeat(
     p: f32,
     tl: f32,
