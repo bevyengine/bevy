@@ -1420,7 +1420,8 @@ doc-scrape-examples = true
 name = "Custom Asset IO"
 description = "Implements a custom AssetReader"
 category = "Assets"
-wasm = true
+# Incompatible with the asset path patching of the example-showcase tool
+wasm = false
 
 [[example]]
 name = "embedded_asset"
@@ -1442,7 +1443,8 @@ doc-scrape-examples = true
 name = "Extra asset source"
 description = "Load an asset from a non-standard asset source"
 category = "Assets"
-wasm = true
+# Uses non-standard asset path
+wasm = false
 
 [[example]]
 name = "hot_asset_reloading"

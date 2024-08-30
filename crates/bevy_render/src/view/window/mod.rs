@@ -13,7 +13,7 @@ use bevy_window::{
 };
 use bevy_winit::CustomCursorCache;
 use std::{
-    num::NonZeroU32,
+    num::NonZero,
     ops::{Deref, DerefMut},
 };
 use wgpu::{
@@ -63,7 +63,7 @@ pub struct ExtractedWindow {
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
-    pub desired_maximum_frame_latency: Option<NonZeroU32>,
+    pub desired_maximum_frame_latency: Option<NonZero<u32>>,
     /// Note: this will not always be the swap chain texture view. When taking a screenshot,
     /// this will point to an alternative texture instead to allow for copying the render result
     /// to CPU memory.
@@ -395,7 +395,7 @@ pub fn create_surfaces(
                     },
                     desired_maximum_frame_latency: window
                         .desired_maximum_frame_latency
-                        .map(NonZeroU32::get)
+                        .map(NonZero::<u32>::get)
                         .unwrap_or(DEFAULT_DESIRED_MAXIMUM_FRAME_LATENCY),
                     alpha_mode: match window.alpha_mode {
                         CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
