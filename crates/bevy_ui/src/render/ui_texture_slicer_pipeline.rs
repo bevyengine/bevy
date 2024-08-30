@@ -668,8 +668,10 @@ fn compute_texture_slices(
             border,
             center_scale_mode,
             sides_scale_mode,
-            max_corner_scale: _,
+            max_corner_scale,
         }) => {
+            let coeff = target_size / image_size;
+            let min_coeff = coeff.min_element().min(*max_corner_scale);
             let slices = [
                 border.left / image_size.x,
                 border.top / image_size.y,
