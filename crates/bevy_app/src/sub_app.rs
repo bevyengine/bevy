@@ -102,6 +102,21 @@ impl SubApp {
         Self::default()
     }
 
+    /// Returns a default, empty [`SubApp`] using an entity alloc mask.
+    pub fn new_with_entity_alloc_mask(mask: u32) -> Self {
+        let mut world = World::new_with_entity_alloc_mask(mask);
+        world.init_resource::<Schedules>();
+        Self {
+            world,
+            plugin_registry: Vec::default(),
+            plugin_names: HashSet::default(),
+            plugin_build_depth: 0,
+            plugins_state: PluginsState::Adding,
+            update_schedule: None,
+            extract: None,
+        }
+    }
+
     /// This method is a workaround. Each [`SubApp`] can have its own plugins, but [`Plugin`]
     /// works on an [`App`] as a whole.
     fn run_as_app<F>(&mut self, f: F)

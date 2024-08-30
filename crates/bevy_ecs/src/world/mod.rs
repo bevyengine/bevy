@@ -187,6 +187,35 @@ impl World {
         World::default()
     }
 
+    /// Creates a new empty [`World`].
+    ///
+    /// # Panics
+    ///
+    /// If [`usize::MAX`] [`World`]s have been created.
+    /// This guarantee allows System Parameters to safely uniquely identify a [`World`],
+    /// since its [`WorldId`] is unique
+    pub fn new_with_entity_alloc_mask(mask: u32) -> Self {
+        let mut world = Self {
+            id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
+            entities: Entities::new_with_mask(mask),
+            components: Default::default(),
+            archetypes: Archetypes::new(),
+            storages: Default::default(),
+            bundles: Default::default(),
+            observers: Observers::default(),
+            removed_components: Default::default(),
+            // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
+            // are detected on first system runs and for direct world queries.
+            change_tick: AtomicU32::new(1),
+            last_change_tick: Tick::new(0),
+            last_check_tick: Tick::new(0),
+            last_trigger_id: 0,
+            command_queue: RawCommandQueue::new(),
+        };
+        world.bootstrap();
+        world
+    }
+
     /// Retrieves this [`World`]'s unique ID
     #[inline]
     pub fn id(&self) -> WorldId {

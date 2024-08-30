@@ -484,11 +484,10 @@ unsafe fn initialize_render_app(app: &mut App) {
         {
             #[cfg(feature = "trace")]
             let _stage_span = bevy_utils::tracing::info_span!("entity_sync").entered();
-            // entity_sync_system(main_world, render_world);
-            println!(
-                "render world count:{}",
-                render_world.entities().total_count()
-            );
+            // println!(
+            //     "render world count:{}",
+            //     render_world.entities().total_count()
+            // );
         }
 
         // run extract schedule

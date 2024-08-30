@@ -484,9 +484,10 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
-pub const RESERVED_BITS: usize = 2;
+pub const RESERVED_BITS: usize = 1;
 pub const ENTITY_ALLOC_STEP: usize = 1 << RESERVED_BITS;
 pub const INDEX_HIGH_MASK: u32 = u32::MAX << RESERVED_BITS;
+
 /// A [`World`]'s internal metadata store on all of its entities.
 ///
 /// Contains metadata on:
@@ -557,7 +558,8 @@ impl Entities {
         }
     }
 
-    pub const fn new_with_mask(mask: u32) -> Self {
+    pub(crate) fn new_with_mask(mask: u32) -> Self {
+        assert!((mask as usize) < ENTITY_ALLOC_STEP);
         Entities {
             meta: Vec::new(),
             pending: Vec::new(),
@@ -665,45 +667,6 @@ impl Entities {
 
     /// Allocate a specific entity ID, overwriting its generation.
     ///
-    /// Returns the location of the entity currently using the given ID, if any. Location should be
-    /// written immediately.
-    pub fn alloc_at(&mut self, entity: Entity) -> Option<EntityLocation> {
-        self.verify_flushed();
-
-        let loc = if entity.index() as usize >= self.meta.len() {
-            self.pending.extend(
-                ((self.meta.len() as u32)..(entity.index()))
-                    .step_by(ENTITY_ALLOC_STEP)
-                    .filter(|v| (v & !INDEX_HIGH_MASK) == self.mask),
-            );
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta.resize(
-                entity.index().next_multiple_of(ENTITY_ALLOC_STEP as u32) as usize,
-                EntityMeta::EMPTY,
-            );
-            self.len += 1;
-            None
-        } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
-            self.pending.swap_remove(index);
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            self.len += 1;
-            None
-        } else {
-            Some(mem::replace(
-                &mut self.meta[entity.index() as usize].location,
-                EntityMeta::EMPTY.location,
-            ))
-        };
-
-        self.meta[entity.index() as usize].generation = entity.generation;
-
-        loc
-    }
-
-    /// Allocate a specific entity ID, overwriting its generation.
-    ///
     /// Returns the location of the entity currently using the given ID, if any.
     pub(crate) fn alloc_at_without_replacement(
         &mut self,
@@ -712,17 +675,13 @@ impl Entities {
         self.verify_flushed();
 
         let result = if entity.index() as usize >= self.meta.len() {
+            let padding = (entity.index() + 1).next_multiple_of(ENTITY_ALLOC_STEP as u32);
             self.pending.extend(
-                ((self.meta.len() as u32)..(entity.index()))
-                    .step_by(ENTITY_ALLOC_STEP)
-                    .filter(|v| (v & !INDEX_HIGH_MASK) == self.mask),
+                (self.meta.len() as u32..padding).filter(|v| (v & !INDEX_HIGH_MASK) == self.mask),
             );
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            self.meta.resize(
-                entity.index().next_multiple_of(ENTITY_ALLOC_STEP as u32) as usize,
-                EntityMeta::EMPTY,
-            );
+            self.meta.resize(padding as usize, EntityMeta::EMPTY);
             self.len += 1;
             AllocAtWithoutReplacement::DidNotExist
         } else if let Some(index) = self.pending.iter().position(|item| *item == entity.index()) {
@@ -768,11 +727,13 @@ impl Entities {
 
         let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
 
-        self.pending.push(entity.index());
+        if entity.index() & !INDEX_HIGH_MASK == self.mask {
+            self.pending.push(entity.index());
 
-        let new_free_cursor = self.pending.len() as IdCursor;
-        *self.free_cursor.get_mut() = new_free_cursor;
-        self.len -= 1;
+            let new_free_cursor = self.pending.len() as IdCursor;
+            *self.free_cursor.get_mut() = new_free_cursor;
+            self.len -= 1;
+        }
         Some(loc)
     }
 
@@ -871,7 +832,8 @@ impl Entities {
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(index))
+            (idu < self.meta.len() + num_pending * ENTITY_ALLOC_STEP)
+                .then_some(Entity::from_raw(index))
         }
     }
 
