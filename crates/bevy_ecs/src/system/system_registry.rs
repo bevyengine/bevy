@@ -1,3 +1,5 @@
+use crate::bundle::Bundle;
+use crate::change_detection::Mut;
 use crate::entity::Entity;
 use crate::system::{BoxedSystem, IntoSystem};
 use crate::world::{Command, World};
@@ -122,6 +124,17 @@ impl<S, I, O> CachedSystemId<S, I, O> {
     }
 }
 
+/// Creates a [`Bundle`] for a one-shot system entity.
+fn system_bundle<I: 'static, O: 'static>(system: BoxedSystem<I, O>) -> impl Bundle {
+    (
+        RegisteredSystem {
+            initialized: false,
+            system,
+        },
+        SystemIdMarker,
+    )
+}
+
 impl World {
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
     ///
@@ -149,18 +162,8 @@ impl World {
         &mut self,
         system: BoxedSystem<I, O>,
     ) -> SystemId<I, O> {
-        SystemId {
-            entity: self
-                .spawn((
-                    RegisteredSystem {
-                        initialized: false,
-                        system,
-                    },
-                    SystemIdMarker,
-                ))
-                .id(),
-            marker: std::marker::PhantomData,
-        }
+        let entity = self.spawn_empty().insert(system_bundle(system)).id();
+        SystemId::from_entity(entity)
     }
 
     /// Removes a registered system and returns the system, if it exists.
@@ -354,14 +357,33 @@ impl World {
         &mut self,
         system: S,
     ) -> SystemId<I, O> {
-        match self.get_resource::<CachedSystemId<S, I, O>>() {
-            Some(cached) => cached.id,
-            None => {
-                let id = self.register_system(system);
-                self.insert_resource(CachedSystemId::<S, I, O>::new(id));
-                id
-            }
+        if !self.contains_resource::<CachedSystemId<S, I, O>>() {
+            let id = self.register_system(system);
+            self.insert_resource(CachedSystemId::<S, I, O>::new(id));
+            return id;
         }
+
+        self.resource_scope(|world, mut cached: Mut<CachedSystemId<S, I, O>>| {
+            if let Some(mut entity) = world.get_entity_mut(cached.id.entity()) {
+                if !entity.contains::<RegisteredSystem<I, O>>() {
+                    entity.insert(system_bundle(Box::new(IntoSystem::into_system(system))));
+                }
+            } else {
+                cached.id = world.register_system(system);
+            }
+            cached.id
+        })
+    }
+
+    /// Removes a cached system and its [`CachedSystemId`] resource.
+    pub fn remove_system_cached<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+        &mut self,
+        _system: S,
+    ) -> Result<RemovedSystem<I, O>, RegisteredSystemError<I, O>> {
+        let cached = self
+            .remove_resource::<CachedSystemId<S, I, O>>()
+            .ok_or(RegisteredSystemError::SystemNotCached)?;
+        self.remove_system(cached.id)
     }
 
     /// Runs a system, registering it and caching its [`SystemId`] if necessary.
@@ -457,13 +479,7 @@ impl<I: 'static, O: 'static> RegisterSystem<I, O> {
 impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
     fn apply(self, world: &mut World) {
         if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert((
-                RegisteredSystem {
-                    initialized: false,
-                    system: self.system,
-                },
-                SystemIdMarker,
-            ));
+            entity.insert(system_bundle(self.system));
         }
     }
 }
@@ -472,10 +488,10 @@ impl<I: 'static + Send, O: 'static + Send> Command for RegisterSystem<I, O> {
 /// [`Commands`](crate::system::Commands).
 ///
 /// This command needs an already boxed system to register.
-pub struct RunSystemCachedWith<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> {
-    system: BoxedSystem<I, O>,
+pub struct RunSystemCachedWith<I, O, M, S> {
+    system: S,
     input: I,
-    _marker: std::marker::PhantomData<fn() -> (M, S)>,
+    _marker: std::marker::PhantomData<fn() -> (O, M)>,
 }
 
 impl<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> RunSystemCachedWith<I, O, M, S> {
@@ -483,26 +499,18 @@ impl<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static> RunSystemCache
     /// [`Commands`](crate::system::Commands).
     pub fn new(system: S, input: I) -> Self {
         Self {
-            system: Box::new(IntoSystem::into_system(system)),
+            system,
             input,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
-impl<I: 'static + Send, O: 'static, M: 'static, S: IntoSystem<I, O, M> + 'static> Command
+impl<I: 'static + Send, O: 'static, M: 'static, S: IntoSystem<I, O, M> + Send + 'static> Command
     for RunSystemCachedWith<I, O, M, S>
 {
     fn apply(self, world: &mut World) {
-        let id = match world.get_resource::<CachedSystemId<S, I, O>>() {
-            Some(cached) => cached.id,
-            None => {
-                let id = world.register_boxed_system(self.system);
-                world.insert_resource(CachedSystemId::<S, I, O>::new(id));
-                id
-            }
-        };
-        let _ = world.run_system_with_input(id, self.input);
+        let _ = world.run_system_cached_with(self.system, self.input);
     }
 }
 
@@ -514,6 +522,11 @@ pub enum RegisteredSystemError<I = (), O = ()> {
     /// Did you forget to register it?
     #[error("System {0:?} was not registered")]
     SystemIdNotRegistered(SystemId<I, O>),
+    /// A cached system was removed by value, but no system with its type was found.
+    ///
+    /// Did you forget to register it?
+    #[error("Cached system was not found")]
+    SystemNotCached,
     /// A system tried to run itself recursively.
     #[error("System {0:?} tried to run itself recursively")]
     Recursive(SystemId<I, O>),
@@ -528,6 +541,7 @@ impl<I, O> std::fmt::Debug for RegisteredSystemError<I, O> {
             Self::SystemIdNotRegistered(arg0) => {
                 f.debug_tuple("SystemIdNotRegistered").field(arg0).finish()
             }
+            Self::SystemNotCached => write!(f, "SystemNotCached"),
             Self::Recursive(arg0) => f.debug_tuple("Recursive").field(arg0).finish(),
             Self::SelfRemove(arg0) => f.debug_tuple("SelfRemove").field(arg0).finish(),
         }
