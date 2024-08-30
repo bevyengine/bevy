@@ -311,20 +311,25 @@ where
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     ///
-    /// Note: The given set is not implicitly added to the schedule when this system set is added.
-    /// It is safe, but no dependencies will be created.
+    /// Note: please check the [Notes of after](Self::after)
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
 
+    ///
     /// Run after all systems in `set`. If `set` has any systems that produce [`Commands`](crate::system::Commands)
     /// or other [`Deferred`](crate::system::Deferred) operations, all systems in `self` will see their effect.
     ///
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
-    /// Note: The given set is not implicitly added to the schedule when this system set is added.
-    /// It is safe, but no dependencies will be created.
+    /// # Notes
+    ///
+    /// If you configure two groups of systems (let's call them 'Set A') in a Schedule, another group referencing `.after` or `.before` (let's call it 'Set B') will not be added automatically.
+    ///
+    /// It's safe and won't cause any problems or errors. But no dependencies are created: Adding Set A does not automatically create any connections or relationships with Set B. They remain independent of each other.
+    ///
+    /// If you're adding systems in the same location, it's **recommended** that you use **`.chain`**. You can also add a set of systems. You may want to use `.after` or `.before` for advanced planning and perhaps exceptional cases.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
