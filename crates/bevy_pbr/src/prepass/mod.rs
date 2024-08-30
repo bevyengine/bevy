@@ -31,7 +31,7 @@ use bevy_utils::tracing::error;
 
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
-    prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, MeshletGpuScene,
+    prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, InstanceManager,
     MeshletMesh,
 };
 use crate::*;
@@ -186,7 +186,7 @@ where
                 .in_set(RenderSet::QueueMeshes)
                 .after(prepare_assets::<PreparedMaterial<M>>)
                 .before(queue_material_meshlet_meshes::<M>)
-                .run_if(resource_exists::<MeshletGpuScene>),
+                .run_if(resource_exists::<InstanceManager>),
         );
     }
 }
@@ -581,7 +581,7 @@ pub fn extract_camera_previous_view_data(
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         if camera.is_active {
-            let mut entity = commands.get_or_spawn(entity);
+            let entity = commands.get_or_spawn(entity);
 
             if let Some(previous_view_data) = maybe_previous_view_data {
                 entity.insert(previous_view_data.clone());
@@ -688,7 +688,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    mut views: Query<
+    views: Query<
         (
             Entity,
             &VisibleEntities,
@@ -727,7 +727,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
-    ) in &mut views
+    ) in &views
     {
         let (
             mut opaque_phase,

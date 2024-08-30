@@ -1748,7 +1748,7 @@ impl RegularPolygon {
     /// With a rotation of 0, a vertex will be placed at the top `(0.0, circumradius)`.
     pub fn vertices(self, rotation: f32) -> impl IntoIterator<Item = Vec2> {
         // Add pi/2 so that the polygon has a vertex at the top (sin is 1.0 and cos is 0.0)
-        let start_angle = rotation + std::f32::consts::FRAC_PI_2;
+        let start_angle = rotation + FRAC_PI_2;
         let step = std::f32::consts::TAU / self.sides as f32;
 
         (0..self.sides).map(move |i| {
@@ -1919,7 +1919,7 @@ mod tests {
         assert_abs_diff_eq!(rhombus.half_diagonals, Vec2::new(1.0, 1.0));
         assert_abs_diff_eq!(
             rhombus.half_diagonals,
-            Rhombus::from_inradius(std::f32::consts::FRAC_1_SQRT_2).half_diagonals
+            Rhombus::from_inradius(FRAC_1_SQRT_2).half_diagonals
         );
     }
 
@@ -2072,7 +2072,7 @@ mod tests {
         let mut rotated_vertices = polygon.vertices(std::f32::consts::FRAC_PI_4).into_iter();
 
         // Distance from the origin to the middle of a side, derived using Pythagorean theorem
-        let side_sistance = std::f32::consts::FRAC_1_SQRT_2;
+        let side_sistance = FRAC_1_SQRT_2;
         assert!(
             (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
                 < 1e-7,

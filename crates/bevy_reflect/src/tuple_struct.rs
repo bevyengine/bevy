@@ -1,11 +1,11 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::attributes::{impl_custom_attribute_methods, CustomAttributes};
+use crate::type_info::impl_type_methods;
 use crate::{
     self as bevy_reflect, ApplyError, DynamicTuple, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Tuple, TypeInfo, TypePath, TypePathTable, UnnamedField,
+    ReflectMut, ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
 };
-use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::slice::Iter;
 use std::sync::Arc;
@@ -58,8 +58,7 @@ pub trait TupleStruct: PartialReflect {
 /// A container for compile-time tuple struct info.
 #[derive(Clone, Debug)]
 pub struct TupleStructInfo {
-    type_path: TypePathTable,
-    type_id: TypeId,
+    ty: Type,
     fields: Box<[UnnamedField]>,
     custom_attributes: Arc<CustomAttributes>,
     #[cfg(feature = "documentation")]
@@ -75,8 +74,7 @@ impl TupleStructInfo {
     ///
     pub fn new<T: Reflect + TypePath>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_path: TypePathTable::of::<T>(),
-            type_id: TypeId::of::<T>(),
+            ty: Type::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             custom_attributes: Arc::new(CustomAttributes::default()),
             #[cfg(feature = "documentation")]
@@ -113,32 +111,7 @@ impl TupleStructInfo {
         self.fields.len()
     }
 
-    /// A representation of the type path of the struct.
-    ///
-    /// Provides dynamic access to all methods on [`TypePath`].
-    pub fn type_path_table(&self) -> &TypePathTable {
-        &self.type_path
-    }
-
-    /// The [stable, full type path] of the struct.
-    ///
-    /// Use [`type_path_table`] if you need access to the other methods on [`TypePath`].
-    ///
-    /// [stable, full type path]: TypePath
-    /// [`type_path_table`]: Self::type_path_table
-    pub fn type_path(&self) -> &'static str {
-        self.type_path_table().path()
-    }
-
-    /// The [`TypeId`] of the tuple struct.
-    pub fn type_id(&self) -> TypeId {
-        self.type_id
-    }
-
-    /// Check if the given type matches the tuple struct type.
-    pub fn is<T: Any>(&self) -> bool {
-        TypeId::of::<T>() == self.type_id
-    }
+    impl_type_methods!(ty);
 
     /// The docstring of this struct, if any.
     #[cfg(feature = "documentation")]

@@ -21,24 +21,19 @@ use std::ops::{Add, Mul};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::entity::MapEntities;
-use bevy_ecs::prelude::*;
-use bevy_ecs::reflect::ReflectMapEntities;
+use bevy_ecs::{entity::MapEntities, prelude::*, reflect::ReflectMapEntities};
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{
+    hashbrown::HashMap,
     tracing::{error, trace},
     NoOpHash,
 };
 use fixedbitset::FixedBitSet;
-use graph::{AnimationGraph, AnimationNodeIndex};
-use petgraph::graph::NodeIndex;
-use petgraph::Direction;
-use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
+use petgraph::{graph::NodeIndex, Direction};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
@@ -51,7 +46,10 @@ pub mod prelude {
     };
 }
 
-use crate::transition::{advance_transitions, expire_completed_transitions};
+use crate::{
+    graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
+    transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
+};
 
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
@@ -442,8 +440,9 @@ impl ActiveAnimation {
     }
 
     /// Sets the weight of this animation.
-    pub fn set_weight(&mut self, weight: f32) {
+    pub fn set_weight(&mut self, weight: f32) -> &mut Self {
         self.weight = weight;
+        self
     }
 
     /// Pause the animation.
@@ -528,7 +527,10 @@ impl ActiveAnimation {
     }
 }
 
-/// Animation controls
+/// Animation controls.
+///
+/// Automatically added to any root animations of a `SceneBundle` when it is
+/// spawned.
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {

@@ -123,7 +123,7 @@ impl SphereMeshBuilder {
             let inclination = point.y.acos();
             let azimuth = point.z.atan2(point.x);
 
-            let norm_inclination = inclination / std::f32::consts::PI;
+            let norm_inclination = inclination / PI;
             let norm_azimuth = 0.5 - (azimuth / std::f32::consts::TAU);
 
             [norm_azimuth, norm_inclination]

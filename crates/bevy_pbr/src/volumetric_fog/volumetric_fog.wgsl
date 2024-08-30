@@ -43,6 +43,7 @@ struct VolumetricFog {
     absorption: f32,
     scattering: f32,
     density_factor: f32,
+    density_texture_offset: vec3<f32>,
     scattering_asymmetry: f32,
     light_intensity: f32,
     jitter_strength: f32,
@@ -101,6 +102,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let absorption = volumetric_fog.absorption;
     let scattering = volumetric_fog.scattering;
     let density_factor = volumetric_fog.density_factor;
+    let density_texture_offset = volumetric_fog.density_texture_offset;
     let light_tint = volumetric_fog.light_tint;
     let light_intensity = volumetric_fog.light_intensity;
     let jitter_strength = volumetric_fog.jitter_strength;
@@ -236,7 +238,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             // case.
             let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
             if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
-                density *= textureSample(density_texture, density_sampler, P_uvw).r;
+                density *= textureSample(density_texture, density_sampler, P_uvw + density_texture_offset).r;
             } else {
                 density = 0.0;
             }

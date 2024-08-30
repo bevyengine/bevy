@@ -381,7 +381,7 @@ impl render_graph::Node for ImageCopyDriver {
                     layout: ImageDataLayout {
                         offset: 0,
                         bytes_per_row: Some(
-                            std::num::NonZeroU32::new(padded_bytes_per_row as u32)
+                            std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
                                 .unwrap()
                                 .into(),
                         ),
