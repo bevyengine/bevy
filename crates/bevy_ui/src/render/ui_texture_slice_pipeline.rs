@@ -383,7 +383,7 @@ pub fn prepare_ui_slices(
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
-            let mut batch_image_size = UVec2::ZERO;
+            let mut batch_image_size = Vec2::ZERO;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
@@ -401,7 +401,7 @@ pub fn prepare_ui_slices(
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size;
+                            batch_image_size = gpu_image.size.as_vec2();
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
@@ -434,7 +434,7 @@ pub fn prepare_ui_slices(
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size;
+                            batch_image_size = gpu_image.size.as_vec2();
                             existing_batch.as_mut().unwrap().1.image = texture_slices.image;
 
                             image_bind_groups
@@ -545,24 +545,22 @@ pub fn prepare_ui_slices(
 
                     let color = texture_slices.color.to_f32_array();
 
-                    let atlas = if let Some(atlas) = texture_slices.atlas_rect {
-                        let atlas_size = gpu_images
-                            .get(texture_slices.image)
-                            .expect("Image was checked during batching and should still exist")
-                            .size
-                            .as_vec2();
-                        [
-                            atlas.min.x / atlas_size.x,
-                            atlas.min.y / atlas_size.y,
-                            atlas.max.x / atlas_size.x,
-                            atlas.max.y / atlas_size.y,
-                        ]
+                    let (image_size, atlas) = if let Some(atlas) = texture_slices.atlas_rect {
+                        (
+                            atlas.size(),
+                            [
+                                atlas.min.x / batch_image_size.x,
+                                atlas.min.y / batch_image_size.y,
+                                atlas.max.x / batch_image_size.x,
+                                atlas.max.y / batch_image_size.y,
+                            ],
+                        )
                     } else {
-                        [0., 0., 1., 1.]
+                        (batch_image_size, [0., 0., 1., 1.])
                     };
 
                     let [slices, border, repeat] = compute_texture_slices(
-                        batch_image_size.as_vec2(),
+                        image_size,
                         uinode_rect.size(),
                         &texture_slices.image_scale_mode,
                     );
