@@ -37,7 +37,6 @@ pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
-pub use texture_slice::UiSlicer;
 pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
