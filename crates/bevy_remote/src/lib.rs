@@ -197,7 +197,7 @@
 //! `params` (optional):
 //! - `entity`: The ID of the entity whose components will be listed.
 //!
-//! `result`: An array of fuly-qualified type names of components.
+//! `result`: An array of fully-qualified type names of components.
 //!
 //! ## Custom methods
 //!
