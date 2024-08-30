@@ -223,10 +223,6 @@ impl Location {
 /// Types of actions that can be taken by pointers.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum PointerAction {
-    /// The pointer has entered a window.
-    EnteredWindow,
-    /// The pointer has left a window.
-    LeftWindow,
     /// A button has been pressed on the pointer.
     Pressed {
         /// The press direction, either down or up.
@@ -294,9 +290,7 @@ impl PointerInput {
                         }
                     });
                 }
-                PointerAction::EnteredWindow => todo!(),
-                PointerAction::LeftWindow => todo!(),
-                PointerAction::Canceled => todo!(),
+                _ => {}
             }
         }
     }

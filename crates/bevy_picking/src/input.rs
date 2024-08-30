@@ -29,7 +29,7 @@ use crate::{
 
 use crate::PickSet;
 
-/// Common imports for `bevy_picking_input`.
+/// Common imports for `bevy_picking`.
 pub mod prelude {
     pub use crate::input::InputPlugin;
 }
@@ -106,40 +106,6 @@ pub fn mouse_pick_events(
 ) {
     for window_event in window_events.read() {
         match window_event {
-            // Handle the cursor entering the window
-            WindowEvent::CursorEntered(event) => {
-                let location = Location {
-                    target: match RenderTarget::Window(WindowRef::Entity(event.window))
-                        .normalize(primary_window.get_single().ok())
-                    {
-                        Some(target) => target,
-                        None => continue,
-                    },
-                    position: *cursor_last, // Note, this is a hack until winit starts providing locations
-                };
-                pointer_events.send(PointerInput::new(
-                    PointerId::Mouse,
-                    location,
-                    PointerAction::EnteredWindow,
-                ));
-            }
-            // Handle curcor leaving the window
-            WindowEvent::CursorLeft(event) => {
-                let location = Location {
-                    target: match RenderTarget::Window(WindowRef::Entity(event.window))
-                        .normalize(primary_window.get_single().ok())
-                    {
-                        Some(target) => target,
-                        None => continue,
-                    },
-                    position: *cursor_last, // Note, this is a hack until winit starts providing locations
-                };
-                pointer_events.send(PointerInput::new(
-                    PointerId::Mouse,
-                    location,
-                    PointerAction::LeftWindow,
-                ));
-            }
             // Handle cursor movement events
             WindowEvent::CursorMoved(event) => {
                 let location = Location {

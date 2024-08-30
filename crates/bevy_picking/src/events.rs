@@ -104,6 +104,13 @@ impl<E: Debug + Clone + Reflect> Pointer<E> {
     }
 }
 
+/// Fires when a pointer is cancled, and it's current interaction state is dropped.
+#[derive(Clone, PartialEq, Debug, Reflect)]
+pub struct Cancel {
+    /// Information about the picking intersection.
+    pub hit: HitData,
+}
+
 /// Fires when a the pointer crosses into the bounds of the `target` entity.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct Over {
@@ -246,6 +253,7 @@ pub struct DragEntry {
 /// + Any number of any of the following:
 ///   + For each movement: The sequence [`DragStart`], [`Drag`], [`DragOver`], [`Move`].
 ///   + For each button press: Either [`Down`], or the sequence [`DragDrop`], [`DragEnd`], [`DragLeave`], [`Click`], [`Up`].
+///   + For each pointer cancellation: Simply [`Cancel`].
 /// + Finally the sequence [`DragLeave`], [`Out`].
 ///
 /// Only the last event in a given sequence is garenteed to be present.
@@ -255,6 +263,7 @@ pub struct DragEntry {
 /// + When a pointer presses buttons on the target: [`Down`], [`Up`], [`Click`].
 /// + When a pointer drags the target: [`DragStart`], [`Drag`], [`DragEnd`].
 /// + When a pointer drags something over the target: [`DragEnter`], [`DragOver`], [`DragDrop`], [`DragLeave`].
+/// + When a pointer is canceled: No other events will follow the [`Cancel`] event for that pointer.
 ///
 /// Two events -- [`Over`] and [`Out`] -- are driven only by the [`HoverMap`]. The rest rely on additional data from the
 /// [`PointerInput`] event stream. To receive these events for a custom pointer, you must add [`PointerInput`] events.
@@ -349,10 +358,6 @@ pub fn pointer_events(
     } in input_events.read().cloned()
     {
         match action {
-            // Entered Window
-            PointerAction::EnteredWindow => todo!(),
-            // Left Window
-            PointerAction::LeftWindow => todo!(),
             // Pressed Button
             PointerAction::Pressed { direction, button } => {
                 // Send Up, Down, and Click button events to hovered entity
@@ -548,7 +553,25 @@ pub fn pointer_events(
                 }
             }
             // Canceled
-            PointerAction::Canceled => todo!(),
+            PointerAction::Canceled => {
+                // Emit a Cancel to the hovered entity.
+                for (hovered_entity, hit) in hover_map
+                    .get(&pointer_id)
+                    .iter()
+                    .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.to_owned())))
+                {
+                    commands.trigger_targets(
+                        Pointer::new(pointer_id, location.clone(), Cancel { hit }),
+                        hovered_entity,
+                    );
+                }
+                // Clear the local state for the cancled pointer
+                for button in PointerButton::iter() {
+                    drag_map.remove(&(pointer_id, button));
+                    drag_over_map.remove(&(pointer_id, button));
+                    down_map.remove(&(pointer_id, button));
+                }
+            }
         }
     }
 
