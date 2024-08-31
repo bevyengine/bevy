@@ -10,7 +10,7 @@ use bevy_render::{
     texture::Image,
     view::ViewUniform,
 };
-use std::num::NonZeroU64;
+use std::num::NonZero;
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {
@@ -64,8 +64,8 @@ impl FromWorld for AutoExposurePipeline {
                         texture_2d(TextureSampleType::Float { filterable: false }),
                         texture_1d(TextureSampleType::Float { filterable: false }),
                         uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
-                        storage_buffer_sized(false, NonZeroU64::new(HISTOGRAM_BIN_COUNT * 4)),
-                        storage_buffer_sized(false, NonZeroU64::new(4)),
+                        storage_buffer_sized(false, NonZero::<u64>::new(HISTOGRAM_BIN_COUNT * 4)),
+                        storage_buffer_sized(false, NonZero::<u64>::new(4)),
                         storage_buffer::<ViewUniform>(true),
                     ),
                 ),
