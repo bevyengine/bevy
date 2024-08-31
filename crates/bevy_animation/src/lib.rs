@@ -7,9 +7,9 @@
 
 //! Animation for the game engine Bevy
 
-mod animatable;
-mod graph;
-mod transition;
+pub mod animatable;
+pub mod graph;
+pub mod transition;
 mod util;
 
 use std::cell::RefCell;
