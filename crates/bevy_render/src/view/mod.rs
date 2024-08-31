@@ -123,7 +123,8 @@ impl Plugin for ViewPlugin {
                 (
                     prepare_view_attachments
                         .in_set(RenderSet::ManageViews)
-                        .before(prepare_view_targets),
+                        .before(prepare_view_targets)
+                        .after(prepare_windows),
                     prepare_view_targets
                         .in_set(RenderSet::ManageViews)
                         .after(prepare_windows)
