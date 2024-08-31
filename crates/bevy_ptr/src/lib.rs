@@ -11,7 +11,7 @@ use core::{
     cell::UnsafeCell,
     fmt::{self, Formatter, Pointer},
     marker::PhantomData,
-    mem::ManuallyDrop,
+    mem::{align_of, ManuallyDrop},
     num::NonZeroUsize,
     ptr::NonNull,
 };
