@@ -54,7 +54,7 @@ pub mod prelude {
     pub use crate::app::AppExtStates;
     #[doc(hidden)]
     pub use crate::condition::*;
-    #[cfg(feature = "bevy_app")]
+    #[cfg(feature = "bevy_reflect")]
     #[doc(hidden)]
     pub use crate::reflect::{ReflectFreelyMutableState, ReflectState};
     #[doc(hidden)]

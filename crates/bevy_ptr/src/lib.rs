@@ -12,7 +12,7 @@ use core::{
     fmt::{self, Formatter, Pointer},
     marker::PhantomData,
     mem::{align_of, ManuallyDrop},
-    num::NonZeroUsize,
+    num::NonZero,
     ptr::NonNull,
 };
 
@@ -538,7 +538,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
-    // from the address of a `NonZeroUsize`.
+    // from the address of a `NonZero<usize>`.
     unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
 }
 

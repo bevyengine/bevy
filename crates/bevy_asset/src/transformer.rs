@@ -1,5 +1,6 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
-use bevy_utils::{ConditionalSendFuture, CowArc, HashMap};
+use atomicow::CowArc;
+use bevy_utils::{ConditionalSendFuture, HashMap};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,

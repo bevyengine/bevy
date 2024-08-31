@@ -1,14 +1,13 @@
 //! A module for rendering each of the 3D [`bevy_math::primitives`] with [`Gizmos`].
 
 use super::helpers::*;
-use std::f32::consts::TAU;
 
 use bevy_color::Color;
 use bevy_math::primitives::{
     BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, Line3d, Plane3d,
     Polyline3d, Primitive3d, Segment3d, Sphere, Tetrahedron, Torus, Triangle3d,
 };
-use bevy_math::{Dir3, Isometry3d, Quat, Vec3};
+use bevy_math::{Dir3, Isometry3d, Quat, UVec2, Vec2, Vec3};
 
 use crate::circles::SphereBuilder;
 use crate::prelude::{GizmoConfigGroup, Gizmos};
@@ -83,19 +82,17 @@ where
 {
     gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
 
-    // direction of the normal orthogonal to the plane
+    // Direction of the normal orthogonal to the plane
     normal: Dir3,
 
     isometry: Isometry3d,
     // Color of the plane
     color: Color,
 
-    // Number of axis to hint the plane
-    axis_count: u32,
-    // Number of segments used to hint the plane
-    segment_count: u32,
-    // Length of segments used to hint the plane
-    segment_length: f32,
+    // Defines the amount of cells in the x and y axes
+    cell_count: UVec2,
+    // Defines the distance between cells along the x and y axes
+    spacing: Vec2,
 }
 
 impl<Config, Clear> Plane3dBuilder<'_, '_, '_, Config, Clear>
@@ -103,21 +100,15 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Set the number of segments used to hint the plane.
-    pub fn segment_count(mut self, count: u32) -> Self {
-        self.segment_count = count;
+    /// Set the number of cells in the x and y axes direction.
+    pub fn cell_count(mut self, cell_count: UVec2) -> Self {
+        self.cell_count = cell_count;
         self
     }
 
-    /// Set the length of segments used to hint the plane.
-    pub fn segment_length(mut self, length: f32) -> Self {
-        self.segment_length = length;
-        self
-    }
-
-    /// Set the number of axis used to hint the plane.
-    pub fn axis_count(mut self, count: u32) -> Self {
-        self.axis_count = count;
+    /// Set the distance between cells along the x and y axes.
+    pub fn spacing(mut self, spacing: Vec2) -> Self {
+        self.spacing = spacing;
         self
     }
 }
@@ -140,9 +131,8 @@ where
             normal: primitive.normal,
             isometry,
             color: color.into(),
-            axis_count: 4,
-            segment_count: 3,
-            segment_length: 0.25,
+            cell_count: UVec2::splat(3),
+            spacing: Vec2::splat(1.0),
         }
     }
 }
@@ -157,35 +147,16 @@ where
             return;
         }
 
-        // draws the normal
         self.gizmos
             .primitive_3d(&self.normal, self.isometry, self.color);
-
-        // draws the axes
-        // get rotation for each direction
-        let normals_normal = self.normal.any_orthonormal_vector();
-        (0..self.axis_count)
-            .map(|i| i as f32 * (1.0 / self.axis_count as f32) * TAU)
-            .map(|angle| Quat::from_axis_angle(self.normal.as_vec3(), angle))
-            .flat_map(|quat| {
-                let segment_length = self.segment_length;
-                let isometry = self.isometry;
-                // for each axis draw dotted line
-                (0..)
-                    .filter(|i| i % 2 != 0)
-                    .take(self.segment_count as usize)
-                    .map(|i| [i, i + 1])
-                    .map(move |percents| {
-                        percents
-                            .map(|percent| percent as f32 + 0.5)
-                            .map(|percent| percent * segment_length * normals_normal)
-                            .map(|vec3| quat * vec3)
-                            .map(|vec3| isometry * vec3)
-                    })
-            })
-            .for_each(|[start, end]| {
-                self.gizmos.line(start, end, self.color);
-            });
+        // the default orientation of the grid is Z-up
+        let rot = Quat::from_rotation_arc(Vec3::Z, self.normal.as_vec3());
+        self.gizmos.grid(
+            Isometry3d::new(self.isometry.translation, self.isometry.rotation * rot),
+            self.cell_count,
+            self.spacing,
+            self.color,
+        );
     }
 }
 
