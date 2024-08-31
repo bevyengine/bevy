@@ -45,7 +45,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             scattering: 1.0,
             ..default()
         })
-        // indicates that this spatial needs to be Synchronized to the render world
+        // indicates that this fog volume needs to be Synchronized to the render world
         .insert(SyncRenderWorld);
 
     // Spawn a bright directional light that illuminates the fog well.

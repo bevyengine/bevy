@@ -15,15 +15,15 @@ use bevy_utils::tracing::warn;
 
 /// A Plugin that synchronizes entities with specific Components between the main world and render world.
 ///
-/// Bevy's renderer is architected independently from main app, It operates in its own separate ECS World. Therefore, the renderer could run in parallel with main app logic, This is called "Pipelined Rendering". See [`PipelinedRenderingPlugin`] for more information.
+/// Bevy's renderer is architected independently from the main app. It operates in its own separate ECS World, so the renderer could run in parallel with the main app logic. This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
 ///
 /// Previously, `extract` will copy the related main world entity and its data into the render world , and then render world will clear all render entities at the end of frame to reserve enough entity space to ensure that no main world entity ID has been occupied during next `extract`.
 ///
 /// With `* as entities`, we should not clear all entities in render world because some core metadata (e.g. [`Component`], [`Query`]) are also stored in the form of entity.
 ///
-/// So we turn to an entity-to-entity mapping strategy to sync between main world entity and render world entity, where each `synchronized` main entity has a [`RenderEntity`] component holds an Entity ID pointer to its unique counterpart entity in the render world.
+/// [`WorldSyncPlugin`] maintains an entity-to-entity mapping to sync a main world entity and a render world entity. Each synchronized main entity has a [`RenderEntity`] component that holds an Entity pointer to its unique counterpart entity in the render world.
 ///
-/// A example for `synchronized` main entity 1v1 and 18v1
+/// An example for synchronized main entities 1v1 and 18v1
 ///
 /// ```text
 /// |---------------------------Main World----------------------------|
@@ -42,7 +42,7 @@ use bevy_utils::tracing::warn;
 ///
 /// ```
 ///
-/// To establish a "Synchronous Relationship", you can add a [`SyncRenderWorld`] component to an entity. Once a `synchronized` main entity is despawned ,its corresponding render entity will be automatically purged in the next `Sync`
+/// To establish a "Synchronous Relationship", you can add a [`SyncRenderWorld`] component to an entity. Once a synchronized main entity is despawned, its corresponding render entity will be automatically purged in the next `Sync`
 ///
 /// Now a single frame of execution looks something like below
 ///
