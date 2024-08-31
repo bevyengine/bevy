@@ -238,6 +238,7 @@ impl TextPipeline {
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_text_measure(
         &mut self,
         entity: Entity,
@@ -319,7 +320,7 @@ impl TextMeasureInfo {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
         // whenever a canonical state is required.
         buffer.set_size(font_system, bounds.width, bounds.height);
-        buffer_dimensions(&buffer)
+        buffer_dimensions(buffer)
     }
 }
 

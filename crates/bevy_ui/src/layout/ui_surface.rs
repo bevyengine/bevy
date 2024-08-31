@@ -227,7 +227,14 @@ without UI components as a child of an entity with UI components, results may be
                         context
                             .map(|ctx| {
                                 #[cfg(feature = "bevy_text")]
-                                let buffer = get_text_buffer(ctx, buffer_query);
+                                let buffer = get_text_buffer(
+                                    crate::widget::TextMeasure::needs_buffer(
+                                        known_dimensions.height,
+                                        available_space.width,
+                                    ),
+                                    ctx,
+                                    buffer_query,
+                                );
                                 let size = ctx.measure(
                                     MeasureArgs {
                                         width: known_dimensions.width,
@@ -294,9 +301,14 @@ with UI components as a child of an entity without UI components, results may be
 
 #[cfg(feature = "bevy_text")]
 fn get_text_buffer<'a>(
+    needs_buffer: bool,
     ctx: &mut NodeMeasure,
     query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::CosmicBuffer>,
 ) -> Option<&'a mut bevy_text::cosmic_text::Buffer> {
+    // We avoid a query lookup whenever the buffer is not required.
+    if !needs_buffer {
+        return None;
+    }
     let NodeMeasure::Text(crate::widget::TextMeasure { info }) = ctx else {
         return None;
     };
