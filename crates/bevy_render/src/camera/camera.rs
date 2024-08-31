@@ -187,7 +187,7 @@ impl Default for PhysicalCameraParameters {
     }
 }
 
-/// Error returned when a conversion from world-space to viewport-space coordinates (or vice-versa) fails.
+/// Error returned when a conversion between world-space and viewport-space coordinates fails.
 ///
 /// See [`world_to_viewport`][Camera::world_to_viewport] and [`viewport_to_world`][Camera::viewport_to_world].
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
