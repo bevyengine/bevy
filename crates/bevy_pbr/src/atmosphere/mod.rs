@@ -1,16 +1,17 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetServer, Handle};
+use bevy_asset::{load_internal_asset, load_internal_binary_asset, AssetServer, Handle};
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{QueryItem, With},
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::Vec3;
 use bevy_reflect::Reflect;
-use bevy_render::render_resource::binding_types::uniform_buffer;
+use bevy_render::render_resource::{binding_types::uniform_buffer, ShaderType};
 use bevy_render::render_resource::{
     BindGroupLayoutEntries, CachedComputePipelineId, ComputePipelineDescriptor,
 };
@@ -40,42 +41,44 @@ use bevy_core_pipeline::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct SkyLabel;
+mod shaders {
+    use bevy_asset::Handle;
+    use bevy_render::render_resource::Shader;
 
-const TRANSMITTANCE_LUT_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(165991536981278682488488481343101998581);
-const COMMON_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(165991536981278682488488481343101998582);
-const ATMOSPHERE_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(165991536981278682488488481343101998583);
+    pub const TYPES: Handle<Shader> = Handle::weak_from_u128(0xB4CA686B10FA592B508580CCC2F9558C);
+    pub const COMMON: Handle<Shader> = Handle::weak_from_u128(0xD5524FD88BDC153FBF256B7F2C21906F);
+    pub const BINDINGS: Handle<Shader> = Handle::weak_from_u128(0x030D981C17C01B09847E3600513D5DFB);
+
+    pub const TRANSMITTANCE_LUT: Handle<Shader> =
+        Handle::weak_from_u128(0xEECBDEDFEED7F4EAFBD401BFAA5E0EFB);
+    // pub const ATMOSPHERE: Handle<Shader> = Handle::weak_from_u128(0xD8F6A3827A0A9C7511291580B95E4B73);
+}
 
 pub struct SkyPlugin;
 
 impl Plugin for SkyPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            TRANSMITTANCE_LUT_SHADER_HANDLE,
-            "sky_transmittance_lut.wgsl",
-            Shader::from_wgsl
-        );
+        load_internal_asset!(app, shaders::TYPES, "types.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, shaders::TYPES, "common.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, shaders::BINDINGS, "bindings.wgsl", Shader::from_wgsl);
 
         load_internal_asset!(
             app,
-            COMMON_SHADER_HANDLE,
-            "sky_common.wgsl",
+            shaders::TRANSMITTANCE_LUT,
+            "transmittance_lut.wgsl",
             Shader::from_wgsl
         );
 
-        load_internal_asset!(
-            app,
-            ATMOSPHERE_SHADER_HANDLE,
-            "sky_atmosphere.wgsl",
-            Shader::from_wgsl
-        );
+        load_internal_asset!(app, shaders::COMMON, "common.wgsl", Shader::from_wgsl);
 
-        app.register_type::<Sky>();
+        // load_internal_asset!(
+        //     app,
+        //     shaders::ATMOSPHERE,
+        //     "atmosphere.wgsl",
+        //     Shader::from_wgsl
+        // );
+
+        app.register_type::<Atmosphere>();
     }
 
     fn finish(&self, app: &mut App) {
@@ -118,12 +121,33 @@ impl Plugin for SkyPlugin {
     }
 }
 
-#[derive(Clone, Component, Default, Reflect)]
-pub struct Sky {}
+//TODO: padding/alignment?
+#[derive(Clone, Component, Default, Reflect, ShaderType)]
+pub struct Atmosphere {
+    // Radius of the planet
+    bottom_radius: f32,
+
+    // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
+    top_radius: f32,
+
+    rayleigh_density_exp_scale: f32,
+    rayleigh_scattering: Vec3,
+
+    mie_density_exp_scale: f32,
+    mie_scattering: f32,       //units: km^-1
+    mie_absorption: f32,       //units: km^-1
+    mie_phase_function_g: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
+
+    ozone_layer_center_altitude: f32, //units: km
+    ozone_layer_half_width: f32,      //units: km
+    ozone_absorption: Vec3,           //ozone absorption. units: km^-1
+
+    ground_albedo: Vec3, //note: never used even in the paper? maybe for the multiscattering LUT
+}
 
 fn extract_sky_settings(
     mut commands: Commands,
-    cameras: Extract<Query<(Entity, &Camera, &Sky), With<Camera3d>>>,
+    cameras: Extract<Query<(Entity, &Camera, &Atmosphere), With<Camera3d>>>,
 ) {
     for (entity, camera, sky_settings) in &cameras {
         if camera.is_active {
@@ -151,20 +175,25 @@ impl FromWorld for SkyPipelines {
         let render_device = world.resource::<RenderDevice>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        let transmittance_lut_bind_group_layout =
-            render_device.create_bind_group_layout("sky_transmittance_lut_bind_group_layout", &[]);
+        let bind_group_layout = render_device.create_bind_group_layout(
+            "atmosphere_lut_bind_group_layout",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::FRAGMENT,
+                uniform_buffer::<Atmosphere>(false),
+            ),
+        );
 
         let transmittance_lut_pipeline =
             pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("sky_transmittance_lut_pipeline".into()),
-                layout: vec![transmittance_lut_bind_group_layout.clone()],
+                layout: vec![bind_group_layout.clone()],
                 push_constant_ranges: vec![],
                 vertex: fullscreen_shader_vertex_state(),
                 primitive: PrimitiveState::default(),
                 depth_stencil: None,
                 multisample: MultisampleState::default(),
                 fragment: Some(FragmentState {
-                    shader: TRANSMITTANCE_LUT_SHADER_HANDLE.clone(),
+                    shader: shaders::TRANSMITTANCE_LUT.clone(),
                     shader_defs: vec![],
                     entry_point: "main".into(),
                     targets: vec![Some(ColorTargetState {
@@ -201,7 +230,7 @@ impl FromWorld for SkyPipelines {
             // aerial_view_lut: todo!(),
             // multiscattering_lut: todo!(),
             // common_bind_group_layout: todo!(),
-            transmittance_lut_bind_group_layout,
+            transmittance_lut_bind_group_layout: bind_group_layout,
             // sky_view_lut_bind_group_layout: todo!(),
             // aerial_view_lut_bind_group_layout: todo!(),
             // multiscattering_lut_bind_group_layout: todo!(),
@@ -259,7 +288,7 @@ fn prepare_sky_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<Sky>>,
+    views: Query<(Entity, &ExtractedCamera), With<Atmosphere>>,
 ) {
     for (entity, camera) in &views {
         let transmittance_lut = texture_cache.get(
@@ -285,8 +314,8 @@ fn prepare_sky_textures(
             TextureDescriptor {
                 label: Some("sky_view_lut"),
                 size: Extent3d {
-                    width: 192,
-                    height: 108,
+                    width: 256,
+                    height: 256,
                     depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
@@ -301,7 +330,7 @@ fn prepare_sky_textures(
         let aerial_perspective_lut = texture_cache.get(
             &render_device,
             TextureDescriptor {
-                label: Some("aerial_perspective"),
+                label: Some("aerial_view_lut"),
                 size: Extent3d {
                     width: 32,
                     height: 32,
@@ -346,8 +375,8 @@ fn prepare_sky_textures(
 }
 
 #[derive(Component)]
-struct SkyBindGroups {
-    transmittance_lut_bind_group: BindGroup,
+struct SkyBindGroup {
+    layout: BindGroupLayout,
 }
 
 // Separate prepare needed, because Resources like ViewUniforms are not available in ViewNode::run()
@@ -388,16 +417,19 @@ fn prepare_sky_bind_groups(
     }
 }
 
+#[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
+struct SkyLabel;
+
 #[derive(Default)]
 struct SkyNode {}
 
 impl ViewNode for SkyNode {
     type ViewQuery = (
-        &'static ExtractedCamera,
-        &'static SkyTextures,
-        // &'static SsaoPipelineId,
-        &'static SkyBindGroups,
-        &'static ViewUniformOffset,
+        Read<ExtractedCamera>,
+        Read<SkyTextures>,
+        // Read<SsaoPipelineId>,
+        Read<SkyBindGroups>,
+        Read<ViewUniformOffset>,
     );
 
     fn run(

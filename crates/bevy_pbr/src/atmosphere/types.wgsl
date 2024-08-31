@@ -1,36 +1,31 @@
-#define_import_path bevy_pbr::sky_atmosphere
+#define_import_path bevy_pbr::atmosphere::types
 
-struct AtmosphereParameters {
-  // Radius of the planet
-  bottom_radius: f32,
+struct Atmosphere {
+    // Radius of the planet
+    bottom_radius: f32,
 
-  // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
-  top_radius: f32,
+    // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
+    top_radius: f32,
 
-  rayleigh_density_exp_scale: f32,
-  rayleigh_scattering: vec3<f32>,
+    rayleigh_density_exp_scale: f32,
+    rayleigh_scattering: vec3<f32>,
 
-  mie_density_exp_scale: f32,
-  mie_scattering: vec3<f32>,
-  mie_extinction: vec3<f32>,
-  mie_absorption: vec3<f32>,
-  mie_phase_function_g: f32,
+    mie_density_exp_scale: f32,
+    mie_scattering: f32, //units: km^-1
+    mie_absorption: f32, //units: km^-1
+    mie_phase_function_g: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
 
-  ozone_density_layer_0_width: f32,
-  ozone_density_layer_0_constant_term: f32,
-  ozone_density_layer_0_linear_term: f32,
-  ozone_density_layer_1_constant_term: f32,
-  ozone_density_layer_1_linear_term: f32,
+    ozone_layer_center_altitude: f32, //units: km
+    ozone_layer_half_width: f32, //units: km
+    ozone_absorption: vec3<f32>, //ozone absorption. units: km^-1
 
-  absorption_extinction: vec3<f32>,
-
-  ground_albedo: vec3<f32>,
+    ground_albedo: vec3<f32>, //note: never used even in the paper? maybe for the multiscattering LUT
 };
 
-fn get_atmosphere_parameters() -> AtmosphereParameters {
-    var atmosphere: AtmosphereParameters;
-    atmosphere.bottom_radius = 6360.0;
-    atmosphere.top_radius = atmosphere.bottom_radius + 100.0;
+fn get_atmosphere_parameters() -> Atmosphere {
+    var atmosphere: Atmosphere;
+    atmosphere.bottom_radius = 6360.0; //units??????
+    atmosphere.top_radius = atmosphere.bottom_radius + 100.0; //okay probably km
 
 	// Rayleigh scattering
     let earth_rayleigh_scale_height = 8.0;
