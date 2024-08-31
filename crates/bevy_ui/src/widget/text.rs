@@ -262,6 +262,7 @@ fn queue_text(
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
+    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(Entity, &Camera)>,
@@ -279,14 +280,14 @@ pub fn text_system(
         &mut CosmicBuffer,
     )>,
 ) {
-    let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
+    scale_factors_buffer.clear();
 
     for (node, text, text_layout_info, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
-        let scale_factor = match scale_factors.entry(camera_entity) {
+        let scale_factor = match scale_factors_buffer.entry(camera_entity) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => *entry.insert(
                 camera_query
@@ -319,5 +320,5 @@ pub fn text_system(
             );
         }
     }
-    *last_scale_factors = scale_factors;
+    std::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
