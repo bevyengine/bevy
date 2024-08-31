@@ -305,7 +305,7 @@ where
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.billboard(Vec2::ZERO, GREEN);
+    ///     gizmos.billboard_2d(Vec2::ZERO, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
