@@ -196,11 +196,12 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
-    pub fn compute_camera_layout(
+    pub fn compute_camera_layout<'a>(
         &mut self,
         camera: Entity,
         render_target_resolution: UVec2,
-        #[cfg(feature = "bevy_text")] font_system: &mut bevy_text::cosmic_text::FontSystem,
+        #[cfg(feature = "bevy_text")] buffer_query: &'a mut Query<&'a mut CosmicBuffer>,
+        #[cfg(feature = "bevy_text")] font_system: &'a mut bevy_text::cosmic_text::FontSystem,
     ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;
@@ -231,6 +232,8 @@ without UI components as a child of an entity with UI components, results may be
                                         available_height: available_space.height,
                                         #[cfg(feature = "bevy_text")]
                                         font_system,
+                                        #[cfg(feature = "bevy_text")]
+                                        buffer: get_text_buffer(ctx, buffer_query),
                                         #[cfg(not(feature = "bevy_text"))]
                                         font_system: std::marker::PhantomData,
                                     },
@@ -283,4 +286,15 @@ with UI components as a child of an entity without UI components, results may be
             Err(LayoutError::InvalidHierarchy)
         }
     }
+}
+
+#[cfg(feature = "bevy_text")]
+fn get_text_buffer<'a>(
+    ctx: &mut NodeMeasure,
+    query: &'a mut Query<&'a mut CosmicBuffer>
+) -> Option<&'a mut bevy_text::cosmic::Buffer>
+{
+    let NodeMeasure::Text(TextMeasure{ info }) = ctx else { return None };
+    let Ok(buffer) = buffer_query.get_mut(info.entity) else { return None };
+    Some(&mut **buffer)
 }

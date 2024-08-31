@@ -53,6 +53,7 @@ impl Measure for TextMeasure {
             width,
             height,
             available_width,
+            buffer,
             font_system,
             ..
         } = measure_args;
@@ -71,9 +72,16 @@ impl Measure for TextMeasure {
         height
             .map_or_else(
                 || match available_width {
-                    AvailableSpace::Definite(_) => self
-                        .info
-                        .compute_size(TextBounds::new_horizontal(x), font_system),
+                    AvailableSpace::Definite(_) => {
+                        if let Some(buffer) = buffer {
+                            self
+                                .info
+                                .compute_size(TextBounds::new_horizontal(x), buffer, font_system)
+                        } else {
+                            error!("text measure failed, buffer is missing");
+                            Vec2::default()
+                        }
+                    },
                     AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
                     AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
@@ -86,6 +94,7 @@ impl Measure for TextMeasure {
 #[allow(clippy::too_many_arguments)]
 #[inline]
 fn create_text_measure(
+    entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
     text: Ref<Text>,
@@ -96,6 +105,7 @@ fn create_text_measure(
     text_alignment: JustifyText,
 ) {
     match text_pipeline.create_text_measure(
+        entity,
         fonts,
         &text.sections,
         scale_factor,
@@ -141,6 +151,7 @@ pub fn measure_text_system(
     ui_scale: Res<UiScale>,
     mut text_query: Query<
         (
+            Entity,
             Ref<Text>,
             &mut ContentSize,
             &mut TextFlags,
@@ -153,7 +164,7 @@ pub fn measure_text_system(
 ) {
     let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
 
-    for (text, content_size, text_flags, camera, mut buffer) in &mut text_query {
+    for (entity, text, content_size, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -176,6 +187,7 @@ pub fn measure_text_system(
         {
             let text_alignment = text.justify;
             create_text_measure(
+                entity,
                 &fonts,
                 scale_factor.into(),
                 text,
