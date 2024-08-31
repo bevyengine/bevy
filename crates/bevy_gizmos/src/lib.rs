@@ -68,9 +68,10 @@ pub mod prelude {
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_ecs::{
-    schedule::{IntoSystemConfigs, SystemSet},
+    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
     system::{Res, ResMut},
 };
+use bevy_render::{Render, RenderSet};
 use bevy_time::Fixed;
 use billboard::{AppBillboardGizmoBuilder, BillboardGizmoPlugin};
 use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
@@ -87,6 +88,25 @@ pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(feature = "bevy_pbr")]
+        app.configure_sets(
+            Render,
+            GizmoRenderSystem::QueueGizmos3d
+                .in_set(RenderSet::Queue)
+                .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
+            );
+            
+        #[cfg(feature = "bevy_sprite")]
+        app.configure_sets(
+            Render,
+            GizmoRenderSystem::QueueGizmos2d
+                .in_set(RenderSet::Queue)
+                .ambiguous_with(bevy_sprite::queue_sprites)
+                .ambiguous_with(
+                    bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                ),
+        );
+
         app.add_plugins(LineGizmoPlugin)
             .add_plugins(BillboardGizmoPlugin)
             .register_type::<GizmoConfig>()
@@ -106,7 +126,7 @@ impl Plugin for GizmoPlugin {
 pub trait AppGizmoBuilder {
     /// Registers [`GizmoConfigGroup`] in the app enabling the use of [Gizmos&lt;Config&gt;](crate::gizmos::Gizmos).
     ///
-    /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`].
+    /// Configurations can be set using the [`GizmoConfigStore`] [`Resource`](bevy_ecs::system::Resource).
     fn init_gizmo_group<Config: GizmoConfigGroup>(&mut self) -> &mut Self;
 
     /// Insert a [`GizmoConfig`] into a specific [`GizmoConfigGroup`].

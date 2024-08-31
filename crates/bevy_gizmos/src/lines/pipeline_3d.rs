@@ -17,7 +17,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
+    schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -31,7 +31,7 @@ use bevy_render::{
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp,
 };
 use bevy_utils::tracing::error;
 
@@ -49,12 +49,6 @@ impl Plugin for LineGizmo3dPlugin {
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
-            .configure_sets(
-                Render,
-                GizmoRenderSystem::QueueGizmos3d
-                    .in_set(RenderSet::Queue)
-                    .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
-            )
             .add_systems(
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)

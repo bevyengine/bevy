@@ -8,7 +8,7 @@ use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
     prelude::Entity,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
+    schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -22,7 +22,7 @@ use bevy_render::{
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp,
 };
 use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
 
@@ -39,15 +39,6 @@ impl Plugin for BillboardGizmo2dPlugin {
         render_app
             .add_render_command::<Transparent2d, DrawBillboardGizmo2d>()
             .init_resource::<SpecializedRenderPipelines<BillboardGizmoPipeline>>()
-            .configure_sets(
-                Render,
-                GizmoRenderSystem::QueueGizmos2d
-                    .in_set(RenderSet::Queue)
-                    .ambiguous_with(bevy_sprite::queue_sprites)
-                    .ambiguous_with(
-                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
-                    ),
-            )
             .add_systems(
                 Render,
                 queue_billboard_gizmos_2d

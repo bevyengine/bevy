@@ -12,7 +12,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
+    schedule::IntoSystemConfigs,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -26,7 +26,7 @@ use bevy_render::{
     render_resource::*,
     texture::BevyDefault,
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp,
 };
 
 use super::BILLBOARD_SHADER_HANDLE;
@@ -41,12 +41,6 @@ impl Plugin for BillboardGizmo3dPlugin {
         render_app
             .add_render_command::<Transparent3d, DrawBillboardGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
-            .configure_sets(
-                Render,
-                GizmoRenderSystem::QueueGizmos3d
-                    .in_set(RenderSet::Queue)
-                    .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
-            )
             .add_systems(
                 Render,
                 queue_billboard_gizmos_3d
