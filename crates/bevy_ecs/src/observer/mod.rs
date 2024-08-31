@@ -429,7 +429,17 @@ impl World {
                     if observers.map.is_empty() && observers.entity_map.is_empty() {
                         cache.component_observers.remove(component);
                         if let Some(flag) = Observers::is_archetype_cached(event_type) {
-                            archetypes.update_flags(*component, flag, false);
+                            for archetype in &mut archetypes.archetypes {
+                                if archetype.contains(*component) {
+                                    let no_longer_observed = archetype
+                                        .components()
+                                        .all(|id| !cache.component_observers.contains_key(&id));
+
+                                    if no_longer_observed {
+                                        archetype.flags.set(flag, false);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -654,6 +664,26 @@ mod tests {
             .id();
         world.despawn(observer);
         world.spawn(A).flush();
+    }
+
+    // Regression test for https://github.com/bevyengine/bevy/issues/14961
+    #[test]
+    fn observer_despawn_archetype_flags() {
+        let mut world = World::new();
+        world.init_resource::<R>();
+
+        let entity = world.spawn((A, B)).flush();
+
+        world.observe(|_: Trigger<OnRemove, A>, mut res: ResMut<R>| res.0 += 1);
+
+        let observer = world
+            .observe(|_: Trigger<OnRemove, B>| panic!("Observer triggered after being despawned."))
+            .flush();
+        world.despawn(observer);
+
+        world.despawn(entity);
+
+        assert_eq!(1, world.resource::<R>().0);
     }
 
     #[test]

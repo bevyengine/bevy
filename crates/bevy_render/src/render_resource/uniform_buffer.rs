@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, num::NonZeroU64};
+use std::{marker::PhantomData, num::NonZero};
 
 use crate::{
     render_resource::Buffer,
@@ -309,7 +309,7 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
 
         if let Some(buffer) = self.buffer.as_deref() {
             let buffer_view = queue
-                .write_buffer_with(buffer, 0, NonZeroU64::new(buffer.size())?)
+                .write_buffer_with(buffer, 0, NonZero::<u64>::new(buffer.size())?)
                 .unwrap();
             Some(DynamicUniformBufferWriter {
                 buffer: encase::DynamicUniformBuffer::new_with_alignment(
