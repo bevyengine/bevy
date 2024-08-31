@@ -78,6 +78,6 @@ fn map_uvs(
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let uv = map_uvs(in.uv, in.slices, in.border, in.repeat);
-    let atlas_uv = in.atlas.xy + uv * (in.atlas.wz - in.atlas.xy);
+    let atlas_uv = in.atlas.xy + uv * (in.atlas.zw - in.atlas.xy);
     return in.color * textureSample(sprite_texture, sprite_sampler, atlas_uv);
 }

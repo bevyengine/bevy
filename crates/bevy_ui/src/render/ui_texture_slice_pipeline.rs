@@ -565,6 +565,8 @@ pub fn prepare_ui_slices(
                         &texture_slices.image_scale_mode,
                     );
 
+                    println!("image_size: {image_size:?}, slices: {slices:?}, border: {border:?}, atlas: {atlas:?}");
+
                     for i in 0..4 {
                         ui_meta.vertices.push(UiTextureSliceVertex {
                             position: positions_clipped[i].into(),
