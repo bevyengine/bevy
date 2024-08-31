@@ -186,7 +186,7 @@ impl TextPipeline {
                     .iter()
                     .map(move |layout_glyph| (layout_glyph, run.line_y))
             })
-            .map(|(layout_glyph, line_y)| {
+            .try_for_each(|(layout_glyph, line_y)| {
                 let section_index = layout_glyph.metadata;
 
                 let font_handle = sections[section_index].style.font.clone_weak();
@@ -230,8 +230,7 @@ impl TextPipeline {
                     PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, section_index);
                 layout_info.glyphs.push(pos_glyph);
                 Ok(())
-            })
-            .collect::<Result<(), _>>()?;
+            })?;
 
         layout_info.size = box_size;
         Ok(())
