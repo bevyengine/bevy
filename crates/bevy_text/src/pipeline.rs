@@ -95,7 +95,7 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        // 
+        //
         // TODO: Remove this allocation by caching a Vec<OwnedAttrs> then zipping it to an iterator over sections.
         // Need to wait for https://github.com/pop-os/cosmic-text/pull/302
         let spans: Vec<(&str, Attrs)> = sections
