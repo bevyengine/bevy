@@ -133,6 +133,7 @@ fn create_text_measure(
 ///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
+#[allow(clippy::too_many_arguments)]
 pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
