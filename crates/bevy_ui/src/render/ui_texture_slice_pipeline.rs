@@ -10,7 +10,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{FloatOrd, Mat4, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
