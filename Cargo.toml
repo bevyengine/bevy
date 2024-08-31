@@ -385,6 +385,7 @@ smol-macros = "0.1"
 smol-hyper = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
+ureq = {version = "2.10.1", features=["json"]}
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
