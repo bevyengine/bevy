@@ -12,7 +12,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 #[cfg(feature = "bevy_text")]
-use bevy_text::TextPipeline;
+use bevy_text::{CosmicBuffer, TextPipeline};
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};

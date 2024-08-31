@@ -200,7 +200,9 @@ without UI components as a child of an entity with UI components, results may be
         &mut self,
         camera: Entity,
         render_target_resolution: UVec2,
-        #[cfg(feature = "bevy_text")] buffer_query: &'a mut Query<&'a mut CosmicBuffer>,
+        #[cfg(feature = "bevy_text")] buffer_query: &'a mut bevy_ecs::prelude::Query<
+            &mut bevy_text::CosmicBuffer,
+        >,
         #[cfg(feature = "bevy_text")] font_system: &'a mut bevy_text::cosmic_text::FontSystem,
     ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
@@ -224,6 +226,8 @@ without UI components as a child of an entity with UI components, results may be
                      -> taffy::Size<f32> {
                         context
                             .map(|ctx| {
+                                #[cfg(feature = "bevy_text")]
+                                let buffer = get_text_buffer(ctx, buffer_query);
                                 let size = ctx.measure(
                                     MeasureArgs {
                                         width: known_dimensions.width,
@@ -233,7 +237,7 @@ without UI components as a child of an entity with UI components, results may be
                                         #[cfg(feature = "bevy_text")]
                                         font_system,
                                         #[cfg(feature = "bevy_text")]
-                                        buffer: get_text_buffer(ctx, buffer_query),
+                                        buffer,
                                         #[cfg(not(feature = "bevy_text"))]
                                         font_system: std::marker::PhantomData,
                                     },
@@ -291,10 +295,13 @@ with UI components as a child of an entity without UI components, results may be
 #[cfg(feature = "bevy_text")]
 fn get_text_buffer<'a>(
     ctx: &mut NodeMeasure,
-    query: &'a mut Query<&'a mut CosmicBuffer>
-) -> Option<&'a mut bevy_text::cosmic::Buffer>
-{
-    let NodeMeasure::Text(TextMeasure{ info }) = ctx else { return None };
-    let Ok(buffer) = buffer_query.get_mut(info.entity) else { return None };
-    Some(&mut **buffer)
+    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::CosmicBuffer>,
+) -> Option<&'a mut bevy_text::cosmic_text::Buffer> {
+    let NodeMeasure::Text(crate::widget::TextMeasure { info }) = ctx else {
+        return None;
+    };
+    let Ok(buffer) = query.get_mut(info.entity) else {
+        return None;
+    };
+    Some(buffer.into_inner())
 }

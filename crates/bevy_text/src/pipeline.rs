@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
-use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource};
+use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent, system::Resource};
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
@@ -313,7 +313,7 @@ impl TextMeasureInfo {
     pub fn compute_size(
         &mut self,
         bounds: TextBounds,
-        buffer: &mut cosmic_text::Buffer,
+        buffer: &mut Buffer,
         font_system: &mut cosmic_text::FontSystem,
     ) -> Vec2 {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'

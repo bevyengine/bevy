@@ -19,7 +19,7 @@ use bevy_text::{
     scale_value, BreakLineOn, CosmicBuffer, Font, FontAtlasSets, JustifyText, Text, TextBounds,
     TextError, TextLayoutInfo, TextMeasureInfo, TextPipeline, YAxisOrientation,
 };
-use bevy_utils::Entry;
+use bevy_utils::{tracing::error, Entry};
 use taffy::style::AvailableSpace;
 
 /// Text system flags
@@ -74,14 +74,16 @@ impl Measure for TextMeasure {
                 || match available_width {
                     AvailableSpace::Definite(_) => {
                         if let Some(buffer) = buffer {
-                            self
-                                .info
-                                .compute_size(TextBounds::new_horizontal(x), buffer, font_system)
+                            self.info.compute_size(
+                                TextBounds::new_horizontal(x),
+                                buffer,
+                                font_system,
+                            )
                         } else {
                             error!("text measure failed, buffer is missing");
                             Vec2::default()
                         }
-                    },
+                    }
                     AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
                     AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
