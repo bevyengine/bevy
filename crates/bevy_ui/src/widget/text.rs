@@ -134,6 +134,7 @@ fn create_text_measure(
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
+    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
     camera_query: Query<(Entity, &Camera)>,
@@ -151,14 +152,14 @@ pub fn measure_text_system(
     >,
     mut text_pipeline: ResMut<TextPipeline>,
 ) {
-    let mut scale_factors: EntityHashMap<f32> = EntityHashMap::default();
+    scale_factors_buffer.clear();
 
     for (text, content_size, text_flags, camera, mut buffer) in &mut text_query {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
         };
-        let scale_factor = match scale_factors.entry(camera_entity) {
+        let scale_factor = match scale_factors_buffer.entry(camera_entity) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => *entry.insert(
                 camera_query
@@ -187,7 +188,7 @@ pub fn measure_text_system(
             );
         }
     }
-    *last_scale_factors = scale_factors;
+    std::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
 #[allow(clippy::too_many_arguments)]
