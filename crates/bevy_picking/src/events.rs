@@ -3,7 +3,7 @@
 //!
 //! # Usage
 //!
-//! To receive events from this module, you must use an [`Observer`](bevy_ecs::observer::Observer)
+//! To receive events from this module, you must use an [`Observer`]
 //! The simplest example, registering a callback when an entity is hovered over by a pointer, looks like this:
 //!
 //! ```rust
@@ -22,9 +22,10 @@
 //! 3. and they allow events of different types to be called in a specific order.
 //!
 //! The order in which interaction events are received is extremely important, and you can read more
-//! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in [`PreUpdate`]
-//! in [`PickSet::Focus`]. All pointer-event observers resolve during the sync point between
-//! [`pointer_events`] and [`crate::focus::update_interactions`].
+//! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in
+//! [`PreUpdate](bevy::app::PreUpdate) in [`Focus`](crate::picking::PickSet::Focus). All pointer-event observers
+//! resolve during the sync point between [`pointer_events`] and
+//! [`update_interactions`](crate::focus::update_interactions).
 //!
 //! # Events Types
 //!
