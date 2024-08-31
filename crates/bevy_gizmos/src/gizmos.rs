@@ -295,6 +295,28 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    /// Draw a billboard in 2D at `position`.
+    ///
+    /// This should be called for each frame the line needs to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.billboard(Vec2::ZERO, GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    pub fn billboard_2d(&mut self, position: Vec2, color: impl Into<Color>) {
+        if !self.enabled {
+            return;
+        }
+        self.buffer.billboard_positions.push(position.extend(0.));
+        self.add_billboard_color(color);
+    }
+
     /// Draw a billboard in 3D at `position`.
     ///
     /// This should be called for each frame the line needs to be rendered.
@@ -314,9 +336,7 @@ where
             return;
         }
         self.buffer.billboard_positions.push(position);
-        let polymorphic_color: Color = color.into();
-        let linear_color = LinearRgba::from(polymorphic_color);
-        self.buffer.billboard_colors.push(linear_color);
+        self.add_billboard_color(color);
     }
 
     /// Draw a line in 3D from `start` to `end`.
@@ -339,7 +359,7 @@ where
             return;
         }
         self.extend_list_positions([start, end]);
-        self.add_list_color(color, 2);
+        self.extent_list_color(color, 2);
     }
 
     /// Draw a line in 3D with a color gradient from `start` to `end`.
@@ -563,7 +583,7 @@ where
         ];
         self.extend_list_positions(list_positions);
 
-        self.add_list_color(polymorphic_color, 6);
+        self.extent_list_color(polymorphic_color, 6);
     }
 
     /// Draw a line in 2D from `start` to `end`.
@@ -768,13 +788,21 @@ where
     }
 
     #[inline]
-    fn add_list_color(&mut self, color: impl Into<Color>, count: usize) {
+    fn extent_list_color(&mut self, color: impl Into<Color>, count: usize) {
         let polymorphic_color: Color = color.into();
         let linear_color = LinearRgba::from(polymorphic_color);
 
         self.buffer
             .list_colors
             .extend(iter::repeat(linear_color).take(count));
+    }
+
+    #[inline]
+    fn add_billboard_color(&mut self, color: impl Into<Color>) {
+        let polymorphic_color: Color = color.into();
+        let linear_color = LinearRgba::from(polymorphic_color);
+
+        self.buffer.billboard_colors.push(linear_color);
     }
 
     #[inline]
