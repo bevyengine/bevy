@@ -94,17 +94,15 @@ impl Plugin for GizmoPlugin {
             GizmoRenderSystem::QueueGizmos3d
                 .in_set(RenderSet::Queue)
                 .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
-            );
-            
+        );
+
         #[cfg(feature = "bevy_sprite")]
         app.configure_sets(
             Render,
             GizmoRenderSystem::QueueGizmos2d
                 .in_set(RenderSet::Queue)
                 .ambiguous_with(bevy_sprite::queue_sprites)
-                .ambiguous_with(
-                    bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
-                ),
+                .ambiguous_with(bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>),
         );
 
         app.add_plugins(LineGizmoPlugin)
