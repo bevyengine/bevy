@@ -70,10 +70,19 @@ where
     ///
     /// [unit interval]: `Interval::UNIT`
     /// [reparametrizing]: `Curve::reparametrize`
-    pub fn new(start: T, end: T, easing: E) -> Self {
-        Self { start, end, easing }
+    pub fn new(start: T, end: T, easing: E) -> Result<Self, EasingCurveError> {
+        easing
+            .domain()
+            .is_bounded()
+            .then_some(Self { start, end, easing })
+            .ok_or(EasingCurveError)
     }
 }
+
+/// An error that occurs if the construction of [`EasingCurve`] fails
+#[derive(Debug, thiserror::Error)]
+#[error("Easing curves can only be constructed from curves with bounded domain")]
+pub struct EasingCurveError;
 
 /// A [`Curve`] that is defined by a `start` and an `end` point, together with linear interpolation
 /// between the values over the [unit interval]. It's basically an [`EasingCurve`] with the
