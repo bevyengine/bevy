@@ -73,9 +73,13 @@ pub(crate) fn world_query_impl(
 ) -> proc_macro2::TokenStream {
     quote! {
         #[doc(hidden)]
-        #[doc = "Automatically generated internal [`WorldQuery`] fetch type for [`"]
-        #[doc = stringify!(#struct_name)]
-        #[doc = "`], used to define the world data accessed by this query."]
+        #[doc = concat!(
+            "Automatically generated internal [`WorldQuery`](",
+            stringify!(#path),
+            "::query::WorldQuery) fetch type for [`",
+            stringify!(#struct_name),
+            "`], used to define the world data accessed by this query."
+        )]
         #[automatically_derived]
         #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
             #(#named_field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w>,)*
