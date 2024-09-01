@@ -311,7 +311,7 @@ where
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     ///
-    /// Note: please check the [Notes of after](Self::after)
+    /// Note: please check the [Notes of `after`](Self::after)
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
@@ -328,7 +328,7 @@ where
     ///
     /// It's safe and won't cause any problems or errors. But no dependencies are created: Adding Set A does not automatically create any connections or relationships with Set B. They remain independent of each other.
     ///
-    /// If you're adding systems in the same location, it's **recommended** that you use **`.chain`**. You can also add a set of systems. You may want to use `.after` or `.before` for advanced planning and perhaps exceptional cases.
+    /// If you're adding systems in the same location, it's recommended that you use **`.chain`** for brevity and clarity. You can also add a set of systems. You may want to use `.after` or `.before` in association with a comment when the reasoning needs to be particularly clear.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
