@@ -1,8 +1,7 @@
 use crate::Mix;
 use bevy_math::curve::{cores::EvenCoreError, Curve, Interval, SampleCurve};
 
-/// A curve whose samples are defined by a collection of colors. Curves of this type are produced
-/// by calling [`ColorGradient::to_curve`].
+/// A curve whose samples are defined by a collection of colors.
 #[derive(Clone, Debug)]
 pub struct ColorCurve<T: Mix + Clone, I> {
     curve: SampleCurve<T, I>,
@@ -51,11 +50,6 @@ where
             .map(|curve| Self { curve })
     }
 }
-
-/// Error related to violations of invariants of [`ColorCurve`]
-#[derive(Debug, thiserror::Error)]
-#[error("Couldn't construct a ColorCurve since there were too few colors. Got {0}, expected >=2")]
-pub struct ColorCurveError(usize);
 
 impl<T, F> Curve<T> for ColorCurve<T, F>
 where
