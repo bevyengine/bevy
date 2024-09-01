@@ -14,6 +14,7 @@
 use std::sync::{Arc, Mutex};
 
 use bevy_a11y::Focus;
+use bevy_ecs::schedule::IntoSystemConfigs;
 
 mod event;
 mod monitor;
