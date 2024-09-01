@@ -160,7 +160,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
     mut handles: ResMut<BillboardGizmoHandles>,
     mut storage: ResMut<GizmoStorage<Config, ()>>,
 ) {
-    if storage.list_positions.is_empty() {
+    if storage.billboard_positions.is_empty() {
         handles.billboards.insert(TypeId::of::<Config>(), None);
     } else if let Some(handle) = handles.billboards.get_mut(&TypeId::of::<Config>()) {
         if let Some(handle) = handle {

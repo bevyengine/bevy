@@ -88,7 +88,7 @@ pub struct GizmoPlugin;
 
 impl Plugin for GizmoPlugin {
     fn build(&self, app: &mut App) {
-        #[cfg(feature = "bevy_pbr")]
+        #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
         app.configure_sets(
             Render,
             GizmoRenderSystem::QueueGizmos3d
@@ -96,7 +96,7 @@ impl Plugin for GizmoPlugin {
                 .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
         );
 
-        #[cfg(feature = "bevy_sprite")]
+        #[cfg(all(feature = "bevy_sprite", feature = "bevy_render"))]
         app.configure_sets(
             Render,
             GizmoRenderSystem::QueueGizmos2d

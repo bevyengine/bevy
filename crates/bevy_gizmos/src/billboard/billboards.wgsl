@@ -40,7 +40,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     );
     var offset = positions[vertex.index];
 
-	let center_clip = view.clip_from_world * vec4(vertex.position, 1.0); // vec4(offset.x * clip_size / aspect_ratio, offset.y * clip_size, 0., 0.);
+	let center_clip = view.clip_from_world * vec4(vertex.position, 1.0);
 
     let resolution = view.viewport.zw;
     let screen_center = resolution * (0.5 * center_clip.xy / center_clip.w + 0.5);
@@ -85,6 +85,5 @@ struct FragmentOutput {
 
 @fragment
 fn fragment(in: VertexOutput) -> FragmentOutput {
-    // return FragmentOutput(vec4(1., 1., 1., 1.));
     return FragmentOutput(in.color);
 }
