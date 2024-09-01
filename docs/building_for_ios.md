@@ -12,6 +12,7 @@ rustup target add aarch64-apple-ios
 ```
 
 ## Defining the game entry point
+
 The typical entry point for a Bevy game is the main function in main.rs. However, for iOS, we need to be able to call the entry function from Objective-C’s main function.
 
 Create `src/lib.rs` and define the entry point.
@@ -33,6 +34,7 @@ crate-type = ["lib", "staticlib"]
 ```
 
 Now you can compile the static library
+
 ```bash
 cargo build --release --target=aarch64-apple-ios
 ```
@@ -60,6 +62,7 @@ int main(int argc, const char * argv[]) {
 ## Linking to the game library
 
 Now you can link your app target to your rust static library.
+
 - In your project’s "Build Settings" search for "Other Linker Flags."
 - Add the absolute path to your build artifact in this section, for example:
 `~/repos/my_bevy_game/target/aarch64-apple-ios/release/libmy_bevy_game.a`
