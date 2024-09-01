@@ -6,6 +6,7 @@ Cargo.lock
 .cargo/config.toml
 /.idea
 /.vscode
+.zed
 /benches/target
 /tools/compile_fail_utils/target
 dxcompiler.dll
@@ -23,4 +24,3 @@ imported_assets
 
 example_showcase_config.ron
 example-showcase-reports/
-/crates/bevy_ecs/.zed
