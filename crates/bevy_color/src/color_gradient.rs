@@ -41,7 +41,7 @@ where
     where
         I: Fn(&T, &T, f32) -> T,
     {
-        let colors = colors.into_iter().map(|ic| ic.into()).collect::<Vec<_>>();
+        let colors = colors.into_iter().map(Into::into).collect::<Vec<_>>();
         Interval::new(0.0, colors.len().saturating_sub(1) as f32)
             .map_err(|_| EvenCoreError::NotEnoughSamples {
                 samples: colors.len(),
