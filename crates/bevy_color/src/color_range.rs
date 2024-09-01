@@ -6,7 +6,7 @@ use crate::Mix;
 /// end point which must be in the same color space. It works for any color type that
 /// implements [`Mix`].
 ///
-/// This is useful for defining simple gradients or animated color transitions.
+/// This is useful for defining gradients or animated color transitions.
 pub trait ColorRange<T: Mix> {
     /// Get the color value at the given interpolation factor, which should be between 0.0 (start)
     /// and 1.0 (end).
