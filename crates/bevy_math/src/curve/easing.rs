@@ -50,6 +50,8 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let domain = self.easing.domain();
+        let t = domain.start().lerp(domain.end(), t);
         self.start.lerp(self.end, self.easing.sample_unchecked(t))
     }
 }
@@ -62,8 +64,13 @@ where
     /// Create a new [`EasingCurve`] over the [unit interval] which transitions between a `start`
     /// and an `end` value based on the provided [`Easing`] curve.
     ///
+    /// If the input curve's domain is not the unit interval, then the [`EasingCurve`] will ensure
+    /// that this invariant is guaranteed by internally [reparametrizing] the curve to the unit
+    /// interval.
+    ///
     /// [unit interval]: `Interval::UNIT`
-    pub fn new(start: T, end: T, easing: E) -> EasingCurve<T, E> {
+    /// [reparametrizing]: `Curve::reparametrize`
+    pub fn new(start: T, end: T, easing: E) -> Self {
         Self { start, end, easing }
     }
 }

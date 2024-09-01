@@ -1114,6 +1114,38 @@ mod tests {
     }
 
     #[test]
+    fn easing_curve_non_unit_domain() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+
+        // even though the quadratic_ease_in input curve has the domain [0.0, 2.0], the easing
+        // curve correctly behaves as if its domain were [0.0, 1.0]
+        let curve = EasingCurve::new(
+            start,
+            end,
+            quadratic_ease_in().reparametrize(Interval::new(0.0, 2.0).unwrap(), |t| t / 2.0),
+        );
+
+        [
+            (-0.1, None),
+            (0.0, Some(start)),
+            (0.25, Some(Vec2::new(0.0625, 0.125))),
+            (0.5, Some(Vec2::new(0.25, 0.5))),
+            (1.0, Some(end)),
+            (1.1, None),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            let sample = curve.sample(t);
+            match (sample, x) {
+                (None, None) => assert_eq!(sample, x),
+                (Some(s), Some(x)) => assert!(s.abs_diff_eq(x, f32::EPSILON)),
+                _ => unreachable!(),
+            };
+        });
+    }
+
+    #[test]
     fn mapping() {
         let curve = function_curve(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);
         let mapped_curve = curve.map(|x| x / 7.0);
