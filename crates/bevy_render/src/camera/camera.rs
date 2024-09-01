@@ -376,7 +376,9 @@ impl Camera {
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
     ///
-    /// Panics if `glam_assert` is enabled and the `camera_transform` contains `NAN`
+    /// # Panics
+    /// 
+    /// Will panic if `glam_assert` is enabled and the `camera_transform` contains `NAN`
     /// (see [`world_to_ndc`][Self::world_to_ndc]).
     #[doc(alias = "world_to_screen")]
     pub fn world_to_viewport(
@@ -410,7 +412,9 @@ impl Camera {
     /// To get the coordinates in Normalized Device Coordinates, you should use
     /// [`world_to_ndc`](Self::world_to_ndc).
     ///
-    /// Panics if `glam_assert` is enabled and the `camera_transform` contains `NAN`
+    /// # Panics
+    /// 
+    /// Will panic if `glam_assert` is enabled and the `camera_transform` contains `NAN`
     /// (see [`world_to_ndc`][Self::world_to_ndc]).
     #[doc(alias = "world_to_screen_with_depth")]
     pub fn world_to_viewport_with_depth(
@@ -487,7 +491,9 @@ impl Camera {
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
-    /// Panics if the camera's projection matrix is null and `glam_assert` is enabled
+    /// # Panics
+    /// 
+    /// Will panic if the camera's projection matrix is null and `glam_assert` is enabled
     /// (see [`ndc_to_world`](Self::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
