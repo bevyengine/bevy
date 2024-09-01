@@ -12,7 +12,7 @@ use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 #[cfg(feature = "bevy_text")]
-use bevy_text::TextPipeline;
+use bevy_text::{CosmicBuffer, TextPipeline};
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
 use bevy_utils::{HashMap, HashSet};
@@ -95,6 +95,7 @@ pub fn ui_layout_system(
     just_children_query: Query<&Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(&mut Node, &mut Transform)>,
+    #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
 ) {
     struct CameraLayoutInfo {
@@ -218,6 +219,8 @@ pub fn ui_layout_system(
     });
 
     #[cfg(feature = "bevy_text")]
+    let text_buffers = &mut buffer_query;
+    #[cfg(feature = "bevy_text")]
     let font_system = text_pipeline.font_system_mut();
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(removed_components.removed_nodes.read());
@@ -235,6 +238,8 @@ pub fn ui_layout_system(
         ui_surface.compute_camera_layout(
             *camera_id,
             camera.size,
+            #[cfg(feature = "bevy_text")]
+            text_buffers,
             #[cfg(feature = "bevy_text")]
             font_system,
         );
