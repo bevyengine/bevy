@@ -92,7 +92,10 @@ impl Plugin for WindowPlugin {
         // User convenience events
         #[allow(deprecated)]
         app.add_event::<WindowEvent>()
-            .add_systems(First, forward_window_events)
+            .add_systems(
+                First,
+                forward_window_events.after(bevy_ecs::event::event_update_system),
+            )
             .add_event::<WindowResized>()
             .add_event::<WindowCreated>()
             .add_event::<WindowClosing>()

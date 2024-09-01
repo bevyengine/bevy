@@ -29,11 +29,11 @@
 //!
 //! ## Expressive Events
 //!
-//! The events in this module (see [`crate::event`]) cannot be listened to with normal `EventReader`s.
+//! The events in this module (see [`events`]) cannot be listened to with normal `EventReader`s.
 //! Instead, they are dispatched to *ovservers* attached to specific entities. When events are generated, they
 //! bubble up the entity hierarchy starting from their target, until they reach the root or bubbling is haulted
 //! with a call to [`Trigger::propagate`](bevy_ecs::observer::Trigger::propagate).
-//! See [`Observer`](bevy_ecs::observer::Observer) for details.
+//! See [`Observer`] for details.
 //!
 //! This allows you to run callbacks when any children of an entity are interacted with, and leads
 //! to succinct, expressive code:
@@ -98,7 +98,7 @@
 //! This plugin is designed to be extremely modular. To do so, it works in well-defined stages that
 //! form a pipeline, where events are used to pass data between each stage.
 //!
-//! #### Pointers ([`pointer`](crate::pointer))
+//! #### Pointers ([`pointer`])
 //!
 //! The first stage of the pipeline is to gather inputs and update pointers. This stage is
 //! ultimately responsible for generating [`PointerInput`](pointer::PointerInput) events. The provided
@@ -113,7 +113,7 @@
 //! After inputs are generated, they are then collected to update the current
 //! [`PointerLocation`](pointer::PointerLocation) for each pointer.
 //!
-//! #### Backend ([`backend`](crate::backend))
+//! #### Backend ([`backend`])
 //!
 //! A picking backend only has one job: reading [`PointerLocation`](pointer::PointerLocation) components,
 //! and producing [`PointerHits`](backend::PointerHits). You can find all documentation and types needed to
@@ -128,7 +128,7 @@
 //! This crate provides some backends out of the box, but you can even write your own. It's been
 //! made as easy as possible intentionally; the `bevy_mod_raycast` backend is 50 lines of code.
 //!
-//! #### Focus ([`focus`](crate::focus))
+//! #### Focus ([`focus`])
 //!
 //! The next step is to use the data from the backends, combine and sort the results, and determine
 //! what each cursor is hovering over, producing a [`HoverMap`](`crate::focus::HoverMap`). Note that
@@ -138,7 +138,7 @@
 //! order of the backend, and the [`Pickable`] state of the entity. In other words, if one entity is
 //! in front of another, usually only the topmost one will be hovered.
 //!
-//! #### Events ([`events`](crate::events))
+//! #### Events ([`events`])
 //!
 //! In the final step, the high-level pointer events are generated, such as events that trigger when
 //! a pointer hovers or clicks an entity. These simple events are then used to generate more complex
