@@ -1,3 +1,4 @@
+use crate::func::FunctionInfoType;
 use crate::{
     self as bevy_reflect,
     __macro_exports::RegisterForReflection,
@@ -52,7 +53,8 @@ use core::fmt::{Debug, Formatter};
 /// [`ReflectFn`]: crate::func::ReflectFn
 /// [module-level documentation]: crate::func
 pub struct DynamicFunction<'env> {
-    pub(super) info: FunctionInfo,
+    pub(super) name: Option<Cow<'static, str>>,
+    pub(super) info: FunctionInfoType,
     pub(super) func: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>,
 }
 
@@ -62,15 +64,26 @@ impl<'env> DynamicFunction<'env> {
     /// The given function can be used to call out to any other callable,
     /// including functions, closures, or methods.
     ///
-    /// It's important that the function signature matches the provided [`FunctionInfo`]
+    /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// as this will be used to validate arguments when [calling] the function.
     ///
-    /// [calling]: DynamicFunction::call
+    /// # Panics
+    ///
+    /// Panics if no [`FunctionInfo`] is provided or if the conversion to [`FunctionInfoType`] fails.
+    ///
+    /// [calling]: crate::func::dynamic_function::DynamicFunction::call
+    /// [`FunctionInfo`]: crate::func::FunctionInfo
     pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>(
         func: F,
-        info: FunctionInfo,
+        info: impl TryInto<FunctionInfoType, Error: Debug>,
     ) -> Self {
+        let info = info.try_into().unwrap();
+
         Self {
+            name: match &info {
+                FunctionInfoType::Standard(info) => info.name().cloned(),
+                FunctionInfoType::Overloaded(_) => None,
+            },
             info,
             func: Arc::new(func),
         }
@@ -85,7 +98,7 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// [`DynamicFunctions`]: DynamicFunction
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.info = self.info.with_name(name);
+        self.name = Some(name.into());
         self
     }
 
@@ -127,11 +140,11 @@ impl<'env> DynamicFunction<'env> {
     }
 
     /// Returns the function info.
-    pub fn info(&self) -> &FunctionInfo {
+    pub fn info(&self) -> &FunctionInfoType {
         &self.info
     }
 
-    /// The [name] of the function.
+    /// The name of the function.
     ///
     /// For [`DynamicFunctions`] created using [`IntoFunction`],
     /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
@@ -140,17 +153,19 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// This can be overridden using [`with_name`].
     ///
-    /// [name]: FunctionInfo::name
     /// [`DynamicFunctions`]: DynamicFunction
     /// [`with_name`]: Self::with_name
     pub fn name(&self) -> Option<&Cow<'static, str>> {
-        self.info.name()
+        self.name.as_ref()
     }
 }
 
 impl Function for DynamicFunction<'static> {
     fn info(&self) -> &FunctionInfo {
-        self.info()
+        match self.info {
+            FunctionInfoType::Standard(ref info) => info,
+            FunctionInfoType::Overloaded(_) => todo!("overloaded functions are not yet supported"),
+        }
     }
 
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
@@ -257,27 +272,35 @@ impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
 impl<'env> Debug for DynamicFunction<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
+        let name = self.name().unwrap_or(&Cow::Borrowed("_"));
         write!(f, "DynamicFunction(fn {name}(")?;
 
-        for (index, arg) in self.info.args().iter().enumerate() {
-            let name = arg.name().unwrap_or("_");
-            let ty = arg.type_path();
-            write!(f, "{name}: {ty}")?;
+        match self.info() {
+            FunctionInfoType::Standard(info) => {
+                for (index, arg) in info.args().iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
 
-            if index + 1 < self.info.args().len() {
-                write!(f, ", ")?;
+                    let name = arg.name().unwrap_or("_");
+                    let ty = arg.type_path();
+                    write!(f, "{name}: {ty}")?;
+                }
+
+                let ret = info.return_info().type_path();
+                write!(f, ") -> {ret})")
+            }
+            FunctionInfoType::Overloaded(_) => {
+                todo!("overloaded functions are not yet debuggable");
             }
         }
-
-        let ret = self.info.return_info().type_path();
-        write!(f, ") -> {ret})")
     }
 }
 
 impl<'env> Clone for DynamicFunction<'env> {
     fn clone(&self) -> Self {
         Self {
+            name: self.name.clone(),
             info: self.info.clone(),
             func: Arc::clone(&self.func),
         }
@@ -306,10 +329,11 @@ mod tests {
     #[test]
     fn should_overwrite_function_name() {
         let c = 23;
-        let func = (|a: i32, b: i32| a + b + c)
-            .into_function()
-            .with_name("my_function");
-        assert_eq!(func.info().name().unwrap(), "my_function");
+        let func = (|a: i32, b: i32| a + b + c).into_function();
+        assert!(func.name().is_none());
+
+        let func = func.with_name("my_function");
+        assert_eq!(func.name().unwrap(), "my_function");
     }
 
     #[test]
