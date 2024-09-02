@@ -3,11 +3,12 @@ use bevy_math::curve::{cores::EvenCoreError, Curve, Interval, SampleCurve};
 
 /// A curve whose samples are defined by a collection of colors.
 #[derive(Clone, Debug)]
-pub struct ColorCurve<T: Mix + Clone, I> {
-    curve: SampleCurve<T, I>,
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub struct ColorCurve<T: Mix + Clone> {
+    curve: SampleCurve<T, fn(&T, &T, f32) -> T>,
 }
 
-impl<T, I> ColorCurve<T, I>
+impl<T> ColorCurve<T>
 where
     T: Mix + Clone,
 {
@@ -28,33 +29,27 @@ where
     /// # use bevy_color::ColorCurve;
     /// # use bevy_math::curve::Interval;
     /// # use bevy_math::curve::Curve;
-    /// let broken = ColorCurve::new([RED], Srgba::mix);
+    /// let broken = ColorCurve::new([RED]);
     /// assert!(broken.is_err());
-    /// let gradient = ColorCurve::new([RED, GREEN, BLUE], Srgba::mix);
+    /// let gradient = ColorCurve::new([RED, GREEN, BLUE]);
     /// assert!(gradient.is_ok());
     /// assert_eq!(gradient.unwrap().domain(), Interval::new(0.0, 2.0).unwrap());
     /// ```
-    pub fn new(
-        colors: impl IntoIterator<Item = impl Into<T>>,
-        interpolation: I,
-    ) -> Result<Self, EvenCoreError>
-    where
-        I: Fn(&T, &T, f32) -> T,
-    {
-        let colors = colors.into_iter().map(Into::into).collect::<Vec<_>>();
+    pub fn new(colors: impl IntoIterator<Item = T>) -> Result<Self, EvenCoreError> {
+        let colors = colors.into_iter().collect::<Vec<_>>();
+        let mix: fn(&T, &T, f32) -> T = <T as Mix>::mix;
         Interval::new(0.0, colors.len().saturating_sub(1) as f32)
             .map_err(|_| EvenCoreError::NotEnoughSamples {
                 samples: colors.len(),
             })
-            .and_then(|domain| SampleCurve::new(domain, colors, interpolation))
+            .and_then(|domain| SampleCurve::new(domain, colors, mix))
             .map(|curve| Self { curve })
     }
 }
 
-impl<T, F> Curve<T> for ColorCurve<T, F>
+impl<T> Curve<T> for ColorCurve<T>
 where
     T: Mix + Clone,
-    F: Fn(&T, &T, f32) -> T,
 {
     fn domain(&self) -> Interval {
         self.curve.domain()
@@ -73,15 +68,15 @@ mod tests {
 
     #[test]
     fn test_color_curve() {
-        let broken = ColorCurve::new([basic::RED], Srgba::mix);
+        let broken = ColorCurve::new([basic::RED]);
         assert!(broken.is_err());
 
         let gradient = [basic::RED, basic::LIME, basic::BLUE];
-        let curve = ColorCurve::new(gradient, Srgba::mix).unwrap();
+        let curve = ColorCurve::new(gradient).unwrap();
 
         assert_eq!(curve.domain(), Interval::new(0.0, 2.0).unwrap());
 
-        let brighter_curve = curve.map(|c| c.mix(&basic::WHITE, 0.5));
+        let brighter_curve = curve.map(|c: Srgba| c.mix(&basic::WHITE, 0.5));
 
         [
             (-0.1, None),
