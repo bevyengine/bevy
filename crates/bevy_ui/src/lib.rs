@@ -26,7 +26,6 @@ mod geometry;
 mod layout;
 mod render;
 mod stack;
-mod texture_slice;
 mod ui_node;
 
 pub use focus::*;
@@ -163,11 +162,6 @@ impl Plugin for UiPlugin {
                     .before(UiSystem::Layout)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
-                (
-                    texture_slice::compute_slices_on_asset_event,
-                    texture_slice::compute_slices_on_image_change,
-                )
-                    .after(UiSystem::Layout),
             ),
         );
 
