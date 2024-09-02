@@ -140,20 +140,19 @@ fn spawn_sphere(
 
 // Spawns the reflection probe.
 fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
-    commands.spawn(ReflectionProbeBundle {
-        spatial: SpatialBundle {
+    commands.spawn((
+        SpatialBundle {
             // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
             transform: Transform::from_scale(Vec3::splat(2.0)),
             ..SpatialBundle::default()
         },
-        light_probe: LightProbe,
-        environment_map: EnvironmentMapLight {
+        EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
             intensity: 5000.0,
             ..default()
         },
-    });
+    ));
 }
 
 // Spawns the help text.

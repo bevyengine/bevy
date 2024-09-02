@@ -46,6 +46,8 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
+#![allow(deprecated)]
+
 use bevy_asset::{AssetId, Handle};
 use bevy_ecs::{
     bundle::Bundle, component::Component, query::QueryItem, system::lifetimeless::Read,
@@ -63,7 +65,9 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage, Image},
+    view::{InheritedVisibility, ViewVisibility, Visibility},
 };
+use bevy_transform::components::{GlobalTransform, Transform};
 
 use std::num::NonZero;
 use std::ops::Deref;
@@ -84,6 +88,14 @@ pub const ENVIRONMENT_MAP_SHADER_HANDLE: Handle<Shader> =
 ///
 /// See [`crate::environment_map`] for detailed information.
 #[derive(Clone, Component, Reflect)]
+#[require(
+    LightProbe,
+    Transform,
+    GlobalTransform,
+    Visibility,
+    InheritedVisibility,
+    ViewVisibility
+)]
 pub struct EnvironmentMapLight {
     /// The blurry image that represents diffuse radiance surrounding a region.
     pub diffuse_map: Handle<Image>,
@@ -136,6 +148,10 @@ pub struct EnvironmentMapIds {
 /// surrounding a region in space. For more information, see
 /// [`crate::environment_map`].
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `EnvironmentMapLight` directly instead. This bundle will be removed in favor of required components in a future release."
+)]
 pub struct ReflectionProbeBundle {
     /// Contains a transform that specifies the position of this reflection probe in space.
     pub spatial: SpatialBundle,
