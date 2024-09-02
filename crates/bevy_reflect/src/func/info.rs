@@ -3,8 +3,42 @@ use alloc::borrow::Cow;
 use bevy_utils::all_tuples;
 
 use crate::func::args::{ArgInfo, GetOwnership, Ownership};
+use crate::func::MissingFunctionInfoError;
 use crate::type_info::impl_type_methods;
 use crate::{Type, TypePath};
+
+/// A wrapper around [`FunctionInfo`] used to represent either a standard function
+/// or an overloaded function.
+#[derive(Debug, Clone)]
+pub enum FunctionInfoType {
+    /// A standard function with a single set of arguments.
+    ///
+    /// This includes generic functions with a single set of monomorphized arguments.
+    Standard(FunctionInfo),
+    /// An overloaded function with multiple sets of arguments.
+    ///
+    /// This includes generic functions with multiple sets of monomorphized arguments,
+    /// as well as functions with a variable number of arguments (i.e. "variadic functions").
+    Overloaded(Box<[FunctionInfo]>),
+}
+
+impl From<FunctionInfo> for FunctionInfoType {
+    fn from(info: FunctionInfo) -> Self {
+        FunctionInfoType::Standard(info)
+    }
+}
+
+impl TryFrom<Vec<FunctionInfo>> for FunctionInfoType {
+    type Error = MissingFunctionInfoError;
+
+    fn try_from(mut infos: Vec<FunctionInfo>) -> Result<Self, Self::Error> {
+        match infos.len() {
+            0 => Err(MissingFunctionInfoError),
+            1 => Ok(Self::Standard(infos.pop().unwrap())),
+            _ => Ok(Self::Overloaded(infos.into_boxed_slice())),
+        }
+    }
+}
 
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

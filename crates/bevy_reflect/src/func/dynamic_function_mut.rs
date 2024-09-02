@@ -1,9 +1,8 @@
 use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 
-use crate::func::args::{ArgInfo, ArgList};
-use crate::func::info::FunctionInfo;
-use crate::func::{DynamicFunction, FunctionResult, IntoFunctionMut, ReturnInfo};
+use crate::func::args::ArgList;
+use crate::func::{DynamicFunction, FunctionInfoType, FunctionResult, IntoFunctionMut};
 
 /// A dynamic representation of a function.
 ///
@@ -62,7 +61,8 @@ use crate::func::{DynamicFunction, FunctionResult, IntoFunctionMut, ReturnInfo};
 /// [`ReflectFnMut`]: crate::func::ReflectFnMut
 /// [module-level documentation]: crate::func
 pub struct DynamicFunctionMut<'env> {
-    info: FunctionInfo,
+    name: Option<Cow<'static, str>>,
+    info: FunctionInfoType,
     func: Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>,
 }
 
@@ -74,11 +74,23 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// This info may be used by consumers of this function for validation and debugging.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no [`FunctionInfo`] is provided or if the conversion to [`FunctionInfoType`] fails.
+    ///
+    /// [`FunctionInfo`]: crate::func::FunctionInfo
     pub fn new<F: for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>(
         func: F,
-        info: FunctionInfo,
+        info: impl TryInto<FunctionInfoType, Error: Debug>,
     ) -> Self {
+        let info = info.try_into().unwrap();
+
         Self {
+            name: match &info {
+                FunctionInfoType::Standard(info) => info.name().cloned(),
+                FunctionInfoType::Overloaded(_) => None,
+            },
             info,
             func: Box::new(func),
         }
@@ -93,22 +105,7 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
-        self.info = self.info.with_name(name);
-        self
-    }
-
-    /// Set the argument information of the function.
-    ///
-    /// It's important that the arguments match the intended function signature,
-    /// as this can be used by consumers of this function for validation and debugging.
-    pub fn with_args(mut self, args: Vec<ArgInfo>) -> Self {
-        self.info = self.info.with_args(args);
-        self
-    }
-
-    /// Set the return information of the function.
-    pub fn with_return_info(mut self, return_info: ReturnInfo) -> Self {
-        self.info = self.info.with_return_info(return_info);
+        self.name = Some(name.into());
         self
     }
 
@@ -166,11 +163,11 @@ impl<'env> DynamicFunctionMut<'env> {
     }
 
     /// Returns the function info.
-    pub fn info(&self) -> &FunctionInfo {
+    pub fn info(&self) -> &FunctionInfoType {
         &self.info
     }
 
-    /// The [name] of the function.
+    /// The name of the function.
     ///
     /// For [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
     /// the default name will always be the full path to the function as returned by [`std::any::type_name`],
@@ -179,11 +176,10 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// This can be overridden using [`with_name`].
     ///
-    /// [name]: FunctionInfo::name
     /// [`DynamicFunctionMuts`]: DynamicFunctionMut
     /// [`with_name`]: Self::with_name
     pub fn name(&self) -> Option<&Cow<'static, str>> {
-        self.info.name()
+        self.name.as_ref()
     }
 }
 
@@ -194,21 +190,28 @@ impl<'env> DynamicFunctionMut<'env> {
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
 impl<'env> Debug for DynamicFunctionMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let name = self.info.name().unwrap_or(&Cow::Borrowed("_"));
+        let name = self.name().unwrap_or(&Cow::Borrowed("_"));
         write!(f, "DynamicFunctionMut(fn {name}(")?;
 
-        for (index, arg) in self.info.args().iter().enumerate() {
-            let name = arg.name().unwrap_or("_");
-            let ty = arg.type_path();
-            write!(f, "{name}: {ty}")?;
+        match self.info() {
+            FunctionInfoType::Standard(info) => {
+                for (index, arg) in info.args().iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
 
-            if index + 1 < self.info.args().len() {
-                write!(f, ", ")?;
+                    let name = arg.name().unwrap_or("_");
+                    let ty = arg.type_path();
+                    write!(f, "{name}: {ty}")?;
+                }
+
+                let ret = info.return_info().type_path();
+                write!(f, ") -> {ret})")
+            }
+            FunctionInfoType::Overloaded(_) => {
+                todo!("overloaded functions are not yet debuggable");
             }
         }
-
-        let ret = self.info.return_info().type_path();
-        write!(f, ") -> {ret})")
     }
 }
 
@@ -216,6 +219,7 @@ impl<'env> From<DynamicFunction<'env>> for DynamicFunctionMut<'env> {
     #[inline]
     fn from(function: DynamicFunction<'env>) -> Self {
         Self {
+            name: function.name,
             info: function.info,
             func: Box::new(move |args| (function.func)(args)),
         }
@@ -236,10 +240,11 @@ mod tests {
     #[test]
     fn should_overwrite_function_name() {
         let mut total = 0;
-        let func = (|a: i32, b: i32| total = a + b)
-            .into_function_mut()
-            .with_name("my_function");
-        assert_eq!(func.info().name().unwrap(), "my_function");
+        let func = (|a: i32, b: i32| total = a + b).into_function_mut();
+        assert!(func.name().is_none());
+
+        let func = func.with_name("my_function");
+        assert_eq!(func.name().unwrap(), "my_function");
     }
 
     #[test]
