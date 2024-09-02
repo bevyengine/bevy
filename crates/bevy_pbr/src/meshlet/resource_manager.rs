@@ -63,7 +63,7 @@ pub struct ResourceManager {
 impl ResourceManager {
     pub fn new(cluster_buffer_slots: u32, render_device: &RenderDevice) -> Self {
         let needs_dispatch_remap =
-            cluster_buffer_slots < render_device.limits().max_compute_workgroups_per_dimension;
+            cluster_buffer_slots > render_device.limits().max_compute_workgroups_per_dimension;
 
         Self {
             visibility_buffer_raster_clusters: render_device.create_buffer(&BufferDescriptor {
