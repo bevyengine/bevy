@@ -29,7 +29,7 @@ const FOX_RUN_ANIMATION: usize = 2;
 // specific to Bevy; it just so happens to be the case for the model we're
 // using. A mask group can consist of any set of animation targets, regardless
 // of whether they form a single chain.
-static MASK_GROUP_PATHS: [(&str, &str); 5] = [
+const MASK_GROUP_PATHS: [(&str, &str); 5] = [
     // Left front leg
     (
         "root/_rootJoint/b_Root_00/b_Hip_01/b_Spine01_02/b_Spine02_03/b_LeftUpperArm_09",

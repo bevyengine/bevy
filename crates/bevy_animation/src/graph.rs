@@ -458,8 +458,7 @@ impl AnimationGraphNode {
     /// After calling this function, neither this node nor its descendants will
     /// animate any animation targets that belong to the given `group`.
     pub fn add_mask_group(&mut self, group: u32) -> &mut Self {
-        self.mask |= 1 << group;
-        self
+        self.add_mask(1 << group)
     }
 
     /// Unmasks the single mask group specified by `group`.
@@ -468,8 +467,7 @@ impl AnimationGraphNode {
     /// allowed to animate animation targets that belong to the given `group`,
     /// unless another mask masks those targets out.
     pub fn remove_mask_group(&mut self, group: u32) -> &mut Self {
-        self.mask &= !(1 << group);
-        self
+        self.remove_mask(1 << group)
     }
 }
 
