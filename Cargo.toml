@@ -3408,6 +3408,17 @@ description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
 
+[[example]]
+name = "animation_masks"
+path = "examples/animation/animation_masks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_masks]
+name = "Animation Masks"
+description = "Demonstrates animation masks"
+category = "Animation"
+wasm = true
+
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
