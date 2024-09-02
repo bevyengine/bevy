@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
-use bevy_ecs::{component::Component, reflect::ReflectComponent, system::Resource};
+use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent, system::Resource};
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
@@ -238,8 +238,10 @@ impl TextPipeline {
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
+    #[allow(clippy::too_many_arguments)]
     pub fn create_text_measure(
         &mut self,
+        entity: Entity,
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
@@ -270,9 +272,7 @@ impl TextPipeline {
         Ok(TextMeasureInfo {
             min: min_width_content_size,
             max: max_width_content_size,
-            // TODO: This clone feels wasteful, is there another way to structure TextMeasureInfo
-            // that it doesn't need to own a buffer? - bytemunch
-            buffer: buffer.0.clone(),
+            entity,
         })
     }
 
@@ -299,23 +299,14 @@ pub struct TextLayoutInfo {
 /// Size information for a corresponding [`Text`](crate::Text) component.
 ///
 /// Generated via [`TextPipeline::create_text_measure`].
+#[derive(Debug)]
 pub struct TextMeasureInfo {
     /// Minimum size for a text area in pixels, to be used when laying out widgets with taffy
     pub min: Vec2,
     /// Maximum size for a text area in pixels, to be used when laying out widgets with taffy
     pub max: Vec2,
-    buffer: Buffer,
-}
-
-impl std::fmt::Debug for TextMeasureInfo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TextMeasureInfo")
-            .field("min", &self.min)
-            .field("max", &self.max)
-            .field("buffer", &"_")
-            .field("font_system", &"_")
-            .finish()
-    }
+    /// The entity that is measured.
+    pub entity: Entity,
 }
 
 impl TextMeasureInfo {
@@ -323,11 +314,13 @@ impl TextMeasureInfo {
     pub fn compute_size(
         &mut self,
         bounds: TextBounds,
+        buffer: &mut Buffer,
         font_system: &mut cosmic_text::FontSystem,
     ) -> Vec2 {
-        self.buffer
-            .set_size(font_system, bounds.width, bounds.height);
-        buffer_dimensions(&self.buffer)
+        // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
+        // whenever a canonical state is required.
+        buffer.set_size(font_system, bounds.width, bounds.height);
+        buffer_dimensions(buffer)
     }
 }
 

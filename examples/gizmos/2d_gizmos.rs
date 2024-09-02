@@ -73,6 +73,15 @@ fn draw_example_collection(
         FUCHSIA,
     );
 
+    let domain = Interval::EVERYWHERE;
+    let curve = function_curve(domain, |t| Vec2::new(t, (t / 25.0).sin() * 100.0));
+    let resolution = ((time.elapsed_seconds().sin() + 1.0) * 50.0) as usize;
+    let times_and_colors = (0..=resolution)
+        .map(|n| n as f32 / resolution as f32)
+        .map(|t| (t - 0.5) * 600.0)
+        .map(|t| (t, TEAL.mix(&HOT_PINK, (t + 300.0) / 600.0)));
+    gizmos.curve_gradient_2d(curve, times_and_colors);
+
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
         .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
@@ -97,7 +106,9 @@ fn draw_example_collection(
         310.,
         ORANGE_RED,
     );
-    my_gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_2, 75.0, ORANGE_RED);
+    my_gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_2, 80.0, ORANGE_RED);
+    my_gizmos.long_arc_2d_between(Vec2::ZERO, Vec2::X * 20.0, Vec2::Y * 20.0, ORANGE_RED);
+    my_gizmos.short_arc_2d_between(Vec2::ZERO, Vec2::X * 40.0, Vec2::Y * 40.0, ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,

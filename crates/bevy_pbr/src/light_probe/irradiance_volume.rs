@@ -142,7 +142,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage, Image},
 };
-use std::{num::NonZeroU32, ops::Deref};
+use std::{num::NonZero, ops::Deref};
 
 use bevy_asset::{AssetId, Handle};
 use bevy_reflect::Reflect;
@@ -306,7 +306,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::texture_3d(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device) {
         texture_3d_binding =
-            texture_3d_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
+            texture_3d_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
 
     [

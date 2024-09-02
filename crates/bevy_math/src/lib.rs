@@ -55,6 +55,7 @@ pub mod prelude {
             CubicHermite, CubicNurbs, CubicNurbsError, CubicSegment, CyclicCubicGenerator,
             RationalCurve, RationalGenerator, RationalSegment,
         },
+        curve::*,
         direction::{Dir2, Dir3, Dir3A},
         primitives::*,
         BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Isometry2d,

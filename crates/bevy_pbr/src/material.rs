@@ -35,7 +35,7 @@ use bevy_render::{
 use bevy_utils::tracing::error;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::{hash::Hash, num::NonZeroU32};
+use std::{hash::Hash, num::NonZero};
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
@@ -545,7 +545,7 @@ pub fn queue_material_meshes<M: Material>(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
+    views: Query<(
         Entity,
         &ExtractedView,
         &VisibleEntities,
@@ -585,7 +585,7 @@ pub fn queue_material_meshes<M: Material>(
         temporal_jitter,
         projection,
         (has_environment_maps, has_irradiance_volumes),
-    ) in &mut views
+    ) in &views
     {
         let (
             Some(opaque_phase),
@@ -978,7 +978,7 @@ impl AtomicMaterialBindGroupId {
     /// See also:  [`AtomicU32::store`].
     pub fn set(&self, id: MaterialBindGroupId) {
         let id = if let Some(id) = id.0 {
-            NonZeroU32::from(id).get()
+            NonZero::<u32>::from(id).get()
         } else {
             0
         };
@@ -990,7 +990,9 @@ impl AtomicMaterialBindGroupId {
     ///
     /// See also:  [`AtomicU32::load`].
     pub fn get(&self) -> MaterialBindGroupId {
-        MaterialBindGroupId(NonZeroU32::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from))
+        MaterialBindGroupId(
+            NonZero::<u32>::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from),
+        )
     }
 }
 
