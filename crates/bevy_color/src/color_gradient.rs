@@ -12,9 +12,9 @@ impl<T> ColorCurve<T>
 where
     T: Mix + Clone,
 {
-    /// Create a new [`ColorCurve`] from a collection of [mixable] types and a mixing function. The
-    /// domain of this curve will always be `[0.0, len - 1]` where `len` is the amount of mixable
-    /// objects in the collection.
+    /// Create a new [`ColorCurve`] from a collection of [mixable] types. The domain of this curve
+    /// will always be `[0.0, len - 1]` where `len` is the amount of mixable objects in the
+    /// collection.
     ///
     /// This fails if there's not at least two mixable things in the collection.
     ///
