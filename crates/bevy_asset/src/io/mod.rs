@@ -24,13 +24,13 @@ pub use source::*;
 use bevy_utils::{BoxedFuture, ConditionalSendFuture};
 use futures_io::{AsyncRead, AsyncSeek, AsyncWrite};
 use futures_lite::{ready, Stream};
-use std::io::SeekFrom;
-use std::task::Context;
 use std::{
+    io::SeekFrom,
+    mem::size_of,
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
-    task::Poll,
+    task::{Context, Poll},
 };
 use thiserror::Error;
 
@@ -77,7 +77,7 @@ impl From<std::io::Error> for AssetReaderError {
 // Ideally this would be even smaller (ReadToEndFuture only needs space for two references based on its definition),
 // but compiler optimizations can apparently inflate the stack size of futures due to inlining, which makes
 // a higher maximum necessary.
-pub const STACK_FUTURE_SIZE: usize = 10 * std::mem::size_of::<&()>();
+pub const STACK_FUTURE_SIZE: usize = 10 * size_of::<&()>();
 
 pub use stackfuture::StackFuture;
 
@@ -520,7 +520,7 @@ impl VecReader {
 impl AsyncRead for VecReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.bytes.len() {

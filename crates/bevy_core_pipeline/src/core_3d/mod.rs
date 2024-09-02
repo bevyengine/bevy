@@ -584,20 +584,12 @@ pub fn extract_camera_prepass_phase(
 
         live_entities.insert(entity);
 
-        let mut entity = commands.get_or_spawn(entity);
-
-        if depth_prepass {
-            entity.insert(DepthPrepass);
-        }
-        if normal_prepass {
-            entity.insert(NormalPrepass);
-        }
-        if motion_vector_prepass {
-            entity.insert(MotionVectorPrepass);
-        }
-        if deferred_prepass {
-            entity.insert(DeferredPrepass);
-        }
+        commands
+            .get_or_spawn(entity)
+            .insert_if(DepthPrepass, || depth_prepass)
+            .insert_if(NormalPrepass, || normal_prepass)
+            .insert_if(MotionVectorPrepass, || motion_vector_prepass)
+            .insert_if(DeferredPrepass, || deferred_prepass);
     }
 
     opaque_3d_prepass_phases.retain(|entity, _| live_entities.contains(entity));

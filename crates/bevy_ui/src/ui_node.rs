@@ -12,7 +12,7 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use smallvec::SmallVec;
-use std::num::{NonZeroI16, NonZeroU16};
+use std::num::NonZero;
 use thiserror::Error;
 
 /// Base component for a UI node, which also provides the computed size of the node.
@@ -35,10 +35,14 @@ pub struct Node {
     pub(crate) calculated_size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
+    /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::resolve_outlines_system`].
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
+    /// Outline updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_offset: f32,
     /// The unrounded size of the node as width and height in logical pixels.
     ///
@@ -1481,15 +1485,15 @@ pub struct GridPlacement {
     /// Lines are 1-indexed.
     /// Negative indexes count backwards from the end of the grid.
     /// Zero is not a valid index.
-    pub(crate) start: Option<NonZeroI16>,
+    pub(crate) start: Option<NonZero<i16>>,
     /// How many grid tracks the item should span.
     /// Defaults to 1.
-    pub(crate) span: Option<NonZeroU16>,
+    pub(crate) span: Option<NonZero<u16>>,
     /// The grid line at which the item should end.
     /// Lines are 1-indexed.
     /// Negative indexes count backwards from the end of the grid.
     /// Zero is not a valid index.
-    pub(crate) end: Option<NonZeroI16>,
+    pub(crate) end: Option<NonZero<i16>>,
 }
 
 impl GridPlacement {
@@ -1497,7 +1501,7 @@ impl GridPlacement {
     pub const DEFAULT: Self = Self {
         start: None,
         // SAFETY: This is trivially safe as 1 is non-zero.
-        span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
+        span: Some(unsafe { NonZero::<u16>::new_unchecked(1) }),
         end: None,
     };
 
@@ -1614,17 +1618,17 @@ impl GridPlacement {
 
     /// Returns the grid line at which the item should start, or `None` if not set.
     pub fn get_start(self) -> Option<i16> {
-        self.start.map(NonZeroI16::get)
+        self.start.map(NonZero::<i16>::get)
     }
 
     /// Returns the grid line at which the item should end, or `None` if not set.
     pub fn get_end(self) -> Option<i16> {
-        self.end.map(NonZeroI16::get)
+        self.end.map(NonZero::<i16>::get)
     }
 
     /// Returns span for this grid item, or `None` if not set.
     pub fn get_span(self) -> Option<u16> {
-        self.span.map(NonZeroU16::get)
+        self.span.map(NonZero::<u16>::get)
     }
 }
 
@@ -1634,17 +1638,17 @@ impl Default for GridPlacement {
     }
 }
 
-/// Convert an `i16` to `NonZeroI16`, fails on `0` and returns the `InvalidZeroIndex` error.
-fn try_into_grid_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
+/// Convert an `i16` to `NonZero<i16>`, fails on `0` and returns the `InvalidZeroIndex` error.
+fn try_into_grid_index(index: i16) -> Result<Option<NonZero<i16>>, GridPlacementError> {
     Ok(Some(
-        NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
+        NonZero::<i16>::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
     ))
 }
 
-/// Convert a `u16` to `NonZeroU16`, fails on `0` and returns the `InvalidZeroSpan` error.
-fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
+/// Convert a `u16` to `NonZero<u16>`, fails on `0` and returns the `InvalidZeroSpan` error.
+fn try_into_grid_span(span: u16) -> Result<Option<NonZero<u16>>, GridPlacementError> {
     Ok(Some(
-        NonZeroU16::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
+        NonZero::<u16>::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
     ))
 }
 

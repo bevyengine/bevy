@@ -1719,10 +1719,10 @@ mod tests {
         let info = MyList::type_info().as_list().unwrap();
 
         assert!(info.is::<MyList>());
-        assert!(info.item_is::<usize>());
+        assert!(info.item_ty().is::<usize>());
         assert!(info.item_info().unwrap().is::<usize>());
         assert_eq!(MyList::type_path(), info.type_path());
-        assert_eq!(usize::type_path(), info.item_type_path_table().path());
+        assert_eq!(usize::type_path(), info.item_ty().path());
 
         let value: &dyn Reflect = &vec![123_usize];
         let info = value.get_represented_type_info().unwrap();
@@ -1735,10 +1735,10 @@ mod tests {
 
             let info = MySmallVec::type_info().as_list().unwrap();
             assert!(info.is::<MySmallVec>());
-            assert!(info.item_is::<String>());
+            assert!(info.item_ty().is::<String>());
             assert!(info.item_info().unwrap().is::<String>());
             assert_eq!(MySmallVec::type_path(), info.type_path());
-            assert_eq!(String::type_path(), info.item_type_path_table().path());
+            assert_eq!(String::type_path(), info.item_ty().path());
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
@@ -1751,10 +1751,10 @@ mod tests {
 
         let info = MyArray::type_info().as_array().unwrap();
         assert!(info.is::<MyArray>());
-        assert!(info.item_is::<usize>());
+        assert!(info.item_ty().is::<usize>());
         assert!(info.item_info().unwrap().is::<usize>());
         assert_eq!(MyArray::type_path(), info.type_path());
-        assert_eq!(usize::type_path(), info.item_type_path_table().path());
+        assert_eq!(usize::type_path(), info.item_ty().path());
         assert_eq!(3, info.capacity());
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
@@ -1779,13 +1779,10 @@ mod tests {
         let info = MyCowSlice::type_info().as_list().unwrap();
 
         assert!(info.is::<MyCowSlice>());
-        assert!(info.item_is::<u8>());
+        assert!(info.item_ty().is::<u8>());
         assert!(info.item_info().unwrap().is::<u8>());
         assert_eq!(std::any::type_name::<MyCowSlice>(), info.type_path());
-        assert_eq!(
-            std::any::type_name::<u8>(),
-            info.item_type_path_table().path()
-        );
+        assert_eq!(std::any::type_name::<u8>(), info.item_ty().path());
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
         let info = value.get_represented_type_info().unwrap();
@@ -1797,13 +1794,13 @@ mod tests {
         let info = MyMap::type_info().as_map().unwrap();
 
         assert!(info.is::<MyMap>());
-        assert!(info.key_is::<usize>());
-        assert!(info.value_is::<f32>());
+        assert!(info.key_ty().is::<usize>());
+        assert!(info.value_ty().is::<f32>());
         assert!(info.key_info().unwrap().is::<usize>());
         assert!(info.value_info().unwrap().is::<f32>());
         assert_eq!(MyMap::type_path(), info.type_path());
-        assert_eq!(usize::type_path(), info.key_type_path_table().path());
-        assert_eq!(f32::type_path(), info.value_type_path_table().path());
+        assert_eq!(usize::type_path(), info.key_ty().path());
+        assert_eq!(f32::type_path(), info.value_ty().path());
 
         let value: &dyn Reflect = &MyMap::new();
         let info = value.get_represented_type_info().unwrap();
@@ -2920,26 +2917,6 @@ bevy_reflect::tests::Test {
             },
             output
         );
-    }
-
-    #[test]
-    fn should_reflect_external_crate_type() {
-        // This test relies on the external type not implementing `Reflect`,
-        // so let's just double-check that it does not
-        assert_not_impl_all!(std::collections::Bound<i32>: Reflect);
-
-        #[reflect_remote(std::collections::Bound<T>)]
-        enum MyBound<T> {
-            Included(T),
-            Excluded(T),
-            Unbounded,
-        }
-
-        #[derive(Reflect)]
-        struct MyType {
-            #[reflect(remote = MyBound<String>)]
-            bound: std::collections::Bound<String>,
-        }
     }
 
     #[cfg(feature = "glam")]

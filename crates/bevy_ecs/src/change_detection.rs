@@ -428,6 +428,20 @@ macro_rules! impl_methods {
                 }
             }
 
+            /// Optionally maps to an inner value by applying a function to the contained reference.
+            /// This is useful in a situation where you need to convert a `Mut<T>` to a `Mut<U>`, but only if `T` contains `U`.
+            ///
+            /// As with `map_unchanged`, you should never modify the argument passed to the closure.
+            pub fn filter_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<Mut<'w, U>> {
+                let value = f(self.value);
+                value.map(|value| Mut {
+                    value,
+                    ticks: self.ticks,
+                    #[cfg(feature = "track_change_detection")]
+                    changed_by: self.changed_by,
+                })
+            }
+
             /// Allows you access to the dereferenced value of this pointer without immediately
             /// triggering change detection.
             pub fn as_deref_mut(&mut self) -> Mut<'_, <$target as Deref>::Target>
@@ -940,7 +954,7 @@ pub struct MutUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
     pub(crate) ticks: TicksMut<'w>,
     #[cfg(feature = "track_change_detection")]
-    pub(crate) changed_by: &'w mut &'static core::panic::Location<'static>,
+    pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
 impl<'w> MutUntyped<'w> {

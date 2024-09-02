@@ -1,6 +1,7 @@
 mod pipeline;
 mod render_pass;
 mod ui_material_pipeline;
+pub mod ui_texture_slice_pipeline;
 
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
@@ -15,16 +16,16 @@ use bevy_render::{
     view::ViewVisibility,
     ExtractSchedule, Render,
 };
-use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
+use bevy_sprite::{ImageScaleMode, SpriteAssetEvents, TextureAtlas};
 pub use pipeline::*;
 pub use render_pass::*;
 pub use ui_material_pipeline::*;
+use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
-    texture_slice::ComputedTextureSlices, BackgroundColor, BorderColor, BorderRadius,
-    CalculatedClip, ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiImage,
-    UiScale, Val,
+    BackgroundColor, BorderColor, BorderRadius, CalculatedClip, ContentSize, DefaultUiCamera, Node,
+    Outline, Style, TargetCamera, UiImage, UiScale, Val,
 };
 
 use bevy_app::prelude::*;
@@ -140,6 +141,8 @@ pub fn build_ui_render(app: &mut App) {
         graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
         graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
     }
+
+    app.add_plugins(UiTextureSlicerPlugin);
 }
 
 fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
@@ -317,19 +320,21 @@ pub fn extract_uinode_images(
     ui_scale: Extract<Res<UiScale>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
-        Query<(
-            &Node,
-            &GlobalTransform,
-            &ViewVisibility,
-            Option<&CalculatedClip>,
-            Option<&TargetCamera>,
-            &UiImage,
-            Option<&TextureAtlas>,
-            Option<&ComputedTextureSlices>,
-            Option<&BorderRadius>,
-            Option<&Parent>,
-            &Style,
-        )>,
+        Query<
+            (
+                &Node,
+                &GlobalTransform,
+                &ViewVisibility,
+                Option<&CalculatedClip>,
+                Option<&TargetCamera>,
+                &UiImage,
+                Option<&TextureAtlas>,
+                Option<&BorderRadius>,
+                Option<&Parent>,
+                &Style,
+            ),
+            Without<ImageScaleMode>,
+        >,
     >,
     node_query: Extract<Query<&Node>>,
 ) {
@@ -341,7 +346,6 @@ pub fn extract_uinode_images(
         camera,
         image,
         atlas,
-        slices,
         border_radius,
         parent,
         style,
@@ -357,15 +361,6 @@ pub fn extract_uinode_images(
             || image.color.is_fully_transparent()
             || image.texture.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
-            continue;
-        }
-
-        if let Some(slices) = slices {
-            extracted_uinodes.uinodes.extend(
-                slices
-                    .extract_ui_nodes(transform, uinode, image, clip, camera_entity)
-                    .map(|e| (commands.spawn_empty().id(), e)),
-            );
             continue;
         }
 
@@ -528,7 +523,7 @@ pub fn extract_uinode_borders(
                 Option<&Parent>,
                 &Style,
                 &BorderColor,
-                &BorderRadius,
+                Option<&BorderRadius>,
             ),
             Without<ContentSize>,
         >,
@@ -546,7 +541,7 @@ pub fn extract_uinode_borders(
         parent,
         style,
         border_color,
-        border_radius,
+        maybe_border_radius,
     ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -594,14 +589,17 @@ pub fn extract_uinode_borders(
             continue;
         }
 
-        let border_radius = resolve_border_radius(
-            border_radius,
-            node.size(),
-            ui_logical_viewport_size,
-            ui_scale.0,
-        );
-
-        let border_radius = clamp_radius(border_radius, node.size(), border.into());
+        let border_radius = if let Some(border_radius) = maybe_border_radius {
+            let resolved_radius = resolve_border_radius(
+                border_radius,
+                node.size(),
+                ui_logical_viewport_size,
+                ui_scale.0,
+            );
+            clamp_radius(resolved_radius, node.size(), border.into())
+        } else {
+            [0.; 4]
+        };
         let transform = global_transform.compute_matrix();
 
         extracted_uinodes.uinodes.insert(

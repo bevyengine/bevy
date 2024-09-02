@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::num::NonZero;
 
 use super::kinds::IdKind;
 
@@ -61,7 +61,7 @@ impl IdentifierMask {
     /// Will never be greater than [`HIGH_MASK`] or less than `1`, and increments are masked to
     /// never be greater than [`HIGH_MASK`].
     #[inline(always)]
-    pub(crate) const fn inc_masked_high_by(lhs: NonZeroU32, rhs: u32) -> NonZeroU32 {
+    pub(crate) const fn inc_masked_high_by(lhs: NonZero<u32>, rhs: u32) -> NonZero<u32> {
         let lo = (lhs.get() & HIGH_MASK).wrapping_add(rhs & HIGH_MASK);
         // Checks high 32 bit for whether we have overflowed 31 bits.
         let overflowed = lo >> 31;
@@ -70,7 +70,7 @@ impl IdentifierMask {
         // - Adding the overflow flag will offset overflows to start at 1 instead of 0
         // - The sum of `0x7FFF_FFFF` + `u32::MAX` + 1 (overflow) == `0x7FFF_FFFF`
         // - If the operation doesn't overflow at 31 bits, no offsetting takes place
-        unsafe { NonZeroU32::new_unchecked(lo.wrapping_add(overflowed) & HIGH_MASK) }
+        unsafe { NonZero::<u32>::new_unchecked(lo.wrapping_add(overflowed) & HIGH_MASK) }
     }
 }
 
@@ -166,68 +166,68 @@ mod tests {
         // Adding from lowest value with lowest to highest increment
         // No result should ever be greater than 0x7FFF_FFFF or HIGH_MASK
         assert_eq!(
-            NonZeroU32::MIN,
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MIN, 0)
+            NonZero::<u32>::MIN,
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MIN, 0)
         );
         assert_eq!(
-            NonZeroU32::new(2).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MIN, 1)
+            NonZero::<u32>::new(2).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MIN, 1)
         );
         assert_eq!(
-            NonZeroU32::new(3).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MIN, 2)
+            NonZero::<u32>::new(3).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MIN, 2)
         );
         assert_eq!(
-            NonZeroU32::MIN,
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MIN, HIGH_MASK)
+            NonZero::<u32>::MIN,
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MIN, HIGH_MASK)
         );
         assert_eq!(
-            NonZeroU32::MIN,
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MIN, u32::MAX)
+            NonZero::<u32>::MIN,
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MIN, u32::MAX)
         );
         // Adding from absolute highest value with lowest to highest increment
         // No result should ever be greater than 0x7FFF_FFFF or HIGH_MASK
         assert_eq!(
-            NonZeroU32::new(HIGH_MASK).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MAX, 0)
+            NonZero::<u32>::new(HIGH_MASK).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MAX, 0)
         );
         assert_eq!(
-            NonZeroU32::MIN,
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MAX, 1)
+            NonZero::<u32>::MIN,
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MAX, 1)
         );
         assert_eq!(
-            NonZeroU32::new(2).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MAX, 2)
+            NonZero::<u32>::new(2).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MAX, 2)
         );
         assert_eq!(
-            NonZeroU32::new(HIGH_MASK).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MAX, HIGH_MASK)
+            NonZero::<u32>::new(HIGH_MASK).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MAX, HIGH_MASK)
         );
         assert_eq!(
-            NonZeroU32::new(HIGH_MASK).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::MAX, u32::MAX)
+            NonZero::<u32>::new(HIGH_MASK).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::MAX, u32::MAX)
         );
         // Adding from actual highest value with lowest to highest increment
         // No result should ever be greater than 0x7FFF_FFFF or HIGH_MASK
         assert_eq!(
-            NonZeroU32::new(HIGH_MASK).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::new(HIGH_MASK).unwrap(), 0)
+            NonZero::<u32>::new(HIGH_MASK).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::new(HIGH_MASK).unwrap(), 0)
         );
         assert_eq!(
-            NonZeroU32::MIN,
-            IdentifierMask::inc_masked_high_by(NonZeroU32::new(HIGH_MASK).unwrap(), 1)
+            NonZero::<u32>::MIN,
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::new(HIGH_MASK).unwrap(), 1)
         );
         assert_eq!(
-            NonZeroU32::new(2).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::new(HIGH_MASK).unwrap(), 2)
+            NonZero::<u32>::new(2).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::new(HIGH_MASK).unwrap(), 2)
         );
         assert_eq!(
-            NonZeroU32::new(HIGH_MASK).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::new(HIGH_MASK).unwrap(), HIGH_MASK)
+            NonZero::<u32>::new(HIGH_MASK).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::new(HIGH_MASK).unwrap(), HIGH_MASK)
         );
         assert_eq!(
-            NonZeroU32::new(HIGH_MASK).unwrap(),
-            IdentifierMask::inc_masked_high_by(NonZeroU32::new(HIGH_MASK).unwrap(), u32::MAX)
+            NonZero::<u32>::new(HIGH_MASK).unwrap(),
+            IdentifierMask::inc_masked_high_by(NonZero::<u32>::new(HIGH_MASK).unwrap(), u32::MAX)
         );
     }
 }

@@ -21,7 +21,6 @@ pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
-mod cow_arc;
 mod default;
 mod object_safe;
 pub use object_safe::assert_object_safe;
@@ -30,7 +29,6 @@ mod parallel_queue;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
-pub use cow_arc::*;
 pub use default::default;
 pub use hashbrown;
 pub use parallel_queue::*;
@@ -376,7 +374,7 @@ pub struct NoOpHasher(u64);
 
 // This is for types that already contain a high-quality hash and want to skip
 // re-hashing that hash.
-impl std::hash::Hasher for NoOpHasher {
+impl Hasher for NoOpHasher {
     fn finish(&self) -> u64 {
         self.0
     }
@@ -506,7 +504,7 @@ mod tests {
             fn write_u64(&mut self, _: u64) {}
         }
 
-        std::hash::Hash::hash(&TypeId::of::<()>(), &mut Hasher);
+        Hash::hash(&TypeId::of::<()>(), &mut Hasher);
     }
 
     #[test]
