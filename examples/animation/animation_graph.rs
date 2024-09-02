@@ -225,15 +225,14 @@ fn setup_scene(
         ..default()
     });
 
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 10_000_000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(-4.0, 8.0, 13.0),
-        ..default()
-    });
+        Transform::from_xyz(-4.0, 8.0, 13.0),
+    ));
 
     commands.spawn(SceneBundle {
         scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),

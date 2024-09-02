@@ -257,15 +257,14 @@ fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
 }
 
 fn spawn_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 250000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0762, 5.9039, 1.0055),
-        ..default()
-    });
+        Transform::from_xyz(4.0762, 5.9039, 1.0055),
+    ));
 }
 
 fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {

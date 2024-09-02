@@ -47,14 +47,13 @@ fn setup(
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
 
     // Lights...
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(2., 6., 0.),
-        ..default()
-    });
+        Transform::from_xyz(2., 6., 0.),
+    ));
 
     // Camera...
     commands.spawn(Camera3dBundle {

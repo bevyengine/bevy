@@ -110,26 +110,20 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
     });
 
     // Spawn the light.
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: 15000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 }
 
 /// Spawns the help text at the bottom of the screen.

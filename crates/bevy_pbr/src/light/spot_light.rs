@@ -1,3 +1,5 @@
+use bevy_render::view::Visibility;
+
 use super::*;
 
 /// A light that emits light in a given direction from a central point.
@@ -6,6 +8,15 @@ use super::*;
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
+#[require(
+    VisibleMeshEntities,
+    Frustum,
+    Transform,
+    GlobalTransform,
+    Visibility,
+    InheritedVisibility,
+    ViewVisibility
+)]
 pub struct SpotLight {
     pub color: Color,
     /// Luminous power in lumens, representing the amount of light emitted by this source in all directions.

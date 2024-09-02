@@ -252,24 +252,18 @@ fn add_skybox_and_environment_map(
 
 /// Spawns a rotating directional light.
 fn spawn_directional_light(commands: &mut Commands) {
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: WHITE.into(),
-            illuminance: 3000.0,
-            ..default()
-        },
+    commands.spawn(DirectionalLight {
+        color: WHITE.into(),
+        illuminance: 3000.0,
         ..default()
     });
 }
 
 /// Spawns a rotating point light.
 fn spawn_point_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            color: WHITE.into(),
-            intensity: 200000.0,
-            ..default()
-        },
+    commands.spawn(PointLight {
+        color: WHITE.into(),
+        intensity: 200000.0,
         ..default()
     });
 }

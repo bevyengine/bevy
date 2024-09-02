@@ -78,16 +78,15 @@ fn setup(
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
 
-        PointLightBundle {
-            point_light: PointLight {
+        (
+            PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
                 color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
-            transform: Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
-            ..default()
-        }
+            Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),
+        )
     }));
 
     // camera

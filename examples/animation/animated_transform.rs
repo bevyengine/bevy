@@ -30,14 +30,13 @@ fn setup(
     });
 
     // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 500_000.0,
             ..default()
         },
-        transform: Transform::from_xyz(0.0, 2.5, 0.0),
-        ..default()
-    });
+        Transform::from_xyz(0.0, 2.5, 0.0),
+    ));
 
     // Let's use the `Name` component to target entities. We can use anything we
     // like, but names are convenient.

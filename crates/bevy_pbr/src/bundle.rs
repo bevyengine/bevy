@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::{
     CascadeShadowConfig, Cascades, DirectionalLight, Material, PointLight, SpotLight,
     StandardMaterial,
@@ -91,6 +93,10 @@ pub struct CascadesVisibleEntities {
 
 /// A component bundle for [`PointLight`] entities.
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use `PointLight` directly instead. This bundle will be removed in favor of required components in a future release."
+)]
 pub struct PointLightBundle {
     pub point_light: PointLight,
     pub cubemap_visible_entities: CubemapVisibleEntities,
@@ -107,6 +113,10 @@ pub struct PointLightBundle {
 
 /// A component bundle for spot light entities
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use `SpotLight` directly instead. This bundle will be removed in favor of required components in a future release."
+)]
 pub struct SpotLightBundle {
     pub spot_light: SpotLight,
     pub visible_entities: VisibleMeshEntities,
@@ -123,6 +133,10 @@ pub struct SpotLightBundle {
 
 /// A component bundle for [`DirectionalLight`] entities.
 #[derive(Debug, Bundle, Default, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use `DirectionalLight` directly instead. This bundle will be removed in favor of required components in a future release."
+)]
 pub struct DirectionalLightBundle {
     pub directional_light: DirectionalLight,
     pub frusta: CascadesFrusta,

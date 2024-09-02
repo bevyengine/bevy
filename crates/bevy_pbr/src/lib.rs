@@ -63,6 +63,7 @@ pub use volumetric_fog::{
 
 pub mod prelude {
     #[doc(hidden)]
+    #[allow(deprecated)]
     pub use crate::{
         bundle::{
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,

@@ -94,10 +94,8 @@ fn setup(
             let z = z as f32 - 2.0;
             // red spot_light
             commands
-                .spawn(SpotLightBundle {
-                    transform: Transform::from_xyz(1.0 + x, 2.0, z)
-                        .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
-                    spot_light: SpotLight {
+                .spawn((
+                    SpotLight {
                         intensity: 40_000.0, // lumens
                         color: Color::WHITE,
                         shadows_enabled: true,
@@ -105,8 +103,9 @@ fn setup(
                         outer_angle: PI / 4.0,
                         ..default()
                     },
-                    ..default()
-                })
+                    Transform::from_xyz(1.0 + x, 2.0, z)
+                        .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
+                ))
                 .with_children(|builder| {
                     builder.spawn(PbrBundle {
                         mesh: sphere_mesh.clone(),

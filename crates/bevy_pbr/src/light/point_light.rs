@@ -1,3 +1,5 @@
+use bevy_render::view::Visibility;
+
 use super::*;
 
 /// A light that emits light in all directions from a central point.
@@ -19,6 +21,15 @@ use super::*;
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lumen_(unit)#Lighting)
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
+#[require(
+    CubemapVisibleEntities,
+    CubemapFrusta,
+    Transform,
+    GlobalTransform,
+    Visibility,
+    InheritedVisibility,
+    ViewVisibility
+)]
 pub struct PointLight {
     /// The color of this light source.
     pub color: Color,

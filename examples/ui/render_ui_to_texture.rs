@@ -51,7 +51,7 @@ fn setup(
     let image_handle = images.add(image);
 
     // Light
-    commands.spawn(DirectionalLightBundle::default());
+    commands.spawn(DirectionalLight::default());
 
     let texture_camera = commands
         .spawn(Camera2dBundle {

@@ -121,16 +121,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.j = BOARD_SIZE_J / 2;
     game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 10.0, 4.0),
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 2_000_000.0,
             shadows_enabled: true,
             range: 30.0,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(4.0, 10.0, 4.0),
+    ));
 
     // spawn the game board
     let cell_scene =
@@ -355,18 +354,15 @@ fn spawn_bonus(
                 scene: game.bonus.handle.clone(),
                 ..default()
             })
-            .with_children(|children| {
-                children.spawn(PointLightBundle {
-                    point_light: PointLight {
-                        color: Color::srgb(1.0, 1.0, 0.0),
-                        intensity: 500_000.0,
-                        range: 10.0,
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0.0, 2.0, 0.0),
+            .with_child((
+                PointLight {
+                    color: Color::srgb(1.0, 1.0, 0.0),
+                    intensity: 500_000.0,
+                    range: 10.0,
                     ..default()
-                });
-            })
+                },
+                Transform::from_xyz(0.0, 2.0, 0.0),
+            ))
             .id(),
     );
 }
