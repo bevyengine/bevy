@@ -472,7 +472,7 @@ pub fn prepare_meshlet_per_frame_resources(
             .create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("meshlet_visibility_buffer_hardware_raster_indirect_args_first"),
                 contents: DrawIndirectArgs {
-                    vertex_count: 64 * 3,
+                    vertex_count: 128 * 3,
                     instance_count: 0,
                     first_vertex: 0,
                     first_instance: 0,
@@ -484,7 +484,7 @@ pub fn prepare_meshlet_per_frame_resources(
             .create_buffer_with_data(&BufferInitDescriptor {
                 label: Some("visibility_buffer_hardware_raster_indirect_args_second"),
                 contents: DrawIndirectArgs {
-                    vertex_count: 64 * 3,
+                    vertex_count: 128 * 3,
                     instance_count: 0,
                     first_vertex: 0,
                     first_instance: 0,
