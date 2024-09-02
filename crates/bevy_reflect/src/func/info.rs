@@ -6,10 +6,66 @@ use alloc::{boxed::Box, format, vec};
 use variadics_please::all_tuples;
 
 use crate::{
-    func::args::{ArgInfo, GetOwnership, Ownership},
+    func::{
+        args::{ArgInfo, GetOwnership, Ownership},
+        MissingFunctionInfoError,
+    },
     type_info::impl_type_methods,
     Type, TypePath,
 };
+
+/// A wrapper around [`FunctionInfo`] used to represent either a standard function
+/// or an overloaded function.
+#[derive(Debug, Clone)]
+pub enum FunctionInfoType {
+    /// A standard function with a single set of arguments.
+    ///
+    /// This includes generic functions with a single set of monomorphized arguments.
+    Standard(FunctionInfo),
+    /// An overloaded function with multiple sets of arguments.
+    ///
+    /// This includes generic functions with multiple sets of monomorphized arguments,
+    /// as well as functions with a variable number of arguments (i.e. "variadic functions").
+    Overloaded(Box<[FunctionInfo]>),
+}
+
+impl From<FunctionInfo> for FunctionInfoType {
+    fn from(info: FunctionInfo) -> Self {
+        FunctionInfoType::Standard(info)
+    }
+}
+
+impl TryFrom<Vec<FunctionInfo>> for FunctionInfoType {
+    type Error = MissingFunctionInfoError;
+
+    fn try_from(mut infos: Vec<FunctionInfo>) -> Result<Self, Self::Error> {
+        match infos.len() {
+            0 => Err(MissingFunctionInfoError),
+            1 => Ok(Self::Standard(infos.pop().unwrap())),
+            _ => Ok(Self::Overloaded(infos.into_boxed_slice())),
+        }
+    }
+}
+
+impl FunctionInfoType {
+    pub fn arg_count(&self) -> usize {
+        match self {
+            Self::Standard(info) => info.arg_count(),
+            Self::Overloaded(infos) => {
+                // TODO: This needs proper implementation
+                infos.iter().map(FunctionInfo::arg_count).min().unwrap()
+            } // match self {
+              //     Self::Standard(info) => RangeInclusive::new(info.arg_count(), info.arg_count()),
+              //     Self::Overloaded(infos) => infos.iter().map(FunctionInfo::arg_count).fold(
+              //         RangeInclusive::new(0, 0),
+              //         |acc, count| {
+              //             RangeInclusive::new((*acc.start()).min(count), (*acc.end()).max(count))
+              //         },
+              //     ),
+              // }
+        }
+    }
+}
 
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

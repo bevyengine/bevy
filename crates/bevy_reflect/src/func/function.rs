@@ -1,5 +1,5 @@
 use crate::{
-    func::{ArgList, DynamicFunction, FunctionInfo, FunctionResult},
+    func::{ArgList, DynamicFunction, FunctionInfoType, FunctionResult},
     PartialReflect,
 };
 use alloc::borrow::Cow;
@@ -45,17 +45,15 @@ pub trait Function: PartialReflect + Debug {
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
     /// [`IntoFunction`]: crate::func::IntoFunction
-    fn name(&self) -> Option<&Cow<'static, str>> {
-        self.info().name()
-    }
+    fn name(&self) -> Option<&Cow<'static, str>>;
 
     /// The number of arguments this function accepts.
     fn arg_count(&self) -> usize {
         self.info().arg_count()
     }
 
-    /// The [`FunctionInfo`] for this function.
-    fn info(&self) -> &FunctionInfo;
+    /// The [`FunctionInfoType`] for this function.
+    fn info(&self) -> &FunctionInfoType;
 
     /// Call this function with the given arguments.
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;

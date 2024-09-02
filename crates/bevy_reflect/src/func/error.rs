@@ -28,6 +28,13 @@ pub enum FunctionError {
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 pub type FunctionResult<'a> = Result<Return<'a>, FunctionError>;
 
+/// A [`FunctionInfo`] was expected but none was found.
+///
+/// [`FunctionInfo`]: crate::func::FunctionInfo
+#[derive(Debug, Error, PartialEq)]
+#[error("expected a `FunctionInfo` but found none")]
+pub struct MissingFunctionInfoError;
+
 /// An error that occurs when registering a function into a [`FunctionRegistry`].
 ///
 /// [`FunctionRegistry`]: crate::func::FunctionRegistry
