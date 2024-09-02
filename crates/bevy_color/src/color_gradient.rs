@@ -1,11 +1,15 @@
 use crate::Mix;
-use bevy_math::curve::{cores::EvenCoreError, Curve, Interval, SampleCurve};
+use bevy_math::curve::{
+    cores::{EvenCore, EvenCoreError},
+    Curve, Interval,
+};
 
 /// A curve whose samples are defined by a collection of colors.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-pub struct ColorCurve<T: Mix + Clone> {
-    curve: SampleCurve<T, fn(&T, &T, f32) -> T>,
+pub struct ColorCurve<T> {
+    core: EvenCore<T>,
 }
 
 impl<T> ColorCurve<T>
@@ -37,13 +41,12 @@ where
     /// ```
     pub fn new(colors: impl IntoIterator<Item = T>) -> Result<Self, EvenCoreError> {
         let colors = colors.into_iter().collect::<Vec<_>>();
-        let mix: fn(&T, &T, f32) -> T = <T as Mix>::mix;
         Interval::new(0.0, colors.len().saturating_sub(1) as f32)
             .map_err(|_| EvenCoreError::NotEnoughSamples {
                 samples: colors.len(),
             })
-            .and_then(|domain| SampleCurve::new(domain, colors, mix))
-            .map(|curve| Self { curve })
+            .and_then(|domain| EvenCore::new(domain, colors))
+            .map(|core| Self { core })
     }
 }
 
@@ -52,11 +55,11 @@ where
     T: Mix + Clone,
 {
     fn domain(&self) -> Interval {
-        self.curve.domain()
+        self.core.domain()
     }
 
     fn sample_unchecked(&self, t: f32) -> T {
-        self.curve.sample_unchecked(t)
+        self.core.sample_with(t, T::mix)
     }
 }
 
