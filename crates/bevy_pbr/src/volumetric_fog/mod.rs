@@ -50,7 +50,7 @@ use bevy_render::{
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, SpecializedRenderPipelines},
     texture::Image,
-    view::{InheritedVisibility, ViewVisibility, Visibility},
+    view::Visibility,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -123,10 +123,6 @@ pub struct FogVolumeBundle {
     pub fog_volume: FogVolume,
     /// Visibility.
     pub visibility: Visibility,
-    /// Inherited visibility.
-    pub inherited_visibility: InheritedVisibility,
-    /// View visibility.
-    pub view_visibility: ViewVisibility,
     /// The local transform. Set this to change the position, and scale of the
     /// fog's axis-aligned bounding box (AABB).
     pub transform: Transform,
