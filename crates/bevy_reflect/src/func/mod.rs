@@ -154,6 +154,7 @@ mod reflect_fn;
 mod reflect_fn_mut;
 mod registry;
 mod return_type;
+pub mod signature;
 
 #[cfg(test)]
 mod tests {
