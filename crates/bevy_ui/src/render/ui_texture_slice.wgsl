@@ -118,7 +118,7 @@ fn map_uvs_to_slice(
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // map the target uvs to slice coords
-    let uv = map_uvs_to_slice(in.uv, in.texture_slices, in.target_slices, in.repeat);
+    let uv = map_uvs_to_slice(in.uv, in.target_slices, in.texture_slices, in.repeat);
 
     // map the slice coords to texture coords
     let atlas_uv = in.atlas_rect.xy + uv * (in.atlas_rect.zw - in.atlas_rect.xy);
