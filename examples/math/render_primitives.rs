@@ -301,16 +301,13 @@ fn setup_cameras(mut commands: Commands) {
         ..Default::default()
     };
 
-    commands.spawn(Camera2dBundle {
-        camera: make_camera(start_in_2d),
-        ..Default::default()
-    });
+    commands.spawn((Camera2d, make_camera(start_in_2d)));
 
-    commands.spawn(Camera3dBundle {
-        camera: make_camera(!start_in_2d),
-        transform: Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
-        ..Default::default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        make_camera(!start_in_2d),
+        Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
+    ));
 }
 
 fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {

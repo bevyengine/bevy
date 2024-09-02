@@ -28,7 +28,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // quad
     commands.spawn(MaterialMesh2dBundle {

@@ -8,7 +8,8 @@ use crate::{
     render_resource::TextureView,
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, RenderLayers, VisibleEntities,
+        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, InheritedVisibility, Msaa,
+        RenderLayers, ViewVisibility, Visibility, VisibleEntities,
     },
     Extract,
 };
@@ -27,7 +28,7 @@ use bevy_ecs::{
 use bevy_math::{vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{tracing::warn, warn_once};
 use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
@@ -199,6 +200,16 @@ impl Default for PhysicalCameraParameters {
 /// `Camera3dBundle`.
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default)]
+#[require(
+    Frustum,
+    CameraMainTextureUsages,
+    Transform,
+    GlobalTransform,
+    Visibility,
+    InheritedVisibility,
+    ViewVisibility,
+    Msaa
+)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,

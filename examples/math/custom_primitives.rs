@@ -117,11 +117,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn the camera
-    commands.spawn(Camera3dBundle {
-        transform: TRANSFORM_2D,
-        projection: PROJECTION_2D,
-        ..Default::default()
-    });
+    commands.spawn((Camera3d::default(), TRANSFORM_2D, PROJECTION_2D));
 
     // Spawn the 2D heart
     commands.spawn((

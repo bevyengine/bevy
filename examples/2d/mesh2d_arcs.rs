@@ -39,13 +39,13 @@ fn setup(
 ) {
     let material = materials.add(asset_server.load("branding/icon.png"));
 
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera2d,
+        Camera {
             clear_color: ClearColorConfig::Custom(DARK_SLATE_GREY.into()),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     const UPPER_Y: f32 = 50.0;
     const LOWER_Y: f32 = -50.0;

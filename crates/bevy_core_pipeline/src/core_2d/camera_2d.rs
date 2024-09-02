@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::core_2d::graph::Core2d;
 use crate::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::prelude::*;
@@ -17,15 +19,49 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 #[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
+#[require(
+    Camera,
+    DebandDither,
+    CameraRenderGraph(Camera2d::default_render_graph),
+    OrthographicProjection(Camera2d::default_projection),
+    Frustum(Camera2d::default_frustum),
+    Tonemapping(Camera2d::default_tonemapping)
+)]
 pub struct Camera2d;
 
+impl Camera2d {
+    fn default_render_graph() -> CameraRenderGraph {
+        CameraRenderGraph::new(Core2d)
+    }
+
+    fn default_projection() -> OrthographicProjection {
+        OrthographicProjection {
+            far: 1000.,
+            near: -1000.,
+            ..Default::default()
+        }
+    }
+
+    fn default_frustum() -> Frustum {
+        Self::default_projection().compute_frustum(&GlobalTransform::from(Transform::default()))
+    }
+
+    fn default_tonemapping() -> Tonemapping {
+        Tonemapping::None
+    }
+}
+
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use `Camera2d` directly instead. This bundle will be removed in favor of required components in a future release."
+)]
 pub struct Camera2dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,
     /// Note: default value for `OrthographicProjection.near` is `0.0`
     /// which makes objects on the screen plane invisible to 2D camera.
-    /// `Camera2dBundle::default()` sets `near` to negative value,
+    /// `Camera2d` sets `near` to negative value,
     /// so be careful when initializing this field manually.
     pub projection: OrthographicProjection,
     pub visible_entities: VisibleEntities,

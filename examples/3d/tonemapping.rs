@@ -58,14 +58,12 @@ fn setup(
 ) {
     // camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: camera_transform.0,
+        Camera3d::default(),
+        Camera {
+            hdr: true,
             ..default()
         },
+        camera_transform.0,
         FogSettings {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {

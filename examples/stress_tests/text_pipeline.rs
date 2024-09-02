@@ -38,7 +38,7 @@ fn main() {
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let sections = (1..=50)
         .flat_map(|i| {
             [

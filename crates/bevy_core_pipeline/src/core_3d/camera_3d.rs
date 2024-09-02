@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crate::{
     core_3d::graph::Core3d,
     tonemapping::{DebandDither, Tonemapping},
@@ -21,6 +23,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Component, Reflect, Clone, ExtractComponent)]
 #[extract_component_filter(With<Camera>)]
 #[reflect(Component)]
+#[require(
+    Camera,
+    DebandDither(Camera3d::default_deband_dither),
+    CameraRenderGraph(Camera3d::default_render_graph),
+    Projection,
+    Tonemapping,
+    ColorGrading,
+    Exposure
+)]
 pub struct Camera3d {
     /// The depth clear operation to perform for the main 3d pass.
     pub depth_load_op: Camera3dDepthLoadOp,
@@ -61,6 +72,16 @@ impl Default for Camera3d {
             screen_space_specular_transmission_steps: 1,
             screen_space_specular_transmission_quality: Default::default(),
         }
+    }
+}
+
+impl Camera3d {
+    fn default_render_graph() -> CameraRenderGraph {
+        CameraRenderGraph::new(Core3d)
+    }
+
+    fn default_deband_dither() -> DebandDither {
+        DebandDither::Enabled
     }
 }
 
@@ -139,6 +160,10 @@ pub enum ScreenSpaceTransmissionQuality {
 /// The camera coordinate space is right-handed x-right, y-up, z-back.
 /// This means "forward" is -Z.
 #[derive(Bundle, Clone)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use `Camera3d` directly instead. This bundle will be removed in favor of required components in a future release."
+)]
 pub struct Camera3dBundle {
     pub camera: Camera,
     pub camera_render_graph: CameraRenderGraph,

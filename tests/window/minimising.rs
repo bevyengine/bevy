@@ -56,24 +56,24 @@ fn setup_3d(
         ..default()
     });
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// A simple 2d scene, taken from the `rect` example
 fn setup_2d(mut commands: Commands) {
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera2d,
+        Camera {
             // render the 2d camera after the 3d camera
             order: 1,
             // do not use a clear color
             clear_color: ClearColorConfig::None,
             ..default()
         },
-        ..default()
-    });
+    ));
     commands.spawn(SpriteBundle {
         sprite: Sprite {
             color: Color::srgb(0.25, 0.25, 0.75),

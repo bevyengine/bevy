@@ -33,18 +33,15 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                // Deferred both supports both hdr: true and hdr: false
-                hdr: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            // MSAA needs to be off for Deferred rendering
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Camera {
+            // Deferred both supports both hdr: true and hdr: false
+            hdr: false,
             ..default()
         },
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        // MSAA needs to be off for Deferred rendering
+        Msaa::Off,
         FogSettings {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {

@@ -24,15 +24,13 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                hdr: true, // 1. HDR is required for bloom
-                ..default()
-            },
-            tonemapping: Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+        Camera2d,
+        Camera {
+            hdr: true, // 1. HDR is required for bloom
             ..default()
         },
-        BloomSettings::default(), // 3. Enable bloom for the camera
+        Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
+        BloomSettings::default(),   // 3. Enable bloom for the camera
     ));
 
     // Sprite

@@ -79,11 +79,8 @@ fn setup(
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-1.0, 1.0, 1.0)
-                .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-1.0, 1.0, 1.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
         CameraController::default(),
         ShadowFilteringMethod::Hardware2x2,
     ));

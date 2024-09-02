@@ -219,7 +219,7 @@ fn trigger_game_restart(
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {

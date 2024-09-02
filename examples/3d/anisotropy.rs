@@ -64,11 +64,10 @@ fn main() {
 
 /// Creates the initial scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res<AppStatus>) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(CAMERA_INITIAL_POSITION)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(CAMERA_INITIAL_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     spawn_directional_light(&mut commands);
 

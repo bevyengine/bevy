@@ -54,13 +54,13 @@ fn setup(
     commands.spawn(DirectionalLightBundle::default());
 
     let texture_camera = commands
-        .spawn(Camera2dBundle {
-            camera: Camera {
+        .spawn((
+            Camera2d,
+            Camera {
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },
-            ..default()
-        })
+        ))
         .id();
 
     commands
@@ -116,10 +116,10 @@ fn setup(
     ));
 
     // The main pass camera.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 const ROTATION_SPEED: f32 = 0.5;

@@ -44,16 +44,13 @@ fn setup(
 ) {
     // Spawn camera with temporal anti-aliasing and a VolumetricFogSettings configuration.
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 2.0, 0.0)
-                .looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            msaa: Msaa::Off,
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 2.0, 0.0).looking_at(Vec3::new(-5.0, 3.5, -6.0), Vec3::Y),
+        Camera {
+            hdr: true,
             ..default()
         },
+        Msaa::Off,
         TemporalAntiAliasBundle::default(),
         BloomSettings::default(),
         VolumetricFogSettings {

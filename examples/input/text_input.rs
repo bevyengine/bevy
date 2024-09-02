@@ -28,7 +28,7 @@ fn main() {
 }
 
 fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 

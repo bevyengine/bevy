@@ -82,10 +82,10 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
 fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     commands.spawn(
         TextBundle::from_section("", TextStyle::default()).with_style(Style {

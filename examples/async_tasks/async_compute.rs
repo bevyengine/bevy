@@ -135,9 +135,9 @@ fn setup_env(mut commands: Commands) {
     });
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(offset, offset, 15.0)
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(offset, offset, 15.0)
             .looking_at(Vec3::new(offset, offset, 0.0), Vec3::Y),
-        ..default()
-    });
+    ));
 }

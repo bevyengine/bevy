@@ -129,7 +129,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -186,7 +186,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
         .spawn(NodeBundle {
             style: Style {

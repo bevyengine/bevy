@@ -16,16 +16,15 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands.spawn(Camera3dBundle {
-        projection: OrthographicProjection {
+    commands.spawn((
+        Camera3d::default(),
+        Projection::from(OrthographicProjection {
             // 6 world units per window height.
             scaling_mode: ScalingMode::FixedVertical(6.0),
             ..default()
-        }
-        .into(),
-        transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        }),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // plane
     commands.spawn(PbrBundle {

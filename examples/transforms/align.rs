@@ -51,10 +51,10 @@ fn setup(
     let mut seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
 
     // A camera looking at the origin
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3., 2.5, 4.).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // A plane that we can sit on top of
     commands.spawn(PbrBundle {

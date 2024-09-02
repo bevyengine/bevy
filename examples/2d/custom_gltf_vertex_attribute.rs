@@ -60,7 +60,7 @@ fn setup(
     });
 
     // Add a camera
-    commands.spawn(Camera2dBundle { ..default() });
+    commands.spawn(Camera2d);
 }
 
 /// This custom material uses barycentric coordinates from

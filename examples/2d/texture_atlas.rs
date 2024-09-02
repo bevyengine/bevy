@@ -92,7 +92,7 @@ fn setup(
     let atlas_nearest_padded_handle = texture_atlases.add(texture_atlas_nearest_padded);
 
     // setup 2d scene
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // padded textures are to the right, unpadded to the left
 

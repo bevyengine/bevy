@@ -123,16 +123,14 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // this camera renders whatever is on `PIXEL_PERFECT_LAYERS` to the canvas
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                // render before the "main pass" camera
-                order: -1,
-                target: RenderTarget::Image(image_handle.clone()),
-                ..default()
-            },
-            msaa: Msaa::Off,
+        Camera2d,
+        Camera {
+            // render before the "main pass" camera
+            order: -1,
+            target: RenderTarget::Image(image_handle.clone()),
             ..default()
         },
+        Msaa::Off,
         InGameCamera,
         PIXEL_PERFECT_LAYERS,
     ));
@@ -149,14 +147,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // the "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((
-        Camera2dBundle {
-            msaa: Msaa::Off,
-            ..default()
-        },
-        OuterCamera,
-        HIGH_RES_LAYERS,
-    ));
+    commands.spawn((Camera2d, Msaa::Off, OuterCamera, HIGH_RES_LAYERS));
 }
 
 /// Rotates entities to demonstrate grid snapping.

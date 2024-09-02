@@ -105,14 +105,14 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 // Spawns the camera.
 fn spawn_camera(commands: &mut Commands) {
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             hdr: true,
             ..default()
         },
-        transform: Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(-6.483, 0.325, 4.381).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 // Creates the sphere mesh and spawns it.

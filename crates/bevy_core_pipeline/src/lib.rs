@@ -43,6 +43,7 @@ pub mod experimental {
 
 pub mod prelude {
     #[doc(hidden)]
+    #[allow(deprecated)]
     pub use crate::{
         core_2d::{Camera2d, Camera2dBundle},
         core_3d::{Camera3d, Camera3dBundle},
