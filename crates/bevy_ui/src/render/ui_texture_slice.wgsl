@@ -64,7 +64,7 @@ fn vertex(
     return out;
 }
 
-/// maps a point along the axis of the render target to a texture slice
+/// maps a point along the axis of the render target to slice coordinates
 fn map_axis_with_repeat(
     // normalized distance along the axis
     p: f32,
@@ -72,11 +72,11 @@ fn map_axis_with_repeat(
     il: f32,
     // target max dividing point
     ih: f32,
-    // texture min dividing point
+    // slice min dividing point
     tl: f32,
-    // texture max dividing point
+    // slice max dividing point
     th: f32,
-    // number of times to repeat the texture if inside a side or border slice
+    // number of times to repeat the slice for sides and the center
     r: f32,
 ) -> f32 {
     if p < il {
