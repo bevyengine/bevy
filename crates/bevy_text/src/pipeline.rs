@@ -145,6 +145,7 @@ impl TextPipeline {
     #[allow(clippy::too_many_arguments)]
     pub fn queue_text(
         &mut self,
+        layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
         sections: &[TextSection],
         scale_factor: f64,
@@ -156,9 +157,12 @@ impl TextPipeline {
         textures: &mut Assets<Image>,
         y_axis_orientation: YAxisOrientation,
         buffer: &mut CosmicBuffer,
-    ) -> Result<TextLayoutInfo, TextError> {
+    ) -> Result<(), TextError> {
+        layout_info.glyphs.clear();
+        layout_info.size = Default::default();
+
         if sections.is_empty() {
-            return Ok(TextLayoutInfo::default());
+            return Ok(());
         }
 
         self.update_buffer(
@@ -175,14 +179,14 @@ impl TextPipeline {
         let font_system = &mut self.font_system.0;
         let swash_cache = &mut self.swash_cache.0;
 
-        let glyphs = buffer
+        buffer
             .layout_runs()
             .flat_map(|run| {
                 run.glyphs
                     .iter()
                     .map(move |layout_glyph| (layout_glyph, run.line_y))
             })
-            .map(|(layout_glyph, line_y)| {
+            .try_for_each(|(layout_glyph, line_y)| {
                 let section_index = layout_glyph.metadata;
 
                 let font_handle = sections[section_index].style.font.clone_weak();
@@ -224,14 +228,12 @@ impl TextPipeline {
                 // when glyphs are not limited to single byte representation, relevant for #1319
                 let pos_glyph =
                     PositionedGlyph::new(position, glyph_size.as_vec2(), atlas_info, section_index);
-                Ok(pos_glyph)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+                layout_info.glyphs.push(pos_glyph);
+                Ok(())
+            })?;
 
-        Ok(TextLayoutInfo {
-            glyphs,
-            size: box_size,
-        })
+        layout_info.size = box_size;
+        Ok(())
     }
 
     /// Queues text for measurement

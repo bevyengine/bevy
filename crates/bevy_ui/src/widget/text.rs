@@ -224,7 +224,7 @@ fn queue_text(
     text: &Text,
     node: Ref<Node>,
     mut text_flags: Mut<TextFlags>,
-    mut text_layout_info: Mut<TextLayoutInfo>,
+    text_layout_info: Mut<TextLayoutInfo>,
     buffer: &mut CosmicBuffer,
 ) {
     // Skip the text node if it is waiting for a new measure func
@@ -240,7 +240,9 @@ fn queue_text(
             )
         };
 
+        let text_layout_info = text_layout_info.into_inner();
         match text_pipeline.queue_text(
+            text_layout_info,
             fonts,
             &text.sections,
             scale_factor.into(),
@@ -260,10 +262,11 @@ fn queue_text(
             Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
                 panic!("Fatal error when processing text: {e}.");
             }
-            Ok(mut info) => {
-                info.size.x = scale_value(info.size.x, inverse_scale_factor);
-                info.size.y = scale_value(info.size.y, inverse_scale_factor);
-                *text_layout_info = info;
+            Ok(()) => {
+                text_layout_info.size.x =
+                    scale_value(text_layout_info.size.x, inverse_scale_factor);
+                text_layout_info.size.y =
+                    scale_value(text_layout_info.size.y, inverse_scale_factor);
                 text_flags.needs_recompute = false;
             }
         }
