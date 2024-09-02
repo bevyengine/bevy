@@ -276,6 +276,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunctionMut<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::func::{FunctionInfo, IntoReturn};
 
     #[test]
     fn should_overwrite_function_name() {
@@ -322,5 +323,41 @@ mod tests {
                 received: 1
             }
         ));
+    }
+
+    #[test]
+    fn should_allow_creating_manual_generic_dynamic_function_mut() {
+        let mut total = 0_i32;
+        let func = DynamicFunctionMut::new(
+            |mut args| {
+                let value = args.take_arg()?;
+
+                if value.is::<i32>() {
+                    let value = value.take::<i32>()?;
+                    total += value;
+                } else {
+                    let value = value.take::<i16>()?;
+                    total += value as i32;
+                }
+
+                Ok(().into_return())
+            },
+            vec![
+                FunctionInfo::named("add::<i32>").with_arg::<i32>("value"),
+                FunctionInfo::named("add::<i16>").with_arg::<i16>("value"),
+            ],
+        );
+
+        assert!(func.name().is_none());
+        let mut func = func.with_name("add");
+        assert_eq!(func.name().unwrap(), "add");
+
+        let args = ArgList::default().push_owned(25_i32);
+        func.call(args).unwrap();
+        let args = ArgList::default().push_owned(75_i16);
+        func.call(args).unwrap();
+
+        drop(func);
+        assert_eq!(total, 100);
     }
 }

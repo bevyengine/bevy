@@ -328,7 +328,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::IntoReturn;
+    use crate::func::{FunctionInfo, IntoReturn};
 
     #[test]
     fn should_overwrite_function_name() {
@@ -433,5 +433,47 @@ mod tests {
         let args = ArgList::new().push_ref(&factorial).push_owned(5_i32);
         let value = factorial.call(args).unwrap().unwrap_owned();
         assert_eq!(value.try_take::<i32>().unwrap(), 120);
+    }
+
+    #[test]
+    fn should_allow_creating_manual_generic_dynamic_function() {
+        let func = DynamicFunction::new(
+            |mut args| {
+                let a = args.take_arg()?;
+                let b = args.take_arg()?;
+
+                if a.is::<i32>() {
+                    let a = a.take::<i32>()?;
+                    let b = b.take::<i32>()?;
+                    Ok((a + b).into_return())
+                } else {
+                    let a = a.take::<f32>()?;
+                    let b = b.take::<f32>()?;
+                    Ok((a + b).into_return())
+                }
+            },
+            vec![
+                FunctionInfo::named("add::<i32>")
+                    .with_arg::<i32>("a")
+                    .with_arg::<i32>("b")
+                    .with_return::<i32>(),
+                FunctionInfo::named("add::<f32>")
+                    .with_arg::<f32>("a")
+                    .with_arg::<f32>("b")
+                    .with_return::<f32>(),
+            ],
+        );
+
+        assert!(func.name().is_none());
+        let func = func.with_name("add");
+        assert_eq!(func.name().unwrap(), "add");
+
+        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+
+        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     }
 }
