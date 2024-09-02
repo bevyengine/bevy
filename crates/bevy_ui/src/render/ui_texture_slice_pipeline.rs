@@ -167,13 +167,13 @@ impl SpecializedRenderPipeline for UiTextureSlicePipeline {
                 VertexFormat::Float32x2,
                 // color
                 VertexFormat::Float32x4,
-                // slices (left, top, right, bottom)
+                // normalized texture slicing lines (left, top, right, bottom)
                 VertexFormat::Float32x4,
-                // insets (left, top, right, bottom)
+                // normalized target slicing lines (left, top, right, bottom)
                 VertexFormat::Float32x4,
-                // repeat values (h_side, v_side, h_center, v_center)
+                // repeat values (horizontal side, vertical side, horizontal center, vertical center)
                 VertexFormat::Float32x4,
-                // atlas rect (left, top, right, bottom)
+                // normalized texture atlas rect (left, top, right, bottom)
                 VertexFormat::Float32x4,
             ],
         );
