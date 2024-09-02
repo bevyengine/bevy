@@ -613,19 +613,36 @@ pub fn extract_uinode_outlines(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     default_ui_camera: Extract<DefaultUiCamera>,
-    uinode_query: Extract<
+    camera_query: Extract<Query<(Entity, &Camera)>>,
+    ui_scale: Extract<Res<UiScale>>,
+    outline_query: Extract<
         Query<(
             &Node,
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
+            &Style,
+            &BorderRadius,
             &Outline,
+            Option<&Parent>,
         )>,
     >,
+    node_query: Extract<Query<&Node>>,
 ) {
     let image = AssetId::<Image>::default();
-    for (node, global_transform, view_visibility, maybe_clip, camera, outline) in &uinode_query {
+    for (
+        uinode,
+        global_transform,
+        view_visibility,
+        maybe_clip,
+        camera,
+        style,
+        border_radius,
+        outline,
+        parent,
+    ) in &outline_query
+    {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
         else {
             continue;
@@ -634,73 +651,78 @@ pub fn extract_uinode_outlines(
         // Skip invisible outlines
         if !view_visibility.get()
             || outline.color.is_fully_transparent()
-            || node.outline_width == 0.
+            || uinode.outline_width == 0.
         {
             continue;
         }
 
-        // Calculate the outline rects.
-        let inner_rect = Rect::from_center_size(Vec2::ZERO, node.size() + 2. * node.outline_offset);
-        let outer_rect = inner_rect.inflate(node.outline_width());
-        let outline_edges = [
-            // Left edge
-            Rect::new(
-                outer_rect.min.x,
-                outer_rect.min.y,
-                inner_rect.min.x,
-                outer_rect.max.y,
-            ),
-            // Right edge
-            Rect::new(
-                inner_rect.max.x,
-                outer_rect.min.y,
-                outer_rect.max.x,
-                outer_rect.max.y,
-            ),
-            // Top edge
-            Rect::new(
-                inner_rect.min.x,
-                outer_rect.min.y,
-                inner_rect.max.x,
-                inner_rect.min.y,
-            ),
-            // Bottom edge
-            Rect::new(
-                inner_rect.min.x,
-                inner_rect.max.y,
-                inner_rect.max.x,
-                outer_rect.max.y,
-            ),
-        ];
+        let ui_logical_viewport_size = camera_query
+            .get(camera_entity)
+            .ok()
+            .and_then(|(_, c)| c.logical_viewport_size())
+            .unwrap_or(Vec2::ZERO)
+            // The logical window resolution returned by `Window` only takes into account the window scale factor and not `UiScale`,
+            // so we have to divide by `UiScale` to get the size of the UI viewport.
+            / ui_scale.0;
 
-        let world_from_local = global_transform.compute_matrix();
-        for edge in outline_edges {
-            if edge.min.x < edge.max.x && edge.min.y < edge.max.y {
-                extracted_uinodes.uinodes.insert(
-                    commands.spawn_empty().id(),
-                    ExtractedUiNode {
-                        stack_index: node.stack_index,
-                        // This translates the uinode's transform to the center of the current border rectangle
-                        transform: world_from_local
-                            * Mat4::from_translation(edge.center().extend(0.)),
-                        color: outline.color.into(),
-                        rect: Rect {
-                            max: edge.size(),
-                            ..Default::default()
-                        },
-                        image,
-                        atlas_scaling: None,
-                        clip: maybe_clip.map(|clip| clip.clip),
-                        flip_x: false,
-                        flip_y: false,
-                        camera_entity,
-                        border: [0.; 4],
-                        border_radius: [0.; 4],
-                        node_type: NodeType::Rect,
-                    },
-                );
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size);
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size);
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size);
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size);
+
+        let border = [left, top, right, bottom];
+
+        let border_radius = resolve_border_radius(
+            border_radius,
+            uinode.size(),
+            ui_logical_viewport_size,
+            ui_scale.0,
+        );
+
+        let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
+
+        let outer_distance = uinode.outline_offset() + uinode.outline_width();
+        let outline_radius = border_radius.map(|radius| {
+            if 0. < radius {
+                radius + outer_distance
+            } else {
+                0.
             }
-        }
+        });
+        let outline_size = uinode.size() + 2. * outer_distance;
+
+        extracted_uinodes.uinodes.insert(
+            commands.spawn_empty().id(),
+            ExtractedUiNode {
+                stack_index: uinode.stack_index,
+                // This translates the uinode's transform to the center of the current border rectangle
+                transform: global_transform.compute_matrix(),
+                color: outline.color.into(),
+                rect: Rect {
+                    max: outline_size,
+                    ..Default::default()
+                },
+                image,
+                atlas_scaling: None,
+                clip: maybe_clip.map(|clip| clip.clip),
+                flip_x: false,
+                flip_y: false,
+                camera_entity,
+                border: [uinode.outline_width(); 4],
+                border_radius: outline_radius,
+                node_type: NodeType::Border,
+            },
+        );
     }
 }
 
