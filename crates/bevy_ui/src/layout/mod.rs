@@ -1,7 +1,7 @@
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::Entity,
+    entity::{Entity, EntityHashMap, EntityHashSet},
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
@@ -15,7 +15,6 @@ use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_text::TextPipeline;
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
-use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use ui_surface::UiSurface;
@@ -76,8 +75,8 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
 #[derive(Default)]
 pub struct UiLayoutSystemBuffers {
     interned_root_notes: Vec<Vec<Entity>>,
-    resized_windows: HashSet<Entity>,
-    camera_layout_info: HashMap<Entity, CameraLayoutInfo>,
+    resized_windows: EntityHashSet,
+    camera_layout_info: EntityHashMap<CameraLayoutInfo>,
 }
 
 struct CameraLayoutInfo {
