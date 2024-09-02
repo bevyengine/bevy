@@ -1,11 +1,11 @@
 use crate::{ContentSize, DefaultUiCamera, Node, Outline, Style, TargetCamera, UiScale};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::Entity,
+    entity::{Entity, EntityHashMap, EntityHashSet},
     event::EventReader,
     query::{With, Without},
     removal_detection::RemovedComponents,
-    system::{Query, Res, ResMut, SystemParam},
+    system::{Local, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
@@ -15,7 +15,6 @@ use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_text::{CosmicBuffer, TextPipeline};
 use bevy_transform::components::Transform;
 use bevy_utils::tracing::warn;
-use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use ui_surface::UiSurface;
@@ -63,6 +62,7 @@ pub enum LayoutError {
     TaffyError(#[from] taffy::TaffyError),
 }
 
+#[doc(hidden)]
 #[derive(SystemParam)]
 pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
     removed_cameras: RemovedComponents<'w, 's, Camera>,
@@ -71,9 +71,25 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
     removed_nodes: RemovedComponents<'w, 's, Node>,
 }
 
+#[doc(hidden)]
+#[derive(Default)]
+pub struct UiLayoutSystemBuffers {
+    interned_root_notes: Vec<Vec<Entity>>,
+    resized_windows: EntityHashSet,
+    camera_layout_info: EntityHashMap<CameraLayoutInfo>,
+}
+
+struct CameraLayoutInfo {
+    size: UVec2,
+    resized: bool,
+    scale_factor: f32,
+    root_nodes: Vec<Entity>,
+}
+
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 #[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
+    mut buffers: Local<UiLayoutSystemBuffers>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     cameras: Query<(Entity, &Camera)>,
     default_ui_camera: DefaultUiCamera,
@@ -98,20 +114,20 @@ pub fn ui_layout_system(
     #[cfg(feature = "bevy_text")] mut buffer_query: Query<&mut CosmicBuffer>,
     #[cfg(feature = "bevy_text")] mut text_pipeline: ResMut<TextPipeline>,
 ) {
-    struct CameraLayoutInfo {
-        size: UVec2,
-        resized: bool,
-        scale_factor: f32,
-        root_nodes: Vec<Entity>,
-    }
+    let UiLayoutSystemBuffers {
+        interned_root_notes,
+        resized_windows,
+        camera_layout_info,
+    } = &mut *buffers;
 
     let default_camera = default_ui_camera.get();
     let camera_with_default = |target_camera: Option<&TargetCamera>| {
         target_camera.map(TargetCamera::entity).or(default_camera)
     };
 
-    let resized_windows: HashSet<Entity> = resize_events.read().map(|event| event.window).collect();
-    let calculate_camera_layout_info = |camera: &Camera| {
+    resized_windows.clear();
+    resized_windows.extend(resize_events.read().map(|event| event.window));
+    let mut calculate_camera_layout_info = |camera: &Camera| {
         let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
         let scale_factor = camera.target_scaling_factor().unwrap_or(1.0);
         let camera_target = camera
@@ -124,12 +140,12 @@ pub fn ui_layout_system(
             size,
             resized,
             scale_factor: scale_factor * ui_scale.0,
-            root_nodes: Vec::new(),
+            root_nodes: interned_root_notes.pop().unwrap_or_default(),
         }
     };
 
     // Precalculate the layout info for each camera, so we have fast access to it for each node
-    let mut camera_layout_info: HashMap<Entity, CameraLayoutInfo> = HashMap::new();
+    camera_layout_info.clear();
     root_node_query.iter().for_each(|(entity,target_camera)|{
         match camera_with_default(target_camera) {
             Some(camera_entity) => {
@@ -232,11 +248,11 @@ pub fn ui_layout_system(
         }
     });
 
-    for (camera_id, camera) in &camera_layout_info {
+    for (camera_id, mut camera) in camera_layout_info.drain() {
         let inverse_target_scale_factor = camera.scale_factor.recip();
 
         ui_surface.compute_camera_layout(
-            *camera_id,
+            camera_id,
             camera.size,
             #[cfg(feature = "bevy_text")]
             text_buffers,
@@ -255,6 +271,9 @@ pub fn ui_layout_system(
                 Vec2::ZERO,
             );
         }
+
+        camera.root_nodes.clear();
+        interned_root_notes.push(camera.root_nodes);
     }
 
     fn update_uinode_geometry_recursive(
