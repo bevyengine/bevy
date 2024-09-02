@@ -143,8 +143,8 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
                 row_gap: Val::Px(6.0),
-                left: Val::Px(10.0),
-                bottom: Val::Px(10.0),
+                left: Val::Px(12.0),
+                bottom: Val::Px(12.0),
                 ..default()
             },
             ..default()
@@ -318,8 +318,8 @@ fn add_help_text(
         .spawn(TextBundle {
             style: Style {
                 position_type: PositionType::Absolute,
-                left: Val::Px(10.0),
-                top: Val::Px(10.0),
+                left: Val::Px(12.0),
+                top: Val::Px(12.0),
                 ..default()
             },
             ..TextBundle::from_section(
