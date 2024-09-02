@@ -98,7 +98,7 @@ fn map_uvs_to_slice(
     repeat: vec4<f32>,
 ) -> vec2<f32> {
     var r: vec2<f32>;
-    if target_slices.x <= uv.x && uv.x <= target_slices.z && border.y <= uv.y && uv.y <= target_slices.w {
+    if target_slices.x <= uv.x && uv.x <= target_slices.z && target_slices.y <= uv.y && uv.y <= target_slices.w {
         // use the center repeat values if the uv coords are inside the center slice of the target
         r = repeat.zw;
     } else {
