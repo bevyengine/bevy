@@ -92,7 +92,11 @@ impl Debug for App {
 impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
+
         app.sub_apps.main.update_schedule = Some(Main.intern());
+
+        #[cfg(feature = "bevy_reflect")]
+        bevy_reflect::wasm_init::wasm_init();
 
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();

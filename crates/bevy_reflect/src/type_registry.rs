@@ -9,6 +9,13 @@ use std::{
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
+#[cfg(target_arch = "wasm32")]
+pub static AUTOMATIC_REFLECT_TYPES: RwLock<Vec<fn(&mut TypeRegistry)>> = RwLock::new(Vec::new());
+#[cfg(not(target_arch = "wasm32"))]
+pub struct AUTOMATIC_REFLECT_TYPES(pub fn(&mut TypeRegistry));
+#[cfg(not(target_arch = "wasm32"))]
+inventory::collect!(AUTOMATIC_REFLECT_TYPES);
+
 /// A registry of [reflected] types.
 ///
 /// This struct is used as the central store for type information.
@@ -108,6 +115,14 @@ impl TypeRegistry {
         registry.register::<f32>();
         registry.register::<f64>();
         registry.register::<String>();
+        #[cfg(target_arch = "wasm32")]
+        for f in AUTOMATIC_REFLECT_TYPES.read().unwrap().iter() {
+            f(&mut registry)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        for f in inventory::iter::<AUTOMATIC_REFLECT_TYPES> {
+            f.0(&mut registry)
+        }
         registry
     }
 

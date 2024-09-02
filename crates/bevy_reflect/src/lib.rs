@@ -597,6 +597,9 @@ pub use type_registry::*;
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
+pub extern crate inventory;
+pub extern crate wasm_init;
+
 extern crate alloc;
 
 /// Exports used by the reflection macros.
