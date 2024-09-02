@@ -508,7 +508,7 @@ pub fn extract_uinode_borders(
                 Option<&Parent>,
                 &Style,
                 &BorderColor,
-                &BorderRadius,
+                Option<&BorderRadius>,
             ),
             Without<ContentSize>,
         >,
@@ -526,7 +526,7 @@ pub fn extract_uinode_borders(
         parent,
         style,
         border_color,
-        border_radius,
+        maybe_border_radius,
     ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -574,14 +574,17 @@ pub fn extract_uinode_borders(
             continue;
         }
 
-        let border_radius = resolve_border_radius(
-            border_radius,
-            node.size(),
-            ui_logical_viewport_size,
-            ui_scale.0,
-        );
-
-        let border_radius = clamp_radius(border_radius, node.size(), border.into());
+        let border_radius = if let Some(border_radius) = maybe_border_radius {
+            let resolved_radius = resolve_border_radius(
+                border_radius,
+                node.size(),
+                ui_logical_viewport_size,
+                ui_scale.0,
+            );
+            clamp_radius(resolved_radius, node.size(), border.into())
+        } else {
+            [0.; 4]
+        };
         let transform = global_transform.compute_matrix();
 
         extracted_uinodes.uinodes.insert(
