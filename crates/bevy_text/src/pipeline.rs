@@ -51,6 +51,10 @@ pub struct TextPipeline {
     ///
     /// See [`cosmic_text::SwashCache`] for more information.
     swash_cache: SwashCache,
+    /// Buffered vec for collecting spans.
+    ///
+    /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
+    spans_buffer: Vec<(&'static str, Attrs<'static>)>,
 }
 
 impl TextPipeline {
@@ -95,23 +99,29 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let spans: Vec<(&str, Attrs)> = sections
-            .iter()
-            .enumerate()
-            .filter(|(_section_index, section)| section.style.font_size > 0.0)
-            .map(|(section_index, section)| {
-                (
-                    &section.value[..],
-                    get_attrs(
-                        section,
-                        section_index,
-                        font_system,
-                        &self.map_handle_to_font_id,
-                        scale_factor,
-                    ),
-                )
-            })
+        let mut spans: Vec<(&str, Attrs)> = std::mem::take(&mut self.spans_buffer)
+            .into_iter()
+            .map(|_| -> (&str, Attrs) { unreachable!() })
             .collect();
+        spans.extend(
+            sections
+                .iter()
+                .enumerate()
+                .filter(|(_section_index, section)| section.style.font_size > 0.0)
+                .map(|(section_index, section)| {
+                    (
+                        &section.value[..],
+                        get_attrs(
+                            section,
+                            section_index,
+                            font_system,
+                            &self.map_handle_to_font_id,
+                            scale_factor,
+                        ),
+                    )
+                }),
+        );
+        let spans_iter = spans.iter().copied();
 
         buffer.set_metrics(font_system, metrics);
         buffer.set_size(font_system, bounds.width, bounds.height);
@@ -126,7 +136,7 @@ impl TextPipeline {
             },
         );
 
-        buffer.set_rich_text(font_system, spans, Attrs::new(), Shaping::Advanced);
+        buffer.set_rich_text(font_system, spans_iter, Attrs::new(), Shaping::Advanced);
 
         // PERF: https://github.com/pop-os/cosmic-text/issues/166:
         // Setting alignment afterwards appears to invalidate some layouting performed by `set_text` which is presumably not free?
@@ -134,6 +144,13 @@ impl TextPipeline {
             buffer_line.set_align(Some(alignment.into()));
         }
         buffer.shape_until_scroll(font_system, false);
+
+        // Recover the spans buffer.
+        spans.clear();
+        self.spans_buffer = spans
+            .into_iter()
+            .map(|_| -> (&'static str, Attrs<'static>) { unreachable!() })
+            .collect();
 
         Ok(())
     }
