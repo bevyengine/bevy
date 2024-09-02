@@ -97,8 +97,5 @@ fn setup(mut assets: ResMut<Assets<SineAudio>>, mut commands: Commands) {
     let audio_handle = assets.add(SineAudio {
         frequency: 440., //this is the frequency of A4
     });
-    commands.spawn(AudioSourceBundle {
-        source: audio_handle,
-        ..default()
-    });
+    commands.spawn(AudioHandle(audio_handle));
 }

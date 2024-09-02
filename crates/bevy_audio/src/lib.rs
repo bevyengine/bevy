@@ -36,9 +36,11 @@ mod sinks;
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
+    #[allow(deprecated)]
     pub use crate::{
-        AudioBundle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle, Decodable,
-        GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink, SpatialListener,
+        AudioBundle, AudioHandle, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle,
+        Decodable, GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink,
+        SpatialListener,
     };
 }
 

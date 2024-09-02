@@ -79,26 +79,22 @@ fn change_track(
         match game_state.as_ref() {
             GameState::Peaceful => {
                 commands.spawn((
-                    AudioBundle {
-                        source: soundtrack_player.track_list.first().unwrap().clone(),
-                        settings: PlaybackSettings {
-                            mode: bevy::audio::PlaybackMode::Loop,
-                            volume: bevy::audio::Volume::ZERO,
-                            ..default()
-                        },
+                    AudioHandle(soundtrack_player.track_list.first().unwrap().clone()),
+                    PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Loop,
+                        volume: bevy::audio::Volume::ZERO,
+                        ..default()
                     },
                     FadeIn,
                 ));
             }
             GameState::Battle => {
                 commands.spawn((
-                    AudioBundle {
-                        source: soundtrack_player.track_list.get(1).unwrap().clone(),
-                        settings: PlaybackSettings {
-                            mode: bevy::audio::PlaybackMode::Loop,
-                            volume: bevy::audio::Volume::ZERO,
-                            ..default()
-                        },
+                    AudioHandle(soundtrack_player.track_list.get(1).unwrap().clone()),
+                    PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Loop,
+                        volume: bevy::audio::Volume::ZERO,
+                        ..default()
                     },
                     FadeIn,
                 ));

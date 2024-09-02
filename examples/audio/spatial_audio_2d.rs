@@ -41,10 +41,8 @@ fn setup(
             ..default()
         },
         Emitter::default(),
-        AudioBundle {
-            source: asset_server.load("sounds/Windless Slopes.ogg"),
-            settings: PlaybackSettings::LOOP.with_spatial(true),
-        },
+        AudioHandle::<AudioSource>(asset_server.load("sounds/Windless Slopes.ogg")),
+        PlaybackSettings::LOOP.with_spatial(true),
     ));
 
     let listener = SpatialListener::new(gap);
