@@ -35,6 +35,7 @@ pub mod render_resource;
 pub mod renderer;
 pub mod settings;
 mod spatial_bundle;
+pub mod storage;
 pub mod texture;
 pub mod view;
 pub mod prelude {
@@ -75,6 +76,7 @@ use crate::{
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
+    storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin, SubApp};
@@ -356,6 +358,7 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin,
+            StoragePlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
