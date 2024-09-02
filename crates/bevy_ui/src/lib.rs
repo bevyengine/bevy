@@ -77,8 +77,6 @@ pub enum UiSystem {
     Focus,
     /// After this label, the [`UiStack`] resource has been updated
     Stack,
-    /// After this label, node outline widths have been updated
-    Outlines,
 }
 
 /// The current scale of the UI.
@@ -132,13 +130,7 @@ impl Plugin for UiPlugin {
             .register_type::<Outline>()
             .configure_sets(
                 PostUpdate,
-                (
-                    CameraUpdateSystem,
-                    UiSystem::Stack,
-                    UiSystem::Layout,
-                    UiSystem::Outlines,
-                )
-                    .chain(),
+                (CameraUpdateSystem, UiSystem::Stack, UiSystem::Layout).chain(),
             )
             .add_systems(
                 PreUpdate,
@@ -156,17 +148,10 @@ impl Plugin for UiPlugin {
                 ui_layout_system
                     .in_set(UiSystem::Layout)
                     .before(TransformSystem::TransformPropagate),
-                resolve_outlines_system
-                    .in_set(UiSystem::Outlines)
-                    .after(UiSystem::Layout)
-                    // clipping doesn't care about outlines
-                    .ambiguous_with(update_clipping_system)
-                    .in_set(AmbiguousWithTextSystem),
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
                     .ambiguous_with(update_clipping_system)
-                    .ambiguous_with(resolve_outlines_system)
                     .ambiguous_with(ui_layout_system)
                     .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),

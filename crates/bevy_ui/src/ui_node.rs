@@ -35,10 +35,14 @@ pub struct Node {
     pub(crate) calculated_size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
+    /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::resolve_outlines_system`].
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
+    /// Outline updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_offset: f32,
     /// The unrounded size of the node as width and height in logical pixels.
     ///
