@@ -1195,6 +1195,7 @@ impl<'w> EntityWorldMut<'w> {
             .world
             .bundles
             .init_dynamic_info(components, &contributed_components);
+        // SAFETY: the dynamic `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(extended_bundle) };
 
         self
