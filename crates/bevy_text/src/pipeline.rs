@@ -1,7 +1,12 @@
 use std::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
-use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent, system::Resource};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    reflect::ReflectComponent,
+    system::{ResMut, Resource},
+};
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
@@ -406,4 +411,13 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     let height = buffer.layout_runs().count() as f32 * line_height;
 
     Vec2::new(width.ceil(), height).ceil()
+}
+
+/// Discards cached shaped older than one tick.
+///
+/// We assume only text updated every tick benefits from the shape cache (e.g. animated text, or
+/// text that is dynamically measured for UI).
+pub(crate) fn trim_cosmic_cache(mut pipeline: ResMut<TextPipeline>) {
+    // Use a large age to be very optimistic about reusability of cached shapes.
+    pipeline.font_system_mut().shape_run_cache.trim(2000);
 }

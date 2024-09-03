@@ -1,5 +1,7 @@
 //! Shows various text layout options.
 
+use std::{collections::VecDeque, time::Duration};
+
 use bevy::{
     color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
@@ -154,7 +156,15 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         builder.spawn((
             TextBundle::from_sections([
                 TextSection::new(
-                    "This text changes in the bottom right",
+                    "",
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 25.0,
+                        ..default()
+                    },
+                ),
+                TextSection::new(
+                    "\nThis text changes in the bottom right",
                     TextStyle {
                         font: font.clone(),
                         font_size: 25.0,
@@ -223,10 +233,19 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn change_text_system(
+    mut time_track: Local<VecDeque<Duration>>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
     mut query: Query<&mut Text, With<TextChanges>>,
 ) {
+    time_track.push_front(time.elapsed());
+    time_track.truncate(120);
+    let avg_fps = (time_track.len().max(1) as f32)
+        / (time_track.front().copied().unwrap_or_default()
+            - time_track.back().copied().unwrap_or_default())
+        .as_secs_f32()
+        .max(0.0001);
+
     for mut text in &mut query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
@@ -244,12 +263,14 @@ fn change_text_system(
             }
         }
 
-        text.sections[0].value = format!(
-            "This text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
+        text.sections[0].value = format!("{avg_fps:.1} avg fps",);
+
+        text.sections[1].value = format!(
+            "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        text.sections[3].value = format!("{fps:.1}");
+        text.sections[4].value = format!("{fps:.1}");
 
-        text.sections[5].value = format!("{frame_time:.3}");
+        text.sections[6].value = format!("{frame_time:.3}");
     }
 }
