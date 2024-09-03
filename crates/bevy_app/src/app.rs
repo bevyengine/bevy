@@ -96,9 +96,6 @@ impl Default for App {
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]
-        bevy_reflect::wasm_init::wasm_init();
-
-        #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
         #[cfg(feature = "reflect_functions")]

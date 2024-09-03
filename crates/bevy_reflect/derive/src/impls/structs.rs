@@ -1,4 +1,7 @@
-use crate::impls::{common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed};
+use crate::impls::{
+    common_partial_reflect_methods, impl_full_reflect, impl_type_path, impl_typed,
+    reflect_auto_registration,
+};
 use crate::struct_utility::FieldAccessors;
 use crate::ReflectStruct;
 use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption, FQResult};
@@ -60,21 +63,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
         .generics()
         .split_for_impl();
 
-    let auto_reflect = if ty_generics.clone().into_token_stream().is_empty() {
-        quote! {
-            #[cfg(target_arch = "wasm32")]
-            #bevy_reflect_path::wasm_init::wasm_init!{
-                #bevy_reflect_path::AUTOMATIC_REFLECT_TYPES
-                    .write()
-                    .unwrap()
-                    .push(|reg: &mut #bevy_reflect_path::TypeRegistry| reg.register::<#struct_path>());
-            }
-            #[cfg(not(target_arch = "wasm32"))]
-            #bevy_reflect_path::inventory::submit!(#bevy_reflect_path::AUTOMATIC_REFLECT_TYPES(|reg: &mut #bevy_reflect_path::TypeRegistry| reg.register::<#struct_path>()));
-        }
-    } else {
-        quote! {}
-    };
+    let auto_register = reflect_auto_registration(&reflect_struct.meta());
 
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
@@ -89,7 +78,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> proc_macro2::TokenS
 
         #function_impls
 
-        #auto_reflect
+        #auto_register
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_path #ty_generics #where_reflect_clause {
             fn field(&self, name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {

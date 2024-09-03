@@ -1,6 +1,6 @@
 use bevy_macro_utils::fq_std::{FQAny, FQBox, FQOption, FQResult};
 
-use quote::quote;
+use quote::{quote, ToTokens};
 
 use crate::{derive_data::ReflectMeta, utility::WhereClauseOptions};
 
@@ -155,4 +155,30 @@ pub fn common_partial_reflect_methods(
 
         #debug_fn
     }
+}
+
+pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::TokenStream> {
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    let type_path = meta.type_path();
+    let (_, ty_generics, _) = meta.type_path().generics().split_for_impl();
+
+    if !ty_generics.into_token_stream().is_empty() {
+        return None;
+    };
+
+    Some(quote! {
+        #[cfg(target_family = "wasm")]
+        #bevy_reflect_path::wasm_init::wasm_init!{
+            #bevy_reflect_path::DERIVED_REFLECT_TYPES
+                .write()
+                .unwrap()
+                .push(|reg: &mut #bevy_reflect_path::TypeRegistry| reg.register::<#type_path>());
+        }
+        #[cfg(not(target_family = "wasm"))]
+        #bevy_reflect_path::inventory::submit!(
+            #bevy_reflect_path::DERIVED_REFLECT_TYPES(
+                |reg: &mut #bevy_reflect_path::TypeRegistry| reg.register::<#type_path>()
+            )
+        );
+    })
 }
