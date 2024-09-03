@@ -257,7 +257,8 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple entities with the same [`Observer`].
 ///
 /// When first added, [`Observer`] will also create an [`ObserverState`] component, which registers the observer with the [`World`] and
-/// serves as the "source of truth" of the observer.
+/// serves as the "source of truth" of the observer. [`ObserverState`] can be used to filter for [`Observer`] [`Entity`]s, e.g.
+/// [`With<ObserverState>`].
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer<T: 'static, B: Bundle> {
@@ -375,8 +376,7 @@ fn observer_system_runner<E: Event, B: Bundle>(
     };
 
     // TODO: Move this check into the observer cache to avoid dynamic dispatch
-    // SAFETY: We only access world metadata
-    let last_trigger = unsafe { world.world_metadata() }.last_trigger_id();
+    let last_trigger = world.last_trigger_id();
     if state.last_trigger_id == last_trigger {
         return;
     }

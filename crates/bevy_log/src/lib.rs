@@ -5,7 +5,7 @@
 )]
 
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
-//! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
+//! apps, and automatically configures platform specific log handlers (i.e. Wasm or Android).
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
 //! and behave identically to it.
@@ -75,7 +75,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///     logging to `stdout`.
 /// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
 ///     logging to Android logs.
-/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
 ///     to the browser console.
 ///
 /// You can configure this plugin.
@@ -157,10 +157,13 @@ pub struct LogPlugin {
 /// A boxed [`Layer`] that can be used with [`LogPlugin`].
 pub type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
 
+/// The default [`LogPlugin`] [`EnvFilter`].
+pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+
 impl Default for LogPlugin {
     fn default() -> Self {
         Self {
-            filter: "wgpu=error,naga=warn".to_string(),
+            filter: DEFAULT_FILTER.to_string(),
             level: Level::INFO,
             custom_layer: |_| None,
         }

@@ -31,6 +31,16 @@ pub struct Sprite {
     pub anchor: Anchor,
 }
 
+impl Sprite {
+    /// Create a Sprite with a custom size
+    pub fn sized(custom_size: Vec2) -> Self {
+        Sprite {
+            custom_size: Some(custom_size),
+            ..Default::default()
+        }
+    }
+}
+
 /// Controls how the image is altered when scaled.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component)]

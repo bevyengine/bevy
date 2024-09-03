@@ -29,7 +29,6 @@ const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .insert_resource(Msaa::Off)
         .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
         .add_systems(Update, (rotate, fit_canvas))
         .run();
@@ -131,6 +130,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },
+            msaa: Msaa::Off,
             ..default()
         },
         InGameCamera,
@@ -149,7 +149,14 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // the "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((Camera2dBundle::default(), OuterCamera, HIGH_RES_LAYERS));
+    commands.spawn((
+        Camera2dBundle {
+            msaa: Msaa::Off,
+            ..default()
+        },
+        OuterCamera,
+        HIGH_RES_LAYERS,
+    ));
 }
 
 /// Rotates entities to demonstrate grid snapping.

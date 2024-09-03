@@ -23,7 +23,6 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(Msaa::Off)
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
@@ -38,28 +37,30 @@ fn modify_aa(
             Option<&mut Fxaa>,
             Option<&mut SmaaSettings>,
             Option<&TemporalAntiAliasSettings>,
+            &mut Msaa,
         ),
         With<Camera>,
     >,
-    mut msaa: ResMut<Msaa>,
     mut commands: Commands,
 ) {
-    let (camera_entity, fxaa, smaa, taa) = camera.single_mut();
+    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.single_mut();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
-        camera.remove::<Fxaa>();
-        camera.remove::<SmaaSettings>();
-        camera.remove::<TemporalAntiAliasBundle>();
+        camera = camera
+            .remove::<Fxaa>()
+            .remove::<SmaaSettings>()
+            .remove::<TemporalAntiAliasBundle>();
     }
 
     // MSAA
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
-        camera.remove::<Fxaa>();
-        camera.remove::<SmaaSettings>();
-        camera.remove::<TemporalAntiAliasBundle>();
+        camera = camera
+            .remove::<Fxaa>()
+            .remove::<SmaaSettings>()
+            .remove::<TemporalAntiAliasBundle>();
 
         *msaa = Msaa::Sample4;
     }
@@ -80,10 +81,10 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<SmaaSettings>();
-        camera.remove::<TemporalAntiAliasBundle>();
-
-        camera.insert(Fxaa::default());
+        camera = camera
+            .remove::<SmaaSettings>()
+            .remove::<TemporalAntiAliasBundle>()
+            .insert(Fxaa::default());
     }
 
     // FXAA Settings
@@ -113,10 +114,10 @@ fn modify_aa(
     // SMAA
     if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<Fxaa>();
-        camera.remove::<TemporalAntiAliasBundle>();
-
-        camera.insert(SmaaSettings::default());
+        camera = camera
+            .remove::<Fxaa>()
+            .remove::<TemporalAntiAliasBundle>()
+            .insert(SmaaSettings::default());
     }
 
     // SMAA Settings
@@ -138,10 +139,10 @@ fn modify_aa(
     // TAA
     if keys.just_pressed(KeyCode::Digit5) && taa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<Fxaa>();
-        camera.remove::<SmaaSettings>();
-
-        camera.insert(TemporalAntiAliasBundle::default());
+        camera
+            .remove::<Fxaa>()
+            .remove::<SmaaSettings>()
+            .insert(TemporalAntiAliasBundle::default());
     }
 }
 
@@ -176,13 +177,13 @@ fn update_ui(
             Option<&SmaaSettings>,
             Option<&TemporalAntiAliasSettings>,
             &ContrastAdaptiveSharpeningSettings,
+            &Msaa,
         ),
         With<Camera>,
     >,
-    msaa: Res<Msaa>,
     mut ui: Query<&mut Text>,
 ) {
-    let (fxaa, smaa, taa, cas_settings) = camera.single();
+    let (fxaa, smaa, taa, cas_settings, msaa) = camera.single();
 
     let mut ui = ui.single_mut();
     let ui = &mut ui.sections[0].value;

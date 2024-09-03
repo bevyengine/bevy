@@ -7,13 +7,15 @@
 use crate::custom_attributes::CustomAttributes;
 use crate::utility::terminated_parser;
 use crate::REFLECT_ATTRIBUTE_NAME;
+use quote::ToTokens;
 use syn::parse::ParseStream;
-use syn::{Attribute, LitStr, Meta, Token};
+use syn::{Attribute, LitStr, Meta, Token, Type};
 
 mod kw {
     syn::custom_keyword!(ignore);
     syn::custom_keyword!(skip_serializing);
     syn::custom_keyword!(default);
+    syn::custom_keyword!(remote);
 }
 
 pub(crate) const IGNORE_SERIALIZATION_ATTR: &str = "skip_serializing";
@@ -76,6 +78,8 @@ pub(crate) struct FieldAttributes {
     pub default: DefaultBehavior,
     /// Custom attributes created via `#[reflect(@...)]`.
     pub custom_attributes: CustomAttributes,
+    /// For defining the remote wrapper type that should be used in place of the field for reflection logic.
+    pub remote: Option<Type>,
 }
 
 impl FieldAttributes {
@@ -119,6 +123,8 @@ impl FieldAttributes {
             self.parse_skip_serializing(input)
         } else if lookahead.peek(kw::default) {
             self.parse_default(input)
+        } else if lookahead.peek(kw::remote) {
+            self.parse_remote(input)
         } else {
             Err(lookahead.error())
         }
@@ -189,5 +195,42 @@ impl FieldAttributes {
     /// - `#[reflect(@(min = 0.0, max = 1.0))]`
     fn parse_custom_attribute(&mut self, input: ParseStream) -> syn::Result<()> {
         self.custom_attributes.parse_custom_attribute(input)
+    }
+
+    /// Parse `remote` attribute.
+    ///
+    /// Examples:
+    /// - `#[reflect(remote = path::to::RemoteType)]`
+    fn parse_remote(&mut self, input: ParseStream) -> syn::Result<()> {
+        if let Some(remote) = self.remote.as_ref() {
+            return Err(input.error(format!(
+                "remote type already specified as {}",
+                remote.to_token_stream()
+            )));
+        }
+
+        input.parse::<kw::remote>()?;
+        input.parse::<Token![=]>()?;
+
+        self.remote = Some(input.parse()?);
+
+        Ok(())
+    }
+
+    /// Returns `Some(true)` if the field has a generic remote type.
+    ///
+    /// If the remote type is not generic, returns `Some(false)`.
+    ///
+    /// If the field does not have a remote type, returns `None`.
+    pub fn is_remote_generic(&self) -> Option<bool> {
+        if let Type::Path(type_path) = self.remote.as_ref()? {
+            type_path
+                .path
+                .segments
+                .last()
+                .map(|segment| !segment.arguments.is_empty())
+        } else {
+            Some(false)
+        }
     }
 }

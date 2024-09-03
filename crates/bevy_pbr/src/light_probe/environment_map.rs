@@ -65,7 +65,7 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage, Image},
 };
 
-use std::num::NonZeroU32;
+use std::num::NonZero;
 use std::ops::Deref;
 
 use crate::{
@@ -217,7 +217,7 @@ pub(crate) fn get_bind_group_layout_entries(
         binding_types::texture_cube(TextureSampleType::Float { filterable: true });
     if binding_arrays_are_usable(render_device) {
         texture_cube_binding =
-            texture_cube_binding.count(NonZeroU32::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
+            texture_cube_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }
 
     [

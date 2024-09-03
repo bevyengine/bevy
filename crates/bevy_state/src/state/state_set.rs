@@ -27,7 +27,7 @@ mod sealed {
 ///
 /// It is sealed, and auto implemented for all [`States`] types and
 /// tuples containing them.
-pub trait StateSet: sealed::StateSetSealed {
+pub trait StateSet: StateSetSealed {
     /// The total [`DEPENDENCY_DEPTH`](`States::DEPENDENCY_DEPTH`) of all
     /// the states that are part of this [`StateSet`], added together.
     ///
@@ -229,10 +229,12 @@ impl<S: InnerStateSet> StateSet for S {
 }
 
 macro_rules! impl_state_set_sealed_tuples {
-    ($(($param: ident, $val: ident, $evt: ident)), *) => {
-        impl<$($param: InnerStateSet),*> StateSetSealed for  ($($param,)*) {}
+    ($(#[$meta:meta])* $(($param: ident, $val: ident, $evt: ident)), *) => {
+        $(#[$meta])*
+        impl<$($param: InnerStateSet),*> StateSetSealed for ($($param,)*) {}
 
-        impl<$($param: InnerStateSet),*> StateSet for  ($($param,)*) {
+        $(#[$meta])*
+        impl<$($param: InnerStateSet),*> StateSet for ($($param,)*) {
 
             const SET_DEPENDENCY_DEPTH : usize = $($param::DEPENDENCY_DEPTH +)* 0;
 
@@ -338,4 +340,12 @@ macro_rules! impl_state_set_sealed_tuples {
     };
 }
 
-all_tuples!(impl_state_set_sealed_tuples, 1, 15, S, s, ereader);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_state_set_sealed_tuples,
+    1,
+    15,
+    S,
+    s,
+    ereader
+);

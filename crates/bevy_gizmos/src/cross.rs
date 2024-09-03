@@ -5,73 +5,67 @@
 
 use crate::prelude::{GizmoConfigGroup, Gizmos};
 use bevy_color::Color;
-use bevy_math::{Mat2, Mat3, Quat, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 
 impl<Config> Gizmos<'_, '_, Config>
 where
     Config: GizmoConfigGroup,
 {
-    /// Draw a cross in 3D at `position`.
+    /// Draw a cross in 3D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry3d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the `half_size`s are aligned with the `Vec3::X`, `Vec3::Y` and `Vec3::Z` axes.
     ///
     /// This should be called for each frame the cross needs to be rendered.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::WHITE;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cross(Vec3::ZERO, Quat::IDENTITY, 0.5, WHITE);
+    ///     gizmos.cross(Isometry3d::IDENTITY, 0.5, WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn cross(
-        &mut self,
-        position: Vec3,
-        rotation: Quat,
-        half_size: f32,
-        color: impl Into<Color>,
-    ) {
-        let axes = half_size * Mat3::from_quat(rotation);
-        let local_x = axes.col(0);
-        let local_y = axes.col(1);
-        let local_z = axes.col(2);
-
+    pub fn cross(&mut self, isometry: Isometry3d, half_size: f32, color: impl Into<Color>) {
         let color: Color = color.into();
-        self.line(position + local_x, position - local_x, color);
-        self.line(position + local_y, position - local_y, color);
-        self.line(position + local_z, position - local_z, color);
+        [Vec3::X, Vec3::Y, Vec3::Z]
+            .map(|axis| axis * half_size)
+            .into_iter()
+            .for_each(|axis| {
+                self.line(isometry * axis, isometry * (-axis), color);
+            });
     }
 
-    /// Draw a cross in 2D (on the xy plane) at `position`.
+    /// Draw a cross in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the center is at `Vec3::ZERO`
+    /// - the `half_size`s are aligned with the `Vec3::X` and `Vec3::Y` axes.
     ///
     /// This should be called for each frame the cross needs to be rendered.
     ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_render::prelude::*;
     /// # use bevy_math::prelude::*;
     /// # use bevy_color::palettes::basic::WHITE;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cross_2d(Vec2::ZERO, 0.0, 0.5, WHITE);
+    ///     gizmos.cross_2d(Isometry2d::IDENTITY, 0.5, WHITE);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn cross_2d(
-        &mut self,
-        position: Vec2,
-        angle: f32,
-        half_size: f32,
-        color: impl Into<Color>,
-    ) {
-        let axes = half_size * Mat2::from_angle(angle);
-        let local_x = axes.col(0);
-        let local_y = axes.col(1);
-
+    pub fn cross_2d(&mut self, isometry: Isometry2d, half_size: f32, color: impl Into<Color>) {
         let color: Color = color.into();
-        self.line_2d(position + local_x, position - local_x, color);
-        self.line_2d(position + local_y, position - local_y, color);
+        [Vec2::X, Vec2::Y]
+            .map(|axis| axis * half_size)
+            .into_iter()
+            .for_each(|axis| {
+                self.line_2d(isometry * axis, isometry * (-axis), color);
+            });
     }
 }

@@ -41,7 +41,16 @@ fn setup(
             ..default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
-            num_cascades: 2,
+            num_cascades: if cfg!(all(
+                feature = "webgl2",
+                target_arch = "wasm32",
+                not(feature = "webgpu")
+            )) {
+                // Limited to 1 cascade in WebGL
+                1
+            } else {
+                2
+            },
             first_cascade_far_bound: 200.0,
             maximum_distance: 280.0,
             ..default()
@@ -68,12 +77,6 @@ fn setup(
                     camera: Camera {
                         // Renders cameras with different priorities to prevent ambiguities
                         order: index as isize,
-                        // Don't clear after the first camera because the first camera already cleared the entire window
-                        clear_color: if index > 0 {
-                            ClearColorConfig::None
-                        } else {
-                            ClearColorConfig::default()
-                        },
                         ..default()
                     },
                     ..default()
@@ -92,14 +95,22 @@ fn setup(
                     style: Style {
                         width: Val::Percent(100.),
                         height: Val::Percent(100.),
-                        padding: UiRect::all(Val::Px(20.)),
                         ..default()
                     },
                     ..default()
                 },
             ))
             .with_children(|parent| {
-                parent.spawn(TextBundle::from_section(*camera_name, TextStyle::default()));
+                parent.spawn(
+                    TextBundle::from_section(*camera_name, TextStyle::default()).with_style(
+                        Style {
+                            position_type: PositionType::Absolute,
+                            top: Val::Px(12.),
+                            left: Val::Px(12.),
+                            ..default()
+                        },
+                    ),
+                );
                 buttons_panel(parent);
             });
     }

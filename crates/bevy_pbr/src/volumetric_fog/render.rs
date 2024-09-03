@@ -183,6 +183,7 @@ pub struct VolumetricFogUniform {
     absorption: f32,
     scattering: f32,
     density: f32,
+    density_texture_offset: Vec3,
     scattering_asymmetry: f32,
     light_intensity: f32,
     jitter_strength: f32,
@@ -307,6 +308,7 @@ impl ViewNode for VolumetricFogNode {
         Read<ViewVolumetricFog>,
         Read<MeshViewBindGroup>,
         Read<ViewScreenSpaceReflectionsUniformOffset>,
+        Read<Msaa>,
         Read<ViewEnvironmentMapUniformOffset>,
     );
 
@@ -325,6 +327,7 @@ impl ViewNode for VolumetricFogNode {
             view_fog_volumes,
             view_bind_group,
             view_ssr_offset,
+            msaa,
             view_environment_map_offset,
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
@@ -333,7 +336,6 @@ impl ViewNode for VolumetricFogNode {
         let volumetric_lighting_pipeline = world.resource::<VolumetricFogPipeline>();
         let volumetric_lighting_uniform_buffers = world.resource::<VolumetricFogUniformBuffer>();
         let image_assets = world.resource::<RenderAssets<GpuImage>>();
-        let msaa = world.resource::<Msaa>();
         let mesh_allocator = world.resource::<MeshAllocator>();
 
         // Fetch the uniform buffer and binding.
@@ -471,10 +473,14 @@ impl ViewNode for VolumetricFogNode {
 
                     render_pass
                         .set_index_buffer(*index_buffer_slice.buffer.slice(..), *index_format);
-                    render_pass.draw_indexed(0..*count, 0, 0..1);
+                    render_pass.draw_indexed(
+                        index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                        vertex_buffer_slice.range.start as i32,
+                        0..1,
+                    );
                 }
                 RenderMeshBufferInfo::NonIndexed => {
-                    render_pass.draw(0..render_mesh.vertex_count, 0..1);
+                    render_pass.draw(vertex_buffer_slice.range, 0..1);
                 }
             }
         }
@@ -594,6 +600,7 @@ pub fn prepare_volumetric_fog_pipelines(
         (
             Entity,
             &ExtractedView,
+            &Msaa,
             Has<NormalPrepass>,
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
@@ -601,13 +608,19 @@ pub fn prepare_volumetric_fog_pipelines(
         ),
         With<VolumetricFogSettings>,
     >,
-    msaa: Res<Msaa>,
     meshes: Res<RenderAssets<RenderMesh>>,
 ) {
     let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
 
-    for (entity, view, normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass) in
-        view_targets.iter()
+    for (
+        entity,
+        view,
+        msaa,
+        normal_prepass,
+        depth_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
         let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(*msaa);
@@ -715,6 +728,7 @@ pub fn prepare_volumetric_fog_uniforms(
                 absorption: fog_volume.absorption,
                 scattering: fog_volume.scattering,
                 density: fog_volume.density_factor,
+                density_texture_offset: fog_volume.density_texture_offset,
                 scattering_asymmetry: fog_volume.scattering_asymmetry,
                 light_intensity: fog_volume.light_intensity,
                 jitter_strength: volumetric_fog_settings.jitter,

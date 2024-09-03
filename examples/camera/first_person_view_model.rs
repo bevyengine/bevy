@@ -43,7 +43,7 @@
 //! | arrow down           | Increase FOV  |
 
 use bevy::color::palettes::tailwind;
-use bevy::input::mouse::MouseMotion;
+use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
@@ -219,13 +219,15 @@ fn spawn_text(mut commands: Commands) {
 }
 
 fn move_player(
-    mut mouse_motion: EventReader<MouseMotion>,
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut player: Query<&mut Transform, With<Player>>,
 ) {
     let mut transform = player.single_mut();
-    for motion in mouse_motion.read() {
-        let yaw = -motion.delta.x * 0.003;
-        let pitch = -motion.delta.y * 0.002;
+    let delta = accumulated_mouse_motion.delta;
+
+    if delta != Vec2::ZERO {
+        let yaw = -delta.x * 0.003;
+        let pitch = -delta.y * 0.002;
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
         transform.rotate_local_x(pitch);

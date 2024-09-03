@@ -150,7 +150,19 @@ pub struct FogVolume {
     /// The default value is 0.1.
     pub density_factor: f32,
 
+    /// Optional 3D voxel density texture for the fog.
     pub density_texture: Option<Handle<Image>>,
+
+    /// Configurable offset of the density texture in UVW coordinates.
+    ///
+    /// This can be used to scroll a repeating density texture in a direction over time
+    /// to create effects like fog moving in the wind. Make sure to configure the texture
+    /// to use `ImageAddressMode::Repeat` if this is your intention.
+    ///
+    /// Has no effect when no density texture is present.
+    ///
+    /// The default value is (0, 0, 0).
+    pub density_texture_offset: Vec3,
 
     /// The absorption coefficient, which measures what fraction of light is
     /// absorbed by the fog at each step.
@@ -268,6 +280,7 @@ impl Default for FogVolume {
             scattering: 0.3,
             density_factor: 0.1,
             density_texture: None,
+            density_texture_offset: Vec3::ZERO,
             scattering_asymmetry: 0.5,
             fog_color: Color::WHITE,
             light_tint: Color::WHITE,

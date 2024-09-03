@@ -1,7 +1,7 @@
 use super::GlobalTransform;
 #[cfg(feature = "bevy-support")]
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
+use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 #[cfg(feature = "bevy-support")]
 use bevy_reflect::{prelude::*, Reflect};
 use std::ops::Mul;
@@ -116,6 +116,18 @@ impl Transform {
     pub const fn from_scale(scale: Vec3) -> Self {
         Transform {
             scale,
+            ..Self::IDENTITY
+        }
+    }
+
+    /// Creates a new [`Transform`] that is equivalent to the given [isometry].
+    ///
+    /// [isometry]: Isometry3d
+    #[inline]
+    pub fn from_isometry(iso: Isometry3d) -> Self {
+        Transform {
+            translation: iso.translation.into(),
+            rotation: iso.rotation,
             ..Self::IDENTITY
         }
     }
@@ -524,6 +536,14 @@ impl Transform {
     #[must_use]
     pub fn is_finite(&self) -> bool {
         self.translation.is_finite() && self.rotation.is_finite() && self.scale.is_finite()
+    }
+
+    /// Get the [isometry] defined by this transform's rotation and translation, ignoring scale.
+    ///
+    /// [isometry]: Isometry3d
+    #[inline]
+    pub fn to_isometry(&self) -> Isometry3d {
+        Isometry3d::new(self.translation, self.rotation)
     }
 }
 

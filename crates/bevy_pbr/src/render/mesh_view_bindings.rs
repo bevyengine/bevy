@@ -1,4 +1,4 @@
-use std::{array, num::NonZeroU64, sync::Arc};
+use std::{array, num::NonZero, sync::Arc};
 
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
@@ -164,7 +164,7 @@ impl From<Option<&ViewPrepassTextures>> for MeshPipelineViewLayoutKey {
 fn buffer_layout(
     buffer_binding_type: BufferBindingType,
     has_dynamic_offset: bool,
-    min_binding_size: Option<NonZeroU64>,
+    min_binding_size: Option<NonZero<u64>>,
 ) -> BindGroupLayoutEntryBuilder {
     match buffer_binding_type {
         BufferBindingType::Uniform => uniform_buffer_sized(has_dynamic_offset, min_binding_size),
@@ -456,6 +456,7 @@ pub fn prepare_mesh_view_bind_groups(
         Entity,
         &ViewShadowBindings,
         &ViewClusterBindings,
+        &Msaa,
         Option<&ScreenSpaceAmbientOcclusionTextures>,
         Option<&ViewPrepassTextures>,
         Option<&ViewTransmissionTexture>,
@@ -469,7 +470,6 @@ pub fn prepare_mesh_view_bind_groups(
         Res<FallbackImage>,
         Res<FallbackImageZero>,
     ),
-    msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
     tonemapping_luts: Res<TonemappingLuts>,
     light_probes_buffer: Res<LightProbesBuffer>,
@@ -501,6 +501,7 @@ pub fn prepare_mesh_view_bind_groups(
             entity,
             shadow_bindings,
             cluster_bindings,
+            msaa,
             ssao_textures,
             prepass_textures,
             transmission_texture,

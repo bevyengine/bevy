@@ -3,7 +3,7 @@ use std::ops::Mul;
 use super::Transform;
 #[cfg(feature = "bevy-support")]
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Dir3, Mat4, Quat, Vec3, Vec3A};
+use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
 #[cfg(feature = "bevy-support")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -87,6 +87,12 @@ impl GlobalTransform {
         GlobalTransform(Affine3A::from_scale(scale))
     }
 
+    #[doc(hidden)]
+    #[inline]
+    pub fn from_isometry(iso: Isometry3d) -> Self {
+        Self(iso.into())
+    }
+
     /// Returns the 3d affine transformation matrix as a [`Mat4`].
     #[inline]
     pub fn compute_matrix(&self) -> Mat4 {
@@ -111,6 +117,19 @@ impl GlobalTransform {
             rotation,
             scale,
         }
+    }
+
+    /// Returns the isometric part of the transformation as an [isometry]. Any scaling done by the
+    /// transformation will be ignored.
+    ///
+    /// The transform is expected to be non-degenerate and without shearing, or the output
+    /// will be invalid.
+    ///
+    /// [isometry]: Isometry3d
+    #[inline]
+    pub fn to_isometry(&self) -> Isometry3d {
+        let (_, rotation, translation) = self.0.to_scale_rotation_translation();
+        Isometry3d::new(translation, rotation)
     }
 
     /// Returns the [`Transform`] `self` would have if it was a child of an entity
