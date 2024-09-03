@@ -261,7 +261,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
     /// Create a [`QueryState`] with the accesses of the builder.
     ///
-    /// Takes `&mut self` to access the innner world reference while initializing
+    /// Takes `&mut self` to access the inner world reference while initializing
     /// state for the new [`QueryState`]
     pub fn build(&mut self) -> QueryState<D, F> {
         QueryState::<D, F>::from_builder(self)

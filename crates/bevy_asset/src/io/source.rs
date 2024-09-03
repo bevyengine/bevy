@@ -2,9 +2,10 @@ use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
     processor::AssetProcessorData,
 };
+use atomicow::CowArc;
 use bevy_ecs::system::Resource;
 use bevy_utils::tracing::{error, warn};
-use bevy_utils::{CowArc, Duration, HashMap};
+use bevy_utils::{Duration, HashMap};
 use std::{fmt::Display, hash::Hash, sync::Arc};
 use thiserror::Error;
 

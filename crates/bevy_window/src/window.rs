@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::num::NonZero;
 
 use bevy_ecs::{
     entity::{Entity, EntityMapper, MapEntities},
@@ -279,7 +279,7 @@ pub struct Window {
     ///
     /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
     /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
-    pub desired_maximum_frame_latency: Option<NonZeroU32>,
+    pub desired_maximum_frame_latency: Option<NonZero<u32>>,
     /// Sets whether this window recognizes [`PinchGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.PinchGesture.html)
     ///
     /// ## Platform-specific

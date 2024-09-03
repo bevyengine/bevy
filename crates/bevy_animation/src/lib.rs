@@ -7,9 +7,9 @@
 
 //! Animation for the game engine Bevy
 
-mod animatable;
-mod graph;
-mod transition;
+pub mod animatable;
+pub mod graph;
+pub mod transition;
 mod util;
 
 use std::cell::RefCell;
@@ -21,24 +21,21 @@ use std::ops::{Add, Mul};
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_core::Name;
-use bevy_ecs::entity::MapEntities;
-use bevy_ecs::prelude::*;
-use bevy_ecs::reflect::ReflectMapEntities;
+use bevy_ecs::{entity::MapEntities, prelude::*, reflect::ReflectMapEntities};
 use bevy_math::{FloatExt, Quat, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::mesh::morph::MorphWeights;
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
-use bevy_utils::hashbrown::HashMap;
 use bevy_utils::{
+    hashbrown::HashMap,
     tracing::{error, trace},
     NoOpHash,
 };
 use fixedbitset::FixedBitSet;
-use graph::{AnimationGraph, AnimationNodeIndex};
-use petgraph::graph::NodeIndex;
-use petgraph::Direction;
-use prelude::{AnimationGraphAssetLoader, AnimationTransitions};
+use graph::AnimationMask;
+use petgraph::{graph::NodeIndex, Direction};
+use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
@@ -51,7 +48,10 @@ pub mod prelude {
     };
 }
 
-use crate::transition::{advance_transitions, expire_completed_transitions};
+use crate::{
+    graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
+    transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
+};
 
 /// The [UUID namespace] of animation targets (e.g. bones).
 ///
@@ -228,7 +228,7 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 /// connected to a bone named `Stomach`.
 ///
 /// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize)]
 pub struct AnimationTargetId(pub Uuid);
 
 impl Hash for AnimationTargetId {
@@ -356,6 +356,9 @@ pub struct ActiveAnimation {
     /// The actual weight of this animation this frame, taking the
     /// [`AnimationGraph`] into account.
     computed_weight: f32,
+    /// The mask groups that are masked out (i.e. won't be animated) this frame,
+    /// taking the `AnimationGraph` into account.
+    computed_mask: AnimationMask,
     repeat: RepeatAnimation,
     speed: f32,
     /// Total time the animation has been played.
@@ -377,6 +380,7 @@ impl Default for ActiveAnimation {
         Self {
             weight: 1.0,
             computed_weight: 1.0,
+            computed_mask: 0,
             repeat: RepeatAnimation::default(),
             speed: 1.0,
             elapsed: 0.0,
@@ -575,8 +579,19 @@ pub struct AnimationGraphEvaluator {
     dfs_stack: Vec<NodeIndex>,
     /// The list of visited nodes during the depth-first traversal.
     dfs_visited: FixedBitSet,
-    /// Accumulated weights for each node.
-    weights: Vec<f32>,
+    /// Accumulated weights and masks for each node.
+    nodes: Vec<EvaluatedAnimationGraphNode>,
+}
+
+/// The accumulated weight and computed mask for a single node.
+#[derive(Clone, Copy, Default, Debug)]
+struct EvaluatedAnimationGraphNode {
+    /// The weight that has been accumulated for this node, taking its
+    /// ancestors' weights into account.
+    weight: f32,
+    /// The mask that has been computed for this node, taking its ancestors'
+    /// masks into account.
+    mask: AnimationMask,
 }
 
 thread_local! {
@@ -764,15 +779,17 @@ pub fn advance_animations(
 
                 let node = &animation_graph[node_index];
 
-                // Calculate weight from the graph.
-                let mut weight = node.weight;
+                // Calculate weight and mask from the graph.
+                let (mut weight, mut mask) = (node.weight, node.mask);
                 for parent_index in animation_graph
                     .graph
                     .neighbors_directed(node_index, Direction::Incoming)
                 {
-                    weight *= animation_graph[parent_index].weight;
+                    let evaluated_parent = &evaluator.nodes[parent_index.index()];
+                    weight *= evaluated_parent.weight;
+                    mask |= evaluated_parent.mask;
                 }
-                evaluator.weights[node_index.index()] = weight;
+                evaluator.nodes[node_index.index()] = EvaluatedAnimationGraphNode { weight, mask };
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
@@ -789,9 +806,10 @@ pub fn advance_animations(
                     weight *= blend_weight;
                 }
 
-                // Write in the computed weight.
+                // Write in the computed weight and mask for this node.
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     active_animation.computed_weight = weight;
+                    active_animation.computed_mask = mask;
                 }
 
                 // Push children.
@@ -850,6 +868,13 @@ pub fn animate_targets(
                 morph_weights,
             };
 
+            // Determine which mask groups this animation target belongs to.
+            let target_mask = animation_graph
+                .mask_groups
+                .get(&target.id)
+                .cloned()
+                .unwrap_or_default();
+
             // Apply the animations one after another. The way we accumulate
             // weights ensures that the order we apply them in doesn't matter.
             //
@@ -870,7 +895,11 @@ pub fn animate_targets(
             for (&animation_graph_node_index, active_animation) in
                 animation_player.active_animations.iter()
             {
-                if active_animation.weight == 0.0 {
+                // If the weight is zero or the current animation target is
+                // masked out, stop here.
+                if active_animation.weight == 0.0
+                    || (target_mask & active_animation.computed_mask) != 0
+                {
                     continue;
                 }
 
@@ -1256,8 +1285,9 @@ impl AnimationGraphEvaluator {
         self.dfs_visited.grow(node_count);
         self.dfs_visited.clear();
 
-        self.weights.clear();
-        self.weights.extend(iter::repeat(0.0).take(node_count));
+        self.nodes.clear();
+        self.nodes
+            .extend(iter::repeat(EvaluatedAnimationGraphNode::default()).take(node_count));
     }
 }
 

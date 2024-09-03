@@ -6,7 +6,7 @@ use bevy::{
     ecs::system::Commands,
     gizmos::gizmos::Gizmos,
     input::{mouse::MouseButtonInput, ButtonState},
-    math::{cubic_splines::*, vec2},
+    math::{cubic_splines::*, vec2, Isometry2d},
     prelude::*,
 };
 
@@ -197,7 +197,11 @@ fn draw_control_points(
     mut gizmos: Gizmos,
 ) {
     for &(point, tangent) in &control_points.points_and_tangents {
-        gizmos.circle_2d(point, 10.0, Color::srgb(0.0, 1.0, 0.0));
+        gizmos.circle_2d(
+            Isometry2d::from_translation(point),
+            10.0,
+            Color::srgb(0.0, 1.0, 0.0),
+        );
 
         if matches!(*spline_mode, SplineMode::Hermite) {
             gizmos.arrow_2d(point, point + tangent, Color::srgb(1.0, 0.0, 0.0));
@@ -399,8 +403,16 @@ fn draw_edit_move(
         return;
     };
 
-    gizmos.circle_2d(start, 10.0, Color::srgb(0.0, 1.0, 0.7));
-    gizmos.circle_2d(start, 7.0, Color::srgb(0.0, 1.0, 0.7));
+    gizmos.circle_2d(
+        Isometry2d::from_translation(start),
+        10.0,
+        Color::srgb(0.0, 1.0, 0.7),
+    );
+    gizmos.circle_2d(
+        Isometry2d::from_translation(start),
+        7.0,
+        Color::srgb(0.0, 1.0, 0.7),
+    );
     gizmos.arrow_2d(start, end, Color::srgb(1.0, 0.0, 0.7));
 }
 

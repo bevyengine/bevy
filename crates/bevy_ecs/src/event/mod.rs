@@ -7,6 +7,7 @@ mod mut_iterators;
 mod mutator;
 mod reader;
 mod registry;
+mod send_event;
 mod update;
 mod writer;
 
@@ -24,6 +25,7 @@ pub use mut_iterators::{EventMutIterator, EventMutIteratorWithId};
 pub use mutator::EventMutator;
 pub use reader::EventReader;
 pub use registry::{EventRegistry, ShouldUpdateEvents};
+pub use send_event::SendEvent;
 pub use update::{
     event_update_condition, event_update_system, signal_event_update_system, EventUpdates,
 };

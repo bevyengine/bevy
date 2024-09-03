@@ -196,11 +196,14 @@ without UI components as a child of an entity with UI components, results may be
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.
-    pub fn compute_camera_layout(
+    pub fn compute_camera_layout<'a>(
         &mut self,
         camera: Entity,
         render_target_resolution: UVec2,
-        #[cfg(feature = "bevy_text")] font_system: &mut bevy_text::cosmic_text::FontSystem,
+        #[cfg(feature = "bevy_text")] buffer_query: &'a mut bevy_ecs::prelude::Query<
+            &mut bevy_text::CosmicBuffer,
+        >,
+        #[cfg(feature = "bevy_text")] font_system: &'a mut bevy_text::cosmic_text::FontSystem,
     ) {
         let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
             return;
@@ -223,6 +226,15 @@ without UI components as a child of an entity with UI components, results may be
                      -> taffy::Size<f32> {
                         context
                             .map(|ctx| {
+                                #[cfg(feature = "bevy_text")]
+                                let buffer = get_text_buffer(
+                                    crate::widget::TextMeasure::needs_buffer(
+                                        known_dimensions.height,
+                                        available_space.width,
+                                    ),
+                                    ctx,
+                                    buffer_query,
+                                );
                                 let size = ctx.measure(
                                     MeasureArgs {
                                         width: known_dimensions.width,
@@ -231,6 +243,8 @@ without UI components as a child of an entity with UI components, results may be
                                         available_height: available_space.height,
                                         #[cfg(feature = "bevy_text")]
                                         font_system,
+                                        #[cfg(feature = "bevy_text")]
+                                        buffer,
                                         #[cfg(not(feature = "bevy_text"))]
                                         font_system: std::marker::PhantomData,
                                     },
@@ -283,4 +297,23 @@ with UI components as a child of an entity without UI components, results may be
             Err(LayoutError::InvalidHierarchy)
         }
     }
+}
+
+#[cfg(feature = "bevy_text")]
+fn get_text_buffer<'a>(
+    needs_buffer: bool,
+    ctx: &mut NodeMeasure,
+    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::CosmicBuffer>,
+) -> Option<&'a mut bevy_text::cosmic_text::Buffer> {
+    // We avoid a query lookup whenever the buffer is not required.
+    if !needs_buffer {
+        return None;
+    }
+    let NodeMeasure::Text(crate::widget::TextMeasure { info }) = ctx else {
+        return None;
+    };
+    let Ok(buffer) = query.get_mut(info.entity) else {
+        return None;
+    };
+    Some(buffer.into_inner())
 }
