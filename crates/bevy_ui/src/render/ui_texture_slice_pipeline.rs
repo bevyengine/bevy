@@ -527,20 +527,20 @@ pub fn prepare_ui_slices(
                         [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                     } else {
                         let atlas_extent = uinode_rect.max;
-                        if texture_slices.flip_x {
-                            std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-                            positions_diff[0].x *= -1.;
-                            positions_diff[1].x *= -1.;
-                            positions_diff[2].x *= -1.;
-                            positions_diff[3].x *= -1.;
-                        }
-                        if texture_slices.flip_y {
-                            std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                            positions_diff[0].y *= -1.;
-                            positions_diff[1].y *= -1.;
-                            positions_diff[2].y *= -1.;
-                            positions_diff[3].y *= -1.;
-                        }
+                        // if texture_slices.flip_x {
+                        //     std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                        //     positions_diff[0].x *= -1.;
+                        //     positions_diff[1].x *= -1.;
+                        //     positions_diff[2].x *= -1.;
+                        //     positions_diff[3].x *= -1.;
+                        // }
+                        // if texture_slices.flip_y {
+                        //     std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
+                        //     positions_diff[0].y *= -1.;
+                        //     positions_diff[1].y *= -1.;
+                        //     positions_diff[2].y *= -1.;
+                        //     positions_diff[3].y *= -1.;
+                        // }
                         [
                             Vec2::new(
                                 uinode_rect.min.x + positions_diff[0].x,
@@ -564,7 +564,7 @@ pub fn prepare_ui_slices(
 
                     let color = texture_slices.color.to_f32_array();
 
-                    let (image_size, atlas) = if let Some(atlas) = texture_slices.atlas_rect {
+                    let (image_size, mut atlas) = if let Some(atlas) = texture_slices.atlas_rect {
                         (
                             atlas.size(),
                             [
@@ -577,6 +577,14 @@ pub fn prepare_ui_slices(
                     } else {
                         (batch_image_size, [0., 0., 1., 1.])
                     };
+
+                    if texture_slices.flip_x {
+                        atlas.swap(0, 2);
+                    }
+
+                    if texture_slices.flip_y {
+                        atlas.swap(1, 3);
+                    }
 
                     let [slices, border, repeat] = compute_texture_slices(
                         image_size,
