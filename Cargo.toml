@@ -3029,14 +3029,6 @@ category = "Window"
 wasm = true
 
 [[example]]
-name = "ambiguity_detection"
-path = "tests/ecs/ambiguity_detection.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.ambiguity_detection]
-hidden = true
-
-[[example]]
 name = "resizing"
 path = "tests/window/resizing.rs"
 doc-scrape-examples = true
