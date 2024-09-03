@@ -2,9 +2,8 @@ mod primitive_impls;
 
 use super::{BoundingVolume, IntersectsVolume};
 use crate::{
-    ops::FloatPow,
     prelude::{Mat2, Rot2, Vec2},
-    Isometry2d,
+    FloatPow, Isometry2d,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -25,9 +24,9 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
 /// A trait with methods that return 2D bounding volumes for a shape.
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
-    fn aabb_2d(&self, isometry: Isometry2d) -> Aabb2d;
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d;
     /// Get a bounding circle for the shape translated and rotated by the given isometry.
-    fn bounding_circle(&self, isometry: Isometry2d) -> BoundingCircle;
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle;
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
@@ -59,7 +58,9 @@ impl Aabb2d {
     ///
     /// Panics if the given set of points is empty.
     #[inline(always)]
-    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> Aabb2d {
+    pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> Aabb2d {
+        let isometry = isometry.into();
+
         // Transform all points by rotation
         let mut iter = points.iter().map(|point| isometry.rotation * *point);
 
@@ -385,7 +386,7 @@ mod aabb2d_tests {
             min: Vec2::new(-2.0, -2.0),
             max: Vec2::new(2.0, 2.0),
         };
-        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), core::f32::consts::FRAC_PI_4);
         let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
             transformed.min,
@@ -473,7 +474,9 @@ impl BoundingCircle {
     ///
     /// The bounding circle is not guaranteed to be the smallest possible.
     #[inline(always)]
-    pub fn from_point_cloud(isometry: Isometry2d, points: &[Vec2]) -> BoundingCircle {
+    pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> BoundingCircle {
+        let isometry = isometry.into();
+
         let center = point_cloud_2d_center(points);
         let mut radius_squared = 0.0;
 
@@ -530,7 +533,7 @@ impl BoundingVolume for BoundingCircle {
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        std::f32::consts::PI * self.radius() * self.radius()
+        core::f32::consts::PI * self.radius() * self.radius()
     }
 
     #[inline(always)]
@@ -702,10 +705,10 @@ mod bounding_circle_tests {
     #[test]
     fn transform() {
         let a = BoundingCircle::new(Vec2::ONE, 5.0);
-        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), std::f32::consts::FRAC_PI_4);
+        let transformed = a.transformed_by(Vec2::new(2.0, -2.0), core::f32::consts::FRAC_PI_4);
         assert_eq!(
             transformed.center,
-            Vec2::new(2.0, std::f32::consts::SQRT_2 - 2.0)
+            Vec2::new(2.0, core::f32::consts::SQRT_2 - 2.0)
         );
         assert_eq!(transformed.radius(), 5.0);
     }

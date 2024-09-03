@@ -1,9 +1,11 @@
 //! Demonstrates how to add custom schedules that run in Bevy's `Main` schedule, ordered relative to Bevy's built-in
 //! schedules such as `Update` or `Last`.
 
-use bevy::app::MainScheduleOrder;
-use bevy::ecs::schedule::{ExecutorKind, ScheduleLabel};
-use bevy::prelude::*;
+use bevy::{
+    app::MainScheduleOrder,
+    ecs::schedule::{ExecutorKind, ScheduleLabel},
+    prelude::*,
+};
 
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 struct SingleThreadedUpdate;

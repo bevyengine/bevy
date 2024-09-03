@@ -4,7 +4,7 @@ use bevy_ecs::event::{
 };
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::event::{EventMutParIter, EventParIter};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 // Deprecated in favor of `EventCursor`, there is no nice way to deprecate this
 // because generic constraints are not allowed in type aliases, so this will always

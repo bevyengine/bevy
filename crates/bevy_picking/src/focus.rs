@@ -1,12 +1,16 @@
 //! Determines which entities are being hovered by which pointers.
+//!
+//! The most important type in this module is the [`HoverMap`], which maps pointers to the entities
+//! they are hovering over.
 
-use std::{collections::BTreeMap, fmt::Debug};
+use alloc::collections::BTreeMap;
+use core::fmt::Debug;
+use std::collections::HashSet;
 
 use crate::{
     backend::{self, HitData},
-    events::PointerCancel,
-    pointer::{PointerId, PointerInteraction, PointerPress},
-    Pickable,
+    pointer::{PointerAction, PointerId, PointerInput, PointerInteraction, PointerPress},
+    PickingBehavior,
 };
 
 use bevy_derive::{Deref, DerefMut};
@@ -39,8 +43,8 @@ type OverMap = HashMap<PointerId, LayerMap>;
 /// between it and the pointer block interactions.
 ///
 /// For example, if a pointer is hitting a UI button and a 3d mesh, but the button is in front of
-/// the mesh, and [`Pickable::should_block_lower`], the UI button will be hovered, but the mesh will
-/// not.
+/// the mesh, the UI button will be hovered, but the mesh will not. Unless, the [`PickingBehavior`]
+/// component is present with [`should_block_lower`](PickingBehavior::should_block_lower) set to `false`.
 ///
 /// # Advanced Users
 ///
@@ -60,10 +64,10 @@ pub struct PreviousHoverMap(pub HashMap<PointerId, HashMap<Entity, HitData>>);
 /// This is the final focusing step to determine which entity the pointer is hovering over.
 pub fn update_focus(
     // Inputs
-    pickable: Query<&Pickable>,
+    picking_behavior: Query<&PickingBehavior>,
     pointers: Query<&PointerId>,
     mut under_pointer: EventReader<backend::PointerHits>,
-    mut cancellations: EventReader<PointerCancel>,
+    mut pointer_input: EventReader<PointerInput>,
     // Local
     mut over_map: Local<OverMap>,
     // Output
@@ -76,8 +80,8 @@ pub fn update_focus(
         &mut over_map,
         &pointers,
     );
-    build_over_map(&mut under_pointer, &mut over_map, &mut cancellations);
-    build_hover_map(&pointers, pickable, &over_map, &mut hover_map);
+    build_over_map(&mut under_pointer, &mut over_map, &mut pointer_input);
+    build_hover_map(&pointers, picking_behavior, &over_map, &mut hover_map);
 }
 
 /// Clear non-empty local maps, reusing allocated memory.
@@ -109,9 +113,18 @@ fn reset_maps(
 fn build_over_map(
     backend_events: &mut EventReader<backend::PointerHits>,
     pointer_over_map: &mut Local<OverMap>,
-    pointer_cancel: &mut EventReader<PointerCancel>,
+    pointer_input: &mut EventReader<PointerInput>,
 ) {
-    let cancelled_pointers: Vec<PointerId> = pointer_cancel.read().map(|p| p.pointer_id).collect();
+    let cancelled_pointers: HashSet<PointerId> = pointer_input
+        .read()
+        .filter_map(|p| {
+            if let PointerAction::Canceled = p.action {
+                Some(p.pointer_id)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     for entities_under_pointer in backend_events
         .read()
@@ -123,7 +136,7 @@ fn build_over_map(
             .or_insert_with(BTreeMap::new);
         for (entity, pick_data) in entities_under_pointer.picks.iter() {
             let layer = entities_under_pointer.order;
-            let hits = layer_map.entry(FloatOrd(layer)).or_insert_with(Vec::new);
+            let hits = layer_map.entry(FloatOrd(layer)).or_default();
             hits.push((*entity, pick_data.clone()));
         }
     }
@@ -135,26 +148,26 @@ fn build_over_map(
     }
 }
 
-/// Build an unsorted set of hovered entities, accounting for depth, layer, and [`Pickable`]. Note
-/// that unlike the pointer map, this uses [`Pickable`] to determine if lower entities receive hover
+/// Build an unsorted set of hovered entities, accounting for depth, layer, and [`PickingBehavior`]. Note
+/// that unlike the pointer map, this uses [`PickingBehavior`] to determine if lower entities receive hover
 /// focus. Often, only a single entity per pointer will be hovered.
 fn build_hover_map(
     pointers: &Query<&PointerId>,
-    pickable: Query<&Pickable>,
+    picking_behavior: Query<&PickingBehavior>,
     over_map: &Local<OverMap>,
     // Output
     hover_map: &mut HoverMap,
 ) {
     for pointer_id in pointers.iter() {
-        let pointer_entity_set = hover_map.entry(*pointer_id).or_insert_with(HashMap::new);
+        let pointer_entity_set = hover_map.entry(*pointer_id).or_default();
         if let Some(layer_map) = over_map.get(pointer_id) {
             // Note we reverse here to start from the highest layer first.
             for (entity, pick_data) in layer_map.values().rev().flatten() {
-                if let Ok(pickable) = pickable.get(*entity) {
-                    if pickable.is_hoverable {
+                if let Ok(picking_behavior) = picking_behavior.get(*entity) {
+                    if picking_behavior.is_hoverable {
                         pointer_entity_set.insert(*entity, pick_data.clone());
                     }
-                    if pickable.should_block_lower {
+                    if picking_behavior.should_block_lower {
                         break;
                     }
                 } else {
@@ -176,7 +189,7 @@ fn build_hover_map(
 /// the entity will be considered pressed. If that entity is instead being hovered by both pointers,
 /// it will be considered hovered.
 #[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, PartialEq, Debug)]
 pub enum PickingInteraction {
     /// The entity is being pressed down by a pointer.
     Pressed = 2,

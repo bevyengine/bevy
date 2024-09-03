@@ -51,6 +51,8 @@
 //! [plugin]: HierarchyPlugin
 //! [query extension methods]: HierarchyQueryExt
 
+extern crate alloc;
+
 mod components;
 pub use components::*;
 
@@ -69,7 +71,9 @@ pub use valid_parent_check_plugin::*;
 mod query_extension;
 pub use query_extension::*;
 
-#[doc(hidden)]
+/// The hierarchy prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{child_builder::*, components::*, hierarchy::*, query_extension::*};

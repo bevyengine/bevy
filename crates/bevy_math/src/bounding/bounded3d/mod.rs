@@ -27,9 +27,9 @@ fn point_cloud_3d_center(points: impl Iterator<Item = impl Into<Vec3A>>) -> Vec3
 /// A trait with methods that return 3D bounding volumes for a shape.
 pub trait Bounded3d {
     /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
-    fn aabb_3d(&self, isometry: Isometry3d) -> Aabb3d;
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d;
     /// Get a bounding sphere for the shape translated and rotated by the given isometry.
-    fn bounding_sphere(&self, isometry: Isometry3d) -> BoundingSphere;
+    fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere;
 }
 
 /// A 3D axis-aligned bounding box
@@ -62,9 +62,11 @@ impl Aabb3d {
     /// Panics if the given set of points is empty.
     #[inline(always)]
     pub fn from_point_cloud(
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         points: impl Iterator<Item = impl Into<Vec3A>>,
     ) -> Aabb3d {
+        let isometry = isometry.into();
+
         // Transform all points by rotation
         let mut iter = points.map(|point| isometry.rotation * point.into());
 
@@ -387,7 +389,7 @@ mod aabb3d_tests {
         };
         let transformed = a.transformed_by(
             Vec3A::new(2.0, -2.0, 4.0),
-            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+            Quat::from_rotation_z(core::f32::consts::FRAC_PI_4),
         );
         let half_length = ops::hypot(2.0, 2.0);
         assert_eq!(
@@ -476,9 +478,11 @@ impl BoundingSphere {
     /// The bounding sphere is not guaranteed to be the smallest possible.
     #[inline(always)]
     pub fn from_point_cloud(
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         points: &[impl Copy + Into<Vec3A>],
     ) -> BoundingSphere {
+        let isometry = isometry.into();
+
         let center = point_cloud_3d_center(points.iter().map(|v| Into::<Vec3A>::into(*v)));
         let mut radius_squared: f32 = 0.0;
 
@@ -547,7 +551,7 @@ impl BoundingVolume for BoundingSphere {
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        2. * std::f32::consts::PI * self.radius() * self.radius()
+        2. * core::f32::consts::PI * self.radius() * self.radius()
     }
 
     #[inline(always)]
@@ -733,11 +737,11 @@ mod bounding_sphere_tests {
         let a = BoundingSphere::new(Vec3::ONE, 5.0);
         let transformed = a.transformed_by(
             Vec3::new(2.0, -2.0, 4.0),
-            Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
+            Quat::from_rotation_z(core::f32::consts::FRAC_PI_4),
         );
         assert_relative_eq!(
             transformed.center,
-            Vec3A::new(2.0, std::f32::consts::SQRT_2 - 2.0, 5.0)
+            Vec3A::new(2.0, core::f32::consts::SQRT_2 - 2.0, 5.0)
         );
         assert_eq!(transformed.radius(), 5.0);
     }

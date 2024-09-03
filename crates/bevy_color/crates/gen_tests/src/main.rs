@@ -110,8 +110,8 @@ pub struct TestColor {{
 
 struct VariablePrecision(f32);
 
-impl std::fmt::Display for VariablePrecision {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for VariablePrecision {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if self.0.fract() == 0.0 {
             return write!(f, "{}.0", self.0);
         }

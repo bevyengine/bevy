@@ -1,10 +1,10 @@
-use std::num::NonZeroU32;
+use core::num::NonZero;
 
 use bevy_ecs::{
-    entity::{Entity, EntityMapper, MapEntities},
+    entity::{Entity, VisitEntities, VisitEntitiesMut},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2, UVec2, Vec2};
+use bevy_math::{CompassOctant, DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -20,7 +20,7 @@ use bevy_utils::tracing::warn;
 /// with this component if [`primary_window`](crate::WindowPlugin::primary_window)
 /// is `Some`.
 #[derive(Default, Debug, Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Debug, Default, PartialEq)]
 pub struct PrimaryWindow;
 
 /// Reference to a [`Window`], whether it be a direct link to a specific entity or
@@ -58,14 +58,21 @@ impl WindowRef {
     }
 }
 
-impl MapEntities for WindowRef {
-    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+impl VisitEntities for WindowRef {
+    fn visit_entities<F: FnMut(Entity)>(&self, mut f: F) {
         match self {
-            Self::Entity(entity) => {
-                *entity = entity_mapper.map_entity(*entity);
-            }
+            Self::Entity(entity) => f(*entity),
             Self::Primary => {}
-        };
+        }
+    }
+}
+
+impl VisitEntitiesMut for WindowRef {
+    fn visit_entities_mut<F: FnMut(&mut Entity)>(&mut self, mut f: F) {
+        match self {
+            Self::Entity(entity) => f(entity),
+            Self::Primary => {}
+        }
     }
 }
 
@@ -124,7 +131,7 @@ impl NormalizedWindowRef {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct Window {
     /// The cursor options of this window. Cursor icons are set with the `Cursor` component on the
     /// window entity.
@@ -227,7 +234,6 @@ pub struct Window {
     /// Should the window use Input Method Editor?
     ///
     /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
-    /// [`ReceivedCharacter`](crate::ReceivedCharacter) or
     /// `KeyboardInput` from `bevy_input`.
     ///
     /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
@@ -279,7 +285,7 @@ pub struct Window {
     ///
     /// [`wgpu::SurfaceConfiguration::desired_maximum_frame_latency`]:
     /// https://docs.rs/wgpu/latest/wgpu/type.SurfaceConfiguration.html#structfield.desired_maximum_frame_latency
-    pub desired_maximum_frame_latency: Option<NonZeroU32>,
+    pub desired_maximum_frame_latency: Option<NonZero<u32>>,
     /// Sets whether this window recognizes [`PinchGesture`](https://docs.rs/bevy/latest/bevy/input/gestures/struct.PinchGesture.html)
     ///
     /// ## Platform-specific
@@ -308,6 +314,90 @@ pub struct Window {
     ///
     /// - Only used on iOS.
     pub recognize_pan_gesture: Option<(u8, u8)>,
+    /// Enables click-and-drag behavior for the entire window, not just the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_movable_by_window_background`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_movable_by_window_background`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_movable_by_window_background
+    pub movable_by_window_background: bool,
+    /// Makes the window content appear behind the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_fullsize_content_view`].
+    ///
+    /// For apps which want to render the window buttons on top of the apps
+    /// itself, this should be enabled along with [`titlebar_transparent`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_fullsize_content_view`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_fullsize_content_view
+    /// [`titlebar_transparent`]: Self::titlebar_transparent
+    pub fullsize_content_view: bool,
+    /// Toggles drawing the drop shadow behind the window.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_has_shadow`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_has_shadow`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_has_shadow
+    pub has_shadow: bool,
+    /// Toggles drawing the titlebar.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_hidden
+    pub titlebar_shown: bool,
+    /// Makes the titlebar transparent, allowing the app content to appear behind it.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_transparent`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_transparent`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_transparent
+    pub titlebar_transparent: bool,
+    /// Toggles showing the window title.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_title_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_title_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_title_hidden
+    pub titlebar_show_title: bool,
+    /// Toggles showing the traffic light window buttons.
+    ///
+    /// Corresponds to [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on macOS.
+    ///
+    /// [`WindowAttributesExtMacOS::with_titlebar_buttons_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/macos/trait.WindowAttributesExtMacOS.html#tymethod.with_titlebar_buttons_hidden
+    pub titlebar_show_buttons: bool,
+    /// Sets whether the Window prefers the home indicator hidden.
+    ///
+    /// Corresponds to [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`].
+    ///
+    /// # Platform-specific
+    ///
+    /// - Only used on iOS.
+    ///
+    /// [`WindowAttributesExtIOS::with_prefers_home_indicator_hidden`]: https://docs.rs/winit/latest/x86_64-apple-darwin/winit/platform/ios/trait.WindowAttributesExtIOS.html#tymethod.with_prefers_home_indicator_hidden
+    pub prefers_home_indicator_hidden: bool,
 }
 
 impl Default for Window {
@@ -342,6 +432,14 @@ impl Default for Window {
             recognize_rotation_gesture: false,
             recognize_doubletap_gesture: false,
             recognize_pan_gesture: None,
+            movable_by_window_background: false,
+            fullsize_content_view: false,
+            has_shadow: true,
+            titlebar_shown: true,
+            titlebar_transparent: false,
+            titlebar_show_title: true,
+            titlebar_show_buttons: true,
+            prefers_home_indicator_hidden: false,
         }
     }
 }
@@ -359,6 +457,22 @@ impl Window {
     /// Setting to false will attempt to un-minimize the window.
     pub fn set_minimized(&mut self, minimized: bool) {
         self.internal.minimize_request = Some(minimized);
+    }
+
+    /// Calling this will attempt to start a drag-move of the window.
+    ///
+    /// There is no guarantee that this will work unless the left mouse button was
+    /// pressed immediately before this function was called.
+    pub fn start_drag_move(&mut self) {
+        self.internal.drag_move_request = true;
+    }
+
+    /// Calling this will attempt to start a drag-resize of the window.
+    ///
+    /// There is no guarantee that this will work unless the left mouse button was
+    /// pressed immediately before this function was called.
+    pub fn start_drag_resize(&mut self, direction: CompassOctant) {
+        self.internal.drag_resize_request = Some(direction);
     }
 
     /// The window's client area width in logical pixels.
@@ -904,6 +1018,10 @@ pub struct InternalWindowState {
     minimize_request: Option<bool>,
     /// If this is true then next frame we will ask to maximize/un-maximize the window depending on `maximized`.
     maximize_request: Option<bool>,
+    /// If this is true then next frame we will ask to drag-move the window.
+    drag_move_request: bool,
+    /// If this is `Some` then the next frame we will ask to drag-resize the window.
+    drag_resize_request: Option<CompassOctant>,
     /// Unscaled cursor position.
     physical_cursor_position: Option<DVec2>,
 }
@@ -917,6 +1035,16 @@ impl InternalWindowState {
     /// Consumes the current minimize request, if it exists. This should only be called by window backends.
     pub fn take_minimize_request(&mut self) -> Option<bool> {
         self.minimize_request.take()
+    }
+
+    /// Consumes the current move request, if it exists. This should only be called by window backends.
+    pub fn take_move_request(&mut self) -> bool {
+        core::mem::take(&mut self.drag_move_request)
+    }
+
+    /// Consumes the current resize request, if it exists. This should only be called by window backends.
+    pub fn take_resize_request(&mut self) -> Option<CompassOctant> {
+        self.drag_resize_request.take()
     }
 }
 
@@ -963,7 +1091,6 @@ pub enum MonitorSelection {
 /// [`Mailbox`]: PresentMode::Mailbox
 /// [`AutoVsync`]: PresentMode::AutoVsync
 /// [`AutoNoVsync`]: PresentMode::AutoNoVsync
-///
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect)]
 #[cfg_attr(

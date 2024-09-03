@@ -1,14 +1,14 @@
 use crate::io::AssetSourceId;
+use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::CowArc;
-use serde::{de::Visitor, Deserialize, Serialize};
-use std::{
+use core::{
     fmt::{Debug, Display},
     hash::Hash,
     ops::Deref,
-    path::{Path, PathBuf},
 };
-use thiserror::Error;
+use derive_more::derive::{Display, Error};
+use serde::{de::Visitor, Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 /// Represents a path to an asset in a "virtual filesystem".
 ///
@@ -48,7 +48,8 @@ use thiserror::Error;
 /// clones internal owned [`AssetPaths`](AssetPath).
 /// This also means that you should use [`AssetPath::parse`] in cases where `&str` is the explicit type.
 #[derive(Eq, PartialEq, Hash, Clone, Default, Reflect)]
-#[reflect_value(Debug, PartialEq, Hash, Serialize, Deserialize)]
+#[reflect(opaque)]
+#[reflect(Debug, PartialEq, Hash, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     source: AssetSourceId<'a>,
     path: CowArc<'a, Path>,
@@ -56,13 +57,13 @@ pub struct AssetPath<'a> {
 }
 
 impl<'a> Debug for AssetPath<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         Display::fmt(self, f)
     }
 }
 
 impl<'a> Display for AssetPath<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let AssetSourceId::Name(name) = self.source() {
             write!(f, "{name}://")?;
         }
@@ -75,19 +76,19 @@ impl<'a> Display for AssetPath<'a> {
 }
 
 /// An error that occurs when parsing a string type to create an [`AssetPath`] fails, such as during [`AssetPath::parse`].
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Display, Debug, PartialEq, Eq)]
 pub enum ParseAssetPathError {
     /// Error that occurs when the [`AssetPath::source`] section of a path string contains the [`AssetPath::label`] delimiter `#`. E.g. `bad#source://file.test`.
-    #[error("Asset source must not contain a `#` character")]
+    #[display("Asset source must not contain a `#` character")]
     InvalidSourceSyntax,
     /// Error that occurs when the [`AssetPath::label`] section of a path string contains the [`AssetPath::source`] delimiter `://`. E.g. `source://file.test#bad://label`.
-    #[error("Asset label must not contain a `://` substring")]
+    #[display("Asset label must not contain a `://` substring")]
     InvalidLabelSyntax,
     /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no characters preceding it. E.g. `://file.test`.
-    #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
+    #[display("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
     MissingSource,
     /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
-    #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
+    #[display("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
     MissingLabel,
 }
 
@@ -587,7 +588,7 @@ struct AssetPathVisitor;
 impl<'de> Visitor<'de> for AssetPathVisitor {
     type Value = AssetPath<'static>;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("string AssetPath")
     }
 

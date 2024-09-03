@@ -6,9 +6,9 @@ use crate::PartialReflect;
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug)]
 pub enum Return<'a> {
-    /// The function returns nothing (i.e. it returns `()`).
-    Unit,
     /// The function returns an owned value.
+    ///
+    /// This includes functions that return nothing (i.e. they return `()`).
     Owned(Box<dyn PartialReflect>),
     /// The function returns a reference to a value.
     Ref(&'a dyn PartialReflect),
@@ -17,9 +17,17 @@ pub enum Return<'a> {
 }
 
 impl<'a> Return<'a> {
-    /// Returns `true` if the return value is [`Self::Unit`].
+    /// Creates an [`Owned`](Self::Owned) unit (`()`) type.
+    pub fn unit() -> Self {
+        Self::Owned(Box::new(()))
+    }
+
+    /// Returns `true` if the return value is an [`Owned`](Self::Owned) unit (`()`) type.
     pub fn is_unit(&self) -> bool {
-        matches!(self, Return::Unit)
+        match self {
+            Return::Owned(val) => val.represents::<()>(),
+            _ => false,
+        }
     }
 
     /// Unwraps the return value as an owned value.
@@ -81,7 +89,7 @@ pub trait IntoReturn {
 
 impl IntoReturn for () {
     fn into_return<'a>(self) -> Return<'a> {
-        Return::Unit
+        Return::unit()
     }
 }
 

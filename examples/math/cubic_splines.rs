@@ -66,39 +66,30 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(MousePosition::default());
     commands.insert_resource(MouseEditMove::default());
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // The instructions and modes are rendered on the left-hand side in a column.
     let instructions_text = "Click and drag to add control points and their tangents\n\
         R: Remove the last control point\n\
         S: Cycle the spline construction being used\n\
         C: Toggle cyclic curve construction";
-    let spline_mode_text = format!("Spline: {}", spline_mode);
-    let cycling_mode_text = format!("{}", cycling_mode);
-    let style = TextStyle::default();
+    let spline_mode_text = format!("Spline: {spline_mode}");
+    let cycling_mode_text = format!("{cycling_mode}");
+    let style = TextFont::default();
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(20.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(20.0),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(instructions_text, style.clone()));
-            parent.spawn((
-                SplineModeText,
-                TextBundle::from_section(spline_mode_text, style.clone()),
-            ));
-            parent.spawn((
-                CyclingModeText,
-                TextBundle::from_section(cycling_mode_text, style.clone()),
-            ));
+            parent.spawn((Text::new(instructions_text), style.clone()));
+            parent.spawn((SplineModeText, Text(spline_mode_text), style.clone()));
+            parent.spawn((CyclingModeText, Text(cycling_mode_text), style.clone()));
         });
 }
 
@@ -127,7 +118,7 @@ impl std::fmt::Display for SplineMode {
 }
 
 /// The current cycling mode, which determines whether the control points should be interpolated
-/// cylically (to make a loop).
+/// cyclically (to make a loop).
 #[derive(Clone, Copy, Resource, Default)]
 enum CyclingMode {
     #[default]
@@ -264,9 +255,7 @@ fn update_spline_mode_text(
     let new_text = format!("Spline: {}", *spline_mode);
 
     for mut spline_mode_text in spline_mode_text.iter_mut() {
-        if let Some(section) = spline_mode_text.sections.first_mut() {
-            section.value.clone_from(&new_text);
-        }
+        (**spline_mode_text).clone_from(&new_text);
     }
 }
 
@@ -281,9 +270,7 @@ fn update_cycling_mode_text(
     let new_text = format!("{}", *cycling_mode);
 
     for mut cycling_mode_text in cycling_mode_text.iter_mut() {
-        if let Some(section) = cycling_mode_text.sections.first_mut() {
-            section.value.clone_from(&new_text);
-        }
+        (**cycling_mode_text).clone_from(&new_text);
     }
 }
 
@@ -292,6 +279,7 @@ fn update_cycling_mode_text(
 // -----------------------------------
 
 /// A small state machine which tracks a click-and-drag motion used to create new control points.
+///
 /// When the user is not doing a click-and-drag motion, the `start` field is `None`. When the user
 /// presses the left mouse button, the location of that press is temporarily stored in the field.
 #[derive(Clone, Default, Resource)]
@@ -320,7 +308,7 @@ fn handle_mouse_press(
     mouse_position: Res<MousePosition>,
     mut edit_move: ResMut<MouseEditMove>,
     mut control_points: ResMut<ControlPoints>,
-    camera: Query<(&Camera, &GlobalTransform)>,
+    camera: Single<(&Camera, &GlobalTransform)>,
 ) {
     let Some(mouse_pos) = mouse_position.0 else {
         return;
@@ -348,16 +336,13 @@ fn handle_mouse_press(
                     continue;
                 };
 
-                let Ok((camera, camera_transform)) = camera.get_single() else {
-                    continue;
-                };
+                let (camera, camera_transform) = *camera;
 
                 // Convert the starting point and end point (current mouse pos) into world coords:
-                let Some(point) = camera.viewport_to_world_2d(camera_transform, start) else {
+                let Ok(point) = camera.viewport_to_world_2d(camera_transform, start) else {
                     continue;
                 };
-                let Some(end_point) = camera.viewport_to_world_2d(camera_transform, mouse_pos)
-                else {
+                let Ok(end_point) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
                     continue;
                 };
                 let tangent = end_point - point;
@@ -378,7 +363,7 @@ fn draw_edit_move(
     edit_move: Res<MouseEditMove>,
     mouse_position: Res<MousePosition>,
     mut gizmos: Gizmos,
-    camera: Query<(&Camera, &GlobalTransform)>,
+    camera: Single<(&Camera, &GlobalTransform)>,
 ) {
     let Some(start) = edit_move.start else {
         return;
@@ -386,16 +371,15 @@ fn draw_edit_move(
     let Some(mouse_pos) = mouse_position.0 else {
         return;
     };
-    let Ok((camera, camera_transform)) = camera.get_single() else {
-        return;
-    };
+
+    let (camera, camera_transform) = *camera;
 
     // Resources store data in viewport coordinates, so we need to convert to world coordinates
     // to display them:
-    let Some(start) = camera.viewport_to_world_2d(camera_transform, start) else {
+    let Ok(start) = camera.viewport_to_world_2d(camera_transform, start) else {
         return;
     };
-    let Some(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
+    let Ok(end) = camera.viewport_to_world_2d(camera_transform, mouse_pos) else {
         return;
     };
 

@@ -1,5 +1,7 @@
 //! Screen space reflections implemented via raymarching.
 
+#![expect(deprecated)]
+
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_core_pipeline::{
@@ -58,9 +60,13 @@ pub struct ScreenSpaceReflectionsPlugin;
 /// A convenient bundle to add screen space reflections to a camera, along with
 /// the depth and deferred prepasses required to enable them.
 #[derive(Bundle, Default)]
+#[deprecated(
+    since = "0.15.0",
+    note = "Use the `ScreenSpaceReflections` components instead. Inserting it will now also insert the other components required by it automatically."
+)]
 pub struct ScreenSpaceReflectionsBundle {
     /// The component that enables SSR.
-    pub settings: ScreenSpaceReflectionsSettings,
+    pub settings: ScreenSpaceReflections,
     /// The depth prepass, needed for SSR.
     pub depth_prepass: DepthPrepass,
     /// The deferred prepass, needed for SSR.
@@ -70,8 +76,8 @@ pub struct ScreenSpaceReflectionsBundle {
 /// Add this component to a camera to enable *screen-space reflections* (SSR).
 ///
 /// Screen-space reflections currently require deferred rendering in order to
-/// appear. Therefore, you'll generally need to add a [`DepthPrepass`] and a
-/// [`DeferredPrepass`] to the camera as well.
+/// appear. Therefore, they also need the [`DepthPrepass`] and [`DeferredPrepass`]
+/// components, which are inserted automatically.
 ///
 /// SSR currently performs no roughness filtering for glossy reflections, so
 /// only very smooth surfaces will reflect objects in screen space. You can
@@ -80,8 +86,8 @@ pub struct ScreenSpaceReflectionsBundle {
 ///
 /// As with all screen-space techniques, SSR can only reflect objects on screen.
 /// When objects leave the camera, they will disappear from reflections.
-/// Alternatives that don't suffer from this problem include
-/// [`crate::environment_map::ReflectionProbeBundle`]s. The advantage of SSR is
+/// An alternative that doesn't suffer from this problem is the combination of
+/// a [`LightProbe`](crate::LightProbe) and [`EnvironmentMapLight`]. The advantage of SSR is
 /// that it can reflect all objects, not just static ones.
 ///
 /// SSR is an approximation technique and produces artifacts in some situations.
@@ -92,7 +98,9 @@ pub struct ScreenSpaceReflectionsBundle {
 /// which is required for screen-space raymarching.
 #[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, Default)]
-pub struct ScreenSpaceReflectionsSettings {
+#[require(DepthPrepass, DeferredPrepass)]
+#[doc(alias = "Ssr")]
+pub struct ScreenSpaceReflections {
     /// The maximum PBR roughness level that will enable screen space
     /// reflections.
     pub perceptual_roughness_threshold: f32,
@@ -133,10 +141,13 @@ pub struct ScreenSpaceReflectionsSettings {
     pub use_secant: bool,
 }
 
-/// A version of [`ScreenSpaceReflectionsSettings`] for upload to the GPU.
+#[deprecated(since = "0.15.0", note = "Renamed to `ScreenSpaceReflections`")]
+pub type ScreenSpaceReflectionsSettings = ScreenSpaceReflections;
+
+/// A version of [`ScreenSpaceReflections`] for upload to the GPU.
 ///
 /// For more information on these fields, see the corresponding documentation in
-/// [`ScreenSpaceReflectionsSettings`].
+/// [`ScreenSpaceReflections`].
 #[derive(Clone, Copy, Component, ShaderType)]
 pub struct ScreenSpaceReflectionsUniform {
     perceptual_roughness_threshold: f32,
@@ -195,8 +206,8 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<ScreenSpaceReflectionsSettings>()
-            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflectionsSettings>::default());
+        app.register_type::<ScreenSpaceReflections>()
+            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -234,7 +245,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
     }
 }
 
-impl Default for ScreenSpaceReflectionsSettings {
+impl Default for ScreenSpaceReflections {
     // Reasonable default values.
     //
     // These are from
@@ -485,8 +496,8 @@ pub fn prepare_ssr_settings(
     }
 }
 
-impl ExtractComponent for ScreenSpaceReflectionsSettings {
-    type QueryData = Read<ScreenSpaceReflectionsSettings>;
+impl ExtractComponent for ScreenSpaceReflections {
+    type QueryData = Read<ScreenSpaceReflections>;
 
     type QueryFilter = ();
 
@@ -553,8 +564,8 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
     }
 }
 
-impl From<ScreenSpaceReflectionsSettings> for ScreenSpaceReflectionsUniform {
-    fn from(settings: ScreenSpaceReflectionsSettings) -> Self {
+impl From<ScreenSpaceReflections> for ScreenSpaceReflectionsUniform {
+    fn from(settings: ScreenSpaceReflections) -> Self {
         Self {
             perceptual_roughness_threshold: settings.perceptual_roughness_threshold,
             thickness: settings.thickness,

@@ -22,8 +22,8 @@ use crate::{FromType, PartialReflect, Reflect};
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not be created through reflection",
-    note = "consider annotating `{Self}` with `#[derive(FromReflect)]`"
+    message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.

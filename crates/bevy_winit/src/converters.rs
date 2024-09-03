@@ -5,8 +5,9 @@ use bevy_input::{
     touch::{ForceTouch, TouchInput, TouchPhase},
     ButtonState,
 };
-use bevy_math::Vec2;
-use bevy_window::{EnabledButtons, SystemCursorIcon, WindowLevel, WindowTheme};
+use bevy_math::{CompassOctant, Vec2};
+use bevy_window::SystemCursorIcon;
+use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 pub fn convert_keyboard_input(
@@ -702,4 +703,17 @@ pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window
         window_buttons.insert(winit::window::WindowButtons::CLOSE);
     }
     window_buttons
+}
+
+pub fn convert_resize_direction(resize_direction: CompassOctant) -> winit::window::ResizeDirection {
+    match resize_direction {
+        CompassOctant::West => winit::window::ResizeDirection::West,
+        CompassOctant::North => winit::window::ResizeDirection::North,
+        CompassOctant::East => winit::window::ResizeDirection::East,
+        CompassOctant::South => winit::window::ResizeDirection::South,
+        CompassOctant::NorthWest => winit::window::ResizeDirection::NorthWest,
+        CompassOctant::NorthEast => winit::window::ResizeDirection::NorthEast,
+        CompassOctant::SouthWest => winit::window::ResizeDirection::SouthWest,
+        CompassOctant::SouthEast => winit::window::ResizeDirection::SouthEast,
+    }
 }

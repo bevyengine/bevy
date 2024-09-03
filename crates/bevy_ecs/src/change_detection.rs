@@ -5,13 +5,16 @@ use crate::{
     ptr::PtrMut,
     system::Resource,
 };
-#[cfg(feature = "track_change_detection")]
-use bevy_ptr::ThinSlicePtr;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use std::mem;
-use std::ops::{Deref, DerefMut};
+use core::{
+    mem,
+    ops::{Deref, DerefMut},
+};
 #[cfg(feature = "track_change_detection")]
-use std::{cell::UnsafeCell, panic::Location};
+use {
+    bevy_ptr::ThinSlicePtr,
+    core::{cell::UnsafeCell, panic::Location},
+};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -102,7 +105,6 @@ pub trait DetectChanges {
 ///    resource.0 = 42; // triggers change detection via [`DerefMut`]
 /// }
 /// ```
-///
 pub trait DetectChangesMut: DetectChanges {
     /// The type contained within this smart pointer
     ///
@@ -456,10 +458,10 @@ macro_rules! impl_methods {
 
 macro_rules! impl_debug {
     ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
-        impl<$($generics),* : ?Sized $(+ $traits)?> std::fmt::Debug for $name<$($generics),*>
-            where T: std::fmt::Debug
+        impl<$($generics),* : ?Sized $(+ $traits)?> core::fmt::Debug for $name<$($generics),*>
+            where T: core::fmt::Debug
         {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 f.debug_tuple(stringify!($name))
                     .field(&self.value)
                     .finish()
@@ -541,11 +543,10 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 ///
 /// If you need a unique mutable borrow, use [`ResMut`] instead.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
+/// This will cause systems that use this parameter to be skipped.
 ///
-/// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
-///
-/// Use `Option<Res<T>>` instead if the resource might not always exist.
+/// Use [`Option<Res<T>>`] instead if the resource might not always exist.
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
@@ -587,6 +588,19 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
     }
 }
 
+impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
+    /// Convert a `Res` into a `Ref`. This allows keeping the change-detection feature of `Ref`
+    /// while losing the specificity of `Res` for resources.
+    fn from(res: Res<'w, T>) -> Self {
+        Self {
+            value: res.value,
+            ticks: res.ticks,
+            #[cfg(feature = "track_change_detection")]
+            changed_by: res.changed_by,
+        }
+    }
+}
+
 impl<'w, 'a, T: Resource> IntoIterator for &'a Res<'w, T>
 where
     &'a T: IntoIterator,
@@ -607,11 +621,10 @@ impl_debug!(Res<'w, T>, Resource);
 ///
 /// If you need a shared borrow, use [`Res`] instead.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
+/// This will cause systems that use this parameter to be skipped.
 ///
-/// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not exist.
-///
-/// Use `Option<ResMut<T>>` instead if the resource might not always exist.
+/// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
@@ -669,11 +682,10 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 /// the scheduler to instead run the system on the main thread so that it doesn't send the resource
 /// over to another thread.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
+/// This will cause systems that use this parameter to be skipped.
 ///
-/// Panics when used as a `SystemParameter` if the resource does not exist.
-///
-/// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
+/// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist.
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
@@ -1109,8 +1121,8 @@ impl<'w> DetectChangesMut for MutUntyped<'w> {
     }
 }
 
-impl std::fmt::Debug for MutUntyped<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for MutUntyped<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("MutUntyped")
             .field(&self.value.as_ptr())
             .finish()
@@ -1184,9 +1196,9 @@ mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
     use bevy_reflect::{FromType, ReflectFromPtr};
-    use std::ops::{Deref, DerefMut};
+    use core::ops::{Deref, DerefMut};
     #[cfg(feature = "track_change_detection")]
-    use std::panic::Location;
+    use core::panic::Location;
 
     use crate::{
         self as bevy_ecs,
@@ -1194,7 +1206,7 @@ mod tests {
             Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
-        system::{IntoSystem, Query, System},
+        system::{IntoSystem, Single, System},
         world::World,
     };
 
@@ -1224,12 +1236,12 @@ mod tests {
 
     #[test]
     fn change_expiration() {
-        fn change_detected(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+        fn change_detected(query: Option<Single<Ref<C>>>) -> bool {
+            query.unwrap().is_changed()
         }
 
-        fn change_expired(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+        fn change_expired(query: Option<Single<Ref<C>>>) -> bool {
+            query.unwrap().is_changed()
         }
 
         let mut world = World::new();

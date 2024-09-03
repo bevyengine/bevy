@@ -1,12 +1,9 @@
-use std::{
-    borrow::Cow,
+use alloc::{borrow::Cow, sync::Arc};
+use core::{
     ops::{DerefMut, Range},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::{self, ThreadId},
+    sync::atomic::{AtomicBool, Ordering},
 };
+use std::thread::{self, ThreadId};
 
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::system::{Res, ResMut, Resource};
@@ -117,7 +114,7 @@ impl DiagnosticsRecorder {
             None => FrameData::new(device, internal.features),
         };
 
-        let old_frame = std::mem::replace(
+        let old_frame = core::mem::replace(
             internal.current_frame.get_mut().expect("lock poisoned"),
             new_frame,
         );
@@ -421,9 +418,9 @@ impl FrameData {
 
     fn diagnostic_path(&self, range: &Range<usize>, field: &str) -> DiagnosticPath {
         DiagnosticPath::from_components(
-            std::iter::once("render")
+            core::iter::once("render")
                 .chain(self.path_components[range.clone()].iter().map(|v| &**v))
-                .chain(std::iter::once(field)),
+                .chain(core::iter::once(field)),
         )
     }
 
@@ -477,14 +474,14 @@ impl FrameData {
 
         let timestamps = data[..(self.num_timestamps * 8) as usize]
             .chunks(8)
-            .map(|v| u64::from_ne_bytes(v.try_into().unwrap()))
+            .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
             .collect::<Vec<u64>>();
 
         let start = self.pipeline_statistics_buffer_offset as usize;
         let len = (self.num_pipeline_statistics as usize) * 40;
         let pipeline_statistics = data[start..start + len]
             .chunks(8)
-            .map(|v| u64::from_ne_bytes(v.try_into().unwrap()))
+            .map(|v| u64::from_le_bytes(v.try_into().unwrap()))
             .collect::<Vec<u64>>();
 
         let mut diagnostics = Vec::new();

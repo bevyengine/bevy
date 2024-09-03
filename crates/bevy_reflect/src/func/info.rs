@@ -2,8 +2,11 @@ use alloc::borrow::Cow;
 
 use bevy_utils::all_tuples;
 
-use crate::func::args::{ArgInfo, GetOwnership, Ownership};
-use crate::TypePath;
+use crate::{
+    func::args::{ArgInfo, GetOwnership, Ownership},
+    type_info::impl_type_methods,
+    Type, TypePath,
+};
 
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
@@ -140,7 +143,7 @@ impl FunctionInfo {
 /// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct ReturnInfo {
-    type_path: &'static str,
+    ty: Type,
     ownership: Ownership,
 }
 
@@ -148,17 +151,14 @@ impl ReturnInfo {
     /// Create a new [`ReturnInfo`] representing the given type, `T`.
     pub fn new<T: TypePath + GetOwnership>() -> Self {
         Self {
-            type_path: T::type_path(),
+            ty: Type::of::<T>(),
             ownership: T::ownership(),
         }
     }
 
-    /// The type path of the return type.
-    pub fn type_path(&self) -> &'static str {
-        self.type_path
-    }
+    impl_type_methods!(ty);
 
-    /// The ownership of the return type.
+    /// The ownership of this type.
     pub fn ownership(&self) -> Ownership {
         self.ownership
     }
@@ -353,7 +353,7 @@ all_tuples!(impl_typed_function, 0, 15, Arg, arg);
 ///
 /// [`type_name`]: std::any::type_name
 fn create_info<F>() -> FunctionInfo {
-    let name = std::any::type_name::<F>();
+    let name = core::any::type_name::<F>();
 
     if name.ends_with("{{closure}}") || name.starts_with("fn(") {
         FunctionInfo::anonymous()
@@ -374,7 +374,7 @@ mod tests {
 
         // Sanity check:
         assert_eq!(
-            std::any::type_name_of_val(&add),
+            core::any::type_name_of_val(&add),
             "bevy_reflect::func::info::tests::should_create_function_info::add"
         );
 
@@ -398,7 +398,7 @@ mod tests {
         let add = add as fn(i32, i32) -> i32;
 
         // Sanity check:
-        assert_eq!(std::any::type_name_of_val(&add), "fn(i32, i32) -> i32");
+        assert_eq!(core::any::type_name_of_val(&add), "fn(i32, i32) -> i32");
 
         let info = add.get_function_info();
         assert!(info.name().is_none());
@@ -414,7 +414,7 @@ mod tests {
 
         // Sanity check:
         assert_eq!(
-            std::any::type_name_of_val(&add),
+            core::any::type_name_of_val(&add),
             "bevy_reflect::func::info::tests::should_create_anonymous_function_info::{{closure}}"
         );
 
@@ -433,7 +433,7 @@ mod tests {
 
         // Sanity check:
         assert_eq!(
-            std::any::type_name_of_val(&add),
+            core::any::type_name_of_val(&add),
             "bevy_reflect::func::info::tests::should_create_closure_info::{{closure}}"
         );
 

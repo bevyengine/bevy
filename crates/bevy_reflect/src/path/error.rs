@@ -1,4 +1,4 @@
-use std::fmt;
+use core::fmt;
 
 use super::Access;
 use crate::{ReflectKind, VariantType};
@@ -126,4 +126,4 @@ impl fmt::Display for AccessError<'_> {
         }
     }
 }
-impl std::error::Error for AccessError<'_> {}
+impl core::error::Error for AccessError<'_> {}

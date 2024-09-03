@@ -6,7 +6,7 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
-glam = "0.28"
+glam = "0.29"
 rand = "0.8"
 rand_chacha = "0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
@@ -14,6 +14,7 @@ bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
 bevy_hierarchy = { path = "../crates/bevy_hierarchy" }
 bevy_math = { path = "../crates/bevy_math" }
+bevy_picking = { path = "../crates/bevy_picking", features = ["bevy_mesh"] }
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
@@ -35,6 +36,11 @@ harness = false
 [[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/benches.rs"
+harness = false
+
+[[bench]]
+name = "ray_mesh_intersection"
+path = "benches/bevy_picking/ray_mesh_intersection.rs"
 harness = false
 
 [[bench]]

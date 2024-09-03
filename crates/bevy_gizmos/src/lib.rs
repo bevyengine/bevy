@@ -37,6 +37,7 @@ pub mod arrows;
 pub mod circles;
 pub mod config;
 pub mod cross;
+pub mod curves;
 pub mod gizmos;
 pub mod grid;
 pub mod primitives;
@@ -50,10 +51,13 @@ mod pipeline_2d;
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 mod pipeline_3d;
 
-/// The `bevy_gizmos` prelude.
+/// The gizmos prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[cfg(feature = "bevy_render")]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
+
     #[doc(hidden)]
     pub use crate::{
         config::{
@@ -69,56 +73,63 @@ pub mod prelude {
     pub use crate::light::{LightGizmoColor, LightGizmoConfigGroup, ShowLightGizmo};
 }
 
-#[cfg(feature = "bevy_render")]
-use bevy_ecs::{
-    query::ROQueryItem,
-    system::{
-        lifetimeless::{Read, SRes},
-        Commands, SystemParamItem,
-    },
-};
-
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, Assets, Handle};
 use bevy_color::LinearRgba;
-#[cfg(feature = "bevy_render")]
-use bevy_ecs::component::Component;
 use bevy_ecs::{
     schedule::{IntoSystemConfigs, SystemSet},
     system::{Res, ResMut, Resource},
 };
 use bevy_math::Vec3;
 use bevy_reflect::TypePath;
+
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
+use crate::config::GizmoMeshConfig;
+
+#[cfg(feature = "bevy_render")]
+use {
+    bevy_ecs::{
+        component::Component,
+        entity::Entity,
+        query::ROQueryItem,
+        system::{
+            lifetimeless::{Read, SRes},
+            Commands, SystemParamItem,
+        },
+    },
+    bevy_render::{
+        extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
+        render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+        render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+        render_resource::{
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader,
+            ShaderStages, ShaderType, VertexFormat,
+        },
+        renderer::RenderDevice,
+        sync_world::{MainEntity, TemporaryRenderEntity},
+        Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    },
+    bytemuck::cast_slice,
+};
+
 #[cfg(all(
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite"),
 ))]
 use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
-#[cfg(feature = "bevy_render")]
-use bevy_render::{
-    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::{
-        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader, ShaderStages,
-        ShaderType, VertexFormat,
-    },
-    renderer::RenderDevice,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
-};
-
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
-#[cfg(feature = "bevy_render")]
-use bytemuck::cast_slice;
 use config::{
     DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore, GizmoLineJoint,
 };
+use core::{any::TypeId, mem};
 use gizmos::{GizmoStorage, Swap};
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 use light::LightGizmoPlugin;
-use std::{any::TypeId, mem};
 
 #[cfg(feature = "bevy_render")]
 const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7414812689238026784);
@@ -231,15 +242,16 @@ impl AppGizmoBuilder for App {
         }
 
         self.world_mut()
-            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .get_resource_or_init::<GizmoConfigStore>()
             .register::<Config>();
 
-        let mut handles = self
-            .world_mut()
-            .get_resource_or_insert_with::<LineGizmoHandles>(Default::default);
+        let mut handles = self.world_mut().get_resource_or_init::<LineGizmoHandles>();
 
         handles.list.insert(TypeId::of::<Config>(), None);
         handles.strip.insert(TypeId::of::<Config>(), None);
+
+        // These handles are safe to mutate in any order
+        self.allow_ambiguous_resource::<LineGizmoHandles>();
 
         self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()
@@ -275,7 +287,7 @@ impl AppGizmoBuilder for App {
         self.init_gizmo_group::<Config>();
 
         self.world_mut()
-            .get_resource_or_insert_with::<GizmoConfigStore>(Default::default)
+            .get_resource_or_init::<GizmoConfigStore>()
             .insert(config, group);
 
         self
@@ -449,9 +461,17 @@ fn extract_gizmo_data(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            (*handle).clone_weak(),
             #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
-            config::GizmoMeshConfig::from(config),
+            GizmoMeshConfig {
+                line_perspective: config.line_perspective,
+                line_style: config.line_style,
+                render_layers: config.render_layers.clone(),
+                handle: handle.clone(),
+            },
+            // The immediate mode API does not have a main world entity to refer to,
+            // but we do need MainEntity on this render entity for the systems to find it.
+            MainEntity::from(Entity::PLACEHOLDER),
+            TemporaryRenderEntity,
         ));
     }
 }
@@ -586,24 +606,27 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 #[cfg(feature = "bevy_render")]
 struct DrawLineGizmo;
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<GizmoMeshConfig>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(handle) = handle else {
+        let Some(config) = config else {
             return RenderCommandResult::Skip;
         };
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+        let Some(line_gizmo) = line_gizmos.into_inner().get(&config.handle) else {
             return RenderCommandResult::Skip;
         };
 
@@ -639,24 +662,27 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 
 #[cfg(feature = "bevy_render")]
 struct DrawLineJointGizmo;
-#[cfg(feature = "bevy_render")]
+#[cfg(all(
+    feature = "bevy_render",
+    any(feature = "bevy_pbr", feature = "bevy_sprite")
+))]
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
-    type ItemQuery = Read<Handle<LineGizmo>>;
+    type ItemQuery = Read<GizmoMeshConfig>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: ROQueryItem<'w, Self::ViewQuery>,
-        handle: Option<ROQueryItem<'w, Self::ItemQuery>>,
+        config: Option<ROQueryItem<'w, Self::ItemQuery>>,
         line_gizmos: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(handle) = handle else {
+        let Some(config) = config else {
             return RenderCommandResult::Skip;
         };
-        let Some(line_gizmo) = line_gizmos.into_inner().get(handle) else {
+        let Some(line_gizmo) = line_gizmos.into_inner().get(&config.handle) else {
             return RenderCommandResult::Skip;
         };
 
@@ -669,11 +695,24 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
         };
 
         let instances = {
-            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(1, line_gizmo.position_buffer.slice(..));
-            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(..));
+            let item_size = VertexFormat::Float32x3.size();
+            // position_a
+            let buffer_size_a = line_gizmo.position_buffer.size() - item_size * 2;
+            pass.set_vertex_buffer(0, line_gizmo.position_buffer.slice(..buffer_size_a));
+            // position_b
+            let buffer_size_b = line_gizmo.position_buffer.size() - item_size;
+            pass.set_vertex_buffer(
+                1,
+                line_gizmo.position_buffer.slice(item_size..buffer_size_b),
+            );
+            // position_c
+            pass.set_vertex_buffer(2, line_gizmo.position_buffer.slice(item_size * 2..));
 
-            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(..));
+            // color
+            let item_size = VertexFormat::Float32x4.size();
+            let buffer_size = line_gizmo.color_buffer.size() - item_size;
+            // This corresponds to the color of position_b, hence starts from `item_size`
+            pass.set_vertex_buffer(3, line_gizmo.color_buffer.slice(item_size..buffer_size));
 
             u32::max(line_gizmo.vertex_count, 2) - 2
         };
@@ -770,7 +809,7 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         step_mode: VertexStepMode::Instance,
         attributes: vec![VertexAttribute {
             format: Float32x4,
-            offset: Float32x4.size(),
+            offset: 0,
             shader_location: 3,
         }],
     };
@@ -779,12 +818,10 @@ fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
         position_layout.clone(),
         {
             position_layout.attributes[0].shader_location = 1;
-            position_layout.attributes[0].offset = Float32x3.size();
             position_layout.clone()
         },
         {
             position_layout.attributes[0].shader_location = 2;
-            position_layout.attributes[0].offset = 2 * Float32x3.size();
             position_layout
         },
         color_layout.clone(),

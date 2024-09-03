@@ -1,6 +1,9 @@
 use crate::{App, AppError, Plugin};
-use bevy_utils::{tracing::debug, tracing::warn, TypeIdMap};
-use std::any::TypeId;
+use bevy_utils::{
+    tracing::{debug, warn},
+    TypeIdMap,
+};
+use core::any::TypeId;
 
 /// A macro for generating a well-documented [`PluginGroup`] from a list of [`Plugin`] paths.
 ///
@@ -45,6 +48,17 @@ use std::any::TypeId;
 /// #   impl Plugin for WebCompatibilityPlugin { fn build(&self, _: &mut App) {} }
 /// # }
 /// #
+/// # mod audio {
+/// #   use bevy_app::*;
+/// #   #[derive(Default)]
+/// #   pub struct AudioPlugins;
+/// #   impl PluginGroup for AudioPlugins {
+/// #     fn build(self) -> PluginGroupBuilder {
+/// #       PluginGroupBuilder::start::<Self>()
+/// #     }
+/// #   }
+/// # }
+/// #
 /// # mod internal {
 /// #   use bevy_app::*;
 /// #   #[derive(Default)]
@@ -72,6 +86,10 @@ use std::any::TypeId;
 ///         // generation, in which case you must wrap it in `#[custom()]`.
 ///         #[custom(cfg(target_arch = "wasm32"))]
 ///         web:::WebCompatibilityPlugin,
+///         // You can nest `PluginGroup`s within other `PluginGroup`s, you just need the
+///         // `#[plugin_group]` attribute.
+///         #[plugin_group]
+///         audio:::AudioPlugins,
 ///         // You can hide plugins from documentation. Due to macro limitations, hidden plugins
 ///         // must be last.
 ///         #[doc(hidden)]
@@ -93,6 +111,14 @@ macro_rules! plugin_group {
             ),*
             $(
                 $(,)?$(
+                    #[plugin_group]
+                    $(#[cfg(feature = $plugin_group_feature:literal)])?
+                    $(#[custom($plugin_group_meta:meta)])*
+                    $($plugin_group_path:ident::)* : $plugin_group_name:ident
+                ),+
+            )?
+            $(
+                $(,)?$(
                     #[doc(hidden)]
                     $(#[cfg(feature = $hidden_plugin_feature:literal)])?
                     $(#[custom($hidden_plugin_meta:meta)])*
@@ -110,6 +136,10 @@ macro_rules! plugin_group {
             " - [`", stringify!($plugin_name), "`](" $(, stringify!($plugin_path), "::")*, stringify!($plugin_name), ")"
             $(, " - with feature `", $plugin_feature, "`")?
         )])*
+       $($(#[doc = concat!(
+            " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
+            $(, " - with feature `", $plugin_group_feature, "`")?
+        )]),+)?
         $(
             ///
             $(#[doc = $post_doc])+
@@ -132,6 +162,18 @@ macro_rules! plugin_group {
                         group = group.add(<$($plugin_path::)*$plugin_name>::default());
                     }
                 )*
+                $($(
+                    $(#[cfg(feature = $plugin_group_feature)])?
+                    $(#[$plugin_group_meta])*
+                    {
+                        const _: () = {
+                            const fn check_default<T: Default>() {}
+                            check_default::<$($plugin_group_path::)*$plugin_group_name>();
+                        };
+
+                        group = group.add_group(<$($plugin_group_path::)*$plugin_group_name>::default());
+                    }
+                )+)?
                 $($(
                     $(#[cfg(feature = $hidden_plugin_feature)])?
                     $(#[$hidden_plugin_meta])*
@@ -160,7 +202,7 @@ pub trait PluginGroup: Sized {
     fn build(self) -> PluginGroupBuilder;
     /// Configures a name for the [`PluginGroup`] which is primarily used for debugging.
     fn name() -> String {
-        std::any::type_name::<Self>().to_string()
+        core::any::type_name::<Self>().to_string()
     }
     /// Sets the value of the given [`Plugin`], if it exists
     fn set<T: Plugin>(self, plugin: T) -> PluginGroupBuilder {
@@ -185,6 +227,7 @@ fn type_id_of_val<T: 'static>(_: &T) -> TypeId {
 }
 
 /// Facilitates the creation and configuration of a [`PluginGroup`].
+///
 /// Provides a build ordering to ensure that [`Plugin`]s which produce/require a [`Resource`](bevy_ecs::system::Resource)
 /// are built before/after dependent/depending [`Plugin`]s. [`Plugin`]s inside the group
 /// can be disabled, enabled or reordered.
@@ -215,7 +258,7 @@ impl PluginGroupBuilder {
             Some(i) => i,
             None => panic!(
                 "Plugin does not exist in group: {}.",
-                std::any::type_name::<Target>()
+                core::any::type_name::<Target>()
             ),
         }
     }
@@ -269,7 +312,7 @@ impl PluginGroupBuilder {
         let entry = self.plugins.get_mut(&TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "{} does not exist in this PluginGroup",
-                std::any::type_name::<T>(),
+                core::any::type_name::<T>(),
             )
         });
         entry.plugin = Box::new(plugin);
@@ -279,7 +322,10 @@ impl PluginGroupBuilder {
     /// Adds the plugin [`Plugin`] at the end of this [`PluginGroupBuilder`]. If the plugin was
     /// already in the group, it is removed from its previous place.
     // This is not confusing, clippy!
-    #[allow(clippy::should_implement_trait)]
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "This does not emulate the `+` operator, but is more akin to pushing to a stack."
+    )]
     pub fn add<T: Plugin>(mut self, plugin: T) -> Self {
         let target_index = self.order.len();
         self.order.push(TypeId::of::<T>());
@@ -430,9 +476,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginB>(),
-                std::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginC>(),
             ]
         );
     }
@@ -447,9 +493,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -464,9 +510,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -482,9 +528,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -500,9 +546,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -518,9 +564,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginC>(),
-                std::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginB>(),
             ]
         );
     }
@@ -538,9 +584,9 @@ mod tests {
         assert_eq!(
             group_b.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginB>(),
-                std::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginC>(),
             ]
         );
     }
@@ -562,9 +608,9 @@ mod tests {
         assert_eq!(
             group.order,
             vec![
-                std::any::TypeId::of::<PluginA>(),
-                std::any::TypeId::of::<PluginB>(),
-                std::any::TypeId::of::<PluginC>(),
+                core::any::TypeId::of::<PluginA>(),
+                core::any::TypeId::of::<PluginB>(),
+                core::any::TypeId::of::<PluginC>(),
             ]
         );
     }

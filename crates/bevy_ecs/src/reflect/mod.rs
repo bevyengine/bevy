@@ -1,13 +1,15 @@
 //! Types that enable reflection support.
 
-use std::any::TypeId;
-use std::ops::{Deref, DerefMut};
+use core::{
+    any::TypeId,
+    ops::{Deref, DerefMut},
+};
 
 use crate as bevy_ecs;
 use crate::{system::Resource, world::World};
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::{
-    PartialReflect, Reflect, ReflectFromReflect, TypePath, TypeRegistry, TypeRegistryArc,
+    std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath,
+    TypeRegistry, TypeRegistryArc,
 };
 
 mod bundle;
@@ -16,13 +18,15 @@ mod entity_commands;
 mod from_world;
 mod map_entities;
 mod resource;
+mod visit_entities;
 
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
-pub use map_entities::{ReflectMapEntities, ReflectMapEntitiesResource};
+pub use map_entities::ReflectMapEntities;
 pub use resource::{ReflectResource, ReflectResourceFns};
+pub use visit_entities::{ReflectVisitEntities, ReflectVisitEntitiesMut};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
@@ -135,7 +139,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
             `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
             or `#[reflect(FromWorld)]`?",
             // FIXME: once we have unique reflect, use `TypePath`.
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
     };
 

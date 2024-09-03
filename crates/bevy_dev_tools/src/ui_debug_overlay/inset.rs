@@ -137,7 +137,7 @@ impl<'w, 's> InsetGizmo<'w, 's> {
         let Ok(cam) = self.cam.get_single() else {
             return Vec2::ZERO;
         };
-        if let Some(new_position) = cam.world_to_viewport(&zero, position.extend(0.)) {
+        if let Ok(new_position) = cam.world_to_viewport(&zero, position.extend(0.)) {
             position = new_position;
         };
         position.xy()

@@ -1,10 +1,12 @@
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, sync::Arc};
 use core::fmt::Debug;
-use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use bevy_utils::HashMap;
 
-use crate::func::{DynamicFunction, FunctionRegistrationError, IntoFunction};
+use crate::func::{
+    ArgList, DynamicFunction, FunctionRegistrationError, FunctionResult, IntoFunction,
+};
 
 /// A registry of [reflected functions].
 ///
@@ -142,7 +144,7 @@ impl FunctionRegistry {
     ///
     /// Another approach could be to use the [type name] of the function,
     /// however, it should be noted that anonymous functions and closures
-    ///are not guaranteed to have unique type names.
+    /// are not guaranteed to have unique type names.
     ///
     /// This method is a convenience around calling [`IntoFunction::into_function`] and [`DynamicFunction::with_name`]
     /// on the function and inserting it into the registry using the [`register`] method.
@@ -282,6 +284,18 @@ impl FunctionRegistry {
         }
     }
 
+    /// Calls the function with the given [name] and [args].
+    ///
+    /// Returns `None` if no function with the given name is registered.
+    /// Otherwise, returns the result of the function call.
+    ///
+    /// [name]: DynamicFunction::name
+    /// [args]: ArgList
+    pub fn call<'a>(&self, name: &str, args: ArgList<'a>) -> Option<FunctionResult<'a>> {
+        let func = self.get(name)?;
+        Some(func.call(args))
+    }
+
     /// Get a reference to a registered function by [name].
     ///
     /// [name]: DynamicFunction::name
@@ -352,7 +366,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register(foo).unwrap();
 
-        let function = registry.get(std::any::type_name_of_val(&foo)).unwrap();
+        let function = registry.get(core::any::type_name_of_val(&foo)).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.try_downcast_ref::<i32>(), Some(&123));
     }
@@ -421,7 +435,7 @@ mod tests {
             321
         }
 
-        let name = std::any::type_name_of_val(&foo);
+        let name = core::any::type_name_of_val(&foo);
 
         let mut registry = FunctionRegistry::default();
         registry.register(foo).unwrap();
@@ -448,7 +462,7 @@ mod tests {
             321
         }
 
-        let name = std::any::type_name_of_val(&foo);
+        let name = core::any::type_name_of_val(&foo);
 
         let mut registry = FunctionRegistry::default();
         registry.register(foo).unwrap();
@@ -461,6 +475,23 @@ mod tests {
         let function = registry.get(name).unwrap();
         let value = function.call(ArgList::new()).unwrap().unwrap_owned();
         assert_eq!(value.try_downcast_ref::<i32>(), Some(&321));
+    }
+
+    #[test]
+    fn should_call_function_via_registry() {
+        fn add(a: i32, b: i32) -> i32 {
+            a + b
+        }
+
+        let mut registry = FunctionRegistry::default();
+        registry.register(add).unwrap();
+
+        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let result = registry
+            .call(core::any::type_name_of_val(&add), args)
+            .unwrap();
+        let value = result.unwrap().unwrap_owned();
+        assert_eq!(value.try_downcast_ref::<i32>(), Some(&100));
     }
 
     #[test]

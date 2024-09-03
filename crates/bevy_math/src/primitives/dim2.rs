@@ -1,4 +1,5 @@
-use std::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
+use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
+use derive_more::derive::{Display, Error, From};
 
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
@@ -266,7 +267,7 @@ impl Arc2d {
 ///
 /// **Warning:** Circular sectors with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing circular sectors to have an angle in [0, 2π].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -291,9 +292,19 @@ impl Default for CircularSector {
     }
 }
 
-impl From<Arc2d> for CircularSector {
-    fn from(arc: Arc2d) -> Self {
-        Self { arc }
+impl Measured2d for CircularSector {
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        self.arc.radius.squared() * self.arc.half_angle
+    }
+
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        if self.half_angle() >= PI {
+            self.arc.radius * 2.0 * PI
+        } else {
+            2.0 * self.radius() + self.arc_length()
+        }
     }
 }
 
@@ -387,12 +398,6 @@ impl CircularSector {
     pub fn sagitta(&self) -> f32 {
         self.arc.sagitta()
     }
-
-    /// Returns the area of this sector
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        self.arc.radius.squared() * self.arc.half_angle
-    }
 }
 
 /// A primitive representing a circular segment:
@@ -405,7 +410,7 @@ impl CircularSector {
 ///
 /// **Warning:** Circular segments with negative angle or radius, or with angle greater than an entire circle, are not officially supported.
 /// We recommend normalizing circular segments to have an angle in [0, 2π].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, From)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -430,12 +435,17 @@ impl Default for CircularSegment {
     }
 }
 
-impl From<Arc2d> for CircularSegment {
-    fn from(arc: Arc2d) -> Self {
-        Self { arc }
+impl Measured2d for CircularSegment {
+    #[inline(always)]
+    fn area(&self) -> f32 {
+        0.5 * self.arc.radius.squared() * (self.arc.angle() - ops::sin(self.arc.angle()))
+    }
+
+    #[inline(always)]
+    fn perimeter(&self) -> f32 {
+        self.chord_length() + self.arc_length()
     }
 }
-
 impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
@@ -526,17 +536,12 @@ impl CircularSegment {
     pub fn sagitta(&self) -> f32 {
         self.arc.sagitta()
     }
-
-    /// Returns the area of this segment
-    #[inline(always)]
-    pub fn area(&self) -> f32 {
-        0.5 * self.arc.radius.squared() * (self.arc.angle() - ops::sin(self.arc.angle()))
-    }
 }
 
 #[cfg(test)]
 mod arc_tests {
-    use std::f32::consts::FRAC_PI_4;
+    use core::f32::consts::FRAC_PI_4;
+    use core::f32::consts::SQRT_2;
 
     use approx::assert_abs_diff_eq;
 
@@ -559,7 +564,9 @@ mod arc_tests {
         is_minor: bool,
         is_major: bool,
         sector_area: f32,
+        sector_perimeter: f32,
         segment_area: f32,
+        segment_perimeter: f32,
     }
 
     impl ArcTestCase {
@@ -592,6 +599,7 @@ mod arc_tests {
             assert_abs_diff_eq!(self.apothem, sector.apothem());
             assert_abs_diff_eq!(self.sagitta, sector.sagitta());
             assert_abs_diff_eq!(self.sector_area, sector.area());
+            assert_abs_diff_eq!(self.sector_perimeter, sector.perimeter());
         }
 
         fn check_segment(&self, segment: CircularSegment) {
@@ -604,6 +612,7 @@ mod arc_tests {
             assert_abs_diff_eq!(self.apothem, segment.apothem());
             assert_abs_diff_eq!(self.sagitta, segment.sagitta());
             assert_abs_diff_eq!(self.segment_area, segment.area());
+            assert_abs_diff_eq!(self.segment_perimeter, segment.perimeter());
         }
     }
 
@@ -626,7 +635,9 @@ mod arc_tests {
             is_minor: true,
             is_major: false,
             sector_area: 0.0,
+            sector_perimeter: 2.0,
             segment_area: 0.0,
+            segment_perimeter: 0.0,
         };
 
         tests.check_arc(Arc2d::new(1.0, 0.0));
@@ -653,7 +664,9 @@ mod arc_tests {
             is_minor: true,
             is_major: false,
             sector_area: 0.0,
+            sector_perimeter: 0.0,
             segment_area: 0.0,
+            segment_perimeter: 0.0,
         };
 
         tests.check_arc(Arc2d::new(0.0, FRAC_PI_4));
@@ -681,7 +694,9 @@ mod arc_tests {
             is_minor: true,
             is_major: false,
             sector_area: FRAC_PI_4,
+            sector_perimeter: FRAC_PI_2 + 2.0,
             segment_area: FRAC_PI_4 - 0.5,
+            segment_perimeter: FRAC_PI_2 + SQRT_2,
         };
 
         tests.check_arc(Arc2d::from_turns(1.0, 0.25));
@@ -708,7 +723,9 @@ mod arc_tests {
             is_minor: true,
             is_major: true,
             sector_area: FRAC_PI_2,
+            sector_perimeter: PI + 2.0,
             segment_area: FRAC_PI_2,
+            segment_perimeter: PI + 2.0,
         };
 
         tests.check_arc(Arc2d::from_radians(1.0, PI));
@@ -735,7 +752,9 @@ mod arc_tests {
             is_minor: false,
             is_major: true,
             sector_area: PI,
+            sector_perimeter: 2.0 * PI,
             segment_area: PI,
+            segment_perimeter: 2.0 * PI,
         };
 
         tests.check_arc(Arc2d::from_degrees(1.0, 360.0));
@@ -1041,7 +1060,7 @@ impl Rhombus {
     /// Create a new `Rhombus` from a given inradius with all inner angles equal.
     #[inline(always)]
     pub fn from_inradius(inradius: f32) -> Self {
-        let half_diagonal = inradius * 2.0 / std::f32::consts::SQRT_2;
+        let half_diagonal = inradius * 2.0 / core::f32::consts::SQRT_2;
         Self {
             half_diagonals: Vec2::new(half_diagonal, half_diagonal),
         }
@@ -1603,6 +1622,89 @@ impl<const N: usize> Polygon<N> {
     }
 }
 
+impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
+    fn from(val: ConvexPolygon<N>) -> Self {
+        Polygon {
+            vertices: val.vertices,
+        }
+    }
+}
+
+/// A convex polygon with `N` vertices.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ConvexPolygon<const N: usize> {
+    /// The vertices of the [`ConvexPolygon`].
+    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
+    vertices: [Vec2; N],
+}
+impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
+
+/// An error that happens when creating a [`ConvexPolygon`].
+#[derive(Error, Display, Debug, Clone)]
+pub enum ConvexPolygonError {
+    /// The created polygon is not convex.
+    #[display("The created polygon is not convex")]
+    Concave,
+}
+
+impl<const N: usize> ConvexPolygon<N> {
+    fn triangle_winding_order(
+        &self,
+        a_index: usize,
+        b_index: usize,
+        c_index: usize,
+    ) -> WindingOrder {
+        let a = self.vertices[a_index];
+        let b = self.vertices[b_index];
+        let c = self.vertices[c_index];
+        Triangle2d::new(a, b, c).winding_order()
+    }
+
+    /// Create a [`ConvexPolygon`] from its `vertices`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConvexPolygonError::Concave`] if the `vertices` do not form a convex polygon.
+    pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
+        let polygon = Self::new_unchecked(vertices);
+        let ref_winding_order = polygon.triangle_winding_order(N - 1, 0, 1);
+        for i in 1..N {
+            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % N);
+            if winding_order != ref_winding_order {
+                return Err(ConvexPolygonError::Concave);
+            }
+        }
+        Ok(polygon)
+    }
+
+    /// Create a [`ConvexPolygon`] from its `vertices`, without checks.
+    /// Use this version only if you know that the `vertices` make up a convex polygon.
+    #[inline(always)]
+    pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
+        Self { vertices }
+    }
+
+    /// Get the vertices of this polygon
+    #[inline(always)]
+    pub fn vertices(&self) -> &[Vec2; N] {
+        &self.vertices
+    }
+}
+
+impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
+    type Error = ConvexPolygonError;
+
+    fn try_from(val: Polygon<N>) -> Result<Self, Self::Error> {
+        ConvexPolygon::new(val.vertices)
+    }
+}
+
 /// A polygon with a variable number of vertices, allocated on the heap
 /// in a `Box<[Vec2]>`.
 ///
@@ -1749,7 +1851,7 @@ impl RegularPolygon {
     pub fn vertices(self, rotation: f32) -> impl IntoIterator<Item = Vec2> {
         // Add pi/2 so that the polygon has a vertex at the top (sin is 1.0 and cos is 0.0)
         let start_angle = rotation + FRAC_PI_2;
-        let step = std::f32::consts::TAU / self.sides as f32;
+        let step = core::f32::consts::TAU / self.sides as f32;
 
         (0..self.sides).map(move |i| {
             let theta = start_angle + i as f32 * step;
@@ -1816,6 +1918,28 @@ impl Capsule2d {
             radius,
             half_length: length / 2.0,
         }
+    }
+
+    /// Get the part connecting the semicircular ends of the capsule as a [`Rectangle`]
+    #[inline]
+    pub fn to_inner_rectangle(&self) -> Rectangle {
+        Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
+    }
+}
+
+impl Measured2d for Capsule2d {
+    /// Get the area of the capsule
+    #[inline]
+    fn area(&self) -> f32 {
+        // pi*r^2 + (2r)*l
+        PI * self.radius.squared() + self.to_inner_rectangle().area()
+    }
+
+    /// Get the perimeter of the capsule
+    #[inline]
+    fn perimeter(&self) -> f32 {
+        // 2pi*r + 2l
+        2.0 * PI * self.radius + 4.0 * self.half_length
     }
 }
 
@@ -1893,6 +2017,18 @@ mod tests {
     }
 
     #[test]
+    fn capsule_math() {
+        let capsule = Capsule2d::new(2.0, 9.0);
+        assert_eq!(
+            capsule.to_inner_rectangle(),
+            Rectangle::new(4.0, 9.0),
+            "rectangle wasn't created correctly from a capsule"
+        );
+        assert_eq!(capsule.area(), 48.566371, "incorrect area");
+        assert_eq!(capsule.perimeter(), 30.566371, "incorrect perimeter");
+    }
+
+    #[test]
     fn annulus_math() {
         let annulus = Annulus::new(2.5, 3.5);
         assert_eq!(annulus.diameter(), 7.0, "incorrect diameter");
@@ -1915,7 +2051,7 @@ mod tests {
         assert_eq!(rhombus.side(), 0.0, "incorrect side");
         assert_eq!(rhombus.inradius(), 0.0, "incorrect inradius");
         assert_eq!(rhombus.circumradius(), 0.0, "incorrect circumradius");
-        let rhombus = Rhombus::from_side(std::f32::consts::SQRT_2);
+        let rhombus = Rhombus::from_side(core::f32::consts::SQRT_2);
         assert_abs_diff_eq!(rhombus.half_diagonals, Vec2::new(1.0, 1.0));
         assert_abs_diff_eq!(
             rhombus.half_diagonals,
@@ -2069,7 +2205,7 @@ mod tests {
         assert!((vertices.next().unwrap() - Vec2::Y).length() < 1e-7);
 
         // Rotate by 45 degrees, forming an axis-aligned square
-        let mut rotated_vertices = polygon.vertices(std::f32::consts::FRAC_PI_4).into_iter();
+        let mut rotated_vertices = polygon.vertices(core::f32::consts::FRAC_PI_4).into_iter();
 
         // Distance from the origin to the middle of a side, derived using Pythagorean theorem
         let side_sistance = FRAC_1_SQRT_2;

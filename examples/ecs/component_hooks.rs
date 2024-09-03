@@ -13,12 +13,14 @@
 //! - Enforcing structural rules: When you have systems that depend on specific relationships
 //!     between components (like hierarchies or parent-child links) and need to maintain correctness.
 
-use bevy::ecs::component::{ComponentHooks, StorageType};
-use bevy::prelude::*;
+use bevy::{
+    ecs::component::{ComponentHooks, StorageType},
+    prelude::*,
+};
 use std::collections::HashMap;
 
 #[derive(Debug)]
-/// Hooks can also be registered during component initialisation by
+/// Hooks can also be registered during component initialization by
 /// using [`Component`] derive macro:
 /// ```no_run
 /// #[derive(Component)]
@@ -29,7 +31,7 @@ struct MyComponent(KeyCode);
 impl Component for MyComponent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
-    /// Hooks can also be registered during component initialisation by
+    /// Hooks can also be registered during component initialization by
     /// implementing `register_component_hooks`
     fn register_component_hooks(_hooks: &mut ComponentHooks) {
         // Register hooks...
@@ -69,10 +71,7 @@ fn setup(world: &mut World) {
         .on_add(|mut world, entity, component_id| {
             // You can access component data from within the hook
             let value = world.get::<MyComponent>(entity).unwrap().0;
-            println!(
-                "Component: {:?} added to: {:?} with value {:?}",
-                component_id, entity, value
-            );
+            println!("Component: {component_id:?} added to: {entity:?} with value {value:?}");
             // Or access resources
             world
                 .resource_mut::<MyComponentIndex>()
@@ -96,10 +95,7 @@ fn setup(world: &mut World) {
         // since it runs before the component is removed you can still access the component data
         .on_remove(|mut world, entity, component_id| {
             let value = world.get::<MyComponent>(entity).unwrap().0;
-            println!(
-                "Component: {:?} removed from: {:?} with value {:?}",
-                component_id, entity, value
-            );
+            println!("Component: {component_id:?} removed from: {entity:?} with value {value:?}");
             // You can also issue commands through `.commands()`
             world.commands().entity(entity).despawn();
         });

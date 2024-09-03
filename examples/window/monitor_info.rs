@@ -1,8 +1,10 @@
 //! Displays information about available monitors (displays).
 
-use bevy::render::camera::RenderTarget;
-use bevy::window::{ExitCondition, WindowMode, WindowRef};
-use bevy::{prelude::*, window::Monitor};
+use bevy::{
+    prelude::*,
+    render::camera::RenderTarget,
+    window::{ExitCondition, Monitor, WindowMode, WindowRef},
+};
 
 fn main() {
     App::new()
@@ -51,25 +53,26 @@ fn update(
             .id();
 
         let camera = commands
-            .spawn(Camera2dBundle {
-                camera: Camera {
+            .spawn((
+                Camera2d,
+                Camera {
                     target: RenderTarget::Window(WindowRef::Entity(window)),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         let info_text = format!(
             "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
         );
         commands.spawn((
-            TextBundle::from_section(info_text, default()).with_style(Style {
+            Text(info_text),
+            Node {
                 position_type: PositionType::Relative,
                 height: Val::Percent(100.0),
                 width: Val::Percent(100.0),
                 ..default()
-            }),
+            },
             TargetCamera(camera),
             MonitorRef(entity),
         ));

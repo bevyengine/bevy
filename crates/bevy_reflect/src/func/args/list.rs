@@ -1,7 +1,11 @@
-use crate::func::args::{Arg, ArgValue, FromArg};
-use crate::func::ArgError;
-use crate::{PartialReflect, Reflect, TypePath};
-use std::collections::VecDeque;
+use crate::{
+    func::{
+        args::{Arg, ArgValue, FromArg},
+        ArgError,
+    },
+    PartialReflect, Reflect, TypePath,
+};
+use alloc::collections::VecDeque;
 
 /// A list of arguments that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

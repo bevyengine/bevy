@@ -1,7 +1,7 @@
-use std::{iter, mem, mem::size_of};
+use core::{iter, mem};
 
-use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
@@ -26,11 +26,11 @@ pub struct MorphIndex {
 pub struct MorphIndices {
     /// Maps each entity with a morphed mesh to the appropriate offset within
     /// [`MorphUniforms::current_buffer`].
-    pub current: EntityHashMap<MorphIndex>,
+    pub current: MainEntityHashMap<MorphIndex>,
 
     /// Maps each entity with a morphed mesh to the appropriate offset within
     /// [`MorphUniforms::prev_buffer`].
-    pub prev: EntityHashMap<MorphIndex>,
+    pub prev: MainEntityHashMap<MorphIndex>,
 }
 
 /// The GPU buffers containing morph weights for all meshes with morph targets.
@@ -89,7 +89,7 @@ fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
         panic!(
             "RawBufferVec should contain only types with a size multiple or divisible by {n}, \
             {} has a size of {t_size}, which is neither multiple or divisible by {n}",
-            std::any::type_name::<T>()
+            core::any::type_name::<T>()
         );
     }
 
@@ -132,7 +132,9 @@ pub fn extract_morphs(
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 
         let index = (start * size_of::<f32>()) as u32;
-        morph_indices.current.insert(entity, MorphIndex { index });
+        morph_indices
+            .current
+            .insert(entity.into(), MorphIndex { index });
     }
 }
 
