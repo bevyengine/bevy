@@ -2,15 +2,15 @@
 
 use bevy_ecs::bundle::Bundle;
 
-use crate::prelude::Transform;
+use crate::prelude::{GlobalTransform, Transform};
 
-/// A [`Bundle`] of the [`Transform`] ~and [`GlobalTransform`]~
+/// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
 /// [`Component`](bevy_ecs::component::Component)s, which describe the position of an entity.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
-/// * ~For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].~
-///   * ~You may use the [`TransformBundle`] to guarantee this.~
+/// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
+///   * You may use the [`TransformBundle`] to guarantee this.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -19,10 +19,7 @@ use crate::prelude::Transform;
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set. It is also
-/// automatically inserted whenever [`Transform`] is inserted. This is why this struct has
-/// been deprecated.
-///
+/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
@@ -36,12 +33,15 @@ use crate::prelude::Transform;
 pub struct TransformBundle {
     /// The transform of the entity.
     pub local: Transform,
+    /// The global transform of the entity.
+    pub global: GlobalTransform,
 }
 
 impl TransformBundle {
     /// An identity [`TransformBundle`] with no translation, rotation, and a scale of 1 on all axes.
     pub const IDENTITY: Self = TransformBundle {
         local: Transform::IDENTITY,
+        global: GlobalTransform::IDENTITY,
     };
 
     /// Creates a new [`TransformBundle`] from a [`Transform`].
@@ -50,7 +50,10 @@ impl TransformBundle {
     /// [`bevy_app::PostUpdate`] schedule.
     #[inline]
     pub const fn from_transform(transform: Transform) -> Self {
-        TransformBundle { local: transform }
+        TransformBundle {
+            local: transform,
+            ..Self::IDENTITY
+        }
     }
 }
 
