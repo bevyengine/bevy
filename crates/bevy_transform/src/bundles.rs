@@ -31,7 +31,7 @@ use crate::prelude::Transform;
 #[derive(Clone, Copy, Debug, Default, Bundle)]
 #[deprecated(
     since = "0.15.0",
-    note = "Use `Transform` on its own: `GlobalTransform` is now a required component."
+    note = "Use the `Transform` component instead. Inserting `Transform` will now also insert a `GlobalTransform` automatically."
 )]
 pub struct TransformBundle {
     /// The transform of the entity.
