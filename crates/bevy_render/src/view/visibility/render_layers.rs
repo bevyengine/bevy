@@ -20,6 +20,32 @@ pub type Layer = usize;
 /// An entity with this component without any layers is invisible.
 ///
 /// Entities without this component belong to layer `0`.
+///
+/// ## Mesh-Light interactions
+///
+/// The first 15 layers (0–14) are special in that besides controlling light-camera
+/// and mesh-camera interactions, they also control mesh-light interactions for forward
+/// rendered entities.
+///
+/// For example, if you have the following setup:
+///
+/// - Mesh A (Layer 0)
+/// - Mesh B (Layer 1)
+/// - Light X (Layer 0)
+/// - Light Y (Layer 1)
+/// - Camera (Layers 0 and 1)
+///
+/// Light X will only illuminate Mesh A, while Light Y will only illuminate mesh B,
+/// and both meshes will be visible by the camera.
+///
+/// This behavior is useful, for example, when manually crafting a scene where you want
+/// to prevent interior lights from leaking to the exterior without relying on shadows,
+/// or for artistic lighting effects that only affect specific meshes.
+///
+/// Meshes and lights on render layers >= 15 will all interact with each other,
+/// regardless of the specific layer values, and so will deferred rendered meshes.
+/// This is a compromise to limit shader complexity and the amount data sent to the GPU,
+/// while still allowing for some flexibility.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Component, Default, PartialEq)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
@@ -142,6 +168,21 @@ impl RenderLayers {
     /// Get the bitmask representation of the contained layers.
     pub fn bits(&self) -> &[u64] {
         self.0.as_slice()
+    }
+
+    /// Get a compact bitmask representation of the contained layers,
+    /// able to fit in a u16. The first 15 layers are represented normally in the
+    /// lower 15 bits, while the last bit is used as a special flag to indicate
+    /// the presence of any other higher layer. This is so that bitwise operations
+    /// can produce false positives but not false negatives for higher layers
+    pub fn bits_u16(&self) -> u16 {
+        let has_higher_bits_set =
+            (self.0[0] & (!0b0111_1111_1111_1111) != 0) || self.0[1..].iter().any(|&x| x != 0);
+        if has_higher_bits_set {
+            self.0[0] as u16 | 0b1000_0000_0000_0000
+        } else {
+            self.0[0] as u16
+        }
     }
 
     const fn layer_info(layer: usize) -> (usize, u64) {

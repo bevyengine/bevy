@@ -34,8 +34,8 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, DefaultImageSampler, ImageSampler, TextureFormatPixelInfo},
     view::{
-        prepare_view_targets, GpuCulling, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewVisibility, VisibilityRange,
+        prepare_view_targets, GpuCulling, RenderLayers, RenderVisibilityRanges, ViewTarget,
+        ViewUniformOffset, ViewVisibility, VisibilityRange,
     },
     Extract,
 };
@@ -284,12 +284,13 @@ pub struct MeshUniform {
     /// [`MeshAllocator`]). This value stores the offset of the first vertex in
     /// this mesh in that buffer.
     pub first_vertex_index: u32,
+    // Only the first 16 bits are actually used, since we want to match
+    // the light render layers bits, and those are packed along with flags
+    pub render_layers_bits: u32,
     /// Padding.
     pub pad_a: u32,
     /// Padding.
     pub pad_b: u32,
-    /// Padding.
-    pub pad_c: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -326,12 +327,13 @@ pub struct MeshInputUniform {
     /// [`MeshAllocator`]). This value stores the offset of the first vertex in
     /// this mesh in that buffer.
     pub first_vertex_index: u32,
+    // Only the first 16 bits are actually used, since we want to match
+    // the light render layers bits, and those are packed along with flags
+    pub render_layers_bits: u32,
     /// Padding.
     pub pad_a: u32,
     /// Padding.
     pub pad_b: u32,
-    /// Padding.
-    pub pad_c: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -362,6 +364,7 @@ impl MeshUniform {
         mesh_transforms: &MeshTransforms,
         first_vertex_index: u32,
         maybe_lightmap_uv_rect: Option<Rect>,
+        render_layers: Option<RenderLayers>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -373,9 +376,9 @@ impl MeshUniform {
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
             first_vertex_index,
+            render_layers_bits: render_layers.unwrap_or_default().bits_u16() as u32,
             pad_a: 0,
             pad_b: 0,
-            pad_c: 0,
         }
     }
 }
@@ -497,6 +500,8 @@ pub struct RenderMeshInstanceShared {
     pub material_bind_group_id: AtomicMaterialBindGroupId,
     /// Various flags.
     pub flags: RenderMeshInstanceFlags,
+    /// Render layers
+    pub render_layers: Option<RenderLayers>,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -564,6 +569,7 @@ impl RenderMeshInstanceShared {
         handle: &Handle<Mesh>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
+        render_layers: Option<RenderLayers>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -578,7 +584,7 @@ impl RenderMeshInstanceShared {
 
         RenderMeshInstanceShared {
             mesh_asset_id: handle.id(),
-
+            render_layers,
             flags: mesh_instance_flags,
             material_bind_group_id: AtomicMaterialBindGroupId::default(),
         }
@@ -780,9 +786,14 @@ impl RenderMeshInstanceGpuBuilder {
                 None => u32::MAX,
             },
             first_vertex_index,
+            render_layers_bits: self
+                .shared
+                .render_layers
+                .as_ref()
+                .unwrap_or_default()
+                .bits_u16() as u32,
             pad_a: 0,
             pad_b: 0,
-            pad_c: 0,
         });
 
         // Record the [`RenderMeshInstance`].
@@ -864,6 +875,7 @@ pub fn extract_meshes_for_cpu_building(
             &ViewVisibility,
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
+            Option<&RenderLayers>,
             &Handle<Mesh>,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
@@ -881,6 +893,7 @@ pub fn extract_meshes_for_cpu_building(
             view_visibility,
             transform,
             previous_transform,
+            render_layers,
             handle,
             not_shadow_receiver,
             transmitted_receiver,
@@ -909,6 +922,7 @@ pub fn extract_meshes_for_cpu_building(
                 handle,
                 not_shadow_caster,
                 no_automatic_batching,
+                render_layers.map(|render_layers| render_layers.clone()),
             );
 
             let world_from_local = transform.affine();
@@ -963,6 +977,7 @@ pub fn extract_meshes_for_gpu_building(
             Option<&PreviousGlobalTransform>,
             Option<&Lightmap>,
             Option<&Aabb>,
+            Option<&RenderLayers>,
             &Handle<Mesh>,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
@@ -997,6 +1012,7 @@ pub fn extract_meshes_for_gpu_building(
             previous_transform,
             lightmap,
             aabb,
+            render_layers,
             handle,
             not_shadow_receiver,
             transmitted_receiver,
@@ -1025,6 +1041,7 @@ pub fn extract_meshes_for_gpu_building(
                 handle,
                 not_shadow_caster,
                 no_automatic_batching,
+                render_layers.map(|render_layers| render_layers.clone()),
             );
 
             let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
@@ -1294,6 +1311,7 @@ impl GetBatchData for MeshPipeline {
                 &mesh_instance.transforms,
                 first_vertex_index,
                 maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+                mesh_instance.shared.render_layers.clone(),
             ),
             mesh_instance.should_batch().then_some((
                 mesh_instance.material_bind_group_id.get(),
@@ -1355,6 +1373,7 @@ impl GetFullBatchData for MeshPipeline {
             &mesh_instance.transforms,
             first_vertex_index,
             maybe_lightmap.map(|lightmap| lightmap.uv_rect),
+            mesh_instance.shared.render_layers.clone(),
         ))
     }
 

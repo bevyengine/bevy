@@ -38,6 +38,7 @@ fn pbr_input_from_vertex_output(
     pbr_input.flags = in.mesh_flags;
 #else
     pbr_input.flags = mesh[in.instance_index].flags;
+    pbr_input.render_layers_bits = mesh[in.instance_index].render_layers_bits;
 #endif
 
     pbr_input.is_orthographic = view.clip_from_view[3].w == 1.0;
