@@ -377,7 +377,7 @@ impl Camera {
     /// [`world_to_ndc`](Self::world_to_ndc).
     ///
     /// # Panics
-    /// 
+    ///
     /// Will panic if `glam_assert` is enabled and the `camera_transform` contains `NAN`
     /// (see [`world_to_ndc`][Self::world_to_ndc]).
     #[doc(alias = "world_to_screen")]
@@ -413,7 +413,7 @@ impl Camera {
     /// [`world_to_ndc`](Self::world_to_ndc).
     ///
     /// # Panics
-    /// 
+    ///
     /// Will panic if `glam_assert` is enabled and the `camera_transform` contains `NAN`
     /// (see [`world_to_ndc`][Self::world_to_ndc]).
     #[doc(alias = "world_to_screen_with_depth")]
@@ -455,8 +455,10 @@ impl Camera {
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
-    /// Panics if the camera's projection matrix is null and `glam_assert` is enabled
-    /// (see [`ndc_to_world`](Self::ndc_to_world).
+    /// # Panics
+    ///
+    /// Will panic if the camera's projection matrix is invalid (has a determinant of 0) and
+    /// `glam_assert` is enabled (see [`ndc_to_world`](Self::ndc_to_world).
     pub fn viewport_to_world(
         &self,
         camera_transform: &GlobalTransform,
@@ -492,9 +494,9 @@ impl Camera {
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
     /// # Panics
-    /// 
-    /// Will panic if the camera's projection matrix is null and `glam_assert` is enabled
-    /// (see [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// Will panic if the camera's projection matrix is invalid (has a determinant of 0) and
+    /// `glam_assert` is enabled (see [`ndc_to_world`](Self::ndc_to_world).
     pub fn viewport_to_world_2d(
         &self,
         camera_transform: &GlobalTransform,
@@ -522,7 +524,10 @@ impl Camera {
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
     /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
-    /// Panics if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
@@ -545,7 +550,10 @@ impl Camera {
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
     /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by [`CameraProjection`] contain `NAN`.
-    /// Panics if the projection matrix is null and `glam_assert` is enabled.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the projection matrix is invalid (has a determinant of 0) and `glam_assert` is enabled.
     pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
         // Build a transformation matrix to convert from NDC to world space using camera data
         let ndc_to_world =
