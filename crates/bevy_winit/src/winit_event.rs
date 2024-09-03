@@ -14,9 +14,8 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_window::{
     AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ReceivedCharacter,
-    RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated,
-    WindowDestroyed, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
-    WindowScaleFactorChanged, WindowThemeChanged,
+    RequestRedraw, WindowCloseRequested, WindowCreated, WindowDestroyed, WindowFocused,
+    WindowMoved, WindowOccluded, WindowThemeChanged,
 };
 
 /// Wraps all `bevy_window` events in a common enum.
@@ -41,17 +40,18 @@ pub enum WinitEvent {
     Ime(Ime),
     ReceivedCharacter(ReceivedCharacter),
     RequestRedraw(RequestRedraw),
-    WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
     WindowCloseRequested(WindowCloseRequested),
     WindowCreated(WindowCreated),
     WindowDestroyed(WindowDestroyed),
     WindowFocused(WindowFocused),
     WindowMoved(WindowMoved),
     WindowOccluded(WindowOccluded),
-    WindowResized(WindowResized),
-    WindowScaleFactorChanged(WindowScaleFactorChanged),
     WindowThemeChanged(WindowThemeChanged),
 
+    // Events that are emitted separately.
+    //WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
+    //WindowResized(WindowResized),
+    //WindowScaleFactorChanged(WindowScaleFactorChanged),
     MouseButtonInput(MouseButtonInput),
     MouseMotion(MouseMotion),
     MouseWheel(MouseWheel),
@@ -107,11 +107,6 @@ impl From<RequestRedraw> for WinitEvent {
         Self::RequestRedraw(e)
     }
 }
-impl From<WindowBackendScaleFactorChanged> for WinitEvent {
-    fn from(e: WindowBackendScaleFactorChanged) -> Self {
-        Self::WindowBackendScaleFactorChanged(e)
-    }
-}
 impl From<WindowCloseRequested> for WinitEvent {
     fn from(e: WindowCloseRequested) -> Self {
         Self::WindowCloseRequested(e)
@@ -140,16 +135,6 @@ impl From<WindowMoved> for WinitEvent {
 impl From<WindowOccluded> for WinitEvent {
     fn from(e: WindowOccluded) -> Self {
         Self::WindowOccluded(e)
-    }
-}
-impl From<WindowResized> for WinitEvent {
-    fn from(e: WindowResized) -> Self {
-        Self::WindowResized(e)
-    }
-}
-impl From<WindowScaleFactorChanged> for WinitEvent {
-    fn from(e: WindowScaleFactorChanged) -> Self {
-        Self::WindowScaleFactorChanged(e)
     }
 }
 impl From<WindowThemeChanged> for WinitEvent {
