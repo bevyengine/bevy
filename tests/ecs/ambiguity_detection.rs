@@ -9,18 +9,22 @@ use bevy::{
     prelude::*,
     utils::HashMap,
 };
-use bevy_render::{pipelined_rendering::RenderExtractApp, RenderApp};
+use bevy_render::pipelined_rendering::RenderExtractApp;
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins);
 
-    let sub_app = app.main_mut();
-    configure_ambiguity_detection(sub_app);
-    let sub_app = app.sub_app_mut(RenderApp);
-    configure_ambiguity_detection(sub_app);
-    let sub_app = app.sub_app_mut(RenderExtractApp);
-    configure_ambiguity_detection(sub_app);
+    let main_app = app.main_mut();
+    configure_ambiguity_detection(main_app);
+    let render_extract_app = app.sub_app_mut(RenderExtractApp);
+    configure_ambiguity_detection(render_extract_app);
+
+    // Ambiguities in the RenderApp are currently allowed.
+    // Eventually, we should forbid these.
+    // Uncomment the lines below to show the current ambiguities in the RenderApp.
+    // let sub_app = app.sub_app_mut(bevy_render::RenderApp);
+    // configure_ambiguity_detection(sub_app);
 
     app.finish();
     app.cleanup();
