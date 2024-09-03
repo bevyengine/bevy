@@ -17,23 +17,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let image = asset_server.load_with_settings(
         "textures/fantasy_ui_borders/numbered_slices.png",
         |settings: &mut ImageLoaderSettings| {
+            // Need to use nearest filtering to avoid bleeding between the slices with tiling
             settings.sampler = ImageSampler::nearest();
         },
     );
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(16.0),
+        border: BorderRect::square(16.),
         center_scale_mode: SliceScaleMode::Tile { stretch_value: 1. },
         sides_scale_mode: SliceScaleMode::Tile { stretch_value: 1. },
-        max_corner_scale: 1.0,
+        max_corner_scale: 1.,
     };
+
     // ui camera
     commands.spawn(Camera2dBundle::default());
+
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::Center,
                 align_content: AlignContent::Center,
                 flex_wrap: FlexWrap::Wrap,
@@ -45,10 +48,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|parent| {
             for ([w, h], flip_x, flip_y) in [
-                ([160.0, 160.0], false, false),
-                ([320.0, 160.0], false, true),
-                ([320.0, 160.0], true, false),
-                ([160.0, 160.0], true, true),
+                ([160., 160.], false, false),
+                ([320., 160.], false, true),
+                ([320., 160.], true, false),
+                ([160., 160.], true, true),
             ] {
                 parent.spawn((
                     NodeBundle {
