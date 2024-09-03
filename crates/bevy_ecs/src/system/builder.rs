@@ -4,7 +4,7 @@ use crate::{
     prelude::QueryBuilder,
     query::{QueryData, QueryFilter, QueryState},
     system::{
-        system_param::{Local, ParamSet, SystemParam},
+        system_param::{DynSystemParam, DynSystemParamState, Local, ParamSet, SystemParam},
         Query, SystemMeta,
     },
     world::{FromWorld, World},
@@ -194,7 +194,8 @@ unsafe impl<
 }
 
 macro_rules! impl_system_param_builder_tuple {
-    ($(($param: ident, $builder: ident)),*) => {
+    ($(#[$meta:meta])* $(($param: ident, $builder: ident)),*) => {
+        $(#[$meta])*
         // SAFETY: implementors of each `SystemParamBuilder` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam,)* $($builder: SystemParamBuilder<$param>,)*> SystemParamBuilder<($($param,)*)> for ($($builder,)*) {
             fn build(self, _world: &mut World, _meta: &mut SystemMeta) -> <($($param,)*) as SystemParam>::State {
@@ -207,12 +208,28 @@ macro_rules! impl_system_param_builder_tuple {
     };
 }
 
-all_tuples!(impl_system_param_builder_tuple, 0, 16, P, B);
+all_tuples!(
+    #[doc(fake_variadic)]
+    impl_system_param_builder_tuple,
+    0,
+    16,
+    P,
+    B
+);
+
+// SAFETY: implementors of each `SystemParamBuilder` in the vec have validated their impls
+unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<Vec<P>> for Vec<B> {
+    fn build(self, world: &mut World, meta: &mut SystemMeta) -> <Vec<P> as SystemParam>::State {
+        self.into_iter()
+            .map(|builder| builder.build(world, meta))
+            .collect()
+    }
+}
 
 /// A [`SystemParamBuilder`] for a [`ParamSet`].
 /// To build a [`ParamSet`] with a tuple of system parameters, pass a tuple of matching [`SystemParamBuilder`]s.
 /// To build a [`ParamSet`] with a `Vec` of system parameters, pass a `Vec` of matching [`SystemParamBuilder`]s.
-pub struct ParamSetBuilder<T>(T);
+pub struct ParamSetBuilder<T>(pub T);
 
 macro_rules! impl_param_set_builder_tuple {
     ($(($param: ident, $builder: ident, $meta: ident)),*) => {
@@ -251,6 +268,66 @@ macro_rules! impl_param_set_builder_tuple {
 
 all_tuples!(impl_param_set_builder_tuple, 1, 8, P, B, meta);
 
+// SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
+// with any prior access, a panic will occur.
+unsafe impl<'w, 's, P: SystemParam, B: SystemParamBuilder<P>>
+    SystemParamBuilder<ParamSet<'w, 's, Vec<P>>> for ParamSetBuilder<Vec<B>>
+{
+    fn build(
+        self,
+        world: &mut World,
+        system_meta: &mut SystemMeta,
+    ) -> <Vec<P> as SystemParam>::State {
+        let mut states = Vec::with_capacity(self.0.len());
+        let mut metas = Vec::with_capacity(self.0.len());
+        for builder in self.0 {
+            let mut meta = system_meta.clone();
+            states.push(builder.build(world, &mut meta));
+            metas.push(meta);
+        }
+        if metas.iter().any(|m| !m.is_send()) {
+            system_meta.set_non_send();
+        }
+        for meta in metas {
+            system_meta
+                .component_access_set
+                .extend(meta.component_access_set);
+            system_meta
+                .archetype_component_access
+                .extend(&meta.archetype_component_access);
+        }
+        states
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`DynSystemParam`].
+pub struct DynParamBuilder<'a>(
+    Box<dyn FnOnce(&mut World, &mut SystemMeta) -> DynSystemParamState + 'a>,
+);
+
+impl<'a> DynParamBuilder<'a> {
+    /// Creates a new [`DynParamBuilder`] by wrapping a [`SystemParamBuilder`] of any type.
+    /// The built [`DynSystemParam`] can be downcast to `T`.
+    pub fn new<T: SystemParam + 'static>(builder: impl SystemParamBuilder<T> + 'a) -> Self {
+        Self(Box::new(|world, meta| {
+            DynSystemParamState::new::<T>(builder.build(world, meta))
+        }))
+    }
+}
+
+// SAFETY: `DynSystemParam::get_param` will call `get_param` on the boxed `DynSystemParamState`,
+// and the boxed builder was a valid implementation of `SystemParamBuilder` for that type.
+// The resulting `DynSystemParam` can only perform access by downcasting to that param type.
+unsafe impl<'a, 'w, 's> SystemParamBuilder<DynSystemParam<'w, 's>> for DynParamBuilder<'a> {
+    fn build(
+        self,
+        world: &mut World,
+        meta: &mut SystemMeta,
+    ) -> <DynSystemParam<'w, 's> as SystemParam>::State {
+        (self.0)(world, meta)
+    }
+}
+
 /// A [`SystemParamBuilder`] for a [`Local`].
 /// The provided value will be used as the initial value of the `Local`.
 pub struct LocalBuilder<T>(pub T);
@@ -271,6 +348,7 @@ unsafe impl<'s, T: FromWorld + Send + 'static> SystemParamBuilder<Local<'s, T>>
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::entity::Entities;
     use crate::prelude::{Component, Query};
     use crate::system::{Local, RunSystemOnce};
 
@@ -357,6 +435,52 @@ mod tests {
     }
 
     #[test]
+    fn vec_builder() {
+        let mut world = World::new();
+
+        world.spawn((A, B, C));
+        world.spawn((A, B));
+        world.spawn((A, C));
+        world.spawn((A, C));
+        world.spawn_empty();
+
+        let system = (vec![
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<B>().without::<C>();
+            }),
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<C>().without::<B>();
+            }),
+        ],)
+            .build_state(&mut world)
+            .build_system(|params: Vec<Query<&mut A>>| {
+                let mut count: usize = 0;
+                params
+                    .into_iter()
+                    .for_each(|mut query| count += query.iter_mut().count());
+                count
+            });
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 3);
+    }
+
+    #[test]
+    fn multi_param_builder_inference() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (LocalBuilder(0u64), ParamBuilder::local::<u64>())
+            .build_state(&mut world)
+            .build_system(|a, b| *a + *b + 1);
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 1);
+    }
+
+    #[test]
     fn param_set_builder() {
         let mut world = World::new();
 
@@ -381,5 +505,90 @@ mod tests {
 
         let result = world.run_system_once(system);
         assert_eq!(result, 5);
+    }
+
+    #[test]
+    fn param_set_vec_builder() {
+        let mut world = World::new();
+
+        world.spawn((A, B, C));
+        world.spawn((A, B));
+        world.spawn((A, C));
+        world.spawn((A, C));
+        world.spawn_empty();
+
+        let system = (ParamSetBuilder(vec![
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<B>();
+            }),
+            QueryParamBuilder::new_box(|builder| {
+                builder.with::<C>();
+            }),
+        ]),)
+            .build_state(&mut world)
+            .build_system(|mut params: ParamSet<Vec<Query<&mut A>>>| {
+                let mut count = 0;
+                params.for_each(|mut query| count += query.iter_mut().count());
+                count
+            });
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 5);
+    }
+
+    #[test]
+    fn dyn_builder() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (
+            DynParamBuilder::new(LocalBuilder(3_usize)),
+            DynParamBuilder::new::<Query<()>>(QueryParamBuilder::new(|builder| {
+                builder.with::<A>();
+            })),
+            DynParamBuilder::new::<&Entities>(ParamBuilder),
+        )
+            .build_state(&mut world)
+            .build_system(
+                |mut p0: DynSystemParam, mut p1: DynSystemParam, mut p2: DynSystemParam| {
+                    let local = *p0.downcast_mut::<Local<usize>>().unwrap();
+                    let query_count = p1.downcast_mut::<Query<()>>().unwrap().iter().count();
+                    let _entities = p2.downcast_mut::<&Entities>().unwrap();
+                    assert!(p0.downcast_mut::<Query<()>>().is_none());
+                    local + query_count
+                },
+            );
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 4);
+    }
+
+    #[derive(SystemParam)]
+    #[system_param(builder)]
+    struct CustomParam<'w, 's> {
+        query: Query<'w, 's, ()>,
+        local: Local<'s, usize>,
+    }
+
+    #[test]
+    fn custom_param_builder() {
+        let mut world = World::new();
+
+        world.spawn(A);
+        world.spawn_empty();
+
+        let system = (CustomParamBuilder {
+            local: LocalBuilder(100),
+            query: QueryParamBuilder::new(|builder| {
+                builder.with::<A>();
+            }),
+        },)
+            .build_state(&mut world)
+            .build_system(|param: CustomParam| *param.local + param.query.iter().count());
+
+        let result = world.run_system_once(system);
+        assert_eq!(result, 101);
     }
 }

@@ -32,7 +32,10 @@ pub use uniform_buffer::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{
-    util::{BufferInitDescriptor, DrawIndexedIndirectArgs, DrawIndirectArgs, TextureDataOrder},
+    util::{
+        BufferInitDescriptor, DispatchIndirectArgs, DrawIndexedIndirectArgs, DrawIndirectArgs,
+        TextureDataOrder,
+    },
     AdapterInfo as WgpuAdapterInfo, AddressMode, AstcBlock, AstcChannel, BindGroupDescriptor,
     BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
     BlendComponent, BlendFactor, BlendOperation, BlendState, BufferAddress, BufferAsyncError,

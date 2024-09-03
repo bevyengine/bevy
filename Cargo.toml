@@ -180,9 +180,6 @@ trace_tracy_memory = [
 # Tracing support
 trace = ["bevy_internal/trace"]
 
-# Save a trace of all wgpu calls
-wgpu_trace = ["bevy_internal/wgpu_trace"]
-
 # EXR image format support
 exr = ["bevy_internal/exr"]
 
@@ -1410,7 +1407,8 @@ doc-scrape-examples = true
 name = "Custom Asset IO"
 description = "Implements a custom AssetReader"
 category = "Assets"
-wasm = true
+# Incompatible with the asset path patching of the example-showcase tool
+wasm = false
 
 [[example]]
 name = "embedded_asset"
@@ -1432,7 +1430,8 @@ doc-scrape-examples = true
 name = "Extra asset source"
 description = "Load an asset from a non-standard asset source"
 category = "Assets"
-wasm = true
+# Uses non-standard asset path
+wasm = false
 
 [[example]]
 name = "hot_asset_reloading"
@@ -2419,6 +2418,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "storage_buffer"
+path = "examples/shader/storage_buffer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.storage_buffer]
+name = "Storage Buffer"
+description = "A shader that shows how to bind a storage buffer using a custom material."
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "specialized_mesh_pipeline"
 path = "examples/shader/specialized_mesh_pipeline.rs"
 doc-scrape-examples = true
@@ -3385,6 +3395,28 @@ required-features = ["bevy_picking"]
 name = "Showcases simple picking events and usage"
 description = "Demonstrates how to use picking events to spawn simple objects"
 category = "Picking"
+wasm = true
+
+[[example]]
+name = "sprite_picking"
+path = "examples/picking/sprite_picking.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_picking]
+name = "Sprite Picking"
+description = "Demonstrates picking sprites and sprite atlases"
+category = "Picking"
+wasm = true
+
+[[example]]
+name = "animation_masks"
+path = "examples/animation/animation_masks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_masks]
+name = "Animation Masks"
+description = "Demonstrates animation masks"
+category = "Animation"
 wasm = true
 
 [profile.wasm-release]

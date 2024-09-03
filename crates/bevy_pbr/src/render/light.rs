@@ -1174,7 +1174,7 @@ pub fn queue_shadows<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
-    mut view_light_entities: Query<&LightEntity>,
+    view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
     spot_light_entities: Query<&VisibleMeshEntities, With<ExtractedPointLight>>,
@@ -1184,7 +1184,7 @@ pub fn queue_shadows<M: Material>(
     for (entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
-            let Ok(light_entity) = view_light_entities.get_mut(view_light_entity) else {
+            let Ok(light_entity) = view_light_entities.get(view_light_entity) else {
                 continue;
             };
             let Some(shadow_phase) = shadow_render_phases.get_mut(&view_light_entity) else {

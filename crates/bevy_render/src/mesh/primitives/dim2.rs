@@ -598,7 +598,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
         let start_angle = FRAC_PI_2;
         let step = std::f32::consts::TAU / self.resolution as f32;
         for i in 0..=self.resolution {
-            let theta = start_angle + i as f32 * step;
+            let theta = start_angle + (i % self.resolution) as f32 * step;
             let (sin, cos) = theta.sin_cos();
             let inner_pos = [cos * inner_radius, sin * inner_radius, 0.];
             let outer_pos = [cos * outer_radius, sin * outer_radius, 0.];
@@ -1005,9 +1005,33 @@ impl From<Capsule2d> for Mesh {
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::primitives::RegularPolygon;
+    use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
+    use bevy_utils::HashSet;
 
-    use crate::mesh::{Mesh, VertexAttributeValues};
+    use crate::mesh::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
+
+    fn count_distinct_positions(points: &[[f32; 3]]) -> usize {
+        let mut map = HashSet::new();
+        for point in points {
+            map.insert(point.map(FloatOrd));
+        }
+        map.len()
+    }
+
+    #[test]
+    fn test_annulus() {
+        let mesh = Annulus::new(1.0, 1.2).mesh().resolution(16).build();
+
+        assert_eq!(
+            32,
+            count_distinct_positions(
+                mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+                    .unwrap()
+                    .as_float3()
+                    .unwrap()
+            )
+        );
+    }
 
     /// Sin/cos and multiplication computations result in numbers like 0.4999999.
     /// Round these to numbers we expect like 0.5.

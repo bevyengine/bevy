@@ -70,9 +70,9 @@ struct LevelData {
 
 fn setup(mut commands: Commands) {
     let level_data = LevelData {
-        unload_level_id: commands.register_one_shot_system(unload_current_level),
-        level_1_id: commands.register_one_shot_system(load_level_1),
-        level_2_id: commands.register_one_shot_system(load_level_2),
+        unload_level_id: commands.register_system(unload_current_level),
+        level_1_id: commands.register_system(load_level_1),
+        level_2_id: commands.register_system(load_level_2),
     };
     commands.insert_resource(level_data);
 

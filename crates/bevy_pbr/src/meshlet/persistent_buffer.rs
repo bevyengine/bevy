@@ -6,7 +6,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
 };
 use range_alloc::RangeAllocator;
-use std::{num::NonZeroU64, ops::Range};
+use std::{num::NonZero, ops::Range};
 
 /// Wrapper for a GPU buffer holding a large amount of data that persists across frames.
 pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
@@ -66,7 +66,8 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
         let queue_count = self.write_queue.len();
 
         for (data, metadata, buffer_slice) in self.write_queue.drain(..) {
-            let buffer_slice_size = NonZeroU64::new(buffer_slice.end - buffer_slice.start).unwrap();
+            let buffer_slice_size =
+                NonZero::<u64>::new(buffer_slice.end - buffer_slice.start).unwrap();
             let mut buffer_view = render_queue
                 .write_buffer_with(&self.buffer, buffer_slice.start, buffer_slice_size)
                 .unwrap();

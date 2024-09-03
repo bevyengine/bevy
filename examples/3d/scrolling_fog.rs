@@ -14,6 +14,9 @@ use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin};
 use bevy::pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFogSettings, VolumetricLight};
 use bevy::prelude::*;
+use bevy_render::texture::{
+    ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
+};
 
 /// Initializes the example.
 fn main() {
@@ -94,7 +97,25 @@ fn setup(
         ..default()
     });
 
-    // Spawn FogVolume with repeating 3d noise density texture.
+    // Load a repeating 3d noise texture. Make sure to set ImageAddressMode to Repeat
+    // so that the texture wraps around as the density texture offset is moved along.
+    // Also set ImageFilterMode to Linear so that the fog isn't pixelated.
+    let noise_texture = assets.load_with_settings("volumes/fog_noise.ktx2", |settings: &mut _| {
+        *settings = ImageLoaderSettings {
+            sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+                address_mode_u: ImageAddressMode::Repeat,
+                address_mode_v: ImageAddressMode::Repeat,
+                address_mode_w: ImageAddressMode::Repeat,
+                mag_filter: ImageFilterMode::Linear,
+                min_filter: ImageFilterMode::Linear,
+                mipmap_filter: ImageFilterMode::Linear,
+                ..default()
+            }),
+            ..default()
+        }
+    });
+
+    // Spawn a FogVolume and use the repeating noise texture as its density texture.
     commands.spawn((
         SpatialBundle {
             visibility: Visibility::Visible,
@@ -102,7 +123,7 @@ fn setup(
             ..default()
         },
         FogVolume {
-            density_texture: Some(assets.load("volumes/fog_noise.ktx2")),
+            density_texture: Some(noise_texture),
             density_factor: 0.05,
             ..default()
         },

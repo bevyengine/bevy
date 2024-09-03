@@ -17,10 +17,11 @@ use crate::{
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId,
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
+use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::tracing::{error, info};
-use bevy_utils::{CowArc, HashSet};
+use bevy_utils::HashSet;
 use crossbeam_channel::{Receiver, Sender};
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
@@ -368,7 +369,8 @@ impl AssetServer {
         guard: G,
     ) -> Handle<A> {
         let path = path.into().into_owned();
-        let (handle, should_load) = self.data.infos.write().get_or_create_path_handle::<A>(
+        let mut infos = self.data.infos.write();
+        let (handle, should_load) = infos.get_or_create_path_handle::<A>(
             path.clone(),
             HandleLoadingMode::Request,
             meta_transform,
@@ -377,14 +379,18 @@ impl AssetServer {
         if should_load {
             let owned_handle = Some(handle.clone().untyped());
             let server = self.clone();
-            IoTaskPool::get()
-                .spawn(async move {
-                    if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
-                        error!("{}", err);
-                    }
-                    drop(guard);
-                })
-                .detach();
+            let task = IoTaskPool::get().spawn(async move {
+                if let Err(err) = server.load_internal(owned_handle, path, false, None).await {
+                    error!("{}", err);
+                }
+                drop(guard);
+            });
+
+            #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+            infos.pending_tasks.insert(handle.id().untyped(), task);
+
+            #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+            task.detach();
         }
 
         handle
@@ -409,49 +415,52 @@ impl AssetServer {
     ) -> Handle<LoadedUntypedAsset> {
         let path = path.into().into_owned();
         let untyped_source = AssetSourceId::Name(match path.source() {
-            AssetSourceId::Default => CowArc::Borrowed(UNTYPED_SOURCE_SUFFIX),
+            AssetSourceId::Default => CowArc::Static(UNTYPED_SOURCE_SUFFIX),
             AssetSourceId::Name(source) => {
                 CowArc::Owned(format!("{source}--{UNTYPED_SOURCE_SUFFIX}").into())
             }
         });
-        let (handle, should_load) = self
-            .data
-            .infos
-            .write()
-            .get_or_create_path_handle::<LoadedUntypedAsset>(
-                path.clone().with_source(untyped_source),
-                HandleLoadingMode::Request,
-                meta_transform,
-            );
+        let mut infos = self.data.infos.write();
+        let (handle, should_load) = infos.get_or_create_path_handle::<LoadedUntypedAsset>(
+            path.clone().with_source(untyped_source),
+            HandleLoadingMode::Request,
+            meta_transform,
+        );
         if !should_load {
             return handle;
         }
         let id = handle.id().untyped();
+        let owned_handle = Some(handle.clone().untyped());
 
         let server = self.clone();
-        IoTaskPool::get()
-            .spawn(async move {
-                let path_clone = path.clone();
-                match server.load_untyped_async(path).await {
-                    Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
+        let task = IoTaskPool::get().spawn(async move {
+            let path_clone = path.clone();
+            match server.load_internal(owned_handle, path, false, None).await {
+                Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
+                    id,
+                    loaded_asset: LoadedAsset::new_with_dependencies(
+                        LoadedUntypedAsset { handle },
+                        None,
+                    )
+                    .into(),
+                }),
+                Err(err) => {
+                    error!("{err}");
+                    server.send_asset_event(InternalAssetEvent::Failed {
                         id,
-                        loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedUntypedAsset { handle },
-                            None,
-                        )
-                        .into(),
-                    }),
-                    Err(err) => {
-                        error!("{err}");
-                        server.send_asset_event(InternalAssetEvent::Failed {
-                            id,
-                            path: path_clone,
-                            error: err,
-                        });
-                    }
+                        path: path_clone,
+                        error: err,
+                    });
                 }
-            })
-            .detach();
+            }
+        });
+
+        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        infos.pending_tasks.insert(handle.id().untyped(), task);
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        task.detach();
+
         handle
     }
 
@@ -488,7 +497,7 @@ impl AssetServer {
     /// avoid looking up `should_load` twice, but it means you _must_ be sure a load is necessary when calling this function with [`Some`].
     async fn load_internal<'a>(
         &self,
-        input_handle: Option<UntypedHandle>,
+        mut input_handle: Option<UntypedHandle>,
         path: AssetPath<'a>,
         force: bool,
         meta_transform: Option<MetaTransform>,
@@ -511,6 +520,13 @@ impl AssetServer {
                     });
                 }
             })?;
+
+        if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
+            (*meta_transform)(&mut *meta);
+        }
+        // downgrade the input handle so we don't keep the asset alive just because we're loading it
+        // note we can't just pass a weak handle in, as only strong handles contain the asset meta transform
+        input_handle = input_handle.map(|h| h.clone_weak());
 
         // This contains Some(UntypedHandle), if it was retrievable
         // If it is None, that is because it was _not_ retrievable, due to
@@ -579,10 +595,6 @@ impl AssetServer {
         } else {
             (handle.clone().unwrap(), path.clone())
         };
-
-        if let Some(meta_transform) = base_handle.meta_transform() {
-            (*meta_transform)(&mut *meta);
-        }
 
         match self
             .load_with_meta_loader_and_reader(&base_path, meta, &*loader, &mut *reader, true, false)
@@ -721,40 +733,42 @@ impl AssetServer {
         &self,
         future: impl Future<Output = Result<A, E>> + Send + 'static,
     ) -> Handle<A> {
-        let handle = self
-            .data
-            .infos
-            .write()
-            .create_loading_handle_untyped(TypeId::of::<A>(), std::any::type_name::<A>());
+        let mut infos = self.data.infos.write();
+        let handle =
+            infos.create_loading_handle_untyped(TypeId::of::<A>(), std::any::type_name::<A>());
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();
 
-        IoTaskPool::get()
-            .spawn(async move {
-                match future.await {
-                    Ok(asset) => {
-                        let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
-                        event_sender
-                            .send(InternalAssetEvent::Loaded { id, loaded_asset })
-                            .unwrap();
-                    }
-                    Err(error) => {
-                        let error = AddAsyncError {
-                            error: Arc::new(error),
-                        };
-                        error!("{error}");
-                        event_sender
-                            .send(InternalAssetEvent::Failed {
-                                id,
-                                path: Default::default(),
-                                error: AssetLoadError::AddAsyncError(error),
-                            })
-                            .unwrap();
-                    }
+        let task = IoTaskPool::get().spawn(async move {
+            match future.await {
+                Ok(asset) => {
+                    let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
+                    event_sender
+                        .send(InternalAssetEvent::Loaded { id, loaded_asset })
+                        .unwrap();
                 }
-            })
-            .detach();
+                Err(error) => {
+                    let error = AddAsyncError {
+                        error: Arc::new(error),
+                    };
+                    error!("{error}");
+                    event_sender
+                        .send(InternalAssetEvent::Failed {
+                            id,
+                            path: Default::default(),
+                            error: AssetLoadError::AddAsyncError(error),
+                        })
+                        .unwrap();
+                }
+            }
+        });
+
+        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        infos.pending_tasks.insert(id, task);
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        task.detach();
 
         handle.typed_debug_checked()
     }
@@ -1312,6 +1326,11 @@ pub fn handle_internal_asset_events(world: &mut World) {
             info!("Reloading {path} because it has changed");
             server.reload(path);
         }
+
+        #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
+        infos
+            .pending_tasks
+            .retain(|_, load_task| !load_task.is_finished());
     });
 }
 
