@@ -227,12 +227,11 @@ pub(crate) fn pick_rounded_rect(
     size: Vec2,
     border_radius: ResolvedBorderRadius,
 ) -> bool {
-    let sx = point.x.signum();
-    let sy = point.y.signum();
-    let r = (border_radius.top_left * (1. - sx) * (1. - sy)
-        + border_radius.top_right * (1. + sx) * (1. - sy)
-        + border_radius.bottom_right * (1. + sx) * (1. + sy)
-        + border_radius.bottom_left * (1. - sx) * (1. + sy))
+    let s = point.signum();
+    let r = (border_radius.top_left * (1. - s.x) * (1. - s.y)
+        + border_radius.top_right * (1. + s.x) * (1. - s.y)
+        + border_radius.bottom_right * (1. + s.x) * (1. + s.y)
+        + border_radius.bottom_left * (1. - s.x) * (1. + s.y))
         / 4.;
 
     let corner_to_point = point.abs() - 0.5 * size;
