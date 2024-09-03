@@ -163,6 +163,11 @@ pub fn ui_picking(
             if visible_rect
                 .normalize(node_rect)
                 .contains(relative_cursor_position)
+                && pick_rounded_rect(
+                    *cursor_position - node_rect.center(),
+                    node_rect.size(),
+                    node.node.border_radius,
+                )
             {
                 hit_nodes
                     .entry((camera_entity, *pointer_id))
@@ -211,4 +216,27 @@ pub fn ui_picking(
 
         output.send(PointerHits::new(*pointer, picks, order));
     }
+}
+
+// Returns true if `point` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
+// the given size and border radius.
+//
+// Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+pub(crate) fn pick_rounded_rect(
+    point: Vec2,
+    size: Vec2,
+    border_radius: ResolvedBorderRadius,
+) -> bool {
+    let s = point.signum();
+    let r = (border_radius.top_left * (1. - s.x) * (1. - s.y)
+        + border_radius.top_right * (1. + s.x) * (1. - s.y)
+        + border_radius.bottom_right * (1. + s.x) * (1. + s.y)
+        + border_radius.bottom_left * (1. - s.x) * (1. + s.y))
+        / 4.;
+
+    let corner_to_point = point.abs() - 0.5 * size;
+    let q = corner_to_point + r;
+    let l = q.max(Vec2::ZERO).length();
+    let m = q.max_element().min(0.);
+    l + m - r < 0.
 }
