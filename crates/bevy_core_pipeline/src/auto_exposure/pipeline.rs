@@ -38,9 +38,6 @@ pub struct AutoExposureUniform {
     pub(super) exponential_transition_distance: f32,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `AutoExposureUniform`")]
-pub type AutoExposureSettingsUniform = AutoExposureUniform;
-
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum AutoExposurePass {
     Histogram,

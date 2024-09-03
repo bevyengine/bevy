@@ -57,8 +57,10 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
+#[allow(deprecated)]
 pub use volumetric_fog::{
-    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricLight,
+    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricFogSettings,
+    VolumetricLight,
 };
 
 pub mod prelude {
