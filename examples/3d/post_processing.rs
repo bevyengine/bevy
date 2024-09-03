@@ -68,7 +68,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
-        Fog {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,

@@ -66,7 +66,7 @@ fn setup(
             transform: camera_transform.0,
             ..default()
         },
-        Fog {
+        DistanceFog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,

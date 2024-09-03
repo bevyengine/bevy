@@ -327,7 +327,7 @@ fn setup(
             intensity: 150.0,
             ..default()
         },
-        Fog {
+        DistanceFog {
             color: Color::srgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,

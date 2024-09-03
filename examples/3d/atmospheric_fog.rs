@@ -30,7 +30,7 @@ fn setup_camera_fog(mut commands: Commands) {
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
             ..default()
         },
-        Fog {
+        DistanceFog {
             color: Color::srgba(0.35, 0.48, 0.66, 1.0),
             directional_light_color: Color::srgba(1.0, 0.95, 0.85, 0.5),
             directional_light_exponent: 30.0,
@@ -109,7 +109,7 @@ fn setup_instructions(mut commands: Commands) {
     );
 }
 
-fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut Fog>) {
+fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut DistanceFog>) {
     let mut fog_settings = fog.single_mut();
 
     if keycode.just_pressed(KeyCode::Space) {
