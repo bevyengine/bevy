@@ -1,4 +1,6 @@
-use crate::{CalculatedClip, DefaultUiCamera, Node, TargetCamera, UiScale, UiStack};
+use crate::{
+    CalculatedClip, DefaultUiCamera, Node, ResolvedBorderRadius, TargetCamera, UiScale, UiStack,
+};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -249,19 +251,18 @@ pub fn ui_focus_system(
                 .map(|clip| node_rect.intersect(clip.clip))
                 .unwrap_or(node_rect);
 
+            let cursor_position = camera_cursor_positions.get(&camera_entity);
+
             // The mouse position relative to the node
             // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
             // Coordinates are relative to the entire node, not just the visible region.
-            let relative_cursor_position =
-                camera_cursor_positions
-                    .get(&camera_entity)
-                    .and_then(|cursor_position| {
-                        // ensure node size is non-zero in all dimensions, otherwise relative position will be
-                        // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
-                        // false positives for mouse_over (#12395)
-                        (node_rect.size().cmpgt(Vec2::ZERO).all())
-                            .then_some((*cursor_position - node_rect.min) / node_rect.size())
-                    });
+            let relative_cursor_position = cursor_position.and_then(|cursor_position| {
+                // ensure node size is non-zero in all dimensions, otherwise relative position will be
+                // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
+                // false positives for mouse_over (#12395)
+                (node_rect.size().cmpgt(Vec2::ZERO).all())
+                    .then_some((*cursor_position - node_rect.min) / node_rect.size())
+            });
 
             // If the current cursor position is within the bounds of the node's visible area, consider it for
             // clicking
@@ -270,7 +271,16 @@ pub fn ui_focus_system(
                 normalized: relative_cursor_position,
             };
 
-            let contains_cursor = relative_cursor_position_component.mouse_over();
+            let contains_cursor = relative_cursor_position_component.mouse_over()
+                && cursor_position
+                    .map(|point| {
+                        pick_rounded_rect(
+                            *point - node_rect.center(),
+                            node_rect.size(),
+                            node.node.border_radius,
+                        )
+                    })
+                    .unwrap_or(false);
 
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
@@ -331,4 +341,19 @@ pub fn ui_focus_system(
             }
         }
     }
+}
+
+fn pick_rounded_rect(point: Vec2, size: Vec2, border_radius: ResolvedBorderRadius) -> bool {
+    let s = point.signum();
+    let r = (border_radius.top_left * (1. - s.x) * (1. - s.y)
+        + border_radius.top_right * (1. + s.x) * (1. - s.y)
+        + border_radius.bottom_right * (1. + s.x) * (1. + s.y)
+        + border_radius.bottom_left * (1. - s.x) * (1. + s.y))
+        / 4.;
+
+    let corner_to_point = point.abs() - 0.5 * size;
+    let q = corner_to_point + r;
+    let l = q.max(Vec2::ZERO).length();
+    let m = q.max_element().min(0.);
+    l + m - r < 0.
 }
