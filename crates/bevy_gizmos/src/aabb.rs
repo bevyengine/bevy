@@ -40,6 +40,7 @@ impl Plugin for AabbGizmoPlugin {
                         config.config::<AabbGizmoConfigGroup>().1.draw_all
                     }),
                 )
+                    .after(bevy_render::view::VisibilitySystems::CalculateBounds)
                     .after(TransformSystem::TransformPropagate),
             );
     }
