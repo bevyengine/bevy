@@ -2082,7 +2082,7 @@ mod tests {
         #[derive(Bundle, Default)]
         struct TestBundle {
             x: X,
-            z: Z
+            z: Z,
         }
 
         let mut world = World::new();
@@ -2100,8 +2100,6 @@ mod tests {
         assert!(!world.entity(e).contains::<Z>());
         assert!(!world.entity(e).contains::<W>());
         assert!(world.entity(e).contains::<V>());
-
-
     }
 
     // These structs are primarily compilation tests to test the derive macros. Because they are

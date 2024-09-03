@@ -1226,7 +1226,6 @@ impl EntityCommands<'_> {
         self.add(remove_by_id(component_id))
     }
 
-
     /// Removes all components associated with the entity.
     pub fn clear(self) -> Self {
         self.add(clear())
@@ -1822,7 +1821,6 @@ mod tests {
 
     #[test]
     fn remove_bundle_with_required_components() {
-
         #[derive(Component)]
         #[require(Y)]
         struct X;
@@ -1843,8 +1841,7 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(e)
-                .remove_with_required::<X>();
+            commands.entity(e).remove_with_required::<X>();
         }
         queue.apply(&mut world);
 
