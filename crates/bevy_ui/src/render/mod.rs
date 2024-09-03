@@ -458,7 +458,7 @@ pub fn extract_uinode_borders(
                 Option<&BorderColor>,
                 Option<&Outline>,
             ),
-            (Without<ContentSize>, Or<(With<BorderColor>, With<Outline>)>),
+            Or<(With<BorderColor>, With<Outline>)>,
         >,
     >,
     node_query: Extract<Query<&Node>>,
