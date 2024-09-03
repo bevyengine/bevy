@@ -158,6 +158,10 @@ pub fn common_partial_reflect_methods(
 }
 
 pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::TokenStream> {
+    if meta.attrs().no_auto_register() {
+        return None;
+    }
+
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
     let (_, ty_generics, _) = meta.type_path().generics().split_for_impl();
