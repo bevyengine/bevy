@@ -73,8 +73,8 @@ fn setup(mut commands: Commands) {
         R: Remove the last control point\n\
         S: Cycle the spline construction being used\n\
         C: Toggle cyclic curve construction";
-    let spline_mode_text = format!("Spline: {}", spline_mode);
-    let cycling_mode_text = format!("{}", cycling_mode);
+    let spline_mode_text = format!("Spline: {spline_mode}");
+    let cycling_mode_text = format!("{cycling_mode}");
     let style = TextStyle::default();
 
     commands

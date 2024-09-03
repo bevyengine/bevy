@@ -34,8 +34,7 @@ fn main() {
     assert_eq!(
         main_app_ambiguities.total(),
         0,
-        "Main app has unexpected ambiguities among the following schedules: \n{:#?}.",
-        main_app_ambiguities,
+        "Main app has unexpected ambiguities among the following schedules: \n{main_app_ambiguities:#?}.",
     );
 
     // RenderApp is not checked here, because it is not within the App at this point.
@@ -43,8 +42,7 @@ fn main() {
     assert_eq!(
         render_extract_ambiguities.total(),
         0,
-        "RenderExtract app has unexpected ambiguities among the following schedules: \n{:#?}",
-        render_extract_ambiguities,
+        "RenderExtract app has unexpected ambiguities among the following schedules: \n{render_extract_ambiguities:#?}",
     );
 }
 
