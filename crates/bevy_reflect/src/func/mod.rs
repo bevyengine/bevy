@@ -115,6 +115,7 @@ pub mod args;
 mod dynamic_function;
 mod dynamic_function_mut;
 mod error;
+mod function_map;
 mod info;
 mod into_function;
 mod into_function_mut;
