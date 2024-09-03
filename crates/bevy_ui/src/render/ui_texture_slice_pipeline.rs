@@ -10,7 +10,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec3, Vec4Swizzles};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
@@ -232,6 +232,8 @@ pub struct ExtractedUiTextureSlice {
     pub camera_entity: Entity,
     pub color: LinearRgba,
     pub image_scale_mode: ImageScaleMode,
+    pub flip_x: bool,
+    pub flip_y: bool,
 }
 
 #[derive(Resource, Default)]
@@ -294,6 +296,8 @@ pub fn extract_ui_texture_slices(
                 camera_entity,
                 image_scale_mode: image_scale_mode.clone(),
                 atlas_rect,
+                flip_x: image.flip_x,
+                flip_y: image.flip_y,
             },
         );
     }
@@ -456,7 +460,7 @@ pub fn prepare_ui_slices(
                         }
                     }
 
-                    let uinode_rect = texture_slices.rect;
+                    let mut uinode_rect = texture_slices.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);
 
@@ -466,7 +470,7 @@ pub fn prepare_ui_slices(
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let positions_diff = if let Some(clip) = texture_slices.clip {
+                    let mut positions_diff = if let Some(clip) = texture_slices.clip {
                         [
                             Vec2::new(
                                 f32::max(clip.min.x - positions[0].x, 0.),
@@ -523,6 +527,20 @@ pub fn prepare_ui_slices(
                         [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                     } else {
                         let atlas_extent = uinode_rect.max;
+                        if texture_slices.flip_x {
+                            std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
+                            positions_diff[0].x *= -1.;
+                            positions_diff[1].x *= -1.;
+                            positions_diff[2].x *= -1.;
+                            positions_diff[3].x *= -1.;
+                        }
+                        if texture_slices.flip_y {
+                            std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
+                            positions_diff[0].y *= -1.;
+                            positions_diff[1].y *= -1.;
+                            positions_diff[2].y *= -1.;
+                            positions_diff[3].y *= -1.;
+                        }
                         [
                             Vec2::new(
                                 uinode_rect.min.x + positions_diff[0].x,
