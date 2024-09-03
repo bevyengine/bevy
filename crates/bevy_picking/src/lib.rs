@@ -98,7 +98,7 @@
 //! This plugin is designed to be extremely modular. To do so, it works in well-defined stages that
 //! form a pipeline, where events are used to pass data between each stage.
 //!
-//! #### Pointers ([`pointer`])
+//! #### Pointers ([`pointer`](mod@pointer))
 //!
 //! The first stage of the pipeline is to gather inputs and update pointers. This stage is
 //! ultimately responsible for generating [`PointerInput`](pointer::PointerInput) events. The provided
