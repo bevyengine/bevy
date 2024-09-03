@@ -483,7 +483,7 @@ fn handle_mouse_clicks(
     };
 
     // Figure out where the user clicked on the plane.
-    let Some(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
+    let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
     let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
