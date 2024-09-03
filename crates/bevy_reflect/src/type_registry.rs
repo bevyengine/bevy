@@ -9,12 +9,13 @@ use std::{
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-#[cfg(target_family = "wasm")]
+/// Stores registration functions of all types that must be automatically registered.
+#[cfg(all(target_family = "wasm", feature = "auto_register_derives"))]
 pub static DERIVED_REFLECT_TYPES: RwLock<Vec<fn(&mut TypeRegistry)>> = RwLock::new(Vec::new());
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "auto_register_derives"))]
 #[allow(non_camel_case_types)]
 pub struct DERIVED_REFLECT_TYPES(pub fn(&mut TypeRegistry));
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "auto_register_derives"))]
 inventory::collect!(DERIVED_REFLECT_TYPES);
 
 /// A registry of [reflected] types.
@@ -117,10 +118,19 @@ impl TypeRegistry {
         registry.register::<f64>();
         registry.register::<String>();
         registry.register_derived_types();
+
         registry
     }
 
-    pub fn register_derived_types(&mut self) {
+    /// Register all non-generic types annotated with `#[derive(Reflect)]`.
+    ///
+    /// This function does nothing if `auto_register_derives` feature is not enabled.
+    fn register_derived_types(&mut self) {
+        self.register_derived_types_internal()
+    }
+
+    #[cfg(feature = "auto_register_derives")]
+    fn register_derived_types_internal(&mut self) {
         // wasm_init must be called at least once to run all init code.
         // Calling it multiple times is ok and doesn't do anything.
         #[cfg(target_family = "wasm")]
@@ -135,6 +145,9 @@ impl TypeRegistry {
             ty.0(self)
         }
     }
+
+    #[cfg(not(feature = "auto_register_derives"))]
+    fn register_derived_types_internal(&mut self) {}
 
     /// Attempts to register the type `T` if it has not yet been registered already.
     ///
