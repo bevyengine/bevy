@@ -501,6 +501,9 @@ pub enum ShadowFilteringMethod {
 pub enum SimulationLightSystems {
     AddClusters,
     AssignLightsToClusters,
+    /// System order ambiguities between systems in this set are ignored:
+    /// each [`build_directional_light_cascades`] system is independent of the others,
+    /// and should operate on distinct sets of entities.
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
     /// System order ambiguities between systems in this set are ignored:
