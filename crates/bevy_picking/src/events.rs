@@ -23,7 +23,7 @@
 //!
 //! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in
-//! [`PreUpdate](bevy::app::PreUpdate) in [`Focus`](crate::picking::PickSet::Focus). All pointer-event observers
+//! [`PreUpdate`](bevy::app::PreUpdate) in [`Focus`](crate::picking::PickSet::Focus). All pointer-event observers
 //! resolve during the sync point between [`pointer_events`] and
 //! [`update_interactions`](crate::focus::update_interactions).
 //!

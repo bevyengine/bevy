@@ -1,9 +1,7 @@
 #![allow(deprecated)]
 use std::path::PathBuf;
 
-use bevy_ecs::event::{Event, EventReader};
-use bevy_ecs::system::SystemState;
-use bevy_ecs::{entity::Entity, world::World};
+use bevy_ecs::{entity::Entity, event::Event};
 use bevy_input::{
     gestures::*,
     keyboard::{KeyboardFocusLost, KeyboardInput},
@@ -608,103 +606,5 @@ impl From<KeyboardInput> for WindowEvent {
 impl From<KeyboardFocusLost> for WindowEvent {
     fn from(e: KeyboardFocusLost) -> Self {
         Self::KeyboardFocusLost(e)
-    }
-}
-
-/// Clones events from the unified `WindowEvent` stream into their own event buffers.
-pub fn forward_window_events(
-    world: &mut World,
-    reader_state: &mut SystemState<EventReader<WindowEvent>>,
-) {
-    let mut reader = reader_state.get_mut(world);
-    let window_events: Vec<_> = reader.read().cloned().collect();
-
-    for winit_event in window_events {
-        match winit_event.clone() {
-            WindowEvent::AppLifecycle(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::CursorEntered(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::CursorLeft(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::CursorMoved(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::FileDragAndDrop(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::Ime(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::ReceivedCharacter(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::RequestRedraw(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowBackendScaleFactorChanged(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowCloseRequested(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowCreated(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowDestroyed(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowFocused(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowMoved(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowOccluded(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowResized(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowScaleFactorChanged(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::WindowThemeChanged(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::MouseButtonInput(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::MouseMotion(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::MouseWheel(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::PinchGesture(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::RotationGesture(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::DoubleTapGesture(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::PanGesture(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::TouchInput(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::KeyboardInput(e) => {
-                world.send_event(e);
-            }
-            WindowEvent::KeyboardFocusLost(e) => {
-                world.send_event(e);
-            }
-        }
     }
 }

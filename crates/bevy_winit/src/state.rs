@@ -28,8 +28,8 @@ use winit::window::WindowId;
 use bevy_window::{
     AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ReceivedCharacter,
     RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
-    WindowFocused, WindowMoved, WindowOccluded, WindowResized, WindowScaleFactorChanged,
-    WindowThemeChanged,
+    WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
+    WindowScaleFactorChanged, WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
@@ -696,8 +696,97 @@ impl<T: Event> WinitAppRunnerState<T> {
 
         let world = self.world_mut();
 
+        for winit_event in buffered_events.iter() {
+            match winit_event.clone() {
+                BevyWindowEvent::AppLifecycle(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::CursorEntered(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::CursorLeft(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::CursorMoved(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::FileDragAndDrop(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::Ime(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::ReceivedCharacter(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::RequestRedraw(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowCloseRequested(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowCreated(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowDestroyed(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowFocused(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowMoved(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowOccluded(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowResized(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowScaleFactorChanged(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::WindowThemeChanged(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::MouseButtonInput(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::MouseMotion(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::MouseWheel(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::PinchGesture(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::RotationGesture(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::DoubleTapGesture(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::PanGesture(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::TouchInput(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::KeyboardInput(e) => {
+                    world.send_event(e);
+                }
+                BevyWindowEvent::KeyboardFocusLost(e) => {
+                    world.send_event(e);
+                }
+            }
+        }
+
         world
-            .resource_mut::<Events<bevy_window::WindowEvent>>()
+            .resource_mut::<Events<BevyWindowEvent>>()
             .send_batch(buffered_events);
     }
 

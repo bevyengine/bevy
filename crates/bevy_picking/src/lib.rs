@@ -372,7 +372,6 @@ impl Plugin for PickingPlugin {
                 (PickSet::Input, PickSet::PostInput)
                     .after(bevy_time::TimeSystem)
                     .ambiguous_with(bevy_asset::handle_internal_asset_events)
-                    .ambiguous_with(bevy_window::forward_window_events)
                     .after(bevy_ecs::event::EventUpdates)
                     .chain(),
             )

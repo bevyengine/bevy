@@ -14,7 +14,6 @@
 use std::sync::{Arc, Mutex};
 
 use bevy_a11y::Focus;
-use bevy_ecs::schedule::IntoSystemConfigs;
 
 mod event;
 mod monitor;
@@ -93,10 +92,6 @@ impl Plugin for WindowPlugin {
         // User convenience events
         #[allow(deprecated)]
         app.add_event::<WindowEvent>()
-            .add_systems(
-                First,
-                forward_window_events.after(bevy_ecs::event::event_update_system),
-            )
             .add_event::<WindowResized>()
             .add_event::<WindowCreated>()
             .add_event::<WindowClosing>()
