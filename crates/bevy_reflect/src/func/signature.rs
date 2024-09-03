@@ -10,7 +10,7 @@
 //! arguments and return type.
 
 use crate::func::args::ArgInfo;
-use crate::func::FunctionInfo;
+use crate::func::{ArgList, FunctionInfo};
 use crate::Type;
 use core::borrow::Borrow;
 use core::fmt::{Debug, Formatter};
@@ -101,6 +101,24 @@ impl<T: Borrow<FunctionInfo>> From<T> for ArgumentSignature {
                 .args()
                 .iter()
                 .map(ArgInfo::ty)
+                .copied()
+                .collect(),
+        )
+    }
+}
+
+impl From<&ArgList<'_>> for ArgumentSignature {
+    fn from(args: &ArgList) -> Self {
+        Self(
+            args.iter()
+                .map(|arg| {
+                    arg.value()
+                        .get_represented_type_info()
+                        .unwrap_or_else(|| {
+                            panic!("no `TypeInfo` found for argument: {:?}", arg);
+                        })
+                        .ty()
+                })
                 .copied()
                 .collect(),
         )

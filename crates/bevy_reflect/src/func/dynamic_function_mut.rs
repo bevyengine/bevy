@@ -1,13 +1,18 @@
-use alloc::{borrow::Cow, boxed::Box};
+use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use core::fmt::{Debug, Formatter};
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
 
 use crate::func::{
-    args::ArgList, DynamicFunction, FunctionError, FunctionInfoType, FunctionResult,
-    IntoFunctionMut,
+    args::ArgList,
+    function_map::{merge_function_map, FunctionMap},
+    signature::ArgumentSignature,
+    DynamicFunction, FunctionError, FunctionInfoType, FunctionResult, IntoFunctionMut,
 };
+
+/// A [`Box`] containing a callback to a reflected function.
+type BoxFnMut<'env> = Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>;
 
 /// A dynamic representation of a function.
 ///
@@ -68,7 +73,7 @@ use crate::func::{
 pub struct DynamicFunctionMut<'env> {
     name: Option<Cow<'static, str>>,
     info: FunctionInfoType,
-    func: Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>,
+    function_map: FunctionMap<BoxFnMut<'env>>,
 }
 
 impl<'env> DynamicFunctionMut<'env> {
@@ -79,6 +84,7 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// It's important that the function signature matches the provided [`FunctionInfo`].
     /// as this will be used to validate arguments when [calling] the function.
+    /// This is also required in order for [function overloading] to work correctly.
     ///
     /// # Panics
     ///
@@ -86,6 +92,7 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [calling]: crate::func::dynamic_function_mut::DynamicFunctionMut::call
     /// [`FunctionInfo`]: crate::func::FunctionInfo
+    /// [function overloading]: Self::with_overload
     pub fn new<F: for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>(
         func: F,
         info: impl TryInto<FunctionInfoType, Error: Debug>,
@@ -98,7 +105,7 @@ impl<'env> DynamicFunctionMut<'env> {
                 FunctionInfoType::Overloaded(_) => None,
             },
             info,
-            func: Box::new(func),
+            function_map: FunctionMap::Standard(Box::new(func)),
         }
     }
 
@@ -113,6 +120,80 @@ impl<'env> DynamicFunctionMut<'env> {
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         self.name = Some(name.into());
         self
+    }
+
+    /// Add an overload to this function.
+    ///
+    /// Overloads allow a single [`DynamicFunctionMut`] to represent multiple functions of different signatures.
+    ///
+    /// This can be used to handle multiple monomorphizations of a generic function
+    /// or to allow functions with a variable number of arguments.
+    ///
+    /// Any functions with the same [argument signature] will be overwritten by the one from the new function, `F`.
+    /// For example, if the existing function had the signature `(i32, i32) -> i32`,
+    /// and the new function, `F`, also had the signature `(i32, i32) -> i32`,
+    /// the one from `F` would replace the one from the existing function.
+    ///
+    /// Overloaded functions retain the [name] of the original function.
+    ///
+    /// Note that it may be impossible to overload closures that mutably borrow from their environment
+    /// due to Rust's borrowing rules.
+    /// However, it's still possible to overload functions that do not capture their environment mutably,
+    /// or those that maintain mutually exclusive mutable references to their environment.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunctionMut;
+    /// let mut total_i32 = 0;
+    /// let mut add_i32 = |a: i32| total_i32 += a;
+    ///
+    /// let mut total_f32 = 0.0;
+    /// let mut add_f32 = |a: f32| total_f32 += a;
+    ///
+    /// // Currently, the only generic type `func` supports is `i32`.
+    /// let mut func = add_i32.into_function_mut();
+    ///
+    /// // However, we can add an overload to handle `f32` as well:
+    /// func = func.with_overload(add_f32);
+    ///
+    /// // Test `i32`:
+    /// let args = bevy_reflect::func::ArgList::new().push_owned(123_i32);
+    /// func.call(args).unwrap();
+    ///
+    /// // Test `f32`:
+    /// let args = bevy_reflect::func::ArgList::new().push_owned(1.23_f32);
+    /// func.call(args).unwrap();
+    ///
+    /// drop(func);
+    /// assert_eq!(total_i32, 123);
+    /// assert_eq!(total_f32, 1.23);
+    /// ```
+    ///
+    /// [argument signature]: ArgumentSignature
+    /// [name]: Self::name
+    pub fn with_overload<'a, F: IntoFunctionMut<'a, Marker>, Marker>(
+        self,
+        function: F,
+    ) -> DynamicFunctionMut<'a>
+    where
+        'env: 'a,
+    {
+        let function = function.into_function_mut();
+
+        let name = self.name;
+        let (function_map, info) = merge_function_map(
+            self.function_map,
+            self.info,
+            function.function_map,
+            function.info,
+        );
+
+        DynamicFunctionMut {
+            name,
+            info,
+            function_map,
+        }
     }
 
     /// Call the function with the given arguments.
@@ -150,13 +231,28 @@ impl<'env> DynamicFunctionMut<'env> {
         let expected_arg_count = self.info.arg_count();
         let received_arg_count = args.len();
 
-        if expected_arg_count != received_arg_count {
-            Err(FunctionError::ArgCountMismatch {
-                expected: expected_arg_count,
-                received: received_arg_count,
-            })
-        } else {
-            (self.func)(args)
+        match self.function_map {
+            FunctionMap::Standard(ref mut func) => {
+                if expected_arg_count != received_arg_count {
+                    Err(FunctionError::ArgCountMismatch {
+                        expected: expected_arg_count,
+                        received: received_arg_count,
+                    })
+                } else {
+                    func(args)
+                }
+            }
+            FunctionMap::Overloaded(ref mut map) => {
+                let sig = ArgumentSignature::from(&args);
+                if let Some(func) = map.get_mut(&sig) {
+                    func(args)
+                } else {
+                    Err(FunctionError::NoOverload {
+                        expected: map.keys().cloned().collect(),
+                        received: sig,
+                    })
+                }
+            }
         }
     }
 
@@ -189,17 +285,7 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// The function itself may also return any errors it needs to.
     pub fn call_once(mut self, args: ArgList) -> FunctionResult {
-        let expected_arg_count = self.info.arg_count();
-        let received_arg_count = args.len();
-
-        if expected_arg_count != received_arg_count {
-            Err(FunctionError::ArgCountMismatch {
-                expected: expected_arg_count,
-                received: received_arg_count,
-            })
-        } else {
-            (self.func)(args)
-        }
+        self.call(args)
     }
 
     /// Returns the function info.
@@ -261,9 +347,26 @@ impl<'env> From<DynamicFunction<'env>> for DynamicFunctionMut<'env> {
         Self {
             name: function.name,
             info: function.info,
-            func: Box::new(move |args| (function.func)(args)),
+            function_map: match function.function_map {
+                FunctionMap::Standard(func) => FunctionMap::Standard(arc_to_box(func)),
+                FunctionMap::Overloaded(functions) => FunctionMap::Overloaded(
+                    functions
+                        .into_iter()
+                        .map(|(name, func)| (name, arc_to_box(func)))
+                        .collect(),
+                ),
+            },
         }
     }
+}
+
+/// Helper function from converting an [`Arc`] function to a [`Box`] function.
+///
+/// This is needed to help the compiler infer the correct types.
+fn arc_to_box<'env>(
+    f: Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + 'env>,
+) -> BoxFnMut<'env> {
+    Box::new(move |args| f(args))
 }
 
 impl<'env> IntoFunctionMut<'env, ()> for DynamicFunctionMut<'env> {
@@ -277,6 +380,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunctionMut<'env> {
 mod tests {
     use super::*;
     use crate::func::{FunctionInfo, IntoReturn};
+    use std::ops::Add;
 
     #[test]
     fn should_overwrite_function_name() {
@@ -359,5 +463,26 @@ mod tests {
 
         drop(func);
         assert_eq!(total, 100);
+    }
+
+    // Closures that mutably borrow from their environment cannot realistically
+    // be overloaded since that would break Rust's borrowing rules.
+    // However, we still need to verify overloaded functions work since a
+    // `DynamicFunctionMut` can also be made from a non-mutably borrowing closure/function.
+    #[test]
+    fn should_allow_function_overloading() {
+        fn add<T: Add<Output = T>>(a: T, b: T) -> T {
+            a + b
+        }
+
+        let mut func = add::<i32>.into_function_mut().with_overload(add::<f32>);
+
+        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<i32>().unwrap(), 100);
+
+        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let result = func.call(args).unwrap().unwrap_owned();
+        assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     }
 }
