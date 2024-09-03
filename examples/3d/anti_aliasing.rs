@@ -183,7 +183,7 @@ fn update_ui(
     >,
     mut ui: Query<&mut Text>,
 ) {
-    let (fxaa, smaa, taa, cas_settings, msaa) = camera.single();
+    let (fxaa, smaa, taa, cas, msaa) = camera.single();
 
     let mut ui = ui.single_mut();
     let ui = &mut ui.sections[0].value;
@@ -236,14 +236,11 @@ fn update_ui(
     }
 
     ui.push_str("\n----------\n\n");
-    draw_selectable_menu_item(ui, "Sharpening", '0', cas_settings.enabled);
+    draw_selectable_menu_item(ui, "Sharpening", '0', cas.enabled);
 
-    if cas_settings.enabled {
-        ui.push_str(&format!(
-            "(-/+) Strength: {:.1}\n",
-            cas_settings.sharpening_strength
-        ));
-        draw_selectable_menu_item(ui, "Denoising", 'D', cas_settings.denoise);
+    if cas.enabled {
+        ui.push_str(&format!("(-/+) Strength: {:.1}\n", cas.sharpening_strength));
+        draw_selectable_menu_item(ui, "Denoising", 'D', cas.denoise);
     }
 }
 
