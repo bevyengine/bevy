@@ -10,7 +10,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec3, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
@@ -460,7 +460,7 @@ pub fn prepare_ui_slices(
                         }
                     }
 
-                    let mut uinode_rect = texture_slices.rect;
+                    let uinode_rect = texture_slices.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);
 
@@ -470,7 +470,7 @@ pub fn prepare_ui_slices(
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let mut positions_diff = if let Some(clip) = texture_slices.clip {
+                    let positions_diff = if let Some(clip) = texture_slices.clip {
                         [
                             Vec2::new(
                                 f32::max(clip.min.x - positions[0].x, 0.),
