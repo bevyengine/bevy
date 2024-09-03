@@ -353,7 +353,9 @@ impl Plugin for PbrPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    add_clusters.in_set(SimulationLightSystems::AddClusters),
+                    add_clusters
+                        .in_set(SimulationLightSystems::AddClusters)
+                        .after(CameraUpdateSystem),
                     assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
