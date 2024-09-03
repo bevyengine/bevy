@@ -329,16 +329,16 @@ fn prepare_bloom_textures(
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &ExtractedCamera, &Bloom)>,
 ) {
-    for (entity, camera, settings) in &views {
+    for (entity, camera, bloom) in &views {
         if let Some(UVec2 {
             x: width,
             y: height,
         }) = camera.physical_viewport_size
         {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
-            let mip_count = settings.max_mip_dimension.ilog2().max(2) - 1;
+            let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
             let mip_height_ratio = if height != 0 {
-                settings.max_mip_dimension as f32 / height as f32
+                bloom.max_mip_dimension as f32 / height as f32
             } else {
                 0.
             };
@@ -461,18 +461,17 @@ fn prepare_bloom_bind_groups(
 ///
 /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
 /// [`Bloom`] parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
-fn compute_blend_factor(bloom_settings: &Bloom, mip: f32, max_mip: f32) -> f32 {
+fn compute_blend_factor(bloom: &Bloom, mip: f32, max_mip: f32) -> f32 {
     let mut lf_boost = (1.0
-        - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom_settings.low_frequency_boost_curvature)))
-        * bloom_settings.low_frequency_boost;
+        - (1.0 - (mip / max_mip)).powf(1.0 / (1.0 - bloom.low_frequency_boost_curvature)))
+        * bloom.low_frequency_boost;
     let high_pass_lq = 1.0
-        - (((mip / max_mip) - bloom_settings.high_pass_frequency)
-            / bloom_settings.high_pass_frequency)
+        - (((mip / max_mip) - bloom.high_pass_frequency) / bloom.high_pass_frequency)
             .clamp(0.0, 1.0);
-    lf_boost *= match bloom_settings.composite_mode {
-        BloomCompositeMode::EnergyConserving => 1.0 - bloom_settings.intensity,
+    lf_boost *= match bloom.composite_mode {
+        BloomCompositeMode::EnergyConserving => 1.0 - bloom.intensity,
         BloomCompositeMode::Additive => 1.0,
     };
 
-    (bloom_settings.intensity + lf_boost) * high_pass_lq
+    (bloom.intensity + lf_boost) * high_pass_lq
 }

@@ -135,12 +135,12 @@ pub fn prepare_upsampling_pipeline(
     pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &Bloom)>,
 ) {
-    for (entity, settings) in &views {
+    for (entity, bloom) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
-                composite_mode: settings.composite_mode,
+                composite_mode: bloom.composite_mode,
                 final_pipeline: false,
             },
         );
@@ -149,7 +149,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
-                composite_mode: settings.composite_mode,
+                composite_mode: bloom.composite_mode,
                 final_pipeline: true,
             },
         );

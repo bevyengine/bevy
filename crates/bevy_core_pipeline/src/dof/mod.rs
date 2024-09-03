@@ -68,7 +68,10 @@ const DOF_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(203186118073921
 /// A plugin that adds support for the depth of field effect to Bevy.
 pub struct DepthOfFieldPlugin;
 
-/// Depth of field settings.
+/// A component that enables a [depth of field] postprocessing effect when attached to a [`Camera3d`],
+/// simulating the focus of a camera lens.
+///
+/// [depth of field]: https://en.wikipedia.org/wiki/Depth_of_field
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct DepthOfField {
@@ -342,7 +345,7 @@ impl ViewNode for DepthOfFieldNode {
             view_depth_texture,
             view_pipelines,
             view_bind_group_layouts,
-            dof_settings_uniform_index,
+            depth_of_field_uniform_index,
             auxiliary_dof_texture,
         ): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
@@ -443,7 +446,11 @@ impl ViewNode for DepthOfFieldNode {
             // Set the per-view bind group.
             render_pass.set_bind_group(0, &view_bind_group, &[view_uniform_offset.offset]);
             // Set the global bind group shared among all invocations of the shader.
-            render_pass.set_bind_group(1, global_bind_group, &[dof_settings_uniform_index.index()]);
+            render_pass.set_bind_group(
+                1,
+                global_bind_group,
+                &[depth_of_field_uniform_index.index()],
+            );
             // Render the full-screen pass.
             render_pass.draw(0..3, 0..1);
         }
@@ -527,7 +534,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
     view_targets: Query<(Entity, &DepthOfField, &Msaa)>,
     render_device: Res<RenderDevice>,
 ) {
-    for (view, dof_settings, msaa) in view_targets.iter() {
+    for (view, depth_of_field, msaa) in view_targets.iter() {
         // Create the bind group layout for the passes that take one input.
         let single_input = render_device.create_bind_group_layout(
             Some("depth of field bind group layout (single input)"),
@@ -547,7 +554,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
 
         // If needed, create the bind group layout for the second bokeh pass,
         // which takes two inputs. We only need to do this if bokeh is in use.
-        let dual_input = match dof_settings.mode {
+        let dual_input = match depth_of_field.mode {
             DepthOfFieldMode::Gaussian => None,
             DepthOfFieldMode::Bokeh => Some(render_device.create_bind_group_layout(
                 Some("depth of field bind group layout (dual input)"),
@@ -598,10 +605,10 @@ pub fn configure_depth_of_field_view_targets(
 pub fn prepare_depth_of_field_global_bind_group(
     global_bind_group_layout: Res<DepthOfFieldGlobalBindGroupLayout>,
     mut dof_bind_group: ResMut<DepthOfFieldGlobalBindGroup>,
-    dof_settings_uniforms: Res<ComponentUniforms<DepthOfFieldUniform>>,
+    depth_of_field_uniforms: Res<ComponentUniforms<DepthOfFieldUniform>>,
     render_device: Res<RenderDevice>,
 ) {
-    let Some(dof_settings_uniforms) = dof_settings_uniforms.binding() else {
+    let Some(depth_of_field_uniforms) = depth_of_field_uniforms.binding() else {
         return;
     };
 
@@ -609,7 +616,7 @@ pub fn prepare_depth_of_field_global_bind_group(
         Some("depth of field global bind group"),
         &global_bind_group_layout.layout,
         &BindGroupEntries::sequential((
-            dof_settings_uniforms,                           // `dof_params`
+            depth_of_field_uniforms,                         // `dof_params`
             &global_bind_group_layout.color_texture_sampler, // `color_texture_sampler`
         )),
     ));
@@ -623,9 +630,9 @@ pub fn prepare_auxiliary_depth_of_field_textures(
     mut texture_cache: ResMut<TextureCache>,
     mut view_targets: Query<(Entity, &ViewTarget, &DepthOfField)>,
 ) {
-    for (entity, view_target, dof_settings) in view_targets.iter_mut() {
+    for (entity, view_target, depth_of_field) in view_targets.iter_mut() {
         // An auxiliary texture is only needed for bokeh.
-        if dof_settings.mode != DepthOfFieldMode::Bokeh {
+        if depth_of_field.mode != DepthOfFieldMode::Bokeh {
             continue;
         }
 
@@ -663,7 +670,7 @@ pub fn prepare_depth_of_field_pipelines(
         &Msaa,
     )>,
 ) {
-    for (entity, view, dof_settings, view_bind_group_layouts, msaa) in view_targets.iter() {
+    for (entity, view, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
             global_bind_group_layout: global_bind_group_layout.layout.clone(),
@@ -673,7 +680,7 @@ pub fn prepare_depth_of_field_pipelines(
         let (hdr, multisample) = (view.hdr, *msaa != Msaa::Off);
 
         // Go ahead and specialize the pipelines.
-        match dof_settings.mode {
+        match depth_of_field.mode {
             DepthOfFieldMode::Gaussian => {
                 commands
                     .entity(entity)
@@ -810,25 +817,25 @@ fn extract_depth_of_field_settings(
         return;
     }
 
-    for (entity, dof_settings, projection) in query.iter_mut() {
+    for (entity, depth_of_field, projection) in query.iter_mut() {
         // Depth of field is nonsensical without a perspective projection.
         let Projection::Perspective(ref perspective_projection) = *projection else {
             continue;
         };
 
         let focal_length =
-            calculate_focal_length(dof_settings.sensor_height, perspective_projection.fov);
+            calculate_focal_length(depth_of_field.sensor_height, perspective_projection.fov);
 
         // Convert `DepthOfField` to `DepthOfFieldUniform`.
         commands.get_or_spawn(entity).insert((
-            *dof_settings,
+            *depth_of_field,
             DepthOfFieldUniform {
-                focal_distance: dof_settings.focal_distance,
+                focal_distance: depth_of_field.focal_distance,
                 focal_length,
                 coc_scale_factor: focal_length * focal_length
-                    / (dof_settings.sensor_height * dof_settings.aperture_f_stops),
-                max_circle_of_confusion_diameter: dof_settings.max_circle_of_confusion_diameter,
-                max_depth: dof_settings.max_depth,
+                    / (depth_of_field.sensor_height * depth_of_field.aperture_f_stops),
+                max_circle_of_confusion_diameter: depth_of_field.max_circle_of_confusion_diameter,
+                max_depth: depth_of_field.max_depth,
                 pad_a: 0,
                 pad_b: 0,
                 pad_c: 0,

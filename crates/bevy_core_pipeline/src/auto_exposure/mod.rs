@@ -116,7 +116,7 @@ fn queue_view_auto_exposure_pipelines(
     pipeline: Res<AutoExposurePipeline>,
     view_targets: Query<(Entity, &AutoExposure)>,
 ) {
-    for (entity, settings) in view_targets.iter() {
+    for (entity, auto_exposure) in view_targets.iter() {
         let histogram_pipeline =
             compute_pipelines.specialize(&pipeline_cache, &pipeline, AutoExposurePass::Histogram);
         let average_pipeline =
@@ -125,8 +125,8 @@ fn queue_view_auto_exposure_pipelines(
         commands.entity(entity).insert(ViewAutoExposurePipeline {
             histogram_pipeline,
             mean_luminance_pipeline: average_pipeline,
-            compensation_curve: settings.compensation_curve.clone(),
-            metering_mask: settings.metering_mask.clone(),
+            compensation_curve: auto_exposure.compensation_curve.clone(),
+            metering_mask: auto_exposure.metering_mask.clone(),
         });
     }
 }

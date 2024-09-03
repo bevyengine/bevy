@@ -620,11 +620,11 @@ fn prepare_smaa_pipelines(
     smaa_pipelines: Res<SmaaPipelines>,
     view_targets: Query<(Entity, &ExtractedView, &Smaa)>,
 ) {
-    for (entity, view, settings) in &view_targets {
+    for (entity, view, smaa) in &view_targets {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
             &pipeline_cache,
             &smaa_pipelines.edge_detection,
-            settings.preset,
+            smaa.preset,
         );
 
         let blending_weight_calculation_pipeline_id = specialized_render_pipelines
@@ -632,7 +632,7 @@ fn prepare_smaa_pipelines(
             .specialize(
                 &pipeline_cache,
                 &smaa_pipelines.blending_weight_calculation,
-                settings.preset,
+                smaa.preset,
             );
 
         let neighborhood_blending_pipeline_id = specialized_render_pipelines
@@ -646,7 +646,7 @@ fn prepare_smaa_pipelines(
                     } else {
                         TextureFormat::bevy_default()
                     },
-                    preset: settings.preset,
+                    preset: smaa.preset,
                 },
             );
 

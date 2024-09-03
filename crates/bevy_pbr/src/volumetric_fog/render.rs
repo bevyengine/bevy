@@ -278,10 +278,8 @@ pub fn extract_volumetric_fog(
         return;
     }
 
-    for (entity, volumetric_fog_settings) in view_targets.iter() {
-        commands
-            .get_or_spawn(entity)
-            .insert(*volumetric_fog_settings);
+    for (entity, volumetric_fog) in view_targets.iter() {
+        commands.get_or_spawn(entity).insert(*volumetric_fog);
     }
 
     for (entity, fog_volume, fog_transform) in fog_volumes.iter() {
@@ -690,7 +688,7 @@ pub fn prepare_volumetric_fog_uniforms(
         local_from_world_matrices.push(fog_transform.compute_matrix().inverse());
     }
 
-    for (view_entity, extracted_view, volumetric_fog_settings) in view_targets.iter() {
+    for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
         let world_from_view = extracted_view.world_from_view.compute_matrix();
 
         let mut view_fog_volumes = vec![];
@@ -721,9 +719,9 @@ pub fn prepare_volumetric_fog_uniforms(
                 far_planes: get_far_planes(&view_from_local),
                 fog_color: fog_volume.fog_color.to_linear().to_vec3(),
                 light_tint: fog_volume.light_tint.to_linear().to_vec3(),
-                ambient_color: volumetric_fog_settings.ambient_color.to_linear().to_vec3(),
-                ambient_intensity: volumetric_fog_settings.ambient_intensity,
-                step_count: volumetric_fog_settings.step_count,
+                ambient_color: volumetric_fog.ambient_color.to_linear().to_vec3(),
+                ambient_intensity: volumetric_fog.ambient_intensity,
+                step_count: volumetric_fog.step_count,
                 bounding_radius,
                 absorption: fog_volume.absorption,
                 scattering: fog_volume.scattering,
@@ -731,7 +729,7 @@ pub fn prepare_volumetric_fog_uniforms(
                 density_texture_offset: fog_volume.density_texture_offset,
                 scattering_asymmetry: fog_volume.scattering_asymmetry,
                 light_intensity: fog_volume.light_intensity,
-                jitter_strength: volumetric_fog_settings.jitter,
+                jitter_strength: volumetric_fog.jitter,
             });
 
             view_fog_volumes.push(ViewFogVolume {

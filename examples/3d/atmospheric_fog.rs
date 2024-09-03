@@ -110,15 +110,15 @@ fn setup_instructions(mut commands: Commands) {
 }
 
 fn toggle_system(keycode: Res<ButtonInput<KeyCode>>, mut fog: Query<&mut DistanceFog>) {
-    let mut fog_settings = fog.single_mut();
+    let mut fog = fog.single_mut();
 
     if keycode.just_pressed(KeyCode::Space) {
-        let a = fog_settings.color.alpha();
-        fog_settings.color.set_alpha(1.0 - a);
+        let a = fog.color.alpha();
+        fog.color.set_alpha(1.0 - a);
     }
 
     if keycode.just_pressed(KeyCode::KeyS) {
-        let a = fog_settings.directional_light_color.alpha();
-        fog_settings.directional_light_color.set_alpha(0.5 - a);
+        let a = fog.directional_light_color.alpha();
+        fog.directional_light_color.set_alpha(0.5 - a);
     }
 }

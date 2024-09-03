@@ -90,15 +90,21 @@ pub struct Bloom {
     /// * 1.0 - maximum scattering angle is 90 degrees
     pub high_pass_frequency: f32,
 
-    pub prefilter_settings: BloomPrefilter,
+    /// Controls the threshold filter used for extracting the brightest regions from the input image
+    /// before blurring them and compositing back onto the original image.
+    ///
+    /// Changing these settings creates a physically inaccurate image and makes it easy to make
+    /// the final result look worse. However, they can be useful when emulating the 1990s-2000s game look.
+    /// See [`BloomPrefilter`] for more information.
+    pub prefilter: BloomPrefilter,
 
     /// Controls whether bloom textures
     /// are blended between or added to each other. Useful
     /// if image brightening is desired and a must-change
-    /// if `prefilter_settings` are used.
+    /// if `prefilter` is used.
     ///
     /// # Recommendation
-    /// Set to [`BloomCompositeMode::Additive`] if `prefilter_settings` are
+    /// Set to [`BloomCompositeMode::Additive`] if `prefilter` is
     /// configured in a non-energy-conserving way,
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
@@ -127,7 +133,7 @@ impl Bloom {
         low_frequency_boost: 0.7,
         low_frequency_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
-        prefilter_settings: BloomPrefilter {
+        prefilter: BloomPrefilter {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
@@ -142,7 +148,7 @@ impl Bloom {
         low_frequency_boost: 0.7,
         low_frequency_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
-        prefilter_settings: BloomPrefilter {
+        prefilter: BloomPrefilter {
             threshold: 0.6,
             threshold_softness: 0.2,
         },
@@ -157,7 +163,7 @@ impl Bloom {
         low_frequency_boost: 0.0,
         low_frequency_boost_curvature: 0.0,
         high_pass_frequency: 1.0 / 3.0,
-        prefilter_settings: BloomPrefilter {
+        prefilter: BloomPrefilter {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
@@ -212,7 +218,7 @@ impl ExtractComponent for Bloom {
     type QueryFilter = ();
     type Out = (Self, BloomUniforms);
 
-    fn extract_component((settings, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component((bloom, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         match (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
@@ -221,8 +227,8 @@ impl ExtractComponent for Bloom {
             camera.hdr,
         ) {
             (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true) => {
-                let threshold = settings.prefilter_settings.threshold;
-                let threshold_softness = settings.prefilter_settings.threshold_softness;
+                let threshold = bloom.prefilter.threshold;
+                let threshold_softness = bloom.prefilter.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);
 
                 let uniform = BloomUniforms {
@@ -236,10 +242,10 @@ impl ExtractComponent for Bloom {
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
                     aspect: AspectRatio::from_pixels(size.x, size.y).into(),
-                    uv_offset: settings.uv_offset,
+                    uv_offset: bloom.uv_offset,
                 };
 
-                Some((settings.clone(), uniform))
+                Some((bloom.clone(), uniform))
             }
             _ => None,
         }

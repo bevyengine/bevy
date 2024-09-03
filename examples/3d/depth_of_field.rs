@@ -83,8 +83,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         .insert(Bloom::NATURAL);
 
     // Insert the depth of field settings.
-    if let Some(dof_settings) = Option::<DepthOfField>::from(*app_settings) {
-        camera.insert(dof_settings);
+    if let Some(depth_of_field) = Option::<DepthOfField>::from(*app_settings) {
+        camera.insert(depth_of_field);
     }
 
     // Spawn the scene.
@@ -174,14 +174,14 @@ fn update_dof_settings(
     view_targets: Query<Entity, With<Camera>>,
     app_settings: Res<AppSettings>,
 ) {
-    let dof_settings: Option<DepthOfField> = (*app_settings).into();
+    let depth_of_field: Option<DepthOfField> = (*app_settings).into();
     for view in view_targets.iter() {
-        match dof_settings {
+        match depth_of_field {
             None => {
                 commands.entity(view).remove::<DepthOfField>();
             }
-            Some(dof_settings) => {
-                commands.entity(view).insert(dof_settings);
+            Some(depth_of_field) => {
+                commands.entity(view).insert(depth_of_field);
             }
         }
     }

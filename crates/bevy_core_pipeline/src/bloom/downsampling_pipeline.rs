@@ -138,8 +138,8 @@ pub fn prepare_downsampling_pipeline(
     pipeline: Res<BloomDownsamplingPipeline>,
     views: Query<(Entity, &Bloom)>,
 ) {
-    for (entity, settings) in &views {
-        let prefilter = settings.prefilter_settings.threshold > 0.0;
+    for (entity, bloom) in &views {
+        let prefilter = bloom.prefilter.threshold > 0.0;
 
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,

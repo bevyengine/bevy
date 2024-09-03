@@ -244,12 +244,12 @@ fn prepare_cas_pipelines(
     sharpening_pipeline: Res<CasPipeline>,
     views: Query<(Entity, &ExtractedView, &DenoiseCas), With<CasUniform>>,
 ) {
-    for (entity, view, cas_settings) in &views {
+    for (entity, view, cas) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
             CasPipelineKey {
-                denoise: cas_settings.0,
+                denoise: cas.0,
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
                 } else {
