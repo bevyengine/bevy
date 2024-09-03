@@ -15,7 +15,7 @@
 //! # Example
 //!
 //! ```
-//! # use bevy_reflect::PartialReflect;
+//! # use bevy_reflect::Reflect;
 //! # use bevy_reflect::func::args::ArgList;
 //! # use bevy_reflect::func::{DynamicFunction, FunctionResult, IntoFunction, Return};
 //! fn add(a: i32, b: i32) -> i32 {
@@ -27,7 +27,7 @@
 //!   // Pushing a known type with owned ownership
 //!   .push_owned(25_i32)
 //!   // Pushing a reflected type with owned ownership
-//!   .push_boxed(Box::new(75_i32) as Box<dyn PartialReflect>);
+//!   .push_boxed(Box::new(75_i32) as Box<dyn Reflect>);
 //! let result: FunctionResult = func.call(args);
 //! let value: Return = result.unwrap();
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
