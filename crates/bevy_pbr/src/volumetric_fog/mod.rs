@@ -53,7 +53,7 @@ use bevy_render::{
     view::{InheritedVisibility, ViewVisibility, Visibility},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::Transform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use render::{
     VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
     VOLUMETRIC_FOG_HANDLE,
@@ -130,6 +130,8 @@ pub struct FogVolumeBundle {
     /// The local transform. Set this to change the position, and scale of the
     /// fog's axis-aligned bounding box (AABB).
     pub transform: Transform,
+    /// The global transform.
+    pub global_transform: GlobalTransform,
 }
 
 #[derive(Clone, Component, Debug, Reflect)]

@@ -12,7 +12,7 @@ use bevy_render::{
     render_resource::{LoadOp, TextureUsages},
     view::{ColorGrading, VisibleEntities},
 };
-use bevy_transform::prelude::Transform;
+use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
 
 /// Configuration for the "main 3d render graph".
@@ -146,6 +146,7 @@ pub struct Camera3dBundle {
     pub visible_entities: VisibleEntities,
     pub frustum: Frustum,
     pub transform: Transform,
+    pub global_transform: GlobalTransform,
     pub camera_3d: Camera3d,
     pub tonemapping: Tonemapping,
     pub deband_dither: DebandDither,
@@ -165,6 +166,7 @@ impl Default for Camera3dBundle {
             visible_entities: Default::default(),
             frustum: Default::default(),
             transform: Default::default(),
+            global_transform: Default::default(),
             camera_3d: Default::default(),
             tonemapping: Default::default(),
             color_grading: Default::default(),

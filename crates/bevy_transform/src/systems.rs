@@ -398,10 +398,7 @@ mod test {
         let mut grandchild = Entity::from_raw(1);
         let parent = app
             .world_mut()
-            .spawn((
-                Transform::from_translation(translation),
-                GlobalTransform::IDENTITY,
-            ))
+            .spawn(Transform::from_translation(translation))
             .with_children(|builder| {
                 child = builder
                     .spawn(Transform::IDENTITY)

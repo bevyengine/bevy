@@ -12,7 +12,9 @@ use std::ops::Mul;
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.
+///   ~* You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
+///   * [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
+///   [`GlobalTransform`] is inserted automatically whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
@@ -38,7 +40,6 @@ use std::ops::Mul;
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component, Reflect),
-    require(GlobalTransform),
     reflect(Component, Default, PartialEq)
 )]
 pub struct Transform {

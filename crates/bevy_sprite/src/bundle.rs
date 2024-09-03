@@ -7,7 +7,7 @@ use bevy_render::{
     texture::Image,
     view::{InheritedVisibility, ViewVisibility, Visibility},
 };
-use bevy_transform::components::Transform;
+use bevy_transform::components::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of components for drawing a single sprite from an image.
 ///
@@ -22,6 +22,8 @@ pub struct SpriteBundle {
     pub sprite: Sprite,
     /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
+    /// The absolute transform of the sprite. This should generally not be written to directly.
+    pub global_transform: GlobalTransform,
     /// A reference-counted handle to the image asset to be drawn.
     pub texture: Handle<Image>,
     /// User indication of whether an entity is visible
@@ -52,6 +54,8 @@ pub struct SpriteSheetBundle {
     pub sprite: Sprite,
     /// The local transform of the sprite, relative to its parent.
     pub transform: Transform,
+    /// The absolute transform of the sprite. This should generally not be written to directly.
+    pub global_transform: GlobalTransform,
     /// The sprite sheet base texture
     pub texture: Handle<Image>,
     /// The sprite sheet texture atlas, allowing to draw a custom section of `texture`.
