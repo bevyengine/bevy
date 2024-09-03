@@ -48,6 +48,11 @@ pub struct Node {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
+    /// Resolved border radius values in logical pixels.
+    /// Border radius updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) border_radius: ResolvedBorderRadius,
 }
 
 impl Node {
@@ -122,6 +127,7 @@ impl Node {
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
+        border_radius: ResolvedBorderRadius::ZERO,
     };
 }
 
@@ -2188,6 +2194,49 @@ impl BorderRadius {
         self.bottom_right = radius;
         self
     }
+
+    /// Compute the logical border radius for a single corner from the given values
+    pub fn resolve_single_corner(radius: Val, node_size: Vec2, viewport_size: Vec2) -> f32 {
+        match radius {
+            Val::Auto => 0.,
+            Val::Px(px) => px,
+            Val::Percent(percent) => node_size.min_element() * percent / 100.,
+            Val::Vw(percent) => viewport_size.x * percent / 100.,
+            Val::Vh(percent) => viewport_size.y * percent / 100.,
+            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
+            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
+        }
+        .clamp(0., 0.5 * node_size.min_element())
+    }
+
+    pub fn resolve(&self, node_size: Vec2, viewport_size: Vec2) -> ResolvedBorderRadius {
+        ResolvedBorderRadius {
+            top_left: Self::resolve_single_corner(self.top_left, node_size, viewport_size),
+            top_right: Self::resolve_single_corner(self.top_right, node_size, viewport_size),
+            bottom_left: Self::resolve_single_corner(self.bottom_left, node_size, viewport_size),
+            bottom_right: Self::resolve_single_corner(self.bottom_right, node_size, viewport_size),
+        }
+    }
+}
+
+/// Represents the resolved border radius values for a UI node.
+///
+/// The values are in logical pixels.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+pub struct ResolvedBorderRadius {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_left: f32,
+    pub bottom_right: f32,
+}
+
+impl ResolvedBorderRadius {
+    pub const ZERO: Self = Self {
+        top_left: 0.,
+        top_right: 0.,
+        bottom_left: 0.,
+        bottom_right: 0.,
+    };
 }
 
 #[cfg(test)]
