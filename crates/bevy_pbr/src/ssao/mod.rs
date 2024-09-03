@@ -149,7 +149,7 @@ pub struct ScreenSpaceAmbientOcclusionBundle {
 /// and add the [`DepthPrepass`] and [`NormalPrepass`] components to your camera.
 ///
 /// It strongly recommended that you use SSAO in conjunction with
-/// TAA ([`bevy_core_pipeline::experimental::taa::Taa`]).
+/// TAA ([`bevy_core_pipeline::experimental::taa::TemporalAntiAliasing`]).
 /// Doing so greatly reduces SSAO noise.
 ///
 /// SSAO is not supported on `WebGL2`, and is not currently supported on `WebGPU` or `DirectX12`.
