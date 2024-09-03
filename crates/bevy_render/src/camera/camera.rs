@@ -212,7 +212,7 @@ pub enum ViewportConversionError {
     /// The Normalized Device Coordinates could not be computed because the `camera_transform`, the
     /// `world_position`, or the projection matrix defined by [`CameraProjection`] contained `NAN`
     /// (see [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
-    NdcNan,
+    InvalidData,
 }
 
 /// The defining [`Component`] for camera entities,
@@ -391,7 +391,7 @@ impl Camera {
             .ok_or(ViewportConversionError::NoViewportSize)?;
         let ndc_space_coords = self
             .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::NdcNan)?;
+            .ok_or(ViewportConversionError::InvalidData)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 {
             return Err(ViewportConversionError::PastNearPlane);
@@ -427,7 +427,7 @@ impl Camera {
             .ok_or(ViewportConversionError::NoViewportSize)?;
         let ndc_space_coords = self
             .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::NdcNan)?;
+            .ok_or(ViewportConversionError::InvalidData)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 {
             return Err(ViewportConversionError::PastNearPlane);
@@ -479,7 +479,7 @@ impl Camera {
 
         // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
         Dir3::new(world_far_plane - world_near_plane)
-            .map_err(|_| ViewportConversionError::NdcNan)
+            .map_err(|_| ViewportConversionError::InvalidData)
             .map(|direction| Ray3d {
                 origin: world_near_plane,
                 direction,
@@ -511,7 +511,7 @@ impl Camera {
 
         let world_near_plane = self
             .ndc_to_world(camera_transform, ndc.extend(1.))
-            .ok_or(ViewportConversionError::NdcNan)?;
+            .ok_or(ViewportConversionError::InvalidData)?;
 
         Ok(world_near_plane.truncate())
     }
