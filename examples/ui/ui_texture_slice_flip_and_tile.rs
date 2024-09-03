@@ -1,5 +1,4 @@
-//! This example illustrates how to create buttons with their textures sliced
-//! and kept in proportion instead of being stretched by the button dimensions
+//! This example illustrates how to how to flip and tile images with 9 Slicing in the UI
 
 use bevy::{prelude::*, winit::WinitSettings};
 use bevy_render::texture::{ImageLoaderSettings, ImageSampler};
