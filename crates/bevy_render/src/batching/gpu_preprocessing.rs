@@ -226,15 +226,31 @@ impl FromWorld for GpuPreprocessingSupport {
         let adapter = world.resource::<RenderAdapter>();
         let device = world.resource::<RenderDevice>();
 
-        if device.limits().max_compute_workgroup_size_x == 0 ||
-            // filter some Qualcomm devices on Android as they crash when using GPU preprocessing
-            (cfg!(target_os = "android") && {
-                let name = adapter.get_info().name;
-                // filter out Adreno 730 and earlier GPUs (except 720, it's newer than 730)
-                name.strip_prefix("Adreno (TM) ").is_some_and(|version|
-                    version != "720" && version.parse::<u16>().is_ok_and(|version| version <= 730)
-                )
-            })
+        // filter some Qualcomm devices on Android as they crash when using GPU preprocessing.
+        fn is_non_supported_android_device(adapter: &RenderAdapter) -> bool {
+            if cfg!(target_os = "android") {
+                let adapter_name = adapter.get_info().name;
+
+                // Filter out Adreno 730 and earlier GPUs (except 720, as it's newer than 730)
+                // while also taking suffixes into account like Adreno 642L.
+                let non_supported_adreno_model = |model: &str| -> bool {
+                    let model = model
+                        .chars()
+                        .map_while(|c| c.to_digit(10))
+                        .fold(0, |acc, digit| acc * 10 + digit);
+
+                    model != 720 && model <= 730
+                };
+
+                adapter_name
+                    .strip_prefix("Adreno (TM) ")
+                    .is_some_and(non_supported_adreno_model)
+            } else {
+                false
+            }
+        }
+
+        if device.limits().max_compute_workgroup_size_x == 0 || is_non_supported_android_device(adapter)
         {
             GpuPreprocessingSupport::None
         } else if !device

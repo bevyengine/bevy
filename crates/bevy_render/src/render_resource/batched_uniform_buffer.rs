@@ -8,7 +8,7 @@ use encase::{
     ShaderType,
 };
 use nonmax::NonMaxU32;
-use std::{marker::PhantomData, num::NonZeroU64};
+use std::{marker::PhantomData, num::NonZero};
 use wgpu::{BindingResource, Limits};
 
 // 1MB else we will make really large arrays on macOS which reports very large
@@ -69,7 +69,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn size(&self) -> NonZeroU64 {
+    pub fn size(&self) -> NonZero<u64> {
         self.temp.size()
     }
 
@@ -141,7 +141,7 @@ where
 
     const METADATA: Metadata<Self::ExtraMetadata> = T::METADATA;
 
-    fn size(&self) -> NonZeroU64 {
+    fn size(&self) -> NonZero<u64> {
         Self::METADATA.stride().mul(self.1.max(1) as u64).0
     }
 }

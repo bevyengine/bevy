@@ -250,9 +250,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             user_where_clauses_with_world,
         );
         let read_only_structs = quote! {
-            #[doc = "Automatically generated [`WorldQuery`] type for a read-only variant of [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`]."]
+            #[doc = concat!(
+                "Automatically generated [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) type for a read-only variant of [`",
+                stringify!(#struct_name),
+                "`]."
+            )]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #(
@@ -331,9 +335,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
         const _: () = {
             #[doc(hidden)]
-            #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`], used for caching."]
+            #[doc = concat!(
+                "Automatically generated internal [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) state type for [`",
+                stringify!(#struct_name),
+                "`], used for caching."
+            )]
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
                 #(#named_field_idents: <#field_types as #path::query::WorldQuery>::State,)*

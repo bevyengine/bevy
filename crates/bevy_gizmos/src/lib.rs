@@ -37,6 +37,7 @@ pub mod arrows;
 pub mod circles;
 pub mod config;
 pub mod cross;
+pub mod curves;
 pub mod gizmos;
 pub mod grid;
 pub mod primitives;

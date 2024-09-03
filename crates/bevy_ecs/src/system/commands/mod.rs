@@ -8,7 +8,7 @@ use crate::{
     bundle::{Bundle, InsertMode},
     component::{ComponentId, ComponentInfo},
     entity::{Entities, Entity},
-    event::Event,
+    event::{Event, SendEvent},
     observer::{Observer, TriggerEvent, TriggerTargets},
     system::{RunSystemWithInput, SystemId},
     world::{
@@ -787,6 +787,21 @@ impl<'w, 's> Commands<'w, 's> {
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
         self.spawn(Observer::new(observer))
+    }
+
+    /// Sends an arbitrary [`Event`].
+    ///
+    /// This is a convenience method for sending events without requiring an [`EventWriter`].
+    /// ## Performance
+    /// Since this is a command, exclusive world access is used, which means that it will not profit from
+    /// system-level parallelism on supported platforms.
+    /// If these events are performance-critical or very frequently
+    /// sent, consider using a typed [`EventWriter`] instead.
+    ///
+    /// [`EventWriter`]: crate::event::EventWriter
+    pub fn send_event<E: Event>(&mut self, event: E) -> &mut Self {
+        self.add(SendEvent { event });
+        self
     }
 }
 
