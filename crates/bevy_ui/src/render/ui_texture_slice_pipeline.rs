@@ -527,20 +527,6 @@ pub fn prepare_ui_slices(
                         [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                     } else {
                         let atlas_extent = uinode_rect.max;
-                        // if texture_slices.flip_x {
-                        //     std::mem::swap(&mut uinode_rect.max.x, &mut uinode_rect.min.x);
-                        //     positions_diff[0].x *= -1.;
-                        //     positions_diff[1].x *= -1.;
-                        //     positions_diff[2].x *= -1.;
-                        //     positions_diff[3].x *= -1.;
-                        // }
-                        // if texture_slices.flip_y {
-                        //     std::mem::swap(&mut uinode_rect.max.y, &mut uinode_rect.min.y);
-                        //     positions_diff[0].y *= -1.;
-                        //     positions_diff[1].y *= -1.;
-                        //     positions_diff[2].y *= -1.;
-                        //     positions_diff[3].y *= -1.;
-                        // }
                         [
                             Vec2::new(
                                 uinode_rect.min.x + positions_diff[0].x,
