@@ -79,7 +79,7 @@ use bevy_render::{
     },
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::Transform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 
 const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
@@ -288,6 +288,7 @@ pub struct MaterialMeshletMeshBundle<M: Material> {
     pub meshlet_mesh: Handle<MeshletMesh>,
     pub material: Handle<M>,
     pub transform: Transform,
+    pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Inherited visibility of an entity.
@@ -302,6 +303,7 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
             meshlet_mesh: Default::default(),
             material: Default::default(),
             transform: Default::default(),
+            global_transform: Default::default(),
             visibility: Default::default(),
             inherited_visibility: Default::default(),
             view_visibility: Default::default(),
