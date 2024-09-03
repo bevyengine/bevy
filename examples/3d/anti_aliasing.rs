@@ -6,7 +6,7 @@ use std::fmt::Write;
 use bevy::{
     core_pipeline::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
-        experimental::taa::{Taa, TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        experimental::taa::{TemporalAntiAliasing, TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
         fxaa::{Fxaa, Sensitivity},
         smaa::{Smaa, SmaaPreset},
     },
@@ -34,7 +34,7 @@ fn modify_aa(
             Entity,
             Option<&mut Fxaa>,
             Option<&mut Smaa>,
-            Option<&Taa>,
+            Option<&TemporalAntiAliasing>,
             &mut Msaa,
         ),
         With<Camera>,
@@ -173,7 +173,7 @@ fn update_ui(
         (
             Option<&Fxaa>,
             Option<&Smaa>,
-            Option<&Taa>,
+            Option<&TemporalAntiAliasing>,
             &ContrastAdaptiveSharpening,
             &Msaa,
         ),

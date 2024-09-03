@@ -36,7 +36,7 @@ use bevy::{
 
 #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
 use bevy::core_pipeline::experimental::taa::{
-    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, Taa,
+    TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
 };
 use rand::random;
 
@@ -523,12 +523,12 @@ fn example_control_system(
         if temporal_jitter.is_none() {
             commands.entity(camera_entity).insert((
                 TemporalJitter::default(),
-                Taa::default(),
+                TemporalAntiAliasing::default(),
             ));
         } else {
             commands
                 .entity(camera_entity)
-                .remove::<(TemporalJitter, Taa)>();
+                .remove::<(TemporalJitter, TemporalAntiAliasing)>();
         }
     }
 

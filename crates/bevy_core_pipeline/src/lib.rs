@@ -36,8 +36,8 @@ pub mod experimental {
     pub mod taa {
         #[allow(deprecated)]
         pub use crate::taa::{
-            Taa, TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
-            TemporalAntiAliasSettings,
+            TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
+            TemporalAntiAliasSettings, TemporalAntiAliasing,
         };
     }
 }
