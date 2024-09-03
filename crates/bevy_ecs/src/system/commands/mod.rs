@@ -1216,10 +1216,16 @@ impl EntityCommands<'_> {
         self.add(remove::<T>)
     }
 
+    /// Remove a all components in the bundle and remove all required components for each component in the bundle
+    pub fn remove_with_required<T: Bundle>(self) -> Self {
+        self.add(remove_with_required::<T>)
+    }
+
     /// Removes a component from the entity.
     pub fn remove_by_id(self, component_id: ComponentId) -> Self {
         self.add(remove_by_id(component_id))
     }
+
 
     /// Removes all components associated with the entity.
     pub fn clear(self) -> Self {
@@ -1525,6 +1531,13 @@ fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
     }
 }
 
+/// An [`EntityCommand`] that removes components in a [`Bundle`] from an entity and remove all required components for each component in the [`Bundle`]
+fn remove_with_required<T: Bundle>(entity: Entity, world: &mut World) {
+    if let Some(mut entity) = world.get_entity_mut(entity) {
+        entity.remove_with_required::<T>();
+    }
+}
+
 /// An [`EntityCommand`] that removes all components associated with a provided entity.
 fn clear() -> impl EntityCommand {
     move |entity: Entity, world: &mut World| {
@@ -1805,6 +1818,38 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn remove_bundle_with_required_components() {
+
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        let mut world = World::default();
+        let mut queue = CommandQueue::default();
+        let e = {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.spawn(X).id()
+        };
+        queue.apply(&mut world);
+
+        assert!(world.get::<Y>(e).is_some());
+        assert!(world.get::<X>(e).is_some());
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(e)
+                .remove_with_required::<X>();
+        }
+        queue.apply(&mut world);
+
+        assert!(world.get::<Y>(e).is_none());
+        assert!(world.get::<X>(e).is_none());
     }
 
     fn is_send<T: Send>() {}

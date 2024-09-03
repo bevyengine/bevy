@@ -1180,6 +1180,23 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Remove all components in the [`Bundle`] and all required components for each component in the [`Bundle`].
+    /// 
+    /// Just remove all bundle_info.contributed_components() from the entity
+    pub fn remove_with_required<T: Bundle>(&mut self) -> &mut Self {
+        
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let bundle = self.world.bundles.init_info::<T>(components, storages);
+
+        let bundle_info = unsafe { self.world.bundles.get_unchecked(bundle) };
+        let contributed_components = bundle_info.contributed_components().to_vec(); // Make copy to avoid lifetime issues
+        let extended_bundle = self.world.bundles.init_dynamic_info(components, &contributed_components);
+        self.location = unsafe { self.remove_bundle(extended_bundle) };
+
+        self
+    }
+
     /// Removes any components except those in the [`Bundle`] (and its Required Components) from the entity.
     ///
     /// See [`EntityCommands::retain`](crate::system::EntityCommands::retain) for more details.
