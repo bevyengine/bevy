@@ -14,7 +14,7 @@ use std::ops::Mul;
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 ///   ~* You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
 ///   * [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
-///   [`GlobalTransform`] is inserted automatically whenever [`Transform`] is inserted.
+///     [`GlobalTransform`] is inserted automatically whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
