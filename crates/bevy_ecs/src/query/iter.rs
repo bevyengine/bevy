@@ -125,6 +125,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
     /// from an storage.
     ///
+    ///  # Safety
     ///  - `range` must be in `[0, storage::entity_count)` or None.
     #[inline]
     pub(super) unsafe fn fold_over_storage_range<B, Func>(
@@ -203,7 +204,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         if table.is_empty() {
             return accum;
         }
-        assert!(
+        debug_assert!(
             rows.end <= u32::MAX as usize,
             "TableRow is only valid up to u32::MAX"
         );
