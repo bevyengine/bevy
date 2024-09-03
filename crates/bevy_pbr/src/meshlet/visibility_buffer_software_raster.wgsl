@@ -49,8 +49,8 @@ fn rasterize_cluster(
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
 
     // Load and project 1 vertex per thread, and then again if there are more than 128 vertices in the meshlet
-    for (var i = 1u; i <= 2u; i++) {
-        let vertex_id = local_invocation_index * i;
+    for (var i = 0u; i <= 128u; i += 128u) {
+        let vertex_id = local_invocation_index + i;
         if vertex_id < meshlet.vertex_count {
             let meshlet_vertex_id = meshlet_vertex_ids[meshlet.start_vertex_id + vertex_id];
             let vertex = unpack_meshlet_vertex(meshlet_vertex_data[meshlet_vertex_id]);
