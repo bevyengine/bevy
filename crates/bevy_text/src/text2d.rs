@@ -170,7 +170,7 @@ pub fn update_text2d_layout(
 
     let inverse_scale_factor = scale_factor.recip();
 
-    for (entity, text, bounds, mut text_layout_info, mut buffer) in &mut text_query {
+    for (entity, text, bounds, text_layout_info, mut buffer) in &mut text_query {
         if factor_changed || text.is_changed() || bounds.is_changed() || queue.remove(&entity) {
             let text_bounds = TextBounds {
                 width: if text.linebreak_behavior == BreakLineOn::NoWrap {
@@ -183,7 +183,9 @@ pub fn update_text2d_layout(
                     .map(|height| scale_value(height, scale_factor)),
             };
 
+            let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
+                text_layout_info,
                 &fonts,
                 &text.sections,
                 scale_factor.into(),
@@ -204,10 +206,11 @@ pub fn update_text2d_layout(
                 Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(mut info) => {
-                    info.size.x = scale_value(info.size.x, inverse_scale_factor);
-                    info.size.y = scale_value(info.size.y, inverse_scale_factor);
-                    *text_layout_info = info;
+                Ok(()) => {
+                    text_layout_info.size.x =
+                        scale_value(text_layout_info.size.x, inverse_scale_factor);
+                    text_layout_info.size.y =
+                        scale_value(text_layout_info.size.y, inverse_scale_factor);
                 }
             }
         }
