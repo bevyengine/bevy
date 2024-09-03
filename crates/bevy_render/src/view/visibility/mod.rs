@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 mod range;
 mod render_layers;
 
@@ -174,6 +176,9 @@ impl ViewVisibility {
 /// * For visibility hierarchies to work correctly, you must have both all of [`Visibility`], [`InheritedVisibility`], and [`ViewVisibility`].
 ///   * You may use the [`VisibilityBundle`] to guarantee this.
 #[derive(Bundle, Debug, Clone, Default)]
+#[deprecated(
+    note = "Use `Visibility` directly instead. The other required components are now added automatically."
+)]
 pub struct VisibilityBundle {
     /// The visibility of the entity.
     pub visibility: Visibility,
@@ -535,29 +540,16 @@ mod test {
     use bevy_hierarchy::BuildChildren;
     use std::mem::size_of;
 
-    fn visibility_bundle(visibility: Visibility) -> VisibilityBundle {
-        VisibilityBundle {
-            visibility,
-            ..Default::default()
-        }
-    }
-
     #[test]
     fn visibility_propagation() {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app
-            .world_mut()
-            .spawn(visibility_bundle(Visibility::Hidden))
-            .id();
-        let root1_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root1_child2 = app
-            .world_mut()
-            .spawn(visibility_bundle(Visibility::Hidden))
-            .id();
-        let root1_child1_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root1_child2_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root1 = app.world_mut().spawn(Visibility::Hidden).id();
+        let root1_child1 = app.world_mut().spawn(Visibility::default()).id();
+        let root1_child2 = app.world_mut().spawn(Visibility::Hidden).id();
+        let root1_child1_grandchild1 = app.world_mut().spawn(Visibility::default()).id();
+        let root1_child2_grandchild1 = app.world_mut().spawn(Visibility::default()).id();
 
         app.world_mut()
             .entity_mut(root1)
@@ -569,14 +561,11 @@ mod test {
             .entity_mut(root1_child2)
             .push_children(&[root1_child2_grandchild1]);
 
-        let root2 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root2_child1 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root2_child2 = app
-            .world_mut()
-            .spawn(visibility_bundle(Visibility::Hidden))
-            .id();
-        let root2_child1_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
-        let root2_child2_grandchild1 = app.world_mut().spawn(VisibilityBundle::default()).id();
+        let root2 = app.world_mut().spawn(Visibility::default()).id();
+        let root2_child1 = app.world_mut().spawn(Visibility::default()).id();
+        let root2_child2 = app.world_mut().spawn(Visibility::Hidden).id();
+        let root2_child1_grandchild1 = app.world_mut().spawn(Visibility::default()).id();
+        let root2_child2_grandchild1 = app.world_mut().spawn(Visibility::default()).id();
 
         app.world_mut()
             .entity_mut(root2)
@@ -647,14 +636,14 @@ mod test {
         let mut app = App::new();
         app.add_systems(Update, visibility_propagate_system);
 
-        let root1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
-        let root1_child1 = app.world_mut().spawn(visibility_bundle(Inherited)).id();
-        let root1_child2 = app.world_mut().spawn(visibility_bundle(Hidden)).id();
-        let root1_child1_grandchild1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
-        let root1_child2_grandchild1 = app.world_mut().spawn(visibility_bundle(Visible)).id();
+        let root1 = app.world_mut().spawn(Visible).id();
+        let root1_child1 = app.world_mut().spawn(Inherited).id();
+        let root1_child2 = app.world_mut().spawn(Hidden).id();
+        let root1_child1_grandchild1 = app.world_mut().spawn(Visible).id();
+        let root1_child2_grandchild1 = app.world_mut().spawn(Visible).id();
 
-        let root2 = app.world_mut().spawn(visibility_bundle(Inherited)).id();
-        let root3 = app.world_mut().spawn(visibility_bundle(Hidden)).id();
+        let root2 = app.world_mut().spawn(Inherited).id();
+        let root3 = app.world_mut().spawn(Hidden).id();
 
         app.world_mut()
             .entity_mut(root1)
@@ -707,15 +696,15 @@ mod test {
 
         // Set up an entity hierarchy.
 
-        let id1 = world.spawn(VisibilityBundle::default()).id();
+        let id1 = world.spawn(Visibility::default()).id();
 
-        let id2 = world.spawn(VisibilityBundle::default()).id();
+        let id2 = world.spawn(Visibility::default()).id();
         world.entity_mut(id1).push_children(&[id2]);
 
-        let id3 = world.spawn(visibility_bundle(Visibility::Hidden)).id();
+        let id3 = world.spawn(Visibility::Hidden).id();
         world.entity_mut(id2).push_children(&[id3]);
 
-        let id4 = world.spawn(VisibilityBundle::default()).id();
+        let id4 = world.spawn(Visibility::default()).id();
         world.entity_mut(id3).push_children(&[id4]);
 
         // Test the hierarchy.
@@ -782,7 +771,7 @@ mod test {
         schedule.add_systems(visibility_propagate_system);
 
         let parent = world.spawn(()).id();
-        let child = world.spawn(VisibilityBundle::default()).id();
+        let child = world.spawn(Visibility::default()).id();
         world.entity_mut(parent).push_children(&[child]);
 
         schedule.run(&mut world);

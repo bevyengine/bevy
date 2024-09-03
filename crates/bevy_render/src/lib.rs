@@ -40,6 +40,7 @@ pub mod texture;
 pub mod view;
 pub mod prelude {
     #[doc(hidden)]
+    #[allow(deprecated)]
     pub use crate::{
         alpha::AlphaMode,
         camera::{
