@@ -6,7 +6,7 @@ mod systems;
 pub use self::config::*;
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{IntoSystemConfigs, SystemSet};
+use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::trigger_screenshots;
 use bevy_time::TimeUpdateStrategy;
 use std::time::Duration;
