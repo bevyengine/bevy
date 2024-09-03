@@ -54,7 +54,8 @@ impl Plugin for CiTestingPlugin {
                 Update,
                 systems::send_events
                     .before(trigger_screenshots)
-                    .before(bevy_window::close_when_requested),
+                    .before(bevy_window::close_when_requested)
+                    .before(bevy_app::TerminalCtrlCHandlerPlugin::exit_on_flag),
             );
     }
 }
