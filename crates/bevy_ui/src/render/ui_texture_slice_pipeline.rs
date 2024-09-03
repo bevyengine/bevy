@@ -741,10 +741,10 @@ fn compute_texture_slices(
                 1. - (border.bottom / target_size.y) * min_coeff,
             ];
 
-            let isx = image_size.x * (1. - slices[0] - slices[2]);
-            let isy = image_size.y * (1. - slices[1] - slices[3]);
-            let tsx = target_size.x * (1. - border[0] - border[2]);
-            let tsy = target_size.y * (1. - border[1] - border[3]);
+            let isx = image_size.x * (slices[2] - slices[0]);
+            let isy = image_size.y * (slices[2] - slices[1]);
+            let tsx = target_size.x * (border[2] - border[0]);
+            let tsy = target_size.y * (border[3] - border[1]);
 
             let rx = compute_tiled_subaxis(isx, tsx, sides_scale_mode);
             let ry = compute_tiled_subaxis(isy, tsy, sides_scale_mode);
