@@ -521,10 +521,9 @@ fn example_control_system(
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
-            commands.entity(camera_entity).insert((
-                TemporalJitter::default(),
-                TemporalAntiAliasing::default(),
-            ));
+            commands
+                .entity(camera_entity)
+                .insert((TemporalJitter::default(), TemporalAntiAliasing::default()));
         } else {
             commands
                 .entity(camera_entity)

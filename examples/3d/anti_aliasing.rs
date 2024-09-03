@@ -6,7 +6,9 @@ use std::fmt::Write;
 use bevy::{
     core_pipeline::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
-        experimental::taa::{TemporalAntiAliasing, TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
+        experimental::taa::{
+            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasing,
+        },
         fxaa::{Fxaa, Sensitivity},
         smaa::{Smaa, SmaaPreset},
     },

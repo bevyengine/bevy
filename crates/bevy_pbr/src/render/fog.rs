@@ -11,7 +11,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
-use crate::{FogFalloff, Fog};
+use crate::{Fog, FogFalloff};
 
 /// The GPU-side representation of the fog configuration that's sent as a uniform to the shader
 #[derive(Copy, Clone, ShaderType, Default, Debug)]

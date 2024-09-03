@@ -1,5 +1,5 @@
 use super::{
-    downsampling_pipeline::BloomUniforms, BloomCompositeMode, Bloom, BLOOM_SHADER_HANDLE,
+    downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_SHADER_HANDLE,
     BLOOM_TEXTURE_FORMAT,
 };
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
