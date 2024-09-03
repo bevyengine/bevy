@@ -418,6 +418,5 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
 /// We assume only text updated every tick benefits from the shape cache (e.g. animated text, or
 /// text that is dynamically measured for UI).
 pub(crate) fn trim_cosmic_cache(mut pipeline: ResMut<TextPipeline>) {
-    // Use a large age to be very optimistic about reusability of cached shapes.
-    pipeline.font_system_mut().shape_run_cache.trim(2000);
+    pipeline.font_system_mut().shape_run_cache.trim(2);
 }

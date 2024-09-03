@@ -233,18 +233,22 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn change_text_system(
-    mut time_track: Local<VecDeque<Duration>>,
+    mut fps_history: Local<VecDeque<f64>>,
+    mut time_history: Local<VecDeque<Duration>>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
     mut query: Query<&mut Text, With<TextChanges>>,
 ) {
-    time_track.push_front(time.elapsed());
-    time_track.truncate(120);
-    let avg_fps = (time_track.len().max(1) as f32)
-        / (time_track.front().copied().unwrap_or_default()
-            - time_track.back().copied().unwrap_or_default())
-        .as_secs_f32()
+    time_history.push_front(time.elapsed());
+    time_history.truncate(120);
+    let avg_fps = (time_history.len() as f64)
+        / (time_history.front().copied().unwrap_or_default()
+            - time_history.back().copied().unwrap_or_default())
+        .as_secs_f64()
         .max(0.0001);
+    fps_history.push_front(avg_fps);
+    fps_history.truncate(120);
+    let fps_variance = std_deviation(fps_history.make_contiguous()).unwrap_or_default();
 
     for mut text in &mut query {
         let mut fps = 0.0;
@@ -263,7 +267,8 @@ fn change_text_system(
             }
         }
 
-        text.sections[0].value = format!("{avg_fps:.1} avg fps",);
+        text.sections[0].value =
+            format!("{avg_fps:.1} avg fps, {fps_variance:.1} frametime variance",);
 
         text.sections[1].value = format!(
             "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
@@ -272,5 +277,34 @@ fn change_text_system(
         text.sections[4].value = format!("{fps:.1}");
 
         text.sections[6].value = format!("{frame_time:.3}");
+    }
+}
+
+fn mean(data: &[f64]) -> Option<f64> {
+    let sum = data.iter().sum::<f64>();
+    let count = data.len();
+
+    match count {
+        positive if positive > 0 => Some(sum / count as f64),
+        _ => None,
+    }
+}
+
+fn std_deviation(data: &[f64]) -> Option<f64> {
+    match (mean(data), data.len()) {
+        (Some(data_mean), count) if count > 0 => {
+            let variance = data
+                .iter()
+                .map(|value| {
+                    let diff = data_mean - *value;
+
+                    diff * diff
+                })
+                .sum::<f64>()
+                / count as f64;
+
+            Some(variance.sqrt())
+        }
+        _ => None,
     }
 }
