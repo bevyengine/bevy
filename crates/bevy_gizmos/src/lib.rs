@@ -242,6 +242,9 @@ impl AppGizmoBuilder for App {
         handles.list.insert(TypeId::of::<Config>(), None);
         handles.strip.insert(TypeId::of::<Config>(), None);
 
+        // These handles are safe to mutate in any order
+        self.allow_ambiguous_resource::<LineGizmoHandles>();
+
         self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()
             .init_resource::<GizmoStorage<Config, Swap<Fixed>>>()

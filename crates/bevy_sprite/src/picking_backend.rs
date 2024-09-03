@@ -70,7 +70,7 @@ pub fn sprite_picking(
             continue;
         };
 
-        let Some(cursor_ray_world) = camera.viewport_to_world(cam_transform, location.position)
+        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, location.position)
         else {
             continue;
         };
