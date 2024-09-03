@@ -45,7 +45,7 @@ fn setup(
             msaa: Msaa::Off,
             ..default()
         },
-        FogSettings {
+        Fog {
             color: Color::srgb_u8(43, 44, 47),
             falloff: FogFalloff::Linear {
                 start: 1.0,

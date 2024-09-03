@@ -7,7 +7,7 @@
 //! [depth of field], and this term is used more generally in computer graphics
 //! to refer to the effect that simulates focus of lenses.
 //!
-//! Attaching [`DepthOfFieldSettings`] to a camera causes Bevy to simulate the
+//! Attaching [`DepthOfField`] to a camera causes Bevy to simulate the
 //! focus of a camera lens. Generally, Bevy's implementation of depth of field
 //! is optimized for speed instead of physical accuracy. Nevertheless, the depth
 //! of field effect in Bevy is based on physical parameters.
@@ -71,7 +71,7 @@ pub struct DepthOfFieldPlugin;
 /// Depth of field settings.
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
-pub struct DepthOfFieldSettings {
+pub struct DepthOfField {
     /// The appearance of the effect.
     pub mode: DepthOfFieldMode,
 
@@ -111,6 +111,9 @@ pub struct DepthOfFieldSettings {
     /// or background are.
     pub max_depth: f32,
 }
+
+#[deprecated(since = "0.15.0", note = "Renamed to `DepthOfField`")]
+pub type DepthOfFieldSettings = DepthOfField;
 
 /// Controls the appearance of the effect.
 #[derive(Clone, Copy, Default, PartialEq, Debug, Reflect)]
@@ -156,11 +159,11 @@ pub struct DepthOfFieldUniform {
     coc_scale_factor: f32,
 
     /// The maximum circle of confusion diameter in pixels. See the comment in
-    /// [`DepthOfFieldSettings`] for more information.
+    /// [`DepthOfField`] for more information.
     max_circle_of_confusion_diameter: f32,
 
     /// The depth value that we clamp distant objects to. See the comment in
-    /// [`DepthOfFieldSettings`] for more information.
+    /// [`DepthOfField`] for more information.
     max_depth: f32,
 
     /// Padding.
@@ -199,7 +202,7 @@ impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, DOF_SHADER_HANDLE, "dof.wgsl", Shader::from_wgsl);
 
-        app.register_type::<DepthOfFieldSettings>();
+        app.register_type::<DepthOfField>();
         app.register_type::<DepthOfFieldMode>();
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
@@ -449,7 +452,7 @@ impl ViewNode for DepthOfFieldNode {
     }
 }
 
-impl Default for DepthOfFieldSettings {
+impl Default for DepthOfField {
     fn default() -> Self {
         let physical_camera_default = PhysicalCameraParameters::default();
         Self {
@@ -463,8 +466,8 @@ impl Default for DepthOfFieldSettings {
     }
 }
 
-impl DepthOfFieldSettings {
-    /// Initializes [`DepthOfFieldSettings`] from a set of
+impl DepthOfField {
+    /// Initializes [`DepthOfField`] from a set of
     /// [`PhysicalCameraParameters`].
     ///
     /// By passing the same [`PhysicalCameraParameters`] object to this function
@@ -472,10 +475,10 @@ impl DepthOfFieldSettings {
     /// results for both the exposure and depth of field effects can be
     /// obtained.
     ///
-    /// All fields of the returned [`DepthOfFieldSettings`] other than
+    /// All fields of the returned [`DepthOfField`] other than
     /// `focal_length` and `aperture_f_stops` are set to their default values.
-    pub fn from_physical_camera(camera: &PhysicalCameraParameters) -> DepthOfFieldSettings {
-        DepthOfFieldSettings {
+    pub fn from_physical_camera(camera: &PhysicalCameraParameters) -> DepthOfField {
+        DepthOfField {
             sensor_height: camera.sensor_height,
             aperture_f_stops: camera.aperture_f_stops,
             ..default()
@@ -521,7 +524,7 @@ impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
 /// specific to each view.
 pub fn prepare_depth_of_field_view_bind_group_layouts(
     mut commands: Commands,
-    view_targets: Query<(Entity, &DepthOfFieldSettings, &Msaa)>,
+    view_targets: Query<(Entity, &DepthOfField, &Msaa)>,
     render_device: Res<RenderDevice>,
 ) {
     for (view, dof_settings, msaa) in view_targets.iter() {
@@ -581,7 +584,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
 /// need to set the appropriate flag to tell Bevy to make samplable depth
 /// buffers.
 pub fn configure_depth_of_field_view_targets(
-    mut view_targets: Query<&mut Camera3d, With<DepthOfFieldSettings>>,
+    mut view_targets: Query<&mut Camera3d, With<DepthOfField>>,
 ) {
     for mut camera_3d in view_targets.iter_mut() {
         let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
@@ -618,7 +621,7 @@ pub fn prepare_auxiliary_depth_of_field_textures(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    mut view_targets: Query<(Entity, &ViewTarget, &DepthOfFieldSettings)>,
+    mut view_targets: Query<(Entity, &ViewTarget, &DepthOfField)>,
 ) {
     for (entity, view_target, dof_settings) in view_targets.iter_mut() {
         // An auxiliary texture is only needed for bokeh.
@@ -655,7 +658,7 @@ pub fn prepare_depth_of_field_pipelines(
     view_targets: Query<(
         Entity,
         &ExtractedView,
-        &DepthOfFieldSettings,
+        &DepthOfField,
         &ViewDepthOfFieldBindGroupLayouts,
         &Msaa,
     )>,
@@ -795,10 +798,10 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
     }
 }
 
-/// Extracts all [`DepthOfFieldSettings`] components into the render world.
+/// Extracts all [`DepthOfField`] components into the render world.
 fn extract_depth_of_field_settings(
     mut commands: Commands,
-    mut query: Extract<Query<(Entity, &DepthOfFieldSettings, &Projection)>>,
+    mut query: Extract<Query<(Entity, &DepthOfField, &Projection)>>,
 ) {
     if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
         info_once!(
@@ -816,7 +819,7 @@ fn extract_depth_of_field_settings(
         let focal_length =
             calculate_focal_length(dof_settings.sensor_height, perspective_projection.fov);
 
-        // Convert `DepthOfFieldSettings` to `DepthOfFieldUniform`.
+        // Convert `DepthOfField` to `DepthOfFieldUniform`.
         commands.get_or_spawn(entity).insert((
             *dof_settings,
             DepthOfFieldUniform {

@@ -1,5 +1,5 @@
 use super::{
-    downsampling_pipeline::BloomUniforms, BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE,
+    downsampling_pipeline::BloomUniforms, BloomCompositeMode, Bloom, BLOOM_SHADER_HANDLE,
     BLOOM_TEXTURE_FORMAT,
 };
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
@@ -133,7 +133,7 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &BloomSettings)>,
+    views: Query<(Entity, &Bloom)>,
 ) {
     for (entity, settings) in &views {
         let pipeline_id = pipelines.specialize(

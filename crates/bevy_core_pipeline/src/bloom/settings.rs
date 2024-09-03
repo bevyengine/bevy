@@ -26,7 +26,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default)]
-pub struct BloomSettings {
+pub struct Bloom {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///
     /// This parameter should be used only to control the strength of the bloom
@@ -90,7 +90,7 @@ pub struct BloomSettings {
     /// * 1.0 - maximum scattering angle is 90 degrees
     pub high_pass_frequency: f32,
 
-    pub prefilter_settings: BloomPrefilterSettings,
+    pub prefilter_settings: BloomPrefilter,
 
     /// Controls whether bloom textures
     /// are blended between or added to each other. Useful
@@ -112,7 +112,10 @@ pub struct BloomSettings {
     pub uv_offset: f32,
 }
 
-impl BloomSettings {
+#[deprecated(since = "0.15.0", note = "Renamed to `Bloom`")]
+pub type BloomSettings = Bloom;
+
+impl Bloom {
     const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
     const DEFAULT_UV_OFFSET: f32 = 0.004;
 
@@ -124,7 +127,7 @@ impl BloomSettings {
         low_frequency_boost: 0.7,
         low_frequency_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
-        prefilter_settings: BloomPrefilterSettings {
+        prefilter_settings: BloomPrefilter {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
@@ -139,7 +142,7 @@ impl BloomSettings {
         low_frequency_boost: 0.7,
         low_frequency_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
-        prefilter_settings: BloomPrefilterSettings {
+        prefilter_settings: BloomPrefilter {
             threshold: 0.6,
             threshold_softness: 0.2,
         },
@@ -154,7 +157,7 @@ impl BloomSettings {
         low_frequency_boost: 0.0,
         low_frequency_boost_curvature: 0.0,
         high_pass_frequency: 1.0 / 3.0,
-        prefilter_settings: BloomPrefilterSettings {
+        prefilter_settings: BloomPrefilter {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
@@ -164,7 +167,7 @@ impl BloomSettings {
     };
 }
 
-impl Default for BloomSettings {
+impl Default for Bloom {
     fn default() -> Self {
         Self::NATURAL
     }
@@ -179,7 +182,7 @@ impl Default for BloomSettings {
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
-pub struct BloomPrefilterSettings {
+pub struct BloomPrefilter {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
     /// RGB values under the threshold curve will not contribute to the effect.
@@ -194,13 +197,16 @@ pub struct BloomPrefilterSettings {
     pub threshold_softness: f32,
 }
 
+#[deprecated(since = "0.15.0", note = "Renamed to `BloomPrefilter`")]
+pub type BloomPrefilterSettings = BloomPrefilter;
+
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
 pub enum BloomCompositeMode {
     EnergyConserving,
     Additive,
 }
 
-impl ExtractComponent for BloomSettings {
+impl ExtractComponent for Bloom {
     type QueryData = (&'static Self, &'static Camera);
 
     type QueryFilter = ();

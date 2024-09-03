@@ -58,7 +58,7 @@ pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
 pub use volumetric_fog::{
-    FogVolume, FogVolumeBundle, VolumetricFogPlugin, VolumetricFogSettings, VolumetricLight,
+    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricLight,
 };
 
 pub mod prelude {
@@ -68,7 +68,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        fog::{FogFalloff, FogSettings},
+        fog::{Fog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
         light_probe::{
             environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
@@ -300,7 +300,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
             .register_type::<SpotLight>()
-            .register_type::<FogSettings>()
+            .register_type::<Fog>()
             .register_type::<ShadowFilteringMethod>()
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisibleClusterableObjects>()

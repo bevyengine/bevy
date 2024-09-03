@@ -5,12 +5,10 @@ use std::fmt::Write;
 
 use bevy::{
     core_pipeline::{
-        contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
-        experimental::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
-        },
+        contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
+        experimental::taa::{Taa, TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
         fxaa::{Fxaa, Sensitivity},
-        smaa::{SmaaPreset, SmaaSettings},
+        smaa::{Smaa, SmaaPreset},
     },
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
@@ -35,8 +33,8 @@ fn modify_aa(
         (
             Entity,
             Option<&mut Fxaa>,
-            Option<&mut SmaaSettings>,
-            Option<&TemporalAntiAliasSettings>,
+            Option<&mut Smaa>,
+            Option<&Taa>,
             &mut Msaa,
         ),
         With<Camera>,
@@ -51,7 +49,7 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera = camera
             .remove::<Fxaa>()
-            .remove::<SmaaSettings>()
+            .remove::<Smaa>()
             .remove::<TemporalAntiAliasBundle>();
     }
 
@@ -59,7 +57,7 @@ fn modify_aa(
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
         camera = camera
             .remove::<Fxaa>()
-            .remove::<SmaaSettings>()
+            .remove::<Smaa>()
             .remove::<TemporalAntiAliasBundle>();
 
         *msaa = Msaa::Sample4;
@@ -82,7 +80,7 @@ fn modify_aa(
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
         camera = camera
-            .remove::<SmaaSettings>()
+            .remove::<Smaa>()
             .remove::<TemporalAntiAliasBundle>()
             .insert(Fxaa::default());
     }
@@ -117,7 +115,7 @@ fn modify_aa(
         camera = camera
             .remove::<Fxaa>()
             .remove::<TemporalAntiAliasBundle>()
-            .insert(SmaaSettings::default());
+            .insert(Smaa::default());
     }
 
     // SMAA Settings
@@ -141,14 +139,14 @@ fn modify_aa(
         *msaa = Msaa::Off;
         camera
             .remove::<Fxaa>()
-            .remove::<SmaaSettings>()
+            .remove::<Smaa>()
             .insert(TemporalAntiAliasBundle::default());
     }
 }
 
 fn modify_sharpening(
     keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
+    mut query: Query<&mut ContrastAdaptiveSharpening>,
 ) {
     for mut cas in &mut query {
         if keys.just_pressed(KeyCode::Digit0) {
@@ -174,9 +172,9 @@ fn update_ui(
     camera: Query<
         (
             Option<&Fxaa>,
-            Option<&SmaaSettings>,
-            Option<&TemporalAntiAliasSettings>,
-            &ContrastAdaptiveSharpeningSettings,
+            Option<&Smaa>,
+            Option<&Taa>,
+            &ContrastAdaptiveSharpening,
             &Msaa,
         ),
         With<Camera>,
@@ -317,7 +315,7 @@ fn setup(
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         },
-        ContrastAdaptiveSharpeningSettings {
+        ContrastAdaptiveSharpening {
             enabled: false,
             ..default()
         },
@@ -327,7 +325,7 @@ fn setup(
             intensity: 150.0,
             ..default()
         },
-        FogSettings {
+        Fog {
             color: Color::srgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,

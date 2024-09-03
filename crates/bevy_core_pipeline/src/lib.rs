@@ -35,8 +35,7 @@ pub use skybox::Skybox;
 pub mod experimental {
     pub mod taa {
         pub use crate::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
-            TemporalAntiAliasSettings,
+            Taa, TemporalAntiAliasBundle, TemporalAntiAliasNode, TemporalAntiAliasPlugin,
         };
     }
 }

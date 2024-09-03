@@ -3,7 +3,7 @@
 use bevy::{
     color::palettes::basic::GRAY,
     core_pipeline::{
-        bloom::{BloomCompositeMode, BloomSettings},
+        bloom::{Bloom, BloomCompositeMode},
         tonemapping::Tonemapping,
     },
     prelude::*,
@@ -37,7 +37,7 @@ fn setup_scene(
             ..default()
         },
         // 3. Enable bloom for the camera
-        BloomSettings::NATURAL,
+        Bloom::NATURAL,
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
@@ -101,7 +101,7 @@ fn setup_scene(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    mut camera: Query<(Entity, Option<&mut BloomSettings>), With<Camera>>,
+    mut camera: Query<(Entity, Option<&mut Bloom>), With<Camera>>,
     mut text: Query<&mut Text>,
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
@@ -113,7 +113,7 @@ fn update_bloom_settings(
 
     match bloom_settings {
         (entity, Some(mut bloom_settings)) => {
-            *text = "BloomSettings (Toggle: Space)\n".to_string();
+            *text = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom_settings.intensity));
             text.push_str(&format!(
                 "(W/S) Low-frequency boost: {}\n",
@@ -144,7 +144,7 @@ fn update_bloom_settings(
             ));
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).remove::<BloomSettings>();
+                commands.entity(entity).remove::<Bloom>();
             }
 
             let dt = time.delta_seconds();
@@ -214,7 +214,7 @@ fn update_bloom_settings(
             *text = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(BloomSettings::NATURAL);
+                commands.entity(entity).insert(Bloom::NATURAL);
             }
         }
     }

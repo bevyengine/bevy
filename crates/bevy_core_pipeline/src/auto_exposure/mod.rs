@@ -26,14 +26,14 @@ use node::AutoExposureNode;
 use pipeline::{
     AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline, METERING_SHADER_HANDLE,
 };
-pub use settings::AutoExposureSettings;
+pub use settings::AutoExposure;
 
 use crate::auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve;
 use crate::core_3d::graph::{Core3d, Node3d};
 
 /// Plugin for the auto exposure feature.
 ///
-/// See [`AutoExposureSettings`] for more details.
+/// See [`AutoExposure`] for more details.
 pub struct AutoExposurePlugin;
 
 #[derive(Resource)]
@@ -58,8 +58,8 @@ impl Plugin for AutoExposurePlugin {
             .resource_mut::<Assets<AutoExposureCompensationCurve>>()
             .insert(&Handle::default(), AutoExposureCompensationCurve::default());
 
-        app.register_type::<AutoExposureSettings>();
-        app.add_plugins(ExtractComponentPlugin::<AutoExposureSettings>::default());
+        app.register_type::<AutoExposure>();
+        app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -113,7 +113,7 @@ fn queue_view_auto_exposure_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut compute_pipelines: ResMut<SpecializedComputePipelines<AutoExposurePipeline>>,
     pipeline: Res<AutoExposurePipeline>,
-    view_targets: Query<(Entity, &AutoExposureSettings)>,
+    view_targets: Query<(Entity, &AutoExposure)>,
 ) {
     for (entity, settings) in view_targets.iter() {
         let histogram_pipeline =
