@@ -11,6 +11,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::Component,
+    query::QueryEntityError,
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
@@ -19,7 +20,7 @@ use crate::{
 use bevy_ptr::Ptr;
 #[cfg(feature = "track_change_detection")]
 use bevy_ptr::UnsafeCellDeref;
-use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
+use std::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, mem::MaybeUninit, ptr};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -325,6 +326,49 @@ impl<'w> UnsafeWorldCell<'w> {
     pub fn get_entity(self, entity: Entity) -> Option<UnsafeEntityCell<'w>> {
         let location = self.entities().get(entity)?;
         Some(UnsafeEntityCell::new(self, entity, location))
+    }
+
+    /// Retrieves an array of [`UnsafeEntityCell`]s that expose read and write operations for the given entities.
+    ///
+    /// # Safety
+    ///
+    /// Similar to [`UnsafeWorldCell`], the caller must ensure that no aliasing rules are violated.
+    /// For any mutable access, the given array of entities must not contain duplicates.
+    pub unsafe fn get_entities<const N: usize>(
+        self,
+        entities: [Entity; N],
+    ) -> Result<[UnsafeEntityCell<'w>; N], QueryEntityError> {
+        let mut cells = [MaybeUninit::uninit(); N];
+        for (cell, id) in std::iter::zip(&mut cells, entities) {
+            *cell = MaybeUninit::new(
+                self.get_entity(id)
+                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
+            );
+        }
+        // SAFETY: Each item was initialized in the loop above.
+        let cells = cells.map(|c| unsafe { MaybeUninit::assume_init(c) });
+
+        Ok(cells)
+    }
+
+    /// Retrieves a vector of [`UnsafeEntityCell`]s that expose read and write operations for the given entities.
+    ///
+    /// # Safety
+    ///
+    /// Similar to [`UnsafeWorldCell`], the caller must ensure that no aliasing rules are violated.
+    /// For any mutable access, the given iterator of entities must not contain duplicates.
+    pub unsafe fn get_entities_dynamic(
+        self,
+        entities: impl ExactSizeIterator<Item = Entity>,
+    ) -> Result<Vec<UnsafeEntityCell<'w>>, QueryEntityError> {
+        let mut cells = Vec::with_capacity(entities.len());
+        for id in entities {
+            cells.push(
+                self.get_entity(id)
+                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
+            );
+        }
+        Ok(cells)
     }
 
     /// Gets a reference to the resource of the given type if it exists
