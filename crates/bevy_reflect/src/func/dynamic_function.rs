@@ -6,7 +6,6 @@ use crate::func::{
     IntoFunctionMut,
 };
 use alloc::borrow::Cow;
-use bevy_utils::HashMap;
 use core::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
@@ -81,7 +80,7 @@ impl<'env> DynamicFunction<'env> {
     /// [function overloading]: Self::with_overload
     pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>(
         func: F,
-        info: impl TryInto<FunctionInfoType, Error: Debug>,
+        info: impl TryInto<FunctionInfoType<'static>, Error: Debug>,
     ) -> Self {
         let info = info.try_into().unwrap();
 
@@ -93,19 +92,14 @@ impl<'env> DynamicFunction<'env> {
                 FunctionInfoType::Overloaded(_) => None,
             },
             function_map: match info {
-                FunctionInfoType::Standard(info) => FunctionMap {
-                    functions: vec![func],
-                    indices: HashMap::from([(ArgumentSignature::from(&info), 0)]),
-                    info: FunctionInfoType::Standard(info),
-                },
-                FunctionInfoType::Overloaded(infos) => FunctionMap {
-                    functions: vec![func],
-                    indices: infos
+                FunctionInfoType::Standard(info) => FunctionMap::Single(func, info.into_owned()),
+                FunctionInfoType::Overloaded(infos) => {
+                    let indices = infos
                         .iter()
                         .map(|info| (ArgumentSignature::from(info), 0))
-                        .collect(),
-                    info: FunctionInfoType::Overloaded(infos),
-                },
+                        .collect();
+                    FunctionMap::Overloaded(vec![func], infos.into_owned(), indices)
+                }
             },
         }
     }
@@ -291,8 +285,8 @@ impl<'env> DynamicFunction<'env> {
     }
 
     /// Returns the function info.
-    pub fn info(&self) -> &FunctionInfoType {
-        &self.function_map.info
+    pub fn info(&self) -> FunctionInfoType {
+        self.function_map.info()
     }
 
     /// The name of the function.
