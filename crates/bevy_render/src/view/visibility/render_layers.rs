@@ -23,7 +23,7 @@ pub type Layer = usize;
 ///
 /// ## Mesh-Light interactions
 ///
-/// Layers from `0` to `MESH_LIGHT_INTERACTION_MAX` (inclusive) are special in that besides
+/// Layers from `0` to [`RenderLayers::MESH_LIGHT_INTERACTION_MAX`] (inclusive) are special in that besides
 /// mediating light-camera and mesh-camera interactions, they also mediate mesh-light
 /// interaction for forward rendered meshes.
 ///
