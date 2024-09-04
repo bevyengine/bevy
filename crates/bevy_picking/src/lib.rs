@@ -312,7 +312,7 @@ impl Plugin for DefaultPickingPlugins {
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
 ///
-/// This plugin contains several settings, and is added to the wrold as a resource after initalization. You
+/// This plugin contains several settings, and is added to the wrold as a resource after initialization. You
 /// can configure picking settings at runtime through the resource.
 #[derive(Copy, Clone, Debug, Resource, Reflect)]
 #[reflect(Resource, Default)]

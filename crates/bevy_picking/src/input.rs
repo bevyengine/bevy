@@ -40,7 +40,7 @@ pub mod prelude {
 /// [`crate::PickingPlugin::is_input_enabled`] can be used to toggle whether
 /// the core picking plugin processes the inputs sent by this, or other input plugins, in one place.
 ///
-/// This plugin contains several settings, and is added to the world as a resource after initalization.
+/// This plugin contains several settings, and is added to the world as a resource after initialization.
 /// You can configure pointer input settings at runtime by accessing the resource.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
 #[reflect(Resource, Default)]
