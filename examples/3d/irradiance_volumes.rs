@@ -351,12 +351,11 @@ impl AppStatus {
 
         Text::from_section(
             format!(
-                "{}\n{}\n{}\n{}\n{}",
-                CLICK_TO_MOVE_HELP_TEXT,
-                voxels_help_text,
-                irradiance_volume_help_text,
-                rotation_help_text,
-                switch_mesh_help_text
+                "{CLICK_TO_MOVE_HELP_TEXT}
+        {voxels_help_text}
+        {irradiance_volume_help_text}
+        {rotation_help_text}
+        {switch_mesh_help_text}"
             ),
             TextStyle::default(),
         )
@@ -483,7 +482,7 @@ fn handle_mouse_clicks(
     };
 
     // Figure out where the user clicked on the plane.
-    let Some(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
+    let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
     let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {

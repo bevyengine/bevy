@@ -48,7 +48,7 @@ impl TerminalCtrlCHandlerPlugin {
     }
 
     /// Sends a [`AppExit`] event when the user presses `Ctrl+C` on the terminal.
-    fn exit_on_flag(mut events: EventWriter<AppExit>) {
+    pub fn exit_on_flag(mut events: EventWriter<AppExit>) {
         if SHOULD_EXIT.load(Ordering::Relaxed) {
             events.send(AppExit::from_code(130));
         }

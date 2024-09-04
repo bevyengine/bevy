@@ -225,7 +225,6 @@ impl Plugin for PickingPlugin {
                 First,
                 (PickSet::Input, PickSet::PostInput)
                     .after(bevy_time::TimeSystem)
-                    .ambiguous_with(bevy_asset::handle_internal_asset_events)
                     .after(bevy_ecs::event::EventUpdates)
                     .chain(),
             )
@@ -239,7 +238,6 @@ impl Plugin for PickingPlugin {
                     // Eventually events will need to be dispatched here
                     PickSet::Last,
                 )
-                    .ambiguous_with(bevy_asset::handle_internal_asset_events)
                     .chain(),
             )
             .register_type::<pointer::PointerId>()

@@ -50,7 +50,7 @@ fn main() {
     let mut component_names = HashMap::<String, ComponentId>::new();
     let mut component_info = HashMap::<ComponentId, ComponentInfo>::new();
 
-    println!("{}", PROMPT);
+    println!("{PROMPT}");
     loop {
         print!("\n> ");
         let _ = std::io::stdout().flush();
@@ -64,10 +64,10 @@ fn main() {
 
         let Some((first, rest)) = line.trim().split_once(|c: char| c.is_whitespace()) else {
             match &line.chars().next() {
-                Some('c') => println!("{}", COMPONENT_PROMPT),
-                Some('s') => println!("{}", ENTITY_PROMPT),
-                Some('q') => println!("{}", QUERY_PROMPT),
-                _ => println!("{}", PROMPT),
+                Some('c') => println!("{COMPONENT_PROMPT}"),
+                Some('s') => println!("{ENTITY_PROMPT}"),
+                Some('q') => println!("{QUERY_PROMPT}"),
+                _ => println!("{PROMPT}"),
             }
             continue;
         };
@@ -112,7 +112,7 @@ fn main() {
 
                     // Get the id for the component with the given name
                     let Some(&id) = component_names.get(name) else {
-                        println!("Component {} does not exist", name);
+                        println!("Component {name} does not exist");
                         return;
                     };
 
@@ -245,7 +245,7 @@ fn parse_term<Q: QueryData>(
     };
 
     if !matched {
-        println!("Unable to find component: {}", str);
+        println!("Unable to find component: {str}");
     }
 }
 

@@ -1234,7 +1234,7 @@ impl Plugin for AnimationPlugin {
                 (
                     advance_transitions,
                     advance_animations,
-                    animate_targets,
+                    animate_targets.after(bevy_render::mesh::morph::inherit_weights),
                     expire_completed_transitions,
                 )
                     .chain()
