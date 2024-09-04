@@ -23,8 +23,8 @@
 //!
 //! The order in which interaction events are received is extremely important, and you can read more
 //! about it on the docs for the dispatcher system: [`pointer_events`]. This system runs in
-//! [`PreUpdate`](bevy_app::PreUpdate) in [`Focus`](crate::PickSet::Focus). All pointer-event observers
-//! resolve during the sync point between [`pointer_events`] and
+//! [`PreUpdate`](bevy_app::PreUpdate) in [`PickSet::Focus`](crate::PickSet::Focus). All pointer-event
+//! observers resolve during the sync point between [`pointer_events`] and
 //! [`update_interactions`](crate::focus::update_interactions).
 //!
 //! # Events Types
@@ -53,7 +53,7 @@ use crate::{
     },
 };
 
-/// Stores the common data needed for all points events.
+/// Stores the common data needed for all pointer events.
 ///
 /// The documentation for the [`pointer_events`] explains the events this module exposes and
 /// the order in which they fire.

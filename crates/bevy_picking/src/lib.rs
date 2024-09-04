@@ -1,4 +1,4 @@
-//! This crate provides 'picking' capabilities for the bevy game engine. That means, basycally, figuring out
+//! This crate provides 'picking' capabilities for the Bevy game engine. That means, in simple terms, figuring out
 //! how to connect up a user's clicks or taps to the entities they are trying to interact with.
 //!
 //! ## Overview
@@ -164,43 +164,9 @@ use bevy_reflect::prelude::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        events::*, input::InputPlugin, pointer::PointerButton, DefaultPickingPlugins,
-        InteractionPlugin, Pickable, PickingPlugin, PickingPluginsSettings,
+        events::*, input::PointerInputPlugin, pointer::PointerButton, DefaultPickingPlugins,
+        InteractionPlugin, Pickable, PickingPlugin,
     };
-}
-
-/// Used to globally toggle picking features at runtime.
-#[derive(Clone, Debug, Resource, Reflect)]
-#[reflect(Resource, Default)]
-pub struct PickingPluginsSettings {
-    /// Enables and disables all picking features.
-    pub is_enabled: bool,
-    /// Enables and disables input collection.
-    pub is_input_enabled: bool,
-    /// Enables and disables updating interaction states of entities.
-    pub is_focus_enabled: bool,
-}
-
-impl PickingPluginsSettings {
-    /// Whether or not input collection systems should be running.
-    pub fn input_should_run(state: Res<Self>) -> bool {
-        state.is_input_enabled && state.is_enabled
-    }
-    /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
-    /// component should be running.
-    pub fn focus_should_run(state: Res<Self>) -> bool {
-        state.is_focus_enabled && state.is_enabled
-    }
-}
-
-impl Default for PickingPluginsSettings {
-    fn default() -> Self {
-        Self {
-            is_enabled: true,
-            is_input_enabled: true,
-            is_focus_enabled: true,
-        }
-    }
 }
 
 /// An optional component that overrides default picking behavior for an entity, allowing you to
@@ -324,8 +290,9 @@ pub enum PickSet {
     Last,
 }
 
-/// One plugin that contains the [`input::InputPlugin`], [`PickingPlugin`] and the [`InteractionPlugin`],
-/// this is probably the plugin that will be most used.
+/// One plugin that contains the [`PointerInputPlugin`](input::PointerInputPlugin), [`PickingPlugin`]
+/// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
+///
 /// Note: for any of these plugins to work, they require a picking backend to be active,
 /// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
 /// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::Trigger`]s.
@@ -335,8 +302,8 @@ pub struct DefaultPickingPlugins;
 impl Plugin for DefaultPickingPlugins {
     fn build(&self, app: &mut App) {
         app.add_plugins((
-            input::InputPlugin::default(),
-            PickingPlugin,
+            input::PointerInputPlugin::default(),
+            PickingPlugin::default(),
             InteractionPlugin,
         ));
     }
@@ -344,12 +311,45 @@ impl Plugin for DefaultPickingPlugins {
 
 /// This plugin sets up the core picking infrastructure. It receives input events, and provides the shared
 /// types used by other picking plugins.
-#[derive(Default)]
-pub struct PickingPlugin;
+///
+/// This plugin contains several settings, and is added to the wrold as a resource after initalization. You
+/// can configure picking settings at runtime through the resource.
+#[derive(Copy, Clone, Debug, Resource, Reflect)]
+#[reflect(Resource, Default)]
+pub struct PickingPlugin {
+    /// Enables and disables all picking features.
+    pub is_enabled: bool,
+    /// Enables and disables input collection.
+    pub is_input_enabled: bool,
+    /// Enables and disables updating interaction states of entities.
+    pub is_focus_enabled: bool,
+}
+
+impl PickingPlugin {
+    /// Whether or not input collection systems should be running.
+    pub fn input_should_run(state: Res<Self>) -> bool {
+        state.is_input_enabled && state.is_enabled
+    }
+    /// Whether or not systems updating entities' [`PickingInteraction`](focus::PickingInteraction)
+    /// component should be running.
+    pub fn focus_should_run(state: Res<Self>) -> bool {
+        state.is_focus_enabled && state.is_enabled
+    }
+}
+
+impl Default for PickingPlugin {
+    fn default() -> Self {
+        Self {
+            is_enabled: true,
+            is_input_enabled: true,
+            is_focus_enabled: true,
+        }
+    }
+}
 
 impl Plugin for PickingPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PickingPluginsSettings>()
+        app.insert_resource(*self)
             .init_resource::<pointer::PointerMap>()
             .init_resource::<backend::ray::RayMap>()
             .add_event::<pointer::PointerInput>()
@@ -378,22 +378,21 @@ impl Plugin for PickingPlugin {
             .configure_sets(
                 PreUpdate,
                 (
-                    PickSet::ProcessInput.run_if(PickingPluginsSettings::input_should_run),
+                    PickSet::ProcessInput.run_if(Self::input_should_run),
                     PickSet::Backend,
-                    PickSet::Focus.run_if(PickingPluginsSettings::focus_should_run),
+                    PickSet::Focus.run_if(Self::focus_should_run),
                     PickSet::PostFocus,
-                    // Eventually events will need to be dispatched here
                     PickSet::Last,
                 )
                     .ambiguous_with(bevy_asset::handle_internal_asset_events)
                     .chain(),
             )
+            .register_type::<Self>()
+            .register_type::<Pickable>()
             .register_type::<pointer::PointerId>()
             .register_type::<pointer::PointerLocation>()
             .register_type::<pointer::PointerPress>()
             .register_type::<pointer::PointerInteraction>()
-            .register_type::<Pickable>()
-            .register_type::<PickingPluginsSettings>()
             .register_type::<backend::ray::RayId>();
     }
 }

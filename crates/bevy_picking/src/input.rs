@@ -31,24 +31,27 @@ use crate::PickSet;
 
 /// Common imports for `bevy_picking`.
 pub mod prelude {
-    pub use crate::input::InputPlugin;
+    pub use crate::input::PointerInputPlugin;
 }
 
 /// Adds mouse and touch inputs for picking pointers to your app. This is a default input plugin,
 /// that you can replace with your own plugin as needed.
 ///
-/// [`crate::PickingPluginsSettings::is_input_enabled`] can be used to toggle whether
+/// [`crate::PickingPlugin::is_input_enabled`] can be used to toggle whether
 /// the core picking plugin processes the inputs sent by this, or other input plugins, in one place.
+///
+/// This plugin contains several settings, and is added to the world as a resource after initalization.
+/// You can configure pointer input settings at runtime by accessing the resource.
 #[derive(Copy, Clone, Resource, Debug, Reflect)]
 #[reflect(Resource, Default)]
-pub struct InputPlugin {
+pub struct PointerInputPlugin {
     /// Should touch inputs be updated?
     pub is_touch_enabled: bool,
     /// Should mouse inputs be updated?
     pub is_mouse_enabled: bool,
 }
 
-impl InputPlugin {
+impl PointerInputPlugin {
     fn is_mouse_enabled(state: Res<Self>) -> bool {
         state.is_mouse_enabled
     }
@@ -58,7 +61,7 @@ impl InputPlugin {
     }
 }
 
-impl Default for InputPlugin {
+impl Default for PointerInputPlugin {
     fn default() -> Self {
         Self {
             is_touch_enabled: true,
@@ -67,25 +70,25 @@ impl Default for InputPlugin {
     }
 }
 
-impl Plugin for InputPlugin {
+impl Plugin for PointerInputPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(*self)
             .add_systems(Startup, spawn_mouse_pointer)
             .add_systems(
                 First,
                 (
-                    mouse_pick_events.run_if(InputPlugin::is_mouse_enabled),
-                    touch_pick_events.run_if(InputPlugin::is_touch_enabled),
+                    mouse_pick_events.run_if(PointerInputPlugin::is_mouse_enabled),
+                    touch_pick_events.run_if(PointerInputPlugin::is_touch_enabled),
                 )
                     .chain()
                     .in_set(PickSet::Input),
             )
             .add_systems(
                 Last,
-                deactivate_touch_pointers.run_if(InputPlugin::is_touch_enabled),
+                deactivate_touch_pointers.run_if(PointerInputPlugin::is_touch_enabled),
             )
             .register_type::<Self>()
-            .register_type::<InputPlugin>();
+            .register_type::<PointerInputPlugin>();
     }
 }
 
