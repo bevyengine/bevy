@@ -3,8 +3,8 @@ use crate::{
     __macro_exports::RegisterForReflection,
     func::{
         args::ArgList, function_map::FunctionMap, info::FunctionInfoType,
-        signature::ArgumentSignature, DynamicFunctionMut, Function, FunctionError, FunctionResult,
-        IntoFunction, IntoFunctionMut,
+        signature::ArgumentSignature, DynamicFunctionMut, Function, FunctionError,
+        FunctionOverloadError, FunctionResult, IntoFunction, IntoFunctionMut,
     },
     serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
@@ -150,6 +150,8 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// Panics if the function, `F`, contains a signature already found in this function.
     ///
+    /// For a non-panicking version, see [`try_with_overload`].
+    ///
     /// # Examples
     ///
     /// ```
@@ -227,6 +229,7 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// [argument signature]: ArgumentSignature
     /// [name]: Self::name
+    /// [`try_with_overload`]: Self::try_with_overload
     pub fn with_overload<'a, F: IntoFunction<'a, Marker>, Marker>(
         self,
         function: F,
@@ -237,14 +240,42 @@ impl<'env> DynamicFunction<'env> {
         let function = function.into_function();
 
         let name = self.name.clone();
-        let mut function_map = self.function_map;
-        function_map
+        let function_map = self
+            .function_map
             .merge(function.function_map)
-            .unwrap_or_else(|err| {
+            .unwrap_or_else(|(_, err)| {
                 panic!("{}", err);
             });
 
         DynamicFunction { name, function_map }
+    }
+
+    /// Attempt to add an overload to this function.
+    ///
+    /// If the function, `F`, contains a signature already found in this function,
+    /// an error will be returned along with the original function.
+    ///
+    /// For a panicking version, see [`with_overload`].
+    ///
+    /// [`with_overload`]: Self::with_overload
+    pub fn try_with_overload<F: IntoFunction<'env, Marker>, Marker>(
+        self,
+        function: F,
+    ) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
+        let function = function.into_function();
+
+        let name = self.name.clone();
+
+        match self.function_map.merge(function.function_map) {
+            Ok(function_map) => Ok(Self { name, function_map }),
+            Err((function_map, err)) => Err((
+                Box::new(Self {
+                    name,
+                    function_map: *function_map,
+                }),
+                err,
+            )),
+        }
     }
 
     /// Call the function with the given arguments.

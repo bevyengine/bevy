@@ -59,14 +59,14 @@ impl<F> FunctionMap<F> {
     /// Merge another [`FunctionMap`] into this one.
     ///
     /// If the other map contains any functions with the same signature as this one,
-    /// an error will be returned and the original map will remain unchanged.
-    pub fn merge(&mut self, other: Self) -> Result<(), FunctionOverloadError> {
+    /// an error will be returned along with the original, unchanged map.
+    pub fn merge(mut self, other: Self) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
         // === Function Map === //
         let mut other_indices = HashMap::new();
 
         for (sig, index) in other.indices {
             if self.indices.contains_key(&sig) {
-                return Err(FunctionOverloadError { signature: sig });
+                return Err((Box::new(self), FunctionOverloadError { signature: sig }));
             }
 
             other_indices.insert(sig, self.functions.len() + index);
@@ -78,7 +78,7 @@ impl<F> FunctionMap<F> {
         for info in other.info.into_iter() {
             let sig = ArgumentSignature::from(&info);
             if self.indices.contains_key(&sig) {
-                return Err(FunctionOverloadError { signature: sig });
+                return Err((Box::new(self), FunctionOverloadError { signature: sig }));
             }
             other_infos.push(info);
         }
@@ -86,16 +86,16 @@ impl<F> FunctionMap<F> {
         // === Update === //
         self.indices.extend(other_indices);
         self.functions.extend(other.functions);
-        self.info = match &self.info {
-            FunctionInfoType::Standard(info) => FunctionInfoType::Overloaded(
-                std::iter::once(info.clone()).chain(other_infos).collect(),
-            ),
-            FunctionInfoType::Overloaded(infos) => {
-                FunctionInfoType::Overloaded(infos.iter().cloned().chain(other_infos).collect())
+        self.info = match self.info {
+            FunctionInfoType::Standard(info) => {
+                FunctionInfoType::Overloaded(std::iter::once(info).chain(other_infos).collect())
             }
+            FunctionInfoType::Overloaded(infos) => FunctionInfoType::Overloaded(
+                IntoIterator::into_iter(infos).chain(other_infos).collect(),
+            ),
         };
 
-        Ok(())
+        Ok(self)
     }
 }
 
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn should_merge_function_maps() {
-        let mut map_a = FunctionMap {
+        let map_a = FunctionMap {
             info: FunctionInfoType::Overloaded(Box::new([
                 FunctionInfo::anonymous().with_arg::<i8>("arg0"),
                 FunctionInfo::anonymous().with_arg::<i16>("arg0"),
@@ -135,11 +135,11 @@ mod tests {
             ]),
         };
 
-        map_a.merge(map_b).unwrap();
+        let map = map_a.merge(map_b).unwrap();
 
-        assert_eq!(map_a.functions, vec!['a', 'b', 'c', 'd', 'e', 'f']);
+        assert_eq!(map.functions, vec!['a', 'b', 'c', 'd', 'e', 'f']);
         assert_eq!(
-            map_a.indices,
+            map.indices,
             HashMap::from([
                 (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn should_return_error_on_duplicate_signature() {
-        let mut map_a = FunctionMap {
+        let map_a = FunctionMap {
             info: FunctionInfoType::Overloaded(Box::new([
                 FunctionInfo::anonymous().with_arg::<i8>("arg0"),
                 FunctionInfo::anonymous().with_arg::<i16>("arg0"),
@@ -181,9 +181,11 @@ mod tests {
             ]),
         };
 
-        let result = map_a.merge(map_b);
+        let Err((map_a, error)) = map_a.merge(map_b) else {
+            panic!("expected an error");
+        };
         assert_eq!(
-            result.unwrap_err(),
+            error,
             FunctionOverloadError {
                 signature: ArgumentSignature::from_iter([Type::of::<i16>()])
             }
