@@ -48,7 +48,6 @@ use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
     fmt,
-    mem::MaybeUninit,
     sync::atomic::{AtomicU32, Ordering},
 };
 
@@ -431,13 +430,13 @@ impl World {
         #[inline(never)]
         #[cold]
         #[track_caller]
-        fn panic_no_entity(entity: Entity) -> ! {
-            panic!("Entity {entity:?} does not exist");
+        fn panic_on_err(e: QueryEntityError) -> ! {
+            panic!("{e}");
         }
 
         match self.get_many_entities(entities) {
             Ok(refs) => refs,
-            Err(entity) => panic_no_entity(entity),
+            Err(e) => panic_on_err(e),
         }
     }
 
@@ -586,14 +585,15 @@ impl World {
     pub fn get_many_entities<const N: usize>(
         &self,
         entities: [Entity; N],
-    ) -> Result<[EntityRef<'_>; N], Entity> {
-        let mut refs = [MaybeUninit::uninit(); N];
-        for (r, id) in std::iter::zip(&mut refs, entities) {
-            *r = MaybeUninit::new(self.get_entity(id).ok_or(id)?);
-        }
+    ) -> Result<[EntityRef<'_>; N], QueryEntityError> {
+        let world_cell = self.as_unsafe_world_cell_readonly();
+        // SAFETY: The `world_cell` has read access to the entire world.
+        let cells = unsafe { world_cell.get_entities(entities) };
 
-        // SAFETY: Each item was initialized in the above loop.
-        let refs = refs.map(|r| unsafe { MaybeUninit::assume_init(r) });
+        let refs = cells?.map(|c| {
+            // SAFETY: The `world_cell` has read access to the entire world.
+            unsafe { EntityRef::new(c) }
+        });
 
         Ok(refs)
     }
@@ -623,13 +623,20 @@ impl World {
     pub fn get_many_entities_dynamic<'w>(
         &'w self,
         entities: &[Entity],
-    ) -> Result<Vec<EntityRef<'w>>, Entity> {
-        let mut borrows = Vec::with_capacity(entities.len());
-        for &id in entities {
-            borrows.push(self.get_entity(id).ok_or(id)?);
-        }
+    ) -> Result<Vec<EntityRef<'w>>, QueryEntityError> {
+        let world_cell = self.as_unsafe_world_cell_readonly();
+        // SAFETY: The `world_cell` has read access to the entire world.
+        let cells = unsafe { world_cell.get_entities_dynamic(entities.iter().copied()) };
 
-        Ok(borrows)
+        let refs = cells?
+            .into_iter()
+            .map(|c| {
+                // SAFETY: The `world_cell` has read access to the entire world.
+                unsafe { EntityRef::new(c) }
+            })
+            .collect();
+
+        Ok(refs)
     }
 
     /// Returns an [`Entity`] iterator of current entities.
@@ -721,7 +728,7 @@ impl World {
     /// # Errors
     ///
     /// If any entities are duplicated.
-    fn verify_unique_entities(entities: &[Entity]) -> Result<(), QueryEntityError> {
+    pub(crate) fn verify_unique_entities(entities: &[Entity]) -> Result<(), QueryEntityError> {
         for i in 0..entities.len() {
             for j in 0..i {
                 if entities[i] == entities[j] {
@@ -758,34 +765,15 @@ impl World {
     ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
         Self::verify_unique_entities(&entities)?;
 
-        // SAFETY: Each entity is unique.
-        unsafe { self.get_entities_mut_unchecked(entities) }
-    }
-
-    /// # Safety
-    /// `entities` must contain no duplicate [`Entity`] IDs.
-    unsafe fn get_entities_mut_unchecked<const N: usize>(
-        &mut self,
-        entities: [Entity; N],
-    ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
         let world_cell = self.as_unsafe_world_cell();
+        // SAFETY: The `world_cell` has exclusive access to the entire world,
+        // and each entity in the passed array is unique.
+        let cells = unsafe { world_cell.get_entities(entities) };
 
-        let mut cells = [MaybeUninit::uninit(); N];
-        for (cell, id) in std::iter::zip(&mut cells, entities) {
-            *cell = MaybeUninit::new(
-                world_cell
-                    .get_entity(id)
-                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
-            );
-        }
-        // SAFETY: Each item was initialized in the loop above.
-        let cells = cells.map(|c| unsafe { MaybeUninit::assume_init(c) });
-
-        // SAFETY:
-        // - `world_cell` has exclusive access to the entire world.
-        // - The caller ensures that each entity is unique, so none
-        //   of the borrows will conflict with one another.
-        let borrows = cells.map(|c| unsafe { EntityMut::new(c) });
+        let borrows = cells?.map(|c| {
+            // SAFETY: The `world_cell` has exclusive access to the entire world
+            unsafe { EntityMut::new(c) }
+        });
 
         Ok(borrows)
     }
@@ -817,8 +805,20 @@ impl World {
     ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
         Self::verify_unique_entities(entities)?;
 
-        // SAFETY: Each entity is unique.
-        unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
+        let world_cell = self.as_unsafe_world_cell();
+        // SAFETY: The `world_cell` has exclusive access to the entire world,
+        // and each entity in the passed slice is unique.
+        let cells = unsafe { world_cell.get_entities_dynamic(entities.iter().copied()) };
+
+        let borrows = cells?
+            .into_iter()
+            .map(|c| {
+                // SAFETY: The `world_cell` has exclusive access to the entire world
+                unsafe { EntityMut::new(c) }
+            })
+            .collect();
+
+        Ok(borrows)
     }
 
     /// Gets mutable access to multiple entities, contained in a [`EntityHashSet`].
@@ -852,34 +852,17 @@ impl World {
         &'w mut self,
         entities: &EntityHashSet,
     ) -> Result<Vec<EntityMut<'w>>, QueryEntityError> {
-        // SAFETY: Each entity is unique.
-        unsafe { self.get_entities_dynamic_mut_unchecked(entities.iter().copied()) }
-    }
-
-    /// # Safety
-    /// `entities` must produce no duplicate [`Entity`] IDs.
-    unsafe fn get_entities_dynamic_mut_unchecked(
-        &mut self,
-        entities: impl ExactSizeIterator<Item = Entity>,
-    ) -> Result<Vec<EntityMut<'_>>, QueryEntityError> {
         let world_cell = self.as_unsafe_world_cell();
+        // SAFETY: The `world_cell` has exclusive access to the entire world,
+        // and each entity in the passed set is unique (guaranteed by the set itself).
+        let cells = unsafe { world_cell.get_entities_dynamic(entities.iter().copied()) };
 
-        let mut cells = Vec::with_capacity(entities.len());
-        for id in entities {
-            cells.push(
-                world_cell
-                    .get_entity(id)
-                    .ok_or(QueryEntityError::NoSuchEntity(id))?,
-            );
-        }
-
-        let borrows = cells
+        let borrows = cells?
             .into_iter()
-            // SAFETY:
-            // - `world_cell` has exclusive access to the entire world.
-            // - The caller ensures that each entity is unique, so none
-            //   of the borrows will conflict with one another.
-            .map(|c| unsafe { EntityMut::new(c) })
+            .map(|c| {
+                // SAFETY: The `world_cell` has exclusive access to the entire world
+                unsafe { EntityMut::new(c) }
+            })
             .collect();
 
         Ok(borrows)
