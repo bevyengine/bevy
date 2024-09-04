@@ -530,11 +530,8 @@ pub fn extract_uinode_borders(
 
         let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
 
-        // don't extract border if no border or the node is zero-sized (a zero sized node can have an outline).
-        if uinode.size().x > 0.
-            && uinode.size().y > 0.
-            && !(left == 0.0 && top == 0.0 && right == 0.0 && bottom == 0.0)
-        {
+        // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
+        if uinode.size().x > 0. && uinode.size().y > 0. && border != [0.; 4] {
             if let Some(border_color) = maybe_border_color {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn_empty().id(),
