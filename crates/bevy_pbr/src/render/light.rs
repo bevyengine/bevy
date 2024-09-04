@@ -752,7 +752,7 @@ pub fn prepare_lights(
                 .extend(1.0 / (light.range * light.range)),
             position_radius: light.transform.translation().extend(light.radius),
             flags: flags.bits()
-                | (light.render_layers.bits_u16() as u32)
+                | (light.render_layers.bits_u16_lossy() as u32)
                     << PointLightFlags::RENDER_LAYERS_SHIFT_BITS,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
@@ -798,7 +798,7 @@ pub fn prepare_lights(
             // direction is negated to be ready for N.L
             dir_to_light: light.transform.back().into(),
             flags: flags.bits()
-                | (light.render_layers.bits_u16() as u32)
+                | (light.render_layers.bits_u16_lossy() as u32)
                     << DirectionalLightFlags::RENDER_LAYERS_SHIFT_BITS,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
