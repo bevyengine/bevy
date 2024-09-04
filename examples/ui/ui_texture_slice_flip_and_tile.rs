@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
-            for ([w, h], flip_x, flip_y) in [
+            for ([width, height], flip_x, flip_y) in [
                 ([160., 160.], false, false),
                 ([320., 160.], false, true),
                 ([320., 160.], true, false),
@@ -56,8 +56,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 parent.spawn((
                     NodeBundle {
                         style: Style {
-                            width: Val::Px(w),
-                            height: Val::Px(h),
+                            width: Val::Px(width),
+                            height: Val::Px(height),
                             ..default()
                         },
                         ..Default::default()
