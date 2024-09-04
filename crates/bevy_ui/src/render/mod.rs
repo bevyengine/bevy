@@ -24,7 +24,7 @@ use ui_texture_slice_pipeline::UiTextureSlicerPlugin;
 
 use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
-    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline, Style,
+    BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Display, Node, Outline, Style,
     TargetCamera, UiImage, UiScale, Val,
 };
 
@@ -481,6 +481,7 @@ pub fn extract_uinode_borders(
 
         // Skip invisible borders
         if !view_visibility.get()
+            || style.display == Display::None
             || maybe_border_color.is_some_and(|border_color| border_color.0.is_fully_transparent())
                 && maybe_outline.is_some_and(|outline| outline.color.is_fully_transparent())
         {
