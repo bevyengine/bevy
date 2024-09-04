@@ -553,3 +553,68 @@ impl<'w> DeferredWorld<'w> {
         self.world
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        entity::EntityHashSet,
+        world::{DeferredWorld, World},
+    };
+
+    #[test]
+    fn test_many_entities() {
+        let mut world = World::new();
+        let entity1 = world.spawn_empty().id();
+        let entity2 = world.spawn_empty().id();
+        let mut world = DeferredWorld::from(&mut world);
+
+        assert!(world.get_many_entities([entity1, entity1]).is_ok());
+        assert!(world.get_many_entities([entity1, entity2]).is_ok());
+        assert!(world.get_many_entities_mut([entity1, entity1]).is_err());
+        assert!(world.get_many_entities_mut([entity1, entity2]).is_ok());
+        assert!(world
+            .get_many_entities_mut([entity1, entity1, entity2])
+            .is_err());
+    }
+
+    #[test]
+    fn test_many_entities_dynamic() {
+        let mut world = World::new();
+        let entity1 = world.spawn_empty().id();
+        let entity2 = world.spawn_empty().id();
+        let mut world = DeferredWorld::from(&mut world);
+
+        assert!(world.get_many_entities_dynamic(&[entity1, entity1]).is_ok());
+        assert!(world.get_many_entities_dynamic(&[entity1, entity2]).is_ok());
+        assert!(world
+            .get_many_entities_dynamic_mut(&[entity1, entity1])
+            .is_err());
+        assert!(world
+            .get_many_entities_dynamic_mut(&[entity1, entity2])
+            .is_ok());
+        assert!(world
+            .get_many_entities_dynamic_mut(&[entity1, entity1, entity2])
+            .is_err());
+    }
+
+    #[test]
+    fn test_many_entities_from_set() {
+        let mut world = World::new();
+        let entity1 = world.spawn_empty().id();
+        let entity2 = world.spawn_empty().id();
+        let mut world = DeferredWorld::from(&mut world);
+
+        assert!(world
+            .get_many_entities_from_set_mut(&EntityHashSet::from_iter([entity1, entity1]))
+            .is_ok());
+        assert!(world
+            .get_many_entities_from_set_mut(&EntityHashSet::from_iter([entity1, entity2]))
+            .is_ok());
+        assert!(world
+            .get_many_entities_from_set_mut(&EntityHashSet::from_iter([entity1, entity2]))
+            .is_ok());
+        assert!(world
+            .get_many_entities_from_set_mut(&EntityHashSet::from_iter([entity1, entity1, entity2]))
+            .is_ok());
+    }
+}
