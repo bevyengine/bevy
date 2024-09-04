@@ -8,6 +8,8 @@ use bevy_ecs::system::SystemParamItem;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_utils::default;
+use encase::internal::WriteInto;
+use encase::ShaderType;
 use wgpu::util::BufferInitDescriptor;
 
 /// Adds [`ShaderStorageBuffer`] as an asset that is extracted and uploaded to the GPU.
@@ -71,6 +73,27 @@ impl ShaderStorageBuffer {
         storage.buffer_description.mapped_at_creation = false;
         storage.asset_usage = asset_usage;
         storage
+    }
+
+    /// Sets the data of the storage buffer to the given [`ShaderType`].
+    pub fn set_data<T>(&mut self, value: T)
+    where
+        T: ShaderType + WriteInto,
+    {
+        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::new());
+        wrapper.write(&value).unwrap();
+        self.data = Some(wrapper.as_ref().to_vec());
+    }
+}
+
+impl<T> From<T> for ShaderStorageBuffer
+where
+    T: ShaderType + WriteInto,
+{
+    fn from(value: T) -> Self {
+        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::new());
+        wrapper.write(&value).unwrap();
+        Self::new(&wrapper.as_ref(), RenderAssetUsages::default())
     }
 }
 
