@@ -482,7 +482,7 @@ mod tests {
     use bevy_ecs::{component::Component, system::Query};
     use bevy_reflect::Reflect;
 
-    use crate::{DynamicSceneBuilder, ScenePlugin};
+    use crate::{DynamicSceneBuilder, DynamicSceneHandle, ScenePlugin};
 
     use super::*;
 
@@ -711,7 +711,8 @@ mod tests {
 
         // Spawn scene.
         for _ in 0..count {
-            app.world_mut().spawn((ComponentA, scene.clone()));
+            app.world_mut()
+                .spawn((ComponentA, DynamicSceneHandle(scene.clone())));
         }
 
         app.update();

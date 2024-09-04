@@ -13,7 +13,6 @@
 //!
 //! * Clicking anywhere moves the object.
 
-use bevy::color::palettes::css::*;
 use bevy::core_pipeline::Skybox;
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
@@ -21,6 +20,7 @@ use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 use bevy::window::PrimaryWindow;
+use bevy::{color::palettes::css::*, scene::SceneHandle};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
@@ -225,7 +225,7 @@ fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<App
 
 fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn(SceneBundle {
-        scene: assets.main_scene.clone(),
+        scene: assets.main_scene.clone().into(),
         ..SceneBundle::default()
     });
 }
@@ -292,7 +292,7 @@ fn spawn_voxel_cube_parent(commands: &mut Commands) {
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
     commands
         .spawn(SceneBundle {
-            scene: assets.fox.clone(),
+            scene: assets.fox.clone().into(),
             visibility: Visibility::Hidden,
             transform: Transform::from_scale(Vec3::splat(FOX_SCALE)),
             ..default()
@@ -388,9 +388,9 @@ fn change_main_object(
     mut app_status: ResMut<AppStatus>,
     mut sphere_query: Query<
         &mut Visibility,
-        (With<MainObject>, With<Handle<Mesh>>, Without<Handle<Scene>>),
+        (With<MainObject>, With<Handle<Mesh>>, Without<SceneHandle>),
     >,
-    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<Handle<Scene>>)>,
+    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<SceneHandle>)>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;

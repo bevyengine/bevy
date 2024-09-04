@@ -21,7 +21,7 @@ use serde::Serialize;
 /// To spawn a dynamic scene, you can use either:
 /// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
 /// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
-/// * adding the [`Handle<DynamicScene>`](bevy_asset::Handle) to an entity (the scene will only be
+/// * adding the [`DynamicSceneHandle`](crate::DynamicSceneHandle) to an entity (the scene will only be
 ///     visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 ///     [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 /// * using the [`DynamicSceneBuilder`] to construct a `DynamicScene` from `World`.

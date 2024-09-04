@@ -10,7 +10,7 @@ use bevy_reflect::TypePath;
 /// To spawn a scene, you can use either:
 /// * [`SceneSpawner::spawn`](crate::SceneSpawner::spawn)
 /// * adding the [`SceneBundle`](crate::SceneBundle) to an entity
-/// * adding the [`Handle<Scene>`](bevy_asset::Handle) to an entity (the scene will only be
+/// * adding the [`SceneHandle`](crate::SceneHandle) to an entity (the scene will only be
 ///     visible if the entity already has [`Transform`](bevy_transform::components::Transform) and
 ///     [`GlobalTransform`](bevy_transform::components::GlobalTransform) components)
 #[derive(Asset, TypePath, Debug)]

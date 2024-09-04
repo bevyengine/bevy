@@ -142,7 +142,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     let height = rng.gen_range(-0.1..0.1);
                     commands.spawn(SceneBundle {
                         transform: Transform::from_xyz(i as f32, height - 0.2, j as f32),
-                        scene: cell_scene.clone(),
+                        scene: cell_scene.clone().into(),
                         ..default()
                     });
                     Cell { height }
@@ -165,7 +165,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                     ..default()
                 },
                 scene: asset_server
-                    .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb")),
+                    .load(GltfAssetLabel::Scene(0).from_asset("models/AlienCake/alien.glb"))
+                    .into(),
                 ..default()
             })
             .id(),
@@ -352,7 +353,7 @@ fn spawn_bonus(
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
                     game.bonus.j as f32,
                 ),
-                scene: game.bonus.handle.clone(),
+                scene: game.bonus.handle.clone().into(),
                 ..default()
             })
             .with_children(|children| {

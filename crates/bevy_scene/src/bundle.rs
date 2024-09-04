@@ -15,8 +15,42 @@ use crate::{DynamicScene, InstanceId, Scene, SceneSpawner};
 
 /// [`InstanceId`] of a spawned scene. It can be used with the [`SceneSpawner`] to
 /// interact with the spawned scene.
-#[derive(Component, Deref, DerefMut)]
+#[derive(Component, Deref)]
 pub struct SceneInstance(pub(crate) InstanceId);
+
+/// Adding this component will spawn the scene as a child of that entity.
+/// Once it's spawned, the entity will have a [`SceneInstance`] component.
+#[derive(Component, Default, Clone, Deref, DerefMut)]
+pub struct SceneHandle(pub Handle<Scene>);
+
+impl From<Handle<Scene>> for SceneHandle {
+    fn from(value: Handle<Scene>) -> Self {
+        SceneHandle(value)
+    }
+}
+
+impl From<SceneHandle> for Handle<Scene> {
+    fn from(value: SceneHandle) -> Self {
+        value.0
+    }
+}
+
+/// Adding this component will spawn the scene as a child of that entity.
+/// Once it's spawned, the entity will have a [`SceneInstance`] component.
+#[derive(Component, Default, Clone, Deref, DerefMut)]
+pub struct DynamicSceneHandle(pub Handle<DynamicScene>);
+
+impl From<Handle<DynamicScene>> for DynamicSceneHandle {
+    fn from(value: Handle<DynamicScene>) -> Self {
+        DynamicSceneHandle(value)
+    }
+}
+
+impl From<DynamicSceneHandle> for Handle<DynamicScene> {
+    fn from(value: DynamicSceneHandle) -> Self {
+        value.0
+    }
+}
 
 /// A component bundle for a [`Scene`] root.
 ///
@@ -25,7 +59,7 @@ pub struct SceneInstance(pub(crate) InstanceId);
 #[derive(Default, Bundle, Clone)]
 pub struct SceneBundle {
     /// Handle to the scene to spawn.
-    pub scene: Handle<Scene>,
+    pub scene: SceneHandle,
     /// Transform of the scene root entity.
     pub transform: Transform,
     /// Global transform of the scene root entity.
@@ -49,7 +83,7 @@ pub struct SceneBundle {
 #[derive(Default, Bundle, Clone)]
 pub struct DynamicSceneBundle {
     /// Handle to the scene to spawn.
-    pub scene: Handle<DynamicScene>,
+    pub scene: DynamicSceneHandle,
     /// Transform of the scene root entity.
     pub transform: Transform,
     /// Global transform of the scene root entity.
@@ -70,12 +104,12 @@ pub struct DynamicSceneBundle {
 pub fn scene_spawner(
     mut commands: Commands,
     mut scene_to_spawn: Query<
-        (Entity, &Handle<Scene>, Option<&mut SceneInstance>),
-        (Changed<Handle<Scene>>, Without<Handle<DynamicScene>>),
+        (Entity, &SceneHandle, Option<&mut SceneInstance>),
+        (Changed<SceneHandle>, Without<DynamicSceneHandle>),
     >,
     mut dynamic_scene_to_spawn: Query<
-        (Entity, &Handle<DynamicScene>, Option<&mut SceneInstance>),
-        (Changed<Handle<DynamicScene>>, Without<Handle<Scene>>),
+        (Entity, &DynamicSceneHandle, Option<&mut SceneInstance>),
+        (Changed<DynamicSceneHandle>, Without<SceneHandle>),
     >,
     mut scene_spawner: ResMut<SceneSpawner>,
 ) {
@@ -145,7 +179,7 @@ mod tests {
         let entity = app
             .world_mut()
             .spawn(DynamicSceneBundle {
-                scene: scene_handle.clone(),
+                scene: scene_handle.clone().into(),
                 ..default()
             })
             .id();

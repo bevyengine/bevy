@@ -44,7 +44,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, Handle};
+use bevy_asset::AssetApp;
 
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
@@ -61,9 +61,9 @@ impl Plugin for ScenePlugin {
 
         // Register component hooks for DynamicScene
         app.world_mut()
-            .register_component_hooks::<Handle<DynamicScene>>()
+            .register_component_hooks::<DynamicSceneHandle>()
             .on_remove(|mut world, entity, _| {
-                let Some(handle) = world.get::<Handle<DynamicScene>>(entity) else {
+                let Some(handle) = world.get::<DynamicSceneHandle>(entity) else {
                     return;
                 };
                 let id = handle.id();
@@ -80,7 +80,7 @@ impl Plugin for ScenePlugin {
 
         // Register component hooks for Scene
         app.world_mut()
-            .register_component_hooks::<Handle<Scene>>()
+            .register_component_hooks::<SceneHandle>()
             .on_remove(|mut world, entity, _| {
                 if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
                     let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
