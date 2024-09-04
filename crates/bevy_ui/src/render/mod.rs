@@ -554,7 +554,7 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline {
             let outer_distance = uinode.outline_offset() + uinode.outline_width();
             let outline_radius = border_radius.map(|radius| {
-                if 0. < radius {
+                if radius > 0. {
                     radius + outer_distance
                 } else {
                     0.
