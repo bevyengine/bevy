@@ -2,11 +2,9 @@ use crate::{
     self as bevy_reflect,
     __macro_exports::RegisterForReflection,
     func::{
-        args::ArgList,
-        function_map::{merge_function_map, FunctionMap},
-        info::FunctionInfoType,
-        signature::ArgumentSignature,
-        DynamicFunctionMut, Function, FunctionError, FunctionResult, IntoFunction, IntoFunctionMut,
+        args::ArgList, function_map::FunctionMap, info::FunctionInfoType,
+        signature::ArgumentSignature, DynamicFunctionMut, Function, FunctionError, FunctionResult,
+        IntoFunction, IntoFunctionMut,
     },
     serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
@@ -49,7 +47,7 @@ type ArcFn<'env> = Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send 
 /// Most of the time, a [`DynamicFunction`] can be created using the [`IntoFunction`] trait:
 ///
 /// ```
-/// # use bevy_reflect::func::{ArgList, DynamicFunction, FunctionInfo, IntoFunction};
+/// # use bevy_reflect::func::{ArgList, DynamicFunction, IntoFunction};
 /// #
 /// fn add(a: i32, b: i32) -> i32 {
 ///   a + b
@@ -70,7 +68,6 @@ type ArcFn<'env> = Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send 
 /// [module-level documentation]: crate::func
 pub struct DynamicFunction<'env> {
     pub(super) name: Option<Cow<'static, str>>,
-    pub(super) info: FunctionInfoType,
     pub(super) function_map: FunctionMap<ArcFn<'env>>,
 }
 
@@ -104,16 +101,21 @@ impl<'env> DynamicFunction<'env> {
                 FunctionInfoType::Standard(info) => info.name().cloned(),
                 FunctionInfoType::Overloaded(_) => None,
             },
-            function_map: match &info {
-                FunctionInfoType::Standard(_) => FunctionMap::Standard(func),
-                FunctionInfoType::Overloaded(infos) => {
-                    FunctionMap::Overloaded(HashMap::from_iter(infos.iter().map(|info| {
-                        let sig = ArgumentSignature::from(info);
-                        (sig, func.clone())
-                    })))
-                }
+            function_map: match info {
+                FunctionInfoType::Standard(info) => FunctionMap {
+                    functions: vec![func],
+                    indices: HashMap::from([(ArgumentSignature::from(&info), 0)]),
+                    info: FunctionInfoType::Standard(info),
+                },
+                FunctionInfoType::Overloaded(infos) => FunctionMap {
+                    functions: vec![func],
+                    indices: infos
+                        .iter()
+                        .map(|info| (ArgumentSignature::from(info), 0))
+                        .collect(),
+                    info: FunctionInfoType::Overloaded(infos),
+                },
             },
-            info,
         }
     }
 
@@ -143,6 +145,10 @@ impl<'env> DynamicFunction<'env> {
     /// the one from `F` would replace the one from the existing function.
     ///
     /// Overloaded functions retain the [name] of the original function.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the function, `F`, contains a signature already found in this function.
     ///
     /// # Examples
     ///
@@ -202,6 +208,23 @@ impl<'env> DynamicFunction<'env> {
     /// assert_eq!(result.try_take::<i32>().unwrap(), 200);
     /// ```
     ///
+    ///```should_panic
+    /// # use bevy_reflect::func::IntoFunction;
+    ///
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// fn sub(a: i32, b: i32) -> i32 {
+    ///     a - b
+    /// }
+    ///
+    /// let mut func = add.into_function();
+    ///
+    /// // This will panic because the function already has an argument signature for `(i32, i32)`:
+    /// func = func.with_overload(sub);
+    /// ```
+    ///
     /// [argument signature]: ArgumentSignature
     /// [name]: Self::name
     pub fn with_overload<'a, F: IntoFunction<'a, Marker>, Marker>(
@@ -213,19 +236,15 @@ impl<'env> DynamicFunction<'env> {
     {
         let function = function.into_function();
 
-        let name = self.name;
-        let (function_map, info) = merge_function_map(
-            self.function_map,
-            self.info,
-            function.function_map,
-            function.info,
-        );
+        let name = self.name.clone();
+        let mut function_map = self.function_map;
+        function_map
+            .merge(function.function_map)
+            .unwrap_or_else(|err| {
+                panic!("{}", err);
+            });
 
-        DynamicFunction {
-            name,
-            info,
-            function_map,
-        }
+        DynamicFunction { name, function_map }
     }
 
     /// Call the function with the given arguments.
@@ -252,35 +271,25 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// The function itself may also return any errors it needs to.
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        let expected_arg_count = self.info.arg_count();
+        let expected_arg_count = self.function_map.info.arg_count();
         let received_arg_count = args.len();
 
-        match self.function_map {
-            FunctionMap::Standard(ref func) => {
-                if expected_arg_count != received_arg_count {
-                    Err(FunctionError::ArgCountMismatch {
-                        expected: expected_arg_count,
-                        received: received_arg_count,
-                    })
-                } else {
-                    func(args)
-                }
-            }
-            FunctionMap::Overloaded(ref map) => {
-                let sig = ArgumentSignature::from(&args);
-                let func = map.get(&sig).ok_or_else(|| FunctionError::NoOverload {
-                    expected: map.keys().cloned().collect(),
-                    received: sig,
-                })?;
-
-                func(args)
-            }
+        if matches!(self.function_map.info, FunctionInfoType::Standard(_))
+            && expected_arg_count != received_arg_count
+        {
+            Err(FunctionError::ArgCountMismatch {
+                expected: expected_arg_count,
+                received: received_arg_count,
+            })
+        } else {
+            let func = self.function_map.get(&args)?;
+            func(args)
         }
     }
 
     /// Returns the function info.
     pub fn info(&self) -> &FunctionInfoType {
-        &self.info
+        &self.function_map.info
     }
 
     /// The name of the function.
@@ -308,7 +317,7 @@ impl Function for DynamicFunction<'static> {
     }
 
     fn info(&self) -> &FunctionInfoType {
-        &self.info
+        &self.function_map.info
     }
 
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
@@ -444,7 +453,6 @@ impl<'env> Clone for DynamicFunction<'env> {
     fn clone(&self) -> Self {
         Self {
             name: self.name.clone(),
-            info: self.info.clone(),
             function_map: self.function_map.clone(),
         }
     }
@@ -467,7 +475,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunction<'env> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{FunctionInfo, IntoReturn};
+    use crate::func::{FunctionError, FunctionInfo, IntoReturn};
     use crate::Type;
     use bevy_utils::HashSet;
     use std::ops::Add;

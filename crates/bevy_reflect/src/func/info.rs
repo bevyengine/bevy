@@ -47,6 +47,18 @@ impl TryFrom<Vec<FunctionInfo>> for FunctionInfoType {
     }
 }
 
+impl IntoIterator for FunctionInfoType {
+    type Item = FunctionInfo;
+    type IntoIter = vec::IntoIter<FunctionInfo>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            FunctionInfoType::Standard(info) => vec![info].into_iter(),
+            FunctionInfoType::Overloaded(infos) => infos.into_vec().into_iter(),
+        }
+    }
+}
+
 impl FunctionInfoType {
     pub fn arg_count(&self) -> usize {
         match self {
