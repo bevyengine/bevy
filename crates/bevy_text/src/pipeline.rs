@@ -413,10 +413,12 @@ fn buffer_dimensions(buffer: &Buffer) -> Vec2 {
     Vec2::new(width.ceil(), height).ceil()
 }
 
-/// Discards cached shaped older than one tick.
-///
-/// We assume only text updated every tick benefits from the shape cache (e.g. animated text, or
-/// text that is dynamically measured for UI).
+/// Discards stale data cached in `FontSystem`.
 pub(crate) fn trim_cosmic_cache(mut pipeline: ResMut<TextPipeline>) {
+    // A trim age of 2 was found to reduce frame time variance vs age of 1 when tested with dynamic text.
+    // See https://github.com/bevyengine/bevy/pull/15037
+    //
+    // We assume only text updated frequently benefits from the shape cache (e.g. animated text, or
+    // text that is dynamically measured for UI).
     pipeline.font_system_mut().shape_run_cache.trim(2);
 }
