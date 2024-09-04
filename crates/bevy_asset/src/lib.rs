@@ -222,7 +222,11 @@ impl Plugin for AssetPlugin {
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
             .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
-            .add_systems(PreUpdate, handle_internal_asset_events)
+            // `handle_internal_asset_events` requires the use of `&mut World`,
+            // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
+            // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
+            // needs to be robust to stochastic delays anyways.
+            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
             .register_type::<AssetPath>();
     }
 }
@@ -341,7 +345,7 @@ impl AssetApp for App {
         id: impl Into<AssetSourceId<'static>>,
         source: AssetSourceBuilder,
     ) -> &mut Self {
-        let id = id.into();
+        let id = AssetSourceId::from_static(id);
         if self.world().get_resource::<AssetServer>().is_some() {
             error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
@@ -583,13 +587,10 @@ mod tests {
         async fn read_meta<'a>(
             &'a self,
             path: &'a Path,
-        ) -> Result<impl bevy_asset::io::Reader + 'a, AssetReaderError> {
+        ) -> Result<impl Reader + 'a, AssetReaderError> {
             self.memory_reader.read_meta(path).await
         }
-        async fn read<'a>(
-            &'a self,
-            path: &'a Path,
-        ) -> Result<impl bevy_asset::io::Reader + 'a, bevy_asset::io::AssetReaderError> {
+        async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
                 let mut attempt_counters = self.attempt_counters.lock().unwrap();
                 if let Some(existing) = attempt_counters.get_mut(path) {

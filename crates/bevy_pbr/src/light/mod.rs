@@ -11,8 +11,7 @@ use bevy_render::{
     mesh::Mesh,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntities,
-        VisibleEntityRanges, WithMesh,
+        InheritedVisibility, RenderLayers, ViewVisibility, VisibilityRange, VisibleEntityRanges,
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -100,7 +99,7 @@ impl Default for PointLightShadowMap {
 }
 
 /// A convenient alias for `Or<(With<PointLight>, With<SpotLight>,
-/// With<DirectionalLight>)>`, for use with [`VisibleEntities`].
+/// With<DirectionalLight>)>`, for use with [`bevy_render::view::VisibleEntities`].
 pub type WithLight = Or<(With<PointLight>, With<SpotLight>, With<DirectionalLight>)>;
 
 /// Controls the resolution of [`DirectionalLight`] shadow maps.
@@ -497,12 +496,19 @@ pub enum ShadowFilteringMethod {
     Temporal,
 }
 
+/// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,
     AssignLightsToClusters,
+    /// System order ambiguities between systems in this set are ignored:
+    /// each [`build_directional_light_cascades`] system is independent of the others,
+    /// and should operate on distinct sets of entities.
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
+    /// System order ambiguities between systems in this set are ignored:
+    /// the order of systems within this set is irrelevant, as the various visibility-checking systesms
+    /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
 }
 
@@ -698,9 +704,7 @@ pub fn check_dir_light_mesh_visibility(
             match frusta.frusta.get(view) {
                 Some(view_frusta) => {
                     cascade_view_entities.resize(view_frusta.len(), Default::default());
-                    cascade_view_entities
-                        .iter_mut()
-                        .for_each(VisibleEntities::clear::<WithMesh>);
+                    cascade_view_entities.iter_mut().for_each(|x| x.clear());
                 }
                 None => views_to_remove.push(*view),
             };
@@ -709,7 +713,7 @@ pub fn check_dir_light_mesh_visibility(
             visible_entities
                 .entities
                 .entry(*view)
-                .or_insert_with(|| vec![VisibleEntities::default(); frusta.len()]);
+                .or_insert_with(|| vec![VisibleMeshEntities::default(); frusta.len()]);
         }
 
         for v in views_to_remove {
@@ -790,7 +794,6 @@ pub fn check_dir_light_mesh_visibility(
                     .get_mut(view)
                     .unwrap()
                     .iter_mut()
-                    .map(VisibleEntities::get_mut::<WithMesh>)
                     .zip(entities.iter_mut())
                     .for_each(|(dst, source)| {
                         dst.append(source);
@@ -801,7 +804,7 @@ pub fn check_dir_light_mesh_visibility(
         for (_, cascade_view_entities) in &mut visible_entities.entities {
             cascade_view_entities
                 .iter_mut()
-                .map(VisibleEntities::get_mut::<WithMesh>)
+                .map(DerefMut::deref_mut)
                 .for_each(shrink_entities);
         }
     }
@@ -833,7 +836,7 @@ pub fn check_point_light_mesh_visibility(
         &SpotLight,
         &GlobalTransform,
         &Frustum,
-        &mut VisibleEntities,
+        &mut VisibleMeshEntities,
         Option<&RenderLayers>,
     )>,
     mut visible_entity_query: Query<
@@ -869,7 +872,7 @@ pub fn check_point_light_mesh_visibility(
             )) = point_lights.get_mut(light_entity)
             {
                 for visible_entities in cubemap_visible_entities.iter_mut() {
-                    visible_entities.clear::<WithMesh>();
+                    visible_entities.entities.clear();
                 }
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
@@ -940,13 +943,12 @@ pub fn check_point_light_mesh_visibility(
                 for entities in cubemap_visible_entities_queue.iter_mut() {
                     cubemap_visible_entities
                         .iter_mut()
-                        .map(VisibleEntities::get_mut::<WithMesh>)
                         .zip(entities.iter_mut())
-                        .for_each(|(dst, source)| dst.append(source));
+                        .for_each(|(dst, source)| dst.entities.append(source));
                 }
 
                 for visible_entities in cubemap_visible_entities.iter_mut() {
-                    shrink_entities(visible_entities.get_mut::<WithMesh>());
+                    shrink_entities(visible_entities);
                 }
             }
 
@@ -954,7 +956,7 @@ pub fn check_point_light_mesh_visibility(
             if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
                 spot_lights.get_mut(light_entity)
             {
-                visible_entities.clear::<WithMesh>();
+                visible_entities.clear();
 
                 // NOTE: If shadow mapping is disabled for the light then it must have no visible entities
                 if !point_light.shadows_enabled {
@@ -1015,10 +1017,10 @@ pub fn check_point_light_mesh_visibility(
                 );
 
                 for entities in spot_visible_entities_queue.iter_mut() {
-                    visible_entities.get_mut::<WithMesh>().append(entities);
+                    visible_entities.append(entities);
                 }
 
-                shrink_entities(visible_entities.get_mut::<WithMesh>());
+                shrink_entities(visible_entities.deref_mut());
             }
         }
     }

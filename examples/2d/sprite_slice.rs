@@ -83,7 +83,7 @@ fn spawn_sprites(
             ..default()
         });
         if let Some(scale_mode) = scale_mode {
-            cmd.insert(scale_mode);
+            cmd = cmd.insert(scale_mode);
         }
         cmd.with_children(|builder| {
             builder.spawn(Text2dBundle {

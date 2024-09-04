@@ -6,7 +6,7 @@
 //! [`MeshInputUniform`]s instead and use the GPU to calculate the remaining
 //! derived fields in [`MeshUniform`].
 
-use std::num::NonZeroU64;
+use std::num::NonZero;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -408,7 +408,7 @@ pub fn prepare_preprocess_bind_groups(
         // Don't use `as_entire_binding()` here; the shader reads the array
         // length and the underlying buffer may be longer than the actual size
         // of the vector.
-        let index_buffer_size = NonZeroU64::try_from(
+        let index_buffer_size = NonZero::<u64>::try_from(
             index_buffer_vec.buffer.len() as u64 * u64::from(PreprocessWorkItem::min_size()),
         )
         .ok();

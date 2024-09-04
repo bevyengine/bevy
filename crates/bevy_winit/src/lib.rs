@@ -12,7 +12,8 @@
 //! The app's [runner](bevy_app::App::runner) is set by `WinitPlugin` and handles the `winit` [`EventLoop`].
 //! See `winit_runner` for details.
 
-use bevy_window::RawHandleWrapperHolder;
+use bevy_derive::Deref;
+use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use std::marker::PhantomData;
 use winit::event_loop::EventLoop;
 #[cfg(target_os = "android")]
@@ -23,21 +24,27 @@ use bevy_app::{App, Last, Plugin};
 use bevy_ecs::prelude::*;
 #[allow(deprecated)]
 use bevy_window::{exit_on_all_closed, Window, WindowCreated};
-pub use system::create_windows;
+pub use converters::convert_system_cursor_icon;
+pub use state::{CursorSource, CustomCursorCache, CustomCursorCacheKey, PendingCursor};
 use system::{changed_windows, despawn_windows};
+pub use system::{create_monitors, create_windows};
+pub use winit::event_loop::EventLoopProxy;
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
+pub use winit::platform::web::CustomCursorExtWebSys;
+pub use winit::window::{CustomCursor as WinitCustomCursor, CustomCursorSource};
 pub use winit_config::*;
-pub use winit_event::*;
 pub use winit_windows::*;
 
 use crate::accessibility::{AccessKitAdapters, AccessKitPlugin, WinitActionRequestHandlers};
 use crate::state::winit_runner;
+use crate::winit_monitors::WinitMonitors;
 
 pub mod accessibility;
 mod converters;
 mod state;
 mod system;
 mod winit_config;
-pub mod winit_event;
+mod winit_monitors;
 mod winit_windows;
 
 /// [`AndroidApp`] provides an interface to query the application state as well as monitor events
@@ -60,7 +67,7 @@ pub struct WinitPlugin<T: Event = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
-    /// See [`EventLoopBuilder::build`] for more information on this.
+    /// See [`EventLoopBuilder::build`](winit::event_loop::EventLoopBuilder::build) for more information on this.
     ///
     /// # Supported platforms
     ///
@@ -111,8 +118,8 @@ impl<T: Event> Plugin for WinitPlugin<T> {
         }
 
         app.init_non_send_resource::<WinitWindows>()
+            .init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
-            .add_event::<WinitEvent>()
             .set_runner(winit_runner::<T>)
             .add_systems(
                 Last,
@@ -142,20 +149,22 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 #[derive(Debug, Default, Clone, Copy, Event)]
 pub struct WakeUp;
 
-/// The [`winit::event_loop::EventLoopProxy`] with the specific [`winit::event::Event::UserEvent`] used in the [`winit_runner`].
+/// A wrapper type around [`winit::event_loop::EventLoopProxy`] with the specific
+/// [`winit::event::Event::UserEvent`] used in the [`WinitPlugin`].
 ///
 /// The `EventLoopProxy` can be used to request a redraw from outside bevy.
 ///
-/// Use `NonSend<EventLoopProxy>` to receive this resource.
-pub type EventLoopProxy<T> = winit::event_loop::EventLoopProxy<T>;
+/// Use `Res<EventLoopProxy>` to receive this resource.
+#[derive(Resource, Deref)]
+pub struct EventLoopProxyWrapper<T: 'static>(EventLoopProxy<T>);
 
 trait AppSendEvent {
-    fn send(&mut self, event: impl Into<WinitEvent>);
+    fn send(&mut self, event: impl Into<WindowEvent>);
 }
 
-impl AppSendEvent for Vec<WinitEvent> {
-    fn send(&mut self, event: impl Into<WinitEvent>) {
-        self.push(Into::<WinitEvent>::into(event));
+impl AppSendEvent for Vec<WindowEvent> {
+    fn send(&mut self, event: impl Into<WindowEvent>) {
+        self.push(Into::<WindowEvent>::into(event));
     }
 }
 
@@ -177,4 +186,8 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     NonSendMut<'w, AccessKitAdapters>,
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
+    Res<'w, WinitMonitors>,
 );
+
+/// The parameters of the [`create_monitors`] system.
+pub type CreateMonitorParams<'w, 's> = (Commands<'w, 's>, ResMut<'w, WinitMonitors>);

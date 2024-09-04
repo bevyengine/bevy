@@ -5,7 +5,7 @@ use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
 use bevy_utils::detailed_trace;
 use std::{iter::Chain, slice::Iter};
 
-/// An iterator that yields any unread events from an [`EventReader`] or [`EventCursor`].
+/// An iterator that yields any unread events from an [`EventReader`](super::EventReader) or [`EventCursor`].
 #[derive(Debug)]
 pub struct EventIterator<'a, E: Event> {
     iter: EventIteratorWithId<'a, E>,
@@ -43,7 +43,7 @@ impl<'a, E: Event> ExactSizeIterator for EventIterator<'a, E> {
     }
 }
 
-/// An iterator that yields any unread events (and their IDs) from an [`EventReader`] or [`EventCursor`].
+/// An iterator that yields any unread events (and their IDs) from an [`EventReader`](super::EventReader) or [`EventCursor`].
 #[derive(Debug)]
 pub struct EventIteratorWithId<'a, E: Event> {
     reader: &'a mut EventCursor<E>,

@@ -3,7 +3,7 @@
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, ptr::NonNull};
+use std::{alloc::Layout, io::Write, mem::size_of, ptr::NonNull};
 
 use bevy::prelude::*;
 use bevy::{
@@ -50,7 +50,7 @@ fn main() {
     let mut component_names = HashMap::<String, ComponentId>::new();
     let mut component_info = HashMap::<ComponentId, ComponentInfo>::new();
 
-    println!("{}", PROMPT);
+    println!("{PROMPT}");
     loop {
         print!("\n> ");
         let _ = std::io::stdout().flush();
@@ -64,10 +64,10 @@ fn main() {
 
         let Some((first, rest)) = line.trim().split_once(|c: char| c.is_whitespace()) else {
             match &line.chars().next() {
-                Some('c') => println!("{}", COMPONENT_PROMPT),
-                Some('s') => println!("{}", ENTITY_PROMPT),
-                Some('q') => println!("{}", QUERY_PROMPT),
-                _ => println!("{}", PROMPT),
+                Some('c') => println!("{COMPONENT_PROMPT}"),
+                Some('s') => println!("{ENTITY_PROMPT}"),
+                Some('q') => println!("{QUERY_PROMPT}"),
+                _ => println!("{PROMPT}"),
             }
             continue;
         };
@@ -112,13 +112,13 @@ fn main() {
 
                     // Get the id for the component with the given name
                     let Some(&id) = component_names.get(name) else {
-                        println!("Component {} does not exist", name);
+                        println!("Component {name} does not exist");
                         return;
                     };
 
                     // Calculate the length for the array based on the layout created for this component id
                     let info = world.components().get_info(id).unwrap();
-                    let len = info.layout().size() / std::mem::size_of::<u64>();
+                    let len = info.layout().size() / size_of::<u64>();
                     let mut values: Vec<u64> = component
                         .take(len)
                         .filter_map(|value| value.parse::<u64>().ok())
@@ -155,7 +155,7 @@ fn main() {
                         .map(|id| {
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();
-                            let len = info.layout().size() / std::mem::size_of::<u64>();
+                            let len = info.layout().size() / size_of::<u64>();
 
                             // SAFETY:
                             // - All components are created with layout [u64]
@@ -168,7 +168,7 @@ fn main() {
                             };
 
                             // If we have write access, increment each value once
-                            if filtered_entity.access().has_write(id) {
+                            if filtered_entity.access().has_component_write(id) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
                                 });
@@ -245,7 +245,7 @@ fn parse_term<Q: QueryData>(
     };
 
     if !matched {
-        println!("Unable to find component: {}", str);
+        println!("Unable to find component: {str}");
     }
 }
 

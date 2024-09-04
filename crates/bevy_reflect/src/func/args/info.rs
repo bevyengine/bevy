@@ -1,12 +1,14 @@
 use alloc::borrow::Cow;
 
 use crate::func::args::{GetOwnership, Ownership};
-use crate::TypePath;
+use crate::type_info::impl_type_methods;
+use crate::{Type, TypePath};
 
-/// Type information for an [`Arg`] used in a [`DynamicFunction`].
+/// Type information for an [`Arg`] used in a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// [`Arg`]: crate::func::args::Arg
-/// [`DynamicFunction`]: super::function::DynamicFunction
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct ArgInfo {
     /// The index of the argument within its function.
@@ -15,10 +17,10 @@ pub struct ArgInfo {
     name: Option<Cow<'static, str>>,
     /// The ownership of the argument.
     ownership: Ownership,
-    /// The [type path] of the argument.
+    /// The [type] of the argument.
     ///
-    /// [type path]: TypePath::type_path
-    type_path: &'static str,
+    /// [type]: Type
+    ty: Type,
 }
 
 impl ArgInfo {
@@ -30,7 +32,7 @@ impl ArgInfo {
             index,
             name: None,
             ownership: T::ownership(),
-            type_path: T::type_path(),
+            ty: Type::of::<T>(),
         }
     }
 
@@ -54,9 +56,14 @@ impl ArgInfo {
     /// This is because the name needs to be manually set using [`Self::with_name`]
     /// since the name can't be inferred from the function type alone.
     ///
-    /// For [`DynamicFunctions`] created using [`IntoFunction`], the name will always be `None`.
+    /// For [`DynamicFunctions`] created using [`IntoFunction`]
+    /// and [`DynamicFunctionMuts`] created using [`IntoFunctionMut`],
+    /// the name will always be `None`.
     ///
     /// [`DynamicFunctions`]: crate::func::DynamicFunction
+    /// [`IntoFunction`]: crate::func::IntoFunction
+    /// [`DynamicFunctionMuts`]: crate::func::DynamicFunctionMut
+    /// [`IntoFunctionMut`]: crate::func::IntoFunctionMut
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
@@ -66,9 +73,7 @@ impl ArgInfo {
         self.ownership
     }
 
-    pub fn type_path(&self) -> &'static str {
-        self.type_path
-    }
+    impl_type_methods!(ty);
 
     /// Get an ID representing the argument.
     ///

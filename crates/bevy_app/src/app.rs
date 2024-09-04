@@ -18,7 +18,7 @@ use std::{
     process::{ExitCode, Termination},
 };
 use std::{
-    num::NonZeroU8,
+    num::NonZero,
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
 };
 use thiserror::Error;
@@ -96,6 +96,10 @@ impl Default for App {
 
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
+
+        #[cfg(feature = "reflect_functions")]
+        app.init_resource::<AppFunctionRegistry>();
+
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
             First,
@@ -318,7 +322,7 @@ impl App {
     }
 
     /// Initializes `T` event handling by inserting an event queue resource ([`Events::<T>`])
-    /// and scheduling an [`event_update_system`] in [`First`](crate::First).
+    /// and scheduling an [`event_update_system`] in [`First`].
     ///
     /// See [`Events`] for information on how to define events.
     ///
@@ -553,7 +557,7 @@ impl App {
         self
     }
 
-    /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
+    /// Registers the type `T` in the [`AppTypeRegistry`] resource,
     /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
     /// ```ignore (No serde "derive" feature)
     /// #[derive(Component, Serialize, Deserialize, Reflect)]
@@ -567,7 +571,7 @@ impl App {
         self
     }
 
-    /// Associates type data `D` with type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
+    /// Associates type data `D` with type `T` in the [`AppTypeRegistry`] resource.
     ///
     /// Most of the time [`register_type`](Self::register_type) can be used instead to register a
     /// type you derived [`Reflect`](bevy_reflect::Reflect) for. However, in cases where you want to
@@ -596,6 +600,156 @@ impl App {
         &mut self,
     ) -> &mut Self {
         self.main_mut().register_type_data::<T, D>();
+        self
+    }
+
+    /// Registers the given function into the [`AppFunctionRegistry`] resource.
+    ///
+    /// The given function will internally be stored as a [`DynamicFunction`]
+    /// and mapped according to its [name].
+    ///
+    /// Because the function must have a name,
+    /// anonymous functions (e.g. `|a: i32, b: i32| { a + b }`) and closures must instead
+    /// be registered using [`register_function_with_name`] or converted to a [`DynamicFunction`]
+    /// and named using [`DynamicFunction::with_name`].
+    /// Failure to do so will result in a panic.
+    ///
+    /// Only types that implement [`IntoFunction`] may be registered via this method.
+    ///
+    /// See [`FunctionRegistry::register`] for more information.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a function has already been registered with the given name
+    /// or if the function is missing a name (such as when it is an anonymous function).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// App::new().register_function(add);
+    /// ```
+    ///
+    /// Functions cannot be registered more than once.
+    ///
+    /// ```should_panic
+    /// use bevy_app::App;
+    ///
+    /// fn add(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// App::new()
+    ///     .register_function(add)
+    ///     // Panic! A function has already been registered with the name "my_function"
+    ///     .register_function(add);
+    /// ```
+    ///
+    /// Anonymous functions and closures should be registered using [`register_function_with_name`] or given a name using [`DynamicFunction::with_name`].
+    ///
+    /// ```should_panic
+    /// use bevy_app::App;
+    ///
+    /// // Panic! Anonymous functions cannot be registered using `register_function`
+    /// App::new().register_function(|a: i32, b: i32| a + b);
+    /// ```
+    ///
+    /// [`register_function_with_name`]: Self::register_function_with_name
+    /// [`DynamicFunction`]: bevy_reflect::func::DynamicFunction
+    /// [name]: bevy_reflect::func::FunctionInfo::name
+    /// [`DynamicFunction::with_name`]: bevy_reflect::func::DynamicFunction::with_name
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
+    /// [`FunctionRegistry::register`]: bevy_reflect::func::FunctionRegistry::register
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
+    {
+        self.main_mut().register_function(function);
+        self
+    }
+
+    /// Registers the given function or closure into the [`AppFunctionRegistry`] resource using the given name.
+    ///
+    /// To avoid conflicts, it's recommended to use a unique name for the function.
+    /// This can be achieved by "namespacing" the function with a unique identifier,
+    /// such as the name of your crate.
+    ///
+    /// For example, to register a function, `add`, from a crate, `my_crate`,
+    /// you could use the name, `"my_crate::add"`.
+    ///
+    /// Another approach could be to use the [type name] of the function,
+    /// however, it should be noted that anonymous functions do _not_ have unique type names.
+    ///
+    /// For named functions (e.g. `fn add(a: i32, b: i32) -> i32 { a + b }`) where a custom name is not needed,
+    /// it's recommended to use [`register_function`] instead as the generated name is guaranteed to be unique.
+    ///
+    /// Only types that implement [`IntoFunction`] may be registered via this method.
+    ///
+    /// See [`FunctionRegistry::register_with_name`] for more information.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a function has already been registered with the given name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bevy_app::App;
+    ///
+    /// fn mul(a: i32, b: i32) -> i32 {
+    ///     a * b
+    /// }
+    ///
+    /// let div = |a: i32, b: i32| a / b;
+    ///
+    /// App::new()
+    ///     // Registering an anonymous function with a unique name
+    ///     .register_function_with_name("my_crate::add", |a: i32, b: i32| {
+    ///         a + b
+    ///     })
+    ///     // Registering an existing function with its type name
+    ///     .register_function_with_name(std::any::type_name_of_val(&mul), mul)
+    ///     // Registering an existing function with a custom name
+    ///     .register_function_with_name("my_crate::mul", mul)
+    ///     // Be careful not to register anonymous functions with their type name.
+    ///     // This code works but registers the function with a non-unique name like `foo::bar::{{closure}}`
+    ///     .register_function_with_name(std::any::type_name_of_val(&div), div);
+    /// ```
+    ///
+    /// Names must be unique.
+    ///
+    /// ```should_panic
+    /// use bevy_app::App;
+    ///
+    /// fn one() {}
+    /// fn two() {}
+    ///
+    /// App::new()
+    ///     .register_function_with_name("my_function", one)
+    ///     // Panic! A function has already been registered with the name "my_function"
+    ///     .register_function_with_name("my_function", two);
+    /// ```
+    ///
+    /// [type name]: std::any::type_name
+    /// [`register_function`]: Self::register_function
+    /// [`IntoFunction`]: bevy_reflect::func::IntoFunction
+    /// [`FunctionRegistry::register_with_name`]: bevy_reflect::func::FunctionRegistry::register_with_name
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function_with_name<F, Marker>(
+        &mut self,
+        name: impl Into<std::borrow::Cow<'static, str>>,
+        function: F,
+    ) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
+    {
+        self.main_mut().register_function_with_name(name, function);
         self
     }
 
@@ -836,6 +990,36 @@ impl App {
     }
 
     /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_utils::default;
+    /// #
+    /// # let mut app = App::new();
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Party {
+    /// #   friends_allowed: bool,
+    /// # };
+    /// #
+    /// # #[derive(Event)]
+    /// # struct Invite;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Friend;
+    /// #
+    /// // An observer system can be any system where the first parameter is a trigger
+    /// app.observe(|trigger: Trigger<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    ///     if trigger.event().friends_allowed {
+    ///         for friend in friends.iter() {
+    ///             commands.trigger_targets(Invite, friend);
+    ///         }
+    ///     }
+    /// });
+    /// ```
     pub fn observe<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
@@ -877,14 +1061,14 @@ pub enum AppExit {
     Success,
     /// The [`App`] experienced an unhandleable error.
     /// Holds the exit code we expect our app to return.
-    Error(NonZeroU8),
+    Error(NonZero<u8>),
 }
 
 impl AppExit {
     /// Creates a [`AppExit::Error`] with a error code of 1.
     #[must_use]
     pub const fn error() -> Self {
-        Self::Error(NonZeroU8::MIN)
+        Self::Error(NonZero::<u8>::MIN)
     }
 
     /// Returns `true` if `self` is a [`AppExit::Success`].
@@ -905,7 +1089,7 @@ impl AppExit {
     /// [`AppExit::Error`] is constructed.
     #[must_use]
     pub const fn from_code(code: u8) -> Self {
-        match NonZeroU8::new(code) {
+        match NonZero::<u8>::new(code) {
             Some(code) => Self::Error(code),
             None => Self::Success,
         }
@@ -920,7 +1104,7 @@ impl From<u8> for AppExit {
 }
 
 impl Termination for AppExit {
-    fn report(self) -> std::process::ExitCode {
+    fn report(self) -> ExitCode {
         match self {
             AppExit::Success => ExitCode::SUCCESS,
             // We leave logging an error to our users
@@ -931,7 +1115,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use std::{iter, marker::PhantomData, mem, sync::Mutex};
+    use std::{iter, marker::PhantomData, mem::size_of, sync::Mutex};
 
     use bevy_ecs::{
         change_detection::{DetectChanges, ResMut},
@@ -1257,7 +1441,7 @@ mod tests {
     fn app_exit_size() {
         // There wont be many of them so the size isn't a issue but
         // it's nice they're so small let's keep it that way.
-        assert_eq!(mem::size_of::<AppExit>(), mem::size_of::<u8>());
+        assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }
 
     #[test]

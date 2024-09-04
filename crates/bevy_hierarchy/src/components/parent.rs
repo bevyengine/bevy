@@ -3,6 +3,7 @@ use bevy_ecs::reflect::{ReflectComponent, ReflectMapEntities};
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMapper, MapEntities},
+    traversal::Traversal,
     world::{FromWorld, World},
 };
 use std::ops::Deref;
@@ -67,5 +68,16 @@ impl Deref for Parent {
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+/// This provides generalized hierarchy traversal for use in [event propagation].
+///
+/// `Parent::traverse` will never form loops in properly-constructed hierarchies.
+///
+/// [event propagation]: bevy_ecs::observer::Trigger::propagate
+impl Traversal for Parent {
+    fn traverse(&self) -> Option<Entity> {
+        Some(self.0)
     }
 }

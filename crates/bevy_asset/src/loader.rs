@@ -6,8 +6,9 @@ use crate::{
     Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
     UntypedHandle,
 };
+use atomicow::CowArc;
 use bevy_ecs::world::World;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap, HashSet};
+use bevy_utils::{BoxedFuture, ConditionalSendFuture, HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
@@ -21,7 +22,7 @@ use thiserror::Error;
 /// should be loaded.
 pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
-    type Asset: crate::Asset;
+    type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
@@ -287,7 +288,7 @@ impl<A: Asset> AssetContainer for A {
     }
 }
 
-/// An error that occurs when attempting to call [`LoadContext::load_direct`]
+/// An error that occurs when attempting to call [`DirectNestedLoader::load`](crate::DirectNestedLoader::load)
 #[derive(Error, Debug)]
 #[error("Failed to load dependency {dependency:?} {error}")]
 pub struct LoadDirectError {

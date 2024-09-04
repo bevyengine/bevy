@@ -3,15 +3,15 @@
 use std::io::{self, Write};
 use std::ops::{Index, IndexMut};
 
-use bevy_asset::io::Reader;
-use bevy_asset::{Asset, AssetId, AssetLoader, AssetPath, Handle, LoadContext};
+use bevy_asset::{io::Reader, Asset, AssetId, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::{Reflect, ReflectSerialize};
+use bevy_utils::HashMap;
 use petgraph::graph::{DiGraph, NodeIndex};
 use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::AnimationClip;
+use crate::{AnimationClip, AnimationTargetId};
 
 /// A graph structure that describes how animation clips are to be blended
 /// together.
@@ -57,6 +57,28 @@ use crate::AnimationClip;
 /// their weights will be halved and finally blended with the Idle animation.
 /// Thus the weight of Run and Walk are effectively half of the weight of Idle.
 ///
+/// Nodes can optionally have a *mask*, a bitfield that restricts the set of
+/// animation targets that the node and its descendants affect. Each bit in the
+/// mask corresponds to a *mask group*, which is a set of animation targets
+/// (bones). An animation target can belong to any number of mask groups within
+/// the context of an animation graph.
+///
+/// When the appropriate bit is set in a node's mask, neither the node nor its
+/// descendants will animate any animation targets belonging to that mask group.
+/// That is, setting a mask bit to 1 *disables* the animation targets in that
+/// group. If an animation target belongs to multiple mask groups, masking any
+/// one of the mask groups that it belongs to will mask that animation target.
+/// (Thus an animation target will only be animated if *all* of its mask groups
+/// are unmasked.)
+///
+/// A common use of masks is to allow characters to hold objects. For this, the
+/// typical workflow is to assign each character's hand to a mask group. Then,
+/// when the character picks up an object, the application masks out the hand
+/// that the object is held in for the character's animation set, then positions
+/// the hand's digits as necessary to grasp the object. The character's
+/// animations will continue to play but will not affect the hand, which will
+/// continue to be depicted as holding the object.
+///
 /// Animation graphs are assets and can be serialized to and loaded from [RON]
 /// files. Canonically, such files have an `.animgraph.ron` extension.
 ///
@@ -72,8 +94,20 @@ use crate::AnimationClip;
 pub struct AnimationGraph {
     /// The `petgraph` data structure that defines the animation graph.
     pub graph: AnimationDiGraph,
+
     /// The index of the root node in the animation graph.
     pub root: NodeIndex,
+
+    /// The mask groups that each animation target (bone) belongs to.
+    ///
+    /// Each value in this map is a bitfield, in which 0 in bit position N
+    /// indicates that the animation target doesn't belong to mask group N, and
+    /// a 1 in position N indicates that the animation target does belong to
+    /// mask group N.
+    ///
+    /// Animation targets not in this collection are treated as though they
+    /// don't belong to any mask groups.
+    pub mask_groups: HashMap<AnimationTargetId, AnimationMask>,
 }
 
 /// A type alias for the `petgraph` data structure that defines the animation
@@ -98,6 +132,14 @@ pub struct AnimationGraphNode {
     /// If the clip is present, this node is an *animation clip node*.
     /// Otherwise, this node is a *blend node*.
     pub clip: Option<Handle<AnimationClip>>,
+
+    /// A bitfield specifying the mask groups that this node and its descendants
+    /// will not affect.
+    ///
+    /// A 0 in bit N indicates that this node and its descendants *can* animate
+    /// animation targets in mask group N, while a 1 in bit N indicates that
+    /// this node and its descendants *cannot* animate mask group N.
+    pub mask: AnimationMask,
 
     /// The weight of this node.
     ///
@@ -145,6 +187,8 @@ pub struct SerializedAnimationGraph {
     pub graph: DiGraph<SerializedAnimationGraphNode, (), u32>,
     /// Corresponds to the `root` field on [`AnimationGraph`].
     pub root: NodeIndex,
+    /// Corresponds to the `mask_groups` field on [`AnimationGraph`].
+    pub mask_groups: HashMap<AnimationTargetId, AnimationMask>,
 }
 
 /// A version of [`AnimationGraphNode`] suitable for serializing as an asset.
@@ -154,6 +198,8 @@ pub struct SerializedAnimationGraph {
 pub struct SerializedAnimationGraphNode {
     /// Corresponds to the `clip` field on [`AnimationGraphNode`].
     pub clip: Option<SerializedAnimationClip>,
+    /// Corresponds to the `mask` field on [`AnimationGraphNode`].
+    pub mask: AnimationMask,
     /// Corresponds to the `weight` field on [`AnimationGraphNode`].
     pub weight: f32,
 }
@@ -173,12 +219,24 @@ pub enum SerializedAnimationClip {
     AssetId(AssetId<AnimationClip>),
 }
 
+/// The type of an animation mask bitfield.
+///
+/// Bit N corresponds to mask group N.
+///
+/// Because this is a 64-bit value, there is currently a limitation of 64 mask
+/// groups per animation graph.
+pub type AnimationMask = u64;
+
 impl AnimationGraph {
     /// Creates a new animation graph with a root node and no other nodes.
     pub fn new() -> Self {
         let mut graph = DiGraph::default();
         let root = graph.add_node(AnimationGraphNode::default());
-        Self { graph, root }
+        Self {
+            graph,
+            root,
+            mask_groups: HashMap::new(),
+        }
     }
 
     /// A convenience function for creating an [`AnimationGraph`] from a single
@@ -192,10 +250,28 @@ impl AnimationGraph {
         (graph, node_index)
     }
 
+    /// A convenience method to create an [`AnimationGraph`]s with an iterator
+    /// of clips.
+    ///
+    /// All of the animation clips will be direct children of the root with
+    /// weight 1.0.
+    ///
+    /// Returns the the graph and indices of the new nodes.
+    pub fn from_clips<'a, I>(clips: I) -> (Self, Vec<AnimationNodeIndex>)
+    where
+        I: IntoIterator<Item = Handle<AnimationClip>>,
+        <I as IntoIterator>::IntoIter: 'a,
+    {
+        let mut graph = Self::new();
+        let indices = graph.add_clips(clips, 1.0, graph.root).collect();
+        (graph, indices)
+    }
+
     /// Adds an [`AnimationClip`] to the animation graph with the given weight
     /// and returns its index.
     ///
-    /// The animation clip will be the child of the given parent.
+    /// The animation clip will be the child of the given parent. The resulting
+    /// node will have no mask.
     pub fn add_clip(
         &mut self,
         clip: Handle<AnimationClip>,
@@ -204,6 +280,27 @@ impl AnimationGraph {
     ) -> AnimationNodeIndex {
         let node_index = self.graph.add_node(AnimationGraphNode {
             clip: Some(clip),
+            mask: 0,
+            weight,
+        });
+        self.graph.add_edge(parent, node_index, ());
+        node_index
+    }
+
+    /// Adds an [`AnimationClip`] to the animation graph with the given weight
+    /// and mask, and returns its index.
+    ///
+    /// The animation clip will be the child of the given parent.
+    pub fn add_clip_with_mask(
+        &mut self,
+        clip: Handle<AnimationClip>,
+        mask: AnimationMask,
+        weight: f32,
+        parent: AnimationNodeIndex,
+    ) -> AnimationNodeIndex {
+        let node_index = self.graph.add_node(AnimationGraphNode {
+            clip: Some(clip),
+            mask,
             weight,
         });
         self.graph.add_edge(parent, node_index, ());
@@ -225,7 +322,7 @@ impl AnimationGraph {
     ) -> impl Iterator<Item = AnimationNodeIndex> + 'a
     where
         I: IntoIterator<Item = Handle<AnimationClip>>,
-        <I as std::iter::IntoIterator>::IntoIter: 'a,
+        <I as IntoIterator>::IntoIter: 'a,
     {
         clips
             .into_iter()
@@ -237,11 +334,37 @@ impl AnimationGraph {
     ///
     /// The blend node will be placed under the supplied `parent` node. During
     /// animation evaluation, the descendants of this blend node will have their
-    /// weights multiplied by the weight of the blend.
+    /// weights multiplied by the weight of the blend. The blend node will have
+    /// no mask.
     pub fn add_blend(&mut self, weight: f32, parent: AnimationNodeIndex) -> AnimationNodeIndex {
-        let node_index = self
-            .graph
-            .add_node(AnimationGraphNode { clip: None, weight });
+        let node_index = self.graph.add_node(AnimationGraphNode {
+            clip: None,
+            mask: 0,
+            weight,
+        });
+        self.graph.add_edge(parent, node_index, ());
+        node_index
+    }
+
+    /// Adds a blend node to the animation graph with the given weight and
+    /// returns its index.
+    ///
+    /// The blend node will be placed under the supplied `parent` node. During
+    /// animation evaluation, the descendants of this blend node will have their
+    /// weights multiplied by the weight of the blend. Neither this node nor its
+    /// descendants will affect animation targets that belong to mask groups not
+    /// in the given `mask`.
+    pub fn add_blend_with_mask(
+        &mut self,
+        mask: AnimationMask,
+        weight: f32,
+        parent: AnimationNodeIndex,
+    ) -> AnimationNodeIndex {
+        let node_index = self.graph.add_node(AnimationGraphNode {
+            clip: None,
+            mask,
+            weight,
+        });
         self.graph.add_edge(parent, node_index, ());
         node_index
     }
@@ -297,6 +420,55 @@ impl AnimationGraph {
         let mut ron_serializer = ron::ser::Serializer::new(writer, None)?;
         Ok(self.serialize(&mut ron_serializer)?)
     }
+
+    /// Adds an animation target (bone) to the mask group with the given ID.
+    ///
+    /// Calling this method multiple times with the same animation target but
+    /// different mask groups will result in that target being added to all of
+    /// the specified groups.
+    pub fn add_target_to_mask_group(&mut self, target: AnimationTargetId, mask_group: u32) {
+        *self.mask_groups.entry(target).or_default() |= 1 << mask_group;
+    }
+}
+
+impl AnimationGraphNode {
+    /// Masks out the mask groups specified by the given `mask` bitfield.
+    ///
+    /// A 1 in bit position N causes this function to mask out mask group N, and
+    /// thus neither this node nor its descendants will animate any animation
+    /// targets that belong to group N.
+    pub fn add_mask(&mut self, mask: AnimationMask) -> &mut Self {
+        self.mask |= mask;
+        self
+    }
+
+    /// Unmasks the mask groups specified by the given `mask` bitfield.
+    ///
+    /// A 1 in bit position N causes this function to unmask mask group N, and
+    /// thus this node and its descendants will be allowed to animate animation
+    /// targets that belong to group N, unless another mask masks those targets
+    /// out.
+    pub fn remove_mask(&mut self, mask: AnimationMask) -> &mut Self {
+        self.mask &= !mask;
+        self
+    }
+
+    /// Masks out the single mask group specified by `group`.
+    ///
+    /// After calling this function, neither this node nor its descendants will
+    /// animate any animation targets that belong to the given `group`.
+    pub fn add_mask_group(&mut self, group: u32) -> &mut Self {
+        self.add_mask(1 << group)
+    }
+
+    /// Unmasks the single mask group specified by `group`.
+    ///
+    /// After calling this function, this node and its descendants will be
+    /// allowed to animate animation targets that belong to the given `group`,
+    /// unless another mask masks those targets out.
+    pub fn remove_mask_group(&mut self, group: u32) -> &mut Self {
+        self.remove_mask(1 << group)
+    }
 }
 
 impl Index<AnimationNodeIndex> for AnimationGraph {
@@ -317,6 +489,7 @@ impl Default for AnimationGraphNode {
     fn default() -> Self {
         Self {
             clip: None,
+            mask: 0,
             weight: 1.0,
         }
     }
@@ -361,11 +534,13 @@ impl AssetLoader for AnimationGraphAssetLoader {
                             load_context.load(asset_path)
                         }
                     }),
+                    mask: serialized_node.mask,
                     weight: serialized_node.weight,
                 },
                 |_, _| (),
             ),
             root: serialized_animation_graph.root,
+            mask_groups: serialized_animation_graph.mask_groups,
         })
     }
 
@@ -383,6 +558,7 @@ impl From<AnimationGraph> for SerializedAnimationGraph {
             graph: animation_graph.graph.map(
                 |_, node| SerializedAnimationGraphNode {
                     weight: node.weight,
+                    mask: node.mask,
                     clip: node.clip.as_ref().map(|clip| match clip.path() {
                         Some(path) => SerializedAnimationClip::AssetPath(path.clone()),
                         None => SerializedAnimationClip::AssetId(clip.id()),
@@ -391,6 +567,7 @@ impl From<AnimationGraph> for SerializedAnimationGraph {
                 |_, _| (),
             ),
             root: animation_graph.root,
+            mask_groups: animation_graph.mask_groups,
         }
     }
 }

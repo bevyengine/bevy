@@ -27,6 +27,10 @@
 //! - The [`in_state<S>`](crate::condition::in_state) and [`state_changed<S>`](crate::condition::state_changed) run conditions - which are used
 //!   to determine whether a system should run based on the current state.
 
+// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
+#![allow(internal_features)]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(rustdoc_internals))]
+
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods
 pub mod app;
@@ -35,8 +39,13 @@ pub mod condition;
 /// Provides definitions for the basic traits required by the state system
 pub mod state;
 
-/// Provides [`StateScoped`] and [`clear_state_scoped_entities`] for managing lifetime of entities.
+/// Provides [`StateScoped`](crate::state_scoped::StateScoped) and
+/// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
 pub mod state_scoped;
+
+#[cfg(feature = "bevy_reflect")]
+/// Provides definitions for the basic traits required by the state system
+pub mod reflect;
 
 /// Most commonly used re-exported types.
 pub mod prelude {
@@ -45,6 +54,9 @@ pub mod prelude {
     pub use crate::app::AppExtStates;
     #[doc(hidden)]
     pub use crate::condition::*;
+    #[cfg(feature = "bevy_reflect")]
+    #[doc(hidden)]
+    pub use crate::reflect::{ReflectFreelyMutableState, ReflectState};
     #[doc(hidden)]
     pub use crate::state::{
         last_transition, ComputedStates, EnterSchedules, ExitSchedules, NextState, OnEnter, OnExit,

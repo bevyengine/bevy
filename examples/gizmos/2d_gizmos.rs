@@ -1,8 +1,8 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
-use std::f32::consts::{PI, TAU};
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*};
 
 fn main() {
     App::new()
@@ -49,8 +49,7 @@ fn draw_example_collection(
 
     gizmos
         .grid_2d(
-            Vec2::ZERO,
-            0.0,
+            Isometry2d::IDENTITY,
             UVec2::new(16, 9),
             Vec2::new(80., 80.),
             // Dark gray
@@ -66,28 +65,50 @@ fn draw_example_collection(
         (Vec2::Y * 300., BLUE),
     ]);
 
-    gizmos.rect_2d(Vec2::ZERO, 0., Vec2::splat(650.), BLACK);
+    gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::splat(650.), BLACK);
 
-    gizmos.cross_2d(Vec2::new(-160., 120.), 0., 12., FUCHSIA);
+    gizmos.cross_2d(
+        Isometry2d::from_translation(Vec2::new(-160., 120.)),
+        12.,
+        FUCHSIA,
+    );
+
+    let domain = Interval::EVERYWHERE;
+    let curve = function_curve(domain, |t| Vec2::new(t, (t / 25.0).sin() * 100.0));
+    let resolution = ((time.elapsed_seconds().sin() + 1.0) * 50.0) as usize;
+    let times_and_colors = (0..=resolution)
+        .map(|n| n as f32 / resolution as f32)
+        .map(|t| (t - 0.5) * 600.0)
+        .map(|t| (t, TEAL.mix(&HOT_PINK, (t + 300.0) / 600.0)));
+    gizmos.curve_gradient_2d(curve, times_and_colors);
 
     my_gizmos
-        .rounded_rect_2d(Vec2::ZERO, 0., Vec2::splat(630.), BLACK)
+        .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
         .corner_radius((time.elapsed_seconds() / 3.).cos() * 100.);
 
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.
-    my_gizmos.circle_2d(Vec2::ZERO, 300., NAVY).resolution(64);
+    my_gizmos
+        .circle_2d(Isometry2d::from_translation(Vec2::ZERO), 300., NAVY)
+        .resolution(64);
 
     my_gizmos.ellipse_2d(
-        Vec2::ZERO,
-        time.elapsed_seconds() % TAU,
+        Isometry2d::new(Vec2::ZERO, Rot2::radians(time.elapsed_seconds() % TAU)),
         Vec2::new(100., 200.),
         YELLOW_GREEN,
     );
 
     // Arcs default resolution is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
-    my_gizmos.arc_2d(Vec2::ZERO, sin / 10., PI / 2., 310., ORANGE_RED);
+    my_gizmos.arc_2d(
+        Isometry2d::from_rotation(Rot2::radians(sin / 10.)),
+        FRAC_PI_2,
+        310.,
+        ORANGE_RED,
+    );
+    my_gizmos.arc_2d(Isometry2d::IDENTITY, FRAC_PI_2, 80.0, ORANGE_RED);
+    my_gizmos.long_arc_2d_between(Vec2::ZERO, Vec2::X * 20.0, Vec2::Y * 20.0, ORANGE_RED);
+    my_gizmos.short_arc_2d_between(Vec2::ZERO, Vec2::X * 40.0, Vec2::Y * 40.0, ORANGE_RED);
 
     gizmos.arrow_2d(
         Vec2::ZERO,

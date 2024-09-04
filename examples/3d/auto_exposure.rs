@@ -53,7 +53,8 @@ fn setup(
         },
         Skybox {
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
-            brightness: bevy::pbr::light_consts::lux::DIRECT_SUNLIGHT,
+            brightness: light_consts::lux::DIRECT_SUNLIGHT,
+            ..default()
         },
     ));
 
@@ -149,8 +150,8 @@ fn setup(
     commands.spawn((
         TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
-            top: Val::Px(10.0),
-            right: Val::Px(10.0),
+            top: Val::Px(12.0),
+            right: Val::Px(12.0),
             ..default()
         }),
         ExampleDisplay,

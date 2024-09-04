@@ -1,13 +1,13 @@
 use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
+use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
 use bevy_ecs::{entity::EntityHashMap, system::lifetimeless::Read};
 use bevy_math::{Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    mesh::GpuMesh,
+    mesh::RenderMesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -15,7 +15,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility, VisibleEntities, WithMesh},
+    view::{ExtractedView, RenderLayers, ViewVisibility},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -186,7 +186,7 @@ pub fn extract_lights(
     spot_lights: Extract<
         Query<(
             &SpotLight,
-            &VisibleEntities,
+            &VisibleMeshEntities,
             &GlobalTransform,
             &ViewVisibility,
             &Frustum,
@@ -515,12 +515,15 @@ pub fn prepare_lights(
     render_queue: Res<RenderQueue>,
     mut global_light_meta: ResMut<GlobalClusterableObjectMeta>,
     mut light_meta: ResMut<LightMeta>,
-    views: Query<(
-        Entity,
-        &ExtractedView,
-        &ExtractedClusterConfig,
-        Option<&RenderLayers>,
-    )>,
+    views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            Option<&RenderLayers>,
+        ),
+        With<Camera3d>,
+    >,
     ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
@@ -634,7 +637,7 @@ pub fn prepare_lights(
     //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1, _), (entity_2, light_2, _)| {
-        crate::cluster::clusterable_object_order(
+        clusterable_object_order(
             (
                 entity_1,
                 &light_1.shadows_enabled,
@@ -1162,7 +1165,7 @@ pub fn prepare_lights(
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    render_meshes: Res<RenderAssets<GpuMesh>>,
+    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
@@ -1171,17 +1174,17 @@ pub fn queue_shadows<M: Material>(
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities)>,
-    mut view_light_entities: Query<&LightEntity>,
+    view_light_entities: Query<&LightEntity>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&CascadesVisibleEntities, With<ExtractedDirectionalLight>>,
-    spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
+    spot_light_entities: Query<&VisibleMeshEntities, With<ExtractedPointLight>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (entity, view_lights) in &view_lights {
         let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
-            let Ok(light_entity) = view_light_entities.get_mut(view_light_entity) else {
+            let Ok(light_entity) = view_light_entities.get(view_light_entity) else {
                 continue;
             };
             let Some(shadow_phase) = shadow_render_phases.get_mut(&view_light_entity) else {
@@ -1218,7 +1221,7 @@ pub fn queue_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
-            for entity in visible_entities.iter::<WithMesh>().copied() {
+            for entity in visible_entities.iter().copied() {
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity)
                 else {
                     continue;
@@ -1445,7 +1448,11 @@ impl Node for ShadowPassNode {
                     let pass_span =
                         diagnostics.pass_span(&mut render_pass, view_light.pass_name.clone());
 
-                    shadow_phase.render(&mut render_pass, world, view_light_entity);
+                    if let Err(err) =
+                        shadow_phase.render(&mut render_pass, world, view_light_entity)
+                    {
+                        error!("Error encountered while rendering the shadow phase {err:?}");
+                    }
 
                     pass_span.end(&mut render_pass);
                     drop(render_pass);

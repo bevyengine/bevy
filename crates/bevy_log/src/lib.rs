@@ -5,7 +5,7 @@
 )]
 
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
-//! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
+//! apps, and automatically configures platform specific log handlers (i.e. Wasm or Android).
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
 //! and behave identically to it.
@@ -75,7 +75,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///     logging to `stdout`.
 /// * Using [`android_log-sys`](https://crates.io/crates/android_log-sys) on Android,
 ///     logging to Android logs.
-/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in WASM, logging
+/// * Using [`tracing-wasm`](https://crates.io/crates/tracing-wasm) in Wasm, logging
 ///     to the browser console.
 ///
 /// You can configure this plugin.
@@ -133,6 +133,20 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// This plugin should not be added multiple times in the same process. This plugin
 /// sets up global logging configuration for **all** Apps in a given process, and
 /// rerunning the same initialization multiple times will lead to a panic.
+///
+/// # Performance
+///
+/// Filters applied through this plugin are computed at _runtime_, which will
+/// have a non-zero impact on performance.
+/// To achieve maximum performance, consider using
+/// [_compile time_ filters](https://docs.rs/log/#compile-time-filters)
+/// provided by the [`log`](https://crates.io/crates/log) crate.
+///
+/// ```toml
+/// # cargo.toml
+/// [dependencies]
+/// log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
+/// ```
 pub struct LogPlugin {
     /// Filters logs using the [`EnvFilter`] format
     pub filter: String,
@@ -147,8 +161,8 @@ pub struct LogPlugin {
     ///
     /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
     ///
-    /// Access to [`App`] is also provided to allow for communication between the [`Subscriber`]
-    /// and the [`App`].
+    /// Access to [`App`] is also provided to allow for communication between the
+    /// [`Subscriber`](bevy_utils::tracing::Subscriber) and the [`App`].
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
@@ -157,10 +171,13 @@ pub struct LogPlugin {
 /// A boxed [`Layer`] that can be used with [`LogPlugin`].
 pub type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
 
+/// The default [`LogPlugin`] [`EnvFilter`].
+pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+
 impl Default for LogPlugin {
     fn default() -> Self {
         Self {
-            filter: "wgpu=error,naga=warn".to_string(),
+            filter: DEFAULT_FILTER.to_string(),
             level: Level::INFO,
             custom_layer: |_| None,
         }

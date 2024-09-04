@@ -21,7 +21,7 @@ use crate::{GlyphAtlasLocation, TextError};
 /// providing a trade-off between visual quality and performance.
 ///
 /// A [`CacheKey`](cosmic_text::CacheKey) encodes all of the information of a subpixel-offset glyph and is used to
-/// find that glyphs raster in a [`TextureAtlas`] through its corresponding [`GlyphAtlasLocation`].
+/// find that glyphs raster in a [`TextureAtlas`](bevy_sprite::TextureAtlas) through its corresponding [`GlyphAtlasLocation`].
 pub struct FontAtlas {
     /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
