@@ -68,6 +68,9 @@ impl Plugin for LineGizmoPlugin {
         app.init_asset::<LineGizmo>()
             .init_resource::<LineGizmoHandles>();
 
+        // These handles are safe to mutate in any order
+        app.allow_ambiguous_resource::<LineGizmoHandles>();
+
         #[cfg(feature = "bevy_render")]
         app.add_plugins(UniformComponentPlugin::<LineGizmoUniform>::default())
             .add_plugins(RenderAssetPlugin::<GpuLineGizmo>::default());

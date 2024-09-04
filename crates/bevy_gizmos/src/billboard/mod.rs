@@ -62,6 +62,9 @@ impl Plugin for BillboardGizmoPlugin {
         app.init_asset::<BillboardGizmo>()
             .init_resource::<BillboardGizmoHandles>();
 
+        // These handles are safe to mutate in any order
+        app.allow_ambiguous_resource::<BillboardGizmoHandles>();
+
         #[cfg(feature = "bevy_render")]
         app.add_plugins(UniformComponentPlugin::<BillboardGizmoUniform>::default())
             .add_plugins(RenderAssetPlugin::<GpuBillboardGizmo>::default());

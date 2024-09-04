@@ -151,8 +151,9 @@ impl AppGizmoBuilder for App {
         self.init_billboard_gizmo_group::<Config>();
         self.init_line_gizmo_group::<Config>();
 
-        // These handles are safe to mutate in any order
-        self.allow_ambiguous_resource::<LineGizmoHandles>();
+        self.allow_ambiguous_resource::<GizmoStorage<Config, ()>>();
+        self.allow_ambiguous_resource::<GizmoStorage<Config, Fixed>>();
+        self.allow_ambiguous_resource::<GizmoStorage<Config, Swap<Fixed>>>();
 
         self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()
