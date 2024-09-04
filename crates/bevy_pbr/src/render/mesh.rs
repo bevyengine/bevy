@@ -376,7 +376,7 @@ impl MeshUniform {
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
             first_vertex_index,
-            render_layers_bits: render_layers.unwrap_or_default().bits_u16_lossy() as u32,
+            render_layers_bits: render_layers.unwrap_or_default().bits_compact_lossy() as u32,
             pad_a: 0,
             pad_b: 0,
         }
@@ -791,7 +791,7 @@ impl RenderMeshInstanceGpuBuilder {
                 .render_layers
                 .as_ref()
                 .unwrap_or_default()
-                .bits_u16_lossy() as u32,
+                .bits_compact_lossy() as u32,
             pad_a: 0,
             pad_b: 0,
         });

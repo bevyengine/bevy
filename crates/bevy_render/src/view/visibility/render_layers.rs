@@ -191,7 +191,7 @@ impl RenderLayers {
     /// lower 15 bits, while the last bit is used as a special flag to indicate
     /// the presence of any other higher layer. This is so that bitwise operations
     /// can produce false positives but not false negatives for higher layers
-    pub fn bits_u16_lossy(&self) -> u16 {
+    pub fn bits_compact_lossy(&self) -> u16 {
         let has_higher_bits_set =
             (self.0[0] & (!0b0111_1111_1111_1111) != 0) || self.0[1..].iter().any(|&x| x != 0);
         if has_higher_bits_set {
@@ -430,7 +430,7 @@ mod rendering_mask_tests {
     #[test]
     fn mesh_light_interaction_max() {
         let layers = RenderLayers::default();
-        let bits = layers.bits_u16_lossy();
+        let bits = layers.bits_compact_lossy();
 
         assert_eq!(
             RenderLayers::MESH_LIGHT_INTERACTION_MAX + 1, // Extra bit for all higher layers
