@@ -1,4 +1,4 @@
-//! This example illustrates how to how to flip and tile images with 9 Slicing in the UI
+//! This example illustrates how to how to flip and tile images with 9-slicing in the UI.
 
 use bevy::{prelude::*, winit::WinitSettings};
 use bevy_render::texture::{ImageLoaderSettings, ImageSampler};
