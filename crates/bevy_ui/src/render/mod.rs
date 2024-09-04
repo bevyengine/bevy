@@ -465,14 +465,16 @@ pub fn extract_uinode_borders(
         uinode,
         global_transform,
         view_visibility,
-        clip,
-        camera,
-        parent,
+        maybe_clip,
+        maybe_camera,
+        maybe_parent,
         style,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = maybe_camera
+            .map(TargetCamera::entity)
+            .or(default_ui_camera.get())
         else {
             continue;
         };
@@ -496,7 +498,7 @@ pub fn extract_uinode_borders(
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = parent
+        let parent_width = maybe_parent
             .and_then(|parent| node_query.get(parent.get()).ok())
             .map(|parent_node| parent_node.size().x)
             .unwrap_or(ui_logical_viewport_size.x);
@@ -536,7 +538,7 @@ pub fn extract_uinode_borders(
                         },
                         image,
                         atlas_scaling: None,
-                        clip: clip.map(|clip| clip.clip),
+                        clip: maybe_clip.map(|clip| clip.clip),
                         flip_x: false,
                         flip_y: false,
                         camera_entity,
@@ -570,7 +572,7 @@ pub fn extract_uinode_borders(
                     },
                     image,
                     atlas_scaling: None,
-                    clip: clip.map(|clip| clip.clip),
+                    clip: maybe_clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
                     camera_entity,
