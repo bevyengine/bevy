@@ -1100,7 +1100,7 @@ mod tests {
         let start = Vec2::ZERO;
         let end = Vec2::new(1.0, 2.0);
 
-        let curve = EasingCurve::new(start, end, quadratic_ease_in()).unwrap();
+        let curve = EasingCurve::new(start, end, EasingCurve::quadratic_ease_in()).unwrap();
         [
             (0.0, start),
             (0.25, Vec2::new(0.0625, 0.125)),
@@ -1123,7 +1123,8 @@ mod tests {
         let curve = EasingCurve::new(
             start,
             end,
-            quadratic_ease_in().reparametrize(Interval::new(0.0, 2.0).unwrap(), |t| t / 2.0),
+            EasingCurve::quadratic_ease_in()
+                .reparametrize(Interval::new(0.0, 2.0).unwrap(), |t| t / 2.0),
         )
         .unwrap();
 

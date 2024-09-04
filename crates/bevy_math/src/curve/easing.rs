@@ -1,8 +1,6 @@
 //! Module containing different [`Easing`] curves to control the transition between two values and
 //! the [`EasingCurve`] struct to make use of them.
 
-use std::marker::PhantomData;
-
 use crate::{
     ops::{self, FloatPow},
     prelude::CubicSegment,
@@ -11,15 +9,19 @@ use crate::{
 
 use super::{Curve, FunctionCurve, Interval};
 
-/// A trait for [`Curves`] that maps the [unit interval]. These kinds of curves are used to create
-/// new curves which create a transition between two values. Easing curves are most commonly known
-/// from [CSS animations] but are also widely used in other fields.
+/// A trait for [`Curves`] that map the [unit interval] to some other values. These kinds of curves
+/// are used to create a transition between two values. Easing curves are most commonly known from
+/// [CSS animations] but are also widely used in other fields.
 ///
 /// [unit interval]: `Interval::UNIT`
 /// [`Curves`]: `Curve`
 /// [CSS animations]: https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function
-pub trait Easing: Curve<f32> {}
-impl<C: Curve<f32>> Easing for C {}
+pub trait Easing<T>: Curve<T> {}
+impl<T: VectorSpace, C: Curve<f32>> Easing<T> for EasingCurve<T, C> {}
+impl<T: VectorSpace> Easing<T> for LinearCurve<T> {}
+impl Easing<f32> for CubicBezierCurve {}
+impl Easing<f32> for StepCurve {}
+impl Easing<f32> for ElasticCurve {}
 
 /// A [`Curve`] that is defined by a `start` and an `end` point, together with an [`EasingCurve`]
 /// to interpolate between the values over the [unit interval].
@@ -31,7 +33,7 @@ impl<C: Curve<f32>> Easing for C {}
 pub struct EasingCurve<T, E>
 where
     T: VectorSpace,
-    E: Easing,
+    E: Curve<f32>,
 {
     start: T,
     end: T,
@@ -41,7 +43,7 @@ where
 impl<T, E> Curve<T> for EasingCurve<T, E>
 where
     T: VectorSpace,
-    E: Easing,
+    E: Curve<f32>,
 {
     #[inline]
     fn domain(&self) -> Interval {
@@ -59,15 +61,16 @@ where
 impl<T, E> EasingCurve<T, E>
 where
     T: VectorSpace,
-    E: Easing,
+    E: Curve<f32>,
 {
     /// Create a new [`EasingCurve`] over the [unit interval] which transitions between a `start`
-    /// and an `end` value based on the provided [`Easing`] curve.
+    /// and an `end` value based on the provided [`Curve<f32>`] curve.
     ///
     /// If the input curve's domain is not the unit interval, then the [`EasingCurve`] will ensure
     /// that this invariant is guaranteed by internally [reparametrizing] the curve to the unit
     /// interval.
     ///
+    /// [`Curve<f32>`]: `Curve`
     /// [unit interval]: `Interval::UNIT`
     /// [reparametrizing]: `Curve::reparametrize`
     pub fn new(start: T, end: T, easing: E) -> Result<Self, EasingCurveError> {
@@ -76,6 +79,83 @@ where
             .is_bounded()
             .then_some(Self { start, end, easing })
             .ok_or(EasingCurveError)
+    }
+}
+
+impl EasingCurve<f32, FunctionCurve<f32, fn(f32) -> f32>> {
+    /// A [`Curve`] mapping the [unit interval] to itself.
+    ///
+    /// Quadratic easing functions can have exactly one critical point. This is a point on the function
+    /// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
+    /// smooth transitions. A common choice is to place that point at `x = 0` or [`x = 1`].
+    ///
+    /// It uses the function `f(x) = x²`
+    ///
+    /// [unit domain]: `Interval::UNIT`
+    /// [`x = 1`]: `quadratic_ease_out`
+    pub fn quadratic_ease_in() -> Self {
+        Self {
+            start: 0.0,
+            end: 1.0,
+            easing: FunctionCurve::new(Interval::UNIT, FloatPow::squared),
+        }
+    }
+
+    /// A [`Curve`] mapping the [unit interval] to itself.
+    ///
+    /// Quadratic easing functions can have exactly one critical point. This is a point on the function
+    /// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
+    /// smooth transitions. A common choice is to place that point at [`x = 0`] or`x = 1`.
+    ///
+    /// It uses the function `f(x) = 1 - (1 - x)²`
+    ///
+    /// [unit domain]: `Interval::UNIT`
+    /// [`x = 0`]: `quadratic_ease_in`
+    pub fn quadratic_ease_out() -> Self {
+        fn f(t: f32) -> f32 {
+            1.0 - (1.0 - t).squared()
+        }
+        Self {
+            start: 0.0,
+            end: 1.0,
+            easing: FunctionCurve::new(Interval::UNIT, f),
+        }
+    }
+
+    /// A [`Curve`] mapping the [unit interval] to itself.
+    ///
+    /// Cubic easing functions can have up to two critical points. These are points on the function
+    /// such that `f′(x) = 0`. This means that there won't be any sudden jumps at these points leading to
+    /// smooth transitions. For this curve they are placed at `x = 0` and `x = 1` respectively and the
+    /// result is a well-known kind of [sigmoid function] called a [smoothstep function].
+    ///
+    /// It uses the function `f(x) = x² * (3 - 2x)`
+    ///
+    /// [unit domain]: `Interval::UNIT`
+    /// [sigmoid function]: https://en.wikipedia.org/wiki/Sigmoid_function
+    /// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
+    pub fn smoothstep() -> Self {
+        fn f(t: f32) -> f32 {
+            t.squared() * (3.0 - 2.0 * t)
+        }
+        Self {
+            start: 0.0,
+            end: 1.0,
+            easing: FunctionCurve::new(Interval::UNIT, f),
+        }
+    }
+
+    /// A [`Curve`] mapping the [unit interval] to itself.
+    ///
+    /// It uses the function `f(x) = x`
+    ///
+    /// [unit domain]: `Interval::UNIT`
+    pub fn identity() -> Self {
+        Self {
+            start: 0.0,
+            end: 1.0,
+            easing: FunctionCurve::new(Interval::UNIT, std::convert::identity),
+        }
     }
 }
 
@@ -244,80 +324,5 @@ impl ElasticCurve {
     /// [unit interval]: `Interval::UNIT`
     pub fn new(omega: f32) -> Self {
         Self { omega }
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// Quadratic easing functions can have exactly one critical point. This is a point on the function
-/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
-/// smooth transitions. A common choice is to place that point at `x = 0` or [`x = 1`].
-///
-/// It uses the function `f(x) = x²`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [`x = 1`]: `quadratic_ease_out`
-pub fn quadratic_ease_in() -> FunctionCurve<f32, fn(f32) -> f32> {
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f: FloatPow::squared,
-        _phantom: PhantomData,
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// Quadratic easing functions can have exactly one critical point. This is a point on the function
-/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at this point leading to
-/// smooth transitions. A common choice is to place that point at [`x = 0`] or`x = 1`.
-///
-/// It uses the function `f(x) = 1 - (1 - x)²`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [`x = 0`]: `quadratic_ease_in`
-pub fn quadratic_ease_out() -> FunctionCurve<f32, fn(f32) -> f32> {
-    fn f(t: f32) -> f32 {
-        1.0 - (1.0 - t).squared()
-    }
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f,
-        _phantom: PhantomData,
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself.
-///
-/// Cubic easing functions can have up to two critical points. These are points on the function
-/// such that `f′(x) = 0`. This means that there won't be any sudden jumps at these points leading to
-/// smooth transitions. For this curve they are placed at `x = 0` and `x = 1` respectively and the
-/// result is a well-known kind of [sigmoid function] called a [smoothstep function].
-///
-/// It uses the function `f(x) = x² * (3 - 2x)`
-///
-/// [unit domain]: `Interval::UNIT`
-/// [sigmoid function]: https://en.wikipedia.org/wiki/Sigmoid_function
-/// [smoothstep function]: https://en.wikipedia.org/wiki/Smoothstep
-pub fn smoothstep() -> FunctionCurve<f32, fn(f32) -> f32> {
-    fn f(t: f32) -> f32 {
-        t.squared() * (3.0 - 2.0 * t)
-    }
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f,
-        _phantom: PhantomData,
-    }
-}
-
-/// A [`Curve`] mapping the [unit interval] to itself linearly.
-///
-/// It uses the function `f(x) = x`
-///
-/// [unit domain]: `Interval::UNIT`
-pub fn identity() -> FunctionCurve<f32, fn(f32) -> f32> {
-    FunctionCurve {
-        domain: Interval::UNIT,
-        f: std::convert::identity,
-        _phantom: PhantomData,
     }
 }
