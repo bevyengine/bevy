@@ -48,7 +48,8 @@ fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
     commands.spawn(SceneBundle {
         scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf")),
+            .load(GltfAssetLabel::Scene(0).from_asset("models/animated/MorphStressTest.gltf"))
+            .into(),
         ..default()
     });
     commands.spawn(DirectionalLightBundle {

@@ -167,7 +167,8 @@ fn spawn_flight_helmet(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(SceneBundle {
             scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))
+                .into(),
             transform: Transform::from_scale(Vec3::splat(2.5)),
             ..default()
         })

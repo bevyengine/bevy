@@ -83,7 +83,8 @@ fn setup(
     commands.spawn((
         SceneBundle {
             scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf")),
+                .load(GltfAssetLabel::Scene(0).from_asset("models/ship/craft_speederD.gltf"))
+                .into(),
             ..default()
         },
         Ship {

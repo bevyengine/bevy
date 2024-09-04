@@ -69,7 +69,7 @@ fn load_scene_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     // of the given scene's entities as children of that entity.
     commands.spawn(DynamicSceneBundle {
         // Scenes are loaded just like any other asset.
-        scene: asset_server.load(SCENE_FILE_PATH),
+        scene: asset_server.load(SCENE_FILE_PATH).into(),
         ..default()
     });
 }

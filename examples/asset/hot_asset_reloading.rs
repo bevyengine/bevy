@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // mesh
     commands.spawn(SceneBundle {
-        scene: scene_handle,
+        scene: scene_handle.into(),
         ..default()
     });
     // light

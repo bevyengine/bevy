@@ -265,7 +265,7 @@ fn wait_on_load(
             let position = Vec3::new(i as f32 - 5.0, 0.0, j as f32 - 5.0);
             // All gltfs must exist because this is guarded by the `AssetBarrier`.
             let gltf = gltfs.get(&foxes.0[index]).unwrap();
-            let scene = gltf.scenes.first().unwrap().clone();
+            let scene = gltf.scenes.first().unwrap().clone().into();
             commands.spawn(SceneBundle {
                 scene,
                 transform: Transform::from_translation(position),

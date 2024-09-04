@@ -15,7 +15,8 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SceneBundle {
         scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb")),
+            .load(GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"))
+            .into(),
         ..default()
     });
 

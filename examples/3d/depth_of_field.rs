@@ -89,10 +89,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
 
     // Spawn the scene.
     commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
-        ),
+        scene: asset_server
+            .load(
+                GltfAssetLabel::Scene(0)
+                    .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
+            )
+            .into(),
         ..default()
     });
 

@@ -155,7 +155,7 @@ fn load_level_1(
     // Spawn the fox.
     commands.spawn((
         SceneBundle {
-            scene: fox.clone(),
+            scene: fox.clone().into(),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
         },
@@ -199,7 +199,7 @@ fn load_level_2(
         .push(helmet_scene.clone().into());
     commands.spawn((
         SceneBundle {
-            scene: helmet_scene.clone(),
+            scene: helmet_scene.clone().into(),
             ..default()
         },
         LevelComponents,

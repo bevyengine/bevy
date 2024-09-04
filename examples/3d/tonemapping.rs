@@ -97,9 +97,12 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Main scene
     commands
         .spawn(SceneBundle {
-            scene: asset_server.load(
-                GltfAssetLabel::Scene(0).from_asset("models/TonemappingTest/TonemappingTest.gltf"),
-            ),
+            scene: asset_server
+                .load(
+                    GltfAssetLabel::Scene(0)
+                        .from_asset("models/TonemappingTest/TonemappingTest.gltf"),
+                )
+                .into(),
             ..default()
         })
         .insert(SceneNumber(1));
@@ -108,7 +111,8 @@ fn setup_basic_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         SceneBundle {
             scene: asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))
+                .into(),
             transform: Transform::from_xyz(0.5, 0.0, -0.5)
                 .with_rotation(Quat::from_rotation_y(-0.15 * PI)),
             ..default()

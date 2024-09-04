@@ -280,7 +280,8 @@ fn setup(
     // Flight Helmet
     commands.spawn(SceneBundle {
         scene: asset_server
-            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+            .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"))
+            .into(),
         ..default()
     });
 

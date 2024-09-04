@@ -86,11 +86,11 @@ fn setup(
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
     commands.spawn(SceneBundle {
-        scene: helmet_scene.clone(),
+        scene: helmet_scene.clone().into(),
         ..default()
     });
     commands.spawn(SceneBundle {
-        scene: helmet_scene,
+        scene: helmet_scene.into(),
         transform: Transform::from_xyz(-4.0, 0.0, -3.0),
         ..default()
     });

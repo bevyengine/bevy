@@ -120,7 +120,9 @@ fn setup_scene(
 
     // Spawn the fox.
     commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb")),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"))
+            .into(),
         transform: Transform::from_scale(Vec3::splat(0.07)),
         ..default()
     });

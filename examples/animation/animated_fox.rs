@@ -84,7 +84,9 @@ fn setup(
 
     // Fox
     commands.spawn(SceneBundle {
-        scene: asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH)),
+        scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))
+            .into(),
         ..default()
     });
 
