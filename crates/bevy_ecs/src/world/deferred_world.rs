@@ -4,11 +4,11 @@ use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
     component::ComponentId,
-    entity::Entity,
+    entity::{Entity, EntityHashSet},
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
-    query::{QueryData, QueryFilter},
+    query::{QueryData, QueryEntityError, QueryFilter},
     system::{Commands, Query, Resource},
     traversal::Traversal,
 };
@@ -87,10 +87,11 @@ impl<'w> DeferredWorld<'w> {
     #[inline]
     pub fn get_entity_mut(&mut self, entity: Entity) -> Option<EntityMut> {
         let location = self.entities.get(entity)?;
+        let world_cell = self.as_unsafe_world_cell();
         // SAFETY: if the Entity is invalid, the function returns early.
         // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
-        let entity_cell = UnsafeEntityCell::new(self.as_unsafe_world_cell(), entity, location);
-        // SAFETY: The UnsafeEntityCell has read access to the entire world.
+        let entity_cell = UnsafeEntityCell::new(world_cell, entity, location);
+        // SAFETY: The `world_cell` has exclusive access to the entire world.
         let entity_ref = unsafe { EntityMut::new(entity_cell) };
         Some(entity_ref)
     }
@@ -110,6 +111,118 @@ impl<'w> DeferredWorld<'w> {
             Some(entity) => entity,
             None => panic_no_entity(entity),
         }
+    }
+
+    /// Gets disjoint mutable access to multiple entities.
+    ///
+    /// This is the [`DeferredWorld`] equivalent of [`World::get_many_entities_mut`].
+    /// This is also the error-returning version of [`Self::many_entities_mut`].
+    ///
+    /// # Errors
+    ///
+    /// If any entities do not exist in the world,
+    /// or if the same entity is specified multiple times.
+    pub fn get_many_entities_mut<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> Result<[EntityMut<'_>; N], QueryEntityError> {
+        World::verify_unique_entities(&entities)?;
+
+        let world_cell = self.as_unsafe_world_cell();
+        // SAFETY: The `world_cell` has exclusive access to the entire world,
+        // and each entity in the passed array is unique.
+        let cells = unsafe { world_cell.get_entities(entities) };
+
+        let borrows = cells?.map(|c| {
+            // SAFETY: The `world_cell` has exclusive access to the entire world
+            unsafe { EntityMut::new(c) }
+        });
+
+        Ok(borrows)
+    }
+
+    /// Gets disjoint mutable access to multiple entities.
+    ///
+    /// This is the [`DeferredWorld`] equivalent of [`World::many_entities_mut`].
+    /// This is also the panic-ing version of [`Self::get_many_entities_mut`].
+    ///
+    /// # Panics
+    ///
+    /// If any entities do not exist in the world,
+    /// or if the same entity is specified multiple times.
+    pub fn many_entities_mut<const N: usize>(
+        &mut self,
+        entities: [Entity; N],
+    ) -> [EntityMut<'_>; N] {
+        #[inline(never)]
+        #[cold]
+        #[track_caller]
+        fn panic_on_err(e: QueryEntityError) -> ! {
+            panic!("{e}");
+        }
+
+        match self.get_many_entities_mut(entities) {
+            Ok(borrows) => borrows,
+            Err(e) => panic_on_err(e),
+        }
+    }
+
+    /// Gets disjoint mutable access to multiple entities, whose number is determined at runtime.
+    ///
+    /// This is the [`DeferredWorld`] equivalent of [`World::get_many_entities_dynamic_mut`].
+    ///
+    /// # Errors
+    ///
+    /// If any entities do not exist in the world,
+    /// or if the same entity is specified multiple times.
+    pub fn get_many_entities_dynamic_mut(
+        &mut self,
+        entities: &[Entity],
+    ) -> Result<Vec<EntityMut<'_>>, QueryEntityError> {
+        World::verify_unique_entities(entities)?;
+
+        let world_cell = self.as_unsafe_world_cell();
+        // SAFETY: The `world_cell` has exclusive access to the entire world,
+        // and each entity in the passed slice is unique.
+        let cells = unsafe { world_cell.get_entities_dynamic(entities.iter().copied()) };
+
+        let borrows = cells?
+            .into_iter()
+            .map(|c| {
+                // SAFETY: The `world_cell` has exclusive access to the entire world
+                unsafe { EntityMut::new(c) }
+            })
+            .collect();
+
+        Ok(borrows)
+    }
+
+    /// Gets disjoint mutable access to multiple entities, contained in a [`EntityHashSet`].
+    /// The uniqueness of items in a [`EntityHashSet`] allows us to avoid checking for duplicates.
+    ///
+    /// This is the [`DeferredWorld`] equivalent of [`World::get_many_entities_from_set_mut`].
+    ///
+    /// # Errors
+    ///
+    /// If any entities do not exist in the world.
+    pub fn get_many_entities_from_set_mut(
+        &mut self,
+        entities: &EntityHashSet,
+    ) -> Result<Vec<EntityMut<'_>>, QueryEntityError> {
+        let world_cell = self.as_unsafe_world_cell();
+        // SAFETY: The `world_cell` has exclusive access to the entire world,
+        // and each entity in the passed set is unique (guaranteed by the set itself).
+        let cells = unsafe { world_cell.get_entities_dynamic(entities.iter().copied()) };
+
+        let borrows = cells?
+            .into_iter()
+            .map(|c| {
+                // SAFETY: The `world_cell` has exclusive access to the entire world
+                unsafe { EntityMut::new(c) }
+            })
+            .collect();
+
+        Ok(borrows)
     }
 
     /// Returns [`Query`] for the given [`QueryState`], which is used to efficiently
