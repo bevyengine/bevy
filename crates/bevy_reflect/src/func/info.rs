@@ -40,6 +40,18 @@ impl TryFrom<Vec<FunctionInfo>> for FunctionInfoType {
     }
 }
 
+impl IntoIterator for FunctionInfoType {
+    type Item = FunctionInfo;
+    type IntoIter = std::vec::IntoIter<FunctionInfo>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            FunctionInfoType::Standard(info) => vec![info].into_iter(),
+            FunctionInfoType::Overloaded(infos) => infos.into_vec().into_iter(),
+        }
+    }
+}
+
 /// Type information for a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
 /// This information can be retrieved directly from certain functions and closures

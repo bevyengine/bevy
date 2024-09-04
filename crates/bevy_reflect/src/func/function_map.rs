@@ -1,102 +1,203 @@
 use crate::func::signature::ArgumentSignature;
-use crate::func::FunctionInfoType;
+use crate::func::{ArgList, FunctionError, FunctionInfoType, FunctionOverloadError};
 use bevy_utils::HashMap;
 
-/// A helper type for storing either a single function or a mapping of overloaded functions.
-#[derive(Clone)]
-pub(super) enum FunctionMap<F> {
-    Standard(F),
-    Overloaded(HashMap<ArgumentSignature, F>),
+/// A helper type for storing a mapping of overloaded functions
+/// along with the corresponding [function information].
+///
+/// [function information]: FunctionInfoType
+#[derive(Clone, Debug)]
+pub(super) struct FunctionMap<F> {
+    pub info: FunctionInfoType,
+    pub functions: Vec<F>,
+    pub indices: HashMap<ArgumentSignature, usize>,
 }
 
-/// Merges the given [`FunctionMap`]s and [`FunctionInfoType`]s into a new [`FunctionMap`] and [`FunctionInfoType`].
-///
-/// # Panics
-///
-/// Panics if a [`FunctionMap`]'s corresponding [`FunctionInfoType`] does not match its overload status.
-pub(super) fn merge_function_map<F>(
-    map_a: FunctionMap<F>,
-    info_a: FunctionInfoType,
-    map_b: FunctionMap<F>,
-    info_b: FunctionInfoType,
-) -> (FunctionMap<F>, FunctionInfoType) {
-    match (map_a, info_a, map_b, info_b) {
-        (
-            FunctionMap::Standard(old),
-            FunctionInfoType::Standard(info_a),
-            FunctionMap::Standard(new),
-            FunctionInfoType::Standard(info_b),
-        ) => {
-            let sig_a = ArgumentSignature::from(&info_a);
-            let sig_b = ArgumentSignature::from(&info_b);
+impl<F> FunctionMap<F> {
+    /// Get a reference to a function in the map.
+    ///
+    /// If there is only one function in the map, it will be returned.
+    /// Otherwise, the function will be selected based on the arguments provided.
+    ///
+    /// If no overload matches the provided arguments, an error will be returned.
+    pub fn get(&self, args: &ArgList) -> Result<&F, FunctionError> {
+        if self.functions.len() == 1 {
+            Ok(&self.functions[0])
+        } else {
+            let signature = ArgumentSignature::from(args);
+            self.indices
+                .get(&signature)
+                .map(|index| &self.functions[*index])
+                .ok_or_else(|| FunctionError::NoOverload {
+                    expected: self.indices.keys().cloned().collect(),
+                    received: signature,
+                })
+        }
+    }
 
-            if sig_a == sig_b {
-                (
-                    FunctionMap::Standard(new),
-                    FunctionInfoType::Standard(info_b),
-                )
-            } else {
-                (
-                    FunctionMap::Overloaded(HashMap::from([(sig_a, old), (sig_b, new)])),
-                    FunctionInfoType::Overloaded(Box::new([info_a, info_b])),
-                )
+    /// Get a mutable reference to a function in the map.
+    ///
+    /// If there is only one function in the map, it will be returned.
+    /// Otherwise, the function will be selected based on the arguments provided.
+    ///
+    /// If no overload matches the provided arguments, an error will be returned.
+    pub fn get_mut(&mut self, args: &ArgList) -> Result<&mut F, FunctionError> {
+        if self.functions.len() == 1 {
+            Ok(&mut self.functions[0])
+        } else {
+            let signature = ArgumentSignature::from(args);
+            self.indices
+                .get(&signature)
+                .map(|index| &mut self.functions[*index])
+                .ok_or_else(|| FunctionError::NoOverload {
+                    expected: self.indices.keys().cloned().collect(),
+                    received: signature,
+                })
+        }
+    }
+
+    /// Merge another [`FunctionMap`] into this one.
+    ///
+    /// If the other map contains any functions with the same signature as this one,
+    /// an error will be returned and the original map will remain unchanged.
+    pub fn merge(&mut self, other: Self) -> Result<(), FunctionOverloadError> {
+        // === Function Map === //
+        let mut other_indices = HashMap::new();
+
+        for (sig, index) in other.indices {
+            if self.indices.contains_key(&sig) {
+                return Err(FunctionOverloadError { signature: sig });
             }
+
+            other_indices.insert(sig, self.functions.len() + index);
         }
-        (
-            FunctionMap::Overloaded(old),
-            FunctionInfoType::Overloaded(info_a),
-            FunctionMap::Standard(new),
-            FunctionInfoType::Standard(info_b),
-        ) => {
-            let sig_b = ArgumentSignature::from(&info_b);
-            let mut map = old;
-            map.insert(sig_b, new);
 
-            let mut info = Vec::from_iter(info_a);
-            info.push(info_b);
+        // === Function Info === //
+        let mut other_infos = Vec::new();
 
-            (
-                FunctionMap::Overloaded(map),
-                FunctionInfoType::Overloaded(info.into_boxed_slice()),
-            )
+        for info in other.info.into_iter() {
+            let sig = ArgumentSignature::from(&info);
+            if self.indices.contains_key(&sig) {
+                return Err(FunctionOverloadError { signature: sig });
+            }
+            other_infos.push(info);
         }
-        (
-            FunctionMap::Standard(old),
-            FunctionInfoType::Standard(info_a),
-            FunctionMap::Overloaded(new),
-            FunctionInfoType::Overloaded(info_b),
-        ) => {
-            let sig_a = ArgumentSignature::from(&info_a);
-            let mut map = new;
-            map.insert(sig_a, old);
 
-            let mut info = vec![info_a];
-            info.extend(info_b);
+        // === Update === //
+        self.indices.extend(other_indices);
+        self.functions.extend(other.functions);
+        self.info = match &self.info {
+            FunctionInfoType::Standard(info) => FunctionInfoType::Overloaded(
+                std::iter::once(info.clone()).chain(other_infos).collect(),
+            ),
+            FunctionInfoType::Overloaded(infos) => {
+                FunctionInfoType::Overloaded(infos.iter().cloned().chain(other_infos).collect())
+            }
+        };
 
-            (
-                FunctionMap::Overloaded(map),
-                FunctionInfoType::Overloaded(info.into_boxed_slice()),
-            )
-        }
-        (
-            FunctionMap::Overloaded(map1),
-            FunctionInfoType::Overloaded(info_a),
-            FunctionMap::Overloaded(map2),
-            FunctionInfoType::Overloaded(info_b),
-        ) => {
-            let mut map = map1;
-            map.extend(map2);
+        Ok(())
+    }
+}
 
-            let mut info = Vec::from_iter(info_a);
-            info.extend(info_b);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::func::FunctionInfo;
+    use crate::Type;
 
-            (
-                FunctionMap::Overloaded(map),
-                FunctionInfoType::Overloaded(info.into_boxed_slice()),
-            )
-        }
-        _ => {
-            panic!("`FunctionMap` and `FunctionInfoType` mismatch");
-        }
+    #[test]
+    fn should_merge_function_maps() {
+        let mut map_a = FunctionMap {
+            info: FunctionInfoType::Overloaded(Box::new([
+                FunctionInfo::anonymous().with_arg::<i8>("arg0"),
+                FunctionInfo::anonymous().with_arg::<i16>("arg0"),
+                FunctionInfo::anonymous().with_arg::<i32>("arg0"),
+            ])),
+            functions: vec!['a', 'b', 'c'],
+            indices: HashMap::from([
+                (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
+                (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
+                (ArgumentSignature::from_iter([Type::of::<i32>()]), 2),
+            ]),
+        };
+
+        let map_b = FunctionMap {
+            info: FunctionInfoType::Overloaded(Box::new([
+                FunctionInfo::anonymous().with_arg::<u8>("arg0"),
+                FunctionInfo::anonymous().with_arg::<u16>("arg0"),
+                FunctionInfo::anonymous().with_arg::<u32>("arg0"),
+            ])),
+            functions: vec!['d', 'e', 'f'],
+            indices: HashMap::from([
+                (ArgumentSignature::from_iter([Type::of::<u8>()]), 0),
+                (ArgumentSignature::from_iter([Type::of::<u16>()]), 1),
+                (ArgumentSignature::from_iter([Type::of::<u32>()]), 2),
+            ]),
+        };
+
+        map_a.merge(map_b).unwrap();
+
+        assert_eq!(map_a.functions, vec!['a', 'b', 'c', 'd', 'e', 'f']);
+        assert_eq!(
+            map_a.indices,
+            HashMap::from([
+                (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
+                (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
+                (ArgumentSignature::from_iter([Type::of::<i32>()]), 2),
+                (ArgumentSignature::from_iter([Type::of::<u8>()]), 3),
+                (ArgumentSignature::from_iter([Type::of::<u16>()]), 4),
+                (ArgumentSignature::from_iter([Type::of::<u32>()]), 5),
+            ])
+        );
+    }
+
+    #[test]
+    fn should_return_error_on_duplicate_signature() {
+        let mut map_a = FunctionMap {
+            info: FunctionInfoType::Overloaded(Box::new([
+                FunctionInfo::anonymous().with_arg::<i8>("arg0"),
+                FunctionInfo::anonymous().with_arg::<i16>("arg0"),
+                FunctionInfo::anonymous().with_arg::<i32>("arg0"),
+            ])),
+            functions: vec!['a', 'b', 'c'],
+            indices: HashMap::from([
+                (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
+                (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
+                (ArgumentSignature::from_iter([Type::of::<i32>()]), 2),
+            ]),
+        };
+
+        let map_b = FunctionMap {
+            info: FunctionInfoType::Overloaded(Box::new([
+                FunctionInfo::anonymous().with_arg::<u8>("arg0"),
+                FunctionInfo::anonymous().with_arg::<i16>("arg0"),
+                FunctionInfo::anonymous().with_arg::<u32>("arg0"),
+            ])),
+            functions: vec!['d', 'e', 'f'],
+            indices: HashMap::from([
+                (ArgumentSignature::from_iter([Type::of::<u8>()]), 0),
+                (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
+                (ArgumentSignature::from_iter([Type::of::<u32>()]), 2),
+            ]),
+        };
+
+        let result = map_a.merge(map_b);
+        assert_eq!(
+            result.unwrap_err(),
+            FunctionOverloadError {
+                signature: ArgumentSignature::from_iter([Type::of::<i16>()])
+            }
+        );
+
+        // Assert that the original map remains unchanged:
+        assert_eq!(map_a.functions, vec!['a', 'b', 'c']);
+        assert_eq!(
+            map_a.indices,
+            HashMap::from([
+                (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
+                (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
+                (ArgumentSignature::from_iter([Type::of::<i32>()]), 2),
+            ])
+        );
     }
 }
