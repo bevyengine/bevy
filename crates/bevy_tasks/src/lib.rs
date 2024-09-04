@@ -55,7 +55,7 @@ pub mod prelude {
     };
 }
 
-use std::num::NonZeroUsize;
+use std::num::NonZero;
 
 /// Gets the logical CPU core count available to the current process.
 ///
@@ -65,6 +65,6 @@ use std::num::NonZeroUsize;
 /// This will always return at least 1.
 pub fn available_parallelism() -> usize {
     std::thread::available_parallelism()
-        .map(NonZeroUsize::get)
+        .map(NonZero::<usize>::get)
         .unwrap_or(1)
 }

@@ -40,6 +40,7 @@ pub mod arrows;
 pub mod circles;
 pub mod config;
 pub mod cross;
+pub mod curves;
 pub mod gizmos;
 pub mod grid;
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
@@ -149,6 +150,9 @@ impl AppGizmoBuilder for App {
 
         self.init_billboard_gizmo_group::<Config>();
         self.init_line_gizmo_group::<Config>();
+
+        // These handles are safe to mutate in any order
+        self.allow_ambiguous_resource::<LineGizmoHandles>();
 
         self.init_resource::<GizmoStorage<Config, ()>>()
             .init_resource::<GizmoStorage<Config, Fixed>>()

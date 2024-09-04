@@ -351,7 +351,7 @@ fn setup(
 /// Writes a simple menu item that can be on or off.
 fn draw_selectable_menu_item(ui: &mut String, label: &str, shortcut: char, enabled: bool) {
     let star = if enabled { "*" } else { "" };
-    let _ = writeln!(*ui, "({}) {}{}{}", shortcut, star, label, star);
+    let _ = writeln!(*ui, "({shortcut}) {star}{label}{star}");
 }
 
 /// Creates a colorful test pattern

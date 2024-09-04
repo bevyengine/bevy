@@ -1,7 +1,7 @@
 use std::{
     alloc::{handle_alloc_error, Layout},
     cell::UnsafeCell,
-    num::NonZeroUsize,
+    num::NonZero,
     ptr::NonNull,
 };
 
@@ -56,7 +56,7 @@ impl BlobVec {
         drop: Option<unsafe fn(OwningPtr<'_>)>,
         capacity: usize,
     ) -> BlobVec {
-        let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
+        let align = NonZero::<usize>::new(item_layout.align()).expect("alignment must be > 0");
         let data = bevy_ptr::dangling_with_align(align);
         if item_layout.size() == 0 {
             BlobVec {
@@ -119,7 +119,8 @@ impl BlobVec {
         let available_space = self.capacity - self.len;
         if available_space < additional {
             // SAFETY: `available_space < additional`, so `additional - available_space > 0`
-            let increment = unsafe { NonZeroUsize::new_unchecked(additional - available_space) };
+            let increment =
+                unsafe { NonZero::<usize>::new_unchecked(additional - available_space) };
             self.grow_exact(increment);
         }
     }
@@ -132,7 +133,7 @@ impl BlobVec {
         #[cold]
         fn do_reserve(slf: &mut BlobVec, additional: usize) {
             let increment = slf.capacity.max(additional - (slf.capacity - slf.len));
-            let increment = NonZeroUsize::new(increment).unwrap();
+            let increment = NonZero::<usize>::new(increment).unwrap();
             slf.grow_exact(increment);
         }
 
@@ -148,7 +149,7 @@ impl BlobVec {
     /// Panics if the new capacity overflows `usize`.
     /// For ZST it panics unconditionally because ZST `BlobVec` capacity
     /// is initialized to `usize::MAX` and always stays that way.
-    fn grow_exact(&mut self, increment: NonZeroUsize) {
+    fn grow_exact(&mut self, increment: NonZero<usize>) {
         let new_capacity = self
             .capacity
             .checked_add(increment.get())

@@ -33,7 +33,7 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     let shapes = [
-        Mesh2dHandle(meshes.add(Circle { radius: 50.0 })),
+        Mesh2dHandle(meshes.add(Circle::new(50.0))),
         Mesh2dHandle(meshes.add(CircularSector::new(50.0, 1.0))),
         Mesh2dHandle(meshes.add(CircularSegment::new(50.0, 1.25))),
         Mesh2dHandle(meshes.add(Ellipse::new(25.0, 50.0))),
