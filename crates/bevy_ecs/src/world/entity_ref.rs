@@ -1180,23 +1180,48 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Remove all components in the [`Bundle`] and all required components for each component in the [`Bundle`].
-    ///
-    /// Just remove all `bundle_info.contributed_components()` from the entity
+    /// Removes all components of this [`Bundle`] and all required components of this [`Bundle`] that are not required by other components of this entity
+    /// The function can be noticeably slower than remove or retain functions because the function dynamically determines which components are still required by entity components outside of [`Bundle`]
+    /// 
     pub fn remove_with_required<T: Bundle>(&mut self) -> &mut Self {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundle = self.world.bundles.init_info::<T>(components, storages);
 
         // SAFETY: the `BundleInfo` is initialized above
-        let bundle_info = unsafe { self.world.bundles.get_unchecked(bundle) };
-        let contributed_components = bundle_info.contributed_components().to_vec(); // Make copy to avoid lifetime issues
-        let extended_bundle = self
+        // We make clone of components array to not lock immutable access to world
+        let contributed_components = unsafe { self.world.bundles.get_unchecked(bundle).contributed_components().to_vec() };
+
+        let old_location = self.location;
+        let old_archetype = &mut self.world.archetypes[old_location.archetype_id];
+
+        let remaining_components = old_archetype
+            .components()
+            .into_iter()
+            .filter(|c| !contributed_components.contains(c))
+            .collect::<Vec<_>>();
+
+        let remaining_bundle = self
             .world
             .bundles
-            .init_dynamic_info(components, &contributed_components);
+            .init_dynamic_info(components, &remaining_components);
+
+        let remaining_bundle_info = unsafe { self.world.bundles.get_unchecked(remaining_bundle) };
+
+        // Remove components required by reamining components from contributed_components of bundle T
+        let to_delete = contributed_components
+            .iter()
+            .filter(|c| !remaining_bundle_info.contributed_components().contains(c))
+            .copied()
+            .collect::<Vec<_>>();
+
+
+        let to_delete_bundle = self
+            .world
+            .bundles
+            .init_dynamic_info(components, &to_delete);
         // SAFETY: the dynamic `BundleInfo` is initialized above
-        self.location = unsafe { self.remove_bundle(extended_bundle) };
+        self.location = unsafe { self.remove_bundle(to_delete_bundle) };
 
         self
     }

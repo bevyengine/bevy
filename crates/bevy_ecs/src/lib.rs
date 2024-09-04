@@ -2025,39 +2025,71 @@ mod tests {
 
     #[test]
     fn remove_component_and_his_required_components() {
+
+        // We create this 'require' tree (down is required by up component)
+        // X
+        //  \
+        //   Y  
+        //    \ 
+        //     Z   V
+        //      \ /
+        //       W
+
+        // And after remove X and this requirements we must have this tree (W will keep becuase it's still required by V)
+        //   V
+        //  /
+        // W
+
         #[derive(Component)]
         #[require(Y)]
         struct X;
 
         #[derive(Component, Default)]
+        #[require(Z)]
         struct Y;
 
-        #[derive(Component)]
+        #[derive(Component, Default)]
+        #[require(W)]
         struct Z;
+
+        #[derive(Component, Default)]
+        struct W;
+
+        #[derive(Component, Default)]
+        #[require(W)]
+        struct V;
 
         let mut world = World::new();
 
-        let e = world.spawn((X, Z)).id();
+        let e = world.spawn((X, V)).id();
         assert!(world.entity(e).contains::<X>());
         assert!(world.entity(e).contains::<Y>());
         assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
 
         //check that `remove` works as expected
         world.entity_mut(e).remove::<X>();
         assert!(!world.entity(e).contains::<X>());
         assert!(world.entity(e).contains::<Y>());
         assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
 
         world.entity_mut(e).insert(X);
         assert!(world.entity(e).contains::<X>());
         assert!(world.entity(e).contains::<Y>());
         assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
 
-        //remove `X` again and ensure that `Y` was removed too
+        //remove `X` again and ensure that `Y` and `Z` was removed too
         world.entity_mut(e).remove_with_required::<X>();
         assert!(!world.entity(e).contains::<X>());
         assert!(!world.entity(e).contains::<Y>());
-        assert!(world.entity(e).contains::<Z>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
     }
 
     #[test]
