@@ -15,7 +15,6 @@ use crate::{
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::HashMap;
 use core::fmt::{Debug, Formatter};
 
 /// An [`Arc`] containing a callback to a reflected function.
@@ -90,7 +89,7 @@ impl<'env> DynamicFunction<'env> {
     /// [function overloading]: Self::with_overload
     pub fn new<F: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env>(
         func: F,
-        info: impl TryInto<FunctionInfoType, Error: Debug>,
+        info: impl TryInto<FunctionInfoType<'static>, Error: Debug>,
     ) -> Self {
         let info = info.try_into().unwrap();
 
@@ -102,19 +101,14 @@ impl<'env> DynamicFunction<'env> {
                 FunctionInfoType::Overloaded(_) => None,
             },
             function_map: match info {
-                FunctionInfoType::Standard(info) => FunctionMap {
-                    functions: vec![func],
-                    indices: HashMap::from([(ArgumentSignature::from(&info), 0)]),
-                    info: FunctionInfoType::Standard(info),
-                },
-                FunctionInfoType::Overloaded(infos) => FunctionMap {
-                    functions: vec![func],
-                    indices: infos
+                FunctionInfoType::Standard(info) => FunctionMap::Single(func, info.into_owned()),
+                FunctionInfoType::Overloaded(infos) => {
+                    let indices = infos
                         .iter()
                         .map(|info| (ArgumentSignature::from(info), 0))
-                        .collect(),
-                    info: FunctionInfoType::Overloaded(infos),
-                },
+                        .collect();
+                    FunctionMap::Overloaded(vec![func], infos.into_owned(), indices)
+                }
             },
         }
     }
@@ -302,10 +296,10 @@ impl<'env> DynamicFunction<'env> {
     ///
     /// The function itself may also return any errors it needs to.
     pub fn call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a> {
-        let expected_arg_count = self.function_map.info.arg_count();
+        let expected_arg_count = self.function_map.info().arg_count();
         let received_arg_count = args.len();
 
-        if matches!(self.function_map.info, FunctionInfoType::Standard(_))
+        if matches!(self.function_map.info(), FunctionInfoType::Standard(_))
             && expected_arg_count != received_arg_count
         {
             Err(FunctionError::ArgCountMismatch {
@@ -319,8 +313,8 @@ impl<'env> DynamicFunction<'env> {
     }
 
     /// Returns the function info.
-    pub fn info(&self) -> &FunctionInfoType {
-        &self.function_map.info
+    pub fn info(&self) -> FunctionInfoType {
+        self.function_map.info()
     }
 
     /// The name of the function.
@@ -344,8 +338,8 @@ impl<'env> DynamicFunction<'env> {
 
 impl Function for DynamicFunction<'static> {
     fn info(&self) -> &FunctionInfo {
-        match self.function_map.info {
-            FunctionInfoType::Standard(ref info) => info,
+        match self.function_map.info() {
+            FunctionInfoType::Standard(_) => todo!("overloaded functions are not yet supported"),
             FunctionInfoType::Overloaded(_) => todo!("overloaded functions are not yet supported"),
         }
     }
