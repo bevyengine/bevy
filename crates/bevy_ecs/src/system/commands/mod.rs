@@ -1245,7 +1245,7 @@ impl EntityCommands<'_> {
     /// fn remove_x_system(mut commands: Commands, query: Query<Entity, With<X>>) {
     ///     for entity in &query {
     ///         // Remove X and its unused requirements
-    ///         commands.entity(entity).remove_with_required::<X>();
+    ///         commands.entity(entity).require_recursive_remove::<X>();
     ///     }
     /// }
     ///
@@ -1268,8 +1268,76 @@ impl EntityCommands<'_> {
     /// //    /
     /// //   Z
     /// ```
-    pub fn remove_with_required<T: Bundle>(self) -> Self {
-        self.add(remove_with_required::<T>)
+    pub fn require_recursive_remove<T: Bundle>(self) -> Self {
+        self.add(require_recursive_remove::<T>)
+    }
+
+    /// Removes the components of this [`Bundle`], components that require them, and their required components,
+    /// unless they are required by components outside of this removal set.
+    ///
+    /// This method performs a top-down removal, starting by collecting all bundle components, all required components for bundle components, all components that require bundle components.
+    /// Then removing all collected components, unless those components are required outside remove set
+    /// elsewhere in the entity.
+    ///
+    /// This function can be noticeably slower than simple remove or retain functions because it dynamically determines which components
+    /// are still required by entity components outside of the [`Bundle`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// #[require(B)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default)]
+    /// #[require(C)]
+    /// struct B;
+    ///
+    /// #[derive(Component, Default)]
+    /// #[require(D)]
+    /// struct C;
+    ///
+    /// #[derive(Component, Default)]
+    /// struct D;
+    ///
+    /// #[derive(Component)]
+    /// #[require(D)]
+    /// struct E;
+    ///
+    /// fn remove_b_system(mut commands: Commands, query: Query<Entity, With<B>>) {
+    ///     for entity in &query {
+    ///         // Remove B and its requirement tree
+    ///         commands.entity(entity).require_descendant_remove::<B>();
+    ///     }
+    /// }
+    ///
+    /// // Usage in a system:
+    /// fn setup(mut commands: Commands) {
+    ///     // Spawn an entity with A, B, C, D, and E components
+    ///     commands.spawn((A, B, C, D, E));
+    ///
+    ///     // Initial component structure:
+    ///     //  A -> B -> C -> D <- E
+    /// }
+    ///
+    /// // After calling remove_b_system:
+    /// // Resulting component structure:
+    /// //  D <- E
+    /// //
+    /// // A is removed as it requires B
+    /// // B is removed
+    /// // C is removed as it's required by B
+    /// // D is kept as E still requires it
+    /// // E is kept
+    /// ```
+    ///
+    /// This method is useful for removing a component along with its entire requirement tree and any
+    /// components that depend on them, while preserving components that are still required by parts of
+    /// the entity outside the removal tree.
+    pub fn require_descendant_remove<T: Bundle>(self) -> Self {
+        self.add(require_descendant_remove::<T>)
     }
 
     /// Removes a component from the entity.
@@ -1586,9 +1654,15 @@ fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
 ///
 /// This function can be noticeably slower than simple remove or retain functions because it dynamically determines which components
 /// are still required by entity components outside of the [`Bundle`].
-fn remove_with_required<T: Bundle>(entity: Entity, world: &mut World) {
+fn require_recursive_remove<T: Bundle>(entity: Entity, world: &mut World) {
     if let Some(mut entity) = world.get_entity_mut(entity) {
-        entity.remove_with_required::<T>();
+        entity.require_recursive_remove::<T>();
+    }
+}
+
+fn require_descendant_remove<T: Bundle>(entity: Entity, world: &mut World) {
+    if let Some(mut entity) = world.get_entity_mut(entity) {
+        entity.require_descendant_remove::<T>();
     }
 }
 
@@ -1896,10 +1970,27 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(e).remove_with_required::<X>();
+            commands.entity(e).require_recursive_remove::<X>();
         }
         queue.apply(&mut world);
 
+        assert!(world.get::<Y>(e).is_none());
+        assert!(world.get::<X>(e).is_none());
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(e).insert(X);
+        }
+        queue.apply(&mut world);
+
+        assert!(world.get::<Y>(e).is_some());
+        assert!(world.get::<X>(e).is_some());
+
+        {
+            let mut commands = Commands::new(&mut queue, &world);
+            commands.entity(e).require_descendant_remove::<Y>();
+        }
+        queue.apply(&mut world);
         assert!(world.get::<Y>(e).is_none());
         assert!(world.get::<X>(e).is_none());
     }

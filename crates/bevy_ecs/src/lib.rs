@@ -2083,7 +2083,7 @@ mod tests {
         assert!(world.entity(e).contains::<V>());
 
         //remove `X` again and ensure that `Y` and `Z` was removed too
-        world.entity_mut(e).remove_with_required::<X>();
+        world.entity_mut(e).require_recursive_remove::<X>();
         assert!(!world.entity(e).contains::<X>());
         assert!(!world.entity(e).contains::<Y>());
         assert!(!world.entity(e).contains::<Z>());
@@ -2125,12 +2125,82 @@ mod tests {
         assert!(world.entity(e).contains::<W>());
         assert!(world.entity(e).contains::<V>());
 
-        world.entity_mut(e).remove_with_required::<TestBundle>();
+        world.entity_mut(e).require_recursive_remove::<TestBundle>();
         assert!(!world.entity(e).contains::<X>());
         assert!(!world.entity(e).contains::<Y>());
         assert!(!world.entity(e).contains::<Z>());
         assert!(!world.entity(e).contains::<W>());
         assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn test_require_descendant_remove_with_shared_dependency() {
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        #[require(C)]
+        struct B;
+
+        #[derive(Component, Default)]
+        #[require(D)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct D;
+
+        #[derive(Component, Default)]
+        #[require(D)]
+        struct E;
+
+        //Require tree: A -> B -> C -> D <- E
+
+        let mut world = World::new();
+        let entity = world.spawn((A, B, C, D, E)).id();
+
+        world.entity_mut(entity).require_descendant_remove::<B>();
+
+        assert!(!world.entity(entity).contains::<A>());
+        assert!(!world.entity(entity).contains::<B>());
+        assert!(!world.entity(entity).contains::<C>());
+        assert!(world.entity(entity).contains::<D>());
+        assert!(world.entity(entity).contains::<E>());
+    }
+
+    #[test]
+    fn test_require_descendant_remove_leaf_component() {
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        #[require(C)]
+        struct B;
+
+        #[derive(Component, Default)]
+        #[require(D)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct D;
+
+        #[derive(Component, Default)]
+        #[require(D)]
+        struct E;
+
+        //Require tree: A -> B -> C -> D <- E
+
+        let mut world = World::new();
+        let entity = world.spawn((A, B, C, D, E)).id();
+
+        world.entity_mut(entity).require_descendant_remove::<D>();
+
+        assert!(!world.entity(entity).contains::<A>());
+        assert!(!world.entity(entity).contains::<B>());
+        assert!(!world.entity(entity).contains::<C>());
+        assert!(!world.entity(entity).contains::<D>());
+        assert!(!world.entity(entity).contains::<E>());
     }
 
     // These structs are primarily compilation tests to test the derive macros. Because they are

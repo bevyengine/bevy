@@ -13,6 +13,7 @@ use crate::{
     world::{DeferredWorld, Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
+use bevy_utils::HashSet;
 use std::{any::TypeId, marker::PhantomData};
 use thiserror::Error;
 
@@ -1226,7 +1227,7 @@ impl<'w> EntityWorldMut<'w> {
     /// assert!(world.entity(entity).contains::<W>());
     ///
     /// // Remove X and its unused requirements
-    /// world.entity_mut(entity).remove_with_required::<X>();
+    /// world.entity_mut(entity).require_recursive_remove::<X>();
     ///
     /// // Resulting component tree:
     /// //     W
@@ -1238,7 +1239,9 @@ impl<'w> EntityWorldMut<'w> {
     /// assert!(world.entity(entity).contains::<Z>());
     /// assert!(world.entity(entity).contains::<W>());
     /// ```
-    pub fn remove_with_required<T: Bundle>(&mut self) -> &mut Self {
+    /// Note: It will note delete components in [`Bundle`] if some components require bundle components. Use
+    ///
+    pub fn require_recursive_remove<T: Bundle>(&mut self) -> &mut Self {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundle = self.world.bundles.init_info::<T>(components, storages);
@@ -1277,6 +1280,147 @@ impl<'w> EntityWorldMut<'w> {
             .collect::<Vec<_>>();
 
         let to_delete_bundle = self.world.bundles.init_dynamic_info(components, &to_delete);
+        // SAFETY: the dynamic `BundleInfo` is initialized above
+        self.location = unsafe { self.remove_bundle(to_delete_bundle) };
+
+        self
+    }
+
+    /// Removes the components of this [`Bundle`], components that require them, and their required components,
+    /// unless they are required by components outside of this removal set.
+    ///
+    /// This method performs a top-down removal, starting by collecting all bundle components, all required components for bundle components, all components that require bundle components.
+    /// Then removing all collected components, unless those components are required outside remove set
+    /// elsewhere in the entity.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// #[require(B)]
+    /// struct A;
+    ///
+    /// #[derive(Component, Default)]
+    /// #[require(C)]
+    /// struct B;
+    ///
+    /// #[derive(Component, Default)]
+    /// #[require(D)]
+    /// struct C;
+    ///
+    /// #[derive(Component, Default)]
+    /// struct D;
+    ///
+    /// #[derive(Component)]
+    /// #[require(D)]
+    /// struct E;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// // Spawn an entity with A, B, C, D, and E components
+    /// let entity = world.spawn((A, B, C, D, E)).id();
+    ///
+    /// // Initial component structure:
+    /// //  A -> B -> C -> D <- E
+    ///
+    /// assert!(world.entity(entity).contains::<A>());
+    /// assert!(world.entity(entity).contains::<B>());
+    /// assert!(world.entity(entity).contains::<C>());
+    /// assert!(world.entity(entity).contains::<D>());
+    /// assert!(world.entity(entity).contains::<E>());
+    ///
+    /// // Remove B and its requirement tree
+    /// world.entity_mut(entity).require_descendant_remove::<B>();
+    ///
+    /// // Resulting component structure:
+    /// //  D <- E
+    ///
+    /// assert!(!world.entity(entity).contains::<A>());  // A is removed as it requires B
+    /// assert!(!world.entity(entity).contains::<B>());
+    /// assert!(!world.entity(entity).contains::<C>());  // C is removed as it's required by B
+    /// assert!(world.entity(entity).contains::<D>());   // D is kept as E still requires it
+    /// assert!(world.entity(entity).contains::<E>());
+    /// ```
+    ///
+    /// This method is useful for removing a component along with its entire requirement tree and any
+    /// components that depend on them, while preserving components that are still required by parts of
+    /// the entity outside the removal tree.
+    pub fn require_descendant_remove<T: Bundle>(&mut self) -> &mut Self {
+        // Get all components of the entity
+        let entity_components = self.archetype().components().collect::<Vec<_>>();
+
+        let storages = &mut self.world.storages;
+        let components = &mut self.world.components;
+        let bundle = self.world.bundles.init_info::<T>(components, storages);
+
+        // Get all components in the bundle
+        // SAFETY: the `BundleInfo` is initialized above
+        let bundle_components = unsafe {
+            self.world
+                .bundles
+                .get_unchecked(bundle)
+                .explicit_components()
+                .to_vec()
+        };
+
+        let mut contributed_components = HashSet::<ComponentId>::new();
+        // SAFETY: the `BundleInfo` is initialized above
+        contributed_components.extend(unsafe {
+            self.world
+                .bundles
+                .get_unchecked(bundle)
+                .contributed_components()
+                .into_iter()
+        });
+
+        // Find all components that depend on bundle components
+        for &component_id in &entity_components {
+            let bundle = self
+                .world
+                .bundles
+                .init_dynamic_info(components, &[component_id]);
+            // SAFETY: the `BundleInfo` is initialized above
+            let bundle_info = unsafe { self.world.bundles.get_unchecked(bundle) };
+            for bundle_component_id in &bundle_components {
+                if bundle_info
+                    .contributed_components()
+                    .contains(bundle_component_id)
+                {
+                    contributed_components.extend(bundle_info.contributed_components().iter());
+                    break;
+                }
+            }
+        }
+
+        // Combine bundle components and dependent components
+        let mut to_remove = contributed_components;
+
+        // Create a bundle with remaining components
+        let remaining_components: Vec<_> = entity_components
+            .iter()
+            .filter(|&&c| !to_remove.contains(&c))
+            .copied()
+            .collect();
+
+        let remaining_bundle = self
+            .world
+            .bundles
+            .init_dynamic_info(components, &remaining_components);
+
+        // SAFETY: the `BundleInfo` is initialized above
+        let remaining_bundle_info = unsafe { self.world.bundles.get_unchecked(remaining_bundle) };
+
+        // Remove components required by remaining components from to_remove
+        to_remove.retain(|&c| !remaining_bundle_info.contributed_components().contains(&c));
+
+        // Create a bundle with components to delete
+        let to_delete_bundle = self
+            .world
+            .bundles
+            .init_dynamic_info(components, &to_remove.into_iter().collect::<Vec<_>>());
+
         // SAFETY: the dynamic `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(to_delete_bundle) };
 
