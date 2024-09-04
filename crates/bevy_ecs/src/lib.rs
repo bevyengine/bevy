@@ -2034,7 +2034,7 @@ mod tests {
         //      \ /
         //       W
 
-        // And after remove X and this requirements we must have this tree (W will keep becuase it's still required by V)
+        // And after remove X and this requirements we must have this tree (W will keep because it's still required by V)
         //   V
         //  /
         // W
