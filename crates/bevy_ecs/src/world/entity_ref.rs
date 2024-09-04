@@ -1180,9 +1180,64 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Removes all components of this [`Bundle`] and all required components of this [`Bundle`] that are not required by other components of this entity
-    /// The function can be noticeably slower than remove or retain functions because the function dynamically determines which components are still required by entity components outside of [`Bundle`]
+    /// Removes all components of this [`Bundle`] and its required components that are not required by other components of this entity.
+    ///
+    /// This function can be noticeably slower than simple remove or retain functions because it dynamically determines which components 
+    /// are still required by entity components outside of the [`Bundle`].
+    ///
+    /// # Example
+    ///
+    /// This example demonstrates safely removing component `X` and all its requirements that are not required outside `X`'s requirement tree:
+    ///
+    /// ```rust
     /// 
+    /// use bevy_ecs::prelude::*;
+    /// 
+    /// #[derive(Component)]
+    /// #[require(Y)]
+    /// struct X;
+    ///
+    /// #[derive(Component, Default)]
+    /// #[require(Z)]
+    /// struct Y;
+    ///
+    /// #[derive(Component, Default)]
+    /// struct Z;
+    ///
+    /// #[derive(Component)]
+    /// #[require(Z)]
+    /// struct W;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// // Spawn an entity with X, Y, Z, and W components
+    /// let entity = world.spawn((X, W)).id();
+    ///
+    /// // Initial component tree:
+    /// //  X
+    /// //   \ 
+    /// //    Y   W
+    /// //     \ /
+    /// //      Z
+    ///
+    /// assert!(world.entity(entity).contains::<X>());
+    /// assert!(world.entity(entity).contains::<Y>());
+    /// assert!(world.entity(entity).contains::<Z>());
+    /// assert!(world.entity(entity).contains::<W>());
+    ///
+    /// // Remove X and its unused requirements
+    /// world.entity_mut(entity).remove_with_required::<X>();
+    ///
+    /// // Resulting component tree:
+    /// //     W
+    /// //    /
+    /// //   Z
+    ///
+    /// assert!(!world.entity(entity).contains::<X>());
+    /// assert!(!world.entity(entity).contains::<Y>());
+    /// assert!(world.entity(entity).contains::<Z>());
+    /// assert!(world.entity(entity).contains::<W>());
+    /// ```
     pub fn remove_with_required<T: Bundle>(&mut self) -> &mut Self {
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
@@ -1206,6 +1261,7 @@ impl<'w> EntityWorldMut<'w> {
             .bundles
             .init_dynamic_info(components, &remaining_components);
 
+        // SAFETY: the `BundleInfo` is initialized above
         let remaining_bundle_info = unsafe { self.world.bundles.get_unchecked(remaining_bundle) };
 
         // Remove components required by reamining components from contributed_components of bundle T
