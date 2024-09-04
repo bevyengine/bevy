@@ -208,6 +208,7 @@ pub fn update_text2d_layout(
                 }
 
                 Ok(()) => {
+                    // Translate all the glyphs horizontally so that the left edge of the leftmost glyph is at 0.
                     if let Some(min_x) = text_layout_info
                         .glyphs
                         .iter()
