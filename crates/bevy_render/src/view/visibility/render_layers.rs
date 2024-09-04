@@ -426,4 +426,15 @@ mod rendering_mask_tests {
         let layers = RenderLayers::from_layers(&[63]);
         layers.iter().count();
     }
+
+    #[test]
+    fn mesh_light_interaction_max() {
+        let layers = RenderLayers::default();
+        let bits = layers.bits_u16_lossy();
+
+        assert_eq!(
+            RenderLayers::MESH_LIGHT_INTERACTION_MAX + 1, // Extra bit for all higher layers
+            std::mem::size_of_val(&bits) * 8 - 1
+        );
+    }
 }
