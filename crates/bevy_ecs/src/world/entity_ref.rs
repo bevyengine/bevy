@@ -1258,7 +1258,6 @@ impl<'w> EntityWorldMut<'w> {
 
         let remaining_components = old_archetype
             .components()
-            .into_iter()
             .filter(|c| !contributed_components.contains(c))
             .collect::<Vec<_>>();
 
@@ -1270,7 +1269,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: the `BundleInfo` is initialized above
         let remaining_bundle_info = unsafe { self.world.bundles.get_unchecked(remaining_bundle) };
 
-        // Remove components required by reamining components from contributed_components of bundle T
+        // Remove components required by remaining components from contributed_components of bundle T
         let to_delete = contributed_components
             .iter()
             .filter(|c| !remaining_bundle_info.contributed_components().contains(c))
