@@ -1372,7 +1372,7 @@ impl<'w> EntityWorldMut<'w> {
                 .bundles
                 .get_unchecked(bundle)
                 .contributed_components()
-                .into_iter()
+                .iter()
         });
 
         // Find all components that depend on bundle components
