@@ -99,7 +99,7 @@ pub struct SmaaPlugin;
 /// for a [`bevy_render::camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
 #[reflect(Component, Default)]
-#[doc(alias = "SubpixelMorphologicalAntialiasing")]
+#[doc(alias = "SubpixelMorphologicalAntiAliasing")]
 pub struct Smaa {
     /// A predefined set of SMAA parameters: i.e. a quality level.
     ///
