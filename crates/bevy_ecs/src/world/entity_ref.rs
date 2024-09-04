@@ -1182,7 +1182,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Removes all components of this [`Bundle`] and its required components that are not required by other components of this entity.
     ///
-    /// This function can be noticeably slower than simple remove or retain functions because it dynamically determines which components 
+    /// This function can be noticeably slower than simple remove or retain functions because it dynamically determines which components
     /// are still required by entity components outside of the [`Bundle`].
     ///
     /// # Example
@@ -1190,9 +1190,9 @@ impl<'w> EntityWorldMut<'w> {
     /// This example demonstrates safely removing component `X` and all its requirements that are not required outside `X`'s requirement tree:
     ///
     /// ```rust
-    /// 
+    ///
     /// use bevy_ecs::prelude::*;
-    /// 
+    ///
     /// #[derive(Component)]
     /// #[require(Y)]
     /// struct X;
@@ -1215,7 +1215,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// // Initial component tree:
     /// //  X
-    /// //   \ 
+    /// //   \
     /// //    Y   W
     /// //     \ /
     /// //      Z
@@ -1245,7 +1245,13 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: the `BundleInfo` is initialized above
         // We make clone of components array to not lock immutable access to world
-        let contributed_components = unsafe { self.world.bundles.get_unchecked(bundle).contributed_components().to_vec() };
+        let contributed_components = unsafe {
+            self.world
+                .bundles
+                .get_unchecked(bundle)
+                .contributed_components()
+                .to_vec()
+        };
 
         let old_location = self.location;
         let old_archetype = &mut self.world.archetypes[old_location.archetype_id];
@@ -1271,11 +1277,7 @@ impl<'w> EntityWorldMut<'w> {
             .copied()
             .collect::<Vec<_>>();
 
-
-        let to_delete_bundle = self
-            .world
-            .bundles
-            .init_dynamic_info(components, &to_delete);
+        let to_delete_bundle = self.world.bundles.init_dynamic_info(components, &to_delete);
         // SAFETY: the dynamic `BundleInfo` is initialized above
         self.location = unsafe { self.remove_bundle(to_delete_bundle) };
 

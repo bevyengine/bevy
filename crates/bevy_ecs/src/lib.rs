@@ -2025,12 +2025,11 @@ mod tests {
 
     #[test]
     fn remove_component_and_his_required_components() {
-
         // We create this 'require' tree (down is required by up component)
         // X
         //  \
-        //   Y  
-        //    \ 
+        //   Y
+        //    \
         //     Z   V
         //      \ /
         //       W
