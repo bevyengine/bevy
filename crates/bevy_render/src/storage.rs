@@ -93,7 +93,7 @@ where
     fn from(value: T) -> Self {
         let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::new());
         wrapper.write(&value).unwrap();
-        Self::new(&wrapper.as_ref(), RenderAssetUsages::default())
+        Self::new(wrapper.as_ref(), RenderAssetUsages::default())
     }
 }
 
