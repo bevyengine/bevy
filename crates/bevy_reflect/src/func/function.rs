@@ -53,7 +53,7 @@ pub trait Function: PartialReflect + Debug {
     }
 
     /// The [`FunctionInfoType`] for this function.
-    fn info(&self) -> &FunctionInfoType;
+    fn info(&self) -> FunctionInfoType;
 
     /// Call this function with the given arguments.
     fn reflect_call<'a>(&self, args: ArgList<'a>) -> FunctionResult<'a>;

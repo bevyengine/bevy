@@ -17,49 +17,51 @@ use crate::{
 /// A wrapper around [`FunctionInfo`] used to represent either a standard function
 /// or an overloaded function.
 #[derive(Debug, Clone)]
-pub enum FunctionInfoType {
+pub enum FunctionInfoType<'a> {
     /// A standard function with a single set of arguments.
     ///
     /// This includes generic functions with a single set of monomorphized arguments.
-    Standard(FunctionInfo),
+    Standard(Cow<'a, FunctionInfo>),
     /// An overloaded function with multiple sets of arguments.
     ///
     /// This includes generic functions with multiple sets of monomorphized arguments,
     /// as well as functions with a variable number of arguments (i.e. "variadic functions").
-    Overloaded(Box<[FunctionInfo]>),
+    Overloaded(Cow<'a, [FunctionInfo]>),
 }
 
-impl From<FunctionInfo> for FunctionInfoType {
+impl From<FunctionInfo> for FunctionInfoType<'_> {
     fn from(info: FunctionInfo) -> Self {
-        FunctionInfoType::Standard(info)
+        FunctionInfoType::Standard(Cow::Owned(info))
     }
 }
 
-impl TryFrom<Vec<FunctionInfo>> for FunctionInfoType {
+impl TryFrom<Vec<FunctionInfo>> for FunctionInfoType<'_> {
     type Error = MissingFunctionInfoError;
 
     fn try_from(mut infos: Vec<FunctionInfo>) -> Result<Self, Self::Error> {
         match infos.len() {
             0 => Err(MissingFunctionInfoError),
-            1 => Ok(Self::Standard(infos.pop().unwrap())),
-            _ => Ok(Self::Overloaded(infos.into_boxed_slice())),
+            1 => Ok(Self::Standard(Cow::Owned(infos.pop().unwrap()))),
+            _ => Ok(Self::Overloaded(Cow::Owned(infos))),
         }
     }
 }
 
-impl IntoIterator for FunctionInfoType {
+impl IntoIterator for FunctionInfoType<'_> {
     type Item = FunctionInfo;
     type IntoIter = vec::IntoIter<FunctionInfo>;
 
     fn into_iter(self) -> Self::IntoIter {
+        // Allow `.into_owned()` so that we can create a `std::vec::IntoIter`
+        #[allow(clippy::unnecessary_to_owned)]
         match self {
-            FunctionInfoType::Standard(info) => vec![info].into_iter(),
-            FunctionInfoType::Overloaded(infos) => infos.into_vec().into_iter(),
+            FunctionInfoType::Standard(info) => vec![info.into_owned()].into_iter(),
+            FunctionInfoType::Overloaded(infos) => infos.into_owned().into_iter(),
         }
     }
 }
 
-impl FunctionInfoType {
+impl FunctionInfoType<'_> {
     pub fn arg_count(&self) -> usize {
         match self {
             Self::Standard(info) => info.arg_count(),

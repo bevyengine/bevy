@@ -8,7 +8,6 @@ use crate::func::{
     args::ArgList, function_map::FunctionMap, signature::ArgumentSignature, DynamicFunction,
     FunctionError, FunctionInfoType, FunctionOverloadError, FunctionResult, IntoFunctionMut,
 };
-use bevy_utils::HashMap;
 
 /// A [`Box`] containing a callback to a reflected function.
 type BoxFnMut<'env> = Box<dyn for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>;
@@ -93,7 +92,7 @@ impl<'env> DynamicFunctionMut<'env> {
     /// [function overloading]: Self::with_overload
     pub fn new<F: for<'a> FnMut(ArgList<'a>) -> FunctionResult<'a> + 'env>(
         func: F,
-        info: impl TryInto<FunctionInfoType, Error: Debug>,
+        info: impl TryInto<FunctionInfoType<'static>, Error: Debug>,
     ) -> Self {
         let info = info.try_into().unwrap();
 
@@ -105,19 +104,14 @@ impl<'env> DynamicFunctionMut<'env> {
                 FunctionInfoType::Overloaded(_) => None,
             },
             function_map: match info {
-                FunctionInfoType::Standard(info) => FunctionMap {
-                    functions: vec![func],
-                    indices: HashMap::from([(ArgumentSignature::from(&info), 0)]),
-                    info: FunctionInfoType::Standard(info),
-                },
-                FunctionInfoType::Overloaded(infos) => FunctionMap {
-                    functions: vec![func],
-                    indices: infos
+                FunctionInfoType::Standard(info) => FunctionMap::Single(func, info.into_owned()),
+                FunctionInfoType::Overloaded(infos) => {
+                    let indices = infos
                         .iter()
                         .map(|info| (ArgumentSignature::from(info), 0))
-                        .collect(),
-                    info: FunctionInfoType::Overloaded(infos),
-                },
+                        .collect();
+                    FunctionMap::Overloaded(vec![func], infos.into_owned(), indices)
+                }
             },
         }
     }
@@ -272,10 +266,10 @@ impl<'env> DynamicFunctionMut<'env> {
     ///
     /// [`call_once`]: DynamicFunctionMut::call_once
     pub fn call<'a>(&mut self, args: ArgList<'a>) -> FunctionResult<'a> {
-        let expected_arg_count = self.function_map.info.arg_count();
+        let expected_arg_count = self.function_map.info().arg_count();
         let received_arg_count = args.len();
 
-        if matches!(self.function_map.info, FunctionInfoType::Standard(_))
+        if matches!(self.function_map.info(), FunctionInfoType::Standard(_))
             && expected_arg_count != received_arg_count
         {
             Err(FunctionError::ArgCountMismatch {
@@ -321,8 +315,8 @@ impl<'env> DynamicFunctionMut<'env> {
     }
 
     /// Returns the function info.
-    pub fn info(&self) -> &FunctionInfoType {
-        &self.function_map.info
+    pub fn info(&self) -> FunctionInfoType {
+        self.function_map.info()
     }
 
     /// The name of the function.
@@ -378,15 +372,13 @@ impl<'env> From<DynamicFunction<'env>> for DynamicFunctionMut<'env> {
     fn from(function: DynamicFunction<'env>) -> Self {
         Self {
             name: function.name,
-            function_map: FunctionMap {
-                info: function.function_map.info,
-                indices: function.function_map.indices,
-                functions: function
-                    .function_map
-                    .functions
-                    .into_iter()
-                    .map(arc_to_box)
-                    .collect(),
+            function_map: match function.function_map {
+                FunctionMap::Single(func, info) => FunctionMap::Single(arc_to_box(func), info),
+                FunctionMap::Overloaded(funcs, infos, indices) => FunctionMap::Overloaded(
+                    funcs.into_iter().map(arc_to_box).collect(),
+                    infos,
+                    indices,
+                ),
             },
         }
     }
