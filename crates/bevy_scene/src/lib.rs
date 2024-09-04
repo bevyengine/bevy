@@ -38,8 +38,8 @@ pub use scene_spawner::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        DynamicScene, DynamicSceneBuilder, DynamicSceneBundle, Scene, SceneBundle, SceneFilter,
-        SceneSpawner,
+        DynamicScene, DynamicSceneBuilder, DynamicSceneBundle, DynamicSceneHandle, Scene,
+        SceneBundle, SceneFilter, SceneHandle, SceneSpawner,
     };
 }
 

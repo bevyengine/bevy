@@ -13,6 +13,7 @@
 //!
 //! * Clicking anywhere moves the object.
 
+use bevy::color::palettes::css::*;
 use bevy::core_pipeline::Skybox;
 use bevy::math::{uvec3, vec3};
 use bevy::pbr::irradiance_volume::IrradianceVolume;
@@ -20,7 +21,6 @@ use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
 use bevy::prelude::*;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 use bevy::window::PrimaryWindow;
-use bevy::{color::palettes::css::*, scene::SceneHandle};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
