@@ -536,13 +536,11 @@ pub fn extract_uinode_borders(
             && !(left == 0.0 && top == 0.0 && right == 0.0 && bottom == 0.0)
         {
             if let Some(border_color) = maybe_border_color {
-                let transform = global_transform.compute_matrix();
                 extracted_uinodes.uinodes.insert(
                     commands.spawn_empty().id(),
                     ExtractedUiNode {
                         stack_index: uinode.stack_index,
-                        // This translates the uinode's transform to the center of the current border rectangle
-                        transform,
+                        transform: global_transform.compute_matrix(),
                         color: border_color.0.into(),
                         rect: Rect {
                             max: uinode.size(),
@@ -576,7 +574,6 @@ pub fn extract_uinode_borders(
                 commands.spawn_empty().id(),
                 ExtractedUiNode {
                     stack_index: uinode.stack_index,
-                    // This translates the uinode's transform to the center of the current border rectangle
                     transform: global_transform.compute_matrix(),
                     color: outline.color.into(),
                     rect: Rect {
