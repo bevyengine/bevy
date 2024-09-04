@@ -446,20 +446,16 @@ pub fn extract_uinode_borders(
     default_ui_camera: Extract<DefaultUiCamera>,
     ui_scale: Extract<Res<UiScale>>,
     uinode_query: Extract<
-        Query<
-            (
-                &Node,
-                &GlobalTransform,
-                &ViewVisibility,
-                Option<&CalculatedClip>,
-                Option<&TargetCamera>,
-                Option<&Parent>,
-                &Style,
-                Option<&BorderColor>,
-                Option<&Outline>,
-            ),
-            Or<(With<BorderColor>, With<Outline>)>,
-        >,
+        Query<(
+            &Node,
+            &GlobalTransform,
+            &ViewVisibility,
+            Option<&CalculatedClip>,
+            Option<&TargetCamera>,
+            Option<&Parent>,
+            &Style,
+            AnyOf<(&BorderColor, &Outline)>,
+        )>,
     >,
     node_query: Extract<Query<&Node>>,
 ) {
@@ -473,8 +469,7 @@ pub fn extract_uinode_borders(
         camera,
         parent,
         style,
-        maybe_border_color,
-        maybe_outline,
+        (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
@@ -484,12 +479,8 @@ pub fn extract_uinode_borders(
 
         // Skip invisible borders
         if !view_visibility.get()
-            || (maybe_border_color
-                .map(|border_color| border_color.0.is_fully_transparent())
-                .unwrap_or_default()
-                && maybe_outline
-                    .map(|outline| outline.color.is_fully_transparent())
-                    .unwrap_or_default())
+            || maybe_border_color.is_some_and(|border_color| border_color.0.is_fully_transparent())
+                && maybe_outline.is_some_and(|outline| outline.color.is_fully_transparent())
         {
             continue;
         }
