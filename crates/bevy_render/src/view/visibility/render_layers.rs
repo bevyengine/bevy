@@ -23,19 +23,23 @@ pub type Layer = usize;
 ///
 /// ## Mesh-Light interactions
 ///
-/// The first 15 layers (0–14) are special in that besides controlling light-camera
-/// and mesh-camera interactions, they also control mesh-light interactions for forward
-/// rendered entities.
+/// Layers from `0` to `MESH_LIGHT_INTERACTION_MAX` (inclusive) are special in that besides
+/// mediating light-camera and mesh-camera interactions, they also mediate mesh-light
+/// interaction for forward rendered meshes.
 ///
-/// For example, if you have the following setup:
+/// For example, if you have the following setup with two layers:
 ///
-/// - Mesh A (Layer 0)
-/// - Mesh B (Layer 1)
-/// - Light X (Layer 0)
-/// - Light Y (Layer 1)
-/// - Camera (Layers 0 and 1)
+/// - On layer 0:
+///   - Light I
+///   - Mesh A
+/// - On layer 1:
+///   - Light II
+///   - Mesh B
+/// - On both layers:
+///   - Mesh C
+///   - Camera
 ///
-/// Light X will only illuminate Mesh A, while Light Y will only illuminate mesh B,
+/// Light I will illuminate Mesh A and C, while Light II will illuminate mesh B and C,
 /// and both meshes will be visible by the camera.
 ///
 /// This behavior is useful, for example, when manually crafting a scene where you want
@@ -83,6 +87,18 @@ impl Default for RenderLayers {
 }
 
 impl RenderLayers {
+    /// The index of the highest layer that still mediates mesh-light interactions.
+    ///
+    /// Meshes and lights on layers `MESH_LIGHT_INTERACTION_MAX + 1` and onwards will all
+    /// interact with each other as if they were on the same layer, as long as they're on
+    /// the same layer as the camera.
+    ///
+    /// Meshes rendered via deferred rendering will always interact with all lights.
+    /// as long as both are on the same layer as the camera.
+    ///
+    /// Shadow casting is not affected by this limit.
+    pub const MESH_LIGHT_INTERACTION_MAX: usize = 14;
+
     /// Create a new `RenderLayers` belonging to the given layer.
     ///
     /// This `const` constructor is limited to `size_of::<usize>()` layers.
