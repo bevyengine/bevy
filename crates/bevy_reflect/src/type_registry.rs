@@ -11,13 +11,13 @@ use std::{
 
 /// Stores registration functions of all types that must be automatically registered.
 #[cfg(all(target_family = "wasm", feature = "auto_register_derives"))]
-pub static DERIVED_REFLECT_TYPES: RwLock<Vec<(TypeRegistration, fn(&mut TypeRegistry))>> =
+pub static AUTOMATIC_REFLECT_REGISTRATIONS: RwLock<Vec<fn(&mut TypeRegistry)>> =
     RwLock::new(Vec::new());
 #[cfg(all(not(target_family = "wasm"), feature = "auto_register_derives"))]
 #[allow(non_camel_case_types)]
-pub struct DERIVED_REFLECT_TYPES(pub fn(&mut TypeRegistry));
+pub struct AUTOMATIC_REFLECT_REGISTRATIONS(pub fn(&mut TypeRegistry));
 #[cfg(all(not(target_family = "wasm"), feature = "auto_register_derives"))]
-inventory::collect!(DERIVED_REFLECT_TYPES);
+inventory::collect!(AUTOMATIC_REFLECT_REGISTRATIONS);
 
 /// A registry of [reflected] types.
 ///
@@ -138,13 +138,17 @@ impl TypeRegistry {
         wasm_init::wasm_init();
 
         #[cfg(target_family = "wasm")]
-        for (ty, dep_reg) in DERIVED_REFLECT_TYPES.read().unwrap().iter() {
-            self.add_registration(ty.clone());
-            dep_reg(self);
+        for registration_fn in AUTOMATIC_REFLECT_REGISTRATIONS
+            .read()
+            .expect("Failed to get lock to read types for automatic type registration")
+            .iter()
+        {
+            registration_fn(self)
         }
+
         #[cfg(not(target_family = "wasm"))]
-        for ty in inventory::iter::<DERIVED_REFLECT_TYPES> {
-            ty.0(self)
+        for registration_fn in inventory::iter::<AUTOMATIC_REFLECT_REGISTRATIONS> {
+            registration_fn.0(self)
         }
     }
 
