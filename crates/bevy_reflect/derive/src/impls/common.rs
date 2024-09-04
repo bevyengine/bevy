@@ -173,10 +173,11 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
     Some(quote! {
         #[cfg(target_family = "wasm")]
         #bevy_reflect_path::wasm_init::wasm_init!{
+            use #bevy_reflect_path::{GetTypeRegistration, TypeRegistration};
             #bevy_reflect_path::DERIVED_REFLECT_TYPES
                 .write()
                 .unwrap()
-                .push(|reg: &mut #bevy_reflect_path::TypeRegistry| reg.register::<#type_path>());
+                .push((TypeRegistration::of::<#type_path>(), #type_path::register_type_dependencies));
         }
         #[cfg(not(target_family = "wasm"))]
         #bevy_reflect_path::inventory::submit!(
