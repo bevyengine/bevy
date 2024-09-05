@@ -1,5 +1,6 @@
 use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use core::fmt::{Debug, Formatter};
+use core::ops::RangeInclusive;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
@@ -269,7 +270,7 @@ impl<'env> DynamicFunctionMut<'env> {
         let expected_arg_count = self.function_map.info().arg_count();
         let received_arg_count = args.len();
 
-        if !self.is_overloaded() && expected_arg_count != received_arg_count {
+        if !expected_arg_count.contains(&received_arg_count) {
             Err(FunctionError::ArgCountMismatch {
                 expected: expected_arg_count,
                 received: received_arg_count,
@@ -350,6 +351,29 @@ impl<'env> DynamicFunctionMut<'env> {
     /// [overloaded]: Self::with_overload
     pub fn is_overloaded(&self) -> bool {
         self.function_map.is_overloaded()
+    }
+
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will return the minimum and maximum number of arguments.
+    ///
+    /// Otherwise, the range will have the same start and end.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunctionMut;
+    /// let add = (|a: i32, b: i32| a + b).into_function_mut();
+    /// assert_eq!(add.arg_count(), 2..=2);
+    ///
+    /// let add = add.with_overload(|a: f32, b: f32, c: f32| a + b + c);
+    /// assert_eq!(add.arg_count(), 2..=3);
+    /// ```
+    ///
+    /// [overloaded]: Self::with_overload
+    pub fn arg_count(&self) -> RangeInclusive<usize> {
+        self.function_map.arg_count()
     }
 }
 
@@ -452,23 +476,23 @@ mod tests {
 
         let args = ArgList::default().push_owned(25_i32);
         let error = func.call(args).unwrap_err();
-        assert!(matches!(
+        assert_eq!(
             error,
             FunctionError::ArgCountMismatch {
-                expected: 2,
+                expected: 2..=2,
                 received: 1
             }
-        ));
+        );
 
         let args = ArgList::default().push_owned(25_i32);
         let error = func.call_once(args).unwrap_err();
-        assert!(matches!(
+        assert_eq!(
             error,
             FunctionError::ArgCountMismatch {
-                expected: 2,
+                expected: 2..=2,
                 received: 1
             }
-        ));
+        );
     }
 
     #[test]

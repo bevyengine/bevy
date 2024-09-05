@@ -3,6 +3,7 @@ use alloc::{borrow::Cow, vec};
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
 
+use core::ops::RangeInclusive;
 use variadics_please::all_tuples;
 
 use crate::{
@@ -62,21 +63,23 @@ impl IntoIterator for FunctionInfoType<'_> {
 }
 
 impl FunctionInfoType<'_> {
-    pub fn arg_count(&self) -> usize {
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will return the minimum and maximum number of arguments.
+    ///
+    /// Otherwise, the range will have the same start and end.
+    ///
+    /// [overloaded]: Self::Overloaded
+    pub fn arg_count(&self) -> RangeInclusive<usize> {
         match self {
-            Self::Standard(info) => info.arg_count(),
-            Self::Overloaded(infos) => {
-                // TODO: This needs proper implementation
-                infos.iter().map(FunctionInfo::arg_count).min().unwrap()
-            } // match self {
-              //     Self::Standard(info) => RangeInclusive::new(info.arg_count(), info.arg_count()),
-              //     Self::Overloaded(infos) => infos.iter().map(FunctionInfo::arg_count).fold(
-              //         RangeInclusive::new(0, 0),
-              //         |acc, count| {
-              //             RangeInclusive::new((*acc.start()).min(count), (*acc.end()).max(count))
-              //         },
-              //     ),
-              // }
+            Self::Standard(info) => RangeInclusive::new(info.arg_count(), info.arg_count()),
+            Self::Overloaded(infos) => infos.iter().map(FunctionInfo::arg_count).fold(
+                RangeInclusive::new(usize::MAX, usize::MIN),
+                |acc, count| {
+                    RangeInclusive::new((*acc.start()).min(count), (*acc.end()).max(count))
+                },
+            ),
         }
     }
 }

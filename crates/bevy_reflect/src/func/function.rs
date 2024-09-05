@@ -4,6 +4,7 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use core::fmt::Debug;
+use core::ops::RangeInclusive;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format, vec};
@@ -47,8 +48,15 @@ pub trait Function: PartialReflect + Debug {
     /// [`IntoFunction`]: crate::func::IntoFunction
     fn name(&self) -> Option<&Cow<'static, str>>;
 
-    /// The number of arguments this function accepts.
-    fn arg_count(&self) -> usize {
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will return the minimum and maximum number of arguments.
+    ///
+    /// Otherwise, the range will have the same start and end.
+    ///
+    /// [overloaded]: FunctionInfoType::Overloaded
+    fn arg_count(&self) -> RangeInclusive<usize> {
         self.info().arg_count()
     }
 

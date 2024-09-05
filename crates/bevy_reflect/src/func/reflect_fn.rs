@@ -96,7 +96,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: COUNT..=COUNT,
                         received: args.len(),
                     });
                 }
@@ -125,7 +125,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: COUNT..=COUNT,
                         received: args.len(),
                     });
                 }
@@ -155,7 +155,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: COUNT..=COUNT,
                         received: args.len(),
                     });
                 }
@@ -185,7 +185,7 @@ macro_rules! impl_reflect_fn {
 
                 if args.len() != COUNT {
                     return Err(FunctionError::ArgCountMismatch {
-                        expected: COUNT,
+                        expected: COUNT..=COUNT,
                         received: args.len(),
                     });
                 }

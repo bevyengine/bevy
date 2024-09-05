@@ -2,6 +2,7 @@ use crate::func::signature::ArgumentSignature;
 use crate::func::{args::ArgError, Return};
 use alloc::borrow::Cow;
 use bevy_utils::HashSet;
+use core::ops::RangeInclusive;
 use thiserror::Error;
 
 #[cfg(not(feature = "std"))]
@@ -17,8 +18,11 @@ pub enum FunctionError {
     #[error(transparent)]
     ArgError(#[from] ArgError),
     /// The number of arguments provided does not match the expected number.
-    #[error("expected {expected} arguments but received {received}")]
-    ArgCountMismatch { expected: usize, received: usize },
+    #[error("expected {expected:?} arguments but received {received}")]
+    ArgCountMismatch {
+        expected: RangeInclusive<usize>,
+        received: usize,
+    },
     /// No overload was found for the given set of arguments.
     #[error("no overload found for arguments with signature `{received:?}`, expected one of `{expected:?}`")]
     NoOverload {

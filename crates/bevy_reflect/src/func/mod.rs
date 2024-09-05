@@ -178,7 +178,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::ArgCountMismatch {
-                expected: 1,
+                expected: 1..=1,
                 received: 0
             }
         );
@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             FunctionError::ArgCountMismatch {
-                expected: 0,
+                expected: 0..=0,
                 received: 1
             }
         );
