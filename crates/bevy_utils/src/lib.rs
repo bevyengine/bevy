@@ -63,7 +63,7 @@ mod conditional_send {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 mod conditional_send {
     pub trait ConditionalSend {}
     impl<T> ConditionalSend for T {}

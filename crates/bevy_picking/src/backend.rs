@@ -84,7 +84,7 @@ pub struct PointerHits {
 }
 
 impl PointerHits {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn new(pointer: prelude::PointerId, picks: Vec<(Entity, HitData)>, order: f32) -> Self {
         Self {
             pointer,
@@ -112,7 +112,7 @@ pub struct HitData {
 }
 
 impl HitData {
-    #[allow(missing_docs)]
+    #[expect(missing_docs)]
     pub fn new(camera: Entity, depth: f32, position: Option<Vec3>, normal: Option<Vec3>) -> Self {
         Self {
             camera,
