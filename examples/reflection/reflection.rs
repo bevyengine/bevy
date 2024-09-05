@@ -4,8 +4,6 @@
 //! by their string name. Reflection is a core part of Bevy and enables a number of interesting
 //! features (like scenes).
 
-use std::any::Any;
-
 use bevy::{
     prelude::*,
     reflect::{
@@ -18,15 +16,13 @@ use serde::de::DeserializeSeed;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Bar will be automatically registered as it's a dependency of Foo
-        // .register_type::<Foo>()
         .add_systems(Startup, setup)
         .run();
 }
 
 /// Deriving `Reflect` implements the relevant reflection traits. In this case, it implements the
 /// `Reflect` trait and the `Struct` trait `derive(Reflect)` assumes that all fields also implement
-/// Reflect.
+/// Reflect. All types without generics that `derive(Reflect)` are automatically registered.
 ///
 /// All fields in a reflected item will need to be `Reflect` as well. You can opt a field out of
 /// reflection by using the `#[reflect(ignore)]` attribute.
@@ -103,8 +99,6 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-    assert!(type_registry.contains(value.type_id()));
-
     // Deserializing returns a `Box<dyn PartialReflect>` value.
     // Generally, deserializing a value will return the "dynamic" variant of a type.
     // For example, deserializing a struct will return the DynamicStruct type.
@@ -122,6 +116,4 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     // By "patching" `Foo` with the deserialized DynamicStruct, we can "Deserialize" Foo.
     // This means we can serialize and deserialize with a single `Reflect` derive!
     value.apply(&*reflect_value);
-
-    info!("{}", type_registry.iter().collect::<Vec<_>>().len());
 }

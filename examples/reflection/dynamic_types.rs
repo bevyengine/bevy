@@ -67,8 +67,7 @@ fn main() {
     // They generally can't know how to construct a type ahead of time,
     // so they instead build and return these dynamic representations.
     let input = "(id: 123)";
-    let mut registry = TypeRegistry::default();
-    registry.register::<Player>();
+    let registry = TypeRegistry::default();
     let registration = registry.get(std::any::TypeId::of::<Player>()).unwrap();
     let deserialized = TypedReflectDeserializer::new(registration, &registry)
         .deserialize(&mut ron::Deserializer::from_str(input).unwrap())

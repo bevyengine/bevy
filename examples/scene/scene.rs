@@ -5,9 +5,6 @@ use std::{fs::File, io::Write};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .register_type::<ComponentA>()
-        .register_type::<ComponentB>()
-        .register_type::<ResourceA>()
         .add_systems(
             Startup,
             (save_scene_system, load_scene_system, infotext_system),
