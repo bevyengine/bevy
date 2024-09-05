@@ -285,8 +285,8 @@ fn simplify_meshlet_group(
         Some(&mut error),
     );
 
-    // Check if we were able to simplify to at least 65% triangle count
-    if simplified_group_indices.len() as f32 / group_indices.len() as f32 > 0.65 {
+    // Check if we were able to simplify at least a little (95% of the original triangle count)
+    if simplified_group_indices.len() as f32 / group_indices.len() as f32 > 0.95 {
         return None;
     }
 
