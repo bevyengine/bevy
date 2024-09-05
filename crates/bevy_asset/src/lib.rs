@@ -23,6 +23,13 @@
 //! The handle that's returned will be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
 //! which will then be spawned into the world as part of an entity.
 //!
+//! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
+//! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
+//! which will be [`LoadState::Loaded`] when the asset is ready to use.
+//! Keep track of what you're waiting on using a [`HashSet`] or similar data structure,
+//! poll in your update loop, and transition to the new scene when all assets are loaded.
+//! Bevy's built-in states system can be very helpful for this!
+//!
 //! If we later want to manipulate this asset data (such as for displaying a death animation), we have three options:
 //!
 //! 1. Despawn the entity and spawn a new one with the new asset data.
