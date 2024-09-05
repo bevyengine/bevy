@@ -128,7 +128,7 @@ impl TypeRegistry {
     /// Register all non-generic types annotated with `#[derive(Reflect)]`.
     ///
     /// Calling this method is equivalent to calling [`register`](Self::register) on all types without generic parameters
-    /// that derived [`Refelct`](crate::Reflect) trait.
+    /// that derived [`Reflect`](crate::Reflect) trait.
     ///
     /// This method is supported on Linux, macOS, iOS, Android and Windows via the `inventory` crate,
     /// and on wasm via the `wasm-init` crate. It does nothing on platforms not supported by either of those crates.
