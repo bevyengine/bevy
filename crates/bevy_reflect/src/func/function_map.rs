@@ -2,7 +2,6 @@ use crate::func::signature::ArgumentSignature;
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionInfoType, FunctionOverloadError};
 use alloc::borrow::Cow;
 use bevy_utils::hashbrown::HashMap;
-use bevy_utils::NoOpHash;
 use core::ops::RangeInclusive;
 
 /// A helper type for storing a mapping of overloaded functions
@@ -28,7 +27,7 @@ pub(super) enum FunctionMap<F> {
         /// A mapping of argument signatures to the index of the corresponding function.
         ///
         /// Multiple signatures may point to the same function index (i.e. for manually created overloads).
-        HashMap<ArgumentSignature, usize, NoOpHash>,
+        HashMap<ArgumentSignature, usize>,
     ),
 }
 
