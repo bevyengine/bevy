@@ -21,6 +21,7 @@ pub mod widget;
 pub mod picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
+use bevy_math::Vec2;
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_text")]
 mod accessibility;
@@ -244,4 +245,23 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         AmbiguousWithUpdateText2DLayout.ambiguous_with(bevy_text::update_text2d_layout),
     );
+}
+
+// Returns true if `point` (relative to the rectangle's center) is within the bounds of a rounded rectangle with
+// the given size and border radius.
+//
+// Matches the sdf function in `ui.wgsl` that is used by the UI renderer to draw rounded rectangles.
+fn pick_rounded_rect(point: Vec2, size: Vec2, border_radius: ResolvedBorderRadius) -> bool {
+    let s = point.signum();
+    let r = (border_radius.top_left * (1. - s.x) * (1. - s.y)
+        + border_radius.top_right * (1. + s.x) * (1. - s.y)
+        + border_radius.bottom_right * (1. + s.x) * (1. + s.y)
+        + border_radius.bottom_left * (1. - s.x) * (1. + s.y))
+        / 4.;
+
+    let corner_to_point = point.abs() - 0.5 * size;
+    let q = corner_to_point + r;
+    let l = q.max(Vec2::ZERO).length();
+    let m = q.max_element().min(0.);
+    l + m - r < 0.
 }

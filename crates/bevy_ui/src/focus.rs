@@ -1,6 +1,5 @@
 use crate::{
-    picking_backend::pick_rounded_rect, CalculatedClip, DefaultUiCamera, Node, TargetCamera,
-    UiScale, UiStack,
+    pick_rounded_rect, CalculatedClip, DefaultUiCamera, Node, TargetCamera, UiScale, UiStack,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
