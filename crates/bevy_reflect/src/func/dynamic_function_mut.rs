@@ -329,6 +329,26 @@ impl<'env> DynamicFunctionMut<'env> {
     pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.name.as_ref()
     }
+
+    /// Returns `true` if the function is [overloaded].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunctionMut;
+    /// let mut total_i32 = 0;
+    /// let increment = (|value: i32| total_i32 += value).into_function_mut();
+    /// assert!(!increment.is_overloaded());
+    ///
+    /// let mut total_f32 = 0.0;
+    /// let increment = increment.with_overload(|value: f32| total_f32 += value);
+    /// assert!(increment.is_overloaded());
+    /// ```
+    ///
+    /// [overloaded]: Self::with_overload
+    pub fn is_overloaded(&self) -> bool {
+        self.function_map.is_overloaded()
+    }
 }
 
 /// Outputs the function's signature.

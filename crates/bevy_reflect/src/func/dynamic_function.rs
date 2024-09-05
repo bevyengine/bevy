@@ -334,6 +334,24 @@ impl<'env> DynamicFunction<'env> {
     pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.name.as_ref()
     }
+
+    /// Returns `true` if the function is [overloaded].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunction;
+    /// let add = (|a: i32, b: i32| a + b).into_function();
+    /// assert!(!add.is_overloaded());
+    ///
+    /// let add = add.with_overload(|a: f32, b: f32| a + b);
+    /// assert!(add.is_overloaded());
+    /// ```
+    ///
+    /// [overloaded]: Self::with_overload
+    pub fn is_overloaded(&self) -> bool {
+        self.function_map.is_overloaded()
+    }
 }
 
 impl Function for DynamicFunction<'static> {
