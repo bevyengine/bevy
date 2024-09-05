@@ -13,6 +13,37 @@
 //! Bevy coordinates these tasks using the [`AssetServer`], storing each loaded asset in a strongly-typed [`Assets<T>`] collection.
 //! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
 //! and providing a way to initialize objects (generally entities) before the required assets are loaded.
+//!
+//! ## Handles and reference counting
+//!
+//! [`Handle`] (or their untyped counterpart [`UntypedHandle`]) are used to reference assets in the [`Assets`] collection,
+//! and are the primary way to interact with assets in Bevy.
+//! As a user, you'll be working with handles a lot!
+//!
+//! The most important thing to know about handles is that they are reference counted: when you clone a handle, you're incrementing a reference count.
+//! When the object holding the handle is dropped (generally because an entity was despawned), the reference count is decremented.
+//! When the reference count hits zero, the asset it references is removed from the [`Assets`] collection.
+//! To avoid incrementing the reference count, you can use the [`Handle::clone_weak`] method, which is marginally faster.
+//!
+//! This reference counting is a simple, laregely automatic way to avoid holding onto memory for game objects that are no longer in use.
+//! However, it can lead to surprising behavior if you're not careful!
+//!
+//! There are two categories of problems to watch out for:
+//! - never dropping a handle, causing the asset to never be removed from memory
+//! - dropping a handle too early, causing the asset to be removed from memory while it's still in use
+//!
+//! The first problem is less critical for beginners, as for tiny games, you can often get away with simply storing all of the assets in memory at once,
+//! and loading them all at the start of the game.
+//! As your game grows, you'll need to be more careful about when you load and unload assets,
+//! segmenting them by level or area, and loading them on-demand.
+//! This problem generally arises when handles are stored in a persistent "zoo" or "manifest" of possible objects (generally in a resource),
+//! which is convenient for easy access and zero-latency spawning, but can result in high but stable memory usage.
+//!
+//! The second problem is more concerning, and looks like your models or textures suddenly disappearing from the game.
+//! Debugging reveals that the *entities* are still there, but nothing is rendering!
+//! This is because the assets were removed from memory while they were still in use.
+//! You were probably too aggressive with the use of weak handles: think through the lifetime of your assets carefully!
+//! As soon as an asset is loaded, you must ensure that at least one strong handle is held to it until all matching entities are out of sight of the player.
 
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
