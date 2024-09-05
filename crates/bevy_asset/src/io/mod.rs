@@ -130,10 +130,7 @@ where
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetReader`] instead.
 ///
-/// This trait defines asset-agnostic mechanisms to interact with a storage system.
-/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
-///
-/// For a mirrored version of this trait that can write assets to storage, see [`AssetWriter`].
+/// Also see [`AssetWriter`].
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     ///
@@ -264,10 +261,7 @@ pub enum AssetWriterError {
 /// API, where asset bytes and asset metadata bytes are both stored and accessible for a given
 /// `path`. This trait is not object safe, if needed use a dyn [`ErasedAssetWriter`] instead.
 ///
-/// This trait defines asset-agnostic mechanisms to interact with a storage system.
-/// For the per-asset-type saving/loading logic, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
-///
-/// For a mirrored version of this trait that can read assets from storage, see [`AssetReader`].
+/// Also see [`AssetReader`].
 pub trait AssetWriter: Send + Sync + 'static {
     /// Writes the full asset bytes at the provided path.
     fn write<'a>(
