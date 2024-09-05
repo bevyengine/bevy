@@ -9,15 +9,15 @@ use std::{
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-/// Stores registration functions of all types that must be automatically registered.
-#[cfg(all(target_family = "wasm", feature = "auto_register_derives"))]
-pub static AUTOMATIC_REFLECT_REGISTRATIONS: RwLock<Vec<fn(&mut TypeRegistry)>> =
-    RwLock::new(Vec::new());
-#[cfg(all(not(target_family = "wasm"), feature = "auto_register_derives"))]
+/// Stores registration functions of all reflect types that can be automatically registered.
+#[cfg(not(target_family = "wasm"))]
 #[allow(non_camel_case_types)]
 pub struct AUTOMATIC_REFLECT_REGISTRATIONS(pub fn(&mut TypeRegistry));
-#[cfg(all(not(target_family = "wasm"), feature = "auto_register_derives"))]
+#[cfg(not(target_family = "wasm"))]
 inventory::collect!(AUTOMATIC_REFLECT_REGISTRATIONS);
+#[cfg(target_family = "wasm")]
+pub static AUTOMATIC_REFLECT_REGISTRATIONS: RwLock<Vec<fn(&mut TypeRegistry)>> =
+    RwLock::new(Vec::new());
 
 /// A registry of [reflected] types.
 ///
@@ -83,7 +83,10 @@ pub trait GetTypeRegistration: 'static {
 
 impl Default for TypeRegistry {
     fn default() -> Self {
-        Self::new()
+        let mut registry = Self::new();
+        registry.register_derived_types();
+
+        registry
     }
 }
 
@@ -118,20 +121,44 @@ impl TypeRegistry {
         registry.register::<f32>();
         registry.register::<f64>();
         registry.register::<String>();
-        registry.register_derived_types();
 
         registry
     }
 
     /// Register all non-generic types annotated with `#[derive(Reflect)]`.
     ///
-    /// This function does nothing if `auto_register_derives` feature is not enabled.
-    fn register_derived_types(&mut self) {
-        self.register_derived_types_internal()
-    }
-
-    #[cfg(feature = "auto_register_derives")]
-    fn register_derived_types_internal(&mut self) {
+    /// Calling this method is equivalent to calling [`register`](Self::register) on all types without generic parameters
+    /// that derived [`Refelct`](crate::Reflect) trait.
+    ///
+    /// This method is supported on Linux, macOS, iOS, Android and Windows via the `inventory` crate,
+    /// and on wasm via the `wasm-init` crate. It does nothing on platforms not supported by either of those crates.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::any::TypeId;
+    /// # use bevy_reflect::{Reflect, TypeRegistry, std_traits::ReflectDefault};
+    /// #[derive(Reflect, Default)]
+    /// #[reflect(Default)]
+    /// struct Foo {
+    ///   name: Option<String>,
+    ///   value: i32
+    /// }
+    ///
+    /// let mut type_registry = TypeRegistry::empty();
+    /// type_registry.register_derived_types();
+    ///
+    /// // The main type
+    /// assert!(type_registry.contains(TypeId::of::<Foo>()));
+    ///
+    /// // Its type dependencies
+    /// assert!(type_registry.contains(TypeId::of::<Option<String>>()));
+    /// assert!(type_registry.contains(TypeId::of::<i32>()));
+    ///
+    /// // Its type data
+    /// assert!(type_registry.get_type_data::<ReflectDefault>(TypeId::of::<Foo>()).is_some());
+    /// ```
+    pub fn register_derived_types(&mut self) {
         // wasm_init must be called at least once to run all init code.
         // Calling it multiple times is ok and doesn't do anything.
         #[cfg(target_family = "wasm")]
@@ -146,14 +173,13 @@ impl TypeRegistry {
             registration_fn(self)
         }
 
+        dbg!("Running...");
         #[cfg(not(target_family = "wasm"))]
         for registration_fn in inventory::iter::<AUTOMATIC_REFLECT_REGISTRATIONS> {
+            dbg!("{:?}", registration_fn.0);
             registration_fn.0(self)
         }
     }
-
-    #[cfg(not(feature = "auto_register_derives"))]
-    fn register_derived_types_internal(&mut self) {}
 
     /// Attempts to register the type `T` if it has not yet been registered already.
     ///

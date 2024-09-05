@@ -60,9 +60,6 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
     let get_type_registration_impl = meta.get_type_registration(&where_clause_options);
 
-    #[cfg(not(feature = "auto_register_derives"))]
-    let auto_register = None::<proc_macro2::TokenStream>;
-    #[cfg(feature = "auto_register_derives")]
     let auto_register = reflect_auto_registration(meta);
 
     quote! {

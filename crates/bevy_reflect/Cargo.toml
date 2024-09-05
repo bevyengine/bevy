@@ -22,11 +22,6 @@ documentation = ["bevy_reflect_derive/documentation"]
 # Enables function reflection
 functions = ["bevy_reflect_derive/functions"]
 # Enables automatic registration of types annotated with #[derive(Reflect)]
-auto_register_derives = [
-    "bevy_reflect_derive/auto_register_derives",
-    "dep:inventory",
-    "dep:wasm-init",
-]
 
 [dependencies]
 # bevy
@@ -45,8 +40,8 @@ glam = { version = "0.28", features = ["serde"], optional = true }
 petgraph = { version = "0.6", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", optional = true }
 uuid = { version = "1.0", optional = true, features = ["v4", "serde"] }
-inventory = { version = "0.3", optional = true }
-wasm-init = { version = "0.2", optional = true }
+inventory = "0.3"
+wasm-init = "0.2"
 
 [dev-dependencies]
 ron = "0.8.0"

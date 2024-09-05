@@ -212,9 +212,6 @@ reflect_functions = [
   "bevy_ecs/reflect_functions",
 ]
 
-# Enables automatic registration of types annotated with #[derive(Reflect)]
-reflect_auto_register = ["bevy_reflect/auto_register_derives"]
-
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.15.0-dev" }

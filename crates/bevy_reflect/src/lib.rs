@@ -597,9 +597,7 @@ pub use type_registry::*;
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
-#[cfg(feature = "auto_register_derives")]
 pub extern crate inventory;
-#[cfg(feature = "auto_register_derives")]
 pub extern crate wasm_init;
 
 extern crate alloc;

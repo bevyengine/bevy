@@ -17,8 +17,6 @@ default = []
 documentation = []
 # Enables macro logic related to function reflection
 functions = []
-# Enables automatic registration of types annotated with #[derive(Reflect)]
-auto_register_derives = []
 
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.15.0-dev" }

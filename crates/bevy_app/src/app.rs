@@ -92,7 +92,6 @@ impl Debug for App {
 impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
-
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]

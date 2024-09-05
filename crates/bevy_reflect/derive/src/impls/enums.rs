@@ -83,9 +83,6 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().type_path().generics().split_for_impl();
 
-    #[cfg(not(feature = "auto_register_derives"))]
-    let auto_register = None::<proc_macro2::TokenStream>;
-    #[cfg(feature = "auto_register_derives")]
     let auto_register = reflect_auto_registration(&reflect_enum.meta());
 
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
