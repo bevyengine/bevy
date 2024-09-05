@@ -247,6 +247,13 @@ impl Plugin for AssetPlugin {
     }
 }
 
+/// Declares that this type is an asset,
+/// which can be loaded and managed by the [`AssetServer`] and stored in [`Assets`] collections.
+///
+/// Generally, assets are large, complex, and/or expensive to load from disk, and are often authored by artists or designers.
+///
+/// [`TypePath`] is largely used for diagnostic purposes, and should almost always be implemented by deriving [`Reflect`] on your type.
+/// [`VisitAssetDependencies`] is used to track asset dependencies, and an implementation automatically generated when deriving [`Asset`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Asset`",
     label = "invalid `Asset`",
@@ -254,6 +261,10 @@ impl Plugin for AssetPlugin {
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
+/// This trait defines how to visit the dependencies of an asset.
+/// For example, a 3D model might require both textures and meshes to be loaded.
+///
+/// Note that this trait is automatically implemented when deriving [`Asset`].
 pub trait VisitAssetDependencies {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
