@@ -18,7 +18,9 @@
 //!
 //! The [`AssetServer`] is the main entry point for loading assets.
 //! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
-//! This handle will be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
+//! Note that this method does not attempt to reload the asset if it has already been loaded: as long as the asset hasn't been dropped,
+//! calling [`AssetServer::load`] on the same path will return the same handle.
+//! The handle that's returned will be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
 //! which will then be spawned into the world as part of an entity.
 //!
 //! If we later want to manipulate this asset data (such as for displaying a death animation), we have three options:
