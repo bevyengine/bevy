@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Raw pointers are inherently unsafe.")]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -312,7 +312,6 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref`](Self::deref) over this function,
     /// as it retains the lifetime.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -368,7 +367,6 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// If possible, it is strongly encouraged to use [`deref_mut`](Self::deref_mut) over
     /// this function, as it retains the lifetime.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
@@ -455,7 +453,6 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     /// If possible, it is strongly encouraged to use the other more type-safe functions
     /// over this function.
     #[inline]
-    #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
