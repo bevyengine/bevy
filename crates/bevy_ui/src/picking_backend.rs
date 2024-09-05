@@ -23,7 +23,7 @@
 #![allow(clippy::too_many_arguments)]
 #![deny(missing_docs)]
 
-use crate::{pick_rounded_rect, prelude::*, UiStack};
+use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
