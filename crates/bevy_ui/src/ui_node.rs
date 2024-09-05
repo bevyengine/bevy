@@ -120,10 +120,16 @@ impl Node {
     }
 
     #[inline]
-    /// Returns the thickness of the UI node's outline.
+    /// Returns the thickness of the UI node's outline in logical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     pub fn outline_width(&self) -> f32 {
         self.outline_width
+    }
+
+    #[inline]
+    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    pub fn outline_offset(&self) -> f32 {
+        self.outline_offset
     }
 }
 
