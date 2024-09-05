@@ -10,7 +10,7 @@
 //! [Bevy]: https://bevyengine.org/
 //!
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod prelude {
     pub use crate::default;
 }
@@ -54,7 +54,7 @@ mod conditional_send {
 }
 
 #[cfg(target_arch = "wasm32")]
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 mod conditional_send {
     pub trait ConditionalSend {}
     impl<T> ConditionalSend for T {}

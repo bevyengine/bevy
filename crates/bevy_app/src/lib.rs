@@ -27,7 +27,7 @@ pub use sub_app::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use terminal_ctrl_c_handler::*;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

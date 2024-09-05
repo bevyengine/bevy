@@ -33,7 +33,7 @@ mod audio_source;
 mod pitch;
 mod sinks;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

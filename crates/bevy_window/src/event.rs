@@ -432,7 +432,7 @@ impl AppLifecycle {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub enum WindowEvent {
     AppLifecycle(AppLifecycle),
     CursorEntered(CursorEntered),

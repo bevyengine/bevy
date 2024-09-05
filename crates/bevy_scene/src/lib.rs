@@ -34,7 +34,7 @@ pub use scene_filter::*;
 pub use scene_loader::*;
 pub use scene_spawner::*;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

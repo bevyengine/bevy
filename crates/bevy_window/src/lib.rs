@@ -30,7 +30,7 @@ pub use system::*;
 pub use system_cursor::*;
 pub use window::*;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod prelude {
     #[allow(deprecated)]
     #[doc(hidden)]

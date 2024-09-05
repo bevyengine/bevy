@@ -39,7 +39,7 @@ use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use uuid::Uuid;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

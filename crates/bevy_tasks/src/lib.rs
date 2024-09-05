@@ -44,7 +44,7 @@ pub use iter::ParallelIterator;
 
 pub use futures_lite;
 
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
