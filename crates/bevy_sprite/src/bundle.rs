@@ -31,4 +31,3 @@ pub struct SpriteBundle {
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub view_visibility: ViewVisibility,
 }
-
