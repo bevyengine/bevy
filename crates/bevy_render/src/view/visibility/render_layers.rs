@@ -309,6 +309,7 @@ impl std::ops::BitXor for RenderLayers {
 mod rendering_mask_tests {
     use super::{Layer, RenderLayers};
     use smallvec::SmallVec;
+    use std::mem::size_of_val;
 
     #[test]
     fn rendering_mask_sanity() {
@@ -434,7 +435,7 @@ mod rendering_mask_tests {
 
         assert_eq!(
             RenderLayers::MESH_LIGHT_INTERACTION_MAX + 1, // Extra bit for all higher layers
-            std::mem::size_of_val(&bits) * 8 - 1
+            size_of_val(&bits) * 8 - 1
         );
     }
 }
