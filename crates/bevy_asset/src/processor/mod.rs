@@ -77,6 +77,7 @@ pub struct AssetProcessor {
     pub(crate) data: Arc<AssetProcessorData>,
 }
 
+/// The data stored inside an [`AssetProcessor`].
 pub struct AssetProcessorData {
     pub(crate) asset_infos: async_lock::RwLock<ProcessorAssetInfos>,
     log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
@@ -107,6 +108,7 @@ impl AssetProcessor {
         Self { server, data }
     }
 
+    /// Gets a reference to the [`Arc`] containing the [`AssetProcessorData`].
     pub fn data(&self) -> &Arc<AssetProcessorData> {
         &self.data
     }
@@ -981,6 +983,7 @@ impl AssetProcessor {
 }
 
 impl AssetProcessorData {
+    /// Initializes a new [`AssetProcessorData`] using the given [`AssetSources`].
     pub fn new(source: AssetSources) -> Self {
         let (mut finished_sender, finished_receiver) = async_broadcast::broadcast(1);
         let (mut initialized_sender, initialized_receiver) = async_broadcast::broadcast(1);
