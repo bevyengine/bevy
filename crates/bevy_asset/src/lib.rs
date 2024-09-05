@@ -1,3 +1,19 @@
+//! In the context of game development, an "asset" is a piece of multimedia content which must be loaded from disk and displayed in the game.
+//! Typically, these are authored by artists and designers (in contrast to code),
+//! are relatively large in size, and include everything from textures and models to sounds and music to levels and scripts.
+//!
+//! This presents two main challenges:
+//! - assets take up a lot of memory: simply storing a copy for each instance of an asset in the game would be prohibitively expensive
+//! - loading assets from disk is slow, and can cause the game to stutter or freeze if done in the middle of gameplay
+//!
+//! These problems play into each other: if assets are expensive to store in memory,
+//! larger game worlds will need to load them from disk as needed, ideally without a loading screen!
+//!
+//! Unsurprisingly, the problem of non-blocking asset loading is done using `async`, where background tasks are used to load assets while the game is running.
+//! Bevy coordinates these tasks using the [`AssetServer`], storing each loaded asset in a strongly-typed [`Assets<T>`] collection.
+//! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
+//! and providing a way to initialize objects (generally entities) before the required assets are loaded.
+
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
