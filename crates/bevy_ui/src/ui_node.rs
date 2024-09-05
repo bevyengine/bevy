@@ -63,6 +63,13 @@ impl Node {
         self.calculated_size
     }
 
+    /// Check if the node is empty.
+    /// A node is considered empty if it has a zero or negative extent along either of its axes.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.size().cmple(Vec2::ZERO).any()
+    }
+
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     pub const fn stack_index(&self) -> u32 {

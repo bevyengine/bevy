@@ -525,7 +525,7 @@ pub fn extract_uinode_borders(
         let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
 
         // don't extract border if no border or the node is zero-sized (a zero sized node can still have an outline).
-        if uinode.size().x > 0. && uinode.size().y > 0. && border != [0.; 4] {
+        if !uinode.is_empty() && border != [0.; 4] {
             if let Some(border_color) = maybe_border_color {
                 extracted_uinodes.uinodes.insert(
                     commands.spawn_empty().id(),
@@ -698,7 +698,7 @@ pub fn extract_uinode_text(
         };
 
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
+        if !view_visibility.get() || uinode.is_empty() {
             continue;
         }
 
