@@ -128,10 +128,14 @@ impl<F> FunctionMap<F> {
                     ));
                 }
 
+                let mut map = HashMap::new();
+                map.insert_unique_unchecked(self_sig, 0);
+                map.insert_unique_unchecked(other_sig, 1);
+
                 Ok(Self::Overloaded(
                     vec![self_func, other_func],
                     vec![self_info, other_info],
-                    HashMap::from_iter([(self_sig, 0), (other_sig, 1)]),
+                    map,
                 ))
             }
             (
@@ -154,7 +158,7 @@ impl<F> FunctionMap<F> {
 
                 other_funcs.insert(0, self_func);
                 other_infos.insert(0, self_info);
-                other_indices.insert(self_sig, 0);
+                other_indices.insert_unique_unchecked(self_sig, 0);
 
                 Ok(Self::Overloaded(other_funcs, other_infos, other_indices))
             }
@@ -175,7 +179,7 @@ impl<F> FunctionMap<F> {
                 let index = self_funcs.len();
                 self_funcs.push(other_func);
                 self_infos.push(other_info);
-                self_indices.insert(other_sig, index);
+                self_indices.insert_unique_unchecked(other_sig, index);
 
                 Ok(Self::Overloaded(self_funcs, self_infos, self_indices))
             }
@@ -195,10 +199,14 @@ impl<F> FunctionMap<F> {
                         ));
                     }
 
-                    new_indices.insert(sig, self_funcs.len() + index);
+                    new_indices.insert_unique_unchecked(sig, self_funcs.len() + index);
                 }
 
-                self_indices.extend(new_indices);
+                self_indices.reserve(new_indices.len());
+                for (sig, index) in new_indices {
+                    self_indices.insert_unique_unchecked(sig, index);
+                }
+
                 self_funcs.append(&mut other_funcs);
                 // The index map and `FunctionInfo` list should always be in sync,
                 // so we can simply append the new infos to the existing ones.
