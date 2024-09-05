@@ -1,16 +1,15 @@
-#import bevy_pbr::{
-    atmosphere::{
-        types::{Atmosphere, get_atmosphere_parameters},
-        common::{uv_to_r_mu, distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary}
-    }
+#import bevy_pbr::atmosphere::{
+    types::Atmosphere,
+    common::{uv_to_r_mu, distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary}
 }
+
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
+@group(0) @binding(0) var<uniform> atmosphere: Atmosphere;
+
 @fragment
 fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let atmosphere = get_atmosphere_parameters();
-
     // map UV coordinates to view height (r) and zenith cos angle (mu)
     let r_mu = uv_to_r_mu(atmosphere, in.uv);
 
