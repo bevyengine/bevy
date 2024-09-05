@@ -166,12 +166,12 @@ impl TypeRegistry {
             .expect("Failed to get lock to read types for automatic type registration")
             .iter()
         {
-            registration_fn(self)
+            registration_fn(self);
         }
 
         #[cfg(not(target_family = "wasm"))]
         for registration_fn in inventory::iter::<AUTOMATIC_REFLECT_REGISTRATIONS> {
-            registration_fn.0(self)
+            registration_fn.0(self);
         }
     }
 
