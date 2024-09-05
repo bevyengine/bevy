@@ -1,5 +1,4 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use proc_macro::TokenStream;
