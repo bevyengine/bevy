@@ -340,10 +340,22 @@ impl Plugin for PbrPlugin {
                 )
                     .chain(),
             )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::UpdateDirectionalLightCascades
+                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
+            )
+            .configure_sets(
+                PostUpdate,
+                SimulationLightSystems::CheckLightVisibility
+                    .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
+            )
             .add_systems(
                 PostUpdate,
                 (
-                    add_clusters.in_set(SimulationLightSystems::AddClusters),
+                    add_clusters
+                        .in_set(SimulationLightSystems::AddClusters)
+                        .after(CameraUpdateSystem),
                     assign_objects_to_clusters
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)

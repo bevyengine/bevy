@@ -278,7 +278,11 @@ pub enum VisibilitySystems {
     /// [`hierarchy`](bevy_hierarchy).
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
-    /// of each entity and the [`VisibleEntities`] of each view.
+    /// of each entity and the [`VisibleEntities`] of each view.\
+    ///
+    /// System order ambiguities between systems in this set are ignored:
+    /// the order of systems within this set is irrelevant, as [`check_visibility`]
+    /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
 }
 
@@ -294,6 +298,7 @@ impl Plugin for VisibilityPlugin {
                 .before(CheckVisibility)
                 .after(TransformSystem::TransformPropagate),
         )
+        .configure_sets(PostUpdate, CheckVisibility.ambiguous_with(CheckVisibility))
         .add_systems(
             PostUpdate,
             (

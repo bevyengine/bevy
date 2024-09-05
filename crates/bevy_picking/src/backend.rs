@@ -231,6 +231,6 @@ pub mod ray {
             let viewport_logical = camera.to_logical(viewport.physical_position)?;
             viewport_pos -= viewport_logical;
         }
-        camera.viewport_to_world(camera_tfm, viewport_pos)
+        camera.viewport_to_world(camera_tfm, viewport_pos).ok()
     }
 }
