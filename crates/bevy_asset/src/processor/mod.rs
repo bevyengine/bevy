@@ -1,3 +1,19 @@
+//! Asset processing in Bevy is a framework by which artist-authored assets can be automatically prepared for use in game.
+//!
+//! You can think of the asset processing system as a "build system" for assets.
+//! When an artist adds a new asset to the project, the asset processing system will automatically perform the specified processing steps on the asset.
+//! This can include things like converting a `.psd` file to a `.png`, compressing a `.wav` file to an `.ogg`, or generating mipmaps for a texture.
+//!
+//! Its core values are:
+//!
+//! 1. Automatic: changing the artist-format asset should not require any manual steps to get it back in the game.
+//! 2. Configurable: every game has its own needs, and a high level of transparency and control is required.
+//! 3. Lossless: the original asset should always be preserved, avoiding frustration and making experimentation safe.
+//! 4. Deterministic: performing the same processing steps on the same asset should always produce the same result.
+//!
+//! Taken together, this means that the original asset plus the processing steps should be enough to regenerate the final asset.
+//! While it may be possible to manually edit the final asset, this should be discouraged, and final post-processed assets should generally not be version-controlled.
+
 mod log;
 mod process;
 
