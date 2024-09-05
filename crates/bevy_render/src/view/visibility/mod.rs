@@ -177,7 +177,8 @@ impl ViewVisibility {
 ///   * You may use the [`VisibilityBundle`] to guarantee this.
 #[derive(Bundle, Debug, Clone, Default)]
 #[deprecated(
-    note = "Use `Visibility` directly instead. The other required components are now added automatically."
+    since = "0.15.0",
+    note = "Use `Visibility` directly instead. `InheritedVisibility` and `ViewVisibility` are now inserted automatically."
 )]
 pub struct VisibilityBundle {
     /// The visibility of the entity.
