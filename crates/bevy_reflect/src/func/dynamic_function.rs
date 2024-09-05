@@ -299,9 +299,7 @@ impl<'env> DynamicFunction<'env> {
         let expected_arg_count = self.function_map.info().arg_count();
         let received_arg_count = args.len();
 
-        if matches!(self.function_map.info(), FunctionInfoType::Standard(_))
-            && expected_arg_count != received_arg_count
-        {
+        if !self.is_overloaded() && expected_arg_count != received_arg_count {
             Err(FunctionError::ArgCountMismatch {
                 expected: expected_arg_count,
                 received: received_arg_count,
@@ -333,6 +331,24 @@ impl<'env> DynamicFunction<'env> {
     /// [overloaded]: Self::with_overload
     pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.name.as_ref()
+    }
+
+    /// Returns `true` if the function is [overloaded].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunction;
+    /// let add = (|a: i32, b: i32| a + b).into_function();
+    /// assert!(!add.is_overloaded());
+    ///
+    /// let add = add.with_overload(|a: f32, b: f32| a + b);
+    /// assert!(add.is_overloaded());
+    /// ```
+    ///
+    /// [overloaded]: Self::with_overload
+    pub fn is_overloaded(&self) -> bool {
+        self.function_map.is_overloaded()
     }
 }
 

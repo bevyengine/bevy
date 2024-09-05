@@ -19,6 +19,11 @@ pub(super) enum FunctionMap<F> {
 }
 
 impl<F> FunctionMap<F> {
+    /// Returns `true` if the map contains an overloaded function.
+    pub fn is_overloaded(&self) -> bool {
+        matches!(self, Self::Overloaded(..))
+    }
+
     /// Get a reference to a function in the map.
     ///
     /// If there is only one function in the map, it will be returned.

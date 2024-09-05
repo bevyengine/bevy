@@ -269,9 +269,7 @@ impl<'env> DynamicFunctionMut<'env> {
         let expected_arg_count = self.function_map.info().arg_count();
         let received_arg_count = args.len();
 
-        if matches!(self.function_map.info(), FunctionInfoType::Standard(_))
-            && expected_arg_count != received_arg_count
-        {
+        if !self.is_overloaded() && expected_arg_count != received_arg_count {
             Err(FunctionError::ArgCountMismatch {
                 expected: expected_arg_count,
                 received: received_arg_count,
@@ -332,6 +330,26 @@ impl<'env> DynamicFunctionMut<'env> {
     /// [`with_name`]: Self::with_name
     pub fn name(&self) -> Option<&Cow<'static, str>> {
         self.name.as_ref()
+    }
+
+    /// Returns `true` if the function is [overloaded].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunctionMut;
+    /// let mut total_i32 = 0;
+    /// let increment = (|value: i32| total_i32 += value).into_function_mut();
+    /// assert!(!increment.is_overloaded());
+    ///
+    /// let mut total_f32 = 0.0;
+    /// let increment = increment.with_overload(|value: f32| total_f32 += value);
+    /// assert!(increment.is_overloaded());
+    /// ```
+    ///
+    /// [overloaded]: Self::with_overload
+    pub fn is_overloaded(&self) -> bool {
+        self.function_map.is_overloaded()
     }
 }
 
