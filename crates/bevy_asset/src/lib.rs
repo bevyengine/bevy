@@ -1,3 +1,106 @@
+//! In the context of game development, an "asset" is a piece of multimedia content which must be loaded from disk and displayed in the game.
+//! Typically, these are authored by artists and designers (in contrast to code),
+//! are relatively large in size, and include everything from textures and models to sounds and music to levels and scripts.
+//!
+//! This presents two main challenges:
+//! - assets take up a lot of memory: simply storing a copy for each instance of an asset in the game would be prohibitively expensive
+//! - loading assets from disk is slow, and can cause the game to stutter or freeze if done in the middle of gameplay
+//!
+//! These problems play into each other: if assets are expensive to store in memory,
+//! larger game worlds will need to load them from disk as needed, ideally without a loading screen!
+//!
+//! Unsurprisingly, the problem of non-blocking asset loading is done using `async`, where background tasks are used to load assets while the game is running.
+//! Bevy coordinates these tasks using the [`AssetServer`], storing each loaded asset in a strongly-typed [`Assets<T>`] collection.
+//! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
+//! and providing a way to initialize objects (generally entities) before the required assets are loaded.
+//!
+//! ## Loading and using assets
+//!
+//! The [`AssetServer`] is the main entry point for loading assets.
+//! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
+//! Note that this method does not attempt to reload the asset if it has already been loaded: as long as the asset hasn't been dropped,
+//! calling [`AssetServer::load`] on the same path will return the same handle.
+//! The handle that's returned will be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
+//! which will then be spawned into the world as part of an entity.
+//!
+//! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
+//! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
+//! which will be [`LoadState::Loaded`] when the asset is ready to use.
+//! Keep track of what you're waiting on using a [`HashSet`] or similar data structure,
+//! poll in your update loop, and transition to the new scene when all assets are loaded.
+//! Bevy's built-in states system can be very helpful for this!
+//!
+//! If we later want to manipulate this asset data (such as for displaying a death animation), we have three options:
+//!
+//! 1. Despawn the entity and spawn a new one with the new asset data.
+//! 2. Change what the handle is pointing to.
+//! 3. Use the [`Assets`] collection to directly modify the asset data.
+//!
+//! The first option is the simplest, but can be slow if done frequently,
+//! and can lead to frustrating bugs as references to the old entity (such as what is targeting it) and other data on the entity are lost.
+//! Generally, this isn't a great strategy.
+//!
+//! The second option is the most common: just query for the component that holds the handle, and mutate it, pointing to the new asset.
+//!
+//! The third option has different semantics: rather than modifying the asset data for a single entity, it modifies the asset data for *all* entities using this handle.
+//! While this might be what you want, it generally isn't!
+//!
+//! ## Handles and reference counting
+//!
+//! [`Handle`] (or their untyped counterpart [`UntypedHandle`]) are used to reference assets in the [`Assets`] collection,
+//! and are the primary way to interact with assets in Bevy.
+//! As a user, you'll be working with handles a lot!
+//!
+//! The most important thing to know about handles is that they are reference counted: when you clone a handle, you're incrementing a reference count.
+//! When the object holding the handle is dropped (generally because an entity was despawned), the reference count is decremented.
+//! When the reference count hits zero, the asset it references is removed from the [`Assets`] collection.
+//! To avoid incrementing the reference count, you can use the [`Handle::clone_weak`] method, which is marginally faster.
+//!
+//! This reference counting is a simple, laregely automatic way to avoid holding onto memory for game objects that are no longer in use.
+//! However, it can lead to surprising behavior if you're not careful!
+//!
+//! There are two categories of problems to watch out for:
+//! - never dropping a handle, causing the asset to never be removed from memory
+//! - dropping a handle too early, causing the asset to be removed from memory while it's still in use
+//!
+//! The first problem is less critical for beginners, as for tiny games, you can often get away with simply storing all of the assets in memory at once,
+//! and loading them all at the start of the game.
+//! As your game grows, you'll need to be more careful about when you load and unload assets,
+//! segmenting them by level or area, and loading them on-demand.
+//! This problem generally arises when handles are stored in a persistent "zoo" or "manifest" of possible objects (generally in a resource),
+//! which is convenient for easy access and zero-latency spawning, but can result in high but stable memory usage.
+//!
+//! The second problem is more concerning, and looks like your models or textures suddenly disappearing from the game.
+//! Debugging reveals that the *entities* are still there, but nothing is rendering!
+//! This is because the assets were removed from memory while they were still in use.
+//! You were probably too aggressive with the use of weak handles: think through the lifetime of your assets carefully!
+//! As soon as an asset is loaded, you must ensure that at least one strong handle is held to it until all matching entities are out of sight of the player.
+//!
+//! # Custom asset types
+//!
+//! While Bevy comes with implementations for a large number of common game-oriented asset types (often behind off-by-default feature flags!),
+//! implementing a custom asset type can be useful when dealing with unusual, game-specific, or proprietary formats.
+//!
+//! Defining a new asset type is as simple as implementing the [`Asset`] trait.
+//! This requires [`TypePath`] for metadata about the asset type,
+//! and [`VisitAssetDependencies`] to track asset dependencies.
+//! In simple cases, you can derive [`Asset`] and [`Reflect`] and be done with it: the required supertraits will be implemented for you.
+//!
+//! With a new asset type in place, we now need to figure out how to load it.
+//! While [`AssetReader`](io::AssetReader) describes strategies to read assets from various sources,
+//! [`AssetLoader`] is the trait that actually turns those into your desired format.
+//! Generally, only) [`AssetLoader`] needs to be implemented for custom assets, as the [`AssetReader`](io::AssetReader) implementations are provided by Bevy.
+//!
+//! However, [`AssetLoader`] shouldn't be implemented for your asset type directly: instead, this is implemented for a "loader" type
+//! that can store complex intermediate state, while your asset type is used as the [`AssetLoader::Asset`] associated type.
+//! As the trait documentation explains, this allows various [`AssetLoader::Settings`] to be used to configure the loader.
+//!
+//! After the loader is implemented, it needs to be registered with the [`AssetServer`] using [`App::register_asset_loader`](AssetApp::register_asset_loader).
+//! Once your asset type is loaded, you can use it in your game like any other asset type!
+//!
+//! If you want to save your assets back to disk, you should implement [`AssetSaver`](saver::AssetSaver) as well.
+//! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
+
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
@@ -231,6 +334,13 @@ impl Plugin for AssetPlugin {
     }
 }
 
+/// Declares that this type is an asset,
+/// which can be loaded and managed by the [`AssetServer`] and stored in [`Assets`] collections.
+///
+/// Generally, assets are large, complex, and/or expensive to load from disk, and are often authored by artists or designers.
+///
+/// [`TypePath`] is largely used for diagnostic purposes, and should almost always be implemented by deriving [`Reflect`] on your type.
+/// [`VisitAssetDependencies`] is used to track asset dependencies, and an implementation automatically generated when deriving [`Asset`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Asset`",
     label = "invalid `Asset`",
@@ -238,6 +348,10 @@ impl Plugin for AssetPlugin {
 )]
 pub trait Asset: VisitAssetDependencies + TypePath + Send + Sync + 'static {}
 
+/// This trait defines how to visit the dependencies of an asset.
+/// For example, a 3D model might require both textures and meshes to be loaded.
+///
+/// Note that this trait is automatically implemented when deriving [`Asset`].
 pub trait VisitAssetDependencies {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
 }
