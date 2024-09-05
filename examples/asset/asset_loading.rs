@@ -76,26 +76,29 @@ fn setup(
     });
 
     // torus
-    commands.spawn(PbrBundle {
-        mesh: torus_handle,
-        material: material_handle.clone(),
-        transform: Transform::from_xyz(-3.0, 0.0, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: torus_handle.into(),
+            material: material_handle.clone().into(),
+        },
+        Transform::from_xyz(-3.0, 0.0, 0.0),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: cube_handle,
-        material: material_handle.clone(),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: cube_handle.into(),
+            material: material_handle.clone().into(),
+        },
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
     // sphere
-    commands.spawn(PbrBundle {
-        mesh: sphere_handle,
-        material: material_handle,
-        transform: Transform::from_xyz(3.0, 0.0, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: sphere_handle.into(),
+            material: material_handle.into(),
+        },
+        Transform::from_xyz(3.0, 0.0, 0.0),
+    ));
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),

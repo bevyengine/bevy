@@ -15,10 +15,11 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::default()).into(),
-        transform: Transform::default().with_scale(Vec3::splat(128.)),
-        material: materials.add(Color::from(PURPLE)),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(Rectangle::default()).into(),
+            material: materials.add(Color::from(PURPLE)).into(),
+        },
+        Transform::default().with_scale(Vec3::splat(128.)),
+    ));
 }

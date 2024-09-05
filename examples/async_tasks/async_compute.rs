@@ -86,12 +86,13 @@ fn spawn_tasks(mut commands: Commands) {
                         world
                             .entity_mut(entity)
                             // Add our new PbrBundle of components to our tagged entity
-                            .insert(PbrBundle {
-                                mesh: box_mesh_handle,
-                                material: box_material_handle,
+                            .insert((
+                                PbrBundle {
+                                    mesh: box_mesh_handle.into(),
+                                    material: box_material_handle.into(),
+                                },
                                 transform,
-                                ..default()
-                            })
+                            ))
                             // Task is complete, so remove task component from entity
                             .remove::<ComputeTransform>();
                     });

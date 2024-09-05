@@ -127,31 +127,32 @@ fn setup(
     commands.spawn((
         PbrBundle {
             // We can use the methods defined on the meshbuilder to customize the mesh.
-            mesh: meshes.add(HEART.mesh().resolution(50)),
-            material: materials.add(StandardMaterial {
-                emissive: RED.into(),
-                base_color: RED.into(),
-                ..Default::default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
+            mesh: meshes.add(HEART.mesh().resolution(50)).into(),
+            material: materials
+                .add(StandardMaterial {
+                    emissive: RED.into(),
+                    base_color: RED.into(),
+                    ..Default::default()
+                })
+                .into(),
         },
+        Transform::from_xyz(0.0, 0.0, 0.0),
         Shape2d,
     ));
 
     // Spawn an extrusion of the heart.
     commands.spawn((
         PbrBundle {
-            transform: Transform::from_xyz(0., -3., -10.)
-                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             // We can set a custom resolution for the round parts of the extrusion aswell.
-            mesh: meshes.add(EXTRUSION.mesh().resolution(50)),
-            material: materials.add(StandardMaterial {
-                base_color: RED.into(),
-                ..Default::default()
-            }),
-            ..Default::default()
+            mesh: meshes.add(EXTRUSION.mesh().resolution(50)).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: RED.into(),
+                    ..Default::default()
+                })
+                .into(),
         },
+        Transform::from_xyz(0., -3., -10.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
         Shape3d,
     ));
 

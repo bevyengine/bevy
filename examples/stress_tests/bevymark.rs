@@ -13,7 +13,7 @@ use bevy::{
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
-    sprite::{AlphaMode2d, MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{AlphaMode2d, MaterialMesh2dBundle, Mesh2d},
     utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -208,7 +208,7 @@ fn scheduled_spawner(
 struct BirdResources {
     textures: Vec<Handle<Image>>,
     materials: Vec<Handle<ColorMaterial>>,
-    quad: Mesh2dHandle,
+    quad: Mesh2d,
     color_rng: ChaCha8Rng,
     material_rng: ChaCha8Rng,
     velocity_rng: ChaCha8Rng,
@@ -479,10 +479,9 @@ fn spawn_birds(
                     (
                         MaterialMesh2dBundle {
                             mesh: bird_resources.quad.clone(),
-                            material,
-                            transform,
-                            ..default()
+                            material: material.into(),
                         },
+                        transform,
                         Bird { velocity },
                     )
                 })

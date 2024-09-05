@@ -82,16 +82,15 @@ fn setup(
     for (i, shape) in shapes.into_iter().enumerate() {
         commands.spawn((
             PbrBundle {
-                mesh: shape,
-                material: debug_material.clone(),
-                transform: Transform::from_xyz(
-                    -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
-                    2.0,
-                    Z_EXTENT / 2.,
-                )
-                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-                ..default()
+                mesh: shape.into(),
+                material: debug_material.clone().into(),
             },
+            Transform::from_xyz(
+                -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
+                2.0,
+                Z_EXTENT / 2.,
+            )
+            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
         ));
     }
@@ -101,17 +100,16 @@ fn setup(
     for (i, shape) in extrusions.into_iter().enumerate() {
         commands.spawn((
             PbrBundle {
-                mesh: shape,
-                material: debug_material.clone(),
-                transform: Transform::from_xyz(
-                    -EXTRUSION_X_EXTENT / 2.
-                        + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
-                    2.0,
-                    -Z_EXTENT / 2.,
-                )
-                .with_rotation(Quat::from_rotation_x(-PI / 4.)),
-                ..default()
+                mesh: shape.into(),
+                material: debug_material.clone().into(),
             },
+            Transform::from_xyz(
+                -EXTRUSION_X_EXTENT / 2.
+                    + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
+                2.0,
+                -Z_EXTENT / 2.,
+            )
+            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
         ));
     }
@@ -130,9 +128,10 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10)),
-        material: materials.add(Color::from(SILVER)),
-        ..default()
+        mesh: meshes
+            .add(Plane3d::default().mesh().size(50.0, 50.0).subdivisions(10))
+            .into(),
+        material: materials.add(Color::from(SILVER)).into(),
     });
 
     commands.spawn(Camera3dBundle {

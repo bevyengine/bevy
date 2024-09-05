@@ -28,25 +28,26 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: standard_materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)).into(),
+        material: standard_materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
     });
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
 
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: custom_materials.add(CustomMaterial {
-            texture: asset_server.load(
-                "models/FlightHelmet/FlightHelmet_Materials_LensesMat_OcclusionRoughMetal.png",
-            ),
-        }),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: custom_materials.add(CustomMaterial {
+                texture: asset_server.load(
+                    "models/FlightHelmet/FlightHelmet_Materials_LensesMat_OcclusionRoughMetal.png",
+                ),
+            })
+            .into(),
+        },
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // camera
     commands.spawn((

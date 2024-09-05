@@ -40,41 +40,43 @@ fn setup(
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     // sphere - initially a caster
-    commands.spawn(PbrBundle {
-        mesh: sphere_handle.clone(),
-        material: materials.add(Color::from(RED)),
-        transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: sphere_handle.clone().into(),
+            material: materials.add(Color::from(RED)).into(),
+        },
+        Transform::from_xyz(-1.0, spawn_height, 0.0),
+    ));
 
     // sphere - initially not a caster
     commands.spawn((
         PbrBundle {
-            mesh: sphere_handle,
-            material: materials.add(Color::from(BLUE)),
-            transform: Transform::from_xyz(1.0, spawn_height, 0.0),
-            ..default()
+            mesh: sphere_handle.into(),
+            material: materials.add(Color::from(BLUE)).into(),
         },
+        Transform::from_xyz(1.0, spawn_height, 0.0),
         NotShadowCaster,
     ));
 
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-            material: materials.add(Color::from(LIME)),
-            transform: Transform::from_xyz(0.0, 1.0, -10.0),
-            ..default()
+            mesh: meshes
+                .add(Plane3d::default().mesh().size(20.0, 20.0))
+                .into(),
+            material: materials.add(Color::from(LIME)).into(),
         },
+        Transform::from_xyz(0.0, 1.0, -10.0),
         NotShadowCaster,
         NotShadowReceiver,
     ));
 
     // lower ground plane - initially a shadow receiver
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-        material: white_handle,
-        ..default()
+        mesh: meshes
+            .add(Plane3d::default().mesh().size(20.0, 20.0))
+            .into(),
+        material: white_handle.into(),
     });
 
     println!("Using DirectionalLight");

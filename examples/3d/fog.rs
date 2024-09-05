@@ -58,30 +58,31 @@ fn setup_pyramid_scene(
 
     // pillars
     for (x, z) in &[(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)] {
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(1.0, 3.0, 1.0)),
-            material: stone.clone(),
-            transform: Transform::from_xyz(*x, 1.5, *z),
-            ..default()
-        });
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Cuboid::new(1.0, 3.0, 1.0)).into(),
+                material: stone.clone().into(),
+            },
+            Transform::from_xyz(*x, 1.5, *z),
+        ));
     }
 
     // orb
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Sphere::default()),
-            material: materials.add(StandardMaterial {
-                base_color: Srgba::hex("126212CC").unwrap().into(),
-                reflectance: 1.0,
-                perceptual_roughness: 0.0,
-                metallic: 0.5,
-                alpha_mode: AlphaMode::Blend,
-                ..default()
-            }),
-            transform: Transform::from_scale(Vec3::splat(1.75))
-                .with_translation(Vec3::new(0.0, 4.0, 0.0)),
-            ..default()
+            mesh: meshes.add(Sphere::default()).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: Srgba::hex("126212CC").unwrap().into(),
+                    reflectance: 1.0,
+                    perceptual_roughness: 0.0,
+                    metallic: 0.5,
+                    alpha_mode: AlphaMode::Blend,
+                    ..default()
+                })
+                .into(),
         },
+        Transform::from_scale(Vec3::splat(1.75)).with_translation(Vec3::new(0.0, 4.0, 0.0)),
         NotShadowCaster,
         NotShadowReceiver,
     ));
@@ -90,26 +91,32 @@ fn setup_pyramid_scene(
     for i in 0..50 {
         let half_size = i as f32 / 2.0 + 3.0;
         let y = -i as f32 / 2.0;
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0 * half_size, 0.5, 2.0 * half_size)),
-            material: stone.clone(),
-            transform: Transform::from_xyz(0.0, y + 0.25, 0.0),
-            ..default()
-        });
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes
+                    .add(Cuboid::new(2.0 * half_size, 0.5, 2.0 * half_size))
+                    .into(),
+                material: stone.clone().into(),
+            },
+            Transform::from_xyz(0.0, y + 0.25, 0.0),
+        ));
     }
 
     // sky
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
-        material: materials.add(StandardMaterial {
-            base_color: Srgba::hex("888888").unwrap().into(),
-            unlit: true,
-            cull_mode: None,
-            ..default()
-        }),
-        transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: Srgba::hex("888888").unwrap().into(),
+                    unlit: true,
+                    cull_mode: None,
+                    ..default()
+                })
+                .into(),
+        },
+        Transform::from_scale(Vec3::splat(1_000_000.0)),
+    ));
 
     // light
     commands.spawn(PointLightBundle {

@@ -82,9 +82,9 @@ pub enum SpriteSystem {
 #[reflect(Component, Default)]
 pub struct SpriteSource;
 
-/// A convenient alias for `With<Mesh2dHandle>>`, for use with
+/// A convenient alias for `With<Mesh2d>>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
-pub type WithMesh2d = With<Mesh2dHandle>;
+pub type WithMesh2d = With<Mesh2d>;
 
 /// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
 /// [`bevy_render::view::VisibleEntities`].
@@ -111,7 +111,7 @@ impl Plugin for SpritePlugin {
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
             .register_type::<TextureAtlas>()
-            .register_type::<Mesh2dHandle>()
+            .register_type::<Mesh2d>()
             .register_type::<SpriteSource>()
             .add_plugins((
                 Mesh2dRenderPlugin,
@@ -174,7 +174,7 @@ impl Plugin for SpritePlugin {
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with either:
-/// - a `Mesh2dHandle` component,
+/// - a `Mesh2d` component,
 /// - a `Sprite` and `Handle<Image>` components,
 ///     and without a [`NoFrustumCulling`] component.
 ///
@@ -184,7 +184,7 @@ pub fn calculate_bounds_2d(
     meshes: Res<Assets<Mesh>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
-    meshes_without_aabb: Query<(Entity, &Mesh2dHandle), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    meshes_without_aabb: Query<(Entity, &Mesh2d), (Without<Aabb>, Without<NoFrustumCulling>)>,
     sprites_to_recalculate_aabb: Query<
         (Entity, &Sprite, &Handle<Image>, Option<&TextureAtlas>),
         (

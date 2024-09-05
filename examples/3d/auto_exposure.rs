@@ -88,20 +88,22 @@ fn setup(
 
             let height = Vec3::Y * level as f32;
 
-            commands.spawn(PbrBundle {
-                mesh: plane.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::srgb(
-                        0.5 + side.x * 0.5,
-                        0.75 - level as f32 * 0.25,
-                        0.5 + side.z * 0.5,
-                    ),
-                    ..default()
-                }),
-                transform: Transform::from_translation(side * 2.0 + height)
-                    .looking_at(height, Vec3::Y),
-                ..default()
-            });
+            commands.spawn((
+                PbrBundle {
+                    mesh: plane.clone().into(),
+                    material: materials
+                        .add(StandardMaterial {
+                            base_color: Color::srgb(
+                                0.5 + side.x * 0.5,
+                                0.75 - level as f32 * 0.25,
+                                0.5 + side.z * 0.5,
+                            ),
+                            ..default()
+                        })
+                        .into(),
+                },
+                Transform::from_translation(side * 2.0 + height),
+            ));
         }
     }
 

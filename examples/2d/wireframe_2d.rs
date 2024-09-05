@@ -67,27 +67,26 @@ fn setup(
                     Vec2::new(50.0, -50.0),
                 ))
                 .into(),
-            material: materials.add(Color::BLACK),
-            transform: Transform::from_xyz(-150.0, 0.0, 0.0),
-            ..default()
+            material: materials.add(Color::BLACK).into(),
         },
+        Transform::from_xyz(-150.0, 0.0, 0.0),
         NoWireframe2d,
     ));
     // Rectangle: Follows global wireframe setting
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::new(100.0, 100.0)).into(),
-        material: materials.add(Color::BLACK),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(Rectangle::new(100.0, 100.0)).into(),
+            material: materials.add(Color::BLACK).into(),
+        },
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
     // Circle: Always renders a wireframe
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(50.0)).into(),
-            material: materials.add(Color::BLACK),
-            transform: Transform::from_xyz(150.0, 0.0, 0.0),
-            ..default()
+            material: materials.add(Color::BLACK).into(),
         },
+        Transform::from_xyz(150.0, 0.0, 0.0),
         Wireframe2d,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`

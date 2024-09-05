@@ -16,7 +16,6 @@ use bevy_ecs::{
 };
 use bevy_math::{Affine3, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::batching::gpu_preprocessing::IndirectParameters;
 use bevy_render::batching::no_gpu_preprocessing::batch_and_prepare_binned_render_phase;
 use bevy_render::batching::no_gpu_preprocessing::{
     self, batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
@@ -26,6 +25,10 @@ use bevy_render::batching::GetFullBatchData;
 use bevy_render::mesh::allocator::MeshAllocator;
 use bevy_render::mesh::{MeshVertexBufferLayoutRef, RenderMesh};
 use bevy_render::texture::FallbackImage;
+use bevy_render::{
+    batching::gpu_preprocessing::IndirectParameters,
+    view::{InheritedVisibility, Visibility},
+};
 use bevy_render::{
     batching::{GetBatchData, NoAutomaticBatching},
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -42,20 +45,28 @@ use bevy_render::{
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use nonmax::NonMaxU32;
 
 use crate::Material2dBindGroupId;
 
-/// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
+/// A component for rendering 2D meshes, typically with a [2D material] such as [`ColorMaterial`].
 ///
-/// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq, Deref, DerefMut)]
-#[reflect(Default, Component)]
-pub struct Mesh2dHandle(pub Handle<Mesh>);
+/// [2D material]: crate::material::Material2d
+/// [`ColorMaterial`]: crate::material::ColorMaterial
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
+#[require(
+    Transform,
+    GlobalTransform,
+    Visibility,
+    InheritedVisibility,
+    ViewVisibility
+)]
+pub struct Mesh2d(pub Handle<Mesh>);
 
-impl From<Handle<Mesh>> for Mesh2dHandle {
+impl From<Handle<Mesh>> for Mesh2d {
     fn from(handle: Handle<Mesh>) -> Self {
         Self(handle)
     }
@@ -218,7 +229,7 @@ pub struct RenderMesh2dInstance {
 pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
 
 #[derive(Component)]
-pub struct Mesh2d;
+pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
     mut commands: Commands,
@@ -229,7 +240,7 @@ pub fn extract_mesh2d(
             Entity,
             &ViewVisibility,
             &GlobalTransform,
-            &Mesh2dHandle,
+            &Mesh2d,
             Has<NoAutomaticBatching>,
         )>,
     >,
@@ -243,7 +254,7 @@ pub fn extract_mesh2d(
         }
         // FIXME: Remove this - it is just a workaround to enable rendering to work as
         // render commands require an entity to exist at the moment.
-        entities.push((entity, Mesh2d));
+        entities.push((entity, Mesh2dMarker));
         render_mesh_instances.insert(
             entity,
             RenderMesh2dInstance {

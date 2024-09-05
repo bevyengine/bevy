@@ -1,4 +1,4 @@
-use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2dHandle};
+use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2d};
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
@@ -170,11 +170,7 @@ fn apply_wireframe_material(
     commands.insert_or_spawn_batch(wireframes_to_spawn);
 }
 
-type Wireframe2dFilter = (
-    With<Mesh2dHandle>,
-    Without<Wireframe2d>,
-    Without<NoWireframe2d>,
-);
+type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWireframe2d>);
 
 /// Applies or removes a wireframe material on any mesh without a [`Wireframe2d`] or [`NoWireframe2d`] component.
 fn apply_global_wireframe_material(

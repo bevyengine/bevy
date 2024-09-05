@@ -40,85 +40,97 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(10.0, 10.0)),
-        material: materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            perceptual_roughness: 1.0,
-            ..default()
-        }),
-        ..default()
+        mesh: meshes
+            .add(Plane3d::default().mesh().size(10.0, 10.0))
+            .into(),
+        material: materials
+            .add(StandardMaterial {
+                base_color: Color::WHITE,
+                perceptual_roughness: 1.0,
+                ..default()
+            })
+            .into(),
     });
 
     // left wall
     let mut transform = Transform::from_xyz(2.5, 2.5, 0.0);
     transform.rotate_z(PI / 2.);
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: INDIGO.into(),
+                    perceptual_roughness: 1.0,
+                    ..default()
+                })
+                .into(),
+        },
         transform,
-        material: materials.add(StandardMaterial {
-            base_color: INDIGO.into(),
-            perceptual_roughness: 1.0,
-            ..default()
-        }),
-        ..default()
-    });
+    ));
     // back (right) wall
     let mut transform = Transform::from_xyz(0.0, 2.5, -2.5);
     transform.rotate_x(PI / 2.);
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)),
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(5.0, 0.15, 5.0)).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: INDIGO.into(),
+                    perceptual_roughness: 1.0,
+                    ..default()
+                })
+                .into(),
+        },
         transform,
-        material: materials.add(StandardMaterial {
-            base_color: INDIGO.into(),
-            perceptual_roughness: 1.0,
-            ..default()
-        }),
-        ..default()
-    });
+    ));
 
     // Bevy logo to demonstrate alpha mask shadows
     let mut transform = Transform::from_xyz(-2.2, 0.5, 1.0);
     transform.rotate_y(PI / 8.);
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Rectangle::new(2.0, 0.5)),
-            transform,
-            material: materials.add(StandardMaterial {
-                base_color_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
-                perceptual_roughness: 1.0,
-                alpha_mode: AlphaMode::Mask(0.5),
-                cull_mode: None,
-                ..default()
-            }),
-            ..default()
+            mesh: meshes.add(Rectangle::new(2.0, 0.5)).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color_texture: Some(asset_server.load("branding/bevy_logo_light.png")),
+                    perceptual_roughness: 1.0,
+                    alpha_mode: AlphaMode::Mask(0.5),
+                    cull_mode: None,
+                    ..default()
+                })
+                .into(),
         },
+        transform,
         Movable,
     ));
 
     // cube
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(StandardMaterial {
-                base_color: DEEP_PINK.into(),
-                ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: DEEP_PINK.into(),
+                    ..default()
+                })
+                .into(),
         },
+        Transform::from_xyz(0.0, 0.5, 0.0),
         Movable,
     ));
     // sphere
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Sphere::new(0.5).mesh().uv(32, 18)),
-            material: materials.add(StandardMaterial {
-                base_color: LIMEGREEN.into(),
-                ..default()
-            }),
-            transform: Transform::from_xyz(1.5, 1.0, 1.5),
-            ..default()
+            mesh: meshes.add(Sphere::new(0.5).mesh().uv(32, 18)).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: LIMEGREEN.into(),
+                    ..default()
+                })
+                .into(),
         },
+        Transform::from_xyz(1.5, 1.0, 1.5),
         Movable,
     ));
 
@@ -143,13 +155,14 @@ fn setup(
         })
         .with_children(|builder| {
             builder.spawn(PbrBundle {
-                mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
-                material: materials.add(StandardMaterial {
-                    base_color: RED.into(),
-                    emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
-                    ..default()
-                }),
-                ..default()
+                mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)).into(),
+                material: materials
+                    .add(StandardMaterial {
+                        base_color: RED.into(),
+                        emissive: LinearRgba::new(4.0, 0.0, 0.0, 0.0),
+                        ..default()
+                    })
+                    .into(),
             });
         });
 
@@ -168,18 +181,19 @@ fn setup(
             },
             ..default()
         })
-        .with_children(|builder| {
-            builder.spawn(PbrBundle {
-                transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
-                mesh: meshes.add(Capsule3d::new(0.1, 0.125)),
-                material: materials.add(StandardMaterial {
-                    base_color: LIME.into(),
-                    emissive: LinearRgba::new(0.0, 4.0, 0.0, 0.0),
-                    ..default()
-                }),
-                ..default()
-            });
-        });
+        .with_child((
+            PbrBundle {
+                mesh: meshes.add(Capsule3d::new(0.1, 0.125)).into(),
+                material: materials
+                    .add(StandardMaterial {
+                        base_color: LIME.into(),
+                        emissive: LinearRgba::new(0.0, 4.0, 0.0, 0.0),
+                        ..default()
+                    })
+                    .into(),
+            },
+            Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
+        ));
 
     // blue point light
     commands
@@ -196,13 +210,14 @@ fn setup(
         })
         .with_children(|builder| {
             builder.spawn(PbrBundle {
-                mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)),
-                material: materials.add(StandardMaterial {
-                    base_color: BLUE.into(),
-                    emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),
-                    ..default()
-                }),
-                ..default()
+                mesh: meshes.add(Sphere::new(0.1).mesh().uv(32, 18)).into(),
+                material: materials
+                    .add(StandardMaterial {
+                        base_color: BLUE.into(),
+                        emissive: LinearRgba::new(0.0, 0.0, 713.0, 0.0),
+                        ..default()
+                    })
+                    .into(),
             });
         });
 

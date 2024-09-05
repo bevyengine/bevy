@@ -25,11 +25,10 @@ fn setup(
     // sound emitter
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Sphere::new(0.2).mesh().uv(32, 18)),
-            material: materials.add(Color::from(BLUE)),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
+            mesh: meshes.add(Sphere::new(0.2).mesh().uv(32, 18)).into(),
+            material: materials.add(Color::from(BLUE)).into(),
         },
+        Transform::from_xyz(0.0, 0.0, 0.0),
         Emitter::default(),
         AudioBundle {
             source: asset_server.load("sounds/Windless Slopes.ogg"),
@@ -42,20 +41,22 @@ fn setup(
         .spawn((SpatialBundle::default(), listener.clone()))
         .with_children(|parent| {
             // left ear indicator
-            parent.spawn(PbrBundle {
-                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
-                material: materials.add(Color::from(RED)),
-                transform: Transform::from_translation(listener.left_ear_offset),
-                ..default()
-            });
+            parent.spawn((
+                PbrBundle {
+                    mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)).into(),
+                    material: materials.add(Color::from(RED)).into(),
+                },
+                Transform::from_translation(listener.left_ear_offset),
+            ));
 
             // right ear indicator
-            parent.spawn(PbrBundle {
-                mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)),
-                material: materials.add(Color::from(LIME)),
-                transform: Transform::from_translation(listener.right_ear_offset),
-                ..default()
-            });
+            parent.spawn((
+                PbrBundle {
+                    mesh: meshes.add(Cuboid::new(0.2, 0.2, 0.2)).into(),
+                    material: materials.add(Color::from(LIME)).into(),
+                },
+                Transform::from_translation(listener.right_ear_offset),
+            ));
         });
 
     // light

@@ -26,13 +26,16 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-        material: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.2, 0.2, 0.2),
-            perceptual_roughness: 0.08,
-            ..default()
-        }),
-        ..default()
+        mesh: meshes
+            .add(Plane3d::default().mesh().size(100.0, 100.0))
+            .into(),
+        material: materials
+            .add(StandardMaterial {
+                base_color: Color::srgb(0.2, 0.2, 0.2),
+                perceptual_roughness: 0.08,
+                ..default()
+            })
+            .into(),
     });
 
     const COUNT: usize = 6;
@@ -48,26 +51,27 @@ fn setup(
 
         // sphere light
         commands
-            .spawn(PbrBundle {
-                mesh: mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::srgb(0.5, 0.5, 1.0),
-                    unlit: true,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
+            .spawn((
+                PbrBundle {
+                    mesh: mesh.clone().into(),
+                    material: materials
+                        .add(StandardMaterial {
+                            base_color: Color::srgb(0.5, 0.5, 1.0),
+                            unlit: true,
+                            ..default()
+                        })
+                        .into(),
+                },
+                Transform::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
                     .with_scale(Vec3::splat(radius)),
-                ..default()
-            })
-            .with_children(|children| {
-                children.spawn(PointLightBundle {
-                    point_light: PointLight {
-                        radius,
-                        color: Color::srgb(0.2, 0.2, 1.0),
-                        ..default()
-                    },
+            ))
+            .with_child(PointLightBundle {
+                point_light: PointLight {
+                    radius,
+                    color: Color::srgb(0.2, 0.2, 1.0),
                     ..default()
-                });
+                },
+                ..default()
             });
     }
 }

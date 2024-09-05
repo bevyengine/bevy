@@ -149,16 +149,19 @@ fn spawn_cube(
     standard_materials: &mut Assets<StandardMaterial>,
 ) {
     commands
-        .spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-            material: standard_materials.add(StandardMaterial {
-                base_color: Color::from(WHITE),
-                base_color_texture: Some(asset_server.load("branding/icon.png")),
-                ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        })
+        .spawn((
+            PbrBundle {
+                mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)).into(),
+                material: standard_materials
+                    .add(StandardMaterial {
+                        base_color: Color::from(WHITE),
+                        base_color_texture: Some(asset_server.load("branding/icon.png")),
+                        ..default()
+                    })
+                    .into(),
+            },
+            Transform::from_xyz(0.0, 0.5, 0.0),
+        ))
         .insert(CubeModel);
 }
 
@@ -182,43 +185,47 @@ fn spawn_water(
     meshes: &mut Assets<Mesh>,
     water_materials: &mut Assets<ExtendedMaterial<StandardMaterial, Water>>,
 ) {
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0))),
-        material: water_materials.add(ExtendedMaterial {
-            base: StandardMaterial {
-                base_color: BLACK.into(),
-                perceptual_roughness: 0.0,
-                ..default()
-            },
-            extension: Water {
-                normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                    "textures/water_normals.png",
-                    |settings| {
-                        settings.is_srgb = false;
-                        settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
-                            address_mode_u: ImageAddressMode::Repeat,
-                            address_mode_v: ImageAddressMode::Repeat,
-                            mag_filter: ImageFilterMode::Linear,
-                            min_filter: ImageFilterMode::Linear,
-                            ..default()
-                        });
+    commands.spawn((
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0))).into(),
+            material: water_materials
+                .add(ExtendedMaterial {
+                    base: StandardMaterial {
+                        base_color: BLACK.into(),
+                        perceptual_roughness: 0.0,
+                        ..default()
                     },
-                ),
-                // These water settings are just random values to create some
-                // variety.
-                settings: WaterSettings {
-                    octave_vectors: [
-                        vec4(0.080, 0.059, 0.073, -0.062),
-                        vec4(0.153, 0.138, -0.149, -0.195),
-                    ],
-                    octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 5.0,
-                    octave_strengths: vec4(0.16, 0.18, 0.093, 0.044),
-                },
-            },
-        }),
-        transform: Transform::from_scale(Vec3::splat(100.0)),
-        ..default()
-    });
+                    extension: Water {
+                        normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
+                            "textures/water_normals.png",
+                            |settings| {
+                                settings.is_srgb = false;
+                                settings.sampler =
+                                    ImageSampler::Descriptor(ImageSamplerDescriptor {
+                                        address_mode_u: ImageAddressMode::Repeat,
+                                        address_mode_v: ImageAddressMode::Repeat,
+                                        mag_filter: ImageFilterMode::Linear,
+                                        min_filter: ImageFilterMode::Linear,
+                                        ..default()
+                                    });
+                            },
+                        ),
+                        // These water settings are just random values to create some
+                        // variety.
+                        settings: WaterSettings {
+                            octave_vectors: [
+                                vec4(0.080, 0.059, 0.073, -0.062),
+                                vec4(0.153, 0.138, -0.149, -0.195),
+                            ],
+                            octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 5.0,
+                            octave_strengths: vec4(0.16, 0.18, 0.093, 0.044),
+                        },
+                    },
+                })
+                .into(),
+        },
+        Transform::from_scale(Vec3::splat(100.0)),
+    ));
 }
 
 // Spawns the camera.

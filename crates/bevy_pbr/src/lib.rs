@@ -65,7 +65,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::{
-            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
+            DirectionalLightBundle, MaterialMesh3dBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
         fog::{FogFalloff, FogSettings},

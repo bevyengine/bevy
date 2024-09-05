@@ -36,10 +36,9 @@ fn setup(
     commands.spawn((
         MaterialMesh2dBundle {
             mesh: meshes.add(Circle::new(15.0)).into(),
-            material: materials.add(Color::from(BLUE)),
-            transform: Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
-            ..default()
+            material: materials.add(Color::from(BLUE)).into(),
         },
+        Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)),
         Emitter::default(),
         AudioBundle {
             source: asset_server.load("sounds/Windless Slopes.ogg"),

@@ -31,15 +31,18 @@ fn setup(
     commands.spawn(Camera2dBundle::default());
 
     // quad
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::default()).into(),
-        transform: Transform::default().with_scale(Vec3::splat(128.)),
-        material: materials.add(CustomMaterial {
-            color: LinearRgba::BLUE,
-            color_texture: Some(asset_server.load("branding/icon.png")),
-        }),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(Rectangle::default()).into(),
+            material: materials
+                .add(CustomMaterial {
+                    color: LinearRgba::BLUE,
+                    color_texture: Some(asset_server.load("branding/icon.png")),
+                })
+                .into(),
+        },
+        Transform::default().with_scale(Vec3::splat(128.)),
+    ));
 }
 
 // This is the struct that will be passed to your shader

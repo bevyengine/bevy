@@ -34,17 +34,17 @@ fn setup(
     ));
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)).into(),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
     });
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-        material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)).into(),
+            material: materials.add(Color::srgb(0.8, 0.7, 0.6)).into(),
+        },
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {

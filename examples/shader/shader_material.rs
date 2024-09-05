@@ -24,16 +24,19 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
-            color: LinearRgba::BLUE,
-            color_texture: Some(asset_server.load("branding/icon.png")),
-            alpha_mode: AlphaMode::Blend,
-        }),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: materials
+                .add(CustomMaterial {
+                    color: LinearRgba::BLUE,
+                    color_texture: Some(asset_server.load("branding/icon.png")),
+                    alpha_mode: AlphaMode::Blend,
+                })
+                .into(),
+        },
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {

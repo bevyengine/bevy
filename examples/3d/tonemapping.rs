@@ -152,13 +152,12 @@ fn setup_color_gradient_scene(
     transform.translation += *transform.forward();
 
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Rectangle::new(0.7, 0.7)),
-            material: materials.add(ColorGradientMaterial {}),
-            transform,
-            visibility: Visibility::Hidden,
-            ..default()
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Rectangle::new(0.7, 0.7)).into(),
+            material: materials.add(ColorGradientMaterial {}).into(),
         },
+        transform,
+        Visibility::Hidden,
         SceneNumber(2),
     ));
 }
@@ -175,16 +174,17 @@ fn setup_image_viewer_scene(
     // exr/hdr viewer (exr requires enabling bevy feature)
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Rectangle::default()),
-            material: materials.add(StandardMaterial {
-                base_color_texture: None,
-                unlit: true,
-                ..default()
-            }),
-            transform,
-            visibility: Visibility::Hidden,
-            ..default()
+            mesh: meshes.add(Rectangle::default()).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color_texture: None,
+                    unlit: true,
+                    ..default()
+                })
+                .into(),
         },
+        transform,
+        Visibility::Hidden,
         SceneNumber(3),
         HDRViewer,
     ));

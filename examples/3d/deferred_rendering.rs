@@ -101,27 +101,30 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: forward_mat_h.clone(),
-        ..default()
+        mesh: meshes
+            .add(Plane3d::default().mesh().size(50.0, 50.0))
+            .into(),
+        material: forward_mat_h.clone().into(),
     });
 
     let cube_h = meshes.add(Cuboid::new(0.1, 0.1, 0.1));
     let sphere_h = meshes.add(Sphere::new(0.125).mesh().uv(32, 18));
 
     // Cubes
-    commands.spawn(PbrBundle {
-        mesh: cube_h.clone(),
-        material: forward_mat_h.clone(),
-        transform: Transform::from_xyz(-0.3, 0.5, -0.2),
-        ..default()
-    });
-    commands.spawn(PbrBundle {
-        mesh: cube_h,
-        material: forward_mat_h,
-        transform: Transform::from_xyz(0.2, 0.5, 0.2),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: cube_h.clone().into(),
+            material: forward_mat_h.clone().into(),
+        },
+        Transform::from_xyz(-0.3, 0.5, -0.2),
+    ));
+    commands.spawn((
+        PbrBundle {
+            mesh: cube_h.into(),
+            material: forward_mat_h.into(),
+        },
+        Transform::from_xyz(0.2, 0.5, 0.2),
+    ));
 
     let sphere_color = Color::srgb(10.0, 4.0, 1.0);
     let sphere_pos = Transform::from_xyz(0.4, 0.5, -0.8);
@@ -130,11 +133,10 @@ fn setup(
     unlit_mat.unlit = true;
     commands.spawn((
         PbrBundle {
-            mesh: sphere_h.clone(),
-            material: materials.add(unlit_mat),
-            transform: sphere_pos,
-            ..default()
+            mesh: sphere_h.clone().into(),
+            material: materials.add(unlit_mat).into(),
         },
+        sphere_pos,
         NotShadowCaster,
     ));
     // Light
@@ -176,31 +178,33 @@ fn setup(
                 ..default()
             })
         };
-        commands.spawn(PbrBundle {
-            mesh: sphere_h.clone(),
-            material,
-            transform: Transform::from_xyz(
+        commands.spawn((
+            PbrBundle {
+                mesh: sphere_h.clone().into(),
+                material: material.into(),
+            },
+            Transform::from_xyz(
                 j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
                 0.125,
                 -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
             ),
-            ..default()
-        });
+        ));
     }
 
     // sky
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)),
-            material: materials.add(StandardMaterial {
-                base_color: Srgba::hex("888888").unwrap().into(),
-                unlit: true,
-                cull_mode: None,
-                ..default()
-            }),
-            transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
-            ..default()
+            mesh: meshes.add(Cuboid::new(2.0, 1.0, 1.0)).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: Srgba::hex("888888").unwrap().into(),
+                    unlit: true,
+                    cull_mode: None,
+                    ..default()
+                })
+                .into(),
         },
+        Transform::from_scale(Vec3::splat(1_000_000.0)),
         NotShadowCaster,
         NotShadowReceiver,
     ));
@@ -268,11 +272,10 @@ fn setup_parallax(
     });
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(cube),
-            material: parallax_material,
-            transform: Transform::from_xyz(0.4, 0.2, -0.8),
-            ..default()
+            mesh: meshes.add(cube).into(),
+            material: parallax_material.into(),
         },
+        Transform::from_xyz(0.4, 0.2, -0.8),
         Spin { speed: 0.3 },
     ));
 }

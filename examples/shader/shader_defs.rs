@@ -29,26 +29,32 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // blue cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        transform: Transform::from_xyz(-1.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
-            color: LinearRgba::BLUE,
-            is_red: false,
-        }),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: materials
+                .add(CustomMaterial {
+                    color: LinearRgba::BLUE,
+                    is_red: false,
+                })
+                .into(),
+        },
+        Transform::from_xyz(-1.0, 0.5, 0.0),
+    ));
 
     // red cube (with green color overridden by the IS_RED "shader def")
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
-            color: LinearRgba::GREEN,
-            is_red: true,
-        }),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: materials
+                .add(CustomMaterial {
+                    color: LinearRgba::GREEN,
+                    is_red: true,
+                })
+                .into(),
+        },
+        Transform::from_xyz(1.0, 0.5, 0.0),
+    ));
 
     // camera
     commands.spawn(Camera3dBundle {

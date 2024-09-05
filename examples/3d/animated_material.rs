@@ -37,12 +37,13 @@ fn setup(
     let mut hsla = Hsla::hsl(0.0, 1.0, 0.5);
     for x in -1..2 {
         for z in -1..2 {
-            commands.spawn(PbrBundle {
-                mesh: cube.clone(),
-                material: materials.add(Color::from(hsla)),
-                transform: Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
-                ..default()
-            });
+            commands.spawn((
+                PbrBundle {
+                    mesh: cube.clone().into(),
+                    material: materials.add(Color::from(hsla)).into(),
+                },
+                Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
+            ));
             hsla = hsla.rotate_hue(GOLDEN_ANGLE);
         }
     }

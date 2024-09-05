@@ -26,11 +26,10 @@ fn setup(
     // Spawn a cube to rotate.
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::WHITE),
-            transform: Transform::from_translation(Vec3::ZERO),
-            ..default()
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: materials.add(Color::WHITE).into(),
         },
+        Transform::from_translation(Vec3::ZERO),
         Rotatable { speed: 0.3 },
     ));
 

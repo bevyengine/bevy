@@ -38,21 +38,21 @@ fn setup(
     commands
         .spawn((
             PbrBundle {
-                mesh: cube_handle.clone(),
-                material: cube_material_handle.clone(),
-                transform: Transform::from_xyz(0.0, 0.0, 1.0),
-                ..default()
+                mesh: cube_handle.clone().into(),
+                material: cube_material_handle.clone().into(),
             },
+            Transform::from_xyz(0.0, 0.0, 1.0),
             Rotator,
         ))
         .with_children(|parent| {
             // child cube
-            parent.spawn(PbrBundle {
-                mesh: cube_handle,
-                material: cube_material_handle,
-                transform: Transform::from_xyz(0.0, 0.0, 3.0),
-                ..default()
-            });
+            parent.spawn((
+                PbrBundle {
+                    mesh: cube_handle.into(),
+                    material: cube_material_handle.into(),
+                },
+                Transform::from_xyz(0.0, 0.0, 3.0),
+            ));
         });
     // light
     commands.spawn(PointLightBundle {

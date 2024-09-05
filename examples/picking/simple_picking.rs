@@ -37,12 +37,13 @@ fn setup(
              mut meshes: ResMut<Assets<Mesh>>,
              mut materials: ResMut<Assets<StandardMaterial>>,
              mut num: Local<usize>| {
-                commands.spawn(PbrBundle {
-                    mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-                    material: materials.add(Color::srgb_u8(124, 144, 255)),
-                    transform: Transform::from_xyz(0.0, 0.5 + 1.1 * *num as f32, 0.0),
-                    ..default()
-                });
+                commands.spawn((
+                    PbrBundle {
+                        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)).into(),
+                        material: materials.add(Color::srgb_u8(124, 144, 255)).into(),
+                    },
+                    Transform::from_xyz(0.0, 0.5 + 1.1 * *num as f32, 0.0),
+                ));
                 *num += 1;
             },
         )
@@ -60,13 +61,10 @@ fn setup(
     commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Circle::new(4.0)),
-                material: materials.add(Color::WHITE),
-                transform: Transform::from_rotation(Quat::from_rotation_x(
-                    -std::f32::consts::FRAC_PI_2,
-                )),
-                ..default()
+                mesh: meshes.add(Circle::new(4.0)).into(),
+                material: materials.add(Color::WHITE).into(),
             },
+            Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
             Pickable::default(),
         ))
         .observe(|click: Trigger<Pointer<Click>>| {

@@ -43,15 +43,16 @@ fn setup(
     let opaque = commands
         .spawn((
             PbrBundle {
-                mesh: icosphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Opaque,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(-4.0, 0.0, 0.0),
-                ..default()
+                mesh: icosphere_mesh.clone().into(),
+                material: materials
+                    .add(StandardMaterial {
+                        base_color,
+                        alpha_mode: AlphaMode::Opaque,
+                        ..default()
+                    })
+                    .into(),
             },
+            Transform::from_xyz(-4.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -63,15 +64,16 @@ fn setup(
     let blend = commands
         .spawn((
             PbrBundle {
-                mesh: icosphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Blend,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(-2.0, 0.0, 0.0),
-                ..default()
+                mesh: icosphere_mesh.clone().into(),
+                material: materials
+                    .add(StandardMaterial {
+                        base_color,
+                        alpha_mode: AlphaMode::Blend,
+                        ..default()
+                    })
+                    .into(),
             },
+            Transform::from_xyz(-2.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -83,15 +85,16 @@ fn setup(
     let premultiplied = commands
         .spawn((
             PbrBundle {
-                mesh: icosphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Premultiplied,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(0.0, 0.0, 0.0),
-                ..default()
+                mesh: icosphere_mesh.clone().into(),
+                material: materials
+                    .add(StandardMaterial {
+                        base_color,
+                        alpha_mode: AlphaMode::Premultiplied,
+                        ..default()
+                    })
+                    .into(),
             },
+            Transform::from_xyz(0.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -103,15 +106,16 @@ fn setup(
     let add = commands
         .spawn((
             PbrBundle {
-                mesh: icosphere_mesh.clone(),
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Add,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(2.0, 0.0, 0.0),
-                ..default()
+                mesh: icosphere_mesh.clone().into(),
+                material: materials
+                    .add(StandardMaterial {
+                        base_color,
+                        alpha_mode: AlphaMode::Add,
+                        ..default()
+                    })
+                    .into(),
             },
+            Transform::from_xyz(2.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -123,15 +127,16 @@ fn setup(
     let multiply = commands
         .spawn((
             PbrBundle {
-                mesh: icosphere_mesh,
-                material: materials.add(StandardMaterial {
-                    base_color,
-                    alpha_mode: AlphaMode::Multiply,
-                    ..default()
-                }),
-                transform: Transform::from_xyz(4.0, 0.0, 0.0),
-                ..default()
+                mesh: icosphere_mesh.into(),
+                material: materials
+                    .add(StandardMaterial {
+                        base_color,
+                        alpha_mode: AlphaMode::Multiply,
+                        ..default()
+                    })
+                    .into(),
             },
+            Transform::from_xyz(4.0, 0.0, 0.0),
             ExampleControls {
                 unlit: true,
                 color: true,
@@ -149,15 +154,14 @@ fn setup(
         for z in -3..4 {
             commands.spawn((
                 PbrBundle {
-                    mesh: plane_mesh.clone(),
+                    mesh: plane_mesh.clone().into(),
                     material: if (x + z) % 2 == 0 {
-                        black_material.clone()
+                        black_material.clone().into()
                     } else {
-                        white_material.clone()
+                        white_material.clone().into()
                     },
-                    transform: Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
-                    ..default()
                 },
+                Transform::from_xyz(x as f32 * 2.0, -1.0, z as f32 * 2.0),
                 ExampleControls {
                     unlit: false,
                     color: true,

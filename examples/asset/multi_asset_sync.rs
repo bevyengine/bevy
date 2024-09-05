@@ -226,9 +226,10 @@ fn setup_scene(
     // Plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
-            material: materials.add(Color::srgb(0.7, 0.2, 0.2)),
-            ..default()
+            mesh: meshes
+                .add(Plane3d::default().mesh().size(50000.0, 50000.0))
+                .into(),
+            material: materials.add(Color::srgb(0.7, 0.2, 0.2)).into(),
         },
         Loading,
     ));
@@ -251,12 +252,15 @@ fn wait_on_load(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Change color of plane to green
-    commands.spawn((PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50000.0, 50000.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_translation(Vec3::Z * -0.01),
-        ..default()
-    },));
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes
+                .add(Plane3d::default().mesh().size(50000.0, 50000.0))
+                .into(),
+            material: materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
+        },
+        Transform::from_translation(Vec3::Z * -0.01),
+    ));
 
     // Spawn our scenes.
     for i in 0..10 {

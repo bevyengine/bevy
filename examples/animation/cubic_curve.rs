@@ -39,11 +39,10 @@ fn setup(
     // Spawning a cube to experiment on
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(ORANGE)),
-            transform: Transform::from_translation(points[0][0]),
-            ..default()
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: materials.add(Color::from(ORANGE)).into(),
         },
+        Transform::from_translation(points[0][0]),
         Curve(bezier),
     ));
 
@@ -61,9 +60,8 @@ fn setup(
 
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50., 50.)),
-        material: materials.add(Color::from(SILVER)),
-        ..default()
+        mesh: meshes.add(Plane3d::default().mesh().size(50., 50.)).into(),
+        material: materials.add(Color::from(SILVER)).into(),
     });
 
     // The camera

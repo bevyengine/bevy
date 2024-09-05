@@ -61,9 +61,10 @@ fn setup(
 
     // Plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(500000.0, 500000.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        mesh: meshes
+            .add(Plane3d::default().mesh().size(500000.0, 500000.0))
+            .into(),
+        material: materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
     });
 
     // Light

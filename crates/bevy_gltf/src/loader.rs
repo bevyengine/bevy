@@ -1322,9 +1322,10 @@ fn load_node(
 
                     let mut mesh_entity = parent.spawn(PbrBundle {
                         // TODO: handle missing label handle errors here?
-                        mesh: load_context.get_label_handle(primitive_label.to_string()),
-                        material: load_context.get_label_handle(&material_label),
-                        ..Default::default()
+                        mesh: load_context
+                            .get_label_handle(primitive_label.to_string())
+                            .into(),
+                        material: load_context.get_label_handle(&material_label).into(),
                     });
 
                     let target_count = primitive.morph_targets().len();

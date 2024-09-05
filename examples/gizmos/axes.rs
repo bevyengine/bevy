@@ -65,9 +65,8 @@ fn setup(
     // Action! (Our cubes that are going to move)
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Cuboid::new(1., 1., 1.)),
-            material: materials.add(Color::srgb(0.8, 0.7, 0.6)),
-            ..default()
+            mesh: meshes.add(Cuboid::new(1., 1., 1.)).into(),
+            material: materials.add(Color::srgb(0.8, 0.7, 0.6)).into(),
         },
         ShowAxes,
         TransformTracking {
@@ -79,9 +78,8 @@ fn setup(
 
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-            material: materials.add(Color::srgb(0.6, 0.7, 0.8)),
-            ..default()
+            mesh: meshes.add(Cuboid::new(0.5, 0.5, 0.5)).into(),
+            material: materials.add(Color::srgb(0.6, 0.7, 0.8)).into(),
         },
         ShowAxes,
         TransformTracking {
@@ -92,12 +90,13 @@ fn setup(
     ));
 
     // A plane to give a sense of place
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-        material: materials.add(Color::srgb(0.1, 0.1, 0.1)),
-        transform: Transform::from_xyz(0., -2., 0.),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)).into(),
+            material: materials.add(Color::srgb(0.1, 0.1, 0.1)).into(),
+        },
+        Transform::from_xyz(0., -2., 0.),
+    ));
 
     commands.insert_resource(SeededRng(rng));
 }

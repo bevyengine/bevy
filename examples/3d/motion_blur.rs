@@ -76,32 +76,38 @@ fn setup_scene(
         ..default()
     });
     // Sky
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Sphere::default()),
-        material: materials.add(StandardMaterial {
-            unlit: true,
-            base_color: Color::linear_rgb(0.1, 0.6, 1.0),
-            ..default()
-        }),
-        transform: Transform::default().with_scale(Vec3::splat(-4000.0)),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Sphere::default()).into(),
+            material: materials
+                .add(StandardMaterial {
+                    unlit: true,
+                    base_color: Color::linear_rgb(0.1, 0.6, 1.0),
+                    ..default()
+                })
+                .into(),
+        },
+        Transform::default().with_scale(Vec3::splat(-4000.0)),
+    ));
     // Ground
     let mut plane: Mesh = Plane3d::default().into();
     let uv_size = 4000.0;
     let uvs = vec![[uv_size, 0.0], [0.0, 0.0], [0.0, uv_size], [uv_size; 2]];
     plane.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(plane),
-        material: materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            perceptual_roughness: 1.0,
-            base_color_texture: Some(images.add(uv_debug_texture())),
-            ..default()
-        }),
-        transform: Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(plane).into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: Color::WHITE,
+                    perceptual_roughness: 1.0,
+                    base_color_texture: Some(images.add(uv_debug_texture())),
+                    ..default()
+                })
+                .into(),
+        },
+        Transform::from_xyz(0.0, -0.65, 0.0).with_scale(Vec3::splat(80.)),
+    ));
 
     spawn_cars(&asset_server, &mut meshes, &mut materials, &mut commands);
     spawn_trees(&mut meshes, &mut materials, &mut commands);
@@ -147,32 +153,30 @@ fn spawn_cars(
         let mut entity = commands
             .spawn((
                 PbrBundle {
-                    mesh: box_mesh.clone(),
-                    material: color.clone(),
-                    transform: Transform::from_scale(Vec3::splat(0.5)),
-                    ..default()
+                    mesh: box_mesh.clone().into(),
+                    material: color.clone().into(),
                 },
+                Transform::from_scale(Vec3::splat(0.5)),
                 Moves(i as f32 * 2.0),
             ))
             .insert_if(CameraTracked, || i == 0);
         entity.with_children(|parent| {
-            parent.spawn(PbrBundle {
-                mesh: box_mesh.clone(),
-                material: color,
-                transform: Transform::from_xyz(0.0, 0.08, 0.03)
-                    .with_scale(Vec3::new(1.0, 1.0, 0.5)),
-                ..default()
-            });
+            parent.spawn((
+                PbrBundle {
+                    mesh: box_mesh.clone().into(),
+                    material: color.into(),
+                },
+                Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
+            ));
             let mut spawn_wheel = |x: f32, z: f32| {
                 parent.spawn((
                     PbrBundle {
-                        mesh: cylinder.clone(),
-                        material: wheel_matl.clone(),
-                        transform: Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
-                            .with_scale(Vec3::new(0.15, 0.04, 0.15))
-                            .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
-                        ..default()
+                        mesh: cylinder.clone().into(),
+                        material: wheel_matl.clone().into(),
                     },
+                    Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
+                        .with_scale(Vec3::new(0.15, 0.04, 0.15))
+                        .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
                     Rotates,
                 ));
             };
@@ -202,12 +206,13 @@ fn spawn_barriers(
                 offset,
                 (i as f32) / (N_CONES as f32) * std::f32::consts::PI * 2.0,
             );
-            commands.spawn(PbrBundle {
-                mesh: capsule.clone(),
-                material: matl.clone(),
-                transform: Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
-                ..default()
-            });
+            commands.spawn((
+                PbrBundle {
+                    mesh: capsule.clone().into(),
+                    material: matl.clone().into(),
+                },
+                Transform::from_xyz(pos.x, -0.65, pos.y).with_scale(Vec3::splat(0.07)),
+            ));
         }
     };
     spawn_with_offset(0.04);
@@ -232,18 +237,20 @@ fn spawn_trees(
                 (i as f32) / (N_TREES as f32) * std::f32::consts::PI * 2.0,
             );
             let [x, z] = pos.into();
-            commands.spawn(PbrBundle {
-                mesh: sphere.clone(),
-                material: leaves.clone(),
-                transform: Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
-                ..default()
-            });
-            commands.spawn(PbrBundle {
-                mesh: capsule.clone(),
-                material: trunk.clone(),
-                transform: Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
-                ..default()
-            });
+            commands.spawn((
+                PbrBundle {
+                    mesh: sphere.clone().into(),
+                    material: leaves.clone().into(),
+                },
+                Transform::from_xyz(x, -0.3, z).with_scale(Vec3::splat(0.3)),
+            ));
+            commands.spawn((
+                PbrBundle {
+                    mesh: capsule.clone().into(),
+                    material: trunk.clone().into(),
+                },
+                Transform::from_xyz(x, -0.5, z).with_scale(Vec3::new(0.05, 0.3, 0.05)),
+            ));
         }
     };
     spawn_with_offset(0.07);

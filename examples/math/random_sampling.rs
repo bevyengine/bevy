@@ -58,12 +58,15 @@ fn setup(
     commands.insert_resource(RandomSource(seeded_rng));
 
     // Make a plane for establishing space.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(12.0, 12.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes
+                .add(Plane3d::default().mesh().size(12.0, 12.0))
+                .into(),
+            material: materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
+        },
+        Transform::from_xyz(0.0, -2.5, 0.0),
+    ));
 
     // Store the shape we sample from in a resource:
     let shape = Cuboid::from_length(2.9);
@@ -71,14 +74,15 @@ fn setup(
 
     // The sampled shape shown transparently:
     commands.spawn(PbrBundle {
-        mesh: meshes.add(shape),
-        material: materials.add(StandardMaterial {
-            base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
-            alpha_mode: AlphaMode::Blend,
-            cull_mode: None,
-            ..default()
-        }),
-        ..default()
+        mesh: meshes.add(shape).into(),
+        material: materials
+            .add(StandardMaterial {
+                base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
+                alpha_mode: AlphaMode::Blend,
+                cull_mode: None,
+                ..default()
+            })
+            .into(),
     });
 
     // A light:
@@ -169,11 +173,10 @@ fn handle_keypress(
         // Spawn a sphere at the random location:
         commands.spawn((
             PbrBundle {
-                mesh: sample_mesh.0.clone(),
-                material: sample_material.0.clone(),
-                transform: Transform::from_translation(sample),
-                ..default()
+                mesh: sample_mesh.0.clone().into(),
+                material: sample_material.0.clone().into(),
             },
+            Transform::from_translation(sample),
             SamplePoint,
         ));
 
@@ -206,11 +209,10 @@ fn handle_keypress(
         for sample in samples {
             commands.spawn((
                 PbrBundle {
-                    mesh: sample_mesh.0.clone(),
-                    material: sample_material.0.clone(),
-                    transform: Transform::from_translation(sample),
-                    ..default()
+                    mesh: sample_mesh.0.clone().into(),
+                    material: sample_material.0.clone().into(),
                 },
+                Transform::from_translation(sample),
                 SamplePoint,
             ));
         }

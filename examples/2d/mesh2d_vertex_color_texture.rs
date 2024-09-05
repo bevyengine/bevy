@@ -3,7 +3,7 @@
 
 use bevy::{
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{MaterialMesh2dBundle, Mesh2d},
 };
 
 fn main() {
@@ -33,26 +33,26 @@ fn setup(
     // Insert the vertex colors as an attribute
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vertex_colors);
 
-    let mesh_handle: Mesh2dHandle = meshes.add(mesh).into();
+    let mesh_handle: Mesh2d = meshes.add(mesh).into();
 
     // Spawn camera
     commands.spawn(Camera2dBundle::default());
 
     // Spawn the quad with vertex colors
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: mesh_handle.clone(),
-        transform: Transform::from_translation(Vec3::new(-96., 0., 0.))
-            .with_scale(Vec3::splat(128.)),
-        material: materials.add(ColorMaterial::default()),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: mesh_handle.clone(),
+            material: materials.add(ColorMaterial::default()).into(),
+        },
+        Transform::from_translation(Vec3::new(-96., 0., 0.)).with_scale(Vec3::splat(128.)),
+    ));
 
     // Spawning the quad with vertex colors and a texture results in tinting
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: mesh_handle,
-        transform: Transform::from_translation(Vec3::new(96., 0., 0.))
-            .with_scale(Vec3::splat(128.)),
-        material: materials.add(texture_handle),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: mesh_handle,
+            material: materials.add(texture_handle).into(),
+        },
+        Transform::from_translation(Vec3::new(96., 0., 0.)).with_scale(Vec3::splat(128.)),
+    ));
 }

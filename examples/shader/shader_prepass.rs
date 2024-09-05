@@ -65,66 +65,72 @@ fn setup(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: std_materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
+        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)).into(),
+        material: std_materials.add(Color::srgb(0.3, 0.5, 0.3)).into(),
     });
 
     // A quad that shows the outputs of the prepass
     // To make it easy, we just draw a big quad right in front of the camera.
     // For a real application, this isn't ideal.
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Rectangle::new(20.0, 20.0)),
-            material: depth_materials.add(PrepassOutputMaterial {
-                settings: ShowPrepassSettings::default(),
-            }),
-            transform: Transform::from_xyz(-0.75, 1.25, 3.0)
-                .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
-            ..default()
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Rectangle::new(20.0, 20.0)).into(),
+            material: depth_materials
+                .add(PrepassOutputMaterial {
+                    settings: ShowPrepassSettings::default(),
+                })
+                .into(),
         },
+        Transform::from_xyz(-0.75, 1.25, 3.0).looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
         NotShadowCaster,
     ));
 
     // Opaque cube
     commands.spawn((
-        MaterialMeshBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(CustomMaterial {
-                color: LinearRgba::WHITE,
-                color_texture: Some(asset_server.load("branding/icon.png")),
-                alpha_mode: AlphaMode::Opaque,
-            }),
-            transform: Transform::from_xyz(-1.0, 0.5, 0.0),
-            ..default()
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: materials
+                .add(CustomMaterial {
+                    color: LinearRgba::WHITE,
+                    color_texture: Some(asset_server.load("branding/icon.png")),
+                    alpha_mode: AlphaMode::Opaque,
+                })
+                .into(),
         },
+        Transform::from_xyz(-1.0, 0.5, 0.0),
         Rotates,
     ));
 
     // Cube with alpha mask
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: std_materials.add(StandardMaterial {
-            alpha_mode: AlphaMode::Mask(1.0),
-            base_color_texture: Some(asset_server.load("branding/icon.png")),
-            ..default()
-        }),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: std_materials
+                .add(StandardMaterial {
+                    alpha_mode: AlphaMode::Mask(1.0),
+                    base_color_texture: Some(asset_server.load("branding/icon.png")),
+                    ..default()
+                })
+                .into(),
+        },
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 
     // Cube with alpha blending.
     // Transparent materials are ignored by the prepass
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(CustomMaterial {
-            color: LinearRgba::WHITE,
-            color_texture: Some(asset_server.load("branding/icon.png")),
-            alpha_mode: AlphaMode::Blend,
-        }),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMesh3dBundle {
+            mesh: meshes.add(Cuboid::default()).into(),
+            material: materials
+                .add(CustomMaterial {
+                    color: LinearRgba::WHITE,
+                    color_texture: Some(asset_server.load("branding/icon.png")),
+                    alpha_mode: AlphaMode::Blend,
+                })
+                .into(),
+        },
+        Transform::from_xyz(1.0, 0.5, 0.0),
+    ));
 
     // light
     commands.spawn(PointLightBundle {

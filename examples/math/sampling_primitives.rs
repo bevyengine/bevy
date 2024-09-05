@@ -283,17 +283,22 @@ fn setup(
     commands.insert_resource(RandomSource(seeded_rng));
 
     // Make a plane for establishing space.
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-        material: materials.add(StandardMaterial {
-            base_color: Color::srgb(0.3, 0.5, 0.3),
-            perceptual_roughness: 0.95,
-            metallic: 0.0,
-            ..default()
-        }),
-        transform: Transform::from_xyz(0.0, -2.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes
+                .add(Plane3d::default().mesh().size(20.0, 20.0))
+                .into(),
+            material: materials
+                .add(StandardMaterial {
+                    base_color: Color::srgb(0.3, 0.5, 0.3),
+                    perceptual_roughness: 0.95,
+                    metallic: 0.0,
+                    ..default()
+                })
+                .into(),
+        },
+        Transform::from_xyz(0.0, -2.5, 0.0),
+    ));
 
     let shape_material = materials.add(StandardMaterial {
         base_color: Color::srgba(0.2, 0.1, 0.6, 0.3),
@@ -306,12 +311,13 @@ fn setup(
     // Spawn shapes to be sampled
     for (shape, translation) in shapes.0.iter() {
         // The sampled shape shown transparently:
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(shape.mesh()),
-            material: shape_material.clone(),
-            transform: Transform::from_translation(*translation),
-            ..default()
-        });
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(shape.mesh()).into(),
+                material: shape_material.clone().into(),
+            },
+            Transform::from_translation(*translation),
+        ));
 
         // Lights which work as the bulk lighting of the fireflies:
         commands.spawn((
@@ -602,14 +608,13 @@ fn spawn_points(
         // Spawn a sphere at the random location:
         commands.spawn((
             PbrBundle {
-                mesh: sample_mesh.0.clone(),
+                mesh: sample_mesh.0.clone().into(),
                 material: match *mode {
-                    SamplingMode::Interior => sample_material.interior.clone(),
-                    SamplingMode::Boundary => sample_material.boundary.clone(),
+                    SamplingMode::Interior => sample_material.interior.clone().into(),
+                    SamplingMode::Boundary => sample_material.boundary.clone().into(),
                 },
-                transform: Transform::from_translation(sample).with_scale(Vec3::ZERO),
-                ..default()
             },
+            Transform::from_translation(sample).with_scale(Vec3::ZERO),
             SamplePoint,
             SpawningPoint { progress: 0.0 },
         ));

@@ -41,9 +41,10 @@ fn setup(
     // ground plane
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(100.0, 100.0)),
-            material: materials.add(Color::WHITE),
-            ..default()
+            mesh: meshes
+                .add(Plane3d::default().mesh().size(100.0, 100.0))
+                .into(),
+            material: materials.add(Color::WHITE).into(),
         },
         Movable,
     ));
@@ -64,11 +65,10 @@ fn setup(
 
             (
                 PbrBundle {
-                    mesh: cube_mesh.clone(),
-                    material: blue.clone(),
-                    transform: Transform::from_xyz(x, y, z),
-                    ..default()
+                    mesh: cube_mesh.clone().into(),
+                    material: blue.clone().into(),
                 },
+                Transform::from_xyz(x, y, z),
                 Movable,
             )
         })
@@ -109,17 +109,15 @@ fn setup(
                 })
                 .with_children(|builder| {
                     builder.spawn(PbrBundle {
-                        mesh: sphere_mesh.clone(),
-                        material: red_emissive.clone(),
-                        ..default()
+                        mesh: sphere_mesh.clone().into(),
+                        material: red_emissive.clone().into(),
                     });
                     builder.spawn((
                         PbrBundle {
-                            transform: Transform::from_translation(Vec3::Z * -0.1),
-                            mesh: sphere_mesh_direction.clone(),
-                            material: maroon_emissive.clone(),
-                            ..default()
+                            mesh: sphere_mesh_direction.clone().into(),
+                            material: maroon_emissive.clone().into(),
                         },
+                        Transform::from_translation(Vec3::Z * -0.1),
                         NotShadowCaster,
                     ));
                 });

@@ -537,10 +537,9 @@ fn spawn_primitive_2d(
                 },
                 MaterialMesh2dBundle {
                     mesh: meshes.add(mesh).into(),
-                    material: material.clone(),
-                    transform: Transform::from_translation(POSITION),
-                    ..Default::default()
+                    material: material.clone().into(),
                 },
+                Transform::from_translation(POSITION),
             ));
         }
     });
@@ -583,11 +582,10 @@ fn spawn_primitive_3d(
                     primitive_state: state,
                 },
                 PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material: material.clone(),
-                    transform: Transform::from_translation(POSITION),
-                    ..Default::default()
+                    mesh: meshes.add(mesh).into(),
+                    material: material.clone().into(),
                 },
+                Transform::from_translation(POSITION),
             ));
         }
     });

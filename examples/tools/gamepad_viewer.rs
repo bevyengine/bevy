@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     input::gamepad::{GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadSettings},
     prelude::*,
-    sprite::{Anchor, MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{Anchor, MaterialMesh2dBundle, Mesh2d},
 };
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -58,10 +58,10 @@ impl FromWorld for ButtonMaterials {
 }
 #[derive(Resource)]
 struct ButtonMeshes {
-    circle: Mesh2dHandle,
-    triangle: Mesh2dHandle,
-    start_pause: Mesh2dHandle,
-    trigger: Mesh2dHandle,
+    circle: Mesh2d,
+    triangle: Mesh2d,
+    start_pause: Mesh2d,
+    trigger: Mesh2d,
 }
 impl FromWorld for ButtonMeshes {
     fn from_world(world: &mut World) -> Self {
@@ -79,13 +79,14 @@ impl FromWorld for ButtonMeshes {
 #[derive(Bundle)]
 struct GamepadButtonBundle {
     mesh_bundle: MaterialMesh2dBundle<ColorMaterial>,
+    transform: Transform,
     react_to: ReactTo,
 }
 
 impl GamepadButtonBundle {
     pub fn new(
         button_type: GamepadButtonType,
-        mesh: Mesh2dHandle,
+        mesh: Mesh2d,
         material: Handle<ColorMaterial>,
         x: f32,
         y: f32,
@@ -93,16 +94,15 @@ impl GamepadButtonBundle {
         Self {
             mesh_bundle: MaterialMesh2dBundle {
                 mesh,
-                material,
-                transform: Transform::from_xyz(x, y, 0.),
-                ..default()
+                material: material.into(),
             },
+            transform: Transform::from_xyz(x, y, 0.),
             react_to: ReactTo(button_type),
         }
     }
 
     pub fn with_rotation(mut self, angle: f32) -> Self {
-        self.mesh_bundle.transform.rotation = Quat::from_rotation_z(angle);
+        self.transform.rotation = Quat::from_rotation_z(angle);
         self
     }
 }
@@ -340,11 +340,9 @@ fn setup_sticks(
                 parent.spawn((
                     MaterialMesh2dBundle {
                         mesh: meshes.circle.clone(),
-                        material: materials.normal.clone(),
-                        transform: Transform::from_xyz(0., 0., 5.)
-                            .with_scale(Vec2::splat(0.15).extend(1.)),
-                        ..default()
+                        material: materials.normal.clone().into(),
                     },
+                    Transform::from_xyz(0., 0., 5.).with_scale(Vec2::splat(0.15).extend(1.)),
                     MoveWithAxes {
                         x_axis,
                         y_axis,

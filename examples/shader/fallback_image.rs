@@ -29,17 +29,18 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<FallbackTestMaterial>>,
 ) {
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(FallbackTestMaterial {
-            image_1d: None,
-            image_2d: None,
-            image_2d_array: None,
-            image_cube: None,
-            image_cube_array: None,
-            image_3d: None,
-        }),
-        ..default()
+    commands.spawn(MaterialMesh3dBundle {
+        mesh: meshes.add(Cuboid::default()).into(),
+        material: materials
+            .add(FallbackTestMaterial {
+                image_1d: None,
+                image_2d: None,
+                image_2d_array: None,
+                image_cube: None,
+                image_cube_array: None,
+                image_3d: None,
+            })
+            .into(),
     });
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),

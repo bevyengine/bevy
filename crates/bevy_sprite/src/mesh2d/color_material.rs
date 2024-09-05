@@ -40,7 +40,7 @@ impl Plugin for ColorMaterialPlugin {
     }
 }
 
-/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
+/// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2d) with a texture tinted by a uniform color
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[reflect(Default, Debug)]
 #[uniform(0, ColorMaterialUniform)]
@@ -158,5 +158,5 @@ impl Material2d for ColorMaterial {
     }
 }
 
-/// A component bundle for entities with a [`Mesh2dHandle`](crate::Mesh2dHandle) and a [`ColorMaterial`].
+/// A component bundle for entities with a [`Mesh2d`](crate::Mesh2d) and a [`ColorMaterial`].
 pub type ColorMesh2dBundle = MaterialMesh2dBundle<ColorMaterial>;

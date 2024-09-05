@@ -28,21 +28,20 @@ use bevy_render::{
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibleEntities},
+    view::{ExtractedView, Msaa, ViewVisibility, VisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::tracing::error;
 use std::{hash::Hash, marker::PhantomData};
 
 use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
+    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
     SetMesh2dBindGroup, SetMesh2dViewBindGroup, WithMesh2d,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
 /// to spawn entities that are rendered with a specific [`Material2d`] type. They serve as an easy to use high level
-/// way to render [`Mesh2dHandle`] entities with custom shader logic.
+/// way to render [`Mesh2d`] entities with custom shader logic.
 ///
 /// Material2ds must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
@@ -134,6 +133,22 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
         key: Material2dKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
+    }
+}
+
+/// A [2D material](Material2d) for a [`Mesh2d`](crate::Mesh2d).
+#[derive(Component, Clone, Debug, Deref, DerefMut, PartialEq, Eq)]
+pub struct MeshMaterial2d<M: Material2d>(pub Handle<M>);
+
+impl<M: Material2d> Default for MeshMaterial2d<M> {
+    fn default() -> Self {
+        Self(Handle::default())
+    }
+}
+
+impl<M: Material2d> From<Handle<M>> for MeshMaterial2d<M> {
+    fn from(handle: Handle<M>) -> Self {
+        Self(handle)
     }
 }
 
@@ -609,19 +624,11 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
     }
 }
 
-/// A component bundle for entities with a [`Mesh2dHandle`] and a [`Material2d`].
+/// A component bundle for entities with a [`Mesh2d`] and a [`MeshMaterial2d`].
 #[derive(Bundle, Clone)]
 pub struct MaterialMesh2dBundle<M: Material2d> {
-    pub mesh: Mesh2dHandle,
-    pub material: Handle<M>,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    /// User indication of whether an entity is visible
-    pub visibility: Visibility,
-    // Inherited visibility of an entity.
-    pub inherited_visibility: InheritedVisibility,
-    // Indication of whether an entity is visible in any view.
-    pub view_visibility: ViewVisibility,
+    pub mesh: Mesh2d,
+    pub material: MeshMaterial2d<M>,
 }
 
 impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
@@ -629,11 +636,6 @@ impl<M: Material2d> Default for MaterialMesh2dBundle<M> {
         Self {
             mesh: Default::default(),
             material: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            inherited_visibility: Default::default(),
-            view_visibility: Default::default(),
         }
     }
 }

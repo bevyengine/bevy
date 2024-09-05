@@ -270,13 +270,13 @@ fn spawn_light(commands: &mut Commands) {
 
 fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
     commands
-        .spawn(PbrBundle {
-            mesh: assets.main_sphere.clone(),
-            material: assets.main_sphere_material.clone(),
-            transform: Transform::from_xyz(0.0, SPHERE_SCALE, 0.0)
-                .with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+        .spawn((
+            PbrBundle {
+                mesh: assets.main_sphere.clone().into(),
+                material: assets.main_sphere_material.clone().into(),
+            },
+            Transform::from_xyz(0.0, SPHERE_SCALE, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(MainObject);
 }
 
@@ -596,13 +596,14 @@ fn create_cubes(
                     let uvw = (uvec3(x, y, z).as_vec3() + 0.5) * scale - 0.5;
                     let pos = global_transform.transform_point(uvw);
                     let voxel_cube = commands
-                        .spawn(MaterialMeshBundle {
-                            mesh: example_assets.voxel_cube.clone(),
-                            material: voxel_cube_material.clone(),
-                            transform: Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
+                        .spawn((
+                            MaterialMesh3dBundle {
+                                mesh: example_assets.voxel_cube.clone().into(),
+                                material: voxel_cube_material.clone().into(),
+                            },
+                            Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
                                 .with_translation(pos),
-                            ..default()
-                        })
+                        ))
                         .insert(VoxelCube)
                         .insert(NotShadowCaster)
                         .id();
