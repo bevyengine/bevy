@@ -65,7 +65,6 @@ impl Node {
 
     /// Check if the node is empty.
     /// A node is considered empty if it has a zero or negative extent along either of its axes.
-    ///
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.size().cmple(Vec2::ZERO).any()
