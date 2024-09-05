@@ -1,4 +1,4 @@
-use crate::{Sprite, TextureAtlas};
+use crate::Sprite;
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
