@@ -12,7 +12,6 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
-use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{
     BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
