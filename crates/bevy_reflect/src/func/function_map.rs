@@ -8,13 +8,26 @@ use core::ops::RangeInclusive;
 /// A helper type for storing a mapping of overloaded functions
 /// along with the corresponding [function information].
 ///
+/// By using an enum, we can optimize the common case of a single function,
+/// while still allowing for multiple function overloads to be stored.
+///
 /// [function information]: FunctionInfo
 #[derive(Clone, Debug)]
 pub(super) enum FunctionMap<F> {
+    /// Represents a single, non-overloaded function.
     Single(F, FunctionInfo),
+    /// Represents an overloaded function.
     Overloaded(
+        /// The list of function overloads.
         Vec<F>,
+        /// The information for each function.
+        ///
+        /// Note that some functions may have multiple `FunctionInfo` values (i.e. manually created overloads),
+        /// so this list may not always line up one-to-one with the functions list.
         Vec<FunctionInfo>,
+        /// A mapping of argument signatures to the index of the corresponding function.
+        ///
+        /// Multiple signatures may point to the same function index (i.e. for manually created overloads).
         HashMap<ArgumentSignature, usize, NoOpHash>,
     ),
 }
@@ -93,6 +106,15 @@ impl<F> FunctionMap<F> {
     ///
     /// If the other map contains any functions with the same signature as this one,
     /// an error will be returned along with the original, unchanged map.
+    ///
+    /// Therefore, this method should always return `Ok(Self::Overloaded(..))` if the merge is successful.
+    ///
+    /// Additionally, if the merge succeeds, it should be guaranteed that the order
+    /// of the functions in the map will be preserved.
+    /// For example, merging `[func_a, func_b]` (self) with `[func_c, func_d]` (other) should result in
+    /// `[func_a, func_b, func_c, func_d]`.
+    /// And merging `[func_c, func_d]` (self) with `[func_a, func_b]` (other) should result in
+    /// `[func_c, func_d, func_a, func_b]`.
     pub fn merge(self, other: Self) -> Result<Self, (Box<Self>, FunctionOverloadError)> {
         match (self, other) {
             (Self::Single(self_func, self_info), Self::Single(other_func, other_info)) => {
@@ -162,6 +184,8 @@ impl<F> FunctionMap<F> {
                 Self::Overloaded(mut self_funcs, mut self_infos, mut self_indices),
                 Self::Overloaded(mut other_funcs, mut other_infos, other_indices),
             ) => {
+                // Keep a separate map of the new indices to avoid mutating the existing one
+                // until we can be sure the merge will be successful.
                 let mut new_indices = HashMap::new();
 
                 for (sig, index) in other_indices {
