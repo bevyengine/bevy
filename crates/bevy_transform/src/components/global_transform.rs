@@ -41,7 +41,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg_attr(
     feature = "bevy-support",
     derive(Component, Reflect),
-    require(GlobalTransform),
     reflect(Component, Default, PartialEq)
 )]
 pub struct GlobalTransform(Affine3A);
