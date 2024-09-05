@@ -14,6 +14,28 @@
 //! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
 //! and providing a way to initialize objects (generally entities) before the required assets are loaded.
 //!
+//! ## Loading and using assets
+//!
+//! The [`AssetServer`] is the main entry point for loading assets.
+//! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
+//! This handle will be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
+//! which will then be spawned into the world as part of an entity.
+//!
+//! If we later want to manipulate this asset data (such as for displaying a death animation), we have three options:
+//!
+//! 1. Despawn the entity and spawn a new one with the new asset data.
+//! 2. Change what the handle is pointing to.
+//! 3. Use the [`Assets`] collection to directly modify the asset data.
+//!
+//! The first option is the simplest, but can be slow if done frequently,
+//! and can lead to frustrating bugs as references to the old entity (such as what is targeting it) and other data on the entity are lost.
+//! Generally, this isn't a great strategy.
+//!
+//! The second option is the most common: just query for the component that holds the handle, and mutate it, pointing to the new asset.
+//!
+//! The third option has different semantics: rather than modifying the asset data for a single entity, it modifies the asset data for *all* entities using this handle.
+//! While this might be what you want, it generally isn't!
+//!
 //! ## Handles and reference counting
 //!
 //! [`Handle`] (or their untyped counterpart [`UntypedHandle`]) are used to reference assets in the [`Assets`] collection,
