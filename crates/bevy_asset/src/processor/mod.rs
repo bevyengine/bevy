@@ -1,4 +1,4 @@
-//! Asset processing in Bevy is a framework by which artist-authored assets can be automatically prepared for use in game.
+//! Asset processing in Bevy is a framework for automatically transforming artist-authored assets into the format that best suits the needs of your particular game.
 //!
 //! You can think of the asset processing system as a "build system" for assets.
 //! When an artist adds a new asset to the project, the asset processing system will automatically perform the specified processing steps on the asset.
