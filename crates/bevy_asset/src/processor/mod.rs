@@ -13,6 +13,12 @@
 //!
 //! Taken together, this means that the original asset plus the processing steps should be enough to regenerate the final asset.
 //! While it may be possible to manually edit the final asset, this should be discouraged, and final post-processed assets should generally not be version-controlled.
+//!
+//! Bevy provides two entry points to asset processing:
+//! - [`LoadTransformAndSave`] + [`AssetTransformer`](crate::transformer::AssetTransformer): a high-level API for loading, transforming, and saving assets.
+//! - [`Process`]: a flexible low-level API for processing assets in arbitrary ways.
+//!
+//! See the documentation associated with those types and traits for more information on how to use them.
 
 mod log;
 mod process;
