@@ -173,10 +173,8 @@ impl TypeRegistry {
             registration_fn(self)
         }
 
-        dbg!("Running...");
         #[cfg(not(target_family = "wasm"))]
         for registration_fn in inventory::iter::<AUTOMATIC_REFLECT_REGISTRATIONS> {
-            dbg!("{:?}", registration_fn.0);
             registration_fn.0(self)
         }
     }
