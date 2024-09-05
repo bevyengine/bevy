@@ -922,7 +922,7 @@ pub fn extract_meshes_for_cpu_building(
                 handle,
                 not_shadow_caster,
                 no_automatic_batching,
-                render_layers.map(|render_layers| render_layers.clone()),
+                render_layers.cloned(),
             );
 
             let world_from_local = transform.affine();
@@ -1041,7 +1041,7 @@ pub fn extract_meshes_for_gpu_building(
                 handle,
                 not_shadow_caster,
                 no_automatic_batching,
-                render_layers.map(|render_layers| render_layers.clone()),
+                render_layers.cloned(),
             );
 
             let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
