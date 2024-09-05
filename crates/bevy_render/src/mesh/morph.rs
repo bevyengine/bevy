@@ -198,7 +198,7 @@ impl MeshMorphWeights {
 ///
 /// Only direct children are updated, to fulfill the expectations of glTF spec.
 pub fn inherit_weights(
-    morph_nodes: Query<(&Children, &MorphWeights), (Without<Handle<Mesh>>, Changed<MorphWeights>)>,
+    morph_nodes: Query<(Children, &MorphWeights), (Without<Handle<Mesh>>, Changed<MorphWeights>)>,
     mut morph_primitives: Query<&mut MeshMorphWeights, With<Handle<Mesh>>>,
 ) {
     for (children, parent_weights) in &morph_nodes {

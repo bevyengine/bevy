@@ -202,7 +202,7 @@ pub fn extract_uinode_background_colors(
             Option<&TargetCamera>,
             &BackgroundColor,
             &Style,
-            Option<&Parent>,
+            Option<Parent>,
         )>,
     >,
     node_query: Extract<Query<&Node>>,
@@ -241,7 +241,7 @@ pub fn extract_uinode_background_colors(
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
+            .and_then(|parent| node_query.get(parent).ok())
             .map(|parent_node| parent_node.size().x)
             .unwrap_or(ui_logical_viewport_size.x);
         let left =
@@ -305,7 +305,7 @@ pub fn extract_uinode_images(
                 Option<&TargetCamera>,
                 &UiImage,
                 Option<&TextureAtlas>,
-                Option<&Parent>,
+                Option<Parent>,
                 &Style,
             ),
             Without<ImageScaleMode>,
@@ -362,7 +362,7 @@ pub fn extract_uinode_images(
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
+            .and_then(|parent| node_query.get(parent).ok())
             .map(|parent_node| parent_node.size().x)
             .unwrap_or(ui_logical_viewport_size.x);
         let left =
@@ -452,7 +452,7 @@ pub fn extract_uinode_borders(
             &ViewVisibility,
             Option<&CalculatedClip>,
             Option<&TargetCamera>,
-            Option<&Parent>,
+            Option<Parent>,
             &Style,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
@@ -500,7 +500,7 @@ pub fn extract_uinode_borders(
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
         let parent_width = maybe_parent
-            .and_then(|parent| node_query.get(parent.get()).ok())
+            .and_then(|parent| node_query.get(parent).ok())
             .map(|parent_node| parent_node.size().x)
             .unwrap_or(ui_logical_viewport_size.x);
         let left =

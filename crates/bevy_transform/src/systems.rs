@@ -48,11 +48,11 @@ pub fn sync_simple_transforms(
 /// Third party plugins should ensure that this is used in concert with [`sync_simple_transforms`].
 pub fn propagate_transforms(
     mut root_query: Query<
-        (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
+        (Entity, Children, Ref<Transform>, &mut GlobalTransform),
         Without<Parent>,
     >,
     mut orphaned: RemovedComponents<Parent>,
-    transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
+    transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<Children>), With<Parent>>,
     parent_query: Query<(Entity, Ref<Parent>), With<GlobalTransform>>,
     mut orphaned_entities: Local<Vec<Entity>>,
 ) {
@@ -110,10 +110,7 @@ pub fn propagate_transforms(
 #[allow(unsafe_code)]
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &Query<
-        (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
-        With<Parent>,
-    >,
+    transform_query: &Query<(Ref<Transform>, &mut GlobalTransform, Option<Children>), With<Parent>>,
     parent_query: &Query<(Entity, Ref<Parent>), With<GlobalTransform>>,
     entity: Entity,
     mut changed: bool,

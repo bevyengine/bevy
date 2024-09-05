@@ -433,7 +433,7 @@ where
 
 fn buttons_handler<T>(
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
-    mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
+    mut visibility_button_query: Query<(&Target<T>, &Interaction, Children), Changed<Interaction>>,
     mut text_query: Query<&mut Text>,
 ) where
     T: Send + Sync,
@@ -459,7 +459,7 @@ fn buttons_handler<T>(
 }
 
 fn text_hover(
-    mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
+    mut button_query: Query<(&Interaction, &mut BackgroundColor, Children), Changed<Interaction>>,
     mut text_query: Query<&mut Text>,
 ) {
     for (interaction, mut color, children) in button_query.iter_mut() {

@@ -315,7 +315,7 @@ fn race_track_pos(offset: f32, t: f32) -> Vec2 {
 
 fn move_cars(
     time: Res<Time>,
-    mut movables: Query<(&mut Transform, &Moves, &Children)>,
+    mut movables: Query<(&mut Transform, &Moves, Children)>,
     mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {
@@ -331,7 +331,7 @@ fn move_cars(
         transform.translation.y = -0.59;
         let delta = transform.translation - prev;
         transform.look_to(delta, Vec3::Y);
-        for child in children.iter() {
+        for child in children {
             let Ok(mut wheel) = spins.get_mut(*child) else {
                 continue;
             };

@@ -181,12 +181,7 @@ fn update_accessibility_nodes(
     mut adapters: NonSendMut<AccessKitAdapters>,
     focus: Res<Focus>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
-    nodes: Query<(
-        Entity,
-        &AccessibilityNode,
-        Option<&Children>,
-        Option<&Parent>,
-    )>,
+    nodes: Query<(Entity, &AccessibilityNode, Option<Children>, Option<Parent>)>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
     let Ok((primary_window_id, primary_window)) = primary_window.get_single() else {
@@ -209,12 +204,7 @@ fn update_accessibility_nodes(
 }
 
 fn update_adapter(
-    nodes: Query<(
-        Entity,
-        &AccessibilityNode,
-        Option<&Children>,
-        Option<&Parent>,
-    )>,
+    nodes: Query<(Entity, &AccessibilityNode, Option<Children>, Option<Parent>)>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
     primary_window: &Window,
     primary_window_id: Entity,
@@ -250,12 +240,12 @@ fn update_adapter(
 #[inline]
 fn queue_node_for_update(
     node_entity: Entity,
-    parent: Option<&Parent>,
+    parent: Option<Entity>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
     window_children: &mut Vec<NodeId>,
 ) {
     let should_push = if let Some(parent) = parent {
-        !node_entities.contains(parent.get())
+        !node_entities.contains(parent)
     } else {
         true
     };
@@ -266,7 +256,7 @@ fn queue_node_for_update(
 
 #[inline]
 fn add_children_nodes(
-    children: Option<&Children>,
+    children: Option<&[Entity]>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
     node: &mut NodeBuilder,
 ) {

@@ -177,7 +177,7 @@ fn setup(
 fn set_visibility_ranges(
     mut commands: Commands,
     mut new_meshes: Query<Entity, Added<Handle<Mesh>>>,
-    parents: Query<(Option<&Parent>, Option<&MainModel>)>,
+    parents: Query<(Option<Parent>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
@@ -189,7 +189,7 @@ fn set_visibility_ranges(
                 break;
             }
             match parent {
-                Some(parent) => current = **parent,
+                Some(parent) => current = parent,
                 None => break,
             }
         }

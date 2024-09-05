@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn rotate(
     mut commands: Commands,
     time: Res<Time>,
-    mut parents_query: Query<(Entity, &Children), With<Sprite>>,
+    mut parents_query: Query<(Entity, Children), With<Sprite>>,
     mut transform_query: Query<&mut Transform, With<Sprite>>,
 ) {
     for (parent, children) in &mut parents_query {

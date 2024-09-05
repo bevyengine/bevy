@@ -298,7 +298,7 @@ fn handle_button_toggles(
             &Interaction,
             &mut MaskGroupControl,
             &mut BackgroundColor,
-            &Children,
+            Children,
         ),
         Changed<Interaction>,
     >,
@@ -325,7 +325,7 @@ fn handle_button_toggles(
         };
 
         // Update the text color of the button.
-        for &kid in children.iter() {
+        for &kid in children {
             if let Ok(mut text) = texts.get_mut(kid) {
                 for section in &mut text.sections {
                     section.style.color = if mask_group_control.enabled {

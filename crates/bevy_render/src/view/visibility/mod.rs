@@ -344,11 +344,11 @@ pub fn update_frusta<T: Component + CameraProjection + Send + Sync + 'static>(
 
 fn visibility_propagate_system(
     changed: Query<
-        (Entity, &Visibility, Option<&Parent>, Option<&Children>),
+        (Entity, &Visibility, Option<Parent>, Option<Children>),
         (With<InheritedVisibility>, Changed<Visibility>),
     >,
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
-    children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    children_query: Query<Children, (With<Visibility>, With<InheritedVisibility>)>,
 ) {
     for (entity, visibility, parent, children) in &changed {
         let is_visible = match visibility {
@@ -356,7 +356,7 @@ fn visibility_propagate_system(
             Visibility::Hidden => false,
             // fall back to true if no parent is found or parent lacks components
             Visibility::Inherited => parent
-                .and_then(|p| visibility_query.get(p.get()).ok())
+                .and_then(|p| visibility_query.get(p).ok())
                 .map_or(true, |(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
@@ -382,7 +382,7 @@ fn propagate_recursive(
     parent_is_visible: bool,
     entity: Entity,
     visibility_query: &mut Query<(&Visibility, &mut InheritedVisibility)>,
-    children_query: &Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
+    children_query: &Query<Children, (With<Visibility>, With<InheritedVisibility>)>,
     // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {

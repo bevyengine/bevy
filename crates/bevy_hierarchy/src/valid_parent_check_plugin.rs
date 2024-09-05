@@ -54,14 +54,13 @@ impl<T> Default for ReportHierarchyIssue<T> {
 /// (See B0004 explanation linked in warning message)
 pub fn check_hierarchy_component_has_valid_parent<T: Component>(
     parent_query: Query<
-        (Entity, &Parent, Option<&bevy_core::Name>),
+        (Entity, Parent, Option<&bevy_core::Name>),
         (With<T>, Or<(Changed<Parent>, Added<T>)>),
     >,
     component_query: Query<(), With<T>>,
     mut already_diagnosed: Local<HashSet<Entity>>,
 ) {
     for (entity, parent, name) in &parent_query {
-        let parent = parent.get();
         if !component_query.contains(parent) && !already_diagnosed.contains(&entity) {
             already_diagnosed.insert(entity);
             bevy_utils::tracing::warn!(

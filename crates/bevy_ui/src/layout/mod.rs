@@ -110,7 +110,7 @@ pub fn ui_layout_system(
         With<Node>,
     >,
     children_query: Query<(Entity, Ref<Children>), With<Node>>,
-    just_children_query: Query<&Children>,
+    just_children_query: Query<Children>,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
         &mut Node,
@@ -293,7 +293,7 @@ pub fn ui_layout_system(
             Option<&BorderRadius>,
             Option<&Outline>,
         )>,
-        children_query: &Query<&Children>,
+        children_query: &Query<Children>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         mut absolute_location: Vec2,

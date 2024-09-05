@@ -23,7 +23,7 @@ fn button_system(
             &Interaction,
             &mut BackgroundColor,
             &mut BorderColor,
-            &Children,
+            Children,
         ),
         (Changed<Interaction>, With<Button>),
     >,

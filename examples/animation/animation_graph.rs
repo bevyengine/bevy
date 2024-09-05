@@ -431,7 +431,7 @@ fn handle_weight_drag(
 fn update_ui(
     mut text_query: Query<&mut Text>,
     mut background_query: Query<&mut Style, Without<Text>>,
-    container_query: Query<(&Children, &ClipNode)>,
+    container_query: Query<(Children, &ClipNode)>,
     animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
 ) {
     for animation_weights in animation_weights_query.iter() {

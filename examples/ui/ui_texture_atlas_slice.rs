@@ -19,7 +19,7 @@ fn main() {
 
 fn button_system(
     mut interaction_query: Query<
-        (&Interaction, &mut TextureAtlas, &Children, &mut UiImage),
+        (&Interaction, &mut TextureAtlas, Children, &mut UiImage),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
