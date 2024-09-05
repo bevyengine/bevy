@@ -291,6 +291,10 @@ pub struct MaterialMeshletMeshBundle<M: Material> {
     pub global_transform: GlobalTransform,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
 }
 
 impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
@@ -301,6 +305,8 @@ impl<M: Material> Default for MaterialMeshletMeshBundle<M> {
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
+            inherited_visibility: Default::default(),
+            view_visibility: Default::default(),
         }
     }
 }

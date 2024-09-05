@@ -17,7 +17,7 @@ use bevy_math::Vec2;
 use bevy_render::{
     primitives::Aabb,
     texture::Image,
-    view::{NoFrustumCulling, ViewVisibility, Visibility},
+    view::{InheritedVisibility, NoFrustumCulling, ViewVisibility, Visibility},
     Extract,
 };
 use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
@@ -50,6 +50,10 @@ pub struct Text2dBundle {
     pub global_transform: GlobalTransform,
     /// The visibility properties of the text.
     pub visibility: Visibility,
+    /// Inherited visibility of an entity.
+    pub inherited_visibility: InheritedVisibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub view_visibility: ViewVisibility,
     /// Contains the size of the text and its glyph's position and scale data. Generated via [`TextPipeline::queue_text`]
     pub text_layout_info: TextLayoutInfo,
     /// Marks that this is a [`SpriteSource`].
