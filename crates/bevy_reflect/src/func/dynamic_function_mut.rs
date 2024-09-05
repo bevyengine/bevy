@@ -6,6 +6,7 @@ use crate::func::{
 };
 use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 
 /// A [`Box`] containing a callback to a reflected function.
@@ -325,6 +326,29 @@ impl<'env> DynamicFunctionMut<'env> {
     /// [overloaded]: Self::with_overload
     pub fn is_overloaded(&self) -> bool {
         self.function_map.is_overloaded()
+    }
+
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will return the minimum and maximum number of arguments.
+    ///
+    /// Otherwise, the range will have the same start and end.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::func::IntoFunctionMut;
+    /// let add = (|a: i32, b: i32| a + b).into_function_mut();
+    /// assert_eq!(add.arg_count(), 2..=2);
+    ///
+    /// let add = add.with_overload(|a: f32, b: f32, c: f32| a + b + c);
+    /// assert_eq!(add.arg_count(), 2..=3);
+    /// ```
+    ///
+    /// [overloaded]: Self::with_overload
+    pub fn arg_count(&self) -> RangeInclusive<usize> {
+        self.function_map.arg_count()
     }
 }
 

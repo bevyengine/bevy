@@ -3,6 +3,7 @@ use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionInfoType, Functi
 use alloc::borrow::Cow;
 use bevy_utils::hashbrown::HashMap;
 use bevy_utils::NoOpHash;
+use std::ops::RangeInclusive;
 
 /// A helper type for storing a mapping of overloaded functions
 /// along with the corresponding [function information].
@@ -73,6 +74,30 @@ impl<F> FunctionMap<F> {
         match self {
             Self::Single(_, info) => FunctionInfoType::Standard(Cow::Borrowed(info)),
             Self::Overloaded(_, info, _) => FunctionInfoType::Overloaded(Cow::Borrowed(info)),
+        }
+    }
+
+    /// Returns the number of arguments the function expects.
+    ///
+    /// For [overloaded] functions that can have a variable number of arguments,
+    /// this will return the minimum and maximum number of arguments.
+    ///
+    /// Otherwise, the range will have the same start and end.
+    ///
+    /// [overloaded]: Self::Overloaded
+    pub fn arg_count(&self) -> RangeInclusive<usize> {
+        match self {
+            Self::Single(_, info) => RangeInclusive::new(info.arg_count(), info.arg_count()),
+            Self::Overloaded(_, infos, _) => {
+                let mut range = RangeInclusive::new(usize::MAX, usize::MIN);
+                for info in infos.iter() {
+                    let count = info.arg_count();
+                    let start = *range.start();
+                    let end = *range.end();
+                    range = RangeInclusive::new(start.min(count), end.max(count));
+                }
+                range
+            }
         }
     }
 
