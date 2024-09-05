@@ -1,7 +1,8 @@
 use crate::func::signature::ArgumentSignature;
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionInfoType, FunctionOverloadError};
 use alloc::borrow::Cow;
-use bevy_utils::HashMap;
+use bevy_utils::hashbrown::HashMap;
+use bevy_utils::NoOpHash;
 
 /// A helper type for storing a mapping of overloaded functions
 /// along with the corresponding [function information].
@@ -10,7 +11,11 @@ use bevy_utils::HashMap;
 #[derive(Clone, Debug)]
 pub(super) enum FunctionMap<F> {
     Single(F, FunctionInfo),
-    Overloaded(Vec<F>, Vec<FunctionInfo>, HashMap<ArgumentSignature, usize>),
+    Overloaded(
+        Vec<F>,
+        Vec<FunctionInfo>,
+        HashMap<ArgumentSignature, usize, NoOpHash>,
+    ),
 }
 
 impl<F> FunctionMap<F> {
@@ -87,7 +92,7 @@ impl<F> FunctionMap<F> {
                 Ok(Self::Overloaded(
                     vec![self_func, other_func],
                     vec![self_info, other_info],
-                    HashMap::from([(self_sig, 0), (other_sig, 1)]),
+                    HashMap::from_iter([(self_sig, 0), (other_sig, 1)]),
                 ))
             }
             (
@@ -182,7 +187,7 @@ mod tests {
         assert_eq!(infos.len(), 2);
         assert_eq!(
             indices,
-            HashMap::from([
+            HashMap::from_iter([
                 (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<u8>()]), 1),
             ])
@@ -198,7 +203,7 @@ mod tests {
                 FunctionInfo::anonymous().with_arg::<u8>("arg0"),
                 FunctionInfo::anonymous().with_arg::<u16>("arg0"),
             ],
-            HashMap::from([
+            HashMap::from_iter([
                 (ArgumentSignature::from_iter([Type::of::<u8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<u16>()]), 1),
             ]),
@@ -211,7 +216,7 @@ mod tests {
         assert_eq!(infos.len(), 3);
         assert_eq!(
             indices,
-            HashMap::from([
+            HashMap::from_iter([
                 (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<u8>()]), 1),
                 (ArgumentSignature::from_iter([Type::of::<u16>()]), 2),
@@ -227,7 +232,7 @@ mod tests {
                 FunctionInfo::anonymous().with_arg::<i8>("arg0"),
                 FunctionInfo::anonymous().with_arg::<i16>("arg0"),
             ],
-            HashMap::from([
+            HashMap::from_iter([
                 (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
             ]),
@@ -241,7 +246,7 @@ mod tests {
         assert_eq!(infos.len(), 3);
         assert_eq!(
             indices,
-            HashMap::from([
+            HashMap::from_iter([
                 (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
                 (ArgumentSignature::from_iter([Type::of::<u8>()]), 2),
@@ -257,7 +262,7 @@ mod tests {
                 FunctionInfo::anonymous().with_arg::<i8>("arg0"),
                 FunctionInfo::anonymous().with_arg::<i16>("arg0"),
             ],
-            HashMap::from([
+            HashMap::from_iter([
                 (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
             ]),
@@ -268,7 +273,7 @@ mod tests {
                 FunctionInfo::anonymous().with_arg::<u8>("arg0"),
                 FunctionInfo::anonymous().with_arg::<u16>("arg0"),
             ],
-            HashMap::from([
+            HashMap::from_iter([
                 (ArgumentSignature::from_iter([Type::of::<u8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<u16>()]), 1),
             ]),
@@ -281,7 +286,7 @@ mod tests {
         assert_eq!(infos.len(), 4);
         assert_eq!(
             indices,
-            HashMap::from([
+            HashMap::from_iter([
                 (ArgumentSignature::from_iter([Type::of::<i8>()]), 0),
                 (ArgumentSignature::from_iter([Type::of::<i16>()]), 1),
                 (ArgumentSignature::from_iter([Type::of::<u8>()]), 2),
@@ -304,7 +309,7 @@ mod tests {
                 FunctionInfo::anonymous().with_arg::<u8>("arg0"),
                 FunctionInfo::anonymous().with_arg::<u16>("arg1"),
             ],
-            HashMap::from([
+            HashMap::from_iter([
                 (
                     ArgumentSignature::from_iter([Type::of::<u8>(), Type::of::<u16>()]),
                     0,
