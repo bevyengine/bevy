@@ -51,7 +51,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
         .generics()
         .split_for_impl();
 
-    let auto_register = reflect_auto_registration(&reflect_struct.meta());
+    let auto_register = reflect_auto_registration(reflect_struct.meta());
 
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
