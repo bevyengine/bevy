@@ -556,4 +556,16 @@ pub mod binding_types {
         }
         .into_bind_group_layout_entry_builder()
     }
+
+    pub fn texture_storage_3d(
+        format: TextureFormat,
+        access: StorageTextureAccess,
+    ) -> BindGroupLayoutEntryBuilder {
+        BindingType::StorageTexture {
+            access,
+            format,
+            view_dimension: TextureViewDimension::D3,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
 }
