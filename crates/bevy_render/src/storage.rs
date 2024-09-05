@@ -80,9 +80,10 @@ impl ShaderStorageBuffer {
     where
         T: ShaderType + WriteInto,
     {
-        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::new());
+        let size = value.size().get() as usize;
+        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
         wrapper.write(&value).unwrap();
-        self.data = Some(wrapper.as_ref().to_vec());
+        self.data = Some(wrapper.into_inner());
     }
 }
 
@@ -91,7 +92,8 @@ where
     T: ShaderType + WriteInto,
 {
     fn from(value: T) -> Self {
-        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::new());
+        let size = value.size().get() as usize;
+        let mut wrapper = encase::StorageBuffer::<Vec<u8>>::new(Vec::with_capacity(size));
         wrapper.write(&value).unwrap();
         Self::new(wrapper.as_ref(), RenderAssetUsages::default())
     }
