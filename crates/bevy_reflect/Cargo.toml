@@ -21,7 +21,6 @@ uuid = ["dep:uuid"]
 documentation = ["bevy_reflect_derive/documentation"]
 # Enables function reflection
 functions = ["bevy_reflect_derive/functions"]
-# Enables automatic registration of types annotated with #[derive(Reflect)]
 
 [dependencies]
 # bevy
