@@ -83,10 +83,7 @@ pub trait GetTypeRegistration: 'static {
 
 impl Default for TypeRegistry {
     fn default() -> Self {
-        let mut registry = Self::new();
-        registry.register_derived_types();
-
-        registry
+        Self::new()
     }
 }
 
@@ -121,7 +118,6 @@ impl TypeRegistry {
         registry.register::<f32>();
         registry.register::<f64>();
         registry.register::<String>();
-
         registry
     }
 
