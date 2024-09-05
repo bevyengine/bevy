@@ -44,6 +44,31 @@
 //! This is because the assets were removed from memory while they were still in use.
 //! You were probably too aggressive with the use of weak handles: think through the lifetime of your assets carefully!
 //! As soon as an asset is loaded, you must ensure that at least one strong handle is held to it until all matching entities are out of sight of the player.
+//!
+//! # Custom asset types
+//!
+//! While Bevy comes with implementations for a large number of common game-oriented asset types (often behind off-by-default feature flags!),
+//! implementing a custom asset type can be useful when dealing with unusual, game-specific, or proprietary formats.
+//!
+//! Defining a new asset type is as simple as implementing the [`Asset`] trait.
+//! This requires [`TypePath`] for metadata about the asset type,
+//! and [`VisitAssetDependencies`] to track asset dependencies.
+//! In simple cases, you can derive [`Asset`] and [`Reflect`] and be done with it: the required supertraits will be implemented for you.
+//!
+//! With a new asset type in place, we now need to figure out how to load it.
+//! While [`AssetReader`](io::AssetReader) describes strategies to read assets from various sources,
+//! [`AssetLoader`] is the trait that actually turns those into your desired format.
+//! Generally, only) [`AssetLoader`] needs to be implemented for custom assets, as the [`AssetReader`](io::AssetReader) implementations are provided by Bevy.
+//!
+//! However, [`AssetLoader`] shouldn't be implemented for your asset type directly: instead, this is implemented for a "loader" type
+//! that can store complex intermediate state, while your asset type is used as the [`AssetLoader::Asset`] associated type.
+//! As the trait documentation explains, this allows various [`AssetLoader::Settings`] to be used to configure the loader.
+//!
+//! After the loader is implemented, it needs to be registered with the [`AssetServer`] using [`App::register_asset_loader`](AssetApp::register_asset_loader).
+//! Once your asset type is loaded, you can use it in your game like any other asset type!
+//!
+//! If you want to save your assets back to disk, you should implement [`AssetSaver`](saver::AssetSaver) as well.
+//! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
 
 // FIXME(3492): remove once docs are ready
 #![allow(missing_docs)]
