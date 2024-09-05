@@ -474,11 +474,7 @@ pub fn extract_uinode_borders(
         };
 
         // Skip invisible borders
-        if !view_visibility.get()
-            || border_color.0.is_fully_transparent()
-            || uinode.size().x <= 0.
-            || uinode.size().y <= 0.
-        {
+        if !view_visibility.get() || border_color.0.is_fully_transparent() || uinode.is_empty() {
             continue;
         }
 
@@ -756,7 +752,7 @@ pub fn extract_uinode_text(
         };
 
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !view_visibility.get() || uinode.size().x == 0. || uinode.size().y == 0. {
+        if !view_visibility.get() || uinode.is_empty() {
             continue;
         }
 
