@@ -2,10 +2,10 @@
 
 struct Atmosphere {
     // Radius of the planet
-    bottom_radius: f32,
+    bottom_radius: f32, //units: km
 
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
-    top_radius: f32,
+    top_radius: f32, //units: km
 
     rayleigh_density_exp_scale: f32,
     rayleigh_scattering: vec3<f32>,
@@ -18,8 +18,6 @@ struct Atmosphere {
     ozone_layer_center_altitude: f32, //units: km
     ozone_layer_half_width: f32, //units: km
     ozone_absorption: vec3<f32>, //ozone absorption. units: km^-1
-
-    ground_albedo: vec3<f32>, //note: never used even in the paper? maybe for the multiscattering LUT
 };
 
 fn get_atmosphere_parameters() -> Atmosphere {
