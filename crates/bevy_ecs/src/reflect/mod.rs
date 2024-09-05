@@ -26,16 +26,8 @@ pub use resource::{ReflectResource, ReflectResourceFns};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
-#[derive(Resource, Clone)]
+#[derive(Resource, Clone, Default)]
 pub struct AppTypeRegistry(pub TypeRegistryArc);
-
-impl Default for AppTypeRegistry {
-    fn default() -> Self {
-        let registry_arc = TypeRegistryArc::default();
-        registry_arc.write().register_derived_types();
-        Self(registry_arc)
-    }
-}
 
 impl Deref for AppTypeRegistry {
     type Target = TypeRegistryArc;
@@ -50,6 +42,17 @@ impl DerefMut for AppTypeRegistry {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl AppTypeRegistry {
+    /// Creates [`AppTypeRegistry`] and calls [`register_derived_types`](TypeRegistry::register_derived_types) on it.
+    ///
+    /// See [`register_derived_types`](TypeRegistry::register_derived_types) for more details.
+    pub fn new_with_derived_types() -> Self {
+        let app_registry = AppTypeRegistry::default();
+        app_registry.write().register_derived_types();
+        app_registry
     }
 }
 
