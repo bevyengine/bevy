@@ -60,6 +60,11 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         self.trigger.entity
     }
 
+    /// Returns the entity that observed the triggered event.
+    pub fn observer(&self) -> Entity {
+        self.trigger.observer
+    }
+
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
     ///
     /// The path an event will propagate along is specified by its associated [`Traversal`] component. By default, events
