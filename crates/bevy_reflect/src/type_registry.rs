@@ -9,16 +9,6 @@ use std::{
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-/// Stores registration functions of all reflect types that can be automatically registered.
-#[cfg(not(target_family = "wasm"))]
-#[allow(non_camel_case_types)]
-pub struct AUTOMATIC_REFLECT_REGISTRATIONS(pub fn(&mut TypeRegistry));
-#[cfg(not(target_family = "wasm"))]
-inventory::collect!(AUTOMATIC_REFLECT_REGISTRATIONS);
-#[cfg(target_family = "wasm")]
-pub static AUTOMATIC_REFLECT_REGISTRATIONS: RwLock<Vec<fn(&mut TypeRegistry)>> =
-    RwLock::new(Vec::new());
-
 /// A registry of [reflected] types.
 ///
 /// This struct is used as the central store for type information.
@@ -161,16 +151,18 @@ impl TypeRegistry {
         wasm_init::wasm_init();
 
         #[cfg(target_family = "wasm")]
-        for registration_fn in AUTOMATIC_REFLECT_REGISTRATIONS
+        for registration_fn in crate::__macro_exports::AUTOMATIC_REFLECT_REGISTRATIONS
             .read()
-            .expect("Failed to get lock to read types for automatic type registration")
+            .expect("Failed to get read lock for automatic reflect type registration")
             .iter()
         {
             registration_fn(self);
         }
 
         #[cfg(not(target_family = "wasm"))]
-        for registration_fn in inventory::iter::<AUTOMATIC_REFLECT_REGISTRATIONS> {
+        for registration_fn in
+            inventory::iter::<crate::__macro_exports::AUTOMATIC_REFLECT_REGISTRATIONS>
+        {
             registration_fn.0(self);
         }
     }

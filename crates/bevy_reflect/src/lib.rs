@@ -597,9 +597,6 @@ pub use type_registry::*;
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
-pub extern crate inventory;
-pub extern crate wasm_init;
-
 extern crate alloc;
 
 /// Exports used by the reflection macros.
@@ -607,6 +604,9 @@ extern crate alloc;
 /// These are not meant to be used directly and are subject to breaking changes.
 #[doc(hidden)]
 pub mod __macro_exports {
+    pub extern crate inventory;
+    pub extern crate wasm_init;
+
     use crate::{
         DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
@@ -644,6 +644,16 @@ pub mod __macro_exports {
     impl RegisterForReflection for DynamicArray {}
 
     impl RegisterForReflection for DynamicTuple {}
+
+    /// Stores registration functions of all reflect types that can be automatically registered.
+    #[cfg(not(target_family = "wasm"))]
+    #[allow(non_camel_case_types)]
+    pub struct AUTOMATIC_REFLECT_REGISTRATIONS(pub fn(&mut TypeRegistry));
+    #[cfg(not(target_family = "wasm"))]
+    inventory::collect!(AUTOMATIC_REFLECT_REGISTRATIONS);
+    #[cfg(target_family = "wasm")]
+    pub static AUTOMATIC_REFLECT_REGISTRATIONS: std::sync::RwLock<Vec<fn(&mut TypeRegistry)>> =
+        std::sync::RwLock::new(Vec::new());
 }
 
 #[cfg(test)]

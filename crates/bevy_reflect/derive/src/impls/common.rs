@@ -164,24 +164,24 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
 
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
-    let (_, ty_generics, _) = meta.type_path().generics().split_for_impl();
+    let generics = meta.type_path().generics();
 
-    if !ty_generics.into_token_stream().is_empty() {
+    if !generics.into_token_stream().is_empty() {
         return None;
     };
 
     Some(quote! {
         #[cfg(target_family = "wasm")]
-        #bevy_reflect_path::wasm_init::wasm_init!{
-            #bevy_reflect_path::AUTOMATIC_REFLECT_REGISTRATIONS
+        #bevy_reflect_path::__macro_exports::wasm_init::wasm_init!{
+            #bevy_reflect_path::__macro_exports::AUTOMATIC_REFLECT_REGISTRATIONS
                 .write()
-                .expect("Failed to get lock to write type for automatic type registration")
-                .push(|registry| registry.register::<#type_path>());
+                .expect("Failed to get write lock for automatic reflect type registration")
+                .push(<#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register);
         }
         #[cfg(not(target_family = "wasm"))]
-        #bevy_reflect_path::inventory::submit!(
-            #bevy_reflect_path::AUTOMATIC_REFLECT_REGISTRATIONS(
-                |registry| registry.register::<#type_path>()
+        #bevy_reflect_path::__macro_exports::inventory::submit!(
+            #bevy_reflect_path::__macro_exports::AUTOMATIC_REFLECT_REGISTRATIONS(
+                <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register
             )
         );
     })
