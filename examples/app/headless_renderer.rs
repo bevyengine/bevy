@@ -533,7 +533,7 @@ fn update(
                     // Finally saving image to file, this heavy blocking operation is kept here
                     // for example simplicity, but in real app you should move it to a separate task
                     if let Err(e) = img.save(image_path) {
-                        panic!("Failed to save image: {}", e);
+                        panic!("Failed to save image: {e}");
                     };
                 }
                 if scene_controller.single_image {

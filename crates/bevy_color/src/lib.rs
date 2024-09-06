@@ -92,6 +92,7 @@
 
 mod color;
 pub mod color_difference;
+mod color_gradient;
 mod color_ops;
 mod color_range;
 mod hsla;
@@ -127,6 +128,7 @@ pub mod prelude {
 }
 
 pub use color::*;
+pub use color_gradient::*;
 pub use color_ops::*;
 pub use color_range::*;
 pub use hsla::*;

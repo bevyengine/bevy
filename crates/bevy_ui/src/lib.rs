@@ -29,7 +29,6 @@ mod geometry;
 mod layout;
 mod render;
 mod stack;
-mod texture_slice;
 mod ui_node;
 
 pub use focus::*;
@@ -92,10 +91,6 @@ pub enum UiSystem {
     ///
     /// Runs in [`PostUpdate`].
     Stack,
-    /// After this label, node outline widths have been updated.
-    ///
-    /// Runs in [`PostUpdate`].
-    Outlines,
 }
 
 /// The current scale of the UI.
@@ -153,7 +148,7 @@ impl Plugin for UiPlugin {
                     CameraUpdateSystem,
                     UiSystem::Prepare.before(UiSystem::Stack),
                     UiSystem::Layout,
-                    (UiSystem::PostLayout, UiSystem::Outlines),
+                    UiSystem::PostLayout,
                 )
                     .chain(),
             )
@@ -169,17 +164,13 @@ impl Plugin for UiPlugin {
                 update_target_camera_system.in_set(UiSystem::Prepare),
                 ui_layout_system
                     .in_set(UiSystem::Layout)
-                    .before(TransformSystem::TransformPropagate),
-                resolve_outlines_system
-                    .in_set(UiSystem::Outlines)
-                    // clipping doesn't care about outlines
-                    .ambiguous_with(update_clipping_system)
-                    .in_set(AmbiguousWithTextSystem),
+                    .before(TransformSystem::TransformPropagate)
+                    // Text and Text2D operate on disjoint sets of entities
+                    .ambiguous_with(bevy_text::update_text2d_layout),
                 ui_stack_system
                     .in_set(UiSystem::Stack)
                     // the systems don't care about stack index
                     .ambiguous_with(update_clipping_system)
-                    .ambiguous_with(resolve_outlines_system)
                     .ambiguous_with(ui_layout_system)
                     .in_set(AmbiguousWithTextSystem),
                 update_clipping_system.after(TransformSystem::TransformPropagate),
@@ -191,11 +182,6 @@ impl Plugin for UiPlugin {
                     .in_set(UiSystem::Prepare)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
-                (
-                    texture_slice::compute_slices_on_asset_event,
-                    texture_slice::compute_slices_on_image_change,
-                )
-                    .in_set(UiSystem::PostLayout),
             ),
         );
 
@@ -242,7 +228,8 @@ fn build_text_interop(app: &mut App) {
                 .in_set(UiSystem::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 // Text2d and bevy_ui text are entirely on separate entities
-                .ambiguous_with(bevy_text::update_text2d_layout),
+                .ambiguous_with(bevy_text::update_text2d_layout)
+                .ambiguous_with(bevy_text::calculate_bounds_text2d),
         ),
     );
 

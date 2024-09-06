@@ -212,13 +212,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
                     let field_name = field.ident.as_ref().unwrap();
-                    let field_ty = &field.ty;
-
-                    let min_binding_size = if buffer {
-                        quote! {None}
-                    } else {
-                        quote! {Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size())}
-                    };
 
                     if buffer {
                         binding_impls.push(quote! {
@@ -230,21 +223,15 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             )
                         });
                     } else {
-                        binding_impls.push(quote! {{
-                            use #render_path::render_resource::AsBindGroupShaderType;
-                            let mut buffer = #render_path::render_resource::encase::StorageBuffer::new(Vec::new());
-                            buffer.write(&self.#field_name).unwrap();
-                            (
-                                #binding_index,
-                                #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                                    &#render_path::render_resource::BufferInitDescriptor {
-                                        label: None,
-                                        usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::STORAGE,
-                                        contents: buffer.as_ref(),
-                                    },
-                                ))
-                            )
-                        }});
+                        binding_impls.push(quote! {
+                        (
+                            #binding_index,
+                            #render_path::render_resource::OwnedBindingResource::Buffer({
+                                let handle: &#asset_path::Handle<#render_path::storage::ShaderStorageBuffer> = (&self.#field_name);
+                                storage_buffers.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.buffer.clone()
+                            })
+                        )
+                        });
                     }
 
                     binding_layouts.push(quote! {
@@ -254,7 +241,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             ty: #render_path::render_resource::BindingType::Buffer {
                                 ty: #render_path::render_resource::BufferBindingType::Storage { read_only: #read_only },
                                 has_dynamic_offset: false,
-                                min_binding_size: #min_binding_size,
+                                min_binding_size: None,
                             },
                             count: None,
                         }
@@ -527,6 +514,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             type Param = (
                 #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::texture::GpuImage>>,
                 #ecs_path::system::lifetimeless::SRes<#render_path::texture::FallbackImage>,
+                #ecs_path::system::lifetimeless::SRes<#render_path::render_asset::RenderAssets<#render_path::storage::GpuShaderStorageBuffer>>,
             );
 
             fn label() -> Option<&'static str> {
@@ -537,7 +525,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
                 render_device: &#render_path::renderer::RenderDevice,
-                (images, fallback_image): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
+                (images, fallback_image, storage_buffers): &mut #ecs_path::system::SystemParamItem<'_, '_, Self::Param>,
             ) -> Result<#render_path::render_resource::UnpreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 

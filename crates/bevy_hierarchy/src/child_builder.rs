@@ -585,7 +585,8 @@ impl BuildChildren for EntityWorldMut<'_> {
     }
 
     fn with_child<B: Bundle>(&mut self, bundle: B) -> &mut Self {
-        let child = self.world_scope(|world| world.spawn(bundle).id());
+        let parent = self.id();
+        let child = self.world_scope(|world| world.spawn((bundle, Parent(parent))).id());
         if let Some(mut children_component) = self.get_mut::<Children>() {
             children_component.0.retain(|value| child != *value);
             children_component.0.push(child);

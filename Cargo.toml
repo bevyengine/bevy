@@ -2425,6 +2425,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "storage_buffer"
+path = "examples/shader/storage_buffer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.storage_buffer]
+name = "Storage Buffer"
+description = "A shader that shows how to bind a storage buffer using a custom material."
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "specialized_mesh_pipeline"
 path = "examples/shader/specialized_mesh_pipeline.rs"
 doc-scrape-examples = true
@@ -2910,6 +2921,17 @@ doc-scrape-examples = true
 [package.metadata.example.ui_texture_slice]
 name = "UI Texture Slice"
 description = "Illustrates how to use 9 Slicing in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_texture_slice_flip_and_tile"
+path = "examples/ui/ui_texture_slice_flip_and_tile.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice_flip_and_tile]
+name = "UI Texture Slice Flipping and Tiling"
+description = "Illustrates how to flip and tile images with 9 Slicing in UI"
 category = "UI (User Interface)"
 wasm = true
 
@@ -3402,6 +3424,17 @@ doc-scrape-examples = true
 name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
+wasm = true
+
+[[example]]
+name = "animation_masks"
+path = "examples/animation/animation_masks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_masks]
+name = "Animation Masks"
+description = "Demonstrates animation masks"
+category = "Animation"
 wasm = true
 
 [profile.wasm-release]
