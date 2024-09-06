@@ -125,7 +125,7 @@ cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 
 Please reference `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
 
-Then you can build it with `gradlew`:
+After this you can build it with `gradlew`:
 
 ```sh
 ./gradlew build
@@ -175,7 +175,7 @@ Then build it as the [Build & Run](#build--run) section stated above.
 
 #### About `cargo-apk`
 
-You can also build apk with `cargo-apk`, a simpler tool that compile rust code to apk directly, but this tool is deprecated, and it doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside mobile example with a instruction to use it.
+You can also build apk with `cargo-apk`, a simpler tool that compile rust code to apk directly, but this tool is deprecated, and it doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside mobile example with an instruction to use it.
 
 Example | File | Description
 --- | --- | ---
