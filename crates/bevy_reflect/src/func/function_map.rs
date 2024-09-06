@@ -1,7 +1,11 @@
 use crate::func::signature::ArgumentSignature;
-use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionInfoType, FunctionOverloadError};
+use crate::func::{
+    ArgList, FunctionError, FunctionInfo, FunctionInfoType, FunctionOverloadError,
+    PrettyPrintFunctionInfo,
+};
 use alloc::borrow::Cow;
 use bevy_utils::hashbrown::HashMap;
+use core::fmt::{Debug, Formatter};
 use core::ops::RangeInclusive;
 
 /// A helper type for storing a mapping of overloaded functions
@@ -213,6 +217,21 @@ impl<F> FunctionMap<F> {
                 self_infos.append(&mut other_infos);
 
                 Ok(Self::Overloaded(self_funcs, self_infos, self_indices))
+            }
+        }
+    }
+
+    pub fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            // `(arg0: i32, arg1: i32) -> ()`
+            Self::Single(_, info) => PrettyPrintFunctionInfo::new(info).fmt(f),
+            // `{(arg0: i32, arg1: i32) -> (), (arg0: f32, arg1: f32) -> ()}`
+            Self::Overloaded(_, infos, _) => {
+                let mut set = f.debug_set();
+                for info in infos.iter() {
+                    set.entry(&PrettyPrintFunctionInfo::new(info));
+                }
+                set.finish()
             }
         }
     }

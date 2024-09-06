@@ -382,30 +382,17 @@ impl<'env> DynamicFunctionMut<'env> {
 /// This takes the format: `DynamicFunctionMut(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
+///
+/// If the function is [overloaded], the output will include the signatures of all overloads as a set.
+/// For example, `DynamicFunctionMut(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
+///
+/// [overloaded]: DynamicFunctionMut::with_overload
 impl<'env> Debug for DynamicFunctionMut<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.name().unwrap_or(&Cow::Borrowed("_"));
-        write!(f, "DynamicFunctionMut(fn {name}(")?;
-
-        match self.info() {
-            FunctionInfoType::Standard(info) => {
-                for (index, arg) in info.args().iter().enumerate() {
-                    if index > 0 {
-                        write!(f, ", ")?;
-                    }
-
-                    let name = arg.name().unwrap_or("_");
-                    let ty = arg.type_path();
-                    write!(f, "{name}: {ty}")?;
-                }
-
-                let ret = info.return_info().type_path();
-                write!(f, ") -> {ret})")
-            }
-            FunctionInfoType::Overloaded(_) => {
-                todo!("overloaded functions are not yet debuggable");
-            }
-        }
+        write!(f, "DynamicFunctionMut(fn {name}")?;
+        self.function_map.debug(f)?;
+        write!(f, ")")
     }
 }
 

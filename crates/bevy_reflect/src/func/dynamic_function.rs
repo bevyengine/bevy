@@ -487,30 +487,17 @@ impl_type_path!((in bevy_reflect) DynamicFunction<'env>);
 /// This takes the format: `DynamicFunction(fn {name}({arg1}: {type1}, {arg2}: {type2}, ...) -> {return_type})`.
 ///
 /// Names for arguments and the function itself are optional and will default to `_` if not provided.
+///
+/// If the function is [overloaded], the output will include the signatures of all overloads as a set.
+/// For example, `DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})`.
+///
+/// [overloaded]: DynamicFunction::with_overload
 impl<'env> Debug for DynamicFunction<'env> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let name = self.name().unwrap_or(&Cow::Borrowed("_"));
-        write!(f, "DynamicFunction(fn {name}(")?;
-
-        match self.info() {
-            FunctionInfoType::Standard(info) => {
-                for (index, arg) in info.args().iter().enumerate() {
-                    if index > 0 {
-                        write!(f, ", ")?;
-                    }
-
-                    let name = arg.name().unwrap_or("_");
-                    let ty = arg.type_path();
-                    write!(f, "{name}: {ty}")?;
-                }
-
-                let ret = info.return_info().type_path();
-                write!(f, ") -> {ret})")
-            }
-            FunctionInfoType::Overloaded(_) => {
-                todo!("overloaded functions are not yet debuggable");
-            }
-        }
+        write!(f, "DynamicFunction(fn {name}")?;
+        self.function_map.debug(f)?;
+        write!(f, ")")
     }
 }
 
@@ -823,6 +810,41 @@ mod tests {
                 ]),
                 received: ArgumentSignature::from_iter(vec![Type::of::<u32>(), Type::of::<u32>()]),
             }
+        );
+    }
+
+    #[test]
+    fn should_debug_dynamic_function() {
+        fn greet(name: &String) -> String {
+            format!("Hello, {}!", name)
+        }
+
+        let function = greet.into_function();
+        let debug = format!("{:?}", function);
+        assert_eq!(debug, "DynamicFunction(fn bevy_reflect::func::dynamic_function::tests::should_debug_dynamic_function::greet(_: &alloc::string::String) -> alloc::string::String)");
+    }
+
+    #[test]
+    fn should_debug_anonymous_dynamic_function() {
+        let function = (|a: i32, b: i32| a + b).into_function();
+        let debug = format!("{:?}", function);
+        assert_eq!(debug, "DynamicFunction(fn _(_: i32, _: i32) -> i32)");
+    }
+
+    #[test]
+    fn should_debug_overloaded_dynamic_function() {
+        fn add<T: Add<Output = T>>(a: T, b: T) -> T {
+            a + b
+        }
+
+        let func = add::<i32>
+            .into_function()
+            .with_overload(add::<f32>)
+            .with_name("add");
+        let debug = format!("{:?}", func);
+        assert_eq!(
+            debug,
+            "DynamicFunction(fn add{(_: i32, _: i32) -> i32, (_: f32, _: f32) -> f32})"
         );
     }
 }
