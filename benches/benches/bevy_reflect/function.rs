@@ -1,6 +1,6 @@
 use bevy_reflect::func::{ArgList, IntoFunction, TypedFunction};
 use bevy_reflect::prelude::*;
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 
 criterion_group!(benches, typed, into, call, overload, clone);
 criterion_main!(benches);
@@ -35,6 +35,14 @@ fn into(c: &mut Criterion) {
 
 fn call(c: &mut Criterion) {
     c.benchmark_group("call")
+        .bench_function("trait_object", |b| {
+            let add = black_box(Box::new(add) as Box<dyn Fn(i32, i32) -> i32>);
+            b.iter_batched(
+                || (75_i32, 25_i32),
+                |(a, b)| add(a, b),
+                BatchSize::SmallInput,
+            );
+        })
         .bench_function("function", |b| {
             let add = add.into_function();
             b.iter_batched(
