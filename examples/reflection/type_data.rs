@@ -75,7 +75,7 @@ fn main() {
 
     // With all this done, we're ready to make use of `ReflectDamageable`!
     // It starts with registering our type along with its type data:
-    let mut registry = TypeRegistry::empty();
+    let mut registry = TypeRegistry::default();
     registry.register::<Zombie>();
     registry.register_type_data::<Zombie, ReflectDamageable>();
 
