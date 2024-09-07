@@ -11,7 +11,7 @@ use bevy::{
         CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
-    render::{render_resource::AsBindGroup, texture::ImageLoaderSettings},
+    render::render_resource::AsBindGroup,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
@@ -67,7 +67,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: false,
+            shadows_enabled: true,
             ..default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
@@ -96,11 +96,15 @@ fn setup(
         commands.spawn(MaterialMeshletMeshBundle {
             meshlet_mesh: meshlet_mesh_handle.clone(),
             material: standard_materials.add(StandardMaterial {
+                base_color: match x {
+                    -2 => Srgba::hex("#dc2626").unwrap().into(),
+                    -1 => Srgba::hex("#ea580c").unwrap().into(),
+                    0 => Srgba::hex("#facc15").unwrap().into(),
+                    1 => Srgba::hex("#16a34a").unwrap().into(),
+                    2 => Srgba::hex("#0284c7").unwrap().into(),
+                    _ => unreachable!(),
+                },
                 perceptual_roughness: (x + 2) as f32 / 4.0,
-                normal_map_texture: Some(asset_server.load_with_settings(
-                    "textures/BlueNoise-Normal.png",
-                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
-                )),
                 ..default()
             }),
             transform: Transform::default()
