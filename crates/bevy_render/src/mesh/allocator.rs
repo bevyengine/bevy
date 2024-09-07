@@ -588,6 +588,8 @@ impl MeshAllocator {
         }
 
         for empty_slab in empty_slabs {
+            self.slab_layouts
+                .retain(|_, slab_ids| !slab_ids.contains(&empty_slab));
             self.slabs.remove(&empty_slab);
         }
     }
