@@ -42,6 +42,10 @@ pub mod state;
 /// Provides [`StateScoped`](crate::state_scoped::StateScoped) and
 /// [`clear_state_scoped_entities`](crate::state_scoped::clear_state_scoped_entities) for managing lifetime of entities.
 pub mod state_scoped;
+#[cfg(feature = "bevy_app")]
+/// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with methods for registering
+/// state-scoped events.
+pub mod state_scoped_events;
 
 #[cfg(feature = "bevy_reflect")]
 /// Provides definitions for the basic traits required by the state system
@@ -65,4 +69,7 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use crate::state_scoped::StateScoped;
+    #[cfg(feature = "bevy_app")]
+    #[doc(hidden)]
+    pub use crate::state_scoped_events::StateScopedEventsAppExt;
 }
