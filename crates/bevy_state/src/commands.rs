@@ -20,7 +20,9 @@ impl CommandsStatesExt for Commands<'_, '_> {
         self.add(move |w: &mut World| {
             let mut next = w.resource_mut::<NextState<S>>();
             if let NextState::Pending(prev) = &*next {
-                debug!("overwriting state {:?} with {:?}", prev, state);
+                if *prev != state {
+                    debug!("overwriting next state {:?} with {:?}", prev, state);
+                }
             }
             next.set(state);
         });
