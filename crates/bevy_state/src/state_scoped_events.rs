@@ -11,8 +11,9 @@ use bevy_utils::HashMap;
 use crate::state::{FreelyMutableState, OnExit, StateTransitionEvent};
 
 fn clear_event_queue<E: Event>(w: &mut World) {
-    w.get_resource_mut::<Events<E>>()
-        .map(|mut queue| queue.clear());
+    if let Some(mut queue) = w.get_resource_mut::<Events<E>>() {
+        queue.clear();
+    }
 }
 
 #[derive(Resource)]
@@ -95,14 +96,14 @@ pub trait StateScopedEventsAppExt {
 
 impl StateScopedEventsAppExt for App {
     fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self {
-        add_state_scoped_event_impl(self.main_mut(), PhantomData::<E>::default(), state);
+        add_state_scoped_event_impl(self.main_mut(), PhantomData::<E>, state);
         self
     }
 }
 
 impl StateScopedEventsAppExt for SubApp {
     fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self {
-        add_state_scoped_event_impl(self, PhantomData::<E>::default(), state);
+        add_state_scoped_event_impl(self, PhantomData::<E>, state);
         self
     }
 }
