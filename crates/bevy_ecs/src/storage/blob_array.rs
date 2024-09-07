@@ -87,6 +87,7 @@ impl BlobArray {
     ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
+        #[cfg(debug_assertions)]
         debug_assert!(index < self.capacity);
         let size = self.item_layout.size();
         // SAFETY:
@@ -107,6 +108,7 @@ impl BlobArray {
     ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `index` < `len`)
     #[inline]
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
+        #[cfg(debug_assertions)]
         debug_assert!(index < self.capacity);
         let size = self.item_layout.size();
         // SAFETY:
@@ -141,6 +143,7 @@ impl BlobArray {
     /// - The type `T` must be the type of the items in this [`BlobArray`].
     /// - `slice_len` <= `len`
     pub unsafe fn get_sub_slice<T>(&self, slice_len: usize) -> &[UnsafeCell<T>] {
+        #[cfg(debug_assertions)]
         debug_assert!(slice_len <= self.capacity);
         // SAFETY: the inner data will remain valid for as long as 'self.
         unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, slice_len) }
@@ -155,6 +158,7 @@ impl BlobArray {
     /// - For every element with index `i`, if `i` < `len`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
     ///     (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `len` is correct.)
     pub unsafe fn clear(&mut self, len: usize) {
+        #[cfg(debug_assertions)]
         debug_assert!(self.capacity >= len);
         if let Some(drop) = self.drop {
             // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
@@ -182,6 +186,7 @@ impl BlobArray {
     /// - `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
     /// - This [`BlobArray`] mustn't be used after calling this method.
     pub unsafe fn drop(&mut self, cap: usize, len: usize) {
+        #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, cap);
         if cap != 0 {
             self.clear(len);
@@ -204,6 +209,7 @@ impl BlobArray {
     // - After this method is called, the last element must not be used
     // unless [`Self::initialize_unchecked`] is called to set the value of the last element.
     pub unsafe fn drop_last_element(&mut self, last_element_index: usize) {
+        #[cfg(debug_assertions)]
         debug_assert!(self.capacity > last_element_index);
         if let Some(drop) = self.drop {
             // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
@@ -220,6 +226,7 @@ impl BlobArray {
     /// Allocate a block of memory for the array. This should be used to initialize the array, do not use this
     /// method if there are already elements stored in the array - use [`Self::realloc`] instead.
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {
+        #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, 0);
         if !self.is_zst() {
             let new_layout = array_layout(&self.item_layout, capacity.get())
@@ -248,6 +255,7 @@ impl BlobArray {
         current_capacity: NonZeroUsize,
         new_capacity: NonZeroUsize,
     ) {
+        #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, current_capacity.into());
         if !self.is_zst() {
             // SAFETY: Safety requirement 2
@@ -281,6 +289,7 @@ impl BlobArray {
     /// - The [`Layout`] of the value must match the layout of the blobs stored in this array.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
+        #[cfg(debug_assertions)]
         debug_assert!(self.capacity > index);
         let size = self.item_layout.size();
         let dst = self.get_unchecked_mut(index);
@@ -296,6 +305,7 @@ impl BlobArray {
     ///     this [`BlobArray`]'s `item_layout`
     /// - the memory at `*value` must also be previously initialized with an item matching this [`BlobArray`]'s `item_layout`
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
+        #[cfg(debug_assertions)]
         debug_assert!(self.capacity > index);
         // Pointer to the value in the vector that will get replaced.
         // SAFETY: The caller ensures that `index` fits in this vector.
@@ -370,8 +380,11 @@ impl BlobArray {
         index_to_remove: usize,
         index_to_keep: usize,
     ) -> OwningPtr<'_> {
-        debug_assert!(self.capacity > index_to_keep);
-        debug_assert!(self.capacity > index_to_remove);
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.capacity > index_to_keep);
+            debug_assert!(self.capacity > index_to_remove);
+        }
         if index_to_remove != index_to_keep {
             return self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         }
@@ -396,8 +409,11 @@ impl BlobArray {
         index_to_remove: usize,
         index_to_keep: usize,
     ) -> OwningPtr<'_> {
-        debug_assert!(self.capacity > index_to_keep);
-        debug_assert!(self.capacity > index_to_remove);
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.capacity > index_to_keep);
+            debug_assert!(self.capacity > index_to_remove);
+        }
         debug_assert_ne!(index_to_keep, index_to_remove);
         std::ptr::swap_nonoverlapping::<u8>(
             self.get_unchecked_mut(index_to_keep).as_ptr(),
@@ -431,8 +447,11 @@ impl BlobArray {
         index_to_remove: usize,
         index_to_keep: usize,
     ) {
-        debug_assert!(self.capacity > index_to_keep);
-        debug_assert!(self.capacity > index_to_remove);
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.capacity > index_to_keep);
+            debug_assert!(self.capacity > index_to_remove);
+        }
         let drop = self.drop;
         let value = self.swap_remove_unchecked(index_to_remove, index_to_keep);
         if let Some(drop) = drop {
@@ -456,8 +475,11 @@ impl BlobArray {
         index_to_remove: usize,
         index_to_keep: usize,
     ) {
-        debug_assert!(self.capacity > index_to_keep);
-        debug_assert!(self.capacity > index_to_remove);
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.capacity > index_to_keep);
+            debug_assert!(self.capacity > index_to_remove);
+        }
         let drop = self.drop;
         let value = self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         if let Some(drop) = drop {

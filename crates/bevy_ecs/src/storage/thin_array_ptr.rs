@@ -39,14 +39,6 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
-    #[inline(always)]
-    #[cfg(debug_assertions)]
-    fn assert_capacity(&self, _capacity: usize) {
-        {
-            assert_eq!(self.capacity, _capacity);
-        }
-    }
-
     /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no allocate any memory.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
@@ -87,7 +79,8 @@ impl<T> ThinArrayPtr<T> {
     /// - the current capacity is indeed greater than 0
     /// -   The caller should update their saved `capacity` value to reflect the fact that it was changed
     pub unsafe fn realloc(&mut self, current_capacity: NonZeroUsize, new_capacity: NonZeroUsize) {
-        self.assert_capacity(current_capacity.get());
+        #[cfg(debug_assertions)]
+        assert_eq!(self.capacity, current_capacity.into());
         self.set_capacity(new_capacity.get());
         if size_of::<T>() != 0 {
             let new_layout =
@@ -264,7 +257,8 @@ impl<T> ThinArrayPtr<T> {
     /// - `current_capacity` is indeed the capacity of the array
     /// - The caller must not use this `ThinArrayPtr` in any way after calling this function
     pub unsafe fn drop(&mut self, current_capacity: usize, current_len: usize) {
-        self.assert_capacity(current_capacity);
+        #[cfg(debug_assertions)]
+        assert_eq!(self.capacity, current_capacity);
         if current_capacity != 0 {
             self.clear_elements(current_len);
             let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");
