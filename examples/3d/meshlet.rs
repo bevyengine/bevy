@@ -11,13 +11,13 @@ use bevy::{
         CascadeShadowConfigBuilder, DirectionalLightShadowMap,
     },
     prelude::*,
-    render::render_resource::AsBindGroup,
+    render::{render_resource::AsBindGroup, texture::ImageLoaderSettings},
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
 
 const ASSET_URL: &str =
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/e3da1533b4c69fb967f233c817e9b0921134d317/bunny.meshlet_mesh";
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/854eb98353ad94aea1104f355fc24dbe4fda679d/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
     if !Path::new("./assets/models/bunny.meshlet_mesh").exists() {
@@ -67,7 +67,7 @@ fn setup(
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
-            shadows_enabled: true,
+            shadows_enabled: false,
             ..default()
         },
         cascade_shadow_config: CascadeShadowConfigBuilder {
@@ -96,15 +96,11 @@ fn setup(
         commands.spawn(MaterialMeshletMeshBundle {
             meshlet_mesh: meshlet_mesh_handle.clone(),
             material: standard_materials.add(StandardMaterial {
-                base_color: match x {
-                    -2 => Srgba::hex("#dc2626").unwrap().into(),
-                    -1 => Srgba::hex("#ea580c").unwrap().into(),
-                    0 => Srgba::hex("#facc15").unwrap().into(),
-                    1 => Srgba::hex("#16a34a").unwrap().into(),
-                    2 => Srgba::hex("#0284c7").unwrap().into(),
-                    _ => unreachable!(),
-                },
                 perceptual_roughness: (x + 2) as f32 / 4.0,
+                normal_map_texture: Some(asset_server.load_with_settings(
+                    "textures/BlueNoise-Normal.png",
+                    |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+                )),
                 ..default()
             }),
             transform: Transform::default()
