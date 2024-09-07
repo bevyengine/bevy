@@ -485,6 +485,17 @@
 //! These dependencies are used by the [Bevy] game engine and must define their reflection implementations
 //! within this crate due to Rust's [orphan rule].
 //!
+//! ## `functions`
+//!
+//! | Default | Dependencies                      |
+//! | :-----: | :-------------------------------: |
+//! | ❌      | [`bevy_reflect_derive/functions`] |
+//!
+//! This feature allows creating a [`DynamicFunction`] or [`DynamicFunctionMut`] from Rust functions. Dynamic
+//! functions can then be called with valid [`ArgList`]s.
+//!
+//! For more information, read the [`func`] module docs.
+//!
 //! ## `documentation`
 //!
 //! | Default | Dependencies                                  |
@@ -540,6 +551,10 @@
 //! [`smallvec`]: https://docs.rs/smallvec/latest/smallvec/
 //! [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type:~:text=But%20we%20can%E2%80%99t,implementation%20to%20use.
 //! [`bevy_reflect_derive/documentation`]: bevy_reflect_derive
+//! [`bevy_reflect_derive/functions`]: bevy_reflect_derive
+//! [`DynamicFunction`]: crate::func::DynamicFunction
+//! [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
+//! [`ArgList`]: crate::func::ArgList
 //! [derive `Reflect`]: derive@crate::Reflect
 
 extern crate alloc;
