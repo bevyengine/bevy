@@ -486,7 +486,7 @@ impl FromWorld for OrthographicProjection {
 }
 
 impl OrthographicProjection {
-    /// Returns the default orthographic projection in a 2d context.
+    /// Returns the default orthographic projection for a 2D context.
     ///
     /// The near plane is set to a negative value so that the camera can still
     /// render the scene when using positive z coordinates for foreground elements.
