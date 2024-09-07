@@ -40,7 +40,6 @@ pub(crate) enum AppError {
     DuplicatePlugin { plugin_name: String },
 }
 
-#[allow(clippy::needless_doctest_main)]
 /// [`App`] is the primary API for writing user applications. It automates the setup of a
 /// [standard lifecycle](Main) and provides interface glue for [plugins](`Plugin`).
 ///

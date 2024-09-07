@@ -27,7 +27,7 @@ pub use sub_app::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use terminal_ctrl_c_handler::*;
 
-#[expect(missing_docs)]
+#[expect(missing_docs, reason = "Documentation is not useful for this prelude.")]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
