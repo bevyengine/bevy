@@ -83,12 +83,12 @@ fn add_state_scoped_event_impl<E: Event, S: FreelyMutableState>(
     app.add_systems(OnExit(state), cleanup_state_scoped_event::<S>);
 }
 
-/// Extension trait for [`App`](bevy_app::App) adding methods for registering state scoped events.
+/// Extension trait for [`App`] adding methods for registering state scoped events.
 pub trait StateScopedEventsAppExt {
     /// Adds an [`Event`] that is automatically cleaned up when leaving the specified `state`.
     ///
     /// Note that event cleanup is ordered ambiguously relative to [`StateScoped`](crate::prelude::StateScoped) entity
-    /// cleanup and the [`OnExit`](crate::prelude::OnExit) schedule for the target state. All of these (state scoped
+    /// cleanup and the [`OnExit`] schedule for the target state. All of these (state scoped
     /// entities and events cleanup, and `OnExit`) occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSteps::ExitSchedules`.
     fn add_state_scoped_event<E: Event>(&mut self, state: impl FreelyMutableState) -> &mut Self;
