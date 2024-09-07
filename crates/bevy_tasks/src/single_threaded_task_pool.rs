@@ -68,7 +68,6 @@ impl TaskPool {
         TaskPoolBuilder::new().build()
     }
 
-    #[allow(unused_variables)]
     fn new_internal() -> Self {
         Self {}
     }
@@ -96,7 +95,7 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    #[allow(unsafe_code)]
+    #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     pub fn scope_with_executor<'env, F, T>(
         &self,
         _tick_task_pool_executor: bool,
