@@ -39,7 +39,11 @@ glam = { version = "0.28", features = ["serde"], optional = true }
 petgraph = { version = "0.6", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", optional = true }
 uuid = { version = "1.0", optional = true, features = ["v4", "serde"] }
+
+# deps for automatic type registration
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
 inventory = "0.3"
+[target.'cfg(target_family = "wasm")'.dependencies]
 wasm-init = "0.2"
 
 [dev-dependencies]
