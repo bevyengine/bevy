@@ -28,6 +28,8 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 1;
 /// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
+/// * Do not use normal maps baked from higher-poly geometry. Use the high-poly geometry directly and skip the normal map.
+///   * If additional detail is needed, a smaller tiling normal map not baked from a mesh is ok.
 /// * Material shaders must not use builtin functions that automatically calculate derivatives https://gpuweb.github.io/gpuweb/wgsl/#derivatives.
 ///   * Use `pbr_functions::sample_texture` to sample textures instead.
 ///   * Performing manual arithmetic on UV coordinates is forbidden. Use the chain-rule version of arithmetic functions instead (TODO: not yet implemented).
