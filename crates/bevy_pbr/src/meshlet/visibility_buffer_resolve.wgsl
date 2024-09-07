@@ -128,19 +128,21 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     );
 
     let world_position = mat3x4(world_position_1, world_position_2, world_position_3) * partial_derivatives.barycentrics;
+    let ddx_world_position = mat3x3(world_position_1.xyz, world_position_2.xyz, world_position_3.xyz) * partial_derivatives.ddx;
+    let ddy_world_position = mat3x3(world_position_1.xyz, world_position_2.xyz, world_position_3.xyz) * partial_derivatives.ddy;
+
     let world_normal = mat3x3(
         normal_local_to_world(vertex_1.normal, &instance_uniform),
         normal_local_to_world(vertex_2.normal, &instance_uniform),
         normal_local_to_world(vertex_3.normal, &instance_uniform),
     ) * partial_derivatives.barycentrics;
+
     let uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.barycentrics;
     let ddx_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddx;
     let ddy_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddy;
-    let world_tangent = mat3x4(
-        tangent_local_to_world(vertex_1.tangent, world_from_local, instance_uniform.flags),
-        tangent_local_to_world(vertex_2.tangent, world_from_local, instance_uniform.flags),
-        tangent_local_to_world(vertex_3.tangent, world_from_local, instance_uniform.flags),
-    ) * partial_derivatives.barycentrics;
+
+    var world_tangent = calculate_world_tangent(world_normal, ddx_world_position, ddy_world_position, ddx_uv, ddy_uv);
+    world_tangent.w *= sign_determinant_model_3x3m(instance_uniform.flags);
 
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
@@ -184,20 +186,32 @@ fn normal_local_to_world(vertex_normal: vec3<f32>, instance_uniform: ptr<functio
     }
 }
 
-fn tangent_local_to_world(vertex_tangent: vec4<f32>, world_from_local: mat4x4<f32>, mesh_flags: u32) -> vec4<f32> {
-    if any(vertex_tangent != vec4<f32>(0.0)) {
-        return vec4<f32>(
-            normalize(
-                mat3x3<f32>(
-                    world_from_local[0].xyz,
-                    world_from_local[1].xyz,
-                    world_from_local[2].xyz,
-                ) * vertex_tangent.xyz
-            ),
-            vertex_tangent.w * sign_determinant_model_3x3m(mesh_flags)
-        );
-    } else {
-        return vertex_tangent;
+// https://www.jeremyong.com/graphics/2023/12/16/surface-gradient-bump-mapping/#surface-gradient-from-a-tangent-space-normal-vector-without-an-explicit-tangent-basis
+fn calculate_world_tangent(
+    world_normal: vec3<f32>,
+    ddx_world_position: vec3<f32>,
+    ddy_world_position: vec3<f32>,
+    ddx_uv: vec2<f32>,
+    ddy_uv: vec2<f32>,
+) -> vec4<f32> {
+    // Project the position gradients onto the tangent plane
+    let ddx_world_position_s = ddx_world_position - dot(ddx_world_position, world_normal) * world_normal;
+    let ddy_world_position_s = ddy_world_position - dot(ddy_world_position, world_normal) * world_normal;
+
+    // Compute the jacobian matrix to leverage the chain rule
+    let jacobian_sign = sign(ddx_uv.x * ddy_uv.y - ddx_uv.y * ddy_uv.x);
+
+    var world_tangent = jacobian_sign * (ddy_uv.y * ddx_world_position_s - ddx_uv.y * ddy_world_position_s);
+
+    // The sign intrinsic returns 0 if the argument is 0
+    if jacobian_sign != 0.0 {
+        world_tangent = normalize(world_tangent);
     }
+
+    // The second factor here ensures a consistent handedness between
+    // the tangent frame and surface basis w.r.t. screenspace.
+    let w = jacobian_sign * sign(dot(ddy_world_position, cross(world_normal, ddx_world_position)));
+
+    return vec4(world_tangent, w);
 }
 #endif
