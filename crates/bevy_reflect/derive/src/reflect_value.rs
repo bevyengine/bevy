@@ -25,7 +25,7 @@ use syn::{parenthesized, Attribute, Generics, Path};
 /// (in my_crate::bar) Bar(TraitA, TraitB)
 /// ```
 pub(crate) struct ReflectValueDef {
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "TODO(MrGVSV): Why should this be kept?")]
     pub attrs: Vec<Attribute>,
     pub type_path: Path,
     pub generics: Generics,
