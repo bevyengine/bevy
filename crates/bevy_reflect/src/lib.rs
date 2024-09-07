@@ -460,12 +460,11 @@
 //! For generic methods, the same can be done but will typically require manual monomorphization
 //! (i.e. manually specifying the types the generic method can take).
 //!
-//! ## Manual Registration
+//! ## Manual Registration of Generic Types
 //!
-//! Since Rust doesn't provide built-in support for running initialization code before `main`,
-//! there is no way for `bevy_reflect` to automatically register types into the [type registry].
-//! This means types must manually be registered, including their desired monomorphized
-//! representations if generic.
+//! `bevy_reflect` automatically collects all types that derive [`Reflect`] on startup,
+//! and [`TypeRegistry::register_derived_types`] can be used to register these types at any point in the program.
+//! However, this does not apply to types with generics: their desired monomorphized representations must be registered manually.
 //!
 //! # Features
 //!
