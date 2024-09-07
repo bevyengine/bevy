@@ -486,6 +486,10 @@ impl FromWorld for OrthographicProjection {
 }
 
 impl OrthographicProjection {
+    /// Returns the default orthographic projection in a 2d context.
+    ///
+    /// The near plane is set to a negative value so that the camera can still
+    /// render the scene when using positive z coordinates for foreground elements.
     pub fn default_2d() -> Self {
         OrthographicProjection {
             near: -1000.0,
@@ -493,6 +497,10 @@ impl OrthographicProjection {
         }
     }
 
+    /// Returns the default orthographic projection in a 3d context.
+    ///
+    /// The near plane is set to 0.0 so that the camera doesn't render
+    /// objects that are behind it.
     pub fn default_3d() -> Self {
         OrthographicProjection {
             scale: 1.0,
