@@ -255,7 +255,7 @@ impl ThinColumn {
     pub(crate) unsafe fn clear(&mut self, len: usize) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
-        self.data.clear_elements(len);
+        self.data.clear(len);
         #[cfg(feature = "track_change_detection")]
         self.changed_by.clear_elements(len);
     }
