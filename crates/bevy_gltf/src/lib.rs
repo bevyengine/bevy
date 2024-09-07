@@ -115,7 +115,7 @@ use bevy_render::{
 };
 use bevy_scene::Scene;
 
-/// The gLTF prelude.
+/// The glTF prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
