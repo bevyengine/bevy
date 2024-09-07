@@ -103,13 +103,9 @@ mod splash {
     }
 
     // Tick the timer, and change state when finished
-    fn countdown(
-        mut game_state: ResMut<NextState<GameState>>,
-        time: Res<Time>,
-        mut timer: ResMut<SplashTimer>,
-    ) {
+    fn countdown(mut commands: Commands, time: Res<Time>, mut timer: ResMut<SplashTimer>) {
         if timer.tick(time.delta()).finished() {
-            game_state.set(GameState::Menu);
+            commands.set_state(GameState::Menu);
         }
     }
 }
@@ -228,13 +224,9 @@ mod game {
     }
 
     // Tick the timer, and change state when finished
-    fn game(
-        time: Res<Time>,
-        mut game_state: ResMut<NextState<GameState>>,
-        mut timer: ResMut<GameTimer>,
-    ) {
+    fn game(time: Res<Time>, mut commands: Commands, mut timer: ResMut<GameTimer>) {
         if timer.tick(time.delta()).finished() {
-            game_state.set(GameState::Menu);
+            commands.set_state(GameState::Menu);
         }
     }
 }
@@ -378,8 +370,8 @@ mod menu {
         }
     }
 
-    fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
-        menu_state.set(MenuState::Main);
+    fn menu_setup(mut commands: Commands) {
+        commands.set_state(MenuState::Main);
     }
 
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -777,13 +769,12 @@ mod menu {
     }
 
     fn menu_action(
+        mut commands: Commands,
         interaction_query: Query<
             (&Interaction, &MenuButtonAction),
             (Changed<Interaction>, With<Button>),
         >,
         mut app_exit_events: EventWriter<AppExit>,
-        mut menu_state: ResMut<NextState<MenuState>>,
-        mut game_state: ResMut<NextState<GameState>>,
     ) {
         for (interaction, menu_button_action) in &interaction_query {
             if *interaction == Interaction::Pressed {
@@ -792,19 +783,19 @@ mod menu {
                         app_exit_events.send(AppExit::Success);
                     }
                     MenuButtonAction::Play => {
-                        game_state.set(GameState::Game);
-                        menu_state.set(MenuState::Disabled);
+                        commands.set_state(GameState::Game);
+                        commands.set_state(MenuState::Disabled);
                     }
-                    MenuButtonAction::Settings => menu_state.set(MenuState::Settings),
+                    MenuButtonAction::Settings => commands.set_state(MenuState::Settings),
                     MenuButtonAction::SettingsDisplay => {
-                        menu_state.set(MenuState::SettingsDisplay);
+                        commands.set_state(MenuState::SettingsDisplay);
                     }
                     MenuButtonAction::SettingsSound => {
-                        menu_state.set(MenuState::SettingsSound);
+                        commands.set_state(MenuState::SettingsSound);
                     }
-                    MenuButtonAction::BackToMainMenu => menu_state.set(MenuState::Main),
+                    MenuButtonAction::BackToMainMenu => commands.set_state(MenuState::Main),
                     MenuButtonAction::BackToSettings => {
-                        menu_state.set(MenuState::Settings);
+                        commands.set_state(MenuState::Settings);
                     }
                 }
             }

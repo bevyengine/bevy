@@ -316,7 +316,6 @@ fn focus_camera(
 fn spawn_bonus(
     time: Res<Time>,
     mut timer: ResMut<BonusSpawnTimer>,
-    mut next_state: ResMut<NextState<GameState>>,
     mut commands: Commands,
     mut game: ResMut<Game>,
     mut rng: ResMut<Random>,
@@ -331,7 +330,7 @@ fn spawn_bonus(
         commands.entity(entity).despawn_recursive();
         game.bonus.entity = None;
         if game.score <= -5 {
-            next_state.set(GameState::GameOver);
+            commands.set_state(GameState::GameOver);
             return;
         }
     }
@@ -389,12 +388,9 @@ fn scoreboard_system(game: Res<Game>, mut query: Query<&mut Text>) {
 }
 
 // restart the game when pressing spacebar
-fn gameover_keyboard(
-    mut next_state: ResMut<NextState<GameState>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-) {
+fn gameover_keyboard(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        next_state.set(GameState::Playing);
+        commands.set_state(GameState::Playing);
     }
 }
 

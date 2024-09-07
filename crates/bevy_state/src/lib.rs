@@ -34,6 +34,8 @@
 #[cfg(feature = "bevy_app")]
 /// Provides [`App`](bevy_app::App) and [`SubApp`](bevy_app::SubApp) with state installation methods
 pub mod app;
+/// Provides extension methods for [`Commands`](bevy_ecs::Commands).
+pub mod commands;
 /// Provides definitions for the runtime conditions that interact with the state system
 pub mod condition;
 /// Provides definitions for the basic traits required by the state system
@@ -52,6 +54,8 @@ pub mod prelude {
     #[cfg(feature = "bevy_app")]
     #[doc(hidden)]
     pub use crate::app::AppExtStates;
+    #[doc(hidden)]
+    pub use crate::commands::CommandsStatesExt;
     #[doc(hidden)]
     pub use crate::condition::*;
     #[cfg(feature = "bevy_reflect")]
