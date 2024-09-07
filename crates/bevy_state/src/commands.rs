@@ -3,7 +3,7 @@ use bevy_utils::tracing::debug;
 
 use crate::state::{FreelyMutableState, NextState};
 
-/// Extension trait for [`Commands`](bevy_ecs::prelude::Commands) adding `bevy_state` helpers.
+/// Extension trait for [`Commands`] adding `bevy_state` helpers.
 pub trait CommandsStatesExt {
     /// Sets the next state the app should move to.
     ///
