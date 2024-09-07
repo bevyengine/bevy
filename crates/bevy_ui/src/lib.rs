@@ -40,7 +40,9 @@ pub use ui_material::*;
 pub use ui_node::*;
 use widget::UiImageSize;
 
-#[doc(hidden)]
+/// The UI prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

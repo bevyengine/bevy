@@ -41,6 +41,9 @@ pub mod experimental {
     }
 }
 
+/// The core pipeline prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
