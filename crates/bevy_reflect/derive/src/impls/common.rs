@@ -171,18 +171,10 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
     };
 
     Some(quote! {
-        #[cfg(target_family = "wasm")]
-        #bevy_reflect_path::__macro_exports::wasm_init::wasm_init!{
-            #bevy_reflect_path::__macro_exports::AUTOMATIC_REFLECT_REGISTRATIONS
-                .write()
-                .expect("Failed to get write lock for automatic reflect type registration")
-                .push(<#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register);
-        }
-        #[cfg(not(target_family = "wasm"))]
-        #bevy_reflect_path::__macro_exports::inventory::submit!(
-            #bevy_reflect_path::__macro_exports::AUTOMATIC_REFLECT_REGISTRATIONS(
+        #bevy_reflect_path::__macro_exports::auto_register_function!{
+            #bevy_reflect_path::__macro_exports::AutomaticReflectRegistrations::add(
                 <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register
             )
-        );
+        }
     })
 }

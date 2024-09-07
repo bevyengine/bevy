@@ -145,26 +145,7 @@ impl TypeRegistry {
     /// assert!(type_registry.get_type_data::<ReflectDefault>(TypeId::of::<Foo>()).is_some());
     /// ```
     pub fn register_derived_types(&mut self) {
-        // wasm_init must be called at least once to run all init code.
-        // Calling it multiple times is ok and doesn't do anything.
-        #[cfg(target_family = "wasm")]
-        wasm_init::wasm_init();
-
-        #[cfg(target_family = "wasm")]
-        for registration_fn in crate::__macro_exports::AUTOMATIC_REFLECT_REGISTRATIONS
-            .read()
-            .expect("Failed to get read lock for automatic reflect type registration")
-            .iter()
-        {
-            registration_fn(self);
-        }
-
-        #[cfg(not(target_family = "wasm"))]
-        for registration_fn in
-            inventory::iter::<crate::__macro_exports::AUTOMATIC_REFLECT_REGISTRATIONS>
-        {
-            registration_fn.0(self);
-        }
+        crate::__macro_exports::AutomaticReflectRegistrations::register(self);
     }
 
     /// Attempts to register the type `T` if it has not yet been registered already.

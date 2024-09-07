@@ -604,9 +604,6 @@ extern crate alloc;
 /// These are not meant to be used directly and are subject to breaking changes.
 #[doc(hidden)]
 pub mod __macro_exports {
-    pub extern crate inventory;
-    pub extern crate wasm_init;
-
     use crate::{
         DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
         DynamicTupleStruct, GetTypeRegistration, TypeRegistry,
@@ -646,14 +643,75 @@ pub mod __macro_exports {
     impl RegisterForReflection for DynamicTuple {}
 
     /// Stores registration functions of all reflect types that can be automatically registered.
+    ///
+    /// Intended to be used as follows:
+    /// ```rs
+    /// // Adding a type
+    /// auto_register_function!{
+    ///     AutomaticReflectRegistrations::add(<type_registration_function>)
+    /// }
+    ///
+    /// // Registering collected types
+    /// let mut registry = TypeRegistry::default();
+    /// AutomaticReflectRegistrations::register(&mut registry);
+    /// ```
+    pub struct AutomaticReflectRegistrations;
+
     #[cfg(not(target_family = "wasm"))]
-    #[allow(non_camel_case_types)]
-    pub struct AUTOMATIC_REFLECT_REGISTRATIONS(pub fn(&mut TypeRegistry));
-    #[cfg(not(target_family = "wasm"))]
-    inventory::collect!(AUTOMATIC_REFLECT_REGISTRATIONS);
+    mod __automatic_type_registration_impl {
+        use super::*;
+
+        pub use inventory::submit as auto_register_function;
+
+        pub struct AutomaticReflectRegistrationsImpl(fn(&mut TypeRegistry));
+
+        impl AutomaticReflectRegistrations {
+            // Must be const to allow usage in static context
+            pub const fn add(func: fn(&mut TypeRegistry)) -> AutomaticReflectRegistrationsImpl {
+                AutomaticReflectRegistrationsImpl(func)
+            }
+            pub fn register(registry: &mut TypeRegistry) {
+                for registration_fn in inventory::iter::<AutomaticReflectRegistrationsImpl> {
+                    registration_fn.0(registry);
+                }
+            }
+        }
+
+        inventory::collect!(AutomaticReflectRegistrationsImpl);
+    }
+
     #[cfg(target_family = "wasm")]
-    pub static AUTOMATIC_REFLECT_REGISTRATIONS: std::sync::RwLock<Vec<fn(&mut TypeRegistry)>> =
-        std::sync::RwLock::new(Vec::new());
+    mod __automatic_type_registration_impl {
+        use super::*;
+        pub use wasm_init::wasm_init as auto_register_function;
+
+        static AUTOMATIC_REFLECT_REGISTRATIONS: std::sync::RwLock<Vec<fn(&mut TypeRegistry)>> =
+            std::sync::RwLock::new(Vec::new());
+
+        impl AutomaticReflectRegistrations {
+            pub fn add(func: fn(&mut TypeRegistry)) {
+                AUTOMATIC_REFLECT_REGISTRATIONS
+                    .write()
+                    .expect("Failed to get write lock for automatic reflect type registration")
+                    .push(func);
+            }
+            pub fn register(registry: &mut TypeRegistry) {
+                // wasm_init must be called at least once to run all init code.
+                // Calling it multiple times is ok and doesn't do anything.
+                wasm_init::wasm_init();
+
+                for registration_fn in AUTOMATIC_REFLECT_REGISTRATIONS
+                    .read()
+                    .expect("Failed to get read lock for automatic reflect type registration")
+                    .iter()
+                {
+                    registration_fn(registry);
+                }
+            }
+        }
+    }
+
+    pub use __automatic_type_registration_impl::*;
 }
 
 #[cfg(test)]
