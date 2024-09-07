@@ -1146,7 +1146,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         fetch.table_data = Some((
-            column.get_data_slice_for(table.entity_count()).into(),
+            column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
             #[cfg(feature = "track_change_detection")]
@@ -1345,7 +1345,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) {
         let column = table.get_column(component_id).debug_checked_unwrap();
         fetch.table_data = Some((
-            column.get_data_slice_for(table.entity_count()).into(),
+            column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
             #[cfg(feature = "track_change_detection")]

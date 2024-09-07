@@ -293,7 +293,7 @@ impl ThinColumn {
     /// # Safety
     /// - `T` must match the type of data that's stored in this [`ThinColumn`]
     /// - `len` must match the actual length of this column (number of elements stored)
-    pub unsafe fn get_data_slice_for<T>(&self, len: usize) -> &[UnsafeCell<T>] {
+    pub unsafe fn get_data_slice<T>(&self, len: usize) -> &[UnsafeCell<T>] {
         self.data.get_sub_slice(len)
     }
 

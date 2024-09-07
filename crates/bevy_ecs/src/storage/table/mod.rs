@@ -368,7 +368,7 @@ impl Table {
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<T>]> {
         self.get_column(component_id)
-            .map(|col| col.get_data_slice_for(self.entity_count()))
+            .map(|col| col.get_data_slice(self.entity_count()))
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.

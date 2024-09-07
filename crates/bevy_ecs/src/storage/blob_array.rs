@@ -23,6 +23,10 @@ pub(super) struct BlobArray {
     pub drop: Option<unsafe fn(OwningPtr<'_>)>,
 }
 
+unsafe fn copy_nonoverlapping(src: OwningPtr<'_>, dst: PtrMut<'_>, size: usize) {
+    std::ptr::copy_nonoverlapping::<u8>(src.as_ptr(), dst.as_ptr(), size);
+}
+
 impl BlobArray {
     /// Create a new [`BlobArray`] with a specified `capacity`.
     /// If `capacity` is 0, no allocations will be made.
@@ -205,11 +209,8 @@ impl BlobArray {
         if !self.is_zst() {
             let new_layout = array_layout(&self.item_layout, capacity.get())
                 .expect("array layout should be valid");
-            let new_data
-            // SAFETY:
-            // - layout has non-zero size because capacity > 0, and the blob isn't ZST (`self.is_zst` == false)
-            = unsafe {std::alloc::alloc(new_layout)};
-
+            // SAFETY: layout has non-zero size because capacity > 0, and the blob isn't ZST (`self.is_zst` == false)
+            let new_data = unsafe { std::alloc::alloc(new_layout) };
             self.data = NonNull::new(new_data).unwrap_or_else(|| handle_alloc_error(new_layout));
         }
     }
@@ -229,11 +230,9 @@ impl BlobArray {
         new_capacity: NonZeroUsize,
     ) {
         if !self.is_zst() {
-            let new_layout =
             // SAFETY: Safety requirement 2
-            unsafe {
-                array_layout_unchecked(&self.item_layout, new_capacity.get())
-            };
+            let new_layout =
+                unsafe { array_layout_unchecked(&self.item_layout, new_capacity.get()) };
             // SAFETY:
             // - ptr was be allocated via this allocator
             // - the layout used to previously allocate this array is equivalent to `array_layout(&self.item_layout, current_capacity.get())`
@@ -258,8 +257,9 @@ impl BlobArray {
     /// - the memory in the [`BlobArray`] starting at index `index`, of a size matching this [`BlobArray`]'s `item_layout`, must have been previously allocated.
     #[inline]
     pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
-        let ptr = self.get_unchecked_mut(index);
-        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
+        let size = self.item_layout.size();
+        let dst = self.get_unchecked_mut(index);
+        copy_nonoverlapping(value, dst, size);
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
