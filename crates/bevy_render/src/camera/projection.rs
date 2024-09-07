@@ -489,7 +489,7 @@ impl OrthographicProjection {
     /// Returns the default orthographic projection for a 2D context.
     ///
     /// The near plane is set to a negative value so that the camera can still
-    /// render the scene when using positive z coordinates for foreground elements.
+    /// render the scene when using positive z coordinates to order foreground elements.
     pub fn default_2d() -> Self {
         OrthographicProjection {
             near: -1000.0,
