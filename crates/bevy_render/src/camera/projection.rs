@@ -497,7 +497,7 @@ impl OrthographicProjection {
         }
     }
 
-    /// Returns the default orthographic projection in a 3d context.
+    /// Returns the default orthographic projection for a 3D context.
     ///
     /// The near plane is set to 0.0 so that the camera doesn't render
     /// objects that are behind it.
