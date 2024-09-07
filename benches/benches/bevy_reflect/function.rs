@@ -99,7 +99,7 @@ fn overload(c: &mut Criterion) {
     }
 
     c.benchmark_group("with_overload")
-        .bench_function("01_overload", |b| {
+        .bench_function("01_simple_overload", |b| {
             b.iter_batched(
                 || add::<i8>.into_function(),
                 |func| func.with_overload(add::<i16>),
@@ -115,7 +115,7 @@ fn overload(c: &mut Criterion) {
                 BatchSize::SmallInput,
             );
         })
-        .bench_function("03_overload", |b| {
+        .bench_function("03_simple_overload", |b| {
             b.iter_batched(
                 || add::<i8>.into_function(),
                 |func| {
@@ -137,7 +137,7 @@ fn overload(c: &mut Criterion) {
                 BatchSize::SmallInput,
             );
         })
-        .bench_function("10_overload", |b| {
+        .bench_function("10_simple_overload", |b| {
             b.iter_batched(
                 || add::<i8>.into_function(),
                 |func| {
@@ -171,14 +171,14 @@ fn overload(c: &mut Criterion) {
                 BatchSize::SmallInput,
             );
         })
-        .bench_function("01_nested_overload", |b| {
+        .bench_function("01_nested_simple_overload", |b| {
             b.iter_batched(
                 || add::<i8>.into_function(),
                 |func| func.with_overload(add::<i16>),
                 BatchSize::SmallInput,
             );
         })
-        .bench_function("03_nested_overload", |b| {
+        .bench_function("03_nested_simple_overload", |b| {
             b.iter_batched(
                 || add::<i8>.into_function(),
                 |func| {
@@ -191,7 +191,7 @@ fn overload(c: &mut Criterion) {
                 BatchSize::SmallInput,
             );
         })
-        .bench_function("10_nested_overload", |b| {
+        .bench_function("10_nested_simple_overload", |b| {
             b.iter_batched(
                 || add::<i8>.into_function(),
                 |func| {
@@ -220,7 +220,7 @@ fn overload(c: &mut Criterion) {
         });
 
     c.benchmark_group("call_overload")
-        .bench_function("01_overload", |b| {
+        .bench_function("01_simple_overload", |b| {
             b.iter_batched(
                 || {
                     (
@@ -258,7 +258,7 @@ fn overload(c: &mut Criterion) {
                 BatchSize::SmallInput,
             );
         })
-        .bench_function("03_overload", |b| {
+        .bench_function("03_simple_overload", |b| {
             b.iter_batched(
                 || {
                     (
@@ -306,7 +306,7 @@ fn overload(c: &mut Criterion) {
                 BatchSize::SmallInput,
             );
         })
-        .bench_function("10_overload", |b| {
+        .bench_function("10_simple_overload", |b| {
             b.iter_batched(
                 || {
                     (
