@@ -237,7 +237,7 @@ impl Default for PerspectiveProjection {
 /// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
 ///    scaling_mode: ScalingMode::FixedVertical(2.0),
-///    ..OrthographicProjection::default()
+///    ..OrthographicProjection::default_2d()
 /// });
 /// ```
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
@@ -334,7 +334,7 @@ impl DivAssign<f32> for ScalingMode {
 /// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
 ///     scaling_mode: ScalingMode::WindowSize(100.0),
-///     ..OrthographicProjection::default()
+///     ..OrthographicProjection::default_2d()
 /// });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
