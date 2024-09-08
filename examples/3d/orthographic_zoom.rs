@@ -25,8 +25,15 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Camera3dBundle defaults to using a PerspectiveProjection
+    // Find the middle of the zoom range
+    let initial_scale = (CAMERA_ZOOM_RANGE.end - CAMERA_ZOOM_RANGE.start) / 2.0;
+
     commands.spawn(Camera3dBundle {
+        projection: OrthographicProjection {
+            scaling_mode: ScalingMode::FixedVertical(initial_scale),
+            ..default()
+        }
+        .into(),
         transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -76,7 +83,7 @@ fn camera_controls(
     // Accumulate mouse wheel inputs for this tick
     // TODO: going away in 0.15 with AccumulatedMouseScroll
     let delta_zoom: f32 = mouse_wheel_input.read().map(|e| e.y).sum();
-    if delta_zoom != 0.0 {
+    if delta_zoom == 0.0 {
         return;
     }
 

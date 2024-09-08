@@ -52,6 +52,9 @@ fn setup(
         transform: Transform::from_xyz(3.0, 8.0, 5.0),
         ..default()
     });
+
+    info!("Zoom in and out with mouse wheel.");
+    info!("Orbit camera with A and D.");
 }
 
 fn camera_controls(
@@ -87,6 +90,5 @@ fn camera_controls(
         // Adjust the field of view, but keep it within our stated range
         perspective.fov = (perspective.fov + CAMERA_ZOOM_SPEED * delta_zoom)
             .clamp(CAMERA_ZOOM_RANGE.start, CAMERA_ZOOM_RANGE.end);
-        dbg!(perspective.fov);
     }
 }
