@@ -12,6 +12,9 @@ pub mod processor;
 pub mod saver;
 pub mod transformer;
 
+/// The asset prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

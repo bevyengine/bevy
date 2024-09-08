@@ -30,7 +30,9 @@ pub use system::*;
 pub use system_cursor::*;
 pub use window::*;
 
-#[allow(missing_docs)]
+/// The windowing prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[allow(deprecated)]
     #[doc(hidden)]
