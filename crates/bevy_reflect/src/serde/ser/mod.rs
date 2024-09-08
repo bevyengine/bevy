@@ -1,6 +1,7 @@
 pub use serializable::*;
 pub use serializer::*;
 
+mod arrays;
 mod enums;
 mod lists;
 mod maps;
@@ -10,28 +11,6 @@ mod sets;
 mod structs;
 mod tuple_structs;
 mod tuples;
-
-use crate::{Array, TypeRegistry};
-use serde::ser::SerializeTuple;
-use serde::Serialize;
-
-pub struct ArraySerializer<'a> {
-    pub array: &'a dyn Array,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for ArraySerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_tuple(self.array.len())?;
-        for value in self.array.iter() {
-            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
-        }
-        state.end()
-    }
-}
 
 #[cfg(test)]
 mod tests {
