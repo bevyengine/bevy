@@ -75,7 +75,7 @@ impl AspectRatio {
     /// Returns true if the aspect ratio is exactly square.
     #[inline]
     pub fn is_square(&self) -> bool {
-        (self.0 - 1.0).abs() < f32::EPSILON
+        self.0 == 1.0
     }
 }
 
