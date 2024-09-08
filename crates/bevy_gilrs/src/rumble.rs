@@ -1,15 +1,15 @@
 //! Handle user specified rumble request events.
-use bevy_ecs::{
-    prelude::{EventReader, Res},
-    system::NonSendMut,
-};
+use crate::Gilrs;
+use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
+#[cfg(target_arch = "wasm32")]
+use bevy_ecs::system::NonSendMut;
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
-use bevy_log::{debug, warn};
-use bevy_time::Time;
-use bevy_utils::{Duration, HashMap};
+use bevy_time::{Real, Time};
+use bevy_utils::tracing::{debug, warn};
+use bevy_utils::{synccell::SyncCell, Duration, HashMap};
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
-    GamepadId, Gilrs,
+    GamepadId,
 };
 use thiserror::Error;
 
@@ -23,7 +23,7 @@ struct RunningRumble {
     ///
     /// Dropping it will cause the effect to stop
     #[allow(dead_code)]
-    effect: ff::Effect,
+    effect: SyncCell<ff::Effect>,
 }
 
 #[derive(Error, Debug)]
@@ -35,7 +35,7 @@ enum RumbleError {
 }
 
 /// Contains the gilrs rumble effects that are currently running for each gamepad
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub(crate) struct RunningRumbleEffects {
     /// If multiple rumbles are running at the same time, their resulting rumble
     /// will be the saturated sum of their strengths up until [`u16::MAX`]
@@ -53,7 +53,7 @@ fn get_base_effects(
         strong_motor,
     }: GamepadRumbleIntensity,
     duration: Duration,
-) -> Vec<ff::BaseEffect> {
+) -> Vec<BaseEffect> {
     let mut effects = Vec::new();
     if strong_motor > 0. {
         effects.push(BaseEffect {
@@ -80,7 +80,7 @@ fn get_base_effects(
 
 fn handle_rumble_request(
     running_rumbles: &mut RunningRumbleEffects,
-    gilrs: &mut Gilrs,
+    gilrs: &mut gilrs::Gilrs,
     rumble: GamepadRumbleRequest,
     current_time: Duration,
 ) -> Result<(), RumbleError> {
@@ -113,19 +113,24 @@ fn handle_rumble_request(
 
             let gamepad_rumbles = running_rumbles.rumbles.entry(gamepad_id).or_default();
             let deadline = current_time + duration;
-            gamepad_rumbles.push(RunningRumble { deadline, effect });
+            gamepad_rumbles.push(RunningRumble {
+                deadline,
+                effect: SyncCell::new(effect),
+            });
         }
     }
 
     Ok(())
 }
 pub(crate) fn play_gilrs_rumble(
-    time: Res<Time>,
-    mut gilrs: NonSendMut<Gilrs>,
+    time: Res<Time<Real>>,
+    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
     mut requests: EventReader<GamepadRumbleRequest>,
-    mut running_rumbles: NonSendMut<RunningRumbleEffects>,
+    mut running_rumbles: ResMut<RunningRumbleEffects>,
 ) {
-    let current_time = time.raw_elapsed();
+    let gilrs = gilrs.0.get();
+    let current_time = time.elapsed();
     // Remove outdated rumble effects.
     for rumbles in running_rumbles.rumbles.values_mut() {
         // `ff::Effect` uses RAII, dropping = deactivating
@@ -138,7 +143,7 @@ pub(crate) fn play_gilrs_rumble(
     // Add new effects.
     for rumble in requests.read().cloned() {
         let gamepad = rumble.gamepad();
-        match handle_rumble_request(&mut running_rumbles, &mut gilrs, rumble, current_time) {
+        match handle_rumble_request(&mut running_rumbles, gilrs, rumble, current_time) {
             Ok(()) => {}
             Err(RumbleError::GilrsError(err)) => {
                 if let ff::Error::FfNotSupported(_) = err {

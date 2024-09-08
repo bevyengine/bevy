@@ -5,10 +5,13 @@
 // Source code heavily based on XeGTAO v1.30 from Intel
 // https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
 
-#import bevy_pbr::gtao_utils fast_acos
-#import bevy_pbr::utils PI, HALF_PI
-#import bevy_render::view View
-#import bevy_render::globals Globals
+#import bevy_pbr::gtao_utils::fast_acos
+
+#import bevy_render::{
+    view::View,
+    globals::Globals,
+    maths::{PI, HALF_PI},
+}
 
 @group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
@@ -22,7 +25,7 @@
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index_lut, pixel_coordinates % 64, 0).r;
 
-#ifdef TEMPORAL_NOISE
+#ifdef TEMPORAL_JITTER
     index += 288u * (globals.frame_count % 64u);
 #endif
 
@@ -53,34 +56,26 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
     edge_info = saturate((1.0 + bias) - edge_info / scale); // Apply the bias and scale, and invert edge_info so that small values become large, and vice versa
 
     // Pack the edge info into the texture
-    let edge_info_packed = vec4<u32>(mypack4x8unorm(edge_info), 0u, 0u, 0u);
+    let edge_info_packed = vec4<u32>(pack4x8unorm(edge_info), 0u, 0u, 0u);
     textureStore(depth_differences, pixel_coordinates, edge_info_packed);
 
     return depth_center;
 }
 
-// TODO: Remove this once https://github.com/gfx-rs/naga/pull/2353 lands
-fn mypack4x8unorm(e: vec4<f32>) -> u32 {
-    return u32(clamp(e.x, 0.0, 1.0) * 255.0 + 0.5) |
-    u32(clamp(e.y, 0.0, 1.0) * 255.0 + 0.5) << 8u |
-    u32(clamp(e.z, 0.0, 1.0) * 255.0 + 0.5) << 16u |
-    u32(clamp(e.w, 0.0, 1.0) * 255.0 + 0.5) << 24u;
-}
-
 fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
     var world_normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0).xyz;
     world_normal = (world_normal * 2.0) - 1.0;
-    let inverse_view = mat3x3<f32>(
-        view.inverse_view[0].xyz,
-        view.inverse_view[1].xyz,
-        view.inverse_view[2].xyz,
+    let view_from_world = mat3x3<f32>(
+        view.view_from_world[0].xyz,
+        view.view_from_world[1].xyz,
+        view.view_from_world[2].xyz,
     );
-    return inverse_view * world_normal;
+    return view_from_world * world_normal;
 }
 
 fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
     let clip_xy = vec2<f32>(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y);
-    let t = view.inverse_projection * vec4<f32>(clip_xy, depth, 1.0);
+    let t = view.view_from_clip * vec4<f32>(clip_xy, depth, 1.0);
     let view_xyz = t.xyz / t.w;
     return view_xyz;
 }
@@ -112,7 +107,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let view_vec = normalize(-pixel_position);
 
     let noise = load_noise(pixel_coordinates);
-    let sample_scale = (-0.5 * effect_radius * view.projection[0][0]) / pixel_position.z;
+    let sample_scale = (-0.5 * effect_radius * view.clip_from_view[0][0]) / pixel_position.z;
 
     var visibility = 0.0;
     for (var slice_t = 0.0; slice_t < slice_count; slice_t += 1.0) {
@@ -143,7 +138,8 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
             s *= s; // https://github.com/GameTechDev/XeGTAO#sample-distribution
             let sample = s * sample_mul;
 
-            let sample_mip_level = clamp(log2(length(sample)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
+            // * view.viewport.zw gets us from [0, 1] to [0, viewport_size], which is needed for this to get the correct mip levels
+            let sample_mip_level = clamp(log2(length(sample * view.viewport.zw)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
             let sample_position_1 = load_and_reconstruct_view_space_position(uv + sample, sample_mip_level);
             let sample_position_2 = load_and_reconstruct_view_space_position(uv - sample, sample_mip_level);
 

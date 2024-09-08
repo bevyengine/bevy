@@ -1,10 +1,5 @@
-use bevy_asset::{
-    anyhow::Error,
-    io::{AsyncReadExt, Reader},
-    Asset, AssetLoader, LoadContext,
-};
+use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext};
 use bevy_reflect::TypePath;
-use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 
 /// A source of audio data
@@ -13,8 +8,10 @@ pub struct AudioSource {
     /// Raw data of the audio source.
     ///
     /// The data must be one of the file formats supported by Bevy (`wav`, `ogg`, `flac`, or `mp3`).
-    /// It is decoded using [`rodio::decoder::Decoder`](https://docs.rs/rodio/latest/rodio/decoder/struct.Decoder.html).
+    /// However, support for these file formats is not part of Bevy's [`default feature set`](https://docs.rs/bevy/latest/bevy/index.html#default-features).
+    /// In order to be able to use these file formats, you will have to enable the appropriate [`optional features`](https://docs.rs/bevy/latest/bevy/index.html#optional-features).
     ///
+    /// It is decoded using [`rodio::decoder::Decoder`](https://docs.rs/rodio/latest/rodio/decoder/struct.Decoder.html).
     /// The decoder has conditionally compiled methods
     /// depending on the features enabled.
     /// If the format used is not enabled,
@@ -42,19 +39,18 @@ pub struct AudioLoader;
 impl AssetLoader for AudioLoader {
     type Asset = AudioSource;
     type Settings = ();
+    type Error = std::io::Error;
 
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut dyn Reader,
         _settings: &'a Self::Settings,
-        _load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<AudioSource, Error>> {
-        Box::pin(async move {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            Ok(AudioSource {
-                bytes: bytes.into(),
-            })
+        _load_context: &'a mut LoadContext<'_>,
+    ) -> Result<AudioSource, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        Ok(AudioSource {
+            bytes: bytes.into(),
         })
     }
 
@@ -97,8 +93,8 @@ pub trait Decodable: Send + Sync + 'static {
 }
 
 impl Decodable for AudioSource {
-    type Decoder = rodio::Decoder<Cursor<AudioSource>>;
     type DecoderItem = <rodio::Decoder<Cursor<AudioSource>> as Iterator>::Item;
+    type Decoder = rodio::Decoder<Cursor<AudioSource>>;
 
     fn decoder(&self) -> Self::Decoder {
         rodio::Decoder::new(Cursor::new(self.clone())).unwrap()

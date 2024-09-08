@@ -1,6 +1,6 @@
 use super::downsampling_pipeline::BloomUniforms;
 use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
-use bevy_math::{URect, UVec4, Vec4};
+use bevy_math::{AspectRatio, URect, UVec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 
@@ -24,7 +24,6 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// blurred (lower frequency) images generated from the camera's view.
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
-#[allow(clippy::doc_markdown)]
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default)]
 pub struct BloomSettings {
@@ -80,7 +79,7 @@ pub struct BloomSettings {
     /// Somewhat comparable to the Q factor of an equalizer node.
     ///
     /// Valid range:
-    /// * 0.0 - base base intensity and boosted intensity are linearly interpolated
+    /// * 0.0 - base intensity and boosted intensity are linearly interpolated
     /// * 1.0 - all frequencies below maximum are at boosted intensity level
     pub low_frequency_boost_curvature: f32,
 
@@ -103,10 +102,23 @@ pub struct BloomSettings {
     /// configured in a non-energy-conserving way,
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
+
+    /// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
+    /// Only tweak if you are seeing visual artifacts.
+    pub max_mip_dimension: u32,
+
+    /// UV offset for bloom shader. Ideally close to 2.0 / `max_mip_dimension`.
+    /// Only tweak if you are seeing visual artifacts.
+    pub uv_offset: f32,
 }
 
 impl BloomSettings {
+    const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
+    const DEFAULT_UV_OFFSET: f32 = 0.004;
+
     /// The default bloom preset.
+    ///
+    /// This uses the [`EnergyConserving`](BloomCompositeMode::EnergyConserving) composite mode.
     pub const NATURAL: Self = Self {
         intensity: 0.15,
         low_frequency_boost: 0.7,
@@ -117,6 +129,8 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 
     /// A preset that's similar to how older games did bloom.
@@ -130,6 +144,8 @@ impl BloomSettings {
             threshold_softness: 0.2,
         },
         composite_mode: BloomCompositeMode::Additive,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -143,6 +159,8 @@ impl BloomSettings {
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        uv_offset: Self::DEFAULT_UV_OFFSET,
     };
 }
 
@@ -176,19 +194,19 @@ pub struct BloomPrefilterSettings {
     pub threshold_softness: f32,
 }
 
-#[derive(Clone, Reflect, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
 pub enum BloomCompositeMode {
     EnergyConserving,
     Additive,
 }
 
 impl ExtractComponent for BloomSettings {
-    type Query = (&'static Self, &'static Camera);
+    type QueryData = (&'static Self, &'static Camera);
 
-    type Filter = ();
+    type QueryFilter = ();
     type Out = (Self, BloomUniforms);
 
-    fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+    fn extract_component((settings, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
         match (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
@@ -211,7 +229,8 @@ impl ExtractComponent for BloomSettings {
                     viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
-                    aspect: size.x as f32 / size.y as f32,
+                    aspect: AspectRatio::from_pixels(size.x, size.y).into(),
+                    uv_offset: settings.uv_offset,
                 };
 
                 Some((settings.clone(), uniform))

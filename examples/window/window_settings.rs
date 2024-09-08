@@ -5,7 +5,8 @@ use bevy::{
     core::FrameCount,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, WindowLevel, WindowTheme},
+    render::view::cursor::{CursorIcon, CustomCursor},
+    window::{CursorGrabMode, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme},
 };
 
 fn main() {
@@ -14,11 +15,12 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "I am a window!".into(),
+                    name: Some("bevy.app".into()),
                     resolution: (500., 300.).into(),
                     present_mode: PresentMode::AutoVsync,
-                    // Tells wasm to resize the window according to the available canvas
+                    // Tells Wasm to resize the window according to the available canvas
                     fit_canvas_to_parent: true,
-                    // Tells wasm not to override default event handling, like F5, Ctrl+R etc.
+                    // Tells Wasm not to override default event handling, like F5, Ctrl+R etc.
                     prevent_default_event_handling: false,
                     window_theme: Some(WindowTheme::Dark),
                     enabled_buttons: bevy::window::EnabledButtons {
@@ -36,6 +38,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin,
         ))
+        .add_systems(Startup, init_cursor_icons)
         .add_systems(
             Update,
             (
@@ -64,8 +67,8 @@ fn make_visible(mut window: Query<&mut Window>, frames: Res<FrameCount>) {
 
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
-fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if input.just_pressed(KeyCode::V) {
+fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    if input.just_pressed(KeyCode::KeyV) {
         let mut window = windows.single_mut();
 
         window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
@@ -84,8 +87,9 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.window_level)
 /// for more details.
-fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    if input.just_pressed(KeyCode::T) {
+
+fn switch_level(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    if input.just_pressed(KeyCode::KeyT) {
         let mut window = windows.single_mut();
 
         window.window_level = match window.window_level {
@@ -102,10 +106,10 @@ fn switch_level(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.enabled_buttons)
 /// for more details.
-fn toggle_window_controls(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
-    let toggle_minimize = input.just_pressed(KeyCode::Key1);
-    let toggle_maximize = input.just_pressed(KeyCode::Key2);
-    let toggle_close = input.just_pressed(KeyCode::Key3);
+fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
+    let toggle_minimize = input.just_pressed(KeyCode::Digit1);
+    let toggle_maximize = input.just_pressed(KeyCode::Digit2);
+    let toggle_close = input.just_pressed(KeyCode::Digit3);
 
     if toggle_minimize || toggle_maximize || toggle_close {
         let mut window = windows.single_mut();
@@ -131,12 +135,12 @@ fn change_title(mut windows: Query<&mut Window>, time: Res<Time>) {
     );
 }
 
-fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
+fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::Space) {
         let mut window = windows.single_mut();
 
-        window.cursor.visible = !window.cursor.visible;
-        window.cursor.grab_mode = match window.cursor.grab_mode {
+        window.cursor_options.visible = !window.cursor_options.visible;
+        window.cursor_options.grab_mode = match window.cursor_options.grab_mode {
             CursorGrabMode::None => CursorGrabMode::Locked,
             CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
         };
@@ -144,8 +148,8 @@ fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
 }
 
 // This system will toggle the color theme used by the window
-fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::F) {
+fn toggle_theme(mut windows: Query<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
+    if input.just_pressed(KeyCode::KeyF) {
         let mut window = windows.single_mut();
 
         if let Some(current_theme) = window.window_theme {
@@ -157,31 +161,46 @@ fn toggle_theme(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
     }
 }
 
+#[derive(Resource)]
+struct CursorIcons(Vec<CursorIcon>);
+
+fn init_cursor_icons(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(CursorIcons(vec![
+        SystemCursorIcon::Default.into(),
+        SystemCursorIcon::Pointer.into(),
+        SystemCursorIcon::Wait.into(),
+        SystemCursorIcon::Text.into(),
+        CustomCursor::Image {
+            handle: asset_server.load("branding/icon.png"),
+            hotspot: (128, 128),
+        }
+        .into(),
+    ]));
+}
+
 /// This system cycles the cursor's icon through a small set of icons when clicking
 fn cycle_cursor_icon(
-    mut windows: Query<&mut Window>,
-    input: Res<Input<MouseButton>>,
+    mut commands: Commands,
+    windows: Query<Entity, With<Window>>,
+    input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
+    cursor_icons: Res<CursorIcons>,
 ) {
-    let mut window = windows.single_mut();
-
-    const ICONS: &[CursorIcon] = &[
-        CursorIcon::Default,
-        CursorIcon::Hand,
-        CursorIcon::Wait,
-        CursorIcon::Text,
-        CursorIcon::Copy,
-    ];
+    let window_entity = windows.single();
 
     if input.just_pressed(MouseButton::Left) {
-        *index = (*index + 1) % ICONS.len();
+        *index = (*index + 1) % cursor_icons.0.len();
+        commands
+            .entity(window_entity)
+            .insert(cursor_icons.0[*index].clone());
     } else if input.just_pressed(MouseButton::Right) {
         *index = if *index == 0 {
-            ICONS.len() - 1
+            cursor_icons.0.len() - 1
         } else {
             *index - 1
         };
+        commands
+            .entity(window_entity)
+            .insert(cursor_icons.0[*index].clone());
     }
-
-    window.cursor.icon = ICONS[*index];
 }

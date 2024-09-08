@@ -20,7 +20,7 @@ pub fn heavy_compute(c: &mut Criterion) {
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
     group.bench_function("base", |b| {
-        ComputeTaskPool::init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPool::default);
 
         let mut world = World::default();
 

@@ -49,17 +49,17 @@ pub fn empty_systems(criterion: &mut Criterion) {
 
 pub fn busy_systems(criterion: &mut Criterion) {
     fn ab(mut q: Query<(&mut A, &mut B)>) {
-        q.for_each_mut(|(mut a, mut b)| {
+        q.iter_mut().for_each(|(mut a, mut b)| {
             std::mem::swap(&mut a.0, &mut b.0);
         });
     }
     fn cd(mut q: Query<(&mut C, &mut D)>) {
-        q.for_each_mut(|(mut c, mut d)| {
+        q.iter_mut().for_each(|(mut c, mut d)| {
             std::mem::swap(&mut c.0, &mut d.0);
         });
     }
     fn ce(mut q: Query<(&mut C, &mut E)>) {
-        q.for_each_mut(|(mut c, mut e)| {
+        q.iter_mut().for_each(|(mut c, mut e)| {
             std::mem::swap(&mut c.0, &mut e.0);
         });
     }
@@ -98,20 +98,20 @@ pub fn busy_systems(criterion: &mut Criterion) {
 
 pub fn contrived(criterion: &mut Criterion) {
     fn s_0(mut q_0: Query<(&mut A, &mut B)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
         });
     }
     fn s_1(mut q_0: Query<(&mut A, &mut C)>, mut q_1: Query<(&mut B, &mut D)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
         });
-        q_1.for_each_mut(|(mut c_0, mut c_1)| {
+        q_1.iter_mut().for_each(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
         });
     }
     fn s_2(mut q_0: Query<(&mut C, &mut D)>) {
-        q_0.for_each_mut(|(mut c_0, mut c_1)| {
+        q_0.iter_mut().for_each(|(mut c_0, mut c_1)| {
             std::mem::swap(&mut c_0.0, &mut c_1.0);
         });
     }

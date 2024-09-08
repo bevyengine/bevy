@@ -1,6 +1,6 @@
 use crate::{
-    core_2d::{self, CORE_2D},
-    core_3d::{self, CORE_3D},
+    core_2d::graph::{Core2d, Node2d},
+    core_3d::graph::{Core3d, Node3d},
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
@@ -11,7 +11,10 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     prelude::Camera,
     render_graph::RenderGraphApp,
-    render_resource::*,
+    render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        *,
+    },
     renderer::RenderDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
@@ -20,7 +23,7 @@ use bevy_render::{
 
 mod node;
 
-pub use node::CASNode;
+pub use node::CasNode;
 
 /// Applies a contrast adaptive sharpening (CAS) filter to the camera.
 ///
@@ -63,28 +66,28 @@ impl Default for ContrastAdaptiveSharpeningSettings {
 
 #[derive(Component, Default, Reflect, Clone)]
 #[reflect(Component)]
-pub struct DenoiseCAS(bool);
+pub struct DenoiseCas(bool);
 
 /// The uniform struct extracted from [`ContrastAdaptiveSharpeningSettings`] attached to a [`Camera`].
 /// Will be available for use in the CAS shader.
 #[doc(hidden)]
 #[derive(Component, ShaderType, Clone)]
-pub struct CASUniform {
+pub struct CasUniform {
     sharpness: f32,
 }
 
 impl ExtractComponent for ContrastAdaptiveSharpeningSettings {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-    type Out = (DenoiseCAS, CASUniform);
+    type QueryData = &'static Self;
+    type QueryFilter = With<Camera>;
+    type Out = (DenoiseCas, CasUniform);
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
         if !item.enabled || item.sharpening_strength == 0.0 {
             return None;
         }
         Some((
-            DenoiseCAS(item.denoise),
-            CASUniform {
+            DenoiseCas(item.denoise),
+            CasUniform {
                 // above 1.0 causes extreme artifacts and fireflies
                 sharpness: item.sharpening_strength.clamp(0.0, 1.0),
             },
@@ -96,9 +99,9 @@ const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(6925381244141981602);
 
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
-pub struct CASPlugin;
+pub struct CasPlugin;
 
-impl Plugin for CASPlugin {
+impl Plugin for CasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -110,102 +113,85 @@ impl Plugin for CASPlugin {
         app.register_type::<ContrastAdaptiveSharpeningSettings>();
         app.add_plugins((
             ExtractComponentPlugin::<ContrastAdaptiveSharpeningSettings>::default(),
-            UniformComponentPlugin::<CASUniform>::default(),
+            UniformComponentPlugin::<CasUniform>::default(),
         ));
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
         render_app
-            .init_resource::<SpecializedRenderPipelines<CASPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
             .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
 
         {
-            use core_3d::graph::node::*;
             render_app
-                .add_render_graph_node::<CASNode>(CORE_3D, CONTRAST_ADAPTIVE_SHARPENING)
-                .add_render_graph_edge(CORE_3D, TONEMAPPING, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_node::<CasNode>(Core3d, Node3d::ContrastAdaptiveSharpening)
+                .add_render_graph_edge(
+                    Core3d,
+                    Node3d::Tonemapping,
+                    Node3d::ContrastAdaptiveSharpening,
+                )
                 .add_render_graph_edges(
-                    CORE_3D,
-                    &[
-                        FXAA,
-                        CONTRAST_ADAPTIVE_SHARPENING,
-                        END_MAIN_PASS_POST_PROCESSING,
-                    ],
+                    Core3d,
+                    (
+                        Node3d::Fxaa,
+                        Node3d::ContrastAdaptiveSharpening,
+                        Node3d::EndMainPassPostProcessing,
+                    ),
                 );
         }
         {
-            use core_2d::graph::node::*;
             render_app
-                .add_render_graph_node::<CASNode>(CORE_2D, CONTRAST_ADAPTIVE_SHARPENING)
-                .add_render_graph_edge(CORE_2D, TONEMAPPING, CONTRAST_ADAPTIVE_SHARPENING)
+                .add_render_graph_node::<CasNode>(Core2d, Node2d::ContrastAdaptiveSharpening)
+                .add_render_graph_edge(
+                    Core2d,
+                    Node2d::Tonemapping,
+                    Node2d::ContrastAdaptiveSharpening,
+                )
                 .add_render_graph_edges(
-                    CORE_2D,
-                    &[
-                        FXAA,
-                        CONTRAST_ADAPTIVE_SHARPENING,
-                        END_MAIN_PASS_POST_PROCESSING,
-                    ],
+                    Core2d,
+                    (
+                        Node2d::Fxaa,
+                        Node2d::ContrastAdaptiveSharpening,
+                        Node2d::EndMainPassPostProcessing,
+                    ),
                 );
         }
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
-        render_app.init_resource::<CASPipeline>();
+        render_app.init_resource::<CasPipeline>();
     }
 }
 
 #[derive(Resource)]
-pub struct CASPipeline {
+pub struct CasPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
 }
 
-impl FromWorld for CASPipeline {
+impl FromWorld for CasPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.resource::<RenderDevice>();
-        let texture_bind_group =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("sharpening_texture_bind_group_layout"),
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
+        let texture_bind_group = render_device.create_bind_group_layout(
+            "sharpening_texture_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    sampler(SamplerBindingType::Filtering),
                     // CAS Settings
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(CASUniform::min_size()),
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                ],
-            });
+                    uniform_buffer::<CasUniform>(true),
+                ),
+            ),
+        );
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        CASPipeline {
+        CasPipeline {
             texture_bind_group,
             sampler,
         }
@@ -213,13 +199,13 @@ impl FromWorld for CASPipeline {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
-pub struct CASPipelineKey {
+pub struct CasPipelineKey {
     texture_format: TextureFormat,
     denoise: bool,
 }
 
-impl SpecializedRenderPipeline for CASPipeline {
-    type Key = CASPipelineKey;
+impl SpecializedRenderPipeline for CasPipeline {
+    type Key = CasPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
@@ -251,15 +237,15 @@ impl SpecializedRenderPipeline for CASPipeline {
 fn prepare_cas_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<CASPipeline>>,
-    sharpening_pipeline: Res<CASPipeline>,
-    views: Query<(Entity, &ExtractedView, &DenoiseCAS), With<CASUniform>>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<CasPipeline>>,
+    sharpening_pipeline: Res<CasPipeline>,
+    views: Query<(Entity, &ExtractedView, &DenoiseCas), With<CasUniform>>,
 ) {
     for (entity, view, cas_settings) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &sharpening_pipeline,
-            CASPipelineKey {
+            CasPipelineKey {
                 denoise: cas_settings.0,
                 texture_format: if view.hdr {
                     ViewTarget::TEXTURE_FORMAT_HDR
@@ -269,9 +255,9 @@ fn prepare_cas_pipelines(
             },
         );
 
-        commands.entity(entity).insert(ViewCASPipeline(pipeline_id));
+        commands.entity(entity).insert(ViewCasPipeline(pipeline_id));
     }
 }
 
 #[derive(Component)]
-pub struct ViewCASPipeline(CachedRenderPipelineId);
+pub struct ViewCasPipeline(CachedRenderPipelineId);

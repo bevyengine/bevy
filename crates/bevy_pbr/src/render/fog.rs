@@ -1,5 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_render::{
@@ -52,31 +53,40 @@ pub fn prepare_fog(
     mut fog_meta: ResMut<FogMeta>,
     views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
 ) {
-    fog_meta.gpu_fogs.clear();
-
-    for (entity, fog) in &views {
+    let views_iter = views.iter();
+    let view_count = views_iter.len();
+    let Some(mut writer) = fog_meta
+        .gpu_fogs
+        .get_writer(view_count, &render_device, &render_queue)
+    else {
+        return;
+    };
+    for (entity, fog) in views_iter {
         let gpu_fog = if let Some(fog) = fog {
             match &fog.falloff {
                 FogFalloff::Linear { start, end } => GpuFog {
                     mode: GPU_FOG_MODE_LINEAR,
-                    base_color: fog.color.into(),
-                    directional_light_color: fog.directional_light_color.into(),
+                    base_color: LinearRgba::from(fog.color).to_vec4(),
+                    directional_light_color: LinearRgba::from(fog.directional_light_color)
+                        .to_vec4(),
                     directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*start, *end, 0.0),
                     ..Default::default()
                 },
                 FogFalloff::Exponential { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL,
-                    base_color: fog.color.into(),
-                    directional_light_color: fog.directional_light_color.into(),
+                    base_color: LinearRgba::from(fog.color).to_vec4(),
+                    directional_light_color: LinearRgba::from(fog.directional_light_color)
+                        .to_vec4(),
                     directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
                 },
                 FogFalloff::ExponentialSquared { density } => GpuFog {
                     mode: GPU_FOG_MODE_EXPONENTIAL_SQUARED,
-                    base_color: fog.color.into(),
-                    directional_light_color: fog.directional_light_color.into(),
+                    base_color: LinearRgba::from(fog.color).to_vec4(),
+                    directional_light_color: LinearRgba::from(fog.directional_light_color)
+                        .to_vec4(),
                     directional_light_exponent: fog.directional_light_exponent,
                     be: Vec3::new(*density, 0.0, 0.0),
                     ..Default::default()
@@ -86,8 +96,9 @@ pub fn prepare_fog(
                     inscattering,
                 } => GpuFog {
                     mode: GPU_FOG_MODE_ATMOSPHERIC,
-                    base_color: fog.color.into(),
-                    directional_light_color: fog.directional_light_color.into(),
+                    base_color: LinearRgba::from(fog.color).to_vec4(),
+                    directional_light_color: LinearRgba::from(fog.directional_light_color)
+                        .to_vec4(),
                     directional_light_exponent: fog.directional_light_exponent,
                     be: *extinction,
                     bi: *inscattering,
@@ -103,13 +114,9 @@ pub fn prepare_fog(
 
         // This is later read by `SetMeshViewBindGroup<I>`
         commands.entity(entity).insert(ViewFogUniformOffset {
-            offset: fog_meta.gpu_fogs.push(gpu_fog),
+            offset: writer.write(&gpu_fog),
         });
     }
-
-    fog_meta
-        .gpu_fogs
-        .write_buffer(&render_device, &render_queue);
 }
 
 /// Inserted on each `Entity` with an `ExtractedView` to keep track of its offset
@@ -132,7 +139,7 @@ impl Plugin for FogPlugin {
         app.register_type::<FogSettings>();
         app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<FogMeta>()
                 .add_systems(Render, prepare_fog.in_set(RenderSet::PrepareResources));

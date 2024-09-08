@@ -4,7 +4,7 @@ use crate::{
     self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{Event, EventId, EventIterator, EventIteratorWithId, Events, ManualEventReader},
+    event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -30,14 +30,14 @@ impl From<RemovedComponentEntity> for Entity {
     }
 }
 
-/// Wrapper around a [`ManualEventReader<RemovedComponentEntity>`] so that we
+/// Wrapper around a [`EventCursor<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.
 #[derive(Debug)]
 pub struct RemovedComponentReader<T>
 where
     T: Component,
 {
-    reader: ManualEventReader<RemovedComponentEntity>,
+    reader: EventCursor<RemovedComponentEntity>,
     marker: PhantomData<T>,
 }
 
@@ -51,7 +51,7 @@ impl<T: Component> Default for RemovedComponentReader<T> {
 }
 
 impl<T: Component> Deref for RemovedComponentReader<T> {
-    type Target = ManualEventReader<RemovedComponentEntity>;
+    type Target = EventCursor<RemovedComponentEntity>;
     fn deref(&self) -> &Self::Target {
         &self.reader
     }
@@ -83,6 +83,11 @@ impl RemovedComponentEvents {
         }
     }
 
+    /// Returns an iterator over components and their entity events.
+    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Events<RemovedComponentEntity>)> {
+        self.event_sets.iter()
+    }
+
     /// Gets the event storage for a given component.
     pub fn get(
         &self,
@@ -99,7 +104,8 @@ impl RemovedComponentEvents {
     }
 }
 
-/// A [`SystemParam`] that grants access to the entities that had their `T` [`Component`] removed.
+/// A [`SystemParam`] that yields entities that had their `T` [`Component`]
+/// removed or have been despawned with it.
 ///
 /// This acts effectively the same as an [`EventReader`](crate::event::EventReader).
 ///
@@ -110,11 +116,11 @@ impl RemovedComponentEvents {
 ///
 /// If you are using `bevy_ecs` as a standalone crate,
 /// note that the `RemovedComponents` list will not be automatically cleared for you,
-/// and will need to be manually flushed using [`World::clear_trackers`](crate::world::World::clear_trackers)
+/// and will need to be manually flushed using [`World::clear_trackers`](World::clear_trackers).
 ///
-/// For users of `bevy` and `bevy_app`, this is automatically done in `bevy_app::App::update`.
-/// For the main world, [`World::clear_trackers`](crate::world::World::clear_trackers) is run after the main schedule is run and after
-/// `SubApp`'s have run.
+/// For users of `bevy` and `bevy_app`, [`World::clear_trackers`](World::clear_trackers) is
+/// automatically called by `bevy_app::App::update` and `bevy_app::SubApp::update`.
+/// For the main world, this is delayed until after all `SubApp`s have run.
 ///
 /// # Examples
 ///
@@ -128,7 +134,7 @@ impl RemovedComponentEvents {
 /// # #[derive(Component)]
 /// # struct MyComponent;
 /// fn react_on_removal(mut removed: RemovedComponents<MyComponent>) {
-///     removed.iter().for_each(|removed_entity| println!("{:?}", removed_entity));
+///     removed.read().for_each(|removed_entity| println!("{:?}", removed_entity));
 /// }
 /// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```
@@ -166,13 +172,13 @@ fn map_id_events(
 // For all practical purposes, the api surface of `RemovedComponents<T>`
 // should be similar to `EventReader<T>` to reduce confusion.
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
-    /// Fetch underlying [`ManualEventReader`].
-    pub fn reader(&self) -> &ManualEventReader<RemovedComponentEntity> {
+    /// Fetch underlying [`EventCursor`].
+    pub fn reader(&self) -> &EventCursor<RemovedComponentEntity> {
         &self.reader
     }
 
-    /// Fetch underlying [`ManualEventReader`] mutably.
-    pub fn reader_mut(&mut self) -> &mut ManualEventReader<RemovedComponentEntity> {
+    /// Fetch underlying [`EventCursor`] mutably.
+    pub fn reader_mut(&mut self) -> &mut EventCursor<RemovedComponentEntity> {
         &mut self.reader
     }
 
@@ -181,7 +187,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
         self.event_sets.get(self.component_id.get())
     }
 
-    /// Destructures to get a mutable reference to the `ManualEventReader`
+    /// Destructures to get a mutable reference to the `EventCursor`
     /// and a reference to `Events`.
     ///
     /// This is necessary since Rust can't detect destructuring through methods and most
@@ -208,14 +214,6 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .map(RemovedComponentEntity::into)
     }
 
-    /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
-    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
-    /// that happened before now.
-    #[deprecated = "use `.read()` instead."]
-    pub fn iter(&mut self) -> RemovedIter<'_> {
-        self.read()
-    }
-
     /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
     pub fn read_with_id(&mut self) -> RemovedIterWithId<'_> {
         self.reader_mut_with_events()
@@ -223,12 +221,6 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .into_iter()
             .flatten()
             .map(map_id_events)
-    }
-
-    /// Like [`iter`](Self::iter), except also returning the [`EventId`] of the events.
-    #[deprecated = "use `.read_with_id()` instead."]
-    pub fn iter_with_id(&mut self) -> RemovedIterWithId<'_> {
-        self.read_with_id()
     }
 
     /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
@@ -259,8 +251,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
 // SAFETY: Only reads World removed component events
 unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
 
-// SAFETY: no component value access, removed component events can be read in parallel and are
-// never mutably borrowed during system execution
+// SAFETY: no component value access.
 unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     type State = ();
     type Item<'w, 's> = &'w RemovedComponentEvents;
@@ -274,6 +265,6 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
         world: UnsafeWorldCell<'w>,
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        world.world_metadata().removed_components()
+        world.removed_components()
     }
 }
