@@ -47,7 +47,9 @@ pub mod state_scoped;
 /// Provides definitions for the basic traits required by the state system
 pub mod reflect;
 
-/// Most commonly used re-exported types.
+/// The state prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
     #[doc(hidden)]

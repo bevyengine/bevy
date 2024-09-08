@@ -111,7 +111,9 @@ mod test_colors;
 mod testing;
 mod xyza;
 
-/// Commonly used color types and traits.
+/// The color prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::color::*;
     pub use crate::color_ops::*;

@@ -24,7 +24,9 @@ pub mod touch;
 pub use axis::*;
 pub use button_input::*;
 
-/// Most commonly used re-exported types.
+/// The input prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
