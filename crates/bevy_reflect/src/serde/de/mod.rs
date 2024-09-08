@@ -1,6 +1,7 @@
 pub use deserializer::*;
 pub use registrations::*;
 
+mod arrays;
 mod deserializer;
 mod helpers;
 mod registration_utils;
@@ -16,48 +17,13 @@ use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
 use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
-    DynamicTuple, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, Set, SetInfo,
-    StructVariantInfo, TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicVariant,
+    EnumInfo, ListInfo, Map, MapInfo, Set, SetInfo, StructVariantInfo, TupleVariantInfo,
+    TypeRegistration, TypeRegistry, VariantInfo,
 };
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
 use std::fmt;
 use std::fmt::Formatter;
-
-struct ArrayVisitor<'a> {
-    array_info: &'static ArrayInfo,
-    registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
-    type Value = DynamicArray;
-
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("reflected array value")
-    }
-
-    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
-    where
-        V: SeqAccess<'de>,
-    {
-        let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or_default());
-        let registration = try_get_registration(self.array_info.item_ty(), self.registry)?;
-        while let Some(value) =
-            seq.next_element_seed(TypedReflectDeserializer::new(registration, self.registry))?
-        {
-            vec.push(value);
-        }
-
-        if vec.len() != self.array_info.capacity() {
-            return Err(Error::invalid_length(
-                vec.len(),
-                &self.array_info.capacity().to_string().as_str(),
-            ));
-        }
-
-        Ok(DynamicArray::new(vec.into_boxed_slice()))
-    }
-}
 
 struct ListVisitor<'a> {
     list_info: &'static ListInfo,
