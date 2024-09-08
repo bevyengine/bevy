@@ -30,11 +30,11 @@
 //! poll in your update loop, and transition to the new scene when all assets are loaded.
 //! Bevy's built-in states system can be very helpful for this!
 //!
-//! If we later want to manipulate this asset data (such as for displaying a death animation), we have three options:
-//!
-//! 1. Despawn the entity and spawn a new one with the new asset data.
-//! 2. Change what the handle is pointing to.
-//! 3. Use the [`Assets`] collection to directly modify the asset data.
+//! If we later want to change the asset data a given Component uses (such as changing an entity's material), we have three options:
+//! 
+//! 1. Change the handle field on the Component to the handle of a different asset
+//! 2. Despawn the entity and spawn a new one with the new asset data.
+//! 3. Use the [`Assets`] collection to directly modify the current handle's asset data
 //!
 //! The first option is the simplest, but can be slow if done frequently,
 //! and can lead to frustrating bugs as references to the old entity (such as what is targeting it) and other data on the entity are lost.
