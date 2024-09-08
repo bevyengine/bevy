@@ -1837,6 +1837,12 @@ pub struct UiImage {
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
+    /// An optional rectangle representing the region of the image to render, instead of rendering
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](crate::TextureAtlas).
+    ///
+    /// When used with a [`TextureAtlas`](crate::TextureAtlas), the rect
+    /// is offset by the atlas's minimal (top-left) corner position.
+    pub rect: Option<Rect>,
 }
 
 impl Default for UiImage {
@@ -1856,6 +1862,7 @@ impl Default for UiImage {
             texture: TRANSPARENT_IMAGE_HANDLE,
             flip_x: false,
             flip_y: false,
+            rect: None,
         }
     }
 }
@@ -1879,6 +1886,7 @@ impl UiImage {
             color,
             flip_x: false,
             flip_y: false,
+            rect: None,
         }
     }
 
@@ -1900,6 +1908,12 @@ impl UiImage {
     #[must_use]
     pub const fn with_flip_y(mut self) -> Self {
         self.flip_y = true;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_rect(mut self, rect: Rect) -> Self {
+        self.rect = Some(rect);
         self
     }
 }
