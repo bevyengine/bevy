@@ -74,7 +74,7 @@ pub enum CustomCursor {
 
 pub fn update_cursors(
     mut commands: Commands,
-    mut windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
+    windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
     mut icon_removed: RemovedComponents<CursorIcon>,
     cursor_cache: Res<CustomCursorCache>,
     images: Res<Assets<Image>>,
@@ -89,7 +89,7 @@ pub fn update_cursors(
             ))));
     }
 
-    for (entity, cursor) in windows.iter_mut() {
+    for (entity, cursor) in windows.iter() {
         if !(queue.remove(&entity) || cursor.is_changed()) {
             continue;
         }
