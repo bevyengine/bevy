@@ -9,9 +9,9 @@ mod struct_utils;
 mod tuple_utils;
 
 use crate::serde::de::helpers::ExpectedValues;
-use crate::serde::de::registration_utils::{try_get_registration, GetFieldRegistration};
+use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
-use crate::serde::de::tuple_utils::visit_tuple;
+use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
     DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, Reflect,
@@ -266,7 +266,10 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 )?
                 .into(),
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
-                let registration = tuple_info.get_field_registration(0, self.registry)?;
+                let registration = try_get_registration(
+                    *TupleLikeInfo::field_at(tuple_info, 0)?.ty(),
+                    self.registry,
+                )?;
                 let value = variant.newtype_variant_seed(TypedReflectDeserializer::new(
                     registration,
                     self.registry,

@@ -1,5 +1,5 @@
 use crate::serde::de::helpers::{ExpectedValues, Ident};
-use crate::serde::de::registration_utils::{try_get_registration, GetFieldRegistration};
+use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::{SerializationData, TypedReflectDeserializer};
 use crate::{
     DynamicStruct, NamedField, StructInfo, StructVariantInfo, TypeRegistration, TypeRegistry,
@@ -9,23 +9,35 @@ use serde::de::{Error, MapAccess, SeqAccess};
 
 /// A helper trait for accessing type information from struct-like types.
 pub(super) trait StructLikeInfo {
-    fn get_field(&self, name: &str) -> Option<&NamedField>;
-    fn field_at(&self, index: usize) -> Option<&NamedField>;
-    fn get_field_len(&self) -> usize;
+    fn field<E: Error>(&self, name: &str) -> Result<&NamedField, E>;
+    fn field_at<E: Error>(&self, index: usize) -> Result<&NamedField, E>;
+    fn field_len(&self) -> usize;
     fn iter_fields(&self) -> Iter<'_, NamedField>;
 }
 
 impl StructLikeInfo for StructInfo {
-    fn get_field(&self, name: &str) -> Option<&NamedField> {
-        self.field(name)
+    fn field<E: Error>(&self, name: &str) -> Result<&NamedField, E> {
+        Self::field(self, name).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field named {} on struct {}",
+                name,
+                self.type_path(),
+            ))
+        })
     }
 
-    fn field_at(&self, index: usize) -> Option<&NamedField> {
-        self.field_at(index)
+    fn field_at<E: Error>(&self, index: usize) -> Result<&NamedField, E> {
+        Self::field_at(self, index).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field at index {} on struct {}",
+                index,
+                self.type_path(),
+            ))
+        })
     }
 
-    fn get_field_len(&self) -> usize {
-        self.field_len()
+    fn field_len(&self) -> usize {
+        Self::field_len(self)
     }
 
     fn iter_fields(&self) -> Iter<'_, NamedField> {
@@ -34,16 +46,28 @@ impl StructLikeInfo for StructInfo {
 }
 
 impl StructLikeInfo for StructVariantInfo {
-    fn get_field(&self, name: &str) -> Option<&NamedField> {
-        self.field(name)
+    fn field<E: Error>(&self, name: &str) -> Result<&NamedField, E> {
+        Self::field(self, name).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field named {} on variant {}",
+                name,
+                self.name(),
+            ))
+        })
     }
 
-    fn field_at(&self, index: usize) -> Option<&NamedField> {
-        self.field_at(index)
+    fn field_at<E: Error>(&self, index: usize) -> Result<&NamedField, E> {
+        Self::field_at(self, index).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field at index {} on variant {}",
+                index,
+                self.name(),
+            ))
+        })
     }
 
-    fn get_field_len(&self) -> usize {
-        self.field_len()
+    fn field_len(&self) -> usize {
+        Self::field_len(self)
     }
 
     fn iter_fields(&self) -> Iter<'_, NamedField> {
@@ -66,7 +90,7 @@ where
 {
     let mut dynamic_struct = DynamicStruct::default();
     while let Some(Ident(key)) = map.next_key::<Ident>()? {
-        let field = info.get_field(&key).ok_or_else(|| {
+        let field = info.field::<V::Error>(&key).map_err(|_| {
             let fields = info.iter_fields().map(NamedField::name);
             Error::custom(format_args!(
                 "unknown field `{}`, expected one of {:?}",
@@ -81,7 +105,7 @@ where
 
     if let Some(serialization_data) = registration.data::<SerializationData>() {
         for (skipped_index, skipped_field) in serialization_data.iter_skipped() {
-            let Some(field) = info.field_at(*skipped_index) else {
+            let Ok(field) = info.field_at::<V::Error>(*skipped_index) else {
                 continue;
             };
             dynamic_struct.insert_boxed(
@@ -104,12 +128,12 @@ pub(super) fn visit_struct_seq<'de, T, V>(
     registry: &TypeRegistry,
 ) -> Result<DynamicStruct, V::Error>
 where
-    T: StructLikeInfo + GetFieldRegistration,
+    T: StructLikeInfo,
     V: SeqAccess<'de>,
 {
     let mut dynamic_struct = DynamicStruct::default();
 
-    let len = info.get_field_len();
+    let len = info.field_len();
 
     if len == 0 {
         // Handle unit structs
@@ -119,7 +143,7 @@ where
     let serialization_data = registration.data::<SerializationData>();
 
     for index in 0..len {
-        let name = info.field_at(index).unwrap().name();
+        let name = info.field_at::<V::Error>(index)?.name();
 
         if serialization_data
             .map(|data| data.is_field_skipped(index))
@@ -133,7 +157,7 @@ where
 
         let value = seq
             .next_element_seed(TypedReflectDeserializer::new(
-                info.get_field_registration(index, registry)?,
+                try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;

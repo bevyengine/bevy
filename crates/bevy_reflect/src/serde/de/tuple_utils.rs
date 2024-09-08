@@ -1,29 +1,61 @@
-use crate::serde::de::registration_utils::GetFieldRegistration;
+use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::{SerializationData, TypedReflectDeserializer};
 use crate::{
     DynamicTuple, TupleInfo, TupleStructInfo, TupleVariantInfo, TypeRegistration, TypeRegistry,
+    UnnamedField,
 };
 use serde::de::{Error, SeqAccess};
 
 pub(super) trait TupleLikeInfo {
-    fn get_field_len(&self) -> usize;
+    fn field_at<E: Error>(&self, index: usize) -> Result<&UnnamedField, E>;
+    fn field_len(&self) -> usize;
 }
 
 impl TupleLikeInfo for TupleInfo {
-    fn get_field_len(&self) -> usize {
-        self.field_len()
+    fn field_len(&self) -> usize {
+        Self::field_len(self)
+    }
+
+    fn field_at<E: Error>(&self, index: usize) -> Result<&UnnamedField, E> {
+        Self::field_at(self, index).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field at index {} on tuple {}",
+                index,
+                self.type_path(),
+            ))
+        })
     }
 }
 
 impl TupleLikeInfo for TupleStructInfo {
-    fn get_field_len(&self) -> usize {
-        self.field_len()
+    fn field_len(&self) -> usize {
+        Self::field_len(self)
+    }
+
+    fn field_at<E: Error>(&self, index: usize) -> Result<&UnnamedField, E> {
+        Self::field_at(self, index).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field at index {} on tuple struct {}",
+                index,
+                self.type_path(),
+            ))
+        })
     }
 }
 
 impl TupleLikeInfo for TupleVariantInfo {
-    fn get_field_len(&self) -> usize {
-        self.field_len()
+    fn field_len(&self) -> usize {
+        Self::field_len(self)
+    }
+
+    fn field_at<E: Error>(&self, index: usize) -> Result<&UnnamedField, E> {
+        Self::field_at(self, index).ok_or_else(|| {
+            Error::custom(format_args!(
+                "no field at index {} on tuple variant {}",
+                index,
+                self.name(),
+            ))
+        })
     }
 }
 
@@ -37,12 +69,12 @@ pub(super) fn visit_tuple<'de, T, V>(
     registry: &TypeRegistry,
 ) -> Result<DynamicTuple, V::Error>
 where
-    T: TupleLikeInfo + GetFieldRegistration,
+    T: TupleLikeInfo,
     V: SeqAccess<'de>,
 {
     let mut tuple = DynamicTuple::default();
 
-    let len = info.get_field_len();
+    let len = info.field_len();
 
     if len == 0 {
         // Handle empty tuple/tuple struct
@@ -59,7 +91,7 @@ where
 
         let value = seq
             .next_element_seed(TypedReflectDeserializer::new(
-                info.get_field_registration(index, registry)?,
+                try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
