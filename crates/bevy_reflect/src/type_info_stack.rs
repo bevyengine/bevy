@@ -17,7 +17,7 @@ impl TypeInfoStack {
     }
 
     /// Push a new [`TypeInfo`] onto the stack.
-    pub fn push_info(&mut self, type_info: &'static TypeInfo) {
+    pub fn push(&mut self, type_info: &'static TypeInfo) {
         self.stack.push(type_info);
     }
 

@@ -161,7 +161,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 ))
             })?;
 
-            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push_info(info));
+            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
         }
 
         // Handle both Value case and types that have a custom `Serialize`

@@ -355,7 +355,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
         };
 
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push_info(self.registration.type_info()));
+        TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(self.registration.type_info()));
 
         let output = deserialize_internal();
 
