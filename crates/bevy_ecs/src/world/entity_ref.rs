@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     event::Event,
     observer::{Observer, Observers},
-    query::{Access, QueryData, ReadOnlyQueryData},
+    query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::IntoObserverSystem,
@@ -158,11 +158,16 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
+    ///
+    /// # Panics
+    ///
+    /// If the entitiy does not have the components required by the query `Q`.
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'w> {
         self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
 
-    /// Returns read-only components for the current entity that match the query `Q`.
+    /// Returns read-only components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
@@ -363,11 +368,16 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity does not have the components required by the query `Q`.
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
         self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
 
-    /// Returns read-only components for the current entity that match the query `Q`.
+    /// Returns read-only components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.0.get_components::<Q>() }
@@ -671,12 +681,17 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
+    ///
+    /// # Panics
+    ///
+    /// If the entity does not have the components required by the query `Q`.
     #[inline]
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
         EntityRef::from(self).components::<Q>()
     }
 
-    /// Returns read-only components for the current entity that match the query `Q`.
+    /// Returns read-only components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
     #[inline]
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
         EntityRef::from(self).get_components::<Q>()
