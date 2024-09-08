@@ -1,6 +1,8 @@
 pub use registrations::*;
 mod registrations;
+mod helpers;
 
+use crate::serde::de::helpers::{ExpectedValues, Ident};
 use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
@@ -13,10 +15,9 @@ use erased_serde::Deserializer;
 use serde::de::{
     DeserializeSeed, EnumAccess, Error, IgnoredAny, MapAccess, SeqAccess, VariantAccess, Visitor,
 };
-use serde::Deserialize;
 use std::any::TypeId;
 use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Formatter;
 use std::slice::Iter;
 
 pub trait DeserializeValue {
@@ -181,66 +182,6 @@ impl Container for TupleVariantInfo {
             ))
         })?;
         get_registration(field.type_id(), field.type_path(), registry)
-    }
-}
-
-/// A debug struct used for error messages that displays a list of expected values.
-///
-/// # Example
-///
-/// ```ignore (Can't import private struct from doctest)
-/// let expected = vec!["foo", "bar", "baz"];
-/// assert_eq!("`foo`, `bar`, `baz`", format!("{}", ExpectedValues(expected)));
-/// ```
-struct ExpectedValues<T: Display>(Vec<T>);
-
-impl<T: Display> Debug for ExpectedValues<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let len = self.0.len();
-        for (index, item) in self.0.iter().enumerate() {
-            write!(f, "`{item}`")?;
-            if index < len - 1 {
-                write!(f, ", ")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-/// Represents a simple reflected identifier.
-#[derive(Debug, Clone, Eq, PartialEq)]
-struct Ident(String);
-
-impl<'de> Deserialize<'de> for Ident {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct IdentVisitor;
-
-        impl<'de> Visitor<'de> for IdentVisitor {
-            type Value = Ident;
-
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                formatter.write_str("identifier")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: Error,
-            {
-                Ok(Ident(value.to_string()))
-            }
-
-            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-            where
-                E: Error,
-            {
-                Ok(Ident(value))
-            }
-        }
-
-        deserializer.deserialize_identifier(IdentVisitor)
     }
 }
 
@@ -921,7 +862,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
                     Error::custom(format_args!(
                         "unknown variant `{}`, expected one of {:?}",
                         variant_name,
-                        ExpectedValues(names.collect())
+                        ExpectedValues::from_iter(names)
                     ))
                 })
             }
@@ -1047,7 +988,7 @@ where
             Error::custom(format_args!(
                 "unknown field `{}`, expected one of {:?}",
                 key,
-                ExpectedValues(fields.collect())
+                ExpectedValues::from_iter(fields)
             ))
         })?;
         let registration = get_registration(field.type_id(), field.type_path(), registry)?;
