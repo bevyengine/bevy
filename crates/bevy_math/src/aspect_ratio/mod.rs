@@ -40,7 +40,7 @@ impl AspectRatio {
     ///
     /// # Errors
     ///
-    /// Returns an `Err` with [`AspectRatioError`] if:
+    /// Returns an `Err` with `AspectRatioError` if:
     /// - Either width or height is zero (`AspectRatioError::Zero`)
     /// - Either width or height is infinite (`AspectRatioError::Infinite`)
     /// - Either width or height is NaN (`AspectRatioError::NaN`)
