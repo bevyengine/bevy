@@ -1,6 +1,9 @@
+pub use serializable::*;
+mod serializable;
+
 use crate::{
-    Array, Enum, List, Map, PartialReflect, ReflectRef, ReflectSerialize, Set, Struct, Tuple,
-    TupleStruct, TypeInfo, TypeRegistry, VariantInfo, VariantType,
+    Array, Enum, List, Map, PartialReflect, ReflectRef, Set, Struct, Tuple, TupleStruct, TypeInfo,
+    TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
     Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
@@ -12,55 +15,6 @@ use serde::{
 };
 
 use super::SerializationData;
-
-pub enum Serializable<'a> {
-    Owned(Box<dyn erased_serde::Serialize + 'a>),
-    Borrowed(&'a dyn erased_serde::Serialize),
-}
-
-impl<'a> Serializable<'a> {
-    #[allow(clippy::should_implement_trait)]
-    pub fn borrow(&self) -> &dyn erased_serde::Serialize {
-        match self {
-            Serializable::Borrowed(serialize) => serialize,
-            Serializable::Owned(serialize) => serialize,
-        }
-    }
-}
-
-fn get_serializable<'a, E: Error>(
-    reflect_value: &'a dyn PartialReflect,
-    type_registry: &TypeRegistry,
-) -> Result<Serializable<'a>, E> {
-    let Some(reflect_value) = reflect_value.try_as_reflect() else {
-        return Err(Error::custom(format_args!(
-            "Type '{}' does not implement `Reflect`",
-            reflect_value.reflect_type_path()
-        )));
-    };
-    let info = reflect_value.get_represented_type_info().ok_or_else(|| {
-        Error::custom(format_args!(
-            "Type '{}' does not represent any type",
-            reflect_value.reflect_type_path(),
-        ))
-    })?;
-
-    let registration = type_registry.get(info.type_id()).ok_or_else(|| {
-        Error::custom(format_args!(
-            "Type `{}` is not registered in the type registry",
-            info.type_path(),
-        ))
-    })?;
-
-    let reflect_serialize = registration.data::<ReflectSerialize>().ok_or_else(|| {
-        Error::custom(format_args!(
-            "Type `{}` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
-            info.type_path(),
-        ))
-    })?;
-
-    Ok(reflect_serialize.get_serializable(reflect_value))
-}
 
 /// A general purpose serializer for reflected types.
 ///
@@ -193,9 +147,9 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
         S: serde::Serializer,
     {
         // Handle both Value case and types that have a custom `Serialize`
-        let serializable = get_serializable::<S::Error>(self.value, self.registry);
+        let serializable = Serializable::try_from_reflect_value::<S::Error>(self.value, self.registry);
         if let Ok(serializable) = serializable {
-            return serializable.borrow().serialize(serializer);
+            return serializable.serialize(serializer);
         }
 
         match self.value.reflect_ref() {
@@ -254,9 +208,7 @@ impl<'a> Serialize for ReflectValueSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        get_serializable::<S::Error>(self.value, self.registry)?
-            .borrow()
-            .serialize(serializer)
+        Serializable::try_from_reflect_value::<S::Error>(self.value, self.registry)?.serialize(serializer)
     }
 }
 
