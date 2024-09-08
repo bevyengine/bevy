@@ -427,17 +427,7 @@ impl World {
     /// world.many_entities([id1, id2]);
     /// ```
     pub fn many_entities<const N: usize>(&mut self, entities: [Entity; N]) -> [EntityRef<'_>; N] {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_on_err(e: QueryEntityError) -> ! {
-            panic!("{e}");
-        }
-
-        match self.get_many_entities(entities) {
-            Ok(refs) => refs,
-            Err(e) => panic_on_err(e),
-        }
+        self.get_many_entities(entities).unwrap()
     }
 
     /// Gets mutable access to multiple entities at once.
@@ -472,17 +462,7 @@ impl World {
         &mut self,
         entities: [Entity; N],
     ) -> [EntityMut<'_>; N] {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_on_err(e: QueryEntityError) -> ! {
-            panic!("{e}");
-        }
-
-        match self.get_many_entities_mut(entities) {
-            Ok(borrows) => borrows,
-            Err(e) => panic_on_err(e),
-        }
+        self.get_many_entities_mut(entities).unwrap()
     }
 
     /// Returns the components of an [`Entity`] through [`ComponentInfo`].
