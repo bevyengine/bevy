@@ -14,21 +14,13 @@ use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
 use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
-    DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, Reflect,
-    Set, SetInfo, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo, TupleVariantInfo,
+    DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, Set,
+    SetInfo, StructInfo, StructVariantInfo, TupleInfo, TupleStructInfo, TupleVariantInfo,
     TypeRegistration, TypeRegistry, VariantInfo,
 };
-use erased_serde::Deserializer;
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
 use std::fmt;
 use std::fmt::Formatter;
-
-pub trait DeserializeValue {
-    fn deserialize(
-        deserializer: &mut dyn Deserializer,
-        type_registry: &TypeRegistry,
-    ) -> Result<Box<dyn Reflect>, erased_serde::Error>;
-}
 
 struct StructVisitor<'a> {
     struct_info: &'static StructInfo,
