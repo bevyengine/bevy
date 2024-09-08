@@ -30,13 +30,13 @@ pub mod helper;
 pub mod systems;
 
 #[doc(hidden)]
+#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::components::*;
 
     #[cfg(feature = "bevy-support")]
     #[doc(hidden)]
-    #[allow(deprecated)]
     pub use crate::{
         bundles::TransformBundle, commands::BuildChildrenTransformExt, helper::TransformHelper,
         plugins::TransformPlugin, plugins::TransformSystem, traits::TransformPoint,

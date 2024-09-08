@@ -1,4 +1,4 @@
-#![allow(deprecated)]
+#![expect(deprecated)]
 use bevy_ecs::bundle::Bundle;
 
 use crate::prelude::{GlobalTransform, Transform};
