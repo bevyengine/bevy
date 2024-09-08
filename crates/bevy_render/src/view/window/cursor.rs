@@ -5,6 +5,7 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
+    removal_detection::RemovedComponents,
     system::{Commands, Local, Query, Res},
     world::Ref,
 };
@@ -74,10 +75,20 @@ pub enum CustomCursor {
 pub fn update_cursors(
     mut commands: Commands,
     mut windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
+    mut icon_removed: RemovedComponents<CursorIcon>,
     cursor_cache: Res<CustomCursorCache>,
     images: Res<Assets<Image>>,
     mut queue: Local<HashSet<Entity>>,
 ) {
+    // Resets the cursor to the default icon when `CursorIcon` is removed
+    for entity in icon_removed.read() {
+        commands
+            .entity(entity)
+            .insert(PendingCursor(Some(CursorSource::System(
+                convert_system_cursor_icon(SystemCursorIcon::Default),
+            ))));
+    }
+
     for (entity, cursor) in windows.iter_mut() {
         if !(queue.remove(&entity) || cursor.is_changed()) {
             continue;
