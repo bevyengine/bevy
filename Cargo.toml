@@ -873,6 +873,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "orthographic_zoom"
+path = "examples/3d/orthographic_zoom.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.orthographic_zoom]
+name = "Orthographic Zoom"
+description = "Shows how to zoom, pan, and rotate an orthographic projection camera."
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "parenting"
 path = "examples/3d/parenting.rs"
 doc-scrape-examples = true
@@ -880,6 +891,18 @@ doc-scrape-examples = true
 [package.metadata.example.parenting]
 name = "Parenting"
 description = "Demonstrates parent->child relationships and relative transformations"
+category = "3D Rendering"
+wasm = true
+
+
+[[example]]
+name = "perspective_zoom"
+path = "examples/3d/perspective_zoom.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.perspective_zoom]
+name = "Perspective Zoom"
+description = "Shows how to zoom, pan, and rotate a perspective projection camera."
 category = "3D Rendering"
 wasm = true
 
