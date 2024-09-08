@@ -13,7 +13,7 @@
 
 use bevy::{
     core_pipeline::{
-        auto_exposure::{AutoExposureCompensationCurve, AutoExposurePlugin, AutoExposureSettings},
+        auto_exposure::{AutoExposureCompensationCurve, AutoExposureSettings},
         Skybox,
     },
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
@@ -23,7 +23,6 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(AutoExposurePlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, example_control_system)
         .run();

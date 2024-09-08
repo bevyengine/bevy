@@ -53,6 +53,7 @@ pub mod prelude {
 }
 
 use crate::{
+    auto_exposure::AutoExposurePlugin,
     blit::BlitPlugin,
     bloom::BloomPlugin,
     contrast_adaptive_sharpening::CasPlugin,
@@ -96,6 +97,7 @@ impl Plugin for CorePipelinePlugin {
                 CopyDeferredLightingIdPlugin,
                 BlitPlugin,
                 MsaaWritebackPlugin,
+                AutoExposurePlugin,
                 TonemappingPlugin,
                 UpscalingPlugin,
                 BloomPlugin,
