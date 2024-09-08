@@ -879,7 +879,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.orthographic_zoom]
 name = "Orthographic Zoom"
-description = "Shows how to zoom, pan, and rotate an orthographic projection camera."
+description = "Shows how to zoom and orbit an orthographic projection camera."
 category = "3D Rendering"
 wasm = true
 
@@ -902,7 +902,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.perspective_zoom]
 name = "Perspective Zoom"
-description = "Shows how to zoom, pan, and rotate a perspective projection camera."
+description = "Shows how to zoom and orbit a perspective projection camera."
 category = "3D Rendering"
 wasm = true
 
