@@ -161,7 +161,7 @@ impl<'w> EntityRef<'w> {
     ///
     /// # Panics
     ///
-    /// If the entitiy does not have the components required by the query `Q`.
+    /// If the entity does not have the components required by the query `Q`.
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'w> {
         self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
