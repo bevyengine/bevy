@@ -3,7 +3,6 @@ pub use serializer::*;
 
 mod serializable;
 mod serializer;
-mod values;
 
 use crate::{
     Array, Enum, List, Map, Set, Struct, Tuple, TupleStruct, TypeInfo, TypeRegistry, VariantInfo,
