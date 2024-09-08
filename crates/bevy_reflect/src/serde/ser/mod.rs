@@ -8,28 +8,11 @@ mod serializer;
 mod structs;
 mod tuple_structs;
 mod tuples;
+mod sets;
 
-use crate::{Array, List, Set, TypeRegistry};
+use crate::{Array, List, TypeRegistry};
 use serde::ser::SerializeTuple;
 use serde::{ser::SerializeSeq, Serialize};
-
-pub struct SetSerializer<'a> {
-    pub set: &'a dyn Set,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for SetSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_seq(Some(self.set.len()))?;
-        for value in self.set.iter() {
-            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
-        }
-        state.end()
-    }
-}
 
 pub struct ListSerializer<'a> {
     pub list: &'a dyn List,
