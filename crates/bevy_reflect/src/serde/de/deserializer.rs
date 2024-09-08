@@ -1,5 +1,6 @@
+use crate::serde::de::structs::StructVisitor;
 use crate::serde::de::{
-    ArrayVisitor, EnumVisitor, ListVisitor, MapVisitor, OptionVisitor, SetVisitor, StructVisitor,
+    ArrayVisitor, EnumVisitor, ListVisitor, MapVisitor, OptionVisitor, SetVisitor,
     TupleStructVisitor, TupleVisitor,
 };
 use crate::serde::TypeRegistrationDeserializer;
@@ -253,11 +254,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 let mut dynamic_struct = deserializer.deserialize_struct(
                     struct_info.type_path_table().ident().unwrap(),
                     struct_info.field_names(),
-                    StructVisitor {
-                        struct_info,
-                        registration: self.registration,
-                        registry: self.registry,
-                    },
+                    StructVisitor::new(struct_info, self.registration, self.registry),
                 )?;
                 dynamic_struct.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_struct))
