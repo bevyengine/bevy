@@ -26,6 +26,10 @@ impl AspectRatio {
     pub const ULTRAWIDE: Self = Self(21.0 / 9.0);
 
     /// Create a new [`AspectRatio`] from a given width and height.
+    ///
+    /// # Panics
+    /// Panics when the width and height values are invalid, such a zero or infinite widths/heights, or if either
+    /// value is `NaN`.
     #[inline]
     pub fn new(width: f32, height: f32) -> Self {
         Self::try_new(width, height).expect("Invalid aspect ratio")
