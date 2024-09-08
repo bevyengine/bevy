@@ -367,20 +367,9 @@ impl<'w> EntityMut<'w> {
         self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
     }
 
-    /// Returns components for the current entity that match the query `Q`.
-    pub fn components_mut<Q: QueryData>(&mut self) -> Q::Item<'_> {
-        self.get_components_mut::<Q>().expect(QUERY_MISMATCH_ERROR)
-    }
-
     /// Returns read-only components for the current entity that match the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.0.get_components::<Q>() }
-    }
-
-    /// Returns components for the current entity that match the query `Q`.
-    pub fn get_components_mut<Q: QueryData>(&mut self) -> Option<Q::Item<'_>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.0.get_components::<Q>() }
     }
 
@@ -687,23 +676,10 @@ impl<'w> EntityWorldMut<'w> {
         EntityRef::from(self).components::<Q>()
     }
 
-    /// Returns components for the current entity that match the query `Q`.
-    #[inline]
-    pub fn components_mut<Q: QueryData>(&mut self) -> Q::Item<'_> {
-        self.get_components_mut::<Q>().expect(QUERY_MISMATCH_ERROR)
-    }
-
     /// Returns read-only components for the current entity that match the query `Q`.
     #[inline]
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
         EntityRef::from(self).get_components::<Q>()
-    }
-
-    /// Returns components for the current entity that match the query `Q`.
-    #[inline]
-    pub fn get_components_mut<Q: QueryData>(&mut self) -> Option<Q::Item<'_>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
-        unsafe { self.as_unsafe_entity_cell().get_components::<Q>() }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with

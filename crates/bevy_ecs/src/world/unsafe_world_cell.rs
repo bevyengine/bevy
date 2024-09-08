@@ -11,7 +11,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::Component,
-    query::{DebugCheckedUnwrap, QueryData},
+    query::{DebugCheckedUnwrap, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
@@ -886,9 +886,9 @@ impl<'w> UnsafeEntityCell<'w> {
 
     /// # Safety
     /// It is the callers responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the queried data mutably
-    /// - no other references to the queried data exist at the same time
-    pub(crate) unsafe fn get_components<Q: QueryData>(&self) -> Option<Q::Item<'_>> {
+    /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
+    /// - no mutable references to the queried data exist at the same time
+    pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
         // SAFETY: World is only used to access query data and initialize query state
         let state = unsafe {
             let world = self.world().world();
