@@ -2,11 +2,11 @@ use crate::serde::de::arrays::ArrayVisitor;
 use crate::serde::de::enums::EnumVisitor;
 use crate::serde::de::lists::ListVisitor;
 use crate::serde::de::maps::MapVisitor;
+use crate::serde::de::options::OptionVisitor;
 use crate::serde::de::sets::SetVisitor;
 use crate::serde::de::structs::StructVisitor;
 use crate::serde::de::tuple_structs::TupleStructVisitor;
 use crate::serde::de::tuples::TupleVisitor;
-use crate::serde::de::OptionVisitor;
 use crate::serde::TypeRegistrationDeserializer;
 use crate::{PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry};
 use core::fmt::Formatter;
@@ -311,10 +311,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                     == Some("core::option")
                     && enum_info.type_path_table().ident() == Some("Option")
                 {
-                    deserializer.deserialize_option(OptionVisitor {
-                        enum_info,
-                        registry: self.registry,
-                    })?
+                    deserializer.deserialize_option(OptionVisitor::new(enum_info, self.registry))?
                 } else {
                     deserializer.deserialize_enum(
                         enum_info.type_path_table().ident().unwrap(),
