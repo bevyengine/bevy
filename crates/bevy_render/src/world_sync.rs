@@ -13,15 +13,23 @@ use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_reflect::Reflect;
 use bevy_utils::tracing::warn;
 
-/// A Plugin that synchronizes entities with specific Components between the main world and render world.
+/// A Plugin that synchronizes entities with specific Components between the main world and the render world.
 ///
-/// Bevy's renderer is architected independently from the main app. It operates in its own separate ECS World, so the renderer could run in parallel with the main app logic. This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
+/// Bevy's renderer is architected independently from the main app.
+/// It operates in its own separate ECS World, so the renderer could run in parallel with the main world logic.
+/// This is called "Pipelined Rendering", see [`PipelinedRenderingPlugin`] for more information.
 ///
-/// Previously, `extract` will copy the related main world entity and its data into the render world , and then render world will clear all render entities at the end of frame to reserve enough entity space to ensure that no main world entity ID has been occupied during next `extract`.
+/// [`WorldSyncPlugin`] is the first thing that runs every frame and it maintains an entity-to-entity mapping
+/// between the main world and the render world.
+/// This is necessary for extraction, which copies over component data from the main to the render world.
 ///
-/// With `* as entities`, we should not clear all entities in render world because some core metadata (e.g. [`Component`], [`Query`]) are also stored in the form of entity.
-///
-/// [`WorldSyncPlugin`] maintains an entity-to-entity mapping to sync a main world entity and a render world entity. Each synchronized main entity has a [`RenderEntity`] component that holds an Entity pointer to its unique counterpart entity in the render world.
+/// ```text
+/// |--------------------------------------------------------------------|
+/// |      |         |          Main world loop                          |
+/// | sync | extract |---------------------------------------------------|
+/// |      |         |         Render world loop                         |
+//are/ |--------------------------------------------------------------------|
+/// ```
 ///
 /// An example for synchronized main entities 1v1 and 18v1
 ///
@@ -42,18 +50,19 @@ use bevy_utils::tracing::warn;
 ///
 /// ```
 ///
-/// To establish a "Synchronous Relationship", you can add a [`SyncRenderWorld`] component to an entity. Once a synchronized main entity is despawned, its corresponding render entity will be automatically purged in the next `Sync`
+/// Note that not this effectively establishes a link between the main world entity and the render world entity.
+/// Not every entity needs to be synchronized, however, only entities with [`SyncRenderWorld`] are synced.
+/// Adding [`SyncRenderWorld`] to a main world component will establish such a link.
+/// Once a synchronized main entity is despawned, it's corresponding render entity will be automatically
+/// despawned in the next `sync`.
 ///
-/// Now a single frame of execution looks something like below
+/// The sync step does not handle the transfer of component data between worlds,
+/// since it's often not necessary to transfer over all the components of a main world entity.
+/// The render world probably cares about a `Position` component, but not a `Velocity` component.
+/// The extraction happens in it's own step, independently from synchronization.
 ///
-/// ```text
-/// |--------------------------------------------------------------------|
-/// |      |         |          Main   world loop                        |
-/// | Sync | extract |---------------------------------------------------|
-/// |      |         |         Render wrold loop                         |
-/// |--------------------------------------------------------------------|
-/// ```
-///
+/// Moreover, [`WorldSyncPlugin`] only synchronizes *entities*, stuff like mesh and texture data is handled
+/// differently, as those assets are extracted to render world resources and not entities.
 ///
 /// [`PipelinedRenderingPlugin`]: crate::pipelined_rendering::PipelinedRenderingPlugin
 #[derive(Default)]
