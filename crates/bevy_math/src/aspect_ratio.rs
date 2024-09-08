@@ -12,8 +12,11 @@ pub struct AspectRatio(f32);
 
 #[derive(Debug, PartialEq)]
 pub enum AspectRatioError {
+    /// Error due to width or height having zero as a value.
     Zero,
+    /// Error due to width or height being infinite.
     Infinite,
+    /// Error due to width or height being Not a Number (NaN).
     NaN,
 }
 
