@@ -1,6 +1,8 @@
 //! Provides a simple aspect ratio struct to help with calculations.
 
-use crate::Vec2;
+pub mod error;
+
+use crate::{aspect_ratio::error::AspectRatioError, Vec2};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -9,16 +11,6 @@ use bevy_reflect::Reflect;
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct AspectRatio(f32);
-
-#[derive(Debug, PartialEq)]
-pub enum AspectRatioError {
-    /// Error due to width or height having zero as a value.
-    Zero,
-    /// Error due to width or height being infinite.
-    Infinite,
-    /// Error due to width or height being Not a Number (NaN).
-    NaN,
-}
 
 impl AspectRatio {
     /// Standard 16:9 aspect ratio
