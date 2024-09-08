@@ -884,6 +884,9 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
+    /// Returns read-only components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
