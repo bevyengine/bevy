@@ -17,8 +17,6 @@ mod tuple_structs;
 mod tuple_utils;
 mod tuples;
 
-use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
-
 #[cfg(test)]
 mod tests {
     use bincode::Options;
