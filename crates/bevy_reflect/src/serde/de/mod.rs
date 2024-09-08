@@ -4,6 +4,7 @@ pub use registrations::*;
 mod arrays;
 mod deserializer;
 mod helpers;
+mod lists;
 mod registration_utils;
 mod registrations;
 mod struct_utils;
@@ -17,40 +18,13 @@ use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
 use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
 use crate::{
-    DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicVariant,
-    EnumInfo, ListInfo, Map, MapInfo, Set, SetInfo, StructVariantInfo, TupleVariantInfo,
-    TypeRegistration, TypeRegistry, VariantInfo,
+    DynamicEnum, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicVariant, EnumInfo,
+    Map, MapInfo, Set, SetInfo, StructVariantInfo, TupleVariantInfo, TypeRegistration,
+    TypeRegistry, VariantInfo,
 };
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
 use std::fmt;
 use std::fmt::Formatter;
-
-struct ListVisitor<'a> {
-    list_info: &'static ListInfo,
-    registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
-    type Value = DynamicList;
-
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("reflected list value")
-    }
-
-    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
-    where
-        V: SeqAccess<'de>,
-    {
-        let mut list = DynamicList::default();
-        let registration = try_get_registration(self.list_info.item_ty(), self.registry)?;
-        while let Some(value) =
-            seq.next_element_seed(TypedReflectDeserializer::new(registration, self.registry))?
-        {
-            list.push_box(value);
-        }
-        Ok(list)
-    }
-}
 
 struct MapVisitor<'a> {
     map_info: &'static MapInfo,
