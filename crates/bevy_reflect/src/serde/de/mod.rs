@@ -5,6 +5,7 @@ mod arrays;
 mod deserializer;
 mod helpers;
 mod lists;
+mod maps;
 mod registration_utils;
 mod registrations;
 mod struct_utils;
@@ -18,47 +19,12 @@ use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
 use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
 use crate::{
-    DynamicEnum, DynamicMap, DynamicSet, DynamicStruct, DynamicTuple, DynamicVariant, EnumInfo,
-    Map, MapInfo, Set, SetInfo, StructVariantInfo, TupleVariantInfo, TypeRegistration,
-    TypeRegistry, VariantInfo,
+    DynamicEnum, DynamicSet, DynamicStruct, DynamicTuple, DynamicVariant, EnumInfo, Set, SetInfo,
+    StructVariantInfo, TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
 use std::fmt;
 use std::fmt::Formatter;
-
-struct MapVisitor<'a> {
-    map_info: &'static MapInfo,
-    registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
-    type Value = DynamicMap;
-
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("reflected map value")
-    }
-
-    fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-    where
-        V: MapAccess<'de>,
-    {
-        let mut dynamic_map = DynamicMap::default();
-        let key_registration = try_get_registration(self.map_info.key_ty(), self.registry)?;
-        let value_registration = try_get_registration(self.map_info.value_ty(), self.registry)?;
-        while let Some(key) = map.next_key_seed(TypedReflectDeserializer::new(
-            key_registration,
-            self.registry,
-        ))? {
-            let value = map.next_value_seed(TypedReflectDeserializer::new(
-                value_registration,
-                self.registry,
-            ))?;
-            dynamic_map.insert_boxed(key, value);
-        }
-
-        Ok(dynamic_map)
-    }
-}
 
 struct SetVisitor<'a> {
     set_info: &'static SetInfo,

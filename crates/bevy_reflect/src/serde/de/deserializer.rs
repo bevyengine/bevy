@@ -1,9 +1,10 @@
 use crate::serde::de::arrays::ArrayVisitor;
 use crate::serde::de::lists::ListVisitor;
+use crate::serde::de::maps::MapVisitor;
 use crate::serde::de::structs::StructVisitor;
 use crate::serde::de::tuple_structs::TupleStructVisitor;
 use crate::serde::de::tuples::TupleVisitor;
-use crate::serde::de::{EnumVisitor, MapVisitor, OptionVisitor, SetVisitor};
+use crate::serde::de::{EnumVisitor, OptionVisitor, SetVisitor};
 use crate::serde::TypeRegistrationDeserializer;
 use crate::{PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry};
 use core::fmt::Formatter;
@@ -284,10 +285,8 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 Ok(Box::new(dynamic_array))
             }
             TypeInfo::Map(map_info) => {
-                let mut dynamic_map = deserializer.deserialize_map(MapVisitor {
-                    map_info,
-                    registry: self.registry,
-                })?;
+                let mut dynamic_map =
+                    deserializer.deserialize_map(MapVisitor::new(map_info, self.registry))?;
                 dynamic_map.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_map))
             }
