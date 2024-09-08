@@ -6,32 +6,14 @@ mod serializable;
 mod serializer;
 mod structs;
 mod tuple_structs;
+mod tuples;
 
-use crate::{Array, List, Map, Set, Tuple, TypeRegistry};
+use crate::{Array, List, Map, Set, TypeRegistry};
 use serde::ser::SerializeTuple;
 use serde::{
     ser::{SerializeMap, SerializeSeq},
     Serialize,
 };
-
-pub struct TupleSerializer<'a> {
-    pub tuple: &'a dyn Tuple,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for TupleSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_tuple(self.tuple.field_len())?;
-
-        for value in self.tuple.iter_fields() {
-            state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
-        }
-        state.end()
-    }
-}
 
 pub struct MapSerializer<'a> {
     pub map: &'a dyn Map,

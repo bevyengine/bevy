@@ -1,9 +1,8 @@
 use crate::serde::ser::enums::EnumSerializer;
 use crate::serde::ser::structs::StructSerializer;
 use crate::serde::ser::tuple_structs::TupleStructSerializer;
-use crate::serde::{
-    ArraySerializer, ListSerializer, MapSerializer, Serializable, SetSerializer, TupleSerializer,
-};
+use crate::serde::ser::tuples::TupleSerializer;
+use crate::serde::{ArraySerializer, ListSerializer, MapSerializer, Serializable, SetSerializer};
 use crate::{PartialReflect, ReflectRef, TypeRegistry};
 use serde::ser::{Error, SerializeMap};
 use serde::Serialize;
@@ -152,11 +151,9 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             ReflectRef::TupleStruct(value) => {
                 TupleStructSerializer::new(value, self.registry).serialize(serializer)
             }
-            ReflectRef::Tuple(value) => TupleSerializer {
-                tuple: value,
-                registry: self.registry,
+            ReflectRef::Tuple(value) => {
+                TupleSerializer::new(value, self.registry).serialize(serializer)
             }
-            .serialize(serializer),
             ReflectRef::List(value) => ListSerializer {
                 list: value,
                 registry: self.registry,
