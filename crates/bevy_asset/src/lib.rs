@@ -3,13 +3,13 @@
 //! are relatively large in size, and include everything from textures and models to sounds and music to levels and scripts.
 //!
 //! This presents two main challenges:
-//! - assets take up a lot of memory: simply storing a copy for each instance of an asset in the game would be prohibitively expensive
-//! - loading assets from disk is slow, and can cause the game to stutter or freeze if done in the middle of gameplay
+//! - Assets take up a lot of memory; simply storing a copy for each instance of an asset in the game would be prohibitively expensive.
+//! - Loading assets from disk is slow, and can cause the game to stutter or freeze if done in the middle of gameplay.
 //!
-//! These problems play into each other: if assets are expensive to store in memory,
-//! larger game worlds will need to load them from disk as needed, ideally without a loading screen!
+//! These problems play into each other, for if assets are expensive to store in memory,
+//! then larger game worlds will need to load them from disk as needed, ideally without a loading screen!
 //!
-//! Unsurprisingly, the problem of non-blocking asset loading is done using `async`, where background tasks are used to load assets while the game is running.
+//! As is common in Rust, non-blocking asset loading is done using `async`, with background tasks used to load assets while the game is running.
 //! Bevy coordinates these tasks using the [`AssetServer`], storing each loaded asset in a strongly-typed [`Assets<T>`] collection.
 //! [`Handle`]s serve as an id-based reference to entries in the [`Assets`] collection, allowing them to be cheaply shared between systems,
 //! and providing a way to initialize objects (generally entities) before the required assets are loaded.
@@ -18,16 +18,23 @@
 //!
 //! The [`AssetServer`] is the main entry point for loading assets.
 //! Typically, you'll use the [`AssetServer::load`] method to load an asset from disk, which returns a [`Handle`].
-//! Note that this method does not attempt to reload the asset if it has already been loaded: as long as the asset hasn't been dropped,
+//! Note that this method does not attempt to reload the asset if it has already been loaded: as long as at least one handle has not been dropped,
 //! calling [`AssetServer::load`] on the same path will return the same handle.
-//! The handle that's returned will be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
+//! The handle that's returned can be used to instantiate various [`Component`](bevy_ecs::prelude::Component)s that require asset data to function,
 //! which will then be spawned into the world as part of an entity.
 //!
 //! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
 //! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
-//! which will be [`LoadState::Loaded`] when the asset is ready to use.
+//! which will be `true` when the asset is ready to use.
+//! 
+//! ```rust
+//! if asset_server.is_loaded_with_dependencies(&my_asset) {
+//!     // Start the Game!
+//! }
+//! ```
+//! 
 //! Keep track of what you're waiting on using a [`HashSet`] or similar data structure,
-//! poll in your update loop, and transition to the new scene when all assets are loaded.
+//! which you poll in your update loop, and transition to the new scene when all assets are loaded.
 //! Bevy's built-in states system can be very helpful for this!
 //!
 //! If we later want to change the asset data a given Component uses (such as changing an entity's material), we have three options:
@@ -56,7 +63,7 @@
 //! When the reference count hits zero, the asset it references is removed from the [`Assets`] collection.
 //! To avoid incrementing the reference count, you can use the [`Handle::clone_weak`] method, which is marginally faster.
 //!
-//! This reference counting is a simple, laregely automatic way to avoid holding onto memory for game objects that are no longer in use.
+//! This reference counting is a simple, largely automatic way to avoid holding onto memory for game objects that are no longer in use.
 //! However, it can lead to surprising behavior if you're not careful!
 //!
 //! There are two categories of problems to watch out for:
@@ -87,9 +94,9 @@
 //! In simple cases, you can derive [`Asset`] and [`Reflect`] and be done with it: the required supertraits will be implemented for you.
 //!
 //! With a new asset type in place, we now need to figure out how to load it.
-//! While [`AssetReader`](io::AssetReader) describes strategies to read assets from various sources,
-//! [`AssetLoader`] is the trait that actually turns those into your desired format.
-//! Generally, only) [`AssetLoader`] needs to be implemented for custom assets, as the [`AssetReader`](io::AssetReader) implementations are provided by Bevy.
+//! While [`AssetReader`](io::AssetReader) describes strategies to read asset bytes from various sources,
+//! [`AssetLoader`] is the trait that actually turns those into your desired in-memory format.
+//! Generally, (only) [`AssetLoader`] needs to be implemented for custom assets, as the [`AssetReader`](io::AssetReader) implementations are provided by Bevy.
 //!
 //! However, [`AssetLoader`] shouldn't be implemented for your asset type directly: instead, this is implemented for a "loader" type
 //! that can store complex intermediate state, while your asset type is used as the [`AssetLoader::Asset`] associated type.
@@ -340,7 +347,7 @@ impl Plugin for AssetPlugin {
 /// Generally, assets are large, complex, and/or expensive to load from disk, and are often authored by artists or designers.
 ///
 /// [`TypePath`] is largely used for diagnostic purposes, and should almost always be implemented by deriving [`Reflect`] on your type.
-/// [`VisitAssetDependencies`] is used to track asset dependencies, and an implementation automatically generated when deriving [`Asset`].
+/// [`VisitAssetDependencies`] is used to track asset dependencies, and an implementation is automatically generated when deriving [`Asset`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Asset`",
     label = "invalid `Asset`",
