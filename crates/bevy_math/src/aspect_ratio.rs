@@ -10,6 +10,13 @@ use bevy_reflect::Reflect;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct AspectRatio(f32);
 
+#[derive(Debug, PartialEq)]
+pub enum AspectRatioError {
+    Zero,
+    Infinite,
+    NaN,
+}
+
 impl AspectRatio {
     /// Standard 16:9 aspect ratio
     pub const SIXTEEN_NINE: Self = Self(16.0 / 9.0);
@@ -21,7 +28,7 @@ impl AspectRatio {
     /// Create a new [`AspectRatio`] from a given width and height.
     #[inline]
     pub fn new(width: f32, height: f32) -> Self {
-        Self(width / height)
+        Self::try_new(width, height).expect("Invalid aspect ratio")
     }
 
     /// Create a new [`AspectRatio`] from a given amount of x pixels and y pixels.
@@ -30,15 +37,21 @@ impl AspectRatio {
         Self::new(x as f32, y as f32)
     }
 
-    /// Create a new [`AspectRatio`] from a given width and height.
-    /// Returns None if height is zero or if the result is not finite.
+    /// Attempts to create a new [`AspectRatio`] from a given width and height.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `Err` with [`AspectRatioError`] if:
+    /// - Either width or height is zero (`AspectRatioError::Zero`)
+    /// - Either width or height is infinite (`AspectRatioError::Infinite`)
+    /// - Either width or height is NaN (`AspectRatioError::NaN`)
     #[inline]
-    pub fn try_new(width: f32, height: f32) -> Option<Self> {
-        let ratio = width / height;
-        if ratio.is_finite() && height != 0.0 {
-            Some(Self(ratio))
-        } else {
-            None
+    pub fn try_new(width: f32, height: f32) -> Result<Self, AspectRatioError> {
+        match (width, height) {
+            (w, h) if w == 0.0 || h == 0.0 => Err(AspectRatioError::Zero),
+            (w, h) if w.is_infinite() || h.is_infinite() => Err(AspectRatioError::Infinite),
+            (w, h) if w.is_nan() || h.is_nan() => Err(AspectRatioError::NaN),
+            _ => Ok(Self(width / height)),
         }
     }
 
