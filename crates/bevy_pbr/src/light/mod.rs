@@ -496,12 +496,19 @@ pub enum ShadowFilteringMethod {
     Temporal,
 }
 
+/// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,
     AssignLightsToClusters,
+    /// System order ambiguities between systems in this set are ignored:
+    /// each [`build_directional_light_cascades`] system is independent of the others,
+    /// and should operate on distinct sets of entities.
     UpdateDirectionalLightCascades,
     UpdateLightFrusta,
+    /// System order ambiguities between systems in this set are ignored:
+    /// the order of systems within this set is irrelevant, as the various visibility-checking systesms
+    /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
 }
 

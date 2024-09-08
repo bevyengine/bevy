@@ -43,7 +43,9 @@ pub use rotation2d::Rot2;
 #[cfg(feature = "rand")]
 pub use sampling::{FromRng, ShapeSample};
 
-/// The `bevy_math` prelude.
+/// The math prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "rand")]
@@ -55,6 +57,7 @@ pub mod prelude {
             CubicHermite, CubicNurbs, CubicNurbsError, CubicSegment, CyclicCubicGenerator,
             RationalCurve, RationalGenerator, RationalSegment,
         },
+        curve::*,
         direction::{Dir2, Dir3, Dir3A},
         primitives::*,
         BVec2, BVec3, BVec4, EulerRot, FloatExt, IRect, IVec2, IVec3, IVec4, Isometry2d,

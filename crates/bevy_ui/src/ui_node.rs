@@ -12,7 +12,7 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::warn_once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use smallvec::SmallVec;
-use std::num::{NonZeroI16, NonZeroU16};
+use std::num::NonZero;
 use thiserror::Error;
 
 /// Base component for a UI node, which also provides the computed size of the node.
@@ -35,15 +35,24 @@ pub struct Node {
     pub(crate) calculated_size: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
+    /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::resolve_outlines_system`].
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
+    /// Outline updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) outline_offset: f32,
     /// The unrounded size of the node as width and height in logical pixels.
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub(crate) unrounded_size: Vec2,
+    /// Resolved border radius values in logical pixels.
+    /// Border radius updates bypass change detection.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub(crate) border_radius: ResolvedBorderRadius,
 }
 
 impl Node {
@@ -52,6 +61,13 @@ impl Node {
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub const fn size(&self) -> Vec2 {
         self.calculated_size
+    }
+
+    /// Check if the node is empty.
+    /// A node is considered empty if it has a zero or negative extent along either of its axes.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.size().cmple(Vec2::ZERO).any()
     }
 
     /// The order of the node in the UI layout.
@@ -104,10 +120,16 @@ impl Node {
     }
 
     #[inline]
-    /// Returns the thickness of the UI node's outline.
+    /// Returns the thickness of the UI node's outline in logical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     pub fn outline_width(&self) -> f32 {
         self.outline_width
+    }
+
+    #[inline]
+    /// Returns the amount of space between the outline and the edge of the node in logical pixels.
+    pub fn outline_offset(&self) -> f32 {
+        self.outline_offset
     }
 }
 
@@ -118,6 +140,7 @@ impl Node {
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
+        border_radius: ResolvedBorderRadius::ZERO,
     };
 }
 
@@ -1481,15 +1504,15 @@ pub struct GridPlacement {
     /// Lines are 1-indexed.
     /// Negative indexes count backwards from the end of the grid.
     /// Zero is not a valid index.
-    pub(crate) start: Option<NonZeroI16>,
+    pub(crate) start: Option<NonZero<i16>>,
     /// How many grid tracks the item should span.
     /// Defaults to 1.
-    pub(crate) span: Option<NonZeroU16>,
+    pub(crate) span: Option<NonZero<u16>>,
     /// The grid line at which the item should end.
     /// Lines are 1-indexed.
     /// Negative indexes count backwards from the end of the grid.
     /// Zero is not a valid index.
-    pub(crate) end: Option<NonZeroI16>,
+    pub(crate) end: Option<NonZero<i16>>,
 }
 
 impl GridPlacement {
@@ -1497,7 +1520,7 @@ impl GridPlacement {
     pub const DEFAULT: Self = Self {
         start: None,
         // SAFETY: This is trivially safe as 1 is non-zero.
-        span: Some(unsafe { NonZeroU16::new_unchecked(1) }),
+        span: Some(unsafe { NonZero::<u16>::new_unchecked(1) }),
         end: None,
     };
 
@@ -1614,17 +1637,17 @@ impl GridPlacement {
 
     /// Returns the grid line at which the item should start, or `None` if not set.
     pub fn get_start(self) -> Option<i16> {
-        self.start.map(NonZeroI16::get)
+        self.start.map(NonZero::<i16>::get)
     }
 
     /// Returns the grid line at which the item should end, or `None` if not set.
     pub fn get_end(self) -> Option<i16> {
-        self.end.map(NonZeroI16::get)
+        self.end.map(NonZero::<i16>::get)
     }
 
     /// Returns span for this grid item, or `None` if not set.
     pub fn get_span(self) -> Option<u16> {
-        self.span.map(NonZeroU16::get)
+        self.span.map(NonZero::<u16>::get)
     }
 }
 
@@ -1634,17 +1657,17 @@ impl Default for GridPlacement {
     }
 }
 
-/// Convert an `i16` to `NonZeroI16`, fails on `0` and returns the `InvalidZeroIndex` error.
-fn try_into_grid_index(index: i16) -> Result<Option<NonZeroI16>, GridPlacementError> {
+/// Convert an `i16` to `NonZero<i16>`, fails on `0` and returns the `InvalidZeroIndex` error.
+fn try_into_grid_index(index: i16) -> Result<Option<NonZero<i16>>, GridPlacementError> {
     Ok(Some(
-        NonZeroI16::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
+        NonZero::<i16>::new(index).ok_or(GridPlacementError::InvalidZeroIndex)?,
     ))
 }
 
-/// Convert a `u16` to `NonZeroU16`, fails on `0` and returns the `InvalidZeroSpan` error.
-fn try_into_grid_span(span: u16) -> Result<Option<NonZeroU16>, GridPlacementError> {
+/// Convert a `u16` to `NonZero<u16>`, fails on `0` and returns the `InvalidZeroSpan` error.
+fn try_into_grid_span(span: u16) -> Result<Option<NonZero<u16>>, GridPlacementError> {
     Ok(Some(
-        NonZeroU16::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
+        NonZero::<u16>::new(span).ok_or(GridPlacementError::InvalidZeroSpan)?,
     ))
 }
 
@@ -2184,6 +2207,49 @@ impl BorderRadius {
         self.bottom_right = radius;
         self
     }
+
+    /// Compute the logical border radius for a single corner from the given values
+    pub fn resolve_single_corner(radius: Val, node_size: Vec2, viewport_size: Vec2) -> f32 {
+        match radius {
+            Val::Auto => 0.,
+            Val::Px(px) => px,
+            Val::Percent(percent) => node_size.min_element() * percent / 100.,
+            Val::Vw(percent) => viewport_size.x * percent / 100.,
+            Val::Vh(percent) => viewport_size.y * percent / 100.,
+            Val::VMin(percent) => viewport_size.min_element() * percent / 100.,
+            Val::VMax(percent) => viewport_size.max_element() * percent / 100.,
+        }
+        .clamp(0., 0.5 * node_size.min_element())
+    }
+
+    pub fn resolve(&self, node_size: Vec2, viewport_size: Vec2) -> ResolvedBorderRadius {
+        ResolvedBorderRadius {
+            top_left: Self::resolve_single_corner(self.top_left, node_size, viewport_size),
+            top_right: Self::resolve_single_corner(self.top_right, node_size, viewport_size),
+            bottom_left: Self::resolve_single_corner(self.bottom_left, node_size, viewport_size),
+            bottom_right: Self::resolve_single_corner(self.bottom_right, node_size, viewport_size),
+        }
+    }
+}
+
+/// Represents the resolved border radius values for a UI node.
+///
+/// The values are in logical pixels.
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+pub struct ResolvedBorderRadius {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_left: f32,
+    pub bottom_right: f32,
+}
+
+impl ResolvedBorderRadius {
+    pub const ZERO: Self = Self {
+        top_left: 0.,
+        top_right: 0.,
+        bottom_left: 0.,
+        bottom_right: 0.,
+    };
 }
 
 #[cfg(test)]

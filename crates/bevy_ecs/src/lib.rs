@@ -36,7 +36,9 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
-/// Most commonly used re-exported types.
+/// The ECS prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "reflect_functions")]
@@ -88,7 +90,7 @@ mod tests {
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
-    use std::num::NonZeroU32;
+    use std::num::NonZero;
     use std::{
         any::TypeId,
         marker::PhantomData,
@@ -1659,7 +1661,7 @@ mod tests {
         );
 
         let e4_mismatched_generation =
-            Entity::from_raw_and_generation(3, NonZeroU32::new(2).unwrap());
+            Entity::from_raw_and_generation(3, NonZero::<u32>::new(2).unwrap());
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
             "attempting to spawn on top of an entity with a mismatched entity generation fails"
@@ -1754,7 +1756,8 @@ mod tests {
         let e0 = world.spawn(A(0)).id();
         let e1 = Entity::from_raw(1);
         let e2 = world.spawn_empty().id();
-        let invalid_e2 = Entity::from_raw_and_generation(e2.index(), NonZeroU32::new(2).unwrap());
+        let invalid_e2 =
+            Entity::from_raw_and_generation(e2.index(), NonZero::<u32>::new(2).unwrap());
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];
 

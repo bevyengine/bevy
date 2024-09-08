@@ -1,3 +1,4 @@
+use bevy_app::{App, Last, Plugin};
 use bevy_asset::{AssetId, Assets, Handle};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -18,6 +19,16 @@ use bevy_winit::{
 use wgpu::TextureFormat;
 
 use crate::prelude::Image;
+
+pub struct CursorPlugin;
+
+impl Plugin for CursorPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<CursorIcon>()
+            .init_resource::<CustomCursorCache>()
+            .add_systems(Last, update_cursors);
+    }
+}
 
 /// Insert into a window entity to set the cursor for that window.
 #[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]

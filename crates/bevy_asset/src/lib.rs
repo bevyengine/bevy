@@ -12,6 +12,9 @@ pub mod processor;
 pub mod saver;
 pub mod transformer;
 
+/// The asset prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -222,7 +225,11 @@ impl Plugin for AssetPlugin {
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
             .configure_sets(PreUpdate, TrackAssets.after(handle_internal_asset_events))
-            .add_systems(PreUpdate, handle_internal_asset_events)
+            // `handle_internal_asset_events` requires the use of `&mut World`,
+            // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
+            // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
+            // needs to be robust to stochastic delays anyways.
+            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
             .register_type::<AssetPath>();
     }
 }

@@ -35,7 +35,7 @@ use bevy_render::{
 use bevy_utils::tracing::error;
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::{hash::Hash, num::NonZeroU32};
+use std::{hash::Hash, num::NonZero};
 
 use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 
@@ -984,7 +984,7 @@ impl AtomicMaterialBindGroupId {
     /// See also:  [`AtomicU32::store`].
     pub fn set(&self, id: MaterialBindGroupId) {
         let id = if let Some(id) = id.0 {
-            NonZeroU32::from(id).get()
+            NonZero::<u32>::from(id).get()
         } else {
             0
         };
@@ -996,7 +996,9 @@ impl AtomicMaterialBindGroupId {
     ///
     /// See also:  [`AtomicU32::load`].
     pub fn get(&self) -> MaterialBindGroupId {
-        MaterialBindGroupId(NonZeroU32::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from))
+        MaterialBindGroupId(
+            NonZero::<u32>::new(self.0.load(Ordering::Relaxed)).map(BindGroupId::from),
+        )
     }
 }
 

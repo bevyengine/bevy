@@ -1,6 +1,6 @@
 //! Spatial clustering of objects, currently just point and spot lights.
 
-use std::num::NonZeroU64;
+use std::num::NonZero;
 
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
@@ -468,7 +468,7 @@ impl GpuClusterableObjects {
         }
     }
 
-    pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZeroU64 {
+    pub fn min_size(buffer_binding_type: BufferBindingType) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterableObjectsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterableObjectsUniform::min_size(),
@@ -749,7 +749,7 @@ impl ViewClusterBindings {
 
     pub fn min_size_clusterable_object_index_lists(
         buffer_binding_type: BufferBindingType,
-    ) -> NonZeroU64 {
+    ) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterableObjectIndexListsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterableObjectIndexListsUniform::min_size(),
@@ -758,7 +758,7 @@ impl ViewClusterBindings {
 
     pub fn min_size_cluster_offsets_and_counts(
         buffer_binding_type: BufferBindingType,
-    ) -> NonZeroU64 {
+    ) -> NonZero<u64> {
         match buffer_binding_type {
             BufferBindingType::Storage { .. } => GpuClusterOffsetsAndCountsStorage::min_size(),
             BufferBindingType::Uniform => GpuClusterOffsetsAndCountsUniform::min_size(),

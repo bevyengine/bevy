@@ -55,7 +55,9 @@ pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
 
-/// Most commonly used re-exported types.
+/// The text prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};

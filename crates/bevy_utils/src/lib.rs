@@ -10,7 +10,9 @@
 //! [Bevy]: https://bevyengine.org/
 //!
 
-#[allow(missing_docs)]
+/// The utilities prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::default;
 }
@@ -21,7 +23,6 @@ pub use short_names::get_short_name;
 pub mod synccell;
 pub mod syncunsafecell;
 
-mod cow_arc;
 mod default;
 mod object_safe;
 pub use object_safe::assert_object_safe;
@@ -30,7 +31,6 @@ mod parallel_queue;
 
 pub use ahash::{AHasher, RandomState};
 pub use bevy_utils_proc_macros::*;
-pub use cow_arc::*;
 pub use default::default;
 pub use hashbrown;
 pub use parallel_queue::*;

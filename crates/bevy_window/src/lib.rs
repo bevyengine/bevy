@@ -30,7 +30,9 @@ pub use system::*;
 pub use system_cursor::*;
 pub use window::*;
 
-#[allow(missing_docs)]
+/// The windowing prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[allow(deprecated)]
     #[doc(hidden)]
@@ -91,7 +93,8 @@ impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
         #[allow(deprecated)]
-        app.add_event::<WindowResized>()
+        app.add_event::<WindowEvent>()
+            .add_event::<WindowResized>()
             .add_event::<WindowCreated>()
             .add_event::<WindowClosing>()
             .add_event::<WindowClosed>()
@@ -143,7 +146,8 @@ impl Plugin for WindowPlugin {
 
         // Register event types
         #[allow(deprecated)]
-        app.register_type::<WindowResized>()
+        app.register_type::<WindowEvent>()
+            .register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()

@@ -97,6 +97,21 @@ fn draw_example_collection(
     );
     gizmos.sphere(Isometry3d::from_translation(Vec3::ONE * 10.0), 1.0, PURPLE);
 
+    gizmos
+        .primitive_3d(
+            &Plane3d {
+                normal: Dir3::Y,
+                half_size: Vec2::splat(1.0),
+            },
+            Isometry3d::new(
+                Vec3::ONE * 4.0 + Vec2::from(time.elapsed_seconds().sin_cos()).extend(0.0),
+                Quat::from_rotation_x(PI / 2. + time.elapsed_seconds()),
+            ),
+            GREEN,
+        )
+        .cell_count(UVec2::new(5, 10))
+        .spacing(Vec2::new(0.2, 0.1));
+
     gizmos.cuboid(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         BLACK,
@@ -115,6 +130,17 @@ fn draw_example_collection(
         0.5,
         FUCHSIA,
     );
+
+    let domain = Interval::EVERYWHERE;
+    let curve = function_curve(domain, |t| {
+        (Vec2::from((t * 10.0).sin_cos())).extend(t - 6.0)
+    });
+    let resolution = ((time.elapsed_seconds().sin() + 1.0) * 100.0) as usize;
+    let times_and_colors = (0..=resolution)
+        .map(|n| n as f32 / resolution as f32)
+        .map(|t| t * 5.0)
+        .map(|t| (t, TEAL.mix(&HOT_PINK, t / 5.0)));
+    gizmos.curve_gradient_3d(curve, times_and_colors);
 
     my_gizmos.sphere(
         Isometry3d::from_translation(Vec3::new(1., 0.5, 0.)),

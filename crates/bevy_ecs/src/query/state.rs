@@ -1505,25 +1505,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
-                        if self.is_dense {
-                            let id = storage_id.table_id;
-                            let table = &world.storages().tables.get(id).debug_checked_unwrap();
-                            accum = iter.fold_over_table_range(
-                                accum,
-                                &mut func,
-                                table,
-                                0..table.entity_count(),
-                            );
-                        } else {
-                            let id = storage_id.archetype_id;
-                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
-                            accum = iter.fold_over_archetype_range(
-                                accum,
-                                &mut func,
-                                archetype,
-                                0..archetype.len(),
-                            );
-                        }
+                        accum = iter.fold_over_storage_range(accum, &mut func, storage_id, None);
                     }
                 });
             };
@@ -1539,17 +1521,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
-                        if self.is_dense {
-                            let id = storage_id.table_id;
-                            let table = world.storages().tables.get(id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_table_range(accum, &mut func, table, batch);
-                        } else {
-                            let id = storage_id.archetype_id;
-                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_archetype_range(accum, &mut func, archetype, batch);
-                        }
+                        self.iter_unchecked_manual(world, last_run, this_run)
+                            .fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
                     });
                 }
             };
