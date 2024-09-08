@@ -8,6 +8,7 @@ mod lists;
 mod maps;
 mod registration_utils;
 mod registrations;
+mod sets;
 mod struct_utils;
 mod structs;
 mod tuple_structs;
@@ -19,41 +20,12 @@ use crate::serde::de::registration_utils::try_get_registration;
 use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
 use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
 use crate::{
-    DynamicEnum, DynamicSet, DynamicStruct, DynamicTuple, DynamicVariant, EnumInfo, Set, SetInfo,
-    StructVariantInfo, TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    DynamicEnum, DynamicStruct, DynamicTuple, DynamicVariant, EnumInfo, StructVariantInfo,
+    TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
 use std::fmt;
 use std::fmt::Formatter;
-
-struct SetVisitor<'a> {
-    set_info: &'static SetInfo,
-    registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
-    type Value = DynamicSet;
-
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("reflected set value")
-    }
-
-    fn visit_seq<V>(self, mut set: V) -> Result<Self::Value, V::Error>
-    where
-        V: SeqAccess<'de>,
-    {
-        let mut dynamic_set = DynamicSet::default();
-        let value_registration = try_get_registration(self.set_info.value_ty(), self.registry)?;
-        while let Some(value) = set.next_element_seed(TypedReflectDeserializer::new(
-            value_registration,
-            self.registry,
-        ))? {
-            dynamic_set.insert_boxed(value);
-        }
-
-        Ok(dynamic_set)
-    }
-}
 
 struct EnumVisitor<'a> {
     enum_info: &'static EnumInfo,
