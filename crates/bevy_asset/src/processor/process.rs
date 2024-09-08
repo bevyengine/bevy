@@ -48,6 +48,11 @@ pub trait Process: Send + Sync + Sized + 'static {
 /// an [`AssetSaver`] that allows you save any `S` asset. However you can
 /// also implement [`Process`] directly if [`LoadTransformAndSave`] feels limiting or unnecessary.
 ///
+/// If your [`Process`] does not need to transform the [`Asset`], you can use [`IdentityAssetTransformer`] as `T`.
+/// This will directly return the input [`Asset`], allowing your [`Process`] to directly load and then save an [`Asset`].
+/// However, this pattern should only be used for cases such as file format conversion.
+/// Otherwise, consider refactoring your [`AssetLoader`] and [`AssetSaver`] to isolate the transformation step into an explicit [`AssetTransformer`].
+///
 /// This uses [`LoadTransformAndSaveSettings`] to configure the processor.
 ///
 /// [`Asset`]: crate::Asset
