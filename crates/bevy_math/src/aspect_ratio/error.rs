@@ -1,8 +1,6 @@
 //! Contains error types related to aspect ratio calculations.
 
-/// The error type returned by [`AspectRatio::try_new`] if the provided width or height is invalid.
-///
-/// [`AspectRatio::try_new`]: crate::AspectRatio::try_new
+/// An Error type for when [`super::AspectRatio`] is provided invalid width or height values
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AspectRatioError {
     /// Error due to width or height having zero as a value.
