@@ -6,11 +6,12 @@ mod helpers;
 mod registration_utils;
 mod registrations;
 mod struct_utils;
+mod tuple_utils;
 
 use crate::serde::de::helpers::ExpectedValues;
 use crate::serde::de::registration_utils::{try_get_registration, GetFieldRegistration};
 use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
-use crate::serde::SerializationData;
+use crate::serde::de::tuple_utils::visit_tuple;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
     DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, Reflect,
@@ -27,28 +28,6 @@ pub trait DeserializeValue {
         deserializer: &mut dyn Deserializer,
         type_registry: &TypeRegistry,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>;
-}
-
-trait TupleLikeInfo {
-    fn get_field_len(&self) -> usize;
-}
-
-impl TupleLikeInfo for TupleInfo {
-    fn get_field_len(&self) -> usize {
-        self.field_len()
-    }
-}
-
-impl TupleLikeInfo for TupleStructInfo {
-    fn get_field_len(&self) -> usize {
-        self.field_len()
-    }
-}
-
-impl TupleLikeInfo for TupleVariantInfo {
-    fn get_field_len(&self) -> usize {
-        self.field_len()
-    }
 }
 
 struct StructVisitor<'a> {
@@ -462,45 +441,6 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
             ))),
         }
     }
-}
-
-fn visit_tuple<'de, T, V>(
-    seq: &mut V,
-    info: &T,
-    registration: &TypeRegistration,
-    registry: &TypeRegistry,
-) -> Result<DynamicTuple, V::Error>
-where
-    T: TupleLikeInfo + GetFieldRegistration,
-    V: SeqAccess<'de>,
-{
-    let mut tuple = DynamicTuple::default();
-
-    let len = info.get_field_len();
-
-    if len == 0 {
-        // Handle empty tuple/tuple struct
-        return Ok(tuple);
-    }
-
-    let serialization_data = registration.data::<SerializationData>();
-
-    for index in 0..len {
-        if let Some(value) = serialization_data.and_then(|data| data.generate_default(index)) {
-            tuple.insert_boxed(value.into_partial_reflect());
-            continue;
-        }
-
-        let value = seq
-            .next_element_seed(TypedReflectDeserializer::new(
-                info.get_field_registration(index, registry)?,
-                registry,
-            ))?
-            .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
-        tuple.insert_boxed(value);
-    }
-
-    Ok(tuple)
 }
 
 #[cfg(test)]
