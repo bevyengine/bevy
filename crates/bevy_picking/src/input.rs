@@ -29,7 +29,9 @@ use crate::{
 
 use crate::PickSet;
 
-/// Common imports for `bevy_picking`.
+/// The picking input prelude.
+///
+/// This includes the most common types in this module, re-exported for your convenience.
 pub mod prelude {
     pub use crate::input::PointerInputPlugin;
 }

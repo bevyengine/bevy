@@ -29,6 +29,9 @@ pub mod helper;
 #[cfg(feature = "bevy-support")]
 pub mod systems;
 
+/// The transform prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 #[doc(hidden)]
 #[expect(deprecated)]
 pub mod prelude {

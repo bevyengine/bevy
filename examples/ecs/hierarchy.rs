@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Store parent entity for next sections
         .id();
 
-    // Another way is to use the push_children function to add children after the parent
+    // Another way is to use the add_child function to add children after the parent
     // entity has already been spawned.
     let child = commands
         .spawn(SpriteBundle {

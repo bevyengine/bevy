@@ -10,7 +10,9 @@
 //! [Bevy]: https://bevyengine.org/
 //!
 
-#[allow(missing_docs)]
+/// The utilities prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::default;
 }

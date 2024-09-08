@@ -19,6 +19,9 @@ mod texture_atlas;
 mod texture_atlas_builder;
 mod texture_slice;
 
+/// The sprite prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[allow(deprecated)]
     #[doc(hidden)]

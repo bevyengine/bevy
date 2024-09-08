@@ -44,7 +44,9 @@ pub use iter::ParallelIterator;
 
 pub use futures_lite;
 
-#[allow(missing_docs)]
+/// The tasks prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
