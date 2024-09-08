@@ -7,6 +7,7 @@ mod registration_utils;
 mod registrations;
 mod struct_utils;
 mod structs;
+mod tuple_structs;
 mod tuple_utils;
 
 use crate::serde::de::helpers::ExpectedValues;
@@ -15,40 +16,12 @@ use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
 use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicSet, DynamicStruct,
-    DynamicTuple, DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, Set,
-    SetInfo, StructVariantInfo, TupleInfo, TupleStructInfo, TupleVariantInfo, TypeRegistration,
-    TypeRegistry, VariantInfo,
+    DynamicTuple, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, Set, SetInfo,
+    StructVariantInfo, TupleInfo, TupleVariantInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use serde::de::{DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor};
 use std::fmt;
 use std::fmt::Formatter;
-
-struct TupleStructVisitor<'a> {
-    tuple_struct_info: &'static TupleStructInfo,
-    registry: &'a TypeRegistry,
-    registration: &'a TypeRegistration,
-}
-
-impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
-    type Value = DynamicTupleStruct;
-
-    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("reflected tuple struct value")
-    }
-
-    fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
-    where
-        V: SeqAccess<'de>,
-    {
-        visit_tuple(
-            &mut seq,
-            self.tuple_struct_info,
-            self.registration,
-            self.registry,
-        )
-        .map(DynamicTupleStruct::from)
-    }
-}
 
 struct TupleVisitor<'a> {
     tuple_info: &'static TupleInfo,

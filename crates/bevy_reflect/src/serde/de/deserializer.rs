@@ -1,7 +1,7 @@
 use crate::serde::de::structs::StructVisitor;
+use crate::serde::de::tuple_structs::TupleStructVisitor;
 use crate::serde::de::{
-    ArrayVisitor, EnumVisitor, ListVisitor, MapVisitor, OptionVisitor, SetVisitor,
-    TupleStructVisitor, TupleVisitor,
+    ArrayVisitor, EnumVisitor, ListVisitor, MapVisitor, OptionVisitor, SetVisitor, TupleVisitor,
 };
 use crate::serde::TypeRegistrationDeserializer;
 use crate::{PartialReflect, ReflectDeserialize, TypeInfo, TypeRegistration, TypeRegistry};
@@ -263,11 +263,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 let mut dynamic_tuple_struct = deserializer.deserialize_tuple_struct(
                     tuple_struct_info.type_path_table().ident().unwrap(),
                     tuple_struct_info.field_len(),
-                    TupleStructVisitor {
-                        tuple_struct_info,
-                        registry: self.registry,
-                        registration: self.registration,
-                    },
+                    TupleStructVisitor::new(tuple_struct_info, self.registration, self.registry),
                 )?;
                 dynamic_tuple_struct.set_represented_type(Some(self.registration.type_info()));
                 Ok(Box::new(dynamic_tuple_struct))
