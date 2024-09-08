@@ -48,8 +48,8 @@ use serde::Serialize;
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [type path]: crate::TypePath::type_path
 pub struct ReflectSerializer<'a> {
-    pub value: &'a dyn PartialReflect,
-    pub registry: &'a TypeRegistry,
+    value: &'a dyn PartialReflect,
+    registry: &'a TypeRegistry,
 }
 
 impl<'a> ReflectSerializer<'a> {
@@ -126,8 +126,8 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 /// [`TypedReflectDeserializer`]: crate::serde::TypedReflectDeserializer
 /// [type path]: crate::TypePath::type_path
 pub struct TypedReflectSerializer<'a> {
-    pub value: &'a dyn PartialReflect,
-    pub registry: &'a TypeRegistry,
+    value: &'a dyn PartialReflect,
+    registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectSerializer<'a> {
