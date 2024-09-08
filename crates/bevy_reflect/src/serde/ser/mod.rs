@@ -3,10 +3,11 @@ pub use serializer::*;
 
 mod serializable;
 mod serializer;
+mod values;
 
 use crate::{
-    Array, Enum, List, Map, PartialReflect, Set, Struct, Tuple, TupleStruct, TypeInfo,
-    TypeRegistry, VariantInfo, VariantType,
+    Array, Enum, List, Map, Set, Struct, Tuple, TupleStruct, TypeInfo, TypeRegistry, VariantInfo,
+    VariantType,
 };
 use serde::ser::{
     Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
@@ -18,21 +19,6 @@ use serde::{
 };
 
 use super::SerializationData;
-
-pub struct ReflectValueSerializer<'a> {
-    pub registry: &'a TypeRegistry,
-    pub value: &'a dyn PartialReflect,
-}
-
-impl<'a> Serialize for ReflectValueSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        Serializable::try_from_reflect_value::<S::Error>(self.value, self.registry)?
-            .serialize(serializer)
-    }
-}
 
 pub struct StructSerializer<'a> {
     pub struct_value: &'a dyn Struct,
