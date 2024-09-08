@@ -1838,9 +1838,9 @@ pub struct UiImage {
     /// Whether the image should be flipped along its y-axis
     pub flip_y: bool,
     /// An optional rectangle representing the region of the image to render, instead of rendering
-    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](crate::TextureAtlas).
+    /// the full image. This is an easy one-off alternative to using a [`TextureAtlas`](bevy_sprite::TextureAtlas).
     ///
-    /// When used with a [`TextureAtlas`](crate::TextureAtlas), the rect
+    /// When used with a [`TextureAtlas`](bevy_sprite::TextureAtlas), the rect
     /// is offset by the atlas's minimal (top-left) corner position.
     pub rect: Option<Rect>,
 }
