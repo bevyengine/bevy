@@ -25,6 +25,13 @@ pub struct AmbientLight {
     ///
     /// [cd/m^2]: https://en.wikipedia.org/wiki/Candela_per_square_metre
     pub brightness: f32,
+    /// The degree to which this light is monochromatic. A value of 0.0 means this light is perfectly polychromatic,
+    /// while a value of 1.0 means this light is perfectly monochromatic.
+    ///
+    /// Meant to be used with `SpectralColor` to render monochromatic lights. (e.g. Sodium vapor lamps)
+    /// Combining non-zero values with non-spectral colors is not physically correct, but can be used for artistic effect.
+    #[cfg(feature = "spectral_lighting")]
+    pub monochromaticity: f32,
 }
 
 impl Default for AmbientLight {
@@ -32,6 +39,8 @@ impl Default for AmbientLight {
         Self {
             color: Color::WHITE,
             brightness: 80.0,
+            #[cfg(feature = "spectral_lighting")]
+            monochromaticity: 0.0,
         }
     }
 }
@@ -39,5 +48,7 @@ impl AmbientLight {
     pub const NONE: AmbientLight = AmbientLight {
         color: Color::WHITE,
         brightness: 0.0,
+        #[cfg(feature = "spectral_lighting")]
+        monochromaticity: 0.0,
     };
 }

@@ -11,6 +11,9 @@ struct ClusterableObject {
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
     spot_light_tan_angle: f32,
+#ifdef SPECTRAL_LIGHTING
+    monochromaticity: f32,
+#endif
 };
 
 const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
@@ -34,6 +37,9 @@ struct DirectionalLight {
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
     skip: u32,
+#ifdef SPECTRAL_LIGHTING
+    monochromaticity: f32,
+#endif
 };
 
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
@@ -58,8 +64,9 @@ struct Lights {
     cluster_factors: vec4<f32>,
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
-    environment_map_smallest_specular_mip_level: u32,
-    environment_map_intensity: f32,
+#ifdef SPECTRAL_LIGHTING
+    ambient_monochromaticity: f32,
+#endif
 };
 
 struct Fog {

@@ -126,6 +126,7 @@ fn setup(
     commands.insert_resource(AmbientLight {
         color: ORANGE_RED.into(),
         brightness: 0.02,
+        ..default()
     });
 
     // red point light

@@ -78,6 +78,7 @@ The default feature set enables most of the expected features of a game engine, 
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
+|spectral_lighting|Enable support for spectral colors (monochromatic light) in lights|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
 |symphonia-flac|FLAC audio format support (through symphonia)|

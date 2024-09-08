@@ -111,6 +111,8 @@ mod test_colors;
 mod testing;
 mod xyza;
 
+mod spectral;
+
 /// Commonly used color types and traits.
 pub mod prelude {
     pub use crate::color::*;
@@ -125,6 +127,8 @@ pub mod prelude {
     pub use crate::oklcha::*;
     pub use crate::srgba::*;
     pub use crate::xyza::*;
+
+    pub use crate::spectral::*;
 }
 
 pub use color::*;
@@ -141,6 +145,8 @@ pub use oklaba::*;
 pub use oklcha::*;
 pub use srgba::*;
 pub use xyza::*;
+
+pub use spectral::*;
 
 /// Describes the traits that a color should implement for consistency.
 #[allow(dead_code)] // This is an internal marker trait used to ensure that our color types impl the required traits
