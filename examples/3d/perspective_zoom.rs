@@ -75,6 +75,7 @@ fn camera_controls(
     let (mut projection, mut transform) = camera.single_mut();
 
     if delta_orbit != 0.0 {
+        // Orbit the camera around a fixed point, facing its center.
         transform.translate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, delta_orbit));
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }

@@ -58,6 +58,9 @@ fn setup(
         transform: Transform::from_xyz(3.0, 8.0, 5.0),
         ..default()
     });
+
+    info!("Zoom in and out with mouse wheel.");
+    info!("Orbit camera with A and D.");
 }
 
 fn camera_controls(
@@ -67,15 +70,18 @@ fn camera_controls(
 ) {
     let mut delta_orbit = 0.0;
     if keyboard_input.pressed(KeyCode::KeyA) {
+        // Orbit left
         delta_orbit -= CAMERA_ORBIT_SPEED;
     }
     if keyboard_input.pressed(KeyCode::KeyD) {
+        // Orbit right
         delta_orbit += CAMERA_ORBIT_SPEED;
     }
 
     let (mut projection, mut transform) = camera.single_mut();
 
     if delta_orbit != 0.0 {
+        // Orbit the camera around a fixed point, facing its center.
         transform.translate_around(Vec3::ZERO, Quat::from_axis_angle(Vec3::Y, delta_orbit));
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
