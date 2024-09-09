@@ -102,4 +102,4 @@ pub enum AspectRatioError {
     /// Error due to width or height being Not a Number (NaN).
     #[error("AspectRatio error: width or height is NaN")]
     NaN,
-
+}
