@@ -6,6 +6,7 @@ use crate::serde::de::error_utils::TYPE_INFO_STACK;
 use crate::serde::de::lists::ListVisitor;
 use crate::serde::de::maps::MapVisitor;
 use crate::serde::de::options::OptionVisitor;
+use crate::serde::de::registration_utils::RegistrationData;
 use crate::serde::de::sets::SetVisitor;
 use crate::serde::de::structs::StructVisitor;
 use crate::serde::de::tuple_structs::TupleStructVisitor;
@@ -133,7 +134,7 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
                     .ok_or_else(|| Error::invalid_length(0, &"a single entry"))?;
 
                 let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
-                    Some(registration),
+                    RegistrationData::Concrete(registration),
                     self.registry,
                 ))?;
 
@@ -228,30 +229,24 @@ impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
 /// [`FromReflect`]: crate::FromReflect
 /// [`ReflectFromReflect`]: crate::ReflectFromReflect
 pub struct TypedReflectDeserializer<'a> {
-    registration: Option<&'a TypeRegistration>,
+    data: RegistrationData<'a>,
     registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectDeserializer<'a> {
     pub fn new(registration: &'a TypeRegistration, registry: &'a TypeRegistry) -> Self {
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+        TYPE_INFO_STACK.set(crate::type_stack::TypeStack::new());
 
         Self {
-            registration: Some(registration),
+            data: RegistrationData::Concrete(registration),
             registry,
         }
     }
 
     /// An internal constructor for creating a deserializer without resetting the type info stack.
-    pub(super) fn new_internal(
-        registration: Option<&'a TypeRegistration>,
-        registry: &'a TypeRegistry,
-    ) -> Self {
-        Self {
-            registration,
-            registry,
-        }
+    pub(super) fn new_internal(data: RegistrationData<'a>, registry: &'a TypeRegistry) -> Self {
+        Self { data, registry }
     }
 }
 
@@ -262,11 +257,11 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
     where
         D: serde::Deserializer<'de>,
     {
-        let Some(registration) = self.registration else {
-            return ReflectDeserializer::new(self.registry).deserialize(deserializer);
-        };
-
         let deserialize_internal = || -> Result<Self::Value, D::Error> {
+            let RegistrationData::Concrete(registration) = self.data else {
+                return ReflectDeserializer::new(self.registry).deserialize(deserializer);
+            };
+
             let type_path = registration.type_info().type_path();
 
             // Handle both Value case and types that have a custom `ReflectDeserialize`
@@ -355,12 +350,19 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
         };
 
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(registration.type_info()));
+        TYPE_INFO_STACK.with_borrow_mut(|stack| match self.data {
+            RegistrationData::Concrete(registration) => {
+                stack.push(*registration.type_info().ty());
+            }
+            RegistrationData::Dynamic(ty) => {
+                stack.push(ty);
+            }
+        });
 
         let output = deserialize_internal();
 
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
+        TYPE_INFO_STACK.with_borrow_mut(crate::type_stack::TypeStack::pop);
 
         output
     }

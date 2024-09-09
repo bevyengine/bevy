@@ -158,7 +158,7 @@ impl<'a> TypedReflectSerializer<'a> {
         registry: &'a TypeRegistry,
     ) -> Self {
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+        TYPE_INFO_STACK.set(crate::type_stack::TypeStack::new());
 
         TypedReflectSerializer {
             value,
@@ -191,14 +191,16 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
     {
         #[cfg(feature = "debug_stack")]
         {
-            let info = self.value.get_represented_type_info().ok_or_else(|| {
-                make_custom_error(format_args!(
-                    "type `{}` does not represent any type",
-                    self.value.reflect_type_path(),
-                ))
-            })?;
-
-            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
+            match self.info {
+                Some(info) => {
+                    TYPE_INFO_STACK.with_borrow_mut(|stack| {
+                        stack.push(*info.ty());
+                    });
+                }
+                None => {
+                    TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(self.value.ty()));
+                }
+            }
         }
 
         if self.info.is_none() {
@@ -211,7 +213,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             Serializable::try_from_reflect_value::<S::Error>(self.value, self.registry);
         if let Ok(serializable) = serializable {
             #[cfg(feature = "debug_stack")]
-            TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
+            TYPE_INFO_STACK.with_borrow_mut(crate::type_stack::TypeStack::pop);
 
             return serializable.serialize(serializer);
         }
@@ -245,7 +247,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
         };
 
         #[cfg(feature = "debug_stack")]
-        TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
+        TYPE_INFO_STACK.with_borrow_mut(crate::type_stack::TypeStack::pop);
 
         output
     }

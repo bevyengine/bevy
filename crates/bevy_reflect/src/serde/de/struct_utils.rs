@@ -1,6 +1,6 @@
 use crate::serde::de::error_utils::make_custom_error;
 use crate::serde::de::helpers::{ExpectedValues, Ident};
-use crate::serde::de::registration_utils::try_get_registration;
+use crate::serde::de::registration_utils::try_get_registration_data;
 use crate::serde::{SerializationData, TypedReflectDeserializer};
 use crate::{
     DynamicStruct, NamedField, StructInfo, StructVariantInfo, TypeRegistration, TypeRegistry,
@@ -99,11 +99,8 @@ where
                 ExpectedValues::from_iter(fields)
             ))
         })?;
-        let registration = try_get_registration(field.type_info(), registry)?;
-        let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
-            registration,
-            registry,
-        ))?;
+        let data = try_get_registration_data(*field.ty(), field.type_info(), registry)?;
+        let value = map.next_value_seed(TypedReflectDeserializer::new_internal(data, registry))?;
         dynamic_struct.insert_boxed(&key, value);
     }
 
@@ -159,9 +156,11 @@ where
             continue;
         }
 
+        let field_info = info.field_at::<V::Error>(index)?;
+
         let value = seq
             .next_element_seed(TypedReflectDeserializer::new_internal(
-                try_get_registration(info.field_at(index)?.type_info(), registry)?,
+                try_get_registration_data(*field_info.ty(), field_info.type_info(), registry)?,
                 registry,
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;

@@ -1,4 +1,4 @@
-use crate::serde::de::registration_utils::try_get_registration;
+use crate::serde::de::registration_utils::try_get_registration_data;
 use crate::serde::TypedReflectDeserializer;
 use crate::{DynamicList, ListInfo, TypeRegistry};
 use core::fmt::Formatter;
@@ -34,11 +34,14 @@ impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
         V: SeqAccess<'de>,
     {
         let mut list = DynamicList::default();
-        let registration = try_get_registration(self.list_info.item_info(), self.registry)?;
-        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
-            registration,
+        let data = try_get_registration_data(
+            self.list_info.item_ty(),
+            self.list_info.item_info(),
             self.registry,
-        ))? {
+        )?;
+        while let Some(value) =
+            seq.next_element_seed(TypedReflectDeserializer::new_internal(data, self.registry))?
+        {
             list.push_box(value);
         }
         Ok(list)

@@ -475,6 +475,7 @@ mod tests {
     #[cfg(feature = "debug_stack")]
     mod debug_stack {
         use super::*;
+        use crate::DynamicStruct;
 
         #[test]
         fn should_report_context_in_errors() {
@@ -511,6 +512,47 @@ mod tests {
                 error,
                 ron::Error::Message(
                     "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `bevy_reflect::serde::ser::tests::debug_stack::Foo` -> `bevy_reflect::serde::ser::tests::debug_stack::Bar` -> `bevy_reflect::serde::ser::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
+                )
+            );
+        }
+
+        #[test]
+        fn should_report_context_in_errors_with_dynamic_types() {
+            #[derive(Reflect)]
+            #[reflect(from_reflect = false)]
+            struct Foo {
+                bar: DynamicStruct,
+            }
+
+            #[derive(Reflect)]
+            struct Bar {
+                some_other_field: Option<u32>,
+                baz: Baz,
+            }
+
+            #[derive(Reflect)]
+            struct Baz {
+                value: Vec<RangeInclusive<f32>>,
+            }
+
+            let value = Foo {
+                bar: Bar {
+                    some_other_field: Some(123),
+                    baz: Baz {
+                        value: vec![0.0..=1.0],
+                    },
+                }
+                .clone_dynamic(),
+            };
+
+            let registry = TypeRegistry::new();
+            let serializer = ReflectSerializer::new(&value, &registry);
+
+            let error = ron::ser::to_string(&serializer).unwrap_err();
+            assert_eq!(
+                error,
+                ron::Error::Message(
+                    "type `core::ops::RangeInclusive<f32>` is not registered in the type registry (stack: `bevy_reflect::serde::ser::tests::debug_stack::Foo` -> `bevy_reflect::DynamicStruct` -> `bevy_reflect::serde::ser::tests::debug_stack::Bar` -> `bevy_reflect::serde::ser::tests::debug_stack::Baz` -> `alloc::vec::Vec<core::ops::RangeInclusive<f32>>` -> `core::ops::RangeInclusive<f32>`)".to_string()
                 )
             );
         }

@@ -1,4 +1,4 @@
-use crate::serde::de::registration_utils::try_get_registration;
+use crate::serde::de::registration_utils::try_get_registration_data;
 use crate::serde::TypedReflectDeserializer;
 use crate::{DynamicSet, Set, SetInfo, TypeRegistry};
 use core::fmt::Formatter;
@@ -31,9 +31,13 @@ impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
         V: SeqAccess<'de>,
     {
         let mut dynamic_set = DynamicSet::default();
-        let value_registration = try_get_registration(self.set_info.value_info(), self.registry)?;
+        let value_data = try_get_registration_data(
+            self.set_info.value_ty(),
+            self.set_info.value_info(),
+            self.registry,
+        )?;
         while let Some(value) = set.next_element_seed(TypedReflectDeserializer::new_internal(
-            value_registration,
+            value_data,
             self.registry,
         ))? {
             dynamic_set.insert_boxed(value);

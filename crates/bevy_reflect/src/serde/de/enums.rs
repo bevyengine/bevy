@@ -1,6 +1,6 @@
 use crate::serde::de::error_utils::make_custom_error;
 use crate::serde::de::helpers::ExpectedValues;
-use crate::serde::de::registration_utils::try_get_registration;
+use crate::serde::de::registration_utils::try_get_registration_data;
 use crate::serde::de::struct_utils::{visit_struct, visit_struct_seq};
 use crate::serde::de::tuple_utils::{visit_tuple, TupleLikeInfo};
 use crate::serde::TypedReflectDeserializer;
@@ -64,12 +64,14 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 )?
                 .into(),
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
-                let registration = try_get_registration(
-                    TupleLikeInfo::field_at(tuple_info, 0)?.type_info(),
+                let field_info = TupleLikeInfo::field_at(tuple_info, 0)?;
+                let data = try_get_registration_data(
+                    *field_info.ty(),
+                    field_info.type_info(),
                     self.registry,
                 )?;
                 let value = variant.newtype_variant_seed(
-                    TypedReflectDeserializer::new_internal(registration, self.registry),
+                    TypedReflectDeserializer::new_internal(data, self.registry),
                 )?;
                 let mut dynamic_tuple = DynamicTuple::default();
                 dynamic_tuple.insert_boxed(value);

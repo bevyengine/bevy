@@ -1,4 +1,4 @@
-use crate::serde::de::registration_utils::try_get_registration;
+use crate::serde::de::registration_utils::try_get_registration_data;
 use crate::serde::TypedReflectDeserializer;
 use crate::{ArrayInfo, DynamicArray, TypeRegistry};
 use core::fmt::Formatter;
@@ -34,11 +34,14 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
         V: SeqAccess<'de>,
     {
         let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or_default());
-        let registration = try_get_registration(self.array_info.item_info(), self.registry)?;
-        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
-            registration,
+        let data = try_get_registration_data(
+            self.array_info.item_ty(),
+            self.array_info.item_info(),
             self.registry,
-        ))? {
+        )?;
+        while let Some(value) =
+            seq.next_element_seed(TypedReflectDeserializer::new_internal(data, self.registry))?
+        {
             vec.push(value);
         }
 

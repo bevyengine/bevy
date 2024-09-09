@@ -458,6 +458,22 @@ impl Hash for Type {
     }
 }
 
+/// A dynamic accessor to get the [`Type`] of a type.
+///
+/// This is automatically implemented for all types that implement [`TypePath`].
+pub trait GetType {
+    /// The underlying Rust [type].
+    ///
+    /// [type]: Type
+    fn ty(&self) -> Type;
+}
+
+impl<T: TypePath + ?Sized> GetType for T {
+    fn ty(&self) -> Type {
+        Type::of::<T>()
+    }
+}
+
 macro_rules! impl_type_methods {
     ($field:ident) => {
         /// The underlying Rust [type].

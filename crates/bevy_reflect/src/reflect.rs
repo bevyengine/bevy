@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, DynamicTyped, Enum, List, Map, Set, Struct, Tuple,
-    TupleStruct, TypeInfo, TypePath, Typed, ValueInfo,
+    tuple_struct_debug, Array, DynamicTypePath, DynamicTyped, Enum, GetType, List, Map, Set,
+    Struct, Tuple, TupleStruct, TypeInfo, TypePath, Typed, ValueInfo,
 };
 use std::{
     any::{Any, TypeId},
@@ -193,7 +193,7 @@ impl std::fmt::Display for ReflectKind {
     message = "`{Self}` does not implement `PartialReflect` so cannot be introspected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait PartialReflect: DynamicTypePath + Send + Sync
+pub trait PartialReflect: DynamicTypePath + GetType + Send + Sync
 where
     // NB: we don't use `Self: Any` since for downcasting, `Reflect` should be used.
     Self: 'static,

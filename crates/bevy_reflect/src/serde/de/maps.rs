@@ -1,4 +1,4 @@
-use crate::serde::de::registration_utils::try_get_registration;
+use crate::serde::de::registration_utils::try_get_registration_data;
 use crate::serde::TypedReflectDeserializer;
 use crate::{DynamicMap, Map, MapInfo, TypeRegistry};
 use core::fmt::Formatter;
@@ -31,14 +31,22 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
         V: MapAccess<'de>,
     {
         let mut dynamic_map = DynamicMap::default();
-        let key_registration = try_get_registration(self.map_info.key_info(), self.registry)?;
-        let value_registration = try_get_registration(self.map_info.value_info(), self.registry)?;
+        let key_data = try_get_registration_data(
+            self.map_info.key_ty(),
+            self.map_info.key_info(),
+            self.registry,
+        )?;
+        let value_data = try_get_registration_data(
+            self.map_info.value_ty(),
+            self.map_info.value_info(),
+            self.registry,
+        )?;
         while let Some(key) = map.next_key_seed(TypedReflectDeserializer::new_internal(
-            key_registration,
+            key_data,
             self.registry,
         ))? {
             let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
-                value_registration,
+                value_data,
                 self.registry,
             ))?;
             dynamic_map.insert_boxed(key, value);
