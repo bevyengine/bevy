@@ -233,8 +233,8 @@ fn move_player(
     let mouse_sensitivity = Vec2::new(0.12, 0.10);
 
     if delta != Vec2::ZERO {
-        let delta_yaw = -motion.delta.x * dt * mouse_sensitivity.x;
-        let delta_pitch = -motion.delta.y * dt * mouse_sensitivity.y;
+        let delta_yaw = -delta.x * dt * mouse_sensitivity.x;
+        let delta_pitch = -delta.y * dt * mouse_sensitivity.y;
 
         let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
         let yaw = yaw + delta_yaw;
