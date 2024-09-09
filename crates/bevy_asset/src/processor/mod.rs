@@ -6,9 +6,9 @@
 //!
 //! Its core values are:
 //!
-//! 1. Automatic: changing the artist-format asset should not require any manual steps to get it back in the game.
+//! 1. Automatic: new and changed assets should be ready to use in-game without requiring any manual conversion or cleanup steps.
 //! 2. Configurable: every game has its own needs, and a high level of transparency and control is required.
-//! 3. Lossless: the original asset should always be preserved, avoiding frustration and making experimentation safe.
+//! 3. Lossless: the original asset should always be preserved, ensuring artists can make changes later.
 //! 4. Deterministic: performing the same processing steps on the same asset should (generally) produce the exact same result. In cases where this doesn't make sense (steps that involve a degree of randomness or uncertainty), the results across runs should be "acceptably similar", as they will be generated once for a given set of inputs and cached.
 //!
 //! Taken together, this means that the original asset plus the processing steps should be enough to regenerate the final asset.
