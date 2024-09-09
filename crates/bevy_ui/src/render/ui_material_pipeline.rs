@@ -353,6 +353,7 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
