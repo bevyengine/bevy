@@ -26,19 +26,19 @@
 //! To avoid assets "popping" into existence, you may want to check that all of the required assets are loaded before transitioning to a new scene.
 //! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
 //! which will be `true` when the asset is ready to use.
-//! 
+//!
 //! ```rust
 //! if asset_server.is_loaded_with_dependencies(&my_asset) {
 //!     // Start the Game!
 //! }
 //! ```
-//! 
+//!
 //! Keep track of what you're waiting on using a [`HashSet`] or similar data structure,
 //! which you poll in your update loop, and transition to the new scene when all assets are loaded.
 //! Bevy's built-in states system can be very helpful for this!
 //!
 //! If we later want to change the asset data a given Component uses (such as changing an entity's material), we have three options:
-//! 
+//!
 //! 1. Change the handle field on the Component to the handle of a different asset
 //! 2. Despawn the entity and spawn a new one with the new asset data.
 //! 3. Use the [`Assets`] collection to directly modify the current handle's asset data
@@ -61,7 +61,6 @@
 //! The most important thing to know about handles is that they are reference counted: when you clone a handle, you're incrementing a reference count.
 //! When the object holding the handle is dropped (generally because an entity was despawned), the reference count is decremented.
 //! When the reference count hits zero, the asset it references is removed from the [`Assets`] collection.
-//! To avoid incrementing the reference count, you can use the [`Handle::clone_weak`] method, which is marginally faster.
 //!
 //! This reference counting is a simple, largely automatic way to avoid holding onto memory for game objects that are no longer in use.
 //! However, it can lead to surprising behavior if you're not careful!
