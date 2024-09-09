@@ -620,6 +620,10 @@ pub mod __macro_exports {
     ///
     /// This trait has a blanket implementation for all types that implement `GetTypeRegistration`
     /// and manual implementations for all dynamic types (which simply do nothing).
+    #[diagnostic::on_unimplemented(
+        message = "`{Self}` does not implement `GetTypeRegistration`",
+        note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+    )]
     pub trait RegisterForReflection {
         #[allow(unused_variables)]
         fn __register(registry: &mut TypeRegistry) {}

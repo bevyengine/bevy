@@ -103,6 +103,10 @@ pub trait Typed: Reflect + TypePath {
 /// This trait has a blanket implementation for all types that implement `Typed`
 /// and manual implementations for all dynamic types (which simply return `None`).
 #[doc(hidden)]
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `Typed`",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait MaybeTyped: PartialReflect {
     /// Returns the compile-time [info] for the underlying type, if it exists.
     ///
