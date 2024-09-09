@@ -2,7 +2,11 @@ use crate::prelude::Mut;
 use crate::reflect::AppTypeRegistry;
 use crate::system::{EntityCommands, Resource};
 use crate::world::Command;
-use crate::{entity::Entity, reflect::ReflectComponent, world::World};
+use crate::{
+    entity::Entity,
+    reflect::{ReflectBundle, ReflectComponent},
+    world::World,
+};
 use bevy_reflect::{PartialReflect, TypeRegistry};
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -200,10 +204,14 @@ fn insert_reflect(
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
         panic!("Could not get type registration (for component type {type_path}) because it doesn't exist in the TypeRegistry.");
     };
-    let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
-        panic!("Could not get ReflectComponent data (for component type {type_path}) because it doesn't exist in this TypeRegistration.");
-    };
-    reflect_component.insert(&mut entity, component.as_partial_reflect(), type_registry);
+
+    if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
+        reflect_bundle.insert(&mut entity, component.as_partial_reflect(), type_registry);
+    } else if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+        reflect_component.insert(&mut entity, component.as_partial_reflect(), type_registry);
+    } else {
+        panic!("Type {type_path} is neither a reflected component nor a reflected bundle.");
+    }
 }
 
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in
