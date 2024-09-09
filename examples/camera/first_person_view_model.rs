@@ -42,6 +42,8 @@
 //! | arrow up             | Decrease FOV  |
 //! | arrow down           | Increase FOV  |
 
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::pbr::NotShadowCaster;
