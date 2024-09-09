@@ -77,3 +77,4 @@ fn distance_to_bottom_atmosphere_boundary(atmosphere: Atmosphere, r: f32, mu: f3
     return max(-r * mu - sqrt(positive_discriminant), 0.0);
 }
 
+

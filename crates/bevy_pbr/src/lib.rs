@@ -23,7 +23,7 @@ pub mod experimental {
     }
 }
 
-pub mod atmosphere;
+mod atmosphere;
 mod bundle;
 mod cluster;
 pub mod deferred;
@@ -44,6 +44,7 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 use std::marker::PhantomData;
 
+pub use atmosphere::*;
 pub use bundle::*;
 pub use cluster::*;
 pub use extended_material::*;

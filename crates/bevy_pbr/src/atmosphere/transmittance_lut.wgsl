@@ -64,24 +64,18 @@ fn sample_atmosphere(atmosphere: Atmosphere, view_height: f32) -> AtmosphereSamp
     // atmosphere values at view_height
     let mie_density = exp(atmosphere.mie_density_exp_scale * view_height);
     let rayleigh_density = exp(atmosphere.rayleigh_density_exp_scale * view_height);
-    var ozone_density: f32;
-    if view_height < atmosphere.ozone_density_layer_0_width {
-        ozone_density = atmosphere.ozone_density_layer_0_linear_term * view_height + atmosphere.ozone_density_layer_0_constant_term;
-    } else {
-        ozone_density = atmosphere.ozone_density_layer_1_linear_term * view_height + atmosphere.ozone_density_layer_1_constant_term;
-    }
-    ozone_density = saturate(ozone_density);
+    var ozone_density: f32 = max(0.0, 1.0 - (abs(view_height - atmosphere.ozone_layer_center_altitude) / atmosphere.ozone_layer_half_width));
 
     let mie_scattering = mie_density * atmosphere.mie_scattering;
     let mie_absorption = mie_density * atmosphere.mie_absorption;
-    let mie_extinction = mie_density * atmosphere.mie_extinction;
+    let mie_extinction = mie_scattering + mie_absorption;
 
     let rayleigh_scattering = rayleigh_density * atmosphere.rayleigh_scattering;
     // no rayleigh absorption
     // rayleigh extinction is the sum of scattering and absorption
 
     // ozone doesn't contribute to scattering
-    let ozone_absorption = ozone_density * atmosphere.absorption_extinction;
+    let ozone_absorption = ozone_density * atmosphere.ozone_absorption;
     // ozone extinction is the sum of scattering and absorption
 
     result.scattering = mie_scattering + rayleigh_scattering;
