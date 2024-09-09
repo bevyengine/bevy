@@ -83,7 +83,7 @@ use thiserror::Error;
 ///
 /// [utility]: crate::utility
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` can not provide type information through reflection",
+    message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait Typed: Reflect + TypePath {
@@ -104,7 +104,7 @@ pub trait Typed: Reflect + TypePath {
 /// and manual implementations for all dynamic types (which simply return `None`).
 #[doc(hidden)]
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` does not implement `Typed`",
+    message = "`{Self}` does not implement `Typed` so cannot provide static type information",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait MaybeTyped: PartialReflect {
