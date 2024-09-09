@@ -3250,7 +3250,7 @@ path = "examples/camera/projection_zoom.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.projection_zoom]
-name = "Orthographic Zoom"
+name = "Projection Zoom"
 description = "Shows how to zoom and orbit orthographic and perspective projection cameras."
 category = "Camera"
 wasm = true
