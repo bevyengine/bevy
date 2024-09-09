@@ -2,7 +2,7 @@
 //!
 //! You can think of the asset processing system as a "build system" for assets.
 //! When an artist adds a new asset to the project, the asset processing system will automatically perform the specified processing steps on the asset.
-//! This can include things like converting a `.psd` file to a `.png`, compressing a `.wav` file to an `.ogg`, or generating mipmaps for a texture.
+//! This can include things like converting a `.png` file into a compressed GPU-friendly texture format, compressing a `.wav` file to an `.ogg`, or generating mipmaps for a texture.
 //!
 //! Its core values are:
 //!
