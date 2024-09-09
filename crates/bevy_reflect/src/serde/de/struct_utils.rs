@@ -99,7 +99,7 @@ where
                 ExpectedValues::from_iter(fields)
             ))
         })?;
-        let registration = try_get_registration(*field.ty(), registry)?;
+        let registration = try_get_registration(field.type_info(), registry)?;
         let value = map.next_value_seed(TypedReflectDeserializer::new_internal(
             registration,
             registry,
@@ -161,7 +161,7 @@ where
 
         let value = seq
             .next_element_seed(TypedReflectDeserializer::new_internal(
-                try_get_registration(*info.field_at(index)?.ty(), registry)?,
+                try_get_registration(info.field_at(index)?.type_info(), registry)?,
                 registry,
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;

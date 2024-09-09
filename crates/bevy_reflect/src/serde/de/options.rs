@@ -46,7 +46,7 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
         match variant_info {
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
                 let field = tuple_info.field_at(0).unwrap();
-                let registration = try_get_registration(*field.ty(), self.registry)?;
+                let registration = try_get_registration(field.type_info(), self.registry)?;
                 let de = TypedReflectDeserializer::new_internal(registration, self.registry);
                 let mut value = DynamicTuple::default();
                 value.insert_boxed(de.deserialize(deserializer)?);

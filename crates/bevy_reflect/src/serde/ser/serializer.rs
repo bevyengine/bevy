@@ -10,7 +10,7 @@ use crate::serde::ser::structs::StructSerializer;
 use crate::serde::ser::tuple_structs::TupleStructSerializer;
 use crate::serde::ser::tuples::TupleSerializer;
 use crate::serde::Serializable;
-use crate::{PartialReflect, ReflectRef, TypeRegistry};
+use crate::{PartialReflect, ReflectRef, TypeInfo, TypeRegistry};
 use serde::ser::SerializeMap;
 use serde::Serialize;
 
@@ -53,11 +53,25 @@ use serde::Serialize;
 pub struct ReflectSerializer<'a> {
     value: &'a dyn PartialReflect,
     registry: &'a TypeRegistry,
+    is_internal: bool,
 }
 
 impl<'a> ReflectSerializer<'a> {
     pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
-        Self { value, registry }
+        Self {
+            value,
+            registry,
+            is_internal: false,
+        }
+    }
+
+    /// An internal constructor for creating a serializer without resetting the type info stack.
+    fn new_internal(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
+        Self {
+            value,
+            registry,
+            is_internal: true,
+        }
     }
 }
 
@@ -66,26 +80,29 @@ impl<'a> Serialize for ReflectSerializer<'a> {
     where
         S: serde::Serializer,
     {
+        let info = self.value.get_represented_type_info().ok_or_else(|| {
+            if self.value.is_dynamic() {
+                make_custom_error(format_args!(
+                    "cannot serialize dynamic value without represented type: `{}`",
+                    self.value.reflect_type_path()
+                ))
+            } else {
+                make_custom_error(format_args!(
+                    "cannot get type info for `{}`",
+                    self.value.reflect_type_path()
+                ))
+            }
+        })?;
+
         let mut state = serializer.serialize_map(Some(1))?;
-        state.serialize_entry(
-            self.value
-                .get_represented_type_info()
-                .ok_or_else(|| {
-                    if self.value.is_dynamic() {
-                        make_custom_error(format_args!(
-                            "cannot serialize dynamic value without represented type: `{}`",
-                            self.value.reflect_type_path()
-                        ))
-                    } else {
-                        make_custom_error(format_args!(
-                            "cannot get type info for `{}`",
-                            self.value.reflect_type_path()
-                        ))
-                    }
-                })?
-                .type_path(),
-            &TypedReflectSerializer::new(self.value, self.registry),
-        )?;
+
+        let typed_serializer = if self.is_internal {
+            TypedReflectSerializer::new_internal(self.value, Some(info), self.registry)
+        } else {
+            TypedReflectSerializer::new(self.value, info, self.registry)
+        };
+
+        state.serialize_entry(info.type_path(), &typed_serializer)?;
         state.end()
     }
 }
@@ -108,7 +125,7 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 ///
 /// ```
 /// # use bevy_reflect::prelude::*;
-/// # use bevy_reflect::{TypeRegistry, serde::TypedReflectSerializer};
+/// # use bevy_reflect::{TypeRegistry, serde::TypedReflectSerializer, Typed};
 /// #[derive(Reflect, PartialEq, Debug)]
 /// #[type_path = "my_crate"]
 /// struct MyStruct {
@@ -120,7 +137,7 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 ///
 /// let input = MyStruct { value: 123 };
 ///
-/// let reflect_serializer = TypedReflectSerializer::new(&input, &registry);
+/// let reflect_serializer = TypedReflectSerializer::new(&input, MyStruct::type_info(), &registry);
 /// let output = ron::to_string(&reflect_serializer).unwrap();
 ///
 /// assert_eq!(output, r#"(value:123)"#);
@@ -130,20 +147,40 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 /// [type path]: crate::TypePath::type_path
 pub struct TypedReflectSerializer<'a> {
     value: &'a dyn PartialReflect,
+    info: Option<&'a TypeInfo>,
     registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectSerializer<'a> {
-    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(
+        value: &'a dyn PartialReflect,
+        info: &'a TypeInfo,
+        registry: &'a TypeRegistry,
+    ) -> Self {
         #[cfg(feature = "debug_stack")]
         TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
 
-        Self { value, registry }
+        TypedReflectSerializer {
+            value,
+            info: Some(info),
+            registry,
+        }
     }
 
     /// An internal constructor for creating a serializer without resetting the type info stack.
-    pub(super) fn new_internal(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
-        Self { value, registry }
+    ///
+    /// If `info` is `None`, the serializer will behave as if the type is unknown,
+    /// and serialize the type map as if it were a [`ReflectSerializer`].
+    pub(super) fn new_internal(
+        value: &'a dyn PartialReflect,
+        info: Option<&'a TypeInfo>,
+        registry: &'a TypeRegistry,
+    ) -> Self {
+        TypedReflectSerializer {
+            value,
+            info,
+            registry,
+        }
     }
 }
 
@@ -162,6 +199,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
             })?;
 
             TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
+        }
+
+        if self.info.is_none() {
+            return ReflectSerializer::new_internal(self.value, self.registry)
+                .serialize(serializer);
         }
 
         // Handle both Value case and types that have a custom `Serialize`

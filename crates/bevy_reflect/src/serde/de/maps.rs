@@ -31,8 +31,8 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
         V: MapAccess<'de>,
     {
         let mut dynamic_map = DynamicMap::default();
-        let key_registration = try_get_registration(self.map_info.key_ty(), self.registry)?;
-        let value_registration = try_get_registration(self.map_info.value_ty(), self.registry)?;
+        let key_registration = try_get_registration(self.map_info.key_info(), self.registry)?;
+        let value_registration = try_get_registration(self.map_info.value_info(), self.registry)?;
         while let Some(key) = map.next_key_seed(TypedReflectDeserializer::new_internal(
             key_registration,
             self.registry,

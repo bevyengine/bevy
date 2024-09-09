@@ -65,7 +65,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                 .into(),
             VariantInfo::Tuple(tuple_info) if tuple_info.field_len() == 1 => {
                 let registration = try_get_registration(
-                    *TupleLikeInfo::field_at(tuple_info, 0)?.ty(),
+                    TupleLikeInfo::field_at(tuple_info, 0)?.type_info(),
                     self.registry,
                 )?;
                 let value = variant.newtype_variant_seed(

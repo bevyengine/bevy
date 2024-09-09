@@ -276,7 +276,7 @@ mod tests {
         let mut registry = get_registry();
         registry.register::<Foo>();
         let registration = registry.get(TypeId::of::<Foo>()).unwrap();
-        let reflect_deserializer = TypedReflectDeserializer::new_internal(registration, &registry);
+        let reflect_deserializer = TypedReflectDeserializer::new(registration, &registry);
         let mut ron_deserializer = ron::de::Deserializer::from_str(input).unwrap();
         let dynamic_output = reflect_deserializer
             .deserialize(&mut ron_deserializer)

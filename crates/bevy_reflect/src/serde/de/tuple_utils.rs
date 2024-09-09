@@ -92,7 +92,7 @@ where
 
         let value = seq
             .next_element_seed(TypedReflectDeserializer::new_internal(
-                try_get_registration(*info.field_at(index)?.ty(), registry)?,
+                try_get_registration(info.field_at(index)?.type_info(), registry)?,
                 registry,
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;

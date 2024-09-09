@@ -183,4 +183,41 @@ mod tests {
             .reflect_partial_eq(result.as_partial_reflect())
             .unwrap());
     }
+
+    #[test]
+    fn should_roundtrip_type_containing_proxied_dynamic() {
+        #[derive(Reflect)]
+        #[reflect(from_reflect = false)]
+        struct TestStruct {
+            a: i32,
+            b: DynamicStruct,
+        }
+
+        #[derive(Reflect)]
+        struct OtherStruct {
+            c: f32,
+        }
+
+        let mut registry = TypeRegistry::default();
+        registry.register::<TestStruct>();
+        registry.register::<OtherStruct>();
+
+        let value = TestStruct {
+            a: 123,
+            b: OtherStruct { c: 456.0 }.clone_dynamic(),
+        };
+
+        let serializer = ReflectSerializer::new(&value, &registry);
+        let expected = r#"{"bevy_reflect::serde::tests::TestStruct":(a:123,b:{"bevy_reflect::serde::tests::OtherStruct":(c:456.0)})}"#;
+        let result = ron::ser::to_string(&serializer).unwrap();
+        assert_eq!(expected, result);
+
+        let mut deserializer = ron::de::Deserializer::from_str(&result).unwrap();
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+
+        let result = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+        assert!(value
+            .reflect_partial_eq(result.as_partial_reflect())
+            .unwrap());
+    }
 }
