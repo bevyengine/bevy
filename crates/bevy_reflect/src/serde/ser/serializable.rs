@@ -1,3 +1,4 @@
+use crate::serde::ser::error_utils::make_custom_error;
 use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
 use serde::ser::Error;
 use std::ops::Deref;
@@ -23,29 +24,29 @@ impl<'a> Serializable<'a> {
         type_registry: &TypeRegistry,
     ) -> Result<Serializable<'a>, E> {
         let value = value.try_as_reflect().ok_or_else(|| {
-            Error::custom(format_args!(
-                "Type '{}' does not implement `Reflect`",
+            make_custom_error(format_args!(
+                "type `{}` does not implement `Reflect`",
                 value.reflect_type_path()
             ))
         })?;
 
         let info = value.get_represented_type_info().ok_or_else(|| {
-            Error::custom(format_args!(
-                "Type '{}' does not represent any type",
+            make_custom_error(format_args!(
+                "type `{}` does not represent any type",
                 value.reflect_type_path(),
             ))
         })?;
 
         let registration = type_registry.get(info.type_id()).ok_or_else(|| {
-            Error::custom(format_args!(
-                "Type `{}` is not registered in the type registry",
+            make_custom_error(format_args!(
+                "type `{}` is not registered in the type registry",
                 info.type_path(),
             ))
         })?;
 
         let reflect_serialize = registration.data::<ReflectSerialize>().ok_or_else(|| {
-            Error::custom(format_args!(
-                "Type `{}` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
+            make_custom_error(format_args!(
+                "type `{}` did not register the `ReflectSerialize` type data. For certain types, this may need to be registered manually using `register_type_data`",
                 info.type_path(),
             ))
         })?;

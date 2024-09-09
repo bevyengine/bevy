@@ -32,7 +32,7 @@ impl<'a, 'de> Visitor<'de> for SetVisitor<'a> {
     {
         let mut dynamic_set = DynamicSet::default();
         let value_registration = try_get_registration(self.set_info.value_ty(), self.registry)?;
-        while let Some(value) = set.next_element_seed(TypedReflectDeserializer::new(
+        while let Some(value) = set.next_element_seed(TypedReflectDeserializer::new_internal(
             value_registration,
             self.registry,
         ))? {

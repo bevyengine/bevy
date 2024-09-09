@@ -35,9 +35,10 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
     {
         let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or_default());
         let registration = try_get_registration(self.array_info.item_ty(), self.registry)?;
-        while let Some(value) =
-            seq.next_element_seed(TypedReflectDeserializer::new(registration, self.registry))?
-        {
+        while let Some(value) = seq.next_element_seed(TypedReflectDeserializer::new_internal(
+            registration,
+            self.registry,
+        ))? {
             vec.push(value);
         }
 

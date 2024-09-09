@@ -1,6 +1,7 @@
+use crate::serde::ser::error_utils::make_custom_error;
 use crate::serde::{SerializationData, TypedReflectSerializer};
 use crate::{Struct, TypeInfo, TypeRegistry};
-use serde::ser::{Error, SerializeStruct};
+use serde::ser::SerializeStruct;
 use serde::Serialize;
 
 /// A serializer for [`Struct`] values.
@@ -27,8 +28,8 @@ impl<'a> Serialize for StructSerializer<'a> {
             .struct_value
             .get_represented_type_info()
             .ok_or_else(|| {
-                Error::custom(format_args!(
-                    "cannot get type info for {}",
+                make_custom_error(format_args!(
+                    "cannot get type info for `{}`",
                     self.struct_value.reflect_type_path()
                 ))
             })?;
@@ -36,7 +37,7 @@ impl<'a> Serialize for StructSerializer<'a> {
         let struct_info = match type_info {
             TypeInfo::Struct(struct_info) => struct_info,
             info => {
-                return Err(Error::custom(format_args!(
+                return Err(make_custom_error(format_args!(
                     "expected struct type but received {info:?}"
                 )));
             }
@@ -60,7 +61,10 @@ impl<'a> Serialize for StructSerializer<'a> {
                 continue;
             }
             let key = struct_info.field_at(index).unwrap().name();
-            state.serialize_field(key, &TypedReflectSerializer::new(value, self.registry))?;
+            state.serialize_field(
+                key,
+                &TypedReflectSerializer::new_internal(value, self.registry),
+            )?;
         }
         state.end()
     }

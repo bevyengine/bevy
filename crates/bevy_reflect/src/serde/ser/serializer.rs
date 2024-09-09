@@ -1,5 +1,8 @@
 use crate::serde::ser::arrays::ArraySerializer;
 use crate::serde::ser::enums::EnumSerializer;
+use crate::serde::ser::error_utils::make_custom_error;
+#[cfg(feature = "debug_stack")]
+use crate::serde::ser::error_utils::TYPE_INFO_STACK;
 use crate::serde::ser::lists::ListSerializer;
 use crate::serde::ser::maps::MapSerializer;
 use crate::serde::ser::sets::SetSerializer;
@@ -8,7 +11,7 @@ use crate::serde::ser::tuple_structs::TupleStructSerializer;
 use crate::serde::ser::tuples::TupleSerializer;
 use crate::serde::Serializable;
 use crate::{PartialReflect, ReflectRef, TypeRegistry};
-use serde::ser::{Error, SerializeMap};
+use serde::ser::SerializeMap;
 use serde::Serialize;
 
 /// A general purpose serializer for reflected types.
@@ -54,7 +57,7 @@ pub struct ReflectSerializer<'a> {
 
 impl<'a> ReflectSerializer<'a> {
     pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
-        ReflectSerializer { value, registry }
+        Self { value, registry }
     }
 }
 
@@ -69,13 +72,13 @@ impl<'a> Serialize for ReflectSerializer<'a> {
                 .get_represented_type_info()
                 .ok_or_else(|| {
                     if self.value.is_dynamic() {
-                        Error::custom(format_args!(
-                            "cannot serialize dynamic value without represented type: {}",
+                        make_custom_error(format_args!(
+                            "cannot serialize dynamic value without represented type: `{}`",
                             self.value.reflect_type_path()
                         ))
                     } else {
-                        Error::custom(format_args!(
-                            "cannot get type info for {}",
+                        make_custom_error(format_args!(
+                            "cannot get type info for `{}`",
                             self.value.reflect_type_path()
                         ))
                     }
@@ -132,7 +135,15 @@ pub struct TypedReflectSerializer<'a> {
 
 impl<'a> TypedReflectSerializer<'a> {
     pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
-        TypedReflectSerializer { value, registry }
+        #[cfg(feature = "debug_stack")]
+        TYPE_INFO_STACK.set(crate::type_info_stack::TypeInfoStack::new());
+
+        Self { value, registry }
+    }
+
+    /// An internal constructor for creating a serializer without resetting the type info stack.
+    pub(super) fn new_internal(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
+        Self { value, registry }
     }
 }
 
@@ -141,14 +152,29 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
     where
         S: serde::Serializer,
     {
+        #[cfg(feature = "debug_stack")]
+        {
+            let info = self.value.get_represented_type_info().ok_or_else(|| {
+                make_custom_error(format_args!(
+                    "type `{}` does not represent any type",
+                    self.value.reflect_type_path(),
+                ))
+            })?;
+
+            TYPE_INFO_STACK.with_borrow_mut(|stack| stack.push(info));
+        }
+
         // Handle both Value case and types that have a custom `Serialize`
         let serializable =
             Serializable::try_from_reflect_value::<S::Error>(self.value, self.registry);
         if let Ok(serializable) = serializable {
+            #[cfg(feature = "debug_stack")]
+            TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
+
             return serializable.serialize(serializer);
         }
 
-        match self.value.reflect_ref() {
+        let output = match self.value.reflect_ref() {
             ReflectRef::Struct(value) => {
                 StructSerializer::new(value, self.registry).serialize(serializer)
             }
@@ -174,6 +200,11 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 EnumSerializer::new(value, self.registry).serialize(serializer)
             }
             ReflectRef::Value(_) => Err(serializable.err().unwrap()),
-        }
+        };
+
+        #[cfg(feature = "debug_stack")]
+        TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
+
+        output
     }
 }
