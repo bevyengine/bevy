@@ -190,7 +190,9 @@ impl CameraProjection for PerspectiveProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        self.aspect_ratio = AspectRatio::new(width, height).into();
+        self.aspect_ratio = AspectRatio::try_new(width, height)
+            .expect("Failed to update PerspectiveProjection: width and height must be positive, non-zero values")
+            .ratio();
     }
 
     fn far(&self) -> f32 {
