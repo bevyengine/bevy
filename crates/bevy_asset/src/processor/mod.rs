@@ -15,12 +15,27 @@
 //! While it may be possible to manually edit the final asset, this should be discouraged.
 //! Final post-processed assets should generally not be version-controlled, except to save developer time when recomputing heavy asset processing steps.
 //!
-//! Bevy provides two entry points to asset processing:
+//! # Usage
+//!
+//! Asset processing can be enabled or disabled in [`AssetPlugin`](crate::AssetPlugin) by setting the [`AssetMode`](crate::AssetMode).\
+//! Enable Bevy's `file_watcher` feature to automatically watch for changes to assets and reprocess them.
+//!
+//! To register a new asset processor, use [`AssetProcessor::register_processor`].
+//! To set the default asset processor for a given extension, use [`AssetProcessor::set_default_processor`].
+//! In most cases, these methods will be called directly on [`App`](bevy_app::App) using the [`AssetApp`](crate::AssetApp) extension trait.
+//!
+//! If a default asset processor is set, assets with a matching extension will be processed using that processor before loading.
+//!
+//! For an end-to-end example, check out the examples in the [`examples/asset/processing`](https://github.com/bevyengine/bevy/tree/latest/examples/asset/processing) directory of the Bevy repository.
+//!
+//!  # Defining asset processors
+//!
+//! Bevy provides two different ways to define new asset processors:
+//!
 //! - [`LoadTransformAndSave`] + [`AssetTransformer`](crate::transformer::AssetTransformer): a high-level API for loading, transforming, and saving assets.
 //! - [`Process`]: a flexible low-level API for processing assets in arbitrary ways.
 //!
-//! See the documentation associated with those types and traits for more information on how to use them.
-//! For a more complete set of examples, check out the examples in the [`examples/asset/processing`](https://github.com/bevyengine/bevy/tree/latest/examples/asset/processing) directory of the Bevy repository.
+//! In most cases, [`LoadTransformAndSave`] should be sufficient.
 
 mod log;
 mod process;
