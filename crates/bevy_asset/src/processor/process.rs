@@ -1,4 +1,5 @@
 use crate::io::SliceReader;
+use crate::transformer::IdentityAssetTransformer;
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
@@ -47,6 +48,11 @@ pub trait Process: Send + Sync + Sized + 'static {
 /// an [`AssetSaver`] that allows you save any `S` asset. However you can
 /// also implement [`Process`] directly if [`LoadTransformAndSave`] feels limiting or unnecessary.
 ///
+/// If your [`Process`] does not need to transform the [`Asset`], you can use [`IdentityAssetTransformer`] as `T`.
+/// This will directly return the input [`Asset`], allowing your [`Process`] to directly load and then save an [`Asset`].
+/// However, this pattern should only be used for cases such as file format conversion.
+/// Otherwise, consider refactoring your [`AssetLoader`] and [`AssetSaver`] to isolate the transformation step into an explicit [`AssetTransformer`].
+///
 /// This uses [`LoadTransformAndSaveSettings`] to configure the processor.
 ///
 /// [`Asset`]: crate::Asset
@@ -58,6 +64,18 @@ pub struct LoadTransformAndSave<
     transformer: T,
     saver: S,
     marker: PhantomData<fn() -> L>,
+}
+
+impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S>
+    for LoadTransformAndSave<L, IdentityAssetTransformer<L::Asset>, S>
+{
+    fn from(value: S) -> Self {
+        LoadTransformAndSave {
+            transformer: IdentityAssetTransformer::new(),
+            saver: value,
+            marker: PhantomData,
+        }
+    }
 }
 
 /// Settings for the [`LoadTransformAndSave`] [`Process::Settings`] implementation.
@@ -98,30 +116,16 @@ impl<
 /// This uses [`LoadAndSaveSettings`] to configure the processor.
 ///
 /// [`Asset`]: crate::Asset
-pub struct LoadAndSave<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> {
-    saver: S,
-    marker: PhantomData<fn() -> L>,
-}
-
-impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S> for LoadAndSave<L, S> {
-    fn from(value: S) -> Self {
-        LoadAndSave {
-            saver: value,
-            marker: PhantomData,
-        }
-    }
-}
+#[deprecated = "Use `LoadTransformAndSave<L, IdentityAssetTransformer<<L as AssetLoader>::Asset>, S>` instead"]
+pub type LoadAndSave<L, S> =
+    LoadTransformAndSave<L, IdentityAssetTransformer<<L as AssetLoader>::Asset>, S>;
 
 /// Settings for the [`LoadAndSave`] [`Process::Settings`] implementation.
 ///
 /// `LoaderSettings` corresponds to [`AssetLoader::Settings`] and `SaverSettings` corresponds to [`AssetSaver::Settings`].
-#[derive(Serialize, Deserialize, Default)]
-pub struct LoadAndSaveSettings<LoaderSettings, SaverSettings> {
-    /// The [`AssetLoader::Settings`] for [`LoadAndSave`].
-    pub loader_settings: LoaderSettings,
-    /// The [`AssetSaver::Settings`] for [`LoadAndSave`].
-    pub saver_settings: SaverSettings,
-}
+#[deprecated = "Use `LoadTransformAndSaveSettings<LoaderSettings, (), SaverSettings>` instead"]
+pub type LoadAndSaveSettings<LoaderSettings, SaverSettings> =
+    LoadTransformAndSaveSettings<LoaderSettings, (), SaverSettings>;
 
 /// An error that is encountered during [`Process::process`].
 #[derive(Error, Debug)]
@@ -204,36 +208,6 @@ where
         let saved_asset =
             SavedAsset::<Transformer::AssetOutput>::from_transformed(&post_transformed_asset);
 
-        let output_settings = self
-            .saver
-            .save(writer, saved_asset, &settings.saver_settings)
-            .await
-            .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
-        Ok(output_settings)
-    }
-}
-
-impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
-    for LoadAndSave<Loader, Saver>
-{
-    type Settings = LoadAndSaveSettings<Loader::Settings, Saver::Settings>;
-    type OutputLoader = Saver::OutputLoader;
-
-    async fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext<'_>,
-        meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
-    ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
-        let AssetAction::Process { settings, .. } = meta.asset else {
-            return Err(ProcessError::WrongMetaType);
-        };
-        let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-            loader: std::any::type_name::<Loader>().to_string(),
-            settings: settings.loader_settings,
-        });
-        let loaded_asset = context.load_source_asset(loader_meta).await?;
-        let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
         let output_settings = self
             .saver
             .save(writer, saved_asset, &settings.saver_settings)

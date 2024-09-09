@@ -190,7 +190,9 @@ impl CameraProjection for PerspectiveProjection {
     }
 
     fn update(&mut self, width: f32, height: f32) {
-        self.aspect_ratio = AspectRatio::new(width, height).into();
+        self.aspect_ratio = AspectRatio::try_new(width, height)
+            .expect("Failed to update PerspectiveProjection: width and height must be positive, non-zero values")
+            .ratio();
     }
 
     fn far(&self) -> f32 {
@@ -237,7 +239,7 @@ impl Default for PerspectiveProjection {
 /// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
 ///    scaling_mode: ScalingMode::FixedVertical(2.0),
-///    ..OrthographicProjection::default()
+///    ..OrthographicProjection::default_2d()
 /// });
 /// ```
 #[derive(Debug, Clone, Copy, Reflect, Serialize, Deserialize)]
@@ -334,11 +336,11 @@ impl DivAssign<f32> for ScalingMode {
 /// # use bevy_render::camera::{OrthographicProjection, Projection, ScalingMode};
 /// let projection = Projection::Orthographic(OrthographicProjection {
 ///     scaling_mode: ScalingMode::WindowSize(100.0),
-///     ..OrthographicProjection::default()
+///     ..OrthographicProjection::default_2d()
 /// });
 /// ```
 #[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Default)]
+#[reflect(Component)]
 pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///
@@ -479,8 +481,29 @@ impl CameraProjection for OrthographicProjection {
     }
 }
 
-impl Default for OrthographicProjection {
-    fn default() -> Self {
+impl FromWorld for OrthographicProjection {
+    fn from_world(_world: &mut World) -> Self {
+        OrthographicProjection::default_3d()
+    }
+}
+
+impl OrthographicProjection {
+    /// Returns the default orthographic projection for a 2D context.
+    ///
+    /// The near plane is set to a negative value so that the camera can still
+    /// render the scene when using positive z coordinates to order foreground elements.
+    pub fn default_2d() -> Self {
+        OrthographicProjection {
+            near: -1000.0,
+            ..OrthographicProjection::default_3d()
+        }
+    }
+
+    /// Returns the default orthographic projection for a 3D context.
+    ///
+    /// The near plane is set to 0.0 so that the camera doesn't render
+    /// objects that are behind it.
+    pub fn default_3d() -> Self {
         OrthographicProjection {
             scale: 1.0,
             near: 0.0,

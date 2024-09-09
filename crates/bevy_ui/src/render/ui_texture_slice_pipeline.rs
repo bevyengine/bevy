@@ -275,11 +275,20 @@ pub fn extract_ui_texture_slices(
             continue;
         }
 
-        let atlas_rect = atlas.and_then(|atlas| {
-            texture_atlases
-                .get(&atlas.layout)
-                .map(|layout| layout.textures[atlas.index].as_rect())
-        });
+        let atlas_rect = atlas
+            .and_then(|s| s.texture_rect(&texture_atlases))
+            .map(|r| r.as_rect());
+
+        let atlas_rect = match (atlas_rect, image.rect) {
+            (None, None) => None,
+            (None, Some(image_rect)) => Some(image_rect),
+            (Some(atlas_rect), None) => Some(atlas_rect),
+            (Some(atlas_rect), Some(mut image_rect)) => {
+                image_rect.min += atlas_rect.min;
+                image_rect.max += atlas_rect.min;
+                Some(image_rect)
+            }
+        };
 
         extracted_ui_slicers.slices.insert(
             commands.spawn_empty().id(),
