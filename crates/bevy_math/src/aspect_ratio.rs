@@ -1,8 +1,7 @@
 //! Provides a simple aspect ratio struct to help with calculations.
 
-pub mod error;
-
-use crate::{aspect_ratio::error::AspectRatioError, Vec2};
+use crate::Vec2;
+use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -20,22 +19,6 @@ impl AspectRatio {
     /// Standard 21:9 ultrawide aspect ratio
     pub const ULTRAWIDE: Self = Self(21.0 / 9.0);
 
-    /// Create a new [`AspectRatio`] from a given width and height.
-    ///
-    /// # Panics
-    /// Panics when the width and height values are invalid, such a zero or infinite widths/heights, or if either
-    /// value is `NaN`.
-    #[inline]
-    pub fn new(width: f32, height: f32) -> Self {
-        Self::try_new(width, height).expect("Invalid aspect ratio")
-    }
-
-    /// Create a new [`AspectRatio`] from a given amount of x pixels and y pixels.
-    #[inline]
-    pub fn from_pixels(x: u32, y: u32) -> Self {
-        Self::new(x as f32, y as f32)
-    }
-
     /// Attempts to create a new [`AspectRatio`] from a given width and height.
     ///
     /// # Errors
@@ -52,6 +35,18 @@ impl AspectRatio {
             (w, h) if w.is_nan() || h.is_nan() => Err(AspectRatioError::NaN),
             _ => Ok(Self(width / height)),
         }
+    }
+
+    /// Attempts to create a new [`AspectRatio`] from a given amount of x pixels and y pixels.
+    #[inline]
+    pub fn try_from_pixels(x: u32, y: u32) -> Result<Self, AspectRatioError> {
+        Self::try_new(x as f32, y as f32)
+    }
+
+    /// Returns the aspect ratio as a f32 value.
+    #[inline]
+    pub fn ratio(&self) -> f32 {
+        self.0
     }
 
     /// Returns the inverse of this aspect ratio (height/width).
@@ -79,10 +74,12 @@ impl AspectRatio {
     }
 }
 
-impl From<Vec2> for AspectRatio {
+impl TryFrom<Vec2> for AspectRatio {
+    type Error = AspectRatioError;
+
     #[inline]
-    fn from(value: Vec2) -> Self {
-        Self::new(value.x, value.y)
+    fn try_from(value: Vec2) -> Result<Self, Self::Error> {
+        Self::try_new(value.x, value.y)
     }
 }
 
@@ -93,16 +90,16 @@ impl From<AspectRatio> for f32 {
     }
 }
 
-impl From<(f32, f32)> for AspectRatio {
-    #[inline]
-    fn from(value: (f32, f32)) -> Self {
-        Self::new(value.0, value.1)
-    }
-}
+/// An Error type for when [`super::AspectRatio`] is provided invalid width or height values
+#[derive(Error, Debug, PartialEq, Eq, Clone, Copy)]
+pub enum AspectRatioError {
+    /// Error due to width or height having zero as a value.
+    #[error("AspectRatio error: width or height is zero")]
+    Zero,
+    /// Error due towidth or height being infinite.
+    #[error("AspectRatio error: width or height is infinite")]
+    Infinite,
+    /// Error due to width or height being Not a Number (NaN).
+    #[error("AspectRatio error: width or height is NaN")]
+    NaN,
 
-impl From<(u32, u32)> for AspectRatio {
-    #[inline]
-    fn from(value: (u32, u32)) -> Self {
-        Self::from_pixels(value.0, value.1)
-    }
-}
