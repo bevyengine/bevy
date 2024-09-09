@@ -219,18 +219,33 @@ fn spawn_text(mut commands: Commands) {
 }
 
 fn move_player(
+    time: Res<Time>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut player: Query<&mut Transform, With<Player>>,
 ) {
     let mut transform = player.single_mut();
     let delta = accumulated_mouse_motion.delta;
+    let dt = time.delta_seconds();
+    // The factors are just arbitrary mouse sensitivity values.
+    // It's often nicer to have a faster horizontal sensitivity than vertical.
+    let mouse_sensitivity = Vec2::new(0.12, 0.10);
 
     if delta != Vec2::ZERO {
-        let yaw = -delta.x * 0.003;
-        let pitch = -delta.y * 0.002;
-        // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
-        transform.rotate_y(yaw);
-        transform.rotate_local_x(pitch);
+        let delta_yaw = -motion.delta.x * dt * mouse_sensitivity.x;
+        let delta_pitch = -motion.delta.y * dt * mouse_sensitivity.y;
+
+        let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
+        let yaw = yaw + delta_yaw;
+        
+        // If the pitch was ±¹⁄₂ π, the camera would look straight up or down
+        // In that case, which way should the camera face when looking toward the center again?
+        // Think about it; the camera has no way of knowing what direction was "forward" in that case!
+        // It the direction picked will for all intents and purposes be arbitrary.
+        // To not run into this, we clamp the pitch.
+        const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
+        let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
+        
+        transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
     }
 }
 
