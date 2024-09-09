@@ -202,7 +202,7 @@ fn insert_reflect(
         panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003");
     };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
-        panic!("could not get type registration (for component type {type_path}) because it doesn't exist in the TypeRegistry.");
+        panic!("`{type_path}` should be registered in type registry via `App::register_type<{type_path}>`");
     };
 
     if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
