@@ -666,7 +666,7 @@ impl Image {
     /// Returns the aspect ratio (width / height) of a 2D image.
     #[inline]
     pub fn aspect_ratio(&self) -> AspectRatio {
-        AspectRatio::from_pixels(self.width(), self.height())
+        AspectRatio::try_from_pixels(self.width(), self.height()).unwrap()
     }
 
     /// Returns the size of a 2D image as f32.
