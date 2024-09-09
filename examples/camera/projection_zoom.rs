@@ -233,9 +233,7 @@ fn zoom(
             orthographic.scaling_mode = ScalingMode::FixedVertical(zoom_level);
         }
         Projection::Perspective(perspective) => {
-            // Adjust the field of view, but keep it within our stated range. Note that we divide
-            // by an arbitrary factor here to prevent the perspective FOV change from seeming much
-            // faster than its orthographic equivalent.
+            // Adjust the field of view, but keep it within our stated range.
             perspective.fov = (perspective.fov
                 + camera_settings.perspective_zoom_speed * mouse_wheel_input.delta.y)
                 .clamp(
