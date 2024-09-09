@@ -2,31 +2,41 @@
 
 use std::ops::Range;
 
-use bevy::{input::mouse::MouseWheel, prelude::*, render::camera::ScalingMode};
+use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
 
-// Multiply mouse movements by these factors
-const CAMERA_ORBIT_SPEED: f32 = 0.02;
-const CAMERA_ZOOM_SPEED: f32 = 1.0;
-
-// Clamp fixed vertical scale to this range
-const CAMERA_ZOOM_RANGE: Range<f32> = 5.0..50.0;
+#[derive(Debug, Default, Reflect, Resource)]
+struct CameraSettings {
+    // Multiply keyboard inputs by this factor
+    pub orbit_speed: f32,
+    // Clamp fixed vertical scale to this range
+    pub zoom_range: Range<f32>,
+    // Multiply mouse wheel movements by this factor
+    pub zoom_speed: f32,
+}
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .init_resource::<CameraSettings>()
+        .add_systems(Startup, (setup, instructions))
         .add_systems(Update, camera_controls)
+        .register_type::<CameraSettings>()
         .run();
 }
 
 /// Set up a simple 3D scene
 fn setup(
+    mut camera_settings: ResMut<CameraSettings>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    camera_settings.orbit_speed = 0.02;
+    camera_settings.zoom_range = 5.0..50.0;
+    camera_settings.zoom_speed = 1.0;
+
     // Find the middle of the zoom range
-    let initial_scale = (CAMERA_ZOOM_RANGE.end - CAMERA_ZOOM_RANGE.start) / 2.0;
+    let initial_scale = (camera_settings.zoom_range.start + camera_settings.zoom_range.end) / 2.0;
 
     commands.spawn(Camera3dBundle {
         projection: OrthographicProjection {
@@ -58,24 +68,46 @@ fn setup(
         transform: Transform::from_xyz(3.0, 8.0, 5.0),
         ..default()
     });
+}
 
-    info!("Zoom in and out with mouse wheel.");
-    info!("Orbit camera with A and D.");
+fn instructions(mut commands: Commands) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                align_items: AlignItems::Start,
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Start,
+                width: Val::Percent(100.),
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "Scroll mouse wheel to zoom in/out",
+                TextStyle::default(),
+            ));
+            parent.spawn(TextBundle::from_section(
+                "A or D to orbit left or right",
+                TextStyle::default(),
+            ));
+        });
 }
 
 fn camera_controls(
     mut camera: Query<(&mut Projection, &mut Transform), With<Camera>>,
+    camera_settings: Res<CameraSettings>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_input: EventReader<MouseWheel>,
+    mouse_wheel_input: Res<AccumulatedMouseScroll>,
 ) {
     let mut delta_orbit = 0.0;
     if keyboard_input.pressed(KeyCode::KeyA) {
         // Orbit left
-        delta_orbit -= CAMERA_ORBIT_SPEED;
+        delta_orbit -= camera_settings.orbit_speed;
     }
     if keyboard_input.pressed(KeyCode::KeyD) {
         // Orbit right
-        delta_orbit += CAMERA_ORBIT_SPEED;
+        delta_orbit += camera_settings.orbit_speed;
     }
 
     let (mut projection, mut transform) = camera.single_mut();
@@ -86,21 +118,19 @@ fn camera_controls(
         transform.look_at(Vec3::ZERO, Vec3::Y);
     }
 
-    // Accumulate mouse wheel inputs for this tick
-    // TODO: going away in 0.15 with AccumulatedMouseScroll
-    let delta_zoom: f32 = mouse_wheel_input.read().map(|e| e.y).sum();
-    if delta_zoom == 0.0 {
+    let Projection::Orthographic(orthographic) = &mut *projection else {
+        panic!(
+            "This kind of scaling only works with cameras which have an orthographic projection."
+        );
+    };
+    // Get the current scaling_mode value to allow clamping the new value to our zoom range.
+    let ScalingMode::FixedVertical(current) = orthographic.scaling_mode else {
         return;
-    }
-
-    if let Projection::Orthographic(orthographic) = &mut *projection {
-        // Get the current scaling_mode value to allow clamping the new value to our zoom range.
-        let ScalingMode::FixedVertical(current) = orthographic.scaling_mode else {
-            return;
-        };
-        // Set a new ScalingMode, clamped to a limited range.
-        let zoom_level = (current + CAMERA_ZOOM_SPEED * delta_zoom)
-            .clamp(CAMERA_ZOOM_RANGE.start, CAMERA_ZOOM_RANGE.end);
-        orthographic.scaling_mode = ScalingMode::FixedVertical(zoom_level);
-    }
+    };
+    // Set a new ScalingMode, clamped to a limited range.
+    let zoom_level = (current + camera_settings.zoom_speed * mouse_wheel_input.delta.y).clamp(
+        camera_settings.zoom_range.start,
+        camera_settings.zoom_range.end,
+    );
+    orthographic.scaling_mode = ScalingMode::FixedVertical(zoom_level);
 }
