@@ -27,7 +27,7 @@
 //! This can be done by checking the [`LoadState`] of the asset handle using [`AssetServer::is_loaded_with_dependencies`],
 //! which will be `true` when the asset is ready to use.
 //!
-//! ```rust
+//! ```
 //! if asset_server.is_loaded_with_dependencies(&my_asset) {
 //!     // Start the Game!
 //! }
