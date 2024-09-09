@@ -8,7 +8,9 @@ pub use type_data::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_reflect, DynamicTupleStruct, PartialReflect, Struct};
+    use crate::{
+        self as bevy_reflect, DynamicList, DynamicTupleStruct, List, PartialReflect, Struct,
+    };
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         type_registry::TypeRegistry,
@@ -191,24 +193,27 @@ mod tests {
         struct TestStruct {
             a: i32,
             b: DynamicStruct,
+            c: DynamicList,
         }
 
         #[derive(Reflect)]
         struct OtherStruct {
-            c: f32,
+            d: f32,
         }
 
         let mut registry = TypeRegistry::default();
         registry.register::<TestStruct>();
         registry.register::<OtherStruct>();
+        registry.register::<Vec<i32>>();
 
         let value = TestStruct {
             a: 123,
-            b: OtherStruct { c: 456.0 }.clone_dynamic(),
+            b: OtherStruct { d: 456.0 }.clone_dynamic(),
+            c: vec![1, 2, 3].clone_dynamic(),
         };
 
         let serializer = ReflectSerializer::new(&value, &registry);
-        let expected = r#"{"bevy_reflect::serde::tests::TestStruct":(a:123,b:{"bevy_reflect::serde::tests::OtherStruct":(c:456.0)})}"#;
+        let expected = r#"{"bevy_reflect::serde::tests::TestStruct":(a:123,b:{"bevy_reflect::serde::tests::OtherStruct":(d:456.0)},c:{"alloc::vec::Vec<i32>":[1,2,3]})}"#;
         let result = ron::ser::to_string(&serializer).unwrap();
         assert_eq!(expected, result);
 
