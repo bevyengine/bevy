@@ -2337,4 +2337,12 @@ mod tests {
         schedule.add_systems((non_send_param_set, non_send_param_set, non_send_param_set));
         schedule.run(&mut world);
     }
+
+    fn _dyn_system_param_type_inference(mut p: DynSystemParam) {
+        // Make sure the downcast() methods are able to infer their type parameters from the use of the return type.
+        // This is just a compilation test, so there is nothing to run.
+        let _query: Query<()> = p.downcast_mut().unwrap();
+        let _query: Query<()> = p.downcast_mut_inner().unwrap();
+        let _query: Query<()> = p.downcast().unwrap();
+    }
 }
