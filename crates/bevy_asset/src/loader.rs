@@ -21,8 +21,7 @@ use thiserror::Error;
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
 ///
-/// This trait defines asset-specific logic to convert serialized data into Rust types.
-/// For asset-agnostic mechanisms to interact with a storage system, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
+/// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
 ///
 /// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
 pub trait AssetLoader: Send + Sync + 'static {

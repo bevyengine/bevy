@@ -9,8 +9,7 @@ use std::{borrow::Borrow, hash::Hash, ops::Deref};
 /// Saves an [`Asset`] of a given [`AssetSaver::Asset`] type. [`AssetSaver::OutputLoader`] will then be used to load the saved asset
 /// in the final deployed application. The saver should produce asset bytes in a format that [`AssetSaver::OutputLoader`] can read.
 ///
-/// This trait defines asset-specific logic to convert Rust types into serializable data.
-/// For asset-agnostic mechanisms to interact with a storage system, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
+/// This trait is generally used in concert with [`AssetWriter`](crate::io::AssetWriter) to write assets as bytes.
 ///
 /// For a complementary version of this trait that can load assets, see [`AssetLoader`](crate::loader::AssetLoader).
 pub trait AssetSaver: Send + Sync + 'static {
