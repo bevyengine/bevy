@@ -20,6 +20,7 @@
 //! - [`Process`]: a flexible low-level API for processing assets in arbitrary ways.
 //!
 //! See the documentation associated with those types and traits for more information on how to use them.
+//! For a more complete set of examples, check out the examples in the [`examples/asset/processing`](https://github.com/bevyengine/bevy/tree/latest/examples/asset/processing) directory of the Bevy repository.
 
 mod log;
 mod process;
