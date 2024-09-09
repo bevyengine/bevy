@@ -310,6 +310,7 @@ impl TypeInfo {
     impl_cast_method!(as_tuple: Tuple => TupleInfo);
     impl_cast_method!(as_list: List => ListInfo);
     impl_cast_method!(as_array: Array => ArrayInfo);
+    impl_cast_method!(as_set: Set => SetInfo);
     impl_cast_method!(as_map: Map => MapInfo);
     impl_cast_method!(as_enum: Enum => EnumInfo);
     impl_cast_method!(as_value: Value => ValueInfo);

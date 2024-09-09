@@ -6,8 +6,8 @@ use bevy_utils::hashbrown::HashTable;
 
 use crate::type_info::impl_type_methods;
 use crate::{
-    self as bevy_reflect, hash_error, ApplyError, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    self as bevy_reflect, hash_error, ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -84,16 +84,18 @@ pub trait Set: PartialReflect {
 pub struct SetInfo {
     ty: Type,
     value_ty: Type,
+    value_info: fn() -> Option<&'static TypeInfo>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
 
 impl SetInfo {
     /// Create a new [`SetInfo`].
-    pub fn new<TSet: Set + TypePath, TValue: Reflect + TypePath>() -> Self {
+    pub fn new<TSet: Set + TypePath, TValue: Reflect + MaybeTyped + TypePath>() -> Self {
         Self {
             ty: Type::of::<TSet>(),
             value_ty: Type::of::<TValue>(),
+            value_info: TValue::maybe_type_info,
             #[cfg(feature = "documentation")]
             docs: None,
         }
@@ -112,6 +114,14 @@ impl SetInfo {
     /// [type]: Type
     pub fn value_ty(&self) -> Type {
         self.value_ty
+    }
+
+    /// The [`TypeInfo`] of the value type.
+    ///
+    /// Returns `None` if the value type does not contain static type information,
+    /// such as for dynamic types.
+    pub fn value_info(&self) -> Option<&'static TypeInfo> {
+        (self.value_info)()
     }
 
     /// The docstring of this set, if any.
