@@ -38,6 +38,7 @@ bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = "1.0.0"
 nonmax = "0.5"
 smallvec = "1.11"
+radsort = "0.1"
 
 [features]
 serialize = ["serde", "smallvec/serde", "bevy_math/serialize"]

@@ -84,7 +84,7 @@ pub fn ui_stack_system(
         .chain(global_nodes)
         .collect();
 
-    root_nodes.sort_by_key(|(_, z)| *z);
+    radsort::sort_by_key(&mut root_nodes, |(_, z)| *z);
 
     for (entity, _) in root_nodes {
         update_uistack_recursively(entity, uinodes, &children_query, &zindex_query);
