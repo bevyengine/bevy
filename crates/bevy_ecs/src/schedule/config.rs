@@ -322,13 +322,13 @@ where
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
-    /// # Notes
+    /// # Note
     ///
-    /// If you configure two groups of systems (let's call them 'Set A') in a Schedule, another group referencing `.after` or `.before` (let's call it 'Set B') will not be added automatically.
+    /// If you configure two groups of systems (e.g. 'Set A') in a schedule, and another group references `.after` or `.before` (e.g. 'Set B'), the systems in Set B will not be automatically scheduled.
     ///
-    /// It's safe and won't cause any problems or errors. But no dependencies are created: Adding Set A does not automatically create any connections or relationships with Set B. They remain independent of each other.
+    /// This means that Set A and Set B will run independently unless they are explicitly linked. So `.after`/`.before` will not provide the desired behaviour, so the Sets can run in parallel or in any order determined by the scheduler.
     ///
-    /// If you're adding systems in the same location, it's recommended that you use **`.chain`** for brevity and clarity. You can also add a set of systems. You may want to use `.after` or `.before` in association with a comment when the reasoning needs to be particularly clear.
+    /// If you're adding systems in the same location, it's recommended that you use [**`.chain`**](Self::chain) for brevity and clarity. You can also add a set of systems. You may want to use `.after` or `.before` in association with a comment when the reasoning needs to be particularly clear and the order of execution is important or not immediately obvious.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
