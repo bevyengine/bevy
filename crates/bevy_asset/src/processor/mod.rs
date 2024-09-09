@@ -12,7 +12,8 @@
 //! 4. Deterministic: performing the same processing steps on the same asset should (generally) produce the exact same result. In cases where this doesn't make sense (steps that involve a degree of randomness or uncertainty), the results across runs should be "acceptably similar", as they will be generated once for a given set of inputs and cached.
 //!
 //! Taken together, this means that the original asset plus the processing steps should be enough to regenerate the final asset.
-//! While it may be possible to manually edit the final asset, this should be discouraged, and final post-processed assets should generally not be version-controlled.
+//! While it may be possible to manually edit the final asset, this should be discouraged.
+//! Final post-processed assets should generally not be version-controlled, except to save developer time when recomputing heavy asset processing steps.
 //!
 //! Bevy provides two entry points to asset processing:
 //! - [`LoadTransformAndSave`] + [`AssetTransformer`](crate::transformer::AssetTransformer): a high-level API for loading, transforming, and saving assets.
