@@ -1632,7 +1632,7 @@ mod tests {
 
         // TypeInfo (instance)
         let value: &dyn Reflect = &123_i32;
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<i32>());
 
         // Struct
@@ -1653,7 +1653,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.field_at(1).unwrap().type_path());
 
         let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyStruct>());
 
         // Struct (generic)
@@ -1675,7 +1675,7 @@ mod tests {
             foo: String::from("Hello!"),
             bar: 321,
         };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyGenericStruct<String>>());
 
         // Struct (dynamic field)
@@ -1705,7 +1705,7 @@ mod tests {
             foo: DynamicStruct::default(),
             bar: 321,
         };
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyDynamicStruct>());
 
         // Tuple Struct
@@ -1731,7 +1731,7 @@ mod tests {
         assert!(info.field_at(1).unwrap().type_info().unwrap().is::<f32>());
 
         let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyTuple>());
 
         // List
@@ -1746,7 +1746,7 @@ mod tests {
         assert_eq!(usize::type_path(), info.item_ty().path());
 
         let value: &dyn Reflect = &vec![123_usize];
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyList>());
 
         // List (SmallVec)
@@ -1763,7 +1763,7 @@ mod tests {
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
             let value: &dyn Reflect = &value;
-            let info = value.get_represented_type_info().unwrap();
+            let info = value.reflect_type_info();
             assert!(info.is::<MySmallVec>());
         }
 
@@ -1779,7 +1779,7 @@ mod tests {
         assert_eq!(3, info.capacity());
 
         let value: &dyn Reflect = &[1usize, 2usize, 3usize];
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyArray>());
 
         // Cow<'static, str>
@@ -1791,7 +1791,7 @@ mod tests {
         assert_eq!(std::any::type_name::<MyCowStr>(), info.type_path());
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyCowStr>());
 
         // Cow<'static, [u8]>
@@ -1806,7 +1806,7 @@ mod tests {
         assert_eq!(std::any::type_name::<u8>(), info.item_ty().path());
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyCowSlice>());
 
         // Map
@@ -1824,7 +1824,7 @@ mod tests {
         assert_eq!(f32::type_path(), info.value_ty().path());
 
         let value: &dyn Reflect = &MyMap::new();
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyMap>());
 
         // Value
@@ -1836,7 +1836,7 @@ mod tests {
         assert_eq!(MyValue::type_path(), info.type_path());
 
         let value: &dyn Reflect = &String::from("Hello!");
-        let info = value.get_represented_type_info().unwrap();
+        let info = value.reflect_type_info();
         assert!(info.is::<MyValue>());
     }
 
