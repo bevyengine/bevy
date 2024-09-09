@@ -93,7 +93,7 @@ fn animate(
             // rainbow color effect
             let new_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 1., 0.5);
             let border_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 0.75, 0.75);
-            material.color = LinearRgba::from(new_color).to_f32_array().into();
+            material.color = new_color.to_linear().to_vec4();
             material.slider =
                 ((time.elapsed_seconds() % (duration * 2.0)) - duration).abs() / duration;
             material.border_color = border_color.to_linear().to_vec4();
