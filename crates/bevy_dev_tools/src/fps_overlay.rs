@@ -14,7 +14,7 @@ use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::{
     node_bundles::{NodeBundle, TextBundle},
-    PositionType, Style, ZIndex,
+    GlobalZIndex, PositionType, Style, ZIndex,
 };
 use bevy_utils::default;
 
@@ -88,7 +88,7 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
                 // Render overlay on top of everything
                 ..default()
             },
-            ZIndex::Global(FPS_OVERLAY_ZINDEX),
+            GlobalZIndex(FPS_OVERLAY_ZINDEX),
         ))
         .with_children(|c| {
             c.spawn((
