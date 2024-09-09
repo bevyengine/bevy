@@ -22,7 +22,7 @@ use crate::{FromType, PartialReflect, Reflect};
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` does not implement `FromReflect` so cannot be reified through reflection",
+    message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait FromReflect: Reflect + Sized {
