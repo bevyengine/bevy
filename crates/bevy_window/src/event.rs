@@ -9,7 +9,6 @@ use bevy_input::{
 };
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
-use smol_str::SmolStr;
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
