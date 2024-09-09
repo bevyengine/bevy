@@ -51,7 +51,7 @@ impl<'a, 'de> Visitor<'de> for OptionVisitor<'a> {
                 let mut value = DynamicTuple::default();
                 value.insert_boxed(de.deserialize(deserializer)?);
                 let mut option = DynamicEnum::default();
-                option.set_variant("Some", value);
+                option.set_variant_with_index(1, "Some", value);
                 Ok(option)
             }
             info => Err(make_custom_error(format_args!(
