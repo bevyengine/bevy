@@ -74,7 +74,7 @@
 //! and loading them all at the start of the game.
 //! As your game grows, you'll need to be more careful about when you load and unload assets,
 //! segmenting them by level or area, and loading them on-demand.
-//! This problem generally arises when handles are stored in a persistent "zoo" or "manifest" of possible objects (generally in a resource),
+//! This problem generally arises when handles are stored in a persistent "collection" or "manifest" of possible objects (generally in a resource),
 //! which is convenient for easy access and zero-latency spawning, but can result in high but stable memory usage.
 //!
 //! The second problem is more concerning, and looks like your models or textures suddenly disappearing from the game.
