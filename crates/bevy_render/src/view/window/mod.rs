@@ -23,7 +23,7 @@ use wgpu::{
 pub mod cursor;
 pub mod screenshot;
 
-use self::cursor::update_cursors;
+use self::cursor::{on_remove_cursor_icon, update_cursors};
 use screenshot::{ScreenshotPlugin, ScreenshotToScreenPipeline};
 
 pub struct WindowRenderPlugin;
@@ -33,6 +33,8 @@ impl Plugin for WindowRenderPlugin {
         app.add_plugins(ScreenshotPlugin)
             .init_resource::<CustomCursorCache>()
             .add_systems(Last, update_cursors);
+
+        app.observe(on_remove_cursor_icon);
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

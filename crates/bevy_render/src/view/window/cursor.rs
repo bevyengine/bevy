@@ -3,11 +3,11 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
+    observer::Trigger,
     query::With,
     reflect::ReflectComponent,
-    removal_detection::RemovedComponents,
     system::{Commands, Local, Query, Res},
-    world::Ref,
+    world::{OnRemove, Ref},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::{tracing::warn, HashSet};
@@ -75,20 +75,10 @@ pub enum CustomCursor {
 pub fn update_cursors(
     mut commands: Commands,
     windows: Query<(Entity, Ref<CursorIcon>), With<Window>>,
-    mut icon_removed: RemovedComponents<CursorIcon>,
     cursor_cache: Res<CustomCursorCache>,
     images: Res<Assets<Image>>,
     mut queue: Local<HashSet<Entity>>,
 ) {
-    // Resets the cursor to the default icon when `CursorIcon` is removed
-    for entity in icon_removed.read() {
-        commands
-            .entity(entity)
-            .insert(PendingCursor(Some(CursorSource::System(
-                convert_system_cursor_icon(SystemCursorIcon::Default),
-            ))));
-    }
-
     for (entity, cursor) in windows.iter() {
         if !(queue.remove(&entity) || cursor.is_changed()) {
             continue;
@@ -159,6 +149,15 @@ pub fn update_cursors(
             .entity(entity)
             .insert(PendingCursor(Some(cursor_source)));
     }
+}
+
+/// Resets the cursor to the default icon when `CursorIcon` is removed.
+pub fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
+    commands
+        .entity(trigger.entity())
+        .insert(PendingCursor(Some(CursorSource::System(
+            convert_system_cursor_icon(SystemCursorIcon::Default),
+        ))));
 }
 
 /// Returns the image data as a `Vec<u8>`.
