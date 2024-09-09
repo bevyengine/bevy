@@ -98,7 +98,7 @@
 //! Generally, (only) [`AssetLoader`] needs to be implemented for custom assets, as the [`AssetReader`](io::AssetReader) implementations are provided by Bevy.
 //!
 //! However, [`AssetLoader`] shouldn't be implemented for your asset type directly: instead, this is implemented for a "loader" type
-//! that can store complex intermediate state, while your asset type is used as the [`AssetLoader::Asset`] associated type.
+//! that can store settings and any additional data required to load your asset, while your asset type is used as the [`AssetLoader::Asset`] associated type.
 //! As the trait documentation explains, this allows various [`AssetLoader::Settings`] to be used to configure the loader.
 //!
 //! After the loader is implemented, it needs to be registered with the [`AssetServer`] using [`App::register_asset_loader`](AssetApp::register_asset_loader).
