@@ -545,11 +545,11 @@ mod tests {
             .build_state(&mut world)
             .build_system(
                 |mut p0: DynSystemParam, mut p1: DynSystemParam, mut p2: DynSystemParam| {
+                    let local = *p0.downcast_mut::<Local<usize>>().unwrap();
+                    let query_count = p1.downcast_mut::<Query<()>>().unwrap().iter().count();
+                    let _entities = p2.downcast_mut::<&Entities>().unwrap();
                     assert!(p0.downcast_mut::<Query<()>>().is_none());
-                    let local: Local<usize> = p0.downcast_mut().unwrap();
-                    let query: Query<()> = p1.downcast_mut().unwrap();
-                    let _entities: &Entities = p2.downcast_mut().unwrap();
-                    *local + query.iter().count()
+                    local + query_count
                 },
             );
 
