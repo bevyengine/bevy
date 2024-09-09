@@ -70,7 +70,7 @@ fn setup(
                 scaling_mode: ScalingMode::FixedVertical(
                     camera_settings.orthographic_zoom_range.start,
                 ),
-                ..default()
+                ..OrthographicProjection::default_3d()
             }
             .into(),
             transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -203,7 +203,7 @@ fn switch_projection(
                 scaling_mode: ScalingMode::FixedVertical(
                     camera_settings.orthographic_zoom_range.start,
                 ),
-                ..default()
+                ..OrthographicProjection::default_3d()
             }),
         }
     }
@@ -214,11 +214,11 @@ fn zoom(
     camera_settings: Res<CameraSettings>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
 ) {
-    let mut projection = camera.single_mut();
+    let projection = camera.single_mut();
 
     // Usually, you won't need to handle both types of projection. This is by way of demonstration.
-    match projection.deref_mut() {
-        Projection::Orthographic(orthographic) => {
+    match projection.into_inner() {
+        Projection::Orthographic(ref mut orthographic) => {
             // Get the current scaling_mode value to allow clamping the new value to our zoom range.
             let ScalingMode::FixedVertical(current) = orthographic.scaling_mode else {
                 return;
@@ -232,7 +232,7 @@ fn zoom(
                 );
             orthographic.scaling_mode = ScalingMode::FixedVertical(zoom_level);
         }
-        Projection::Perspective(perspective) => {
+        Projection::Perspective(ref mut perspective) => {
             // Adjust the field of view, but keep it within our stated range.
             perspective.fov = (perspective.fov
                 + camera_settings.perspective_zoom_speed * mouse_wheel_input.delta.y)
