@@ -1944,8 +1944,12 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     }
 
     /// Returns `true` if the inner system param is the same as `T`.
-    pub fn is<T: SystemParam + 'static>(&self) -> bool {
-        self.state.is::<ParamState<T>>()
+    pub fn is<T: SystemParam>(&self) -> bool
+    // See downcast() function for an explanation of the where clause
+    where
+        T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
+    {
+        self.state.is::<ParamState<T::Item<'static, 'static>>>()
     }
 
     /// Returns the inner system param if it is the correct type.
