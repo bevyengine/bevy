@@ -36,7 +36,6 @@ const TRANSFORM_2D: Transform = Transform {
 const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjection {
     near: -1.0,
     far: 10.0,
-    scale: 1.0,
     viewport_origin: Vec2::new(0.5, 0.5),
     scaling_mode: ScalingMode::AutoMax {
         max_width: 8.0,
