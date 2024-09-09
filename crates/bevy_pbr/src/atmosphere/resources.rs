@@ -23,7 +23,7 @@ use bevy_render::{
     texture::{CachedTexture, TextureCache},
 };
 
-use super::{shaders, Atmosphere};
+use super::{shaders, Atmosphere, AtmosphereLutSettings};
 
 #[derive(Resource)]
 pub(crate) struct AtmosphereBindGroupLayouts {
@@ -134,7 +134,7 @@ impl FromWorld for AtmospherePipelines {
 
         let sky_view_lut = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: Some("sky_transmittance_lut_pipeline".into()),
-            layout: vec![layouts.transmittance_lut.clone()],
+            layout: vec![layouts.sky_view_lut.clone()],
             push_constant_ranges: vec![],
             vertex: fullscreen_shader_vertex_state(),
             primitive: PrimitiveState::default(),
@@ -154,7 +154,7 @@ impl FromWorld for AtmospherePipelines {
 
         let aerial_view_lut = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("aerial_view_lut_pipeline".into()),
-            layout: vec![layouts.multiscattering_lut.clone()],
+            layout: vec![layouts.aerial_view_lut.clone()],
             push_constant_ranges: vec![],
             shader: shaders::AERIAL_VIEW_LUT,
             shader_defs: vec![],
@@ -173,27 +173,23 @@ impl FromWorld for AtmospherePipelines {
 #[derive(Component)]
 pub struct AtmosphereTextures {
     pub transmittance_lut: CachedTexture,
+    pub multiscattering_lut: CachedTexture,
     pub sky_view_lut: CachedTexture,
     pub aerial_view_lut: CachedTexture,
-    pub multiscattering_lut: CachedTexture,
 }
 
 pub(super) fn prepare_atmosphere_textures(
-    views: Query<(Entity, &ExtractedCamera), With<Atmosphere>>,
+    views: Query<(Entity, &AtmosphereLutSettings), With<Atmosphere>>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     mut commands: Commands,
 ) {
-    for (entity, camera) in &views {
+    for (entity, lut_settings) in &views {
         let transmittance_lut = texture_cache.get(
             &render_device,
             TextureDescriptor {
                 label: Some("transmittance_lut"),
-                size: Extent3d {
-                    width: 256,
-                    height: 64,
-                    depth_or_array_layers: 1,
-                },
+                size: lut_settings.transmittance_lut_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -203,33 +199,39 @@ pub(super) fn prepare_atmosphere_textures(
             },
         );
 
+        let multiscattering_lut = texture_cache.get(
+            &render_device,
+            TextureDescriptor {
+                label: Some("multiscattering_lut"),
+                size: lut_settings.multiscattering_lut_size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+        );
+
         let sky_view_lut = texture_cache.get(
             &render_device,
             TextureDescriptor {
                 label: Some("sky_view_lut"),
-                size: Extent3d {
-                    width: 256,
-                    height: 256,
-                    depth_or_array_layers: 1,
-                },
+                size: lut_settings.sky_view_lut_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rg11b10Float,
+                format: TextureFormat::Rgba16Float, //TODO: check if needs hdr
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
         );
 
-        let aerial_perspective_lut = texture_cache.get(
+        let aerial_view_lut = texture_cache.get(
             &render_device,
             TextureDescriptor {
                 label: Some("aerial_view_lut"),
-                size: Extent3d {
-                    width: 32,
-                    height: 32,
-                    depth_or_array_layers: 32,
-                },
+                size: lut_settings.aerial_view_lut_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D3,
@@ -239,37 +241,19 @@ pub(super) fn prepare_atmosphere_textures(
             },
         );
 
-        let multi_scattering_lut = texture_cache.get(
-            &render_device,
-            TextureDescriptor {
-                label: Some("multi_scattering"),
-                size: Extent3d {
-                    width: 32,
-                    height: 32,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba16Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
-        );
-
         commands.entity(entity).insert({
             AtmosphereTextures {
                 transmittance_lut,
+                multiscattering_lut,
                 sky_view_lut,
-                aerial_view_lut: aerial_perspective_lut,
-                multiscattering_lut: multi_scattering_lut,
+                aerial_view_lut,
             }
         });
     }
 }
 
 #[derive(Component)]
-pub struct AtmosphereBindGroups {
+pub(crate) struct AtmosphereBindGroups {
     pub transmittance_lut: BindGroup,
     pub multiscattering_lut: BindGroup,
     pub sky_view_lut: BindGroup,

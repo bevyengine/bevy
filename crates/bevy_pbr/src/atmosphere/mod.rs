@@ -7,16 +7,16 @@ use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
+    query::{With, Without},
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
-use bevy_math::Vec3;
+use bevy_math::{Vec2, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::Camera,
     render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, TextureFormat, TextureUsages},
+    render_resource::{Extent3d, Shader, TextureFormat, TextureUsages},
     renderer::RenderAdapter,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
@@ -85,7 +85,8 @@ impl Plugin for AtmospherePlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<Atmosphere>();
+        app.register_type::<Atmosphere>()
+            .add_plugins(UniformComponentPlugin::<Atmosphere>::default());
     }
 
     fn finish(&self, app: &mut App) {
@@ -107,8 +108,7 @@ impl Plugin for AtmospherePlugin {
         render_app
             .init_resource::<AtmosphereBindGroupLayouts>()
             .init_resource::<AtmospherePipelines>()
-            .add_systems(ExtractSchedule, extract_sky_settings)
-            .add_plugins(UniformComponentPlugin::<Atmosphere>::default())
+            .add_systems(ExtractSchedule, extract_atmosphere)
             .add_systems(
                 Render,
                 (
@@ -130,7 +130,7 @@ impl Plugin for AtmospherePlugin {
 }
 
 //TODO: padding/alignment?
-#[derive(Clone, Component, Default, Reflect, ShaderType)]
+#[derive(Clone, Component, Reflect, ShaderType)]
 pub struct Atmosphere {
     /// Radius of the planet
     ///
@@ -153,13 +153,96 @@ pub struct Atmosphere {
     ozone_absorption: Vec3,           //ozone absorption. units: km^-1
 }
 
-fn extract_sky_settings(
+impl Default for Atmosphere {
+    fn default() -> Self {
+        Self::EARTH
+    }
+}
+
+impl Atmosphere {
+    //TODO: check all these values before merge
+    pub const EARTH: Atmosphere = Atmosphere {
+        bottom_radius: 6360.0,
+        top_radius: 6460.0,
+        rayleigh_density_exp_scale: -1.0 / 8.0,
+        rayleigh_scattering: Vec3::new(0.005802, 0.013558, 0.033100),
+        mie_density_exp_scale: -1.0 / 1.2,
+        mie_scattering: 0.03996,
+        mie_absorption: 0.000444,
+        mie_phase_function_g: 0.8,
+        ozone_layer_center_altitude: 25.0,
+        ozone_layer_half_width: 15.0,
+        ozone_absorption: Vec3::new(0.000650, 0.001881, 0.000085),
+    };
+}
+
+fn extract_atmosphere(
     mut commands: Commands,
-    cameras: Extract<Query<(Entity, &Camera, &Atmosphere), With<Camera3d>>>,
+    cameras: Extract<
+        Query<(Entity, &Camera, &Atmosphere, Option<&AtmosphereLutSettings>), With<Camera3d>>,
+    >,
 ) {
-    for (entity, camera, sky_settings) in &cameras {
+    for (entity, camera, atmosphere, lut_settings) in &cameras {
         if camera.is_active {
-            commands.get_or_spawn(entity).insert(sky_settings.clone());
+            commands.get_or_spawn(entity).insert((
+                atmosphere.clone(),
+                lut_settings
+                    .cloned()
+                    .unwrap_or_else(|| AtmosphereLutSettings::from_camera(camera)),
+            ));
+        }
+    }
+}
+
+#[derive(Clone, Component)]
+pub struct AtmosphereLutSettings {
+    pub transmittance_lut_size: Extent3d,
+    pub multiscattering_lut_size: Extent3d,
+    pub sky_view_lut_size: Extent3d,
+    pub aerial_view_lut_size: Extent3d,
+}
+
+impl Default for AtmosphereLutSettings {
+    fn default() -> Self {
+        Self {
+            transmittance_lut_size: Extent3d {
+                width: 256,
+                height: 128,
+                depth_or_array_layers: 1,
+            },
+            multiscattering_lut_size: Extent3d {
+                width: 32,
+                height: 32,
+                depth_or_array_layers: 1,
+            },
+            sky_view_lut_size: Extent3d {
+                width: 192,
+                height: 108,
+                depth_or_array_layers: 1,
+            },
+            aerial_view_lut_size: Extent3d {
+                width: 32,
+                height: 32,
+                depth_or_array_layers: 32,
+            },
+        }
+    }
+}
+
+impl AtmosphereLutSettings {
+    pub fn from_camera(camera: &Camera) -> Self {
+        //TODO: correct method?
+        if let Some(viewport_size) = camera.logical_viewport_size() {
+            Self {
+                sky_view_lut_size: Extent3d {
+                    width: viewport_size.x as u32 / 10,
+                    height: viewport_size.y as u32 / 10,
+                    depth_or_array_layers: 1,
+                },
+                ..Self::default()
+            }
+        } else {
+            Self::default()
         }
     }
 }
