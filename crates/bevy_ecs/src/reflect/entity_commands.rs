@@ -210,7 +210,7 @@ fn insert_reflect(
     } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
         reflect_bundle.insert(&mut entity, component.as_partial_reflect(), type_registry);
     } else {
-        panic!("type {type_path} is neither a reflected component nor a reflected bundle.");
+        panic!("`{type_path}` should have #[reflect(Component)] or #[reflect(Bundle)].");
     }
 }
 
