@@ -61,6 +61,9 @@ pub use volumetric_fog::{
     FogVolume, FogVolumeBundle, VolumetricFogPlugin, VolumetricFogSettings, VolumetricLight,
 };
 
+/// The PBR prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{

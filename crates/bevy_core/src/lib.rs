@@ -16,8 +16,10 @@ use bevy_ecs::system::Resource;
 pub use name::*;
 pub use task_pool_options::*;
 
+/// The core prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    //! The Bevy Core Prelude.
     #[doc(hidden)]
     pub use crate::{
         FrameCountPlugin, Name, NameOrEntity, TaskPoolOptions, TaskPoolPlugin,
