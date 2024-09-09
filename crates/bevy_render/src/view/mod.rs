@@ -121,7 +121,7 @@ impl Plugin for ViewPlugin {
             render_app.add_systems(
                 Render,
                 (
-                    // In DX12 backend, `TextureView`s need to be released before reconfiguring window surfaces.
+                    // `TextureView`s need to be dropped before reconfiguring window surfaces.
                     clear_view_attachments
                         .in_set(RenderSet::ManageViews)
                         .before(create_surfaces),
