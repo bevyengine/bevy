@@ -14,7 +14,7 @@ use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_text::{Font, Text, TextSection, TextStyle};
 use bevy_ui::{
     node_bundles::{NodeBundle, TextBundle},
-    GlobalZIndex, PositionType, Style, ZIndex,
+    GlobalZIndex, PositionType, Style,
 };
 use bevy_utils::default;
 
