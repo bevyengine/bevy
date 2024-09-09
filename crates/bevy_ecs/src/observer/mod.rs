@@ -56,9 +56,35 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the entity that triggered the observer, could be [`Entity::PLACEHOLDER`].
+    /// Returns the [`Entity`] that triggered the observer, could be [`Entity::PLACEHOLDER`].
     pub fn entity(&self) -> Entity {
         self.trigger.entity
+    }
+
+    /// Returns the [`Entity`] that observed the triggered event.
+    /// This allows you to despawn the observer, ceasing observation.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::{Commands, Trigger};
+    /// #
+    /// # struct MyEvent {
+    /// #   done: bool,
+    /// # }
+    /// #
+    /// /// Handle `MyEvent` and if it is done, stop observation.
+    /// fn my_observer(trigger: Trigger<MyEvent>, mut commands: Commands) {
+    ///     if trigger.event().done {
+    ///         commands.entity(trigger.observer()).despawn();
+    ///         return;
+    ///     }
+    ///
+    ///     // ...
+    /// }
+    /// ```
+    pub fn observer(&self) -> Entity {
+        self.trigger.observer
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
