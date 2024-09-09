@@ -4,7 +4,7 @@
 //!
 //! This presents two main challenges:
 //! - Assets take up a lot of memory; simply storing a copy for each instance of an asset in the game would be prohibitively expensive.
-//! - Loading assets from disk is slow, and can cause the game to stutter or freeze if done in the middle of gameplay.
+//! - Loading assets from disk is slow, and can cause long load times and delays.
 //!
 //! These problems play into each other, for if assets are expensive to store in memory,
 //! then larger game worlds will need to load them from disk as needed, ideally without a loading screen!
