@@ -42,12 +42,14 @@ fn setup(
                     position_type: PositionType::Absolute,
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
+                    border: UiRect::all(Val::Px(10.)),
                     ..default()
                 },
                 material: ui_materials.add(CustomUiMaterial {
                     color: LinearRgba::WHITE.to_f32_array().into(),
                     slider: 0.5,
                     color_texture: asset_server.load("branding/banner.png"),
+                    border_color: LinearRgba::RED.to_f32_array().into(),
                 }),
                 ..default()
             });
@@ -67,6 +69,8 @@ struct CustomUiMaterial {
     #[texture(2)]
     #[sampler(3)]
     color_texture: Handle<Image>,
+    #[uniform(4)]
+    border_color: Vec4,
 }
 
 impl UiMaterial for CustomUiMaterial {
@@ -90,6 +94,7 @@ fn animate(
             material.color = LinearRgba::from(new_color).to_f32_array().into();
             material.slider =
                 ((time.elapsed_seconds() % (duration * 2.0)) - duration).abs() / duration;
+            material.border_color = LinearRgba::from(new_color).to_f32_array().into();
         }
     }
 }
