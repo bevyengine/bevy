@@ -236,7 +236,7 @@ fn move_player(
 
         let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
         let yaw = yaw + delta_yaw;
-        
+
         // If the pitch was ±¹⁄₂ π, the camera would look straight up or down
         // In that case, which way should the camera face when looking toward the center again?
         // Think about it; the camera has no way of knowing what direction was "forward" in that case!
@@ -244,7 +244,7 @@ fn move_player(
         // To not run into this, we clamp the pitch.
         const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
         let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
-        
+
         transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
     }
 }
