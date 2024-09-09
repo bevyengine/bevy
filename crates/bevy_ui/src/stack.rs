@@ -18,34 +18,25 @@ pub struct UiStack {
 fn update_uistack_recursively(
     entity: Entity,
     uinodes: &mut Vec<Entity>,
-    node_and_children_query: &mut Query<(&mut Node, Option<&Children>)>,
+    children_query: &Query<&Children>,
     zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
 ) {
     uinodes.push(entity);
 
-    if let Ok((mut node, maybe_children)) = node_and_children_query.get_mut(entity) {
-        node.bypass_change_detection().stack_index = uinodes.len() as u32;
+    if let Ok(children) = children_query.get(entity) {
+        let mut z_children: Vec<(Entity, i32)> = children
+            .iter()
+            .filter_map(|entity| {
+                zindex_query
+                    .get(*entity)
+                    .ok()
+                    .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+            })
+            .collect();
+        radsort::sort_by_key(&mut z_children, |k| k.1);
 
-        if let Some(children) = maybe_children {
-            let mut z_children: Vec<(Entity, i32)> = children
-                .iter()
-                .filter_map(|entity| {
-                    zindex_query
-                        .get(*entity)
-                        .ok()
-                        .map(|zindex| (*entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-                })
-                .collect();
-            radsort::sort_by_key(&mut z_children, |k| k.1);
-
-            for (child_id, _) in z_children {
-                update_uistack_recursively(
-                    child_id,
-                    uinodes,
-                    node_and_children_query,
-                    zindex_query,
-                );
-            }
+        for (child_id, _) in z_children {
+            update_uistack_recursively(child_id, uinodes, children_query, zindex_query);
         }
     }
 }
@@ -61,8 +52,9 @@ pub fn ui_stack_system(
         (Entity, &GlobalZIndex, Option<&ZIndex>),
         (With<Node>, With<Parent>),
     >,
-    mut node_and_children_query: Query<(&mut Node, Option<&Children>)>,
+    children_query: Query<&Children>,
     zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+    mut update_query: Query<&mut Node>,
 ) {
     ui_stack.uinodes.clear();
     let uinodes = &mut ui_stack.uinodes;
@@ -95,7 +87,13 @@ pub fn ui_stack_system(
     radsort::sort_by_key(&mut root_nodes, |(_, z)| *z);
 
     for (entity, _) in root_nodes {
-        update_uistack_recursively(entity, uinodes, &mut node_and_children_query, &zindex_query);
+        update_uistack_recursively(entity, uinodes, &children_query, &zindex_query);
+    }
+
+    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok(mut node) = update_query.get_mut(*entity) {
+            node.bypass_change_detection().stack_index = i as u32;
+        }
     }
 }
 
