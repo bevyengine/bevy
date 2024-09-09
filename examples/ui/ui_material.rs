@@ -49,7 +49,7 @@ fn setup(
                     color: LinearRgba::WHITE.to_f32_array().into(),
                     slider: 0.5,
                     color_texture: asset_server.load("branding/banner.png"),
-                    border_color: LinearRgba::RED.to_f32_array().into(),
+                    border_color: LinearRgba::WHITE.to_f32_array().into(),
                 }),
                 ..default()
             });
@@ -69,6 +69,7 @@ struct CustomUiMaterial {
     #[texture(2)]
     #[sampler(3)]
     color_texture: Handle<Image>,
+    /// Color of the image's border
     #[uniform(4)]
     border_color: Vec4,
 }
@@ -91,10 +92,11 @@ fn animate(
         if let Some(material) = materials.get_mut(handle) {
             // rainbow color effect
             let new_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 1., 0.5);
+            let border_color = Color::hsl((time.elapsed_seconds() * 60.0) % 360.0, 0.75, 0.75);
             material.color = LinearRgba::from(new_color).to_f32_array().into();
             material.slider =
                 ((time.elapsed_seconds() % (duration * 2.0)) - duration).abs() / duration;
-            material.border_color = LinearRgba::from(new_color).to_f32_array().into();
+            material.border_color = LinearRgba::from(border_color).to_f32_array().into();
         }
     }
 }
