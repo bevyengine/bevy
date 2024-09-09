@@ -12,7 +12,7 @@ use std::{borrow::Borrow, hash::Hash, ops::Deref};
 /// This trait defines asset-specific logic to convert Rust types into serializable data.
 /// For asset-agnostic mechanisms to interact with a storage system, see [`AssetSaver`](crate::saver::AssetSaver) and [`AssetLoader`](crate::loader::AssetLoader).
 ///
-/// For a mirrored version of this trait that can load assets, see [`AssetLoader`](crate::loader::AssetLoader).
+/// For a complementary version of this trait that can load assets, see [`AssetLoader`](crate::loader::AssetLoader).
 pub trait AssetSaver: Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;
