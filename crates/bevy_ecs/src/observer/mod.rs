@@ -7,11 +7,12 @@ mod trigger_event;
 pub use runner::*;
 pub use trigger_event::*;
 
+use crate::entity::EntityHashMap;
 use crate::observer::entity_observer::ObservedBy;
 use crate::{archetype::ArchetypeFlags, system::IntoObserverSystem, world::*};
 use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
 use bevy_ptr::Ptr;
-use bevy_utils::{EntityHashMap, HashMap};
+use bevy_utils::HashMap;
 use std::{fmt::Debug, marker::PhantomData};
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
@@ -152,7 +153,7 @@ pub struct ObserverTrigger {
 }
 
 // Map between an observer entity and its runner
-type ObserverMap = EntityHashMap<Entity, ObserverRunner>;
+type ObserverMap = EntityHashMap<ObserverRunner>;
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger targeted at a specific component.
 #[derive(Default, Debug)]
@@ -160,7 +161,7 @@ pub struct CachedComponentObservers {
     // Observers listening to triggers targeting this component
     map: ObserverMap,
     // Observers listening to triggers targeting this component on a specific entity
-    entity_map: EntityHashMap<Entity, ObserverMap>,
+    entity_map: EntityHashMap<ObserverMap>,
 }
 
 /// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular trigger.
@@ -171,7 +172,7 @@ pub struct CachedObservers {
     // Observers listening for this trigger fired at a specific component
     component_observers: HashMap<ComponentId, CachedComponentObservers>,
     // Observers listening for this trigger fired at a specific entity
-    entity_observers: EntityHashMap<Entity, ObserverMap>,
+    entity_observers: EntityHashMap<ObserverMap>,
 }
 
 /// Metadata for observers. Stores a cache mapping trigger ids to the registered observers.
