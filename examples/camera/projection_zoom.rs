@@ -41,7 +41,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Perspective projections use field of view, expressed in radians. We would
-    // normally not set it to more than PI, which represents a 180° FOV.
+    // normally not set it to more than π, which represents a 180° FOV.
     let min_fov = PI / 5.;
     let max_fov = PI - 0.2;
 
