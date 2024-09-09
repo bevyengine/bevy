@@ -327,7 +327,7 @@ impl<P: PhaseItem, M: UiMaterial> RenderCommand<P> for DrawUiMaterialNode<M> {
 }
 
 pub struct ExtractedUiMaterialNode<M: UiMaterial> {
-    pub stack_index: usize,
+    pub stack_index: u32,
     pub transform: Mat4,
     pub rect: Rect,
     pub border: [f32; 4],
@@ -355,7 +355,6 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
 pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
-    ui_stack: Extract<Res<UiStack>>,
     default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<
@@ -386,61 +385,54 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((entity, uinode, style, transform, handle, view_visibility, clip, camera)) =
-            uinode_query.get(*entity)
-        {
-            let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera)
-            else {
-                continue;
-            };
-
-            // skip invisible nodes
-            if !view_visibility.get() {
-                continue;
-            }
-
-            // Skip loading materials
-            if !materials.contains(handle) {
-                continue;
-            }
-
-            // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
-            // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-            let parent_width = uinode.size().x;
-            let left =
-                resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size)
-                    / uinode.size().x;
-            let right = resolve_border_thickness(
-                style.border.right,
-                parent_width,
-                ui_logical_viewport_size,
-            ) / uinode.size().x;
-            let top =
-                resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size)
-                    / uinode.size().y;
-            let bottom = resolve_border_thickness(
-                style.border.bottom,
-                parent_width,
-                ui_logical_viewport_size,
-            ) / uinode.size().y;
-
-            extracted_uinodes.uinodes.insert(
-                entity,
-                ExtractedUiMaterialNode {
-                    stack_index,
-                    transform: transform.compute_matrix(),
-                    material: handle.id(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: uinode.calculated_size,
-                    },
-                    border: [left, right, top, bottom],
-                    clip: clip.map(|clip| clip.clip),
-                    camera_entity,
-                },
-            );
+    for (entity, uinode, style, transform, handle, view_visibility, clip, camera) in
+        uinode_query.iter()
+    {
+        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+            continue;
         };
+
+        // skip invisible nodes
+        if !view_visibility.get() {
+            continue;
+        }
+
+        // Skip loading materials
+        if !materials.contains(handle) {
+            continue;
+        }
+
+        // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
+        // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
+        let parent_width = uinode.size().x;
+        let left =
+            resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size)
+                / uinode.size().x;
+        let right =
+            resolve_border_thickness(style.border.right, parent_width, ui_logical_viewport_size)
+                / uinode.size().x;
+        let top =
+            resolve_border_thickness(style.border.top, parent_width, ui_logical_viewport_size)
+                / uinode.size().y;
+        let bottom =
+            resolve_border_thickness(style.border.bottom, parent_width, ui_logical_viewport_size)
+                / uinode.size().y;
+
+        extracted_uinodes.uinodes.insert(
+            entity,
+            ExtractedUiMaterialNode {
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix(),
+                material: handle.id(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                },
+                border: [left, right, top, bottom],
+                clip: clip.map(|clip| clip.clip),
+                camera_entity,
+            },
+        );
     }
 }
 
