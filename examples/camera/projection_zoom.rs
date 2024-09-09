@@ -217,7 +217,7 @@ fn zoom(
     let mut projection = camera.single_mut();
 
     // Usually, you won't need to handle both types of projection. This is by way of demonstration.
-    match &mut *projection {
+    match projection.deref_mut() {
         Projection::Orthographic(orthographic) => {
             // Get the current scaling_mode value to allow clamping the new value to our zoom range.
             let ScalingMode::FixedVertical(current) = orthographic.scaling_mode else {
