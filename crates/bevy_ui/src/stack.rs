@@ -53,6 +53,7 @@ pub fn ui_stack_system(
     >,
     children_query: Query<&Children>,
     zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+    mut update_query: Query<&mut Node>,
 ) {
     ui_stack.uinodes.clear();
     let uinodes = &mut ui_stack.uinodes;
@@ -87,6 +88,12 @@ pub fn ui_stack_system(
 
     for (entity, _) in root_nodes {
         update_uistack_recursively(entity, uinodes, &children_query, &zindex_query);
+    }
+
+    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok(mut node) = update_query.get_mut(*entity) {
+            node.bypass_change_detection().stack_index = i as u32;
+        }
     }
 }
 
