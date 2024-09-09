@@ -479,14 +479,12 @@ mod tests {
     }
 
     #[test]
-    fn insert_reflect_component_or_bundle() {
+    fn insert_reflect_bundle() {
         let mut world = World::new();
 
         let type_registry = AppTypeRegistry::default();
         {
             let mut registry = type_registry.write();
-            registry.register::<ComponentA>();
-            registry.register_type_data::<ComponentA, ReflectComponent>();
             registry.register::<BundleA>();
             registry.register_type_data::<BundleA, ReflectBundle>();
         }
@@ -495,22 +493,16 @@ mod tests {
         let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
         let mut commands = system_state.get_mut(&mut world);
 
-        let entity1 = commands.spawn_empty().id();
-        let component = Box::new(ComponentA(10)) as Box<dyn PartialReflect>;
-        commands.entity(entity1).insert_reflect(component);
-
-        let entity2 = commands.spawn_empty().id();
+        let entity = commands.spawn_empty().id();
         let bundle = Box::new(BundleA {
             a: ComponentA(31),
             b: ComponentB(20),
         }) as Box<dyn PartialReflect>;
-        commands.entity(entity2).insert_reflect(bundle);
+        commands.entity(entity).insert_reflect(bundle);
 
         system_state.apply(&mut world);
 
-        assert_eq!(world.get::<ComponentA>(entity1), Some(&ComponentA(10)));
-
-        assert_eq!(world.get::<ComponentA>(entity2), Some(&ComponentA(31)));
-        assert_eq!(world.get::<ComponentB>(entity2), Some(&ComponentB(20)));
+        assert_eq!(world.get::<ComponentA>(entity), Some(&ComponentA(31)));
+        assert_eq!(world.get::<ComponentB>(entity), Some(&ComponentB(20)));
     }
 }
