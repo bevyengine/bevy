@@ -96,7 +96,7 @@ fn animate(
             material.color = LinearRgba::from(new_color).to_f32_array().into();
             material.slider =
                 ((time.elapsed_seconds() % (duration * 2.0)) - duration).abs() / duration;
-            material.border_color = LinearRgba::from(border_color).to_f32_array().into();
+            material.border_color = border_color.to_linear().to_vec4();
         }
     }
 }
