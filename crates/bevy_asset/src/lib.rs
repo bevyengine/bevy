@@ -100,6 +100,12 @@ pub struct AssetPlugin {
     pub meta_check: AssetMetaCheck,
 }
 
+/// Controls whether or not assets are pre-processed before being loaded.
+///
+/// This setting is controlled by setting [`AssetPlugin::mode`].
+///
+/// When building on web, asset preprocessing can cause problems due to the lack of filesystem access.
+/// See [bevy#10157](https://github.com/bevyengine/bevy/issues/10157) for context.
 #[derive(Debug)]
 pub enum AssetMode {
     /// Loads assets from their [`AssetSource`]'s default [`AssetReader`] without any "preprocessing".
