@@ -1951,6 +1951,7 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     /// Returns the inner system param if it is the correct type.
     /// This consumes the dyn param, so the returned param can have its original world and state lifetimes.
     pub fn downcast<T: SystemParam>(self) -> Option<T>
+    // See downcast() function for an explanation of the where clause
     where
         T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
     {
@@ -1964,6 +1965,7 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     /// Returns the inner system parameter if it is the correct type.
     /// This borrows the dyn param, so the returned param is only valid for the duration of that borrow.
     pub fn downcast_mut<'a, T: SystemParam>(&'a mut self) -> Option<T>
+    // See downcast() function for an explanation of the where clause
     where
         T::Item<'static, 'static>: SystemParam<Item<'a, 'a> = T> + 'static,
     {
@@ -1980,6 +1982,7 @@ impl<'w, 's> DynSystemParam<'w, 's> {
     /// This can be useful with methods like [`Query::iter_inner()`] or [`Res::into_inner()`]
     /// to obtain references with the original world lifetime.
     pub fn downcast_mut_inner<'a, T: ReadOnlySystemParam>(&'a mut self) -> Option<T>
+    // See downcast() function for an explanation of the where clause
     where
         T::Item<'static, 'static>: SystemParam<Item<'w, 'a> = T> + 'static,
     {
@@ -2003,6 +2006,14 @@ unsafe fn downcast<'w, 's, T: SystemParam>(
     world: UnsafeWorldCell<'w>,
     change_tick: Tick,
 ) -> Option<T>
+// We need a 'static version of the SystemParam to use with `Any::downcast_mut()`,
+// and we need a <'w, 's> version to actually return.
+// The type parameter T must be the one we return in order to get type inference from the return value.
+// So we use `T::Item<'static, 'static>` as the 'static version, and require that it be 'static.
+// That means the return value will be T::Item<'static, 'static>::Item<'w, 's>,
+// so we constrain that to be equal to T.
+// Every actual `SystemParam` implementation has `T::Item == T` up to lifetimes,
+// so they should all work with this constraint.
 where
     T::Item<'static, 'static>: SystemParam<Item<'w, 's> = T> + 'static,
 {
