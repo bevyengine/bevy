@@ -1075,7 +1075,7 @@ setup = [
     "curl",
     "-o",
     "assets/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/b6c712cfc87c65de419f856845401aba336a7bcd/bunny.meshlet_mesh",
+    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/e3da1533b4c69fb967f233c817e9b0921134d317/bunny.meshlet_mesh",
   ],
 ]
 
@@ -2418,6 +2418,17 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "storage_buffer"
+path = "examples/shader/storage_buffer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.storage_buffer]
+name = "Storage Buffer"
+description = "A shader that shows how to bind a storage buffer using a custom material."
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "specialized_mesh_pipeline"
 path = "examples/shader/specialized_mesh_pipeline.rs"
 doc-scrape-examples = true
@@ -2907,6 +2918,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_texture_slice_flip_and_tile"
+path = "examples/ui/ui_texture_slice_flip_and_tile.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_texture_slice_flip_and_tile]
+name = "UI Texture Slice Flipping and Tiling"
+description = "Illustrates how to flip and tile images with 9 Slicing in UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_texture_atlas_slice"
 path = "examples/ui/ui_texture_atlas_slice.rs"
 doc-scrape-examples = true
@@ -3222,6 +3244,18 @@ description = "A first-person camera that uses a world model and a view model wi
 category = "Camera"
 wasm = true
 
+[[example]]
+name = "projection_zoom"
+path = "examples/camera/projection_zoom.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.projection_zoom]
+name = "Projection Zoom"
+description = "Shows how to zoom and orbit orthographic and perspective projection cameras."
+category = "Camera"
+wasm = true
+
+
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"
@@ -3395,6 +3429,17 @@ doc-scrape-examples = true
 name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
+wasm = true
+
+[[example]]
+name = "animation_masks"
+path = "examples/animation/animation_masks.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.animation_masks]
+name = "Animation Masks"
+description = "Demonstrates animation masks"
+category = "Animation"
 wasm = true
 
 [profile.wasm-release]

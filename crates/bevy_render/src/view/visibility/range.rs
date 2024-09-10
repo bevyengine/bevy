@@ -9,7 +9,7 @@ use std::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
+    entity::{Entity, EntityHashMap},
     query::{Changed, With},
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource},
@@ -17,7 +17,7 @@ use bevy_ecs::{
 use bevy_math::{vec4, FloatOrd, Vec4};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{prelude::default, EntityHashMap, HashMap};
+use bevy_utils::{prelude::default, HashMap};
 use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
@@ -191,7 +191,7 @@ impl VisibilityRange {
 #[derive(Resource)]
 pub struct RenderVisibilityRanges {
     /// Information corresponding to each entity.
-    entities: EntityHashMap<Entity, RenderVisibilityEntityInfo>,
+    entities: EntityHashMap<RenderVisibilityEntityInfo>,
 
     /// Maps a [`VisibilityRange`] to its index within the `buffer`.
     ///
@@ -309,13 +309,13 @@ impl RenderVisibilityRanges {
 #[derive(Resource, Default)]
 pub struct VisibleEntityRanges {
     /// Stores which bit index each view corresponds to.
-    views: EntityHashMap<Entity, u8>,
+    views: EntityHashMap<u8>,
 
     /// Stores a bitmask in which each view has a single bit.
     ///
     /// A 0 bit for a view corresponds to "out of range"; a 1 bit corresponds to
     /// "in range".
-    entities: EntityHashMap<Entity, u32>,
+    entities: EntityHashMap<u32>,
 }
 
 impl VisibleEntityRanges {

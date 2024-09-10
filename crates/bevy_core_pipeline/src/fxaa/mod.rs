@@ -49,9 +49,12 @@ impl Sensitivity {
     }
 }
 
+/// A component for enabling Fast Approximate Anti-Aliasing (FXAA)
+/// for a [`bevy_render::camera::Camera`].
 #[derive(Reflect, Component, Clone, ExtractComponent)]
 #[reflect(Component, Default)]
 #[extract_component_filter(With<Camera>)]
+#[doc(alias = "FastApproximateAntiAliasing")]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,
@@ -60,7 +63,7 @@ pub struct Fxaa {
     /// Use higher sensitivity for a slower, smoother, result.
     /// [`Ultra`](`Sensitivity::Ultra`) and [`Extreme`](`Sensitivity::Extreme`)
     /// settings can result in significant smearing and loss of detail.
-
+    ///
     /// The minimum amount of local contrast required to apply algorithm.
     pub edge_threshold: Sensitivity,
 

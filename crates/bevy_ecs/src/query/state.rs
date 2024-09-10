@@ -1174,14 +1174,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s mut self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter> {
         self.update_archetypes(world);
         // SAFETY: query is read only
         unsafe {
@@ -1209,14 +1206,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// - [`iter_many`](Self::iter_many) to update archetypes.
     /// - [`iter_manual`](Self::iter_manual) to iterate over all query items.
     #[inline]
-    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many_manual<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s self,
         world: &'w World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D::ReadOnly, F, EntityList::IntoIter> {
         self.validate_world(world.id());
         // SAFETY: query is read only, world id is validated
         unsafe {
@@ -1234,14 +1228,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Items are returned in the order of the list of entities.
     /// Entities that don't match the query are skipped.
     #[inline]
-    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator>(
+    pub fn iter_many_mut<'w, 's, EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &'s mut self,
         world: &'w mut World,
         entities: EntityList,
-    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter> {
         self.update_archetypes(world);
         let change_tick = world.change_tick();
         let last_change_tick = world.last_change_tick();
@@ -1334,7 +1325,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     #[inline]
-    pub(crate) unsafe fn iter_many_unchecked_manual<'w, 's, EntityList: IntoIterator>(
+    pub(crate) unsafe fn iter_many_unchecked_manual<'w, 's, EntityList>(
         &'s self,
         entities: EntityList,
         world: UnsafeWorldCell<'w>,
@@ -1342,7 +1333,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         this_run: Tick,
     ) -> QueryManyIter<'w, 's, D, F, EntityList::IntoIter>
     where
-        EntityList::Item: Borrow<Entity>,
+        EntityList: IntoIterator<Item: Borrow<Entity>>,
     {
         QueryManyIter::new(world, self, entities, last_run, this_run)
     }
@@ -1505,25 +1496,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let mut iter = self.iter_unchecked_manual(world, last_run, this_run);
                     let mut accum = init_accum();
                     for storage_id in queue {
-                        if self.is_dense {
-                            let id = storage_id.table_id;
-                            let table = &world.storages().tables.get(id).debug_checked_unwrap();
-                            accum = iter.fold_over_table_range(
-                                accum,
-                                &mut func,
-                                table,
-                                0..table.entity_count(),
-                            );
-                        } else {
-                            let id = storage_id.archetype_id;
-                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
-                            accum = iter.fold_over_archetype_range(
-                                accum,
-                                &mut func,
-                                archetype,
-                                0..archetype.len(),
-                            );
-                        }
+                        accum = iter.fold_over_storage_range(accum, &mut func, storage_id, None);
                     }
                 });
             };
@@ -1539,17 +1512,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         #[cfg(feature = "trace")]
                         let _span = self.par_iter_span.enter();
                         let accum = init_accum();
-                        if self.is_dense {
-                            let id = storage_id.table_id;
-                            let table = world.storages().tables.get(id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_table_range(accum, &mut func, table, batch);
-                        } else {
-                            let id = storage_id.archetype_id;
-                            let archetype = world.archetypes().get(id).debug_checked_unwrap();
-                            self.iter_unchecked_manual(world, last_run, this_run)
-                                .fold_over_archetype_range(accum, &mut func, archetype, batch);
-                        }
+                        self.iter_unchecked_manual(world, last_run, this_run)
+                            .fold_over_storage_range(accum, &mut func, storage_id, Some(batch));
                     });
                 }
             };

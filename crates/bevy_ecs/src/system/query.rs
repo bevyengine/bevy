@@ -616,13 +616,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<EntityList: IntoIterator>(
+    pub fn iter_many<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -670,13 +667,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn iter_many_mut<EntityList: IntoIterator>(
+    pub fn iter_many_mut<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &mut self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             self.state.iter_many_unchecked_manual(
@@ -752,13 +746,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
-    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator>(
+    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: Borrow<Entity>>>(
         &self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter>
-    where
-        EntityList::Item: Borrow<Entity>,
-    {
+    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The caller ensures that this operation will not result in any aliased mutable accesses.

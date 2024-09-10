@@ -36,7 +36,9 @@ pub mod world;
 
 pub use bevy_ptr as ptr;
 
-/// Most commonly used re-exported types.
+/// The ECS prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     #[cfg(feature = "reflect_functions")]

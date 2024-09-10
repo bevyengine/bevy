@@ -92,7 +92,7 @@ fn update_debug_camera(
                     projection: OrthographicProjection {
                         far: 1000.0,
                         viewport_origin: Vec2::new(0.0, 0.0),
-                        ..default()
+                        ..OrthographicProjection::default_3d()
                     },
                     camera: Camera {
                         order: LAYOUT_DEBUG_CAMERA_ORDER,

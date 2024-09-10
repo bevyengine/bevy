@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 //! This module contains basic node bundles used to build UIs
 
 #[cfg(feature = "bevy_text")]
@@ -14,7 +12,6 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::view::{InheritedVisibility, ViewVisibility, Visibility};
-use bevy_sprite::TextureAtlas;
 #[cfg(feature = "bevy_text")]
 use bevy_text::{
     BreakLineOn, CosmicBuffer, JustifyText, Text, TextLayoutInfo, TextSection, TextStyle,
@@ -67,7 +64,7 @@ pub struct NodeBundle {
 ///
 /// You may add one or both of the following components to enable additional behaviours:
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`] to draw a specific section of the texture
+/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Debug, Default)]
 pub struct ImageBundle {
     /// Describes the logical size of the node
@@ -95,56 +92,6 @@ pub struct ImageBundle {
     ///
     /// This component is automatically managed by the UI layout system.
     /// To alter the position of the `ImageBundle`, use the properties of the [`Style`] component.
-    pub transform: Transform,
-    /// The global transform of the node
-    ///
-    /// This component is automatically updated by the [`TransformPropagate`](`bevy_transform::TransformSystem::TransformPropagate`) systems.
-    pub global_transform: GlobalTransform,
-    /// Describes the visibility properties of the node
-    pub visibility: Visibility,
-    /// Inherited visibility of an entity.
-    pub inherited_visibility: InheritedVisibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub view_visibility: ViewVisibility,
-    /// Indicates the depth at which the node should appear in the UI
-    pub z_index: ZIndex,
-}
-
-/// A UI node that is a texture atlas sprite
-///
-/// # Extra behaviours
-///
-/// You may add the following components to enable additional behaviours
-/// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-///
-/// This bundle is identical to [`ImageBundle`] with an additional [`TextureAtlas`] component.
-#[deprecated(
-    since = "0.14.0",
-    note = "Use `TextureAtlas` alongside `ImageBundle` instead"
-)]
-#[derive(Bundle, Debug, Default)]
-pub struct AtlasImageBundle {
-    /// Describes the logical size of the node
-    pub node: Node,
-    /// Styles which control the layout (size and position) of the node and its children
-    /// In some cases these styles also affect how the node drawn/painted.
-    pub style: Style,
-    /// The calculated size based on the given image
-    pub calculated_size: ContentSize,
-    /// The image of the node
-    pub image: UiImage,
-    /// A handle to the texture atlas to use for this Ui Node
-    pub texture_atlas: TextureAtlas,
-    /// Whether this node should block interaction with lower nodes
-    pub focus_policy: FocusPolicy,
-    /// The size of the image in pixels
-    ///
-    /// This component is set automatically
-    pub image_size: UiImageSize,
-    /// The transform of the node
-    ///
-    /// This component is automatically managed by the UI layout system.
-    /// To alter the position of the `AtlasImageBundle`, use the properties of the [`Style`] component.
     pub transform: Transform,
     /// The global transform of the node
     ///
@@ -269,7 +216,7 @@ where
 ///
 /// You may add one or both of the following components to enable additional behaviours:
 /// - [`ImageScaleMode`](bevy_sprite::ImageScaleMode) to enable either slicing or tiling of the texture
-/// - [`TextureAtlas`] to draw a specific section of the texture
+/// - [`TextureAtlas`](bevy_sprite::TextureAtlas) to draw a specific section of the texture
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the logical size of the node
