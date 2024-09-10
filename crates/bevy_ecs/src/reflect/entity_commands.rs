@@ -13,16 +13,17 @@ use std::marker::PhantomData;
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
 pub trait ReflectCommandExt {
-    /// Adds the given boxed reflect component to the entity using the reflection data in
+    /// Adds the given boxed reflect component or bundle to the entity using the reflection data in
     /// [`AppTypeRegistry`].
     ///
-    /// This will overwrite any previous component of the same type.
+    /// This will overwrite any previous component(s) of the same type.
     ///
     /// # Panics
     ///
     /// - If the entity doesn't exist.
-    /// - If [`AppTypeRegistry`] does not have the reflection data for the given [`Component`](crate::component::Component).
-    /// - If the component data is invalid. See [`PartialReflect::apply`] for further details.
+    /// - If [`AppTypeRegistry`] does not have the reflection data for the given
+    /// [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
     /// - If [`AppTypeRegistry`] is not present in the [`World`].
     ///
     /// # Note
@@ -42,8 +43,8 @@ pub trait ReflectCommandExt {
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     /// // A resource that can hold any component that implements reflect as a boxed reflect component
     /// #[derive(Resource)]
-    /// struct Prefab{
-    ///     component: Box<dyn Reflect>,
+    /// struct Prefab {
+    ///     data: Box<dyn Reflect>,
     /// }
     /// #[derive(Component, Reflect, Default)]
     /// #[reflect(Component)]
@@ -52,6 +53,13 @@ pub trait ReflectCommandExt {
     /// #[derive(Component, Reflect, Default)]
     /// #[reflect(Component)]
     /// struct ComponentB(String);
+    /// 
+    /// #[derive(Bundle, Reflect, Default)]
+    /// #[reflect(Bundle)]
+    /// struct BundleA {
+    ///     a: ComponentA,
+    ///     b: ComponentB,
+    /// }
     ///
     /// fn insert_reflect_component(
     ///     mut commands: Commands,
@@ -60,16 +68,23 @@ pub trait ReflectCommandExt {
     ///     // Create a set of new boxed reflect components to use
     ///     let boxed_reflect_component_a: Box<dyn Reflect> = Box::new(ComponentA(916));
     ///     let boxed_reflect_component_b: Box<dyn Reflect>  = Box::new(ComponentB("NineSixteen".to_string()));
-    ///
+    ///     let boxed_reflect_bundle_a: Box<dyn Reflect> = Box::new(BundleA {
+    ///         a: ComponentA(24),
+    ///         b: ComponentB("Twenty-Four".to_string()),
+    ///     });
+    /// 
     ///     // You can overwrite the component in the resource with either ComponentA or ComponentB
-    ///     prefab.component = boxed_reflect_component_a;
-    ///     prefab.component = boxed_reflect_component_b;
+    ///     prefab.data = boxed_reflect_component_a;
+    ///     prefab.data = boxed_reflect_component_b;
+    ///
+    ///     // Or even with BundleA
+    ///     prefab.data = boxed_reflect_bundle_a;
     ///     
-    ///     // No matter which component is in the resource and without knowing the exact type, you can
-    ///     // use the insert_reflect entity command to insert that component into an entity.
+    ///     // No matter which component or bundle is in the resource and without knowing the exact type, you can
+    ///     // use the insert_reflect entity command to insert that component/bundle into an entity.
     ///     commands
     ///         .spawn_empty()
-    ///         .insert_reflect(prefab.component.clone_value());
+    ///         .insert_reflect(prefab.data.clone_value());
     /// }
     ///
     /// ```
@@ -90,10 +105,15 @@ pub trait ReflectCommandExt {
         component: Box<dyn PartialReflect>,
     ) -> &mut Self;
 
-    /// Removes from the entity the component with the given type name registered in [`AppTypeRegistry`].
+    /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
+    /// 
+    /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
+    /// contains all the components.
     ///
-    /// Does nothing if the entity does not have a component of the same type, if [`AppTypeRegistry`]
-    /// does not contain the reflection data for the given component, or if the entity does not exist.
+    /// Does nothing if the type is a component and the entity does not have a component of the same type,
+    /// if the type is a bundle and the entity does not contain any of the components in the bundle,
+    /// if [`AppTypeRegistry`] does not contain the reflection data for the given component,
+    /// or if the entity does not exist.
     ///
     /// # Note
     ///
@@ -103,19 +123,19 @@ pub trait ReflectCommandExt {
     /// # Example
     ///
     /// ```
-    /// // Note that you need to register the component type in the AppTypeRegistry prior to using
+    /// // Note that you need to register the component/bundle type in the AppTypeRegistry prior to using
     /// // reflection. You can use the helpers on the App with `app.register_type::<ComponentA>()`
-    /// // or write to the TypeRegistry directly to register all your components
+    /// // or write to the TypeRegistry directly to register all your components and bundles
     ///
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::reflect::ReflectCommandExt;
     /// # use bevy_reflect::{FromReflect, FromType, Reflect, TypeRegistry};
     ///
-    /// // A resource that can hold any component that implements reflect as a boxed reflect component
+    /// // A resource that can hold any component or bundle that implements reflect as a boxed reflect
     /// #[derive(Resource)]
     /// struct Prefab{
     ///     entity: Entity,
-    ///     component: Box<dyn Reflect>,
+    ///     data: Box<dyn Reflect>,
     /// }
     /// #[derive(Component, Reflect, Default)]
     /// #[reflect(Component)]
@@ -123,16 +143,23 @@ pub trait ReflectCommandExt {
     /// #[derive(Component, Reflect, Default)]
     /// #[reflect(Component)]
     /// struct ComponentB(String);
+    /// #[derive(Bundle, Reflect, Default)]
+    /// #[reflect(Bundle)]
+    /// struct BundleA {
+    ///     a: ComponentA,
+    ///     b: ComponentB,
+    /// }
     ///
     /// fn remove_reflect_component(
     ///     mut commands: Commands,
     ///     prefab: Res<Prefab>
     ///     ) {
-    ///     // Prefab can hold any boxed reflect component. In this case either
-    ///     // ComponentA or ComponentB. No matter which component is in the resource though,
-    ///     // we can attempt to remove any component of that same type from an entity.
+    ///     // Prefab can hold any boxed reflect component or bundle. In this case either
+    ///     // ComponentA, ComponentB, or BundleA. No matter which component or bundle is in the resource though,
+    ///     // we can attempt to remove any component (or set of components in the case of a bundle)
+    ///     // of that same type from an entity.
     ///     commands.entity(prefab.entity)
-    ///         .remove_reflect(prefab.component.reflect_type_path().to_owned());
+    ///         .remove_reflect(prefab.data.reflect_type_path().to_owned());
     /// }
     ///
     /// ```
@@ -187,7 +214,7 @@ impl ReflectCommandExt for EntityCommands<'_> {
     }
 }
 
-/// Helper function to add a reflect component to a given entity
+/// Helper function to add a reflect component or bundle to a given entity
 fn insert_reflect(
     world: &mut World,
     entity: Entity,
@@ -214,14 +241,15 @@ fn insert_reflect(
     }
 }
 
-/// A [`Command`] that adds the boxed reflect component to an entity using the data in
+/// A [`Command`] that adds the boxed reflect component or bundle to an entity using the data in
 /// [`AppTypeRegistry`].
 ///
 /// See [`ReflectCommandExt::insert_reflect`] for details.
 pub struct InsertReflect {
     /// The entity on which the component will be inserted.
     pub entity: Entity,
-    /// The reflect [`Component`](crate::component::Component) that will be added to the entity.
+    /// The reflect [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle)
+    /// that will be added to the entity.
     pub component: Box<dyn PartialReflect>,
 }
 
@@ -232,7 +260,7 @@ impl Command for InsertReflect {
     }
 }
 
-/// A [`Command`] that adds the boxed reflect component to an entity using the data in the provided
+/// A [`Command`] that adds the boxed reflect component or bundle to an entity using the data in the provided
 /// [`Resource`] that implements [`AsRef<TypeRegistry>`].
 ///
 /// See [`ReflectCommandExt::insert_reflect_with_registry`] for details.
@@ -253,7 +281,7 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectWithRegistry<T>
     }
 }
 
-/// Helper function to remove a reflect component from a given entity
+/// Helper function to remove a reflect component or bundle from a given entity
 fn remove_reflect(
     world: &mut World,
     entity: Entity,
@@ -273,14 +301,15 @@ fn remove_reflect(
     }
 }
 
-/// A [`Command`] that removes the component of the same type as the given component type name from
+/// A [`Command`] that removes the component or bundle of the same type as the given type name from
 /// the provided entity.
 ///
 /// See [`ReflectCommandExt::remove_reflect`] for details.
 pub struct RemoveReflect {
     /// The entity from which the component will be removed.
     pub entity: Entity,
-    /// The [`Component`](crate::component::Component) type name that will be used to remove a component
+    /// The [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle)
+    /// type name that will be used to remove a component
     /// of the same type from the entity.
     pub component_type_path: Cow<'static, str>,
 }
@@ -297,7 +326,7 @@ impl Command for RemoveReflect {
     }
 }
 
-/// A [`Command`] that removes the component of the same type as the given component type name from
+/// A [`Command`] that removes the component or bundle of the same type as the given type name from
 /// the provided entity using the provided [`Resource`] that implements [`AsRef<TypeRegistry>`].
 ///
 /// See [`ReflectCommandExt::remove_reflect_with_registry`] for details.
@@ -305,7 +334,8 @@ pub struct RemoveReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
     /// The entity from which the component will be removed.
     pub entity: Entity,
     pub _t: PhantomData<T>,
-    /// The [`Component`](crate::component::Component) type name that will be used to remove a component
+    /// The [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle)
+    /// type name that will be used to remove a component
     /// of the same type from the entity.
     pub component_type_name: Cow<'static, str>,
 }
