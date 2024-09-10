@@ -176,6 +176,15 @@ impl<'w, 's> Commands<'w, 's> {
         Self::new_from_entities(queue, &world.entities)
     }
 
+    /// Creates a new `Commands` instance from a [`CommandQueue`] and an existing `Commands`.
+    ///
+    /// It is not required to call this constructor when using `Commands` as a [system parameter].
+    ///
+    /// [system parameter]: crate::system::SystemParam
+    pub fn new_from_commands<'x>(queue: &'s mut CommandQueue, commands: &Commands<'w, 'x>) -> Self {
+        Self::new_from_entities(queue, commands.entities)
+    }
+
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
     ///
     /// It is not required to call this constructor when using `Commands` as a [system parameter].

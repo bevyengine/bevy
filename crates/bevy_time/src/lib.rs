@@ -8,6 +8,7 @@
 
 /// Common run conditions
 pub mod common_conditions;
+mod delayed_commands;
 mod fixed;
 mod real;
 mod stopwatch;
@@ -16,6 +17,7 @@ mod time;
 mod timer;
 mod virt;
 
+pub use delayed_commands::*;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;
@@ -75,6 +77,11 @@ impl Plugin for TimePlugin {
         .add_systems(
             RunFixedMainLoop,
             run_fixed_main_schedule.in_set(RunFixedMainLoopSystem::FixedMainLoop),
+        );
+
+        app.add_systems(
+            First,
+            apply_delayed_commands.in_set(TimeSystem).after(time_system),
         );
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them
