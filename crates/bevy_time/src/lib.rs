@@ -59,8 +59,6 @@ impl Plugin for TimePlugin {
             .init_resource::<Time<Fixed>>()
             .init_resource::<TimeUpdateStrategy>()
             .init_resource::<TimedCommandQueues<()>>()
-            .init_resource::<TimedCommandQueues<Real>>()
-            .init_resource::<TimedCommandQueues<Virtual>>()
             .init_resource::<TimedCommandQueues<Fixed>>();
 
         #[cfg(feature = "bevy_reflect")]
@@ -80,12 +78,13 @@ impl Plugin for TimePlugin {
         )
         .add_systems(
             First,
-            (
-                queue_delayed_commands::<()>,
-                queue_delayed_commands::<Real>,
-                queue_delayed_commands::<Virtual>,
-                queue_delayed_commands::<Fixed>,
-            )
+            queue_delayed_commands::<()>
+                .in_set(TimeSystem)
+                .ambiguous_with(event_update_system),
+        )
+        .add_systems(
+            FixedFirst,
+            queue_delayed_commands::<Fixed>
                 .in_set(TimeSystem)
                 .ambiguous_with(event_update_system),
         )
