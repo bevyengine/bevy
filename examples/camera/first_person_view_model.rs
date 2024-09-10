@@ -228,6 +228,8 @@ fn move_player(
     let delta = accumulated_mouse_motion.delta;
     // The factors are just arbitrary mouse sensitivity values.
     // It's often nicer to have a faster horizontal sensitivity than vertical.
+    // These are not `const` because you should make them user-configurable at runtime
+    // for accessibility reasons.
     let mouse_sensitivity = Vec2::new(0.12, 0.10);
 
     if delta != Vec2::ZERO {
@@ -248,7 +250,7 @@ fn move_player(
         // The camera has no way of knowing what direction was "forward" before landing in that extreme position,
         // so the direction picked will for all intents and purposes be arbitrary.
         // Another issue is that for mathematical reasons, the yaw will effectively be flipped when the pitch is at the extremes.
-        // To not run into these issues, we clamp the pitch to a safe range.
+        // To not run into these issues, we clamp the pitch to a safe
         const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
         let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
 
