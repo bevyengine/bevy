@@ -229,7 +229,9 @@ impl ExtractComponent for BloomSettings {
                     viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
-                    aspect: AspectRatio::from_pixels(size.x, size.y).into(),
+                    aspect: AspectRatio::try_from_pixels(size.x, size.y)
+                        .expect("Valid screen size values for Bloom settings")
+                        .ratio(),
                     uv_offset: settings.uv_offset,
                 };
 

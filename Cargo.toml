@@ -3244,6 +3244,18 @@ description = "A first-person camera that uses a world model and a view model wi
 category = "Camera"
 wasm = true
 
+[[example]]
+name = "projection_zoom"
+path = "examples/camera/projection_zoom.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.projection_zoom]
+name = "Projection Zoom"
+description = "Shows how to zoom and orbit orthographic and perspective projection cameras."
+category = "Camera"
+wasm = true
+
+
 [package.metadata.example.fps_overlay]
 name = "FPS overlay"
 description = "Demonstrates FPS overlay"

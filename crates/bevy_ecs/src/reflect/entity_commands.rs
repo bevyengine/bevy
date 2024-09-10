@@ -2,7 +2,11 @@ use crate::prelude::Mut;
 use crate::reflect::AppTypeRegistry;
 use crate::system::{EntityCommands, Resource};
 use crate::world::Command;
-use crate::{entity::Entity, reflect::ReflectComponent, world::World};
+use crate::{
+    entity::Entity,
+    reflect::{ReflectBundle, ReflectComponent},
+    world::World,
+};
 use bevy_reflect::{PartialReflect, TypeRegistry};
 use std::borrow::Cow;
 use std::marker::PhantomData;
@@ -198,12 +202,16 @@ fn insert_reflect(
         panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003");
     };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
-        panic!("Could not get type registration (for component type {type_path}) because it doesn't exist in the TypeRegistry.");
+        panic!("`{type_path}` should be registered in type registry via `App::register_type<{type_path}>`");
     };
-    let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
-        panic!("Could not get ReflectComponent data (for component type {type_path}) because it doesn't exist in this TypeRegistration.");
-    };
-    reflect_component.insert(&mut entity, component.as_partial_reflect(), type_registry);
+
+    if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+        reflect_component.insert(&mut entity, component.as_partial_reflect(), type_registry);
+    } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
+        reflect_bundle.insert(&mut entity, component.as_partial_reflect(), type_registry);
+    } else {
+        panic!("`{type_path}` should have #[reflect(Component)] or #[reflect(Bundle)]");
+    }
 }
 
 /// A [`Command`] that adds the boxed reflect component to an entity using the data in
@@ -313,9 +321,9 @@ impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T>
 #[cfg(test)]
 mod tests {
     use crate::prelude::{AppTypeRegistry, ReflectComponent};
-    use crate::reflect::ReflectCommandExt;
+    use crate::reflect::{ReflectBundle, ReflectCommandExt};
     use crate::system::{Commands, SystemState};
-    use crate::{self as bevy_ecs, component::Component, world::World};
+    use crate::{self as bevy_ecs, bundle::Bundle, component::Component, world::World};
     use bevy_ecs_macros::Resource;
     use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
 
@@ -333,6 +341,17 @@ mod tests {
     #[derive(Component, Reflect, Default, PartialEq, Eq, Debug)]
     #[reflect(Component)]
     struct ComponentA(u32);
+
+    #[derive(Component, Reflect, Default, PartialEq, Eq, Debug)]
+    #[reflect(Component)]
+    struct ComponentB(u32);
+
+    #[derive(Bundle, Reflect, Default, Debug, PartialEq)]
+    #[reflect(Bundle)]
+    struct BundleA {
+        a: ComponentA,
+        b: ComponentB,
+    }
 
     #[test]
     fn insert_reflected() {
@@ -457,5 +476,33 @@ mod tests {
         system_state.apply(&mut world);
 
         assert_eq!(world.entity(entity).get::<ComponentA>(), None);
+    }
+
+    #[test]
+    fn insert_reflect_bundle() {
+        let mut world = World::new();
+
+        let type_registry = AppTypeRegistry::default();
+        {
+            let mut registry = type_registry.write();
+            registry.register::<BundleA>();
+            registry.register_type_data::<BundleA, ReflectBundle>();
+        }
+        world.insert_resource(type_registry);
+
+        let mut system_state: SystemState<Commands> = SystemState::new(&mut world);
+        let mut commands = system_state.get_mut(&mut world);
+
+        let entity = commands.spawn_empty().id();
+        let bundle = Box::new(BundleA {
+            a: ComponentA(31),
+            b: ComponentB(20),
+        }) as Box<dyn PartialReflect>;
+        commands.entity(entity).insert_reflect(bundle);
+
+        system_state.apply(&mut world);
+
+        assert_eq!(world.get::<ComponentA>(entity), Some(&ComponentA(31)));
+        assert_eq!(world.get::<ComponentB>(entity), Some(&ComponentB(20)));
     }
 }

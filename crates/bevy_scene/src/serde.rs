@@ -154,6 +154,8 @@ impl<'a> Serialize for EntitySerializer<'a> {
 /// Used to serialize scene resources in [`SceneSerializer`] and entity components in [`EntitySerializer`].
 /// Note that having several entries of the same type in `entries` will lead to an error when using the RON format and
 /// deserializing through [`SceneMapDeserializer`].
+///
+/// Note: The entries are sorted by type path before they're serialized.
 pub struct SceneMapSerializer<'a> {
     /// List of boxed values of unique type to serialize.
     pub entries: &'a [Box<dyn PartialReflect>],
@@ -167,10 +169,25 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
         S: Serializer,
     {
         let mut state = serializer.serialize_map(Some(self.entries.len()))?;
-        for reflect in self.entries {
+        let sorted_entries = {
+            let mut entries = self
+                .entries
+                .iter()
+                .map(|entry| {
+                    (
+                        entry.get_represented_type_info().unwrap().type_path(),
+                        entry.as_partial_reflect(),
+                    )
+                })
+                .collect::<Vec<_>>();
+            entries.sort_by_key(|(type_path, _partial_reflect)| *type_path);
+            entries
+        };
+
+        for (type_path, partial_reflect) in sorted_entries {
             state.serialize_entry(
-                reflect.get_represented_type_info().unwrap().type_path(),
-                &TypedReflectSerializer::new(reflect.as_partial_reflect(), self.registry),
+                type_path,
+                &TypedReflectSerializer::new(partial_reflect, self.registry),
             )?;
         }
         state.end()
@@ -598,15 +615,15 @@ mod tests {
     ),
     4294967297: (
       components: {
-        "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
+        "bevy_scene::serde::tests::Foo": (123),
       },
     ),
     4294967298: (
       components: {
-        "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Baz": (789),
+        "bevy_scene::serde::tests::Foo": (123),
       },
     ),
   },

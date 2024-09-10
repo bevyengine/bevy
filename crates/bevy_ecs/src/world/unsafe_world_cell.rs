@@ -11,6 +11,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
     prelude::Component,
+    query::{DebugCheckedUnwrap, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
     storage::{Column, ComponentSparseSet, Storages},
     system::{Res, Resource},
@@ -880,6 +881,55 @@ impl<'w> UnsafeEntityCell<'w> {
                 #[cfg(feature = "track_change_detection")]
                 changed_by: _caller.deref_mut(),
             })
+        }
+    }
+
+    /// Returns read-only components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
+    /// - no mutable references to the queried data exist at the same time
+    pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
+        // SAFETY: World is only used to access query data and initialize query state
+        let state = unsafe {
+            let world = self.world().world();
+            Q::get_state(world.components())?
+        };
+        let location = self.location();
+        // SAFETY: Location is guaranteed to exist
+        let archetype = unsafe {
+            self.world
+                .archetypes()
+                .get(location.archetype_id)
+                .debug_checked_unwrap()
+        };
+        if Q::matches_component_set(&state, &|id| archetype.contains(id)) {
+            // SAFETY: state was initialized above using the world passed into this function
+            let mut fetch = unsafe {
+                Q::init_fetch(
+                    self.world,
+                    &state,
+                    self.world.last_change_tick(),
+                    self.world.change_tick(),
+                )
+            };
+            // SAFETY: Table is guaranteed to exist
+            let table = unsafe {
+                self.world
+                    .storages()
+                    .tables
+                    .get(location.table_id)
+                    .debug_checked_unwrap()
+            };
+            // SAFETY: Archetype and table are from the same world used to initialize state and fetch.
+            // Table corresponds to archetype. State is the same state used to init fetch above.
+            unsafe { Q::set_archetype(&mut fetch, &state, archetype, table) }
+            // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
+            unsafe { Some(Q::fetch(&mut fetch, self.id(), location.table_row)) }
+        } else {
+            None
         }
     }
 }
