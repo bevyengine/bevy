@@ -311,7 +311,8 @@ where
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`before_ignore_deferred`](Self::before_ignore_deferred) instead.
     ///
-    /// Note: please check the [Notes of `after`](Self::after)
+    /// Usually, you'll want to use [`.chain`](Self::chain) instead. 
+    /// Please check the [caveats section of `.after`](Self::after) for details.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
