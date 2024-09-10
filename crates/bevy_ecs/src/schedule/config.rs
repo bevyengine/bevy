@@ -323,6 +323,7 @@ where
     /// If automatically inserting [`apply_deferred`](crate::schedule::apply_deferred) like
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
+    /// Usually, you'll want to use [`.chain`](Self::chain) instead. 
     /// # Note
     ///
     /// If you configure two groups of systems (e.g. 'Set A') in a schedule, and another group references `.after` or `.before` (e.g. 'Set B'), the systems in Set B will not be automatically scheduled.
