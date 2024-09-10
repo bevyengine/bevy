@@ -7,6 +7,8 @@ struct Atmosphere {
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
     top_radius: f32, //units: km
 
+    ground_albedo: vec3<f32>,
+
     rayleigh_density_exp_scale: f32,
     rayleigh_scattering: vec3<f32>,
 

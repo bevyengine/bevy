@@ -11,7 +11,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
-use bevy_math::{uvec2, uvec3, UVec2, UVec3, Vec3};
+use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::Camera,
@@ -144,6 +144,8 @@ pub struct Atmosphere {
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
     top_radius: f32,
 
+    ground_albedo: Vec3, //used for estimating multiscattering
+
     rayleigh_density_exp_scale: f32,
     rayleigh_scattering: Vec3,
 
@@ -168,6 +170,7 @@ impl Atmosphere {
     pub const EARTH: Atmosphere = Atmosphere {
         bottom_radius: 6360.0,
         top_radius: 6460.0,
+        ground_albedo: Vec3::splat(0.3),
         rayleigh_density_exp_scale: -1.0 / 8.0,
         rayleigh_scattering: Vec3::new(0.005802, 0.013558, 0.033100),
         mie_density_exp_scale: -1.0 / 1.2,
@@ -214,14 +217,14 @@ pub struct AtmosphereSettings {
 impl Default for AtmosphereSettings {
     fn default() -> Self {
         Self {
-            transmittance_lut_size: uvec2(256, 128),
+            transmittance_lut_size: UVec2::new(256, 128),
             transmittance_lut_samples: 40,
-            multiscattering_lut_size: uvec2(32, 32),
+            multiscattering_lut_size: UVec2::new(32, 32),
             multiscattering_lut_dirs: 64,
             multiscattering_lut_samples: 20,
-            sky_view_lut_size: uvec2(192, 108),
+            sky_view_lut_size: UVec2::new(192, 108),
             sky_view_lut_samples: 30,
-            aerial_view_lut_size: uvec3(32, 32, 32),
+            aerial_view_lut_size: UVec3::new(32, 32, 32),
             aerial_view_lut_samples: 30,
         }
     }
