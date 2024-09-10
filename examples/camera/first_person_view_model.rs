@@ -67,7 +67,22 @@ fn main() {
 }
 
 #[derive(Debug, Component)]
-struct Player;
+struct Player {
+    mouse_sensitivity: Vec2,
+}
+
+impl Default for Player {
+    fn default() -> Self {
+        Self {
+            // These factors are just arbitrary mouse sensitivity values.
+            // It's often nicer to have a faster horizontal sensitivity than vertical.
+            // We use a component for them so that we can make them user-configurable at runtime
+            // for accessibility reasons.
+            // It also allows you to inspect them in an editor if you `Reflect` the component.
+            mouse_sensitivity: Vec2::new(0.12, 0.10),
+        }
+    }
+}
 
 #[derive(Debug, Component)]
 struct WorldModelCamera;
@@ -91,7 +106,7 @@ fn spawn_view_model(
 
     commands
         .spawn((
-            Player,
+            Player::default(),
             SpatialBundle {
                 transform: Transform::from_xyz(0.0, 1.0, 0.0),
                 ..default()
@@ -222,15 +237,10 @@ fn spawn_text(mut commands: Commands) {
 
 fn move_player(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    mut player: Query<&mut Transform, With<Player>>,
+    mut player: Query<(&mut Transform, &Player)>,
 ) {
-    let mut transform = player.single_mut();
+    let (mut transform, config) = player.single_mut();
     let delta = accumulated_mouse_motion.delta;
-    // The factors are just arbitrary mouse sensitivity values.
-    // It's often nicer to have a faster horizontal sensitivity than vertical.
-    // These are not `const` because you should make them user-configurable at runtime
-    // for accessibility reasons.
-    let mouse_sensitivity = Vec2::new(0.12, 0.10);
 
     if delta != Vec2::ZERO {
         // Note that we are not multiplying by delta_time here.
@@ -239,8 +249,8 @@ fn move_player(
         // This situation is reversed when reading e.g. analog input from a gamepad however, where the same rules
         // as for keyboard input apply. Such an input should be multiplied by delta_time to get the intended rotation
         // independent of the framerate.
-        let delta_yaw = -delta.x * mouse_sensitivity.x;
-        let delta_pitch = -delta.y * mouse_sensitivity.y;
+        let delta_yaw = -delta.x * config.mouse_sensitivity.x;
+        let delta_pitch = -delta.y * config.mouse_sensitivity.y;
 
         let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
         let yaw = yaw + delta_yaw;
