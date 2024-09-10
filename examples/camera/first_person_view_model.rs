@@ -79,7 +79,7 @@ impl Default for Player {
             // We use a component for them so that we can make them user-configurable at runtime
             // for accessibility reasons.
             // It also allows you to inspect them in an editor if you `Reflect` the component.
-            mouse_sensitivity: Vec2::new(0.12, 0.10),
+            mouse_sensitivity: Vec2::new(0.003, 0.002),
         }
     }
 }
