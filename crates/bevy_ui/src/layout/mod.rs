@@ -334,8 +334,11 @@ pub fn ui_layout_system(
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
-                node.bypass_change_detection().border_radius =
-                    border_radius.resolve(node.calculated_size, viewport_size);
+                node.bypass_change_detection().border_radius = border_radius.resolve(
+                    inverse_target_scale_factor,
+                    node.calculated_size,
+                    viewport_size,
+                );
             }
 
             if let Some(outline) = maybe_outline {
