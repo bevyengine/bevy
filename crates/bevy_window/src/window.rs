@@ -227,7 +227,6 @@ pub struct Window {
     /// Should the window use Input Method Editor?
     ///
     /// If enabled, the window will receive [`Ime`](crate::Ime) events instead of
-    /// [`ReceivedCharacter`](crate::ReceivedCharacter) or
     /// `KeyboardInput` from `bevy_input`.
     ///
     /// IME should be enabled during text input, but not when you expect to get the exact key pressed.
