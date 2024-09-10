@@ -221,20 +221,24 @@ fn spawn_text(mut commands: Commands) {
 }
 
 fn move_player(
-    time: Res<Time>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     mut player: Query<&mut Transform, With<Player>>,
 ) {
     let mut transform = player.single_mut();
     let delta = accumulated_mouse_motion.delta;
-    let dt = time.delta_seconds();
     // The factors are just arbitrary mouse sensitivity values.
     // It's often nicer to have a faster horizontal sensitivity than vertical.
     let mouse_sensitivity = Vec2::new(0.12, 0.10);
 
     if delta != Vec2::ZERO {
-        let delta_yaw = -delta.x * dt * mouse_sensitivity.x;
-        let delta_pitch = -delta.y * dt * mouse_sensitivity.y;
+        // Note that we are not multiplying by delta_time here.
+        // The reason is that for mouse movement, we already get the full movement that happened since the last frame.
+        // This means that if we multiply by delta_time, we will get a smaller rotation than intended by the user.
+        // This situation is reversed when reading e.g. analog input from a gamepad however, where the same rules
+        // as for keyboard input apply. Such an input should be multiplied by delta_time to get the intended rotation
+        // independent of the framerate.
+        let delta_yaw = -delta.x * mouse_sensitivity.x;
+        let delta_pitch = -delta.y * mouse_sensitivity.y;
 
         let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
         let yaw = yaw + delta_yaw;
