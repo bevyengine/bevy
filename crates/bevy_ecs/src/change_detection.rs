@@ -51,9 +51,8 @@ pub trait DetectChanges {
     /// Returns `true` if this value was added after the system last ran.
     fn is_added(&self) -> bool;
 
-    /// Returns `true` if this value was mutably dereferenced either since
-    /// the last time the system ran or, if the system never ran,
-    /// since the beginning of the program.
+    /// Returns `true` if this value was mutably dereferenced since the last time the system ran.
+    /// If an addition occurred at the same time, this will return `false`.
     ///
     /// To check if the value was mutably dereferenced *or* added,
     /// use [`is_changed`](DetectChanges::is_changed).

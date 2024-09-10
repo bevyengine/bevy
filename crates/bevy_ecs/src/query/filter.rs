@@ -776,12 +776,13 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 ///
 /// # Comparison with [`Added<T>`] and [`Changed<T>`]
 ///
-/// `Mutated<T>` is effectively implemented as `(Changed<T>, Not<Added<T>>)`,
-/// which means it only reacts to changes that aren't [additions](Added) (i.e. only mutable dereferences).
+/// `Mutated<T>` is effectively implemented as `Changed<T> && !Added<T>`,
+/// which means it only reacts to changes that aren't [additions](Added).
+/// More specifically, even if a mutation occurred at the same time as an addition it will not be detected.
 /// However, in most cases you *do* want to react to additions, which [`Changed<T>`] does, because
 /// otherwise you would miss the first change to a component (the insertion).
 ///
-/// Therefore, the main use case for `Mutated<T>` is when a component's insertion is handled by an [`Observer`],
+/// Therefore, the main use case for `Mutated<T>` is when a component's insertion is handled by [hooks] or an [`Observer`],
 /// but mutable dereferences are handled in a normal [`System`].
 ///
 /// # Deferred
@@ -844,6 +845,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
 ///
+/// [hooks]: crate::component::ComponentHooks
 /// [`Observer`]: crate::observer::Observer
 /// [`System`]: crate::system::System
 pub struct Mutated<T>(PhantomData<T>);
