@@ -747,6 +747,236 @@ impl<T: Component> QueryFilter for Added<T> {
     }
 }
 
+/// A filter on a component that only retains results after the most recent time the component was mutably dereferenced.
+///
+/// A common use for this filter is avoiding redundant work when values have not changed.
+///
+/// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).
+/// Bevy does not compare components to their previous values.
+///
+/// To retain all results without filtering but still check whether they were mutated after the
+/// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+///
+/// **Note** that this includes changes that happened before the first time this `Query` was run.
+///
+/// # Deferred
+///
+/// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
+/// (like entity creation or entity component addition or removal)
+/// are visible only after deferred operations are applied,
+/// typically at the end of the schedule iteration.
+///
+/// # Time complexity
+///
+/// `Mutated` is not [`ArchetypeFilter`], which practically means that
+/// if a query (with `T` component filter) matches million entities,
+/// `Mutated<T>` filter will iterate over all of them even if none of them were mutated.
+///
+/// For example, these two systems are roughly equivalent in terms of performance:
+///
+/// ```
+/// # use bevy_ecs::change_detection::DetectChanges;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Mutated;
+/// # use bevy_ecs::system::Query;
+/// # use bevy_ecs::world::Ref;
+/// # use bevy_ecs_macros::Component;
+/// # #[derive(Component)]
+/// # struct MyComponent;
+/// # #[derive(Component)]
+/// # struct Transform;
+///
+/// fn system1(q: Query<&MyComponent, Mutated<Transform>>) {
+///     for item in &q { /* component changed */ }
+/// }
+///
+/// fn system2(q: Query<(&MyComponent, Ref<Transform>)>) {
+///     for item in &q {
+///         if item.1.is_mutated() { /* component changed */ }
+///     }
+/// }
+/// ```
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::query::Mutated;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component, Debug)]
+/// # struct Name {};
+/// # #[derive(Component)]
+/// # struct Transform {};
+///
+/// fn print_moving_objects_system(query: Query<&Name, Mutated<Transform>>) {
+///     for name in &query {
+///         println!("Entity Moved: {:?}", name);
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
+/// ```
+pub struct Mutated<T>(PhantomData<T>);
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct MutatedFetch<'w> {
+    table_ticks: Option<(
+        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+    )>,
+    sparse_set: Option<&'w ComponentSparseSet>,
+    last_run: Tick,
+    this_run: Tick,
+}
+
+/// SAFETY:
+/// `fetch` accesses a single component in a readonly way.
+/// This is sound because `update_component_access` add read access for that component and panics when appropriate.
+/// `update_component_access` adds a `With` filter for a component.
+/// This is sound because `matches_component_set` returns whether the set contains that component.
+unsafe impl<T: Component> WorldQuery for Mutated<T> {
+    type Item<'w> = bool;
+    type Fetch<'w> = MutatedFetch<'w>;
+    type State = ComponentId;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        &id: &ComponentId,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        Self::Fetch::<'w> {
+            table_ticks: None,
+            sparse_set: (T::STORAGE_TYPE == StorageType::SparseSet)
+                .then(|| world.storages().sparse_sets.get(id).debug_checked_unwrap()),
+            last_run,
+            this_run,
+        }
+    }
+
+    const IS_DENSE: bool = {
+        match T::STORAGE_TYPE {
+            StorageType::Table => true,
+            StorageType::SparseSet => false,
+        }
+    };
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        component_id: &ComponentId,
+        _archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        if Self::IS_DENSE {
+            // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
+            unsafe {
+                Self::set_table(fetch, component_id, table);
+            }
+        }
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        &component_id: &ComponentId,
+        table: &'w Table,
+    ) {
+        fetch.table_ticks = Some((
+            Column::get_added_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+                .into(),
+            Column::get_changed_ticks_slice(table.get_column(component_id).debug_checked_unwrap())
+                .into(),
+        ));
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        match T::STORAGE_TYPE {
+            StorageType::Table => {
+                // SAFETY: STORAGE_TYPE = Table
+                let (added_ticks, changed_ticks) =
+                    unsafe { fetch.table_ticks.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let added_tick = unsafe { added_ticks.get(table_row.as_usize()) };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let changed_tick = unsafe { changed_ticks.get(table_row.as_usize()) };
+
+                changed_tick
+                    .deref()
+                    .is_newer_than(fetch.last_run, fetch.this_run)
+                    && !added_tick
+                        .deref()
+                        .is_newer_than(fetch.last_run, fetch.this_run)
+            }
+            StorageType::SparseSet => {
+                // SAFETY: STORAGE_TYPE = SparseSet
+                let sparse_set = unsafe { &fetch.sparse_set.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `entity` is in range.
+                let ticks = unsafe {
+                    ComponentSparseSet::get_ticks(sparse_set, entity).debug_checked_unwrap()
+                };
+
+                ticks.changed.is_newer_than(fetch.last_run, fetch.this_run)
+                    && !ticks.added.is_newer_than(fetch.last_run, fetch.this_run)
+            }
+        }
+    }
+
+    #[inline]
+    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
+        if access.access().has_component_write(id) {
+            panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",std::any::type_name::<T>());
+        }
+        access.add_component_read(id);
+    }
+
+    fn init_state(world: &mut World) -> ComponentId {
+        world.init_component::<T>()
+    }
+
+    fn get_state(components: &Components) -> Option<ComponentId> {
+        components.component_id::<T>()
+    }
+
+    fn matches_component_set(
+        &id: &ComponentId,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        set_contains_id(id)
+    }
+}
+
+impl<T: Component> QueryFilter for Mutated<T> {
+    const IS_ARCHETYPAL: bool = false;
+
+    #[inline(always)]
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        // SAFETY: The invariants are uphold by the caller.
+        unsafe { Self::fetch(fetch, entity, table_row) }
+    }
+}
+
 /// A filter on a component that only retains results the first time after they have been added or mutably dereferenced.
 ///
 /// A common use for this filter is avoiding redundant work when values have not changed.

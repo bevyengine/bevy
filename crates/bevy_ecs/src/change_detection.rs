@@ -51,12 +51,22 @@ pub trait DetectChanges {
     /// Returns `true` if this value was added after the system last ran.
     fn is_added(&self) -> bool;
 
+    /// Returns `true` if this value was mutably dereferenced either since
+    /// the last time the system ran or, if the system never ran,
+    /// since the beginning of the program.
+    ///
+    /// To check if the value was mutably dereferenced *or* added,
+    /// use [`is_changed`](DetectChanges::is_changed).
+    fn is_mutated(&self) -> bool {
+        self.is_changed() && !self.is_added()
+    }
+
     /// Returns `true` if this value was added or mutably dereferenced
     /// either since the last time the system ran or, if the system never ran,
     /// since the beginning of the program.
     ///
     /// To check if the value was mutably dereferenced only,
-    /// use `this.is_changed() && !this.is_added()`.
+    /// use [`is_mutated`](DetectChanges::is_mutated).
     fn is_changed(&self) -> bool;
 
     /// Returns the change tick recording the time this data was most recently changed.
