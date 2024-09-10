@@ -392,6 +392,12 @@ fn duration_rem(dividend: Duration, divisor: Duration) -> Duration {
 }
 
 /// A marker trait for the domain of a [`Time`] clock.
+///
+/// Provided domains:
+/// - `()` (app update time)
+/// - [`Real`](crate::real::Real)
+/// - [`Virtual`](crate::virt::Virtual)
+/// - [`Fixed`](crate::fixed::Fixed)
 pub trait Domain: Default + Send + Sync + 'static {}
 
 impl Domain for () {}
