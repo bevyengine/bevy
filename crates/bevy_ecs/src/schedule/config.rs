@@ -335,7 +335,8 @@ where
     /// e.g. when it was provided by Bevy or a third-party dependency, 
     /// or you manually scheduled it somewhere else in your app.
     ///
-    /// If you're adding systems in the same location, it's recommended that you use [**`.chain`**](Self::chain) for brevity and clarity. You can also add a set of systems. You may want to use `.after` or `.before` in association with a comment when the reasoning needs to be particularly clear and the order of execution is important or not immediately obvious.
+    /// Another caveat is that if `GameSystem::B` is placed in a different schedule than `GameSystem::A`,
+    /// any ordering calls between them—whether using `.before`, `.after`, or `.chain`—will be silently ignored.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
