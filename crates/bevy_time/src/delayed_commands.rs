@@ -12,7 +12,7 @@ use private::DelayedCommandQueue;
 /// A [`Commands`]-like type allowing for each queued [`Command`] to be delayed
 /// until a certain amount of time has elapsed.
 ///
-/// [`Command`]: bevy_ecs::system::Command
+/// [`Command`]: bevy_ecs::world::Command
 pub struct DelayedCommands<'w, 's> {
     commands: Commands<'w, 's>,
     delayed_queue: CommandQueue,
@@ -49,7 +49,7 @@ impl<'w, 's> Drop for DelayedCommands<'w, 's> {
 impl<'w, 's> DelayedCommands<'w, 's> {
     /// Get a [`Commands`] item which will delay all queued [commands].
     ///
-    /// [commands]: bevy_ecs::system::Command
+    /// [commands]: bevy_ecs::world::Command
     pub fn as_commands<'a>(&'a mut self) -> Commands<'w, 'a> {
         Commands::new_from_commands(&mut self.delayed_queue, &self.commands)
     }
@@ -87,7 +87,7 @@ pub trait CommandsExt<'w, 's>: private::Sealed {
     /// }
     /// ```
     ///
-    /// [commands]: bevy_ecs::system::Command
+    /// [commands]: bevy_ecs::world::Command
     fn after<'a>(&'a mut self, duration: Duration) -> DelayedCommands<'w, 'a>;
 }
 
@@ -116,7 +116,7 @@ mod private {
     /// [`Component`] storing queued [commands] which have been delayed
     /// until after [`timer`](Self::timer) has finished.
     ///
-    /// [commands]: bevy_ecs::system::Command
+    /// [commands]: bevy_ecs::world::Command
     #[derive(Component)]
     pub struct DelayedCommandQueue {
         pub queue: CommandQueue,
