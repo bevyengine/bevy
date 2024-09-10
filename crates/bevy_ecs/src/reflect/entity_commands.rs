@@ -266,10 +266,11 @@ fn remove_reflect(
     let Some(type_registration) = type_registry.get_with_type_path(&component_type_path) else {
         return;
     };
-    let Some(reflect_component) = type_registration.data::<ReflectComponent>() else {
-        return;
-    };
-    reflect_component.remove(&mut entity);
+    if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+        reflect_component.remove(&mut entity);
+    } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
+        reflect_bundle.remove(&mut entity);
+    }
 }
 
 /// A [`Command`] that removes the component of the same type as the given component type name from
