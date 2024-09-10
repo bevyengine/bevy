@@ -548,18 +548,24 @@ all_tuples!(
 );
 all_tuples!(impl_or_query_filter, 0, 15, F, S);
 
-/// A filter on a component that only retains results the first time after they have been added.
-///
+/// A [`QueryFilter`] on a component that only retains results the first time after they have been added.
 /// A common use for this filter is one-time initialization.
 ///
-/// To retain all results without filtering but still check whether they were added after the
-/// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+/// # Notes about usage
 ///
-/// **Note** that this includes changes that happened before the first time this `Query` was run.
+/// - This filter includes changes that happened before the first time this `Query` was run.
+/// - To retain all results without filtering but still check whether they were added after the
+///   system last ran, use [`Ref<T>::is_added`](crate::change_detection::Ref) instead.
+///
+/// # Comparison with [`Mutated<T>`] and [`Changed<T>`]
+///
+/// `Added<T>` only listens for the first time a component is added to an entity, while
+/// [`Mutated<T>`] listens for every time a component is changed *after* the first time it was added.
+/// [`Changed<T>`] listens for both: all changes, including the first time it was added.
 ///
 /// # Deferred
 ///
-/// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
+/// Entity modifications issued with [`Commands`](crate::system::Commands)
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
 ///
@@ -757,21 +763,30 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
     }
 }
 
-/// A filter on a component that only retains results after the most recent time the component was mutably dereferenced.
-///
+/// A [`QueryFilter`] on a component that only retains results after the most recent time the component was mutably dereferenced.
 /// A common use for this filter is avoiding redundant work when values have not changed.
 ///
-/// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).
-/// Bevy does not compare components to their previous values.
+/// # Notes about usage
 ///
-/// To retain all results without filtering but still check whether they were mutated after the
-/// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+/// - Simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).
+///   Bevy does not compare components to their previous values.
+/// - This filter includes changes that happened before the first time this `Query` was run.
+/// - To retain all results without filtering but still check whether they were mutated after the
+///   system last ran, use [`Ref<T>::is_mutated`](crate::change_detection::Ref) instead.
 ///
-/// **Note** that this includes changes that happened before the first time this `Query` was run.
+/// # Comparison with [`Added<T>`] and [`Changed<T>`]
+///
+/// `Mutated<T>` is effectively implemented as `(Changed<T>, Not<Added<T>>)`,
+/// which means it only reacts to changes that aren't [additions](Added) (i.e. only mutable dereferences).
+/// However, in most cases you *do* want to react to additions, which [`Changed<T>`] does, because
+/// otherwise you would miss the first change to a component (the insertion).
+///
+/// Therefore, the main use case for `Mutated<T>` is when a component's insertion is handled by an [`Observer`],
+/// but mutable dereferences are handled in a normal [`System`].
 ///
 /// # Deferred
 ///
-/// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
+/// Entity modifications issued with [`Commands`](crate::system::Commands)
 /// (like entity creation or entity component addition or removal)
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
@@ -828,6 +843,9 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
 ///
 /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
+///
+/// [`Observer`]: crate::observer::Observer
+/// [`System`]: crate::system::System
 pub struct Mutated<T>(PhantomData<T>);
 
 #[doc(hidden)]
@@ -988,21 +1006,31 @@ unsafe impl<T: Component> QueryFilter for Mutated<T> {
     }
 }
 
-/// A filter on a component that only retains results the first time after they have been added or mutably dereferenced.
-///
+/// A [`QueryFilter`] on a component that only retains results the first time after they have been added or mutably dereferenced.
 /// A common use for this filter is avoiding redundant work when values have not changed.
 ///
-/// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).
-/// Bevy does not compare components to their previous values.
+/// # Notes about usage
 ///
-/// To retain all results without filtering but still check whether they were changed after the
-/// system last ran, use [`Ref<T>`](crate::change_detection::Ref).
+/// - Simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).
+///   Bevy does not compare components to their previous values.
+/// - This includes changes that happened before the first time this `Query` was run.
+/// - To retain all results without filtering but still check whether they were changed after the
+///   system last ran, use [`Ref<T>::is_changed`](crate::change_detection::Ref) instead.
 ///
-/// **Note** that this includes changes that happened before the first time this `Query` was run.
+/// # Comparison with [`Added<T>`] and [`Mutated<T>`]
+///
+/// [`Added<T>`] only listens for the first time a component is added to an entity, while
+/// [`Mutated<T>`] listens for every time a component is changed *after* the first time it was added.
+/// `Changed<T>` however, listens for both: all changes, including the first time it was added.
+///
+/// For state synchronization, prefer `Changed<T>` over [`Mutated<T>`],
+/// as [`Mutated<T>`] will not detect when the component is first added.
+/// However, if you react to the first change some other way (e.g. with an [`Observer`]),
+/// then [`Mutated<T>`] might be more appropriate.
 ///
 /// # Deferred
 ///
-/// Note, that entity modifications issued with [`Commands`](crate::system::Commands)
+/// Entity modifications issued with [`Commands`](crate::system::Commands)
 /// (like entity creation or entity component addition or removal)
 /// are visible only after deferred operations are applied,
 /// typically at the end of the schedule iteration.
@@ -1059,6 +1087,8 @@ unsafe impl<T: Component> QueryFilter for Mutated<T> {
 ///
 /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
+///
+/// [`Observer`]: crate::observer::Observer
 pub struct Changed<T>(PhantomData<T>);
 
 #[doc(hidden)]
