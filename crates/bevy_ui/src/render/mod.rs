@@ -25,7 +25,7 @@ use crate::graph::{NodeUi, SubGraphUi};
 use crate::{
     BackgroundColor, BorderColor, CalculatedClip, DefaultUiCamera, Node, Outline, TargetCamera,
     UiImage, UiScale,
-
+};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
@@ -219,8 +219,7 @@ pub fn extract_uinode_background_colors(
             uinode.border.top,
             uinode.border.right,
             uinode.border.bottom,
-        ]
-        .map(|b| b * ui_scale.0);
+        ];
 
         let border_radius = [
             uinode.border_radius.top_left,
@@ -322,8 +321,7 @@ pub fn extract_uinode_images(
             uinode.border.top,
             uinode.border.right,
             uinode.border.bottom,
-        ]
-        .map(|b| b * ui_scale.0);
+        ];
 
         let border_radius = [
             uinode.border_radius.top_left,
@@ -423,8 +421,7 @@ pub fn extract_uinode_borders(
             uinode.border.top,
             uinode.border.right,
             uinode.border.bottom,
-        ]
-        .map(|b| b * ui_scale.0);
+        ];
 
         let border_radius = [
             uinode.border_radius.top_left,
