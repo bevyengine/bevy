@@ -327,8 +327,7 @@ pub fn extract_uinode_images(
             uinode.border_radius.top_right,
             uinode.border_radius.bottom_right,
             uinode.border_radius.bottom_left,
-        ]
-        .map(|r| r * ui_scale.0);
+        ];
 
         extracted_uinodes.uinodes.insert(
             commands.spawn_empty().id(),
@@ -427,8 +426,7 @@ pub fn extract_uinode_borders(
             uinode.border_radius.top_right,
             uinode.border_radius.bottom_right,
             uinode.border_radius.bottom_left,
-        ]
-        .map(|r| r * ui_scale.0);
+        ];
 
         let border_radius = clamp_radius(border_radius, uinode.size(), border.into());
 
