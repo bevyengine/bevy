@@ -973,7 +973,8 @@ unsafe impl<T: Component> WorldQuery for Mutated<T> {
     }
 }
 
-impl<T: Component> QueryFilter for Mutated<T> {
+/// SAFETY: This filter performs read-only access to a single component.
+unsafe impl<T: Component> QueryFilter for Mutated<T> {
     const IS_ARCHETYPAL: bool = false;
 
     #[inline(always)]
