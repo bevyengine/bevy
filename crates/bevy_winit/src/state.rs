@@ -24,10 +24,9 @@ use winit::event::{DeviceEvent, DeviceId, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::WindowId;
 
-#[allow(deprecated)]
 use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, ReceivedCharacter,
-    RequestRedraw, Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
+    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
+    Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
     WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
     WindowScaleFactorChanged, WindowThemeChanged,
 };
@@ -272,14 +271,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 // properly releasing keys when the window loses focus.
                 if !(is_synthetic && event.state.is_pressed()) {
                     // Process the keyboard input event, as long as it's not a synthetic key press.
-                    if event.state.is_pressed() {
-                        if let Some(char) = &event.text {
-                            let char = char.clone();
-                            #[allow(deprecated)]
-                            self.bevy_window_events
-                                .send(ReceivedCharacter { window, char });
-                        }
-                    }
                     self.bevy_window_events
                         .send(converters::convert_keyboard_input(event, window));
                 }
@@ -714,9 +705,6 @@ impl<T: Event> WinitAppRunnerState<T> {
                     world.send_event(e);
                 }
                 BevyWindowEvent::Ime(e) => {
-                    world.send_event(e);
-                }
-                BevyWindowEvent::ReceivedCharacter(e) => {
                     world.send_event(e);
                 }
                 BevyWindowEvent::RequestRedraw(e) => {

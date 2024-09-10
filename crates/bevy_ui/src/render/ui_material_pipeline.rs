@@ -8,6 +8,7 @@ use bevy_ecs::{
     system::lifetimeless::{Read, SRes},
     system::*,
 };
+use bevy_hierarchy::Parent;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
@@ -352,6 +353,7 @@ impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
@@ -367,12 +369,14 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 &ViewVisibility,
                 Option<&CalculatedClip>,
                 Option<&TargetCamera>,
+                Option<&Parent>,
             ),
             Without<BackgroundColor>,
         >,
     >,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_scale: Extract<Res<UiScale>>,
+    node_query: Extract<Query<&Node>>,
 ) {
     let ui_logical_viewport_size = windows
         .get_single()
@@ -385,7 +389,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    for (entity, uinode, style, transform, handle, view_visibility, clip, camera) in
+    for (entity, uinode, style, transform, handle, view_visibility, clip, camera, maybe_parent) in
         uinode_query.iter()
     {
         let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
@@ -404,7 +408,11 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 
         // Both vertical and horizontal percentage border values are calculated based on the width of the parent node
         // <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
-        let parent_width = uinode.size().x;
+        let parent_width = maybe_parent
+            .and_then(|parent| node_query.get(parent.get()).ok())
+            .map(|parent_node| parent_node.size().x)
+            .unwrap_or(ui_logical_viewport_size.x);
+
         let left =
             resolve_border_thickness(style.border.left, parent_width, ui_logical_viewport_size)
                 / uinode.size().x;
