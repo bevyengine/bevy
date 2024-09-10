@@ -73,8 +73,8 @@ pub trait CommandsExt<'w, 's>: private::Sealed {
     ///
     /// ```rust
     /// # use std::time::Duration;
-    /// # use bevy_time::*;
-    /// # use bevy_ecs::Commands;
+    /// # use bevy_time::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
     /// fn spawn_temporary_entities(mut commands: Commands) {
     ///     let entity = commands.spawn_empty().id();

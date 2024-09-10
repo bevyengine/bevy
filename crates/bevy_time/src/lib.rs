@@ -30,7 +30,7 @@ pub use virt::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Fixed, Real, Time, Timer, TimerMode, Virtual};
+    pub use crate::{CommandsExt, Fixed, Real, Time, Timer, TimerMode, Virtual};
 }
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
@@ -81,7 +81,10 @@ impl Plugin for TimePlugin {
 
         app.add_systems(
             First,
-            apply_delayed_commands.in_set(TimeSystem).after(time_system),
+            apply_delayed_commands
+                .in_set(TimeSystem)
+                .after(time_system)
+                .ambiguous_with(event_update_system),
         );
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them
