@@ -337,6 +337,8 @@ where
     ///
     /// Another caveat is that if `GameSystem::B` is placed in a different schedule than `GameSystem::A`,
     /// any ordering calls between them—whether using `.before`, `.after`, or `.chain`—will be silently ignored.
+    ///
+    /// [`App::configure_sets`]: https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.configure_sets
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
