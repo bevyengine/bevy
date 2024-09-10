@@ -11,6 +11,30 @@ use crate::{Domain, Time, Timer, TimerMode};
 /// A [`SystemParam`] that allows you to queue commands to be
 /// executed after a certain duration has elapsed,
 /// rather than immediately at the next sync point.
+///
+/// **Note**: By default, commands that have elapsed will be queued
+/// in the [`First`] and [`FixedFirst`] schedules for time domains
+/// `()` and [`Fixed`], respectively.
+///
+/// # Usage
+///
+/// Add `mut commands: TimedCommands` as a function argument to your system,
+/// and call [`TimedCommands::after`] to get a [`Commands`] that will queue its commands
+/// to run after the specified duration has elapsed.
+///
+/// ```
+/// # use bevy_time::prelude::*;
+/// #
+/// fn my_system(mut commands: TimedCommands) {
+///     commands.after(Duration::from_secs(5))
+///         .spawn_empty();
+/// }
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
+/// [`First`]: bevy_app::First
+/// [`FixedFirst`]: bevy_app::FixedFirst
+/// [`Fixed`]: crate::Fixed
 #[derive(SystemParam)]
 pub struct TimedCommands<'w, 's, T: Domain = ()> {
     entities: &'w Entities,
@@ -20,7 +44,19 @@ pub struct TimedCommands<'w, 's, T: Domain = ()> {
 impl<'w, 's, T: Domain> TimedCommands<'w, 's, T> {
     /// Creates a new [`Commands`] instance that will have its commands queued
     /// after the specified duration has elapsed.
-    #[must_use]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_time::prelude::*;
+    /// #
+    /// fn my_system(mut commands: TimedCommands) {
+    ///     commands.after(Duration::from_secs(5))
+    ///         .spawn_empty();
+    /// }
+    /// # bevy_ecs::system::assert_is_system(my_system);
+    /// ```
+    #[must_use = "no commands are queued by this method itself, only by the returned Commands"]
     pub fn after(&mut self, duration: Duration) -> Commands<'w, '_> {
         let timer = Timer::new(duration, TimerMode::Once);
         let queue = CommandQueue::default();
@@ -35,6 +71,8 @@ impl<'w, 's, T: Domain> TimedCommands<'w, 's, T> {
 }
 
 /// A [`SystemBuffer`] and [`Resource`] that holds a list of pairs of [`Timer`]s and [`CommandQueue`]s.
+///
+/// Used by [`TimedCommands`] to hold queued commands.
 #[derive(Default, Resource)]
 pub struct TimedCommandQueues<T: Domain> {
     inner: Vec<(Timer, CommandQueue)>,
@@ -51,7 +89,13 @@ impl<T: Domain> SystemBuffer for TimedCommandQueues<T> {
     }
 }
 
-/// A system that ticks delayed commands, queuing them for the next sync point if their timers have finished.
+/// A system that ticks commands queued via [`TimedCommands`],
+/// which will be applied by default in the [`First`] and [`FixedFirst`] schedules
+/// for time domains `()` and [`Fixed`], respectively.
+///
+/// [`First`]: bevy_app::First
+/// [`FixedFirst`]: bevy_app::FixedFirst
+/// [`Fixed`]: crate::Fixed
 pub fn queue_delayed_commands<T: Domain>(
     mut commands: Commands,
     mut queues: ResMut<TimedCommandQueues<T>>,
