@@ -324,7 +324,7 @@ where
     /// this isn't desired, use [`after_ignore_deferred`](Self::after_ignore_deferred) instead.
     ///
     /// Usually, you'll want to use [`.chain`](Self::chain) instead. 
-    /// # Note
+    /// # Caveats
     ///
     /// If you configure two [`SystemSet`]s like `(GameSystem::A).after(GameSystem::B)` or `(GameSystem::A).before(GameSystem::B)`, the `GameSystem::B` will not be automatically scheduled.
     ///
