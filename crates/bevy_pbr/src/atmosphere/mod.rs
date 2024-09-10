@@ -7,11 +7,11 @@ use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::{With, Without},
+    query::With,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
-use bevy_math::{Vec2, Vec3};
+use bevy_math::{sampling::UniformMeshSampler, uvec2, uvec3, vec2, UVec2, UVec3, Vec2, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::Camera,
@@ -86,7 +86,11 @@ impl Plugin for AtmospherePlugin {
         );
 
         app.register_type::<Atmosphere>()
-            .add_plugins(UniformComponentPlugin::<Atmosphere>::default());
+            .register_type::<AtmosphereLutSettings>()
+            .add_plugins((
+                UniformComponentPlugin::<Atmosphere>::default(),
+                UniformComponentPlugin::<AtmosphereLutSettings>::default(),
+            ));
     }
 
     fn finish(&self, app: &mut App) {
@@ -194,37 +198,21 @@ fn extract_atmosphere(
     }
 }
 
-#[derive(Clone, Component)]
+#[derive(Clone, Component, Reflect, ShaderType)]
 pub struct AtmosphereLutSettings {
-    pub transmittance_lut_size: Extent3d,
-    pub multiscattering_lut_size: Extent3d,
-    pub sky_view_lut_size: Extent3d,
-    pub aerial_view_lut_size: Extent3d,
+    pub transmittance_lut_size: UVec2,
+    pub multiscattering_lut_size: UVec2,
+    pub sky_view_lut_size: UVec2,
+    pub aerial_view_lut_size: UVec3,
 }
 
 impl Default for AtmosphereLutSettings {
     fn default() -> Self {
         Self {
-            transmittance_lut_size: Extent3d {
-                width: 256,
-                height: 128,
-                depth_or_array_layers: 1,
-            },
-            multiscattering_lut_size: Extent3d {
-                width: 32,
-                height: 32,
-                depth_or_array_layers: 1,
-            },
-            sky_view_lut_size: Extent3d {
-                width: 192,
-                height: 108,
-                depth_or_array_layers: 1,
-            },
-            aerial_view_lut_size: Extent3d {
-                width: 32,
-                height: 32,
-                depth_or_array_layers: 32,
-            },
+            transmittance_lut_size: uvec2(256, 128),
+            multiscattering_lut_size: uvec2(32, 32),
+            sky_view_lut_size: uvec2(192, 108),
+            aerial_view_lut_size: uvec3(32, 32, 32),
         }
     }
 }
@@ -234,11 +222,7 @@ impl AtmosphereLutSettings {
         //TODO: correct method?
         if let Some(viewport_size) = camera.logical_viewport_size() {
             Self {
-                sky_view_lut_size: Extent3d {
-                    width: viewport_size.x as u32 / 10,
-                    height: viewport_size.y as u32 / 10,
-                    depth_or_array_layers: 1,
-                },
+                sky_view_lut_size: viewport_size.as_uvec2() / 10,
                 ..Self::default()
             }
         } else {

@@ -50,6 +50,8 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 ShaderStages::COMPUTE,
                 (
                     uniform_buffer::<Atmosphere>(true),
+                    uniform_buffer::<AtmosphereLutSettings>(true),
+                    texture_2d(TextureSampleType::Float { filterable: true }), //transmittance_lut. need sampler?;
                     texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
                 ),
             ),
@@ -73,6 +75,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 ShaderStages::COMPUTE,
                 (
                     uniform_buffer::<Atmosphere>(true),
+                    uniform_buffer::<AtmosphereLutSettings>(true), //TODO: maybe unnecessary?
                     texture_2d(TextureSampleType::Float { filterable: true }), //transmittance_lut
                     texture_2d(TextureSampleType::Float { filterable: true }), //multiscattering_lut
                     texture_storage_3d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
@@ -103,7 +106,7 @@ impl FromWorld for AtmospherePipelines {
         let layouts = world.resource::<AtmosphereBindGroupLayouts>();
 
         let transmittance_lut = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("sky_transmittance_lut_pipeline".into()),
+            label: Some("transmittance_lut_pipeline".into()),
             layout: vec![layouts.transmittance_lut.clone()],
             push_constant_ranges: vec![],
             vertex: fullscreen_shader_vertex_state(),
@@ -133,7 +136,7 @@ impl FromWorld for AtmospherePipelines {
             });
 
         let sky_view_lut = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("sky_transmittance_lut_pipeline".into()),
+            label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
             push_constant_ranges: vec![],
             vertex: fullscreen_shader_vertex_state(),
@@ -189,7 +192,11 @@ pub(super) fn prepare_atmosphere_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("transmittance_lut"),
-                size: lut_settings.transmittance_lut_size,
+                size: Extent3d {
+                    width: lut_settings.transmittance_lut_size.x,
+                    height: lut_settings.multiscattering_lut_size.y,
+                    depth_or_array_layers: 1,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -203,7 +210,11 @@ pub(super) fn prepare_atmosphere_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("multiscattering_lut"),
-                size: lut_settings.multiscattering_lut_size,
+                size: Extent3d {
+                    width: lut_settings.multiscattering_lut_size.x,
+                    height: lut_settings.multiscattering_lut_size.y,
+                    depth_or_array_layers: 1,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -217,7 +228,11 @@ pub(super) fn prepare_atmosphere_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("sky_view_lut"),
-                size: lut_settings.sky_view_lut_size,
+                size: Extent3d {
+                    width: lut_settings.sky_view_lut_size.x,
+                    height: lut_settings.sky_view_lut_size.y,
+                    depth_or_array_layers: 1,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -231,7 +246,11 @@ pub(super) fn prepare_atmosphere_textures(
             &render_device,
             TextureDescriptor {
                 label: Some("aerial_view_lut"),
-                size: lut_settings.aerial_view_lut_size,
+                size: Extent3d {
+                    width: lut_settings.aerial_view_lut_size.x,
+                    height: lut_settings.aerial_view_lut_size.y,
+                    depth_or_array_layers: lut_settings.aerial_view_lut_size.z,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D3,
@@ -264,25 +283,30 @@ pub(super) fn prepare_atmosphere_bind_groups(
     views: Query<(Entity, &AtmosphereTextures), (With<Camera3d>, With<Atmosphere>)>,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereBindGroupLayouts>,
-    uniforms: Res<ComponentUniforms<Atmosphere>>,
+    atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
+    lut_uniforms: Res<ComponentUniforms<AtmosphereLutSettings>>,
     mut commands: Commands,
 ) {
     for (entity, textures) in &views {
-        let uniforms_binding = uniforms
+        let atmosphere_uniforms_binding = atmosphere_uniforms
             .binding()
             .expect("Failed to prepare atmosphere bind groups. Atmosphere uniforms buffer missing");
+
+        let lut_uniforms_binding = lut_uniforms.binding().expect("Failed to prepare atmosphere bind groups. AtmosphereLutSettings uniforms buffer missing");
 
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
             &layouts.transmittance_lut,
-            &BindGroupEntries::single(uniforms_binding.clone()),
+            &BindGroupEntries::single(atmosphere_uniforms_binding.clone()),
         );
 
         let multiscattering_lut = render_device.create_bind_group(
             "multiscattering_lut_bind_group",
             &layouts.multiscattering_lut,
             &BindGroupEntries::sequential((
-                uniforms_binding.clone(),
+                atmosphere_uniforms_binding.clone(),
+                lut_uniforms_binding.clone(),
+                &textures.transmittance_lut.default_view,
                 &textures.multiscattering_lut.default_view,
             )),
         );
@@ -291,7 +315,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             "sky_view_lut_bind_group",
             &layouts.sky_view_lut,
             &BindGroupEntries::sequential((
-                uniforms_binding.clone(),
+                atmosphere_uniforms_binding.clone(),
                 &textures.transmittance_lut.default_view,
                 &textures.multiscattering_lut.default_view,
             )),
@@ -300,7 +324,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
             "sky_view_lut_bind_group",
             &layouts.aerial_view_lut,
             &BindGroupEntries::sequential((
-                uniforms_binding.clone(),
+                atmosphere_uniforms_binding.clone(),
+                lut_uniforms_binding.clone(),
                 &textures.transmittance_lut.default_view,
                 &textures.multiscattering_lut.default_view,
                 &textures.aerial_view_lut.default_view,

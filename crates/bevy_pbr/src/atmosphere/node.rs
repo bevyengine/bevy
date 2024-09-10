@@ -26,13 +26,14 @@ impl ViewNode for SkyNode {
         Read<AtmosphereLutSettings>,
         Read<AtmosphereBindGroups>,
         Read<DynamicUniformIndex<Atmosphere>>,
+        Read<DynamicUniformIndex<AtmosphereLutSettings>>,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (textures, lut_settings, bind_groups, atmosphere_uniform_offset): QueryItem<
+        (textures, lut_settings, bind_groups, atmosphere_uniform_offset, lut_uniform_offset): QueryItem<
             Self::ViewQuery,
         >,
         world: &World,
@@ -90,17 +91,20 @@ impl ViewNode for SkyNode {
             multiscattering_lut_pass.set_bind_group(
                 0,
                 &bind_groups.multiscattering_lut,
-                &[atmosphere_uniform_offset.index()],
+                &[
+                    atmosphere_uniform_offset.index(),
+                    lut_uniform_offset.index(),
+                ],
             );
 
             const MULTISCATTERING_WORKGROUP_SIZE: u32 = 16;
             let workgroups_x = lut_settings
                 .multiscattering_lut_size
-                .width
+                .x
                 .div_ceil(MULTISCATTERING_WORKGROUP_SIZE);
             let workgroups_y = lut_settings
                 .multiscattering_lut_size
-                .height
+                .y
                 .div_ceil(MULTISCATTERING_WORKGROUP_SIZE);
 
             multiscattering_lut_pass.dispatch_workgroups(workgroups_x, workgroups_y, 1);
@@ -108,7 +112,7 @@ impl ViewNode for SkyNode {
 
         {
             let mut sky_view_lut_pass = commands.begin_render_pass(&RenderPassDescriptor {
-                label: Some("transmittance_lut_pass"),
+                label: Some("sky_view_lut_pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: &textures.sky_view_lut.default_view,
                     resolve_target: None,
@@ -121,14 +125,17 @@ impl ViewNode for SkyNode {
             sky_view_lut_pass.set_bind_group(
                 0,
                 &bind_groups.sky_view_lut,
-                &[atmosphere_uniform_offset.index()],
+                &[
+                    atmosphere_uniform_offset.index(),
+                    lut_uniform_offset.index(),
+                ],
             );
             sky_view_lut_pass.draw(0..3, 0..1);
         }
 
         {
             let mut aerial_view_lut_pass = commands.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("multiscatttering_lut_pass"),
+                label: Some("aerial_view_lut_pass"),
                 timestamp_writes: None,
             });
             aerial_view_lut_pass.set_pipeline(aerial_view_lut_pipeline);
@@ -141,15 +148,15 @@ impl ViewNode for SkyNode {
             const AERIAL_VIEW_WORKGROUP_SIZE: u32 = 4;
             let workgroups_x = lut_settings
                 .aerial_view_lut_size
-                .width
+                .x
                 .div_ceil(AERIAL_VIEW_WORKGROUP_SIZE);
             let workgroups_y = lut_settings
                 .aerial_view_lut_size
-                .height
+                .y
                 .div_ceil(AERIAL_VIEW_WORKGROUP_SIZE);
             let workgroups_z = lut_settings
                 .aerial_view_lut_size
-                .depth_or_array_layers
+                .z
                 .div_ceil(AERIAL_VIEW_WORKGROUP_SIZE);
 
             aerial_view_lut_pass.dispatch_workgroups(workgroups_x, workgroups_y, workgroups_z);

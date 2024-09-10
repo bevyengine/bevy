@@ -19,3 +19,10 @@ struct Atmosphere {
     ozone_layer_half_width: f32, //units: km
     ozone_absorption: vec3<f32>, //ozone absorption. units: km^-1
 };
+
+struct AtmosphereLutSettings {
+    transmittance_lut_size: vec2<f32>,
+    multiscattering_lut_size: vec2<f32>,
+    sky_view_lut_size: vec2<f32>,
+    aerial_view_lut_size: vec3<f32>,
+}

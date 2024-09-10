@@ -95,13 +95,6 @@ fn setup_instructions(mut commands: Commands) {
 //     }
 // }
 
-fn rotate_sun(
-    mut sun: Query<&mut Transform, With<DirectionalLight>>,
-    time: Res<Time>,
-    mut gizmos: Gizmos,
-) {
-    let mut transform = sun.single_mut();
-    transform.rotate_z(time.delta_seconds() * PI / 30.0);
-
-    gizmos.arrow(Vec3::ZERO, transform.back().into(), palettes::basic::RED);
+fn rotate_sun(mut sun: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+    sun.single_mut().rotate_z(time.delta_seconds() * PI / 30.0);
 }
